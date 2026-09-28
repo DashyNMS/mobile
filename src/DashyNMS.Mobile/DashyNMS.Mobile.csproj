@@ -24,7 +24,7 @@
 		<MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
 
 		<ApplicationTitle>DashyNMS</ApplicationTitle>
-		<ApplicationId>net.dashynms.mobile</ApplicationId>
+		<ApplicationId>net.pckp.DashyNMS</ApplicationId>
 
 		<ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>

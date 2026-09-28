@@ -7,13 +7,13 @@ one click.
 
 ## One-time setup
 
-### 1. Decide the bundle ID
+### 1. The bundle ID
 
-The app is currently `net.dashynms.mobile` (`ApplicationId` in
-`src/DashyNMS.Mobile/DashyNMS.Mobile.csproj`). Once a build is uploaded
-against an App Store Connect record, the bundle ID can't be changed without
-starting a new app, so change it now if you want something else (usually a
-domain you own, reversed).
+The bundle ID is `net.pckp.DashyNMS` (`ApplicationId` in
+`src/DashyNMS.Mobile/DashyNMS.Mobile.csproj`). The same value is the Android
+package name. Use exactly this, same case, in the App ID and App Store
+Connect record below. Once a build has been uploaded, the ID can't change
+without starting a new app.
 
 ### 2. Register the App ID
 
