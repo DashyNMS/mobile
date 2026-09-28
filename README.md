@@ -81,6 +81,14 @@ rather than rewritten.
   count, how many are down or disabled, and coordinates where LibreNMS has
   them. Anything with devices down comes first. Tap one for the Devices list
   filtered to it.
+- **Graylog** (Alerts → Logs → Graylog, and a Graylog section in Device
+  View): messages from your Graylog server, found as LibreNMS finds them -
+  by time range, level, stream and message text, newest first, and for a
+  device by its names and addresses (optionally every interface address).
+  Known sources are shown by device name; tap a message for every field and
+  a way to its device. Set up in Settings → Graylog with desktop's Graylog
+  settings; the password is kept in the platform keychain/keystore. Like
+  desktop, it's independent of the LibreNMS sign-in.
 - **Health**: desktop's Health tab. Every sensor across the network in its
   four categories (dBm, signal, temperature, fan speed), coloured against
   the same thresholds as Device View, problems first, with Critical /
@@ -261,9 +269,9 @@ Ordered by how much each adds on a phone, not by desktop's order.
 
 What's left is the less everyday:
 
-1. **Integrations**: Graylog messages and Unimus config backups, including
-   Device View's Graylog and Unimus sections. Core already has both clients;
-   they need keychain-backed secret stores like the LibreNMS token's.
+1. **Unimus**: config backups, including Device View's Unimus section. Core
+   already has the client; it needs a keychain-backed token store like
+   Graylog's.
 2. **Rules and templates**, read-only.
 3. **Instant alerts**: a push from the server side, so alerts don't wait for
    the next background check.
@@ -298,6 +306,11 @@ Things found while porting that would be better fixed in the desktop repo:
   `logs/alertlog` routes treat the device as optional and then list every
   device's entries, which mobile's `NetworkLogs` uses through Core's transport.
   An overload without the device in Core would let both apps share it.
+- `GraylogApi` (and `UnimusApi`) turn "Allow untrusted certificate" into a
+  callback that accepts every certificate, as `LibreNmsTransport` does (#2).
+  Their logins are safe from redirects, though: .NET drops the
+  `Authorization` header on any redirect it follows, which
+  `GraylogTransportTests` checks.
 - The rules for which alert changes deserve a notification (`ShouldNotify`,
   the titles, and the summary cap in `AlertNotificationService`) live in the WPF
   app, so mobile's `AlertNotificationPlanner` has to mirror them. Moving

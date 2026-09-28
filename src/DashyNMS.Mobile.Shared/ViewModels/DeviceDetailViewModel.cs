@@ -23,6 +23,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     private readonly DeviceBookmarks _bookmarks;
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
+    private readonly Graylog.GraylogSetup? _graylog;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText))]
@@ -39,7 +40,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         ILauncherService launcher,
         DeviceBookmarks bookmarks,
         IDialogService dialogs,
-        INavigationService navigation)
+        INavigationService navigation,
+        Graylog.GraylogSetup? graylog = null)
     {
         _client = client;
         _settings = settings;
@@ -47,10 +49,13 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         _bookmarks = bookmarks;
         _dialogs = dialogs;
         _navigation = navigation;
+        _graylog = graylog;
     }
 
-    /// <summary>Desktop's Device View tabs, each opening on its own page.</summary>
-    public IReadOnlyList<DeviceSectionInfo> Sections { get; } = DeviceSectionInfo.All;
+    /// <summary>Desktop's Device View tabs, each opening on its own page - Graylog's too, once it's set up.</summary>
+    public IReadOnlyList<DeviceSectionInfo> Sections => _graylog?.IsConfigured == true
+        ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
+        : DeviceSectionInfo.All;
 
     /// <summary>"Last discovered 3h ago", when LibreNMS says.</summary>
     public string? LastDiscoveredText => Device?.LastDiscovered is { } at
@@ -108,7 +113,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     {
         var deviceTask = _client.Devices.GetAsync(DeviceId.ToString(CultureInfo.InvariantCulture));
         var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
-        await Task.WhenAll(deviceTask, alertsTask);
+        var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
+        await Task.WhenAll(deviceTask, alertsTask, graylogTask);
+        OnPropertyChanged(nameof(Sections));
 
         Device = deviceTask.Result;
         if (Device is null)
@@ -148,7 +155,12 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenSectionAsync(DeviceSectionInfo? section) => section is null
         ? Task.CompletedTask
-        : _navigation.GoToAsync(section.Section == DeviceSection.Graphs ? Routes.DeviceGraphs : Routes.DeviceSection, new Dictionary<string, object>
+        : _navigation.GoToAsync(section.Section switch
+        {
+            DeviceSection.Graphs => Routes.DeviceGraphs,
+            DeviceSection.Graylog => Routes.Graylog,
+            _ => Routes.DeviceSection,
+        }, new Dictionary<string, object>
         {
             [Routes.DeviceIdParameter] = DeviceId,
             [Routes.SectionParameter] = section.Section,

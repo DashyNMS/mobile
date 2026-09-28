@@ -17,7 +17,7 @@ namespace DashyNMS.Mobile;
 public static class ServiceCollectionExtensions
 {
     /// <summary>Every secret key the app uses, read into <see cref="SecretCache"/> at start-up.</summary>
-    public static IReadOnlyList<string> SecretKeys { get; } = [SecureTokenProtector.Key];
+    public static IReadOnlyList<string> SecretKeys { get; } = [SecureTokenProtector.Key, SecureGraylogPasswordProtector.Key];
 
     /// <summary>
     /// Core's LibreNMS client and settings, the session, and the view models.
@@ -26,8 +26,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// Mirrors desktop's <c>AddDesktopNmsCore</c>, minus its DPAPI secret
-    /// stores (Windows-only) and the integrations mobile doesn't have screens
-    /// for yet (Unimus, Graylog, update checks).
+    /// stores (Windows-only, replaced by keychain-backed ones) and the
+    /// integrations mobile doesn't have screens for yet (Unimus, update checks).
     /// </remarks>
     public static IServiceCollection AddDashyNmsMobile(this IServiceCollection services)
     {
@@ -79,6 +79,15 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Map.MapViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
+
+        // Graylog: independent of the LibreNMS sign-in, as on desktop - see GraylogSetup.
+        services.AddSingleton<GraylogApi>();
+        services.AddSingleton<IGraylogApi>(sp => sp.GetRequiredService<GraylogApi>());
+        services.AddSingleton<IGraylogPasswordProtector, SecureGraylogPasswordProtector>();
+        services.AddSingleton<Graylog.GraylogSetup>();
+        services.AddSingleton<Graylog.IGraylogConnectionTester, Graylog.GraylogConnectionTester>();
+        services.AddTransient<Graylog.GraylogViewModel>();
+        services.AddTransient<Graylog.GraylogSettingsViewModel>();
 
         // Device View sections.
         services.AddSingleton<DeviceSectionLoader>();

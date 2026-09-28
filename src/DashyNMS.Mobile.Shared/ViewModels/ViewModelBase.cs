@@ -49,6 +49,7 @@ public abstract partial class ViewModelBase : ObservableObject
     internal static string Describe(Exception ex) => ex switch
     {
         LibreNmsApiException api => api.Message,
+        GraylogApiException graylog => graylog.ToUserMessage(),
         HttpRequestException => "Couldn't reach the LibreNMS server. Check your connection and try again.",
         TimeoutException => "LibreNMS took too long to answer.",
         _ => ex.Message,

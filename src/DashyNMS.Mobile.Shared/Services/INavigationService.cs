@@ -40,6 +40,12 @@ public static class Routes
     /// <summary>The network-wide event and alert logs.</summary>
     public const string Logs = "logs";
 
+    /// <summary>Graylog messages - every device's, or with <see cref="DeviceIdParameter"/> one device's.</summary>
+    public const string Graylog = "graylog";
+
+    /// <summary>Settings, Graylog.</summary>
+    public const string GraylogSettings = "graylogsettings";
+
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 

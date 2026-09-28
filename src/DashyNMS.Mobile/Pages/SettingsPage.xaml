@@ -159,6 +159,20 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="INTEGRATIONS" />
+            <Border Style="{StaticResource Card}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding OpenGraylogSettingsCommand}" />
+                    </Grid.GestureRecognizers>
+                    <VerticalStackLayout>
+                        <Label Text="Graylog" />
+                        <Label Style="{StaticResource Caption}" Text="{Binding GraylogStatusText}" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                </Grid>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="TIMESTAMPS" />
             <Border Style="{StaticResource Card}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
