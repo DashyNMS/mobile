@@ -17,6 +17,7 @@ public sealed partial class SignInViewModel : ViewModelBase
     private readonly SecretCache _secrets;
     private readonly IAlertNotifier _notifier;
     private readonly NotificationRouter _router;
+    private readonly IDialogService? _dialogs;
     private bool _restoreAttempted;
 
     [ObservableProperty]
@@ -51,8 +52,10 @@ public sealed partial class SignInViewModel : ViewModelBase
         INavigationService navigation,
         SecretCache secrets,
         IAlertNotifier notifier,
-        NotificationRouter router)
+        NotificationRouter router,
+        IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _secrets = secrets;
         _notifier = notifier;
         _router = router;
@@ -108,9 +111,34 @@ public sealed partial class SignInViewModel : ViewModelBase
         IsRestoring = false;
     }
 
+    /// <summary>
+    /// Whether <paramref name="address"/> would be reached over plain http -
+    /// typed with http:// (a bare name gets https://, as LibreNmsConnection does).
+    /// </summary>
+    internal static bool IsCleartext(string? address) =>
+        !string.IsNullOrWhiteSpace(address)
+        && address.Trim().StartsWith("http://", StringComparison.OrdinalIgnoreCase);
+
     [RelayCommand]
     private async Task SignInAsync()
     {
+        // Core's HTTP client goes round Android's cleartext policy and iOS's
+        // App Transport Security, so neither would stop the token going out
+        // unencrypted; say so first (#3). Some LAN-only installs have no TLS,
+        // so it's a warning rather than a refusal.
+        if (_dialogs is not null && (IsCleartext(ServerUrl) || IsCleartext(BackupAddress)))
+        {
+            var proceed = await _dialogs.ConfirmAsync(
+                "Not a secure connection",
+                "This server isn't using HTTPS. Your API token and everything DashyNMS loads will be sent unencrypted, and anyone on the network can read them. Continue anyway?",
+                "Continue",
+                "Cancel");
+            if (!proceed)
+            {
+                return;
+            }
+        }
+
         var succeeded = false;
         await RunAsync(async () =>
         {

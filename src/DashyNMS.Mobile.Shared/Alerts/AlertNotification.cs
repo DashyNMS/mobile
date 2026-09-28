@@ -23,6 +23,44 @@ public sealed record AlertNotification(
     public const string SummaryTag = "summary";
 
     public static string TagFor(int alertId) => "alert-" + alertId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// What a locked phone shows instead, when details are hidden there (#8):
+    /// how serious, but no device, rule or note - those can be sensitive
+    /// detail about the network for anyone who picks the phone up.
+    /// </summary>
+    public string LockScreenText => Tag == SummaryTag
+        ? "New alerts - unlock to see them"
+        : !IsProblem
+            ? "An alert has changed - unlock to see it"
+            : Severity switch
+            {
+                AlertSeverity.Critical => "Critical alert - unlock to see it",
+                AlertSeverity.Warning => "Warning - unlock to see it",
+                _ => "New alert - unlock to see it",
+            };
+}
+
+/// <summary>
+/// Whether alert notifications hide their details on the lock screen (#8).
+/// Android shows them unless told not to, so it has a setting; iPhone hides
+/// previews while locked by default, under the system's own Show Previews.
+/// </summary>
+public interface INotificationPrivacy
+{
+    /// <summary>Whether this platform offers the setting at all.</summary>
+    bool CanHideLockScreenDetails { get; }
+
+    /// <summary>On by default: the safer choice for a phone that might be picked up.</summary>
+    bool HideLockScreenDetails { get; set; }
+}
+
+/// <summary>For platforms (and tests) where the system decides.</summary>
+public sealed class SystemNotificationPrivacy : INotificationPrivacy
+{
+    public bool CanHideLockScreenDetails => false;
+
+    public bool HideLockScreenDetails { get; set; } = true;
 }
 
 /// <summary>What one check decided: notifications to show, and ones made stale to take away.</summary>

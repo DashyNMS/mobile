@@ -1,0 +1,19 @@
+# Keeps dependencies current and flags vulnerable ones (#7): NuGet packages,
+# the SHA-pinned GitHub Actions, and the desktop submodule, so a Core bump
+# arrives as its own pull request.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: gitsubmodule
+    directory: /
+    schedule:
+      interval: weekly

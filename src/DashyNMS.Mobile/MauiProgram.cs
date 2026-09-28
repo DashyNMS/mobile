@@ -38,6 +38,7 @@ public static class MauiProgram
 
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
+		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, AndroidAlertScheduler>();
 		builder.Services.AddSingleton<Widgets.IHomeWidgets, AndroidHomeWidgets>();
 #elif IOS

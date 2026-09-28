@@ -29,6 +29,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly IAppearance _appearance;
     private readonly IHomeWidgets _widgets;
     private readonly DeviceBookmarks _bookmarks;
+    private readonly IShareService? _share;
+    private readonly Graylog.GraylogSetup? _graylog;
+    private readonly INotificationPrivacy _privacy;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -43,9 +46,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
         IAppBadge badge,
         IAppearance appearance,
         IHomeWidgets widgets,
-        DeviceBookmarks? bookmarks = null)
+        DeviceBookmarks? bookmarks = null,
+        IShareService? share = null,
+        Graylog.GraylogSetup? graylog = null,
+        INotificationPrivacy? privacy = null)
     {
+        _privacy = privacy ?? new SystemNotificationPrivacy();
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
+        _share = share;
+        _graylog = graylog;
         _session = session;
         _settings = settings;
         _dialogs = dialogs;
@@ -59,6 +68,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     public string ServerUrl => _session.Connection?.WebRoot.ToString() ?? "Not signed in";
+
+    /// <summary>Signed in over plain http - the Server card says so, as a browser would (#3).</summary>
+    public bool IsServerInsecure => _session.Connection?.WebRoot.Scheme == Uri.UriSchemeHttp;
 
     public string ServerVersion => _session.ServerInfo?.LocalVersion ?? "unknown";
 
@@ -236,6 +248,22 @@ public sealed partial class SettingsViewModel : ViewModelBase
         set => SetNotification(Notifications.Enabled, value, v => Notifications.Enabled = v, requestPermission: value);
     }
 
+    /// <summary>Android: the lock screen shows how serious, not which device or rule (#8).</summary>
+    public bool CanHideNotificationDetails => _privacy.CanHideLockScreenDetails;
+
+    public bool HideNotificationDetails
+    {
+        get => _privacy.HideLockScreenDetails;
+        set
+        {
+            if (_privacy.HideLockScreenDetails != value)
+            {
+                _privacy.HideLockScreenDetails = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
     public bool NotifyCritical
     {
         get => Notifications.Critical.Enabled;
@@ -295,24 +323,52 @@ public sealed partial class SettingsViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(ServerUrl));
         OnPropertyChanged(nameof(ServerVersion));
+        OnPropertyChanged(nameof(IsServerInsecure));
         OnPropertyChanged(nameof(GraylogStatusText));
     }
 
     [RelayCommand]
     private async Task SignOutAsync()
     {
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Sign out",
-            "Sign out and forget the saved API token on this device? Alert notifications stop until you sign in again.",
-            "Sign out",
-            "Cancel");
-        if (!confirmed)
+        var choice = await _dialogs.ChooseAsync(
+            "Sign out? Alert notifications stop until you sign in again.",
+            [SignOutChoice, ForgetEverythingChoice]);
+        if (choice is null)
         {
             return;
         }
 
+        // The token, and what would show which devices were being watched:
+        // pins, recently viewed, exported lists (#10). The alert watch state
+        // and widgets are cleared by AlertWatchCoordinator on the session
+        // change. The server address stays to fill in the sign-in form,
+        // unless everything's to go.
         _session.SignOut(forgetToken: true);
+        _bookmarks.Clear();
+        _share?.ClearExports();
+
+        if (choice == ForgetEverythingChoice)
+        {
+            ForgetServers();
+        }
+
         await _navigation.GoToAsync(Routes.SignIn);
+    }
+
+    internal const string SignOutChoice = "Sign out";
+
+    internal const string ForgetEverythingChoice = "Sign out and forget everything";
+
+    /// <summary>The LibreNMS addresses and the Graylog connection, password included.</summary>
+    private void ForgetServers()
+    {
+        var current = _settings.Current;
+        current.ServerUrl = null;
+        current.BackupServerAddress = null;
+        current.AllowUntrustedCertificate = false;
+        current.Graylog = new GraylogSettings();
+        _settings.Save();
+        _graylog?.ForgetPassword();
     }
 
     private void SetNotification<T>(T current, T value, Action<T> apply, bool requestPermission = false, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)

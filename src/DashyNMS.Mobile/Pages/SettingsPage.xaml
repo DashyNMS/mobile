@@ -15,7 +15,12 @@
                 <VerticalStackLayout Spacing="10">
                     <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
                         <Label Style="{StaticResource Caption}" Text="Address" />
-                        <Label Grid.Column="1" Text="{Binding ServerUrl}" />
+                        <VerticalStackLayout Grid.Column="1">
+                            <Label Text="{Binding ServerUrl}" />
+                            <!-- Plain http: the token and everything loaded go unencrypted (#3). -->
+                            <Label Text="Not secure - this server doesn't use HTTPS" FontSize="12"
+                                   TextColor="{StaticResource CriticalColor}" IsVisible="{Binding IsServerInsecure}" />
+                        </VerticalStackLayout>
                     </Grid>
                     <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
                         <Label Style="{StaticResource Caption}" Text="LibreNMS" />
@@ -108,6 +113,16 @@
                     </Grid>
 
                     <VerticalStackLayout Spacing="14" IsVisible="{Binding NotificationsEnabled}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNotificationDetails}">
+                            <VerticalStackLayout>
+                                <Label Text="Hide details on the lock screen" />
+                                <Label Style="{StaticResource Caption}" Text="A locked phone shows how serious an alert is, but not the device or rule." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding HideNotificationDetails}" VerticalOptions="Center" />
+                        </Grid>
+                        <Label Style="{StaticResource Caption}" IsVisible="{Binding CanHideNotificationDetails, Converter={StaticResource Invert}}"
+                               Text="A locked iPhone hides alert details while Show Previews is set to When Unlocked (Settings → Notifications)." />
+
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="Critical alerts" VerticalOptions="Center" />
                             <Switch Grid.Column="1" IsToggled="{Binding NotifyCritical}" />

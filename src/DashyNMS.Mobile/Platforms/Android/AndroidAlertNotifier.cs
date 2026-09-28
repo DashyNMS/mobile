@@ -69,6 +69,19 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
         builder.SetAutoCancel(true);
         builder.SetContentIntent(TapIntent(notification));
 
+        // Private: a locked phone shows the public version below instead -
+        // how serious, but no device, rule or note (#8).
+        if (AndroidNotificationPrivacy.Hide)
+        {
+            var locked = new NotificationCompat.Builder(AppContext, ChannelFor(notification));
+            locked.SetSmallIcon(Resource.Drawable.ic_stat_dashynms);
+            locked.SetContentTitle("DashyNMS");
+            locked.SetContentText(notification.LockScreenText);
+            locked.SetColor(ColourFor(notification.Severity));
+            builder.SetVisibility(NotificationCompat.VisibilityPrivate);
+            builder.SetPublicVersion(locked.Build());
+        }
+
         try
         {
             // Tagged, so a later notification for the same alert replaces this one.
