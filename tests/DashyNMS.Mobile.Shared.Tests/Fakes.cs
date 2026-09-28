@@ -94,6 +94,16 @@ internal sealed class RecordingNotifier : IAlertNotifier
     public void Remove(string tag) => Removed.Add(tag);
 }
 
+/// <summary>Records the app icon's count, as a phone that can show one (an iPhone).</summary>
+internal sealed class RecordingBadge : IAppBadge
+{
+    public bool IsSupported { get; set; } = true;
+
+    public int? Count { get; private set; }
+
+    public void SetCount(int count) => Count = count;
+}
+
 /// <summary>Records where the view model asked to go.</summary>
 internal sealed class RecordingNavigation : INavigationService
 {

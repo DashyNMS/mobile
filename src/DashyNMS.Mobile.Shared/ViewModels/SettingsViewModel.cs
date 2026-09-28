@@ -24,6 +24,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IAlertNotifier _notifier;
     private readonly AlertWatchCoordinator _coordinator;
+    private readonly IAppBadge _badge;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -34,7 +35,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         IDialogService dialogs,
         INavigationService navigation,
         IAlertNotifier notifier,
-        AlertWatchCoordinator coordinator)
+        AlertWatchCoordinator coordinator,
+        IAppBadge badge)
     {
         _session = session;
         _settings = settings;
@@ -42,6 +44,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _navigation = navigation;
         _notifier = notifier;
         _coordinator = coordinator;
+        _badge = badge;
         _serverTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc;
     }
 
@@ -78,6 +81,25 @@ public sealed partial class SettingsViewModel : ViewModelBase
             _settings.Save();
             OnPropertyChanged();
         }
+    }
+
+    /// <summary>
+    /// Only where the phone lets an app set the number (iPhone). Android
+    /// launchers show a dot or count from the app's notifications themselves.
+    /// </summary>
+    public bool CanShowAppBadge => _badge.IsSupported;
+
+    /// <summary>Desktop's Alerts tab badge setting, shown as the count on the app icon.</summary>
+    public bool ShowAppBadge
+    {
+        get => _settings.Current.ShowAlertTabBadge;
+        set => SetNotification(_settings.Current.ShowAlertTabBadge, value, v => _settings.Current.ShowAlertTabBadge = v, requestPermission: value);
+    }
+
+    public bool BadgeIncludesAcknowledged
+    {
+        get => _settings.Current.AlertTabBadgeIncludesAcknowledged;
+        set => SetNotification(_settings.Current.AlertTabBadgeIncludesAcknowledged, value, v => _settings.Current.AlertTabBadgeIncludesAcknowledged = v);
     }
 
     public bool NotificationsEnabled

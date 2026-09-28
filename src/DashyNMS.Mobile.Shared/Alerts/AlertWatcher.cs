@@ -48,6 +48,7 @@ public sealed class AlertWatcher
     private readonly IAlertWatchStore _store;
     private readonly ISelfActionTracker _selfActions;
     private readonly IAlertNotifier _notifier;
+    private readonly IAppBadge _badge;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -60,6 +61,7 @@ public sealed class AlertWatcher
         IAlertWatchStore store,
         ISelfActionTracker selfActions,
         IAlertNotifier notifier,
+        IAppBadge badge,
         TimeProvider time,
         ILogger<AlertWatcher> logger)
     {
@@ -70,6 +72,7 @@ public sealed class AlertWatcher
         _store = store;
         _selfActions = selfActions;
         _notifier = notifier;
+        _badge = badge;
         _time = time;
         _logger = logger;
     }
@@ -104,6 +107,7 @@ public sealed class AlertWatcher
             var hasBaseline = saved is not null && saved.Server == server;
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
             _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
+            _badge.SetCount(AlertBadge.Count(alerts, settings));
 
             if (!hasBaseline && settings.Notifications.SuppressOnFirstPoll)
             {

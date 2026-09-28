@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Alerts;
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -31,6 +32,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
     private readonly IShareService _share;
+    private readonly IAppBadge _badge;
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
     private bool _loading;
@@ -54,6 +56,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         INavigationService navigation,
         ISelfActionTracker selfActions,
         IShareService share,
+        IAppBadge badge,
         TimeProvider time)
     {
         _client = client;
@@ -62,6 +65,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _navigation = navigation;
         _selfActions = selfActions;
         _share = share;
+        _badge = badge;
         _time = time;
 
         // Carry on where the last session left off, as desktop does.
@@ -136,6 +140,9 @@ public sealed partial class AlertsViewModel : ViewModelBase
             .Select(a => new AlertItem(a, utc))
             .ToList();
         ApplyFilter();
+
+        // Straight away, rather than at the next check - after acknowledging, say.
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
     });
 
     /// <summary>The list as it's filtered now, as a CSV file, through the share sheet.</summary>

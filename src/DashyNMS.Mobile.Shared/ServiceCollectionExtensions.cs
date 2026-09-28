@@ -48,7 +48,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DeviceBookmarks>();
 
         // Alert notifications. The app head supplies IAlertNotifier and
-        // IBackgroundAlertScheduler for its platform.
+        // IBackgroundAlertScheduler for its platform, and IAppBadge where the
+        // platform can set a number on the icon (registered later, it wins).
+        services.AddSingleton<IAppBadge, NoAppBadge>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();

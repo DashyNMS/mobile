@@ -38,6 +38,7 @@ public sealed class AlertWatcherTests
     private readonly InMemoryWatchStore _store = new();
     private readonly SelfActionTracker _selfActions = new();
     private readonly RecordingNotifier _notifier = new();
+    private readonly RecordingBadge _badge = new();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
     private readonly AlertWatcher _watcher;
 
@@ -47,7 +48,7 @@ public sealed class AlertWatcherTests
         _session.IsConnected.Returns(true);
         _session.Connection.Returns(new LibreNmsConnection(new Uri(Server), "token"));
         _watcher = new AlertWatcher(
-            _client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _time, NullLogger<AlertWatcher>.Instance);
+            _client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _time, NullLogger<AlertWatcher>.Instance);
     }
 
     private void ServerReturns(params Alert[] alerts) =>
@@ -55,6 +56,17 @@ public sealed class AlertWatcherTests
 
     private void BaselineOf(params Alert[] alerts) =>
         _store.State = new AlertWatchState(Server, AlertChangeDetector.Snapshot(alerts));
+
+    [Fact]
+    public async Task Every_check_updates_the_app_icons_count_even_the_first()
+    {
+        ServerReturns(Fakes.Alert(1, 7, "critical"), Fakes.Alert(2, 7, "warning", acknowledged: true));
+
+        var result = await _watcher.CheckAsync();
+
+        Assert.Equal(AlertCheckOutcome.Baseline, result.Outcome);
+        Assert.Equal(2, _badge.Count);
+    }
 
     [Fact]
     public async Task First_check_records_a_baseline_quietly()
@@ -248,12 +260,38 @@ public sealed class AlertWatcherTests
     }
 }
 
+public sealed class AlertBadgeTests
+{
+    private static Alert WithState(int id, int state)
+    {
+        var alert = Fakes.Alert(id, 1, "critical");
+        alert.StateValue = state;
+        return alert;
+    }
+
+    private static readonly Alert[] Alerts =
+    [
+        WithState(1, 1), WithState(2, 1), // active
+        WithState(3, 2),                  // acknowledged
+        WithState(4, 0),                  // recovered
+    ];
+
+    [Fact]
+    public void Counts_as_desktops_alerts_tab_badge()
+    {
+        Assert.Equal(3, AlertBadge.Count(Alerts, new AppSettings())); // desktop's default counts acknowledged too
+        Assert.Equal(2, AlertBadge.Count(Alerts, new AppSettings { AlertTabBadgeIncludesAcknowledged = false }));
+        Assert.Equal(0, AlertBadge.Count(Alerts, new AppSettings { ShowAlertTabBadge = false }));
+    }
+}
+
 public sealed class AlertWatchCoordinatorTests
 {
     private readonly ISessionService _session = Substitute.For<ISessionService>();
     private readonly AppSettings _settings = new();
     private readonly IBackgroundAlertScheduler _scheduler = Substitute.For<IBackgroundAlertScheduler>();
     private readonly InMemoryWatchStore _store = new();
+    private readonly RecordingBadge _badge = new();
     private readonly AlertWatchCoordinator _coordinator;
 
     public AlertWatchCoordinatorTests()
@@ -261,9 +299,9 @@ public sealed class AlertWatchCoordinatorTests
         var client = Fakes.Client();
         var watcher = new AlertWatcher(
             client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, new SelfActionTracker(),
-            new RecordingNotifier(), TimeProvider.System, NullLogger<AlertWatcher>.Instance);
+            new RecordingNotifier(), _badge, TimeProvider.System, NullLogger<AlertWatcher>.Instance);
         _coordinator = new AlertWatchCoordinator(
-            _session, Fakes.Settings(_settings), watcher, _scheduler, _store, TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
+            _session, Fakes.Settings(_settings), watcher, _scheduler, _store, _badge, TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
         _coordinator.Start();
     }
 
@@ -289,9 +327,40 @@ public sealed class AlertWatchCoordinatorTests
     }
 
     [Fact]
-    public void Signing_in_with_notifications_off_schedules_nothing()
+    public void With_notifications_off_the_badge_still_needs_checks()
     {
         _settings.Notifications.Enabled = false;
+
+        SessionBecomes(connected: true);
+
+        _scheduler.Received(1).Schedule();
+    }
+
+    [Fact]
+    public void Where_the_phone_cant_show_a_count_the_badge_alone_needs_no_checks()
+    {
+        _settings.Notifications.Enabled = false;
+        _badge.IsSupported = false;
+
+        SessionBecomes(connected: true);
+
+        _scheduler.DidNotReceive().Schedule();
+    }
+
+    [Fact]
+    public void Signing_out_clears_the_badge()
+    {
+        SessionBecomes(connected: true);
+        SessionBecomes(connected: false);
+
+        Assert.Equal(0, _badge.Count);
+    }
+
+    [Fact]
+    public void Signing_in_with_notifications_and_the_badge_off_schedules_nothing()
+    {
+        _settings.Notifications.Enabled = false;
+        _settings.ShowAlertTabBadge = false;
 
         SessionBecomes(connected: true);
 
@@ -323,16 +392,18 @@ public sealed class AlertWatchCoordinatorTests
     }
 
     [Fact]
-    public void Turning_notifications_off_stops_everything()
+    public void Turning_notifications_and_the_badge_off_stops_everything()
     {
         SessionBecomes(connected: true);
         _coordinator.SetForeground(true);
 
         _settings.Notifications.Enabled = false;
+        _settings.ShowAlertTabBadge = false;
         _coordinator.SettingsChanged();
 
         _scheduler.Received(1).Cancel();
         Assert.False(_coordinator.IsForegroundLoopRunning);
+        Assert.Equal(0, _badge.Count); // and the count comes off the icon
     }
 }
 
@@ -430,9 +501,9 @@ public sealed class NotificationSettingsViewModelTests
         var store = new InMemoryWatchStore();
         var notifier = new RecordingNotifier();
         var watcher = new AlertWatcher(
-            Fakes.Client(), session, Fakes.Secrets(), settings, store, new SelfActionTracker(), notifier, TimeProvider.System, NullLogger<AlertWatcher>.Instance);
-        var coordinator = new AlertWatchCoordinator(session, settings, watcher, scheduler, store, TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
-        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), notifier, coordinator);
+            Fakes.Client(), session, Fakes.Secrets(), settings, store, new SelfActionTracker(), notifier, new NoAppBadge(), TimeProvider.System, NullLogger<AlertWatcher>.Instance);
+        var coordinator = new AlertWatchCoordinator(session, settings, watcher, scheduler, store, new NoAppBadge(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
+        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), notifier, coordinator, new NoAppBadge());
 
         vm.NotificationsEnabled = false;
 

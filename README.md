@@ -49,7 +49,13 @@ rather than rewritten.
 - **Alert notifications**: new, reopened and (optionally) recovered or
   acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
   Tapping one opens the alert, or the alert list for a summary.
-- **Settings**: the connected server and version, notification options
+- **App icon badge** (iPhone): the open-alert count on the icon, counted as
+  desktop's Alerts tab badge and using its settings (on/off, and whether
+  acknowledged alerts count). It updates with every alert check, so it's
+  live in the background too. Android launchers show their own dot or
+  count from DashyNMS's notifications instead, as Android gives apps no
+  way to set a number.
+- **Settings**: the connected server and version, the app icon badge, notification options
   (per severity, recovery, acknowledgement, quiet hours, a test
   notification), the *Server stores timestamps in UTC* option (the same
   setting as on desktop), and sign-out.
@@ -170,7 +176,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ |
 | Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | 🟡 Fixed layout: alert and device counts, top five alerts |
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
-| Worst severity at a glance | Tray icon with open-alert count | ⬜ App icon badge, home-screen widget |
+| Worst severity at a glance | Tray icon with open-alert count | 🟡 App icon badge (iPhone; Android's launcher dot comes from notifications); home-screen widget next |
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |
 | Alert detail: fault details, rule, history | ✅ | ✅ On its own page, from any alert or notification |
 | Acknowledge / unacknowledge | ✅ | ✅ |
@@ -207,8 +213,6 @@ Ordered by how much each adds on a phone, not by desktop's order.
    alongside the MAUI app and reading a snapshot the app shares through an
    App Group. That needs the App Group capability on the App ID and a
    regenerated provisioning profile.
-2. **App icon badge**: the open-alert count on the icon, the phone's version
-   of desktop's tray icon.
 
 **Then: the rest of the everyday views**
 

@@ -364,9 +364,9 @@ public sealed class DeviceNameSettingTests
         var settings = Fakes.Settings(appSettings);
         var session = Substitute.For<ISessionService>();
         var coordinator = new AlertWatchCoordinator(
-            session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), TimeProvider.System,
+            session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
-        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator);
+        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator, new NoAppBadge());
 
         Assert.Equal(["Hostname", "sysName", "LibreNMS display name"], vm.DeviceNameStyles);
         vm.DeviceNameStyleIndex = 1;

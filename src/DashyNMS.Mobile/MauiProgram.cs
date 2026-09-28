@@ -39,6 +39,7 @@ public static class MauiProgram
 #elif IOS
 		builder.Services.AddSingleton<IAlertNotifier, IosAlertNotifier>();
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, IosAlertScheduler>();
+		builder.Services.AddSingleton<IAppBadge, IosAppBadge>();
 #endif
 
 		// Shell resolves registered pages through DI, so each gets its view model.

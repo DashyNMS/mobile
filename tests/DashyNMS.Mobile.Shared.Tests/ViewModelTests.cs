@@ -66,6 +66,8 @@ public sealed class AlertsViewModelTests
     private readonly IShareService _share = Substitute.For<IShareService>();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 28, 14, 30, 5, TimeSpan.Zero));
 
+    private readonly RecordingBadge _badge = new();
+
     public AlertsViewModelTests()
     {
         _settings = Fakes.Settings(_appSettings);
@@ -73,7 +75,7 @@ public sealed class AlertsViewModelTests
     }
 
     private AlertsViewModel NewViewModel() =>
-        new(_client, _settings, _dialogs, new RecordingNavigation(), _selfActions, _share, _time);
+        new(_client, _settings, _dialogs, new RecordingNavigation(), _selfActions, _share, _badge, _time);
 
     private async Task<AlertsViewModel> LoadedViewModel()
     {
@@ -90,6 +92,16 @@ public sealed class AlertsViewModelTests
         Assert.Equal([3, 1, 2], vm.Alerts.Select(a => a.Id));
         Assert.Equal("3 alerts", vm.CountText);
         Assert.False(vm.HasActiveFilters);
+    }
+
+    [Fact]
+    public async Task Loading_the_list_updates_the_app_icons_count_straight_away()
+    {
+        _appSettings.AlertTabBadgeIncludesAcknowledged = false;
+
+        await LoadedViewModel();
+
+        Assert.Equal(2, _badge.Count); // the two active alerts
     }
 
     [Fact]

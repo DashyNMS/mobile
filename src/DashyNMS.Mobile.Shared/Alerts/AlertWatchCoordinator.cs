@@ -19,6 +19,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     private readonly AlertWatcher _watcher;
     private readonly IBackgroundAlertScheduler _scheduler;
     private readonly IAlertWatchStore _store;
+    private readonly IAppBadge _badge;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatchCoordinator> _logger;
     private readonly object _gate = new();
@@ -32,6 +33,7 @@ public sealed class AlertWatchCoordinator : IDisposable
         AlertWatcher watcher,
         IBackgroundAlertScheduler scheduler,
         IAlertWatchStore store,
+        IAppBadge badge,
         TimeProvider time,
         ILogger<AlertWatchCoordinator> logger)
     {
@@ -40,6 +42,7 @@ public sealed class AlertWatchCoordinator : IDisposable
         _watcher = watcher;
         _scheduler = scheduler;
         _store = store;
+        _badge = badge;
         _time = time;
         _logger = logger;
     }
@@ -96,6 +99,7 @@ public sealed class AlertWatchCoordinator : IDisposable
             // to another server) should start from a fresh baseline.
             _scheduler.Cancel();
             _store.Clear();
+            _badge.SetCount(0);
             StopLoop();
             return;
         }
@@ -111,7 +115,14 @@ public sealed class AlertWatchCoordinator : IDisposable
             return;
         }
 
-        if (!_settings.Current.Notifications.Enabled)
+        if (!_settings.Current.ShowAlertTabBadge)
+        {
+            _badge.SetCount(0);
+        }
+
+        // Checks feed the notifications and the app icon's count; with both
+        // off there's nothing to check for.
+        if (!_settings.Current.Notifications.Enabled && !(_settings.Current.ShowAlertTabBadge && _badge.IsSupported))
         {
             _scheduler.Cancel();
             StopLoop();

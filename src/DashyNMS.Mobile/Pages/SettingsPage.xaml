@@ -38,6 +38,23 @@
                 </Grid>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="APP ICON" IsVisible="{Binding CanShowAppBadge}" />
+            <Border Style="{StaticResource Card}" IsVisible="{Binding CanShowAppBadge}">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Text="Alert count on the app icon" />
+                            <Label Style="{StaticResource Caption}" Text="Open alerts, as desktop's Alerts tab badge. Updated with each alert check." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding ShowAppBadge}" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowAppBadge}">
+                        <Label Text="Count acknowledged alerts too" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding BadgeIncludesAcknowledged}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" />
             <Border Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="14">
