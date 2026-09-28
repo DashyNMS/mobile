@@ -57,6 +57,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<MaintenancePage>();
 		builder.Services.AddTransient<AlertDetailPage>();
 		builder.Services.AddTransient<HealthPage>();
+		builder.Services.AddTransient<GroupsLocationsPage>();
 
 		return builder.Build();
 	}

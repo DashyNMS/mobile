@@ -13,5 +13,6 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.DeviceGraphs, typeof(DeviceGraphsPage));
 		Routing.RegisterRoute(Routes.Maintenance, typeof(MaintenancePage));
 		Routing.RegisterRoute(Routes.AlertDetail, typeof(AlertDetailPage));
+		Routing.RegisterRoute(Routes.GroupsLocations, typeof(GroupsLocationsPage));
 	}
 }

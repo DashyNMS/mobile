@@ -56,6 +56,11 @@ rather than rewritten.
   live in the background too. Android launchers show their own dot or
   count from DashyNMS's notifications instead, as Android gives apps no
   way to set a number.
+- **Groups & locations** (Devices tab → Groups): desktop's Groups and
+  Locations tabs as one page. Every device group or location with its device
+  count, how many are down or disabled, and coordinates where LibreNMS has
+  them. Anything with devices down comes first. Tap one for the Devices list
+  filtered to it.
 - **Health**: desktop's Health tab. Every sensor across the network in its
   four categories (dBm, signal, temperature, fan speed), coloured against
   the same thresholds as Device View, problems first, with Critical /
@@ -202,7 +207,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Device actions: rediscover, maintenance window, edit, delete | ✅ | 🟡 Rediscover and maintenance windows; edit/delete stay on desktop |
 | Open in browser / SSH / Telnet | ✅ | 🟡 Browser only |
 | Health (sensors across all devices vs limits) | ✅ | ✅ Desktop's four categories, problems first |
-| Groups and locations | ✅ | ⬜ |
+| Groups and locations | ✅ | ✅ Counts and devices down; opens the Devices list filtered (editing stays on desktop) |
 | Neighbours views | ✅ | ⬜ |
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
 | Logs: event log, Graylog | ✅ | ⬜ |
@@ -220,19 +225,18 @@ Ordered by how much each adds on a phone, not by desktop's order.
 
 **Next: the rest of the everyday views**
 
-1. **Groups and locations**, with the same click-through to Device View.
-2. **More settings**: poll interval, health thresholds, theme.
+1. **More settings**: poll interval, health thresholds, theme.
 
 **Later**
 
-3. **Geographical map** of devices and their state.
-4. **Integrations**: Graylog messages and Unimus config backups, including
+2. **Geographical map** of devices and their state.
+3. **Integrations**: Graylog messages and Unimus config backups, including
    Device View's Graylog and Unimus sections. Core already has both clients;
    they need keychain-backed secret stores like the LibreNMS token's.
-5. **Rules and templates**, read-only.
-6. **Instant alerts**: a push from the server side, so alerts don't wait for
+4. **Rules and templates**, read-only.
+5. **Instant alerts**: a push from the server side, so alerts don't wait for
    the next background check.
-7. **Store builds**: Play internal testing (TestFlight is in place, see
+6. **Store builds**: Play internal testing (TestFlight is in place, see
    above).
 
 ## Upstream notes

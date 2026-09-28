@@ -19,6 +19,18 @@ public static class Routes
 
     public const string Alerts = "//main/alerts";
 
+    /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
+    public const string Devices = "//main/devices";
+
+    /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
+    public const string GroupsLocations = "groupslocations";
+
+    /// <summary>Query attribute: a device group's name (or the "not in a group" key), for <see cref="Devices"/>.</summary>
+    public const string GroupParameter = "group";
+
+    /// <summary>Query attribute: a location's name, for <see cref="Devices"/>.</summary>
+    public const string LocationParameter = "location";
+
     public const string DeviceDetail = "device";
 
     /// <summary>Query attribute carrying the device id for <see cref="DeviceDetail"/>.</summary>

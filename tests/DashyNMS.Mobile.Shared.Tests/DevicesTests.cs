@@ -200,6 +200,28 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task Groups_and_locations_open_the_list_filtered_to_them_even_before_it_loads()
+    {
+        var vm = NewViewModel();
+        vm.SearchText = "something old";
+        vm.ShowUp = false;
+
+        // As arriving from Groups & locations: set, then the tab refreshes.
+        vm.ShowOnly(group: "London kit");
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+
+        Assert.Equal(["Branch-fw", "core-sw"], Names(vm));
+        Assert.StartsWith("London kit (", vm.SelectedGroup.Label); // picked up its count
+        Assert.True(vm.ShowUp);
+        Assert.Equal(string.Empty, vm.SearchText);
+
+        vm.ShowOnly(location: "Leeds");
+        Assert.Equal(["access-sw"], Names(vm));
+        Assert.Null(vm.SelectedGroup.Key);
+    }
+
+    [Fact]
     public async Task Unpinning_puts_it_back_in_order()
     {
         _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 5, DisplayName = "lab-server" });

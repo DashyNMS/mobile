@@ -8,6 +8,10 @@
     x:DataType="vm:DevicesViewModel"
     Title="Devices">
 
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Groups" Command="{Binding OpenGroupsLocationsCommand}" />
+    </ContentPage.ToolbarItems>
+
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <SearchBar Text="{Binding SearchText}" Placeholder="Name, IP, OS, hardware, location, serial" />

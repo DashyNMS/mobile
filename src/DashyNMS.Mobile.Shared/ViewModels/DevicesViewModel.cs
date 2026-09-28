@@ -45,7 +45,8 @@ public sealed partial class DevicesViewModel : ViewModelBase
     internal const int MaxConcurrentMaintenanceChecks = 16;
     internal static readonly TimeSpan MaintenanceRescanInterval = TimeSpan.FromSeconds(60);
 
-    private const string NoGroupKey = "\0none";
+    /// <summary>The Group filter's "Not in a group" choice.</summary>
+    internal const string NoGroupKey = "\0none";
 
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;
@@ -257,6 +258,27 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Just one group's or location's devices - what Groups &amp; locations opens
+    /// the list with. Every other filter goes back to all; the choice holds
+    /// through the refresh that follows, and picks up its count once the
+    /// facet's choices are (re)built.
+    /// </summary>
+    public void ShowOnly(string? group = null, string? location = null)
+    {
+        _resetting = true;
+        ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
+        SelectedType = AllTypes;
+        SelectedGroup = group is null ? AllGroups : GroupOptions.FirstOrDefault(o => o.Key == group) ?? new FacetOption(group, group);
+        SelectedLocation = location is null
+            ? AllLocations
+            : LocationOptions.FirstOrDefault(o => string.Equals(o.Key, location, StringComparison.OrdinalIgnoreCase)) ?? new FacetOption(location, location);
+        SearchText = string.Empty;
+        IsFilterPanelOpen = true;
+        _resetting = false;
+        ApplyFilter();
+    }
+
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
@@ -279,6 +301,9 @@ public sealed partial class DevicesViewModel : ViewModelBase
         // The list is up; the slower extras fill in behind it.
         Extras = LoadExtrasAsync();
     });
+
+    [RelayCommand]
+    private Task OpenGroupsLocationsAsync() => _navigation.GoToAsync(Routes.GroupsLocations);
 
     [RelayCommand]
     private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
