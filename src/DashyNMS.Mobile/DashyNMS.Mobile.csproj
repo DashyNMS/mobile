@@ -44,6 +44,7 @@
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#11141A" BaseSize="128,128" />
 		<MauiImage Include="Resources\Images\*" />
 		<MauiImage Update="Resources\Images\dashynms_logo.svg" BaseSize="96,96" />
+		<MauiImage Update="Resources\Images\tab_*.svg" BaseSize="24,24" />
 	</ItemGroup>
 
 	<!-- The logo's ring runs almost to the edge of its artwork. Android masks
