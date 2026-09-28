@@ -83,9 +83,9 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 
 1. Bump `<Version>` in `Directory.Build.props` if this is a new version
    (the display version, for example `1.1.0`). The build number is set
-   automatically from the workflow run number, so repeat uploads of the same
-   version are fine.
-2. Actions → **TestFlight** → *Run workflow* → choose the branch.
+   automatically, so repeat uploads of the same version are fine.
+2. Actions → **TestFlight** → *Run workflow* → choose the branch. Leave
+   *Build number* blank unless you need a particular one.
 3. When the job finishes, the build shows in App Store Connect → your app →
    **TestFlight** after Apple's processing (typically 5–30 minutes).
 4. **Internal testing** (up to 100 members of your App Store Connect team):
@@ -97,6 +97,14 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
    explaining that the app needs the tester's own LibreNMS server.
 
 ## Notes
+
+- **Build numbers.** App Store Connect rejects a build number it has already
+  seen for the app ("Redundant Binary Upload"), including builds uploaded
+  before this workflow. So the workflow uses its run number + 100, which
+  clears the earlier builds (up to 12). If that ever collides, either set
+  the `IOS_BUILD_NUMBER_OFFSET` repository variable (Settings → Secrets and
+  variables → Actions → Variables) to something higher, or type a number
+  into *Build number* when starting the run.
 
 - Alert notifications use local notifications and background app refresh
   (`UIBackgroundModes: fetch` in `Info.plist`). Neither needs an App ID

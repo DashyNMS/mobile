@@ -5,6 +5,11 @@ name: TestFlight
 # docs/RELEASING-IOS.md for the one-time Apple setup and the secrets it needs.
 on:
   workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Build number (blank: run number + offset). Must be higher than any build already in App Store Connect."
+        required: false
+        type: string
 
 concurrency:
   group: testflight
@@ -60,10 +65,27 @@ jobs:
           cp "$RUNNER_TEMP/app.mobileprovision" "$PROFILES/$UUID.mobileprovision"
           echo "PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
 
+      # App Store Connect rejects a build number it has seen before for this
+      # app, including from builds uploaded before this workflow existed, so
+      # it's this run's number plus an offset that clears them: 100, or the
+      # IOS_BUILD_NUMBER_OFFSET repository variable. A number typed in when
+      # starting the run wins over both.
+      - name: Choose build number
+        env:
+          OFFSET: ${{ vars.IOS_BUILD_NUMBER_OFFSET || '100' }}
+          REQUESTED: ${{ inputs.build_number }}
+        run: |
+          BUILD_NUMBER="${REQUESTED:-$((GITHUB_RUN_NUMBER + OFFSET))}"
+          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Build number must be a whole number, not '$BUILD_NUMBER'"
+            exit 1
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Build number: $BUILD_NUMBER"
+
       # MobilePlatform=ios (see the csproj) so restore doesn't also want the
-      # Android workload; publish still insists on -f as well.
-      # The build number has to go up with every upload, so it's this
-      # workflow's run number; the display version comes from Directory.Build.props.
+      # Android workload; publish still insists on -f as well. The display
+      # version comes from Directory.Build.props.
       - name: Build IPA
         run: >
           dotnet publish src/DashyNMS.Mobile
@@ -74,7 +96,7 @@ jobs:
           -p:ArchiveOnBuild=true
           -p:CodesignKey="Apple Distribution"
           -p:CodesignProvision="$PROFILE_NAME"
-          -p:ApplicationVersion=${{ github.run_number }}
+          -p:ApplicationVersion=$BUILD_NUMBER
           -o "$RUNNER_TEMP/ipa"
 
       - name: Upload to TestFlight
@@ -94,7 +116,7 @@ jobs:
       - name: Keep the IPA
         uses: actions/upload-artifact@v5
         with:
-          name: dashynms-ios-${{ github.run_number }}
+          name: dashynms-ios-${{ env.BUILD_NUMBER }}
           path: ${{ runner.temp }}/ipa/*.ipa
           retention-days: 14
 
