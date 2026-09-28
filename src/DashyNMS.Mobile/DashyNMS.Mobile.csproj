@@ -67,6 +67,11 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 	</ItemGroup>
 
+	<!-- Background alert checks on Android (see AndroidAlertScheduler). -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.11.2.1" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<ProjectReference Include="..\DashyNMS.Mobile.Shared\DashyNMS.Mobile.Shared.csproj" />
 	</ItemGroup>

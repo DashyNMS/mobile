@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status bar icon: the DashyNMS ring and pulse in white, as Android
+     requires (it tints it itself). Same geometry as Resources/AppIcon. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:pathData="M7.75,50 A42.25,42.25 0 1,0 92.25,50 A42.25,42.25 0 1,0 7.75,50 Z"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="7.5"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M24,55 L38,55 L45.5,33 L56.5,71 L64,50 L77,50"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="8.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>

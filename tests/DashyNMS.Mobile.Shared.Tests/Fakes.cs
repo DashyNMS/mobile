@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -43,6 +44,32 @@ internal static class Fakes
             Open = true,
             Timestamp = at ?? new DateTime(2026, 1, 1, 12, 0, 0),
         };
+}
+
+/// <summary>Records what would have been shown on the phone.</summary>
+internal sealed class RecordingNotifier : IAlertNotifier
+{
+    public bool PermissionGranted { get; set; } = true;
+
+    public int PermissionRequests { get; private set; }
+
+    public List<AlertNotification> Shown { get; } = new();
+
+    public List<string> Removed { get; } = new();
+
+    public Task<bool> RequestPermissionAsync()
+    {
+        PermissionRequests++;
+        return Task.FromResult(PermissionGranted);
+    }
+
+    public Task ShowAsync(AlertNotification notification)
+    {
+        Shown.Add(notification);
+        return Task.CompletedTask;
+    }
+
+    public void Remove(string tag) => Removed.Add(tag);
 }
 
 /// <summary>Records where the view model asked to go.</summary>

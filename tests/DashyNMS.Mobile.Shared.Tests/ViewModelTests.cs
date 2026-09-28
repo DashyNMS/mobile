@@ -1,5 +1,7 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
@@ -116,7 +118,9 @@ public sealed class AlertsViewModelTests
 
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
 
-    private AlertsViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, new RecordingNavigation());
+    private readonly ISelfActionTracker _selfActions = Substitute.For<ISelfActionTracker>();
+
+    private AlertsViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, new RecordingNavigation(), _selfActions);
 
     [Fact]
     public async Task Unacknowledged_first_then_by_severity()
@@ -140,6 +144,7 @@ public sealed class AlertsViewModelTests
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
 
         await _client.Alerts.Received(1).AcknowledgeAsync(3, "on it", true, Arg.Any<CancellationToken>());
+        _selfActions.Received(1).Record(3, AlertChangeKind.Acknowledged);
         await _client.Alerts.Received(2).ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
     }
 
@@ -153,6 +158,7 @@ public sealed class AlertsViewModelTests
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts[0]);
 
         await _client.Alerts.DidNotReceiveWithAnyArgs().AcknowledgeAsync(default, default, default, default);
+        _selfActions.DidNotReceiveWithAnyArgs().Record(default, default);
     }
 
     [Fact]
@@ -165,6 +171,7 @@ public sealed class AlertsViewModelTests
         await vm.UnacknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 2));
 
         await _client.Alerts.Received(1).UnmuteAsync(2, null, Arg.Any<CancellationToken>());
+        _selfActions.Received(1).Record(2, AlertChangeKind.Unacknowledged);
     }
 }
 
@@ -202,22 +209,25 @@ public sealed class SignInViewModelTests
 {
     private readonly ISessionService _session = Substitute.For<ISessionService>();
     private readonly RecordingNavigation _navigation = new();
+    private readonly RecordingNotifier _notifier = new();
+
+    private SignInViewModel NewViewModel() => new(
+        _session, Fakes.Settings(), _navigation, Fakes.Secrets(), _notifier, new NotificationRouter(_session, _navigation));
 
     [Fact]
     public async Task Successful_sign_in_goes_to_main_and_clears_the_token_box()
     {
         _session.SignInAsync(default!, default!, default, default, default, default)
             .ReturnsForAnyArgs(ConnectionTestResult.Success(new SystemInfo()));
-        var vm = new SignInViewModel(_session, Fakes.Settings(), _navigation, Fakes.Secrets())
-        {
-            ServerUrl = "nms.example.com",
-            ApiToken = "secret",
-        };
+        var vm = NewViewModel();
+        vm.ServerUrl = "nms.example.com";
+        vm.ApiToken = "secret";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
         Assert.Equal(Routes.Main, _navigation.Visits.Single().Route);
         Assert.Empty(vm.ApiToken);
+        Assert.Equal(1, _notifier.PermissionRequests);
         await _session.Received(1).SignInAsync("nms.example.com", "secret", false, true, Arg.Any<CancellationToken>(), string.Empty);
     }
 
@@ -226,12 +236,14 @@ public sealed class SignInViewModelTests
     {
         _session.SignInAsync(default!, default!, default, default, default, default)
             .ReturnsForAnyArgs(ConnectionTestResult.Failure("The API token was rejected.", isAuthenticationFailure: true));
-        var vm = new SignInViewModel(_session, Fakes.Settings(), _navigation, Fakes.Secrets()) { ApiToken = "bad" };
+        var vm = NewViewModel();
+        vm.ApiToken = "bad";
 
         await vm.SignInCommand.ExecuteAsync(null);
 
         Assert.Equal("The API token was rejected.", vm.ErrorMessage);
         Assert.Empty(_navigation.Visits);
+        Assert.Equal(0, _notifier.PermissionRequests);
         Assert.Equal("bad", vm.ApiToken);
     }
 
@@ -239,7 +251,7 @@ public sealed class SignInViewModelTests
     public async Task Restores_a_saved_session_once()
     {
         _session.TryRestoreAsync(default).ReturnsForAnyArgs(ConnectionTestResult.Success(new SystemInfo()));
-        var vm = new SignInViewModel(_session, Fakes.Settings(), _navigation, Fakes.Secrets());
+        var vm = NewViewModel();
 
         await vm.AppearingCommand.ExecuteAsync(null);
         await vm.AppearingCommand.ExecuteAsync(null);
@@ -251,7 +263,7 @@ public sealed class SignInViewModelTests
     public async Task Nothing_saved_means_no_error_and_no_navigation()
     {
         _session.TryRestoreAsync(default).ReturnsForAnyArgs((ConnectionTestResult?)null);
-        var vm = new SignInViewModel(_session, Fakes.Settings(), _navigation, Fakes.Secrets());
+        var vm = NewViewModel();
 
         await vm.AppearingCommand.ExecuteAsync(null);
 

@@ -7,7 +7,7 @@ the desktop app**, so API handling, models, alert logic and fixes are shared
 rather than rewritten.
 
 > **Status: early.** Sign-in, a dashboard, devices, device detail, open alerts
-> (with acknowledge/unacknowledge) and settings are in place. See the
+> (with acknowledge/unacknowledge), alert notifications and settings are in place. See the
 > [roadmap](#roadmap) for what's next.
 
 ## What it does today
@@ -24,8 +24,49 @@ rather than rewritten.
   plus an "Open in browser" link to the device in LibreNMS.
 - **Alerts**: open alerts, most severe first. Swipe to acknowledge (with an
   optional note) or unacknowledge.
-- **Settings**: the connected server and version, the *Server stores
-  timestamps in UTC* option (the same setting as on desktop), and sign-out.
+- **Alert notifications**: new, reopened and (optionally) recovered or
+  acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
+  Tapping one opens the device, or the alert list for a summary.
+- **Settings**: the connected server and version, notification options
+  (per severity, recovery, acknowledgement, quiet hours, a test
+  notification), the *Server stores timestamps in UTC* option (the same
+  setting as on desktop), and sign-out.
+
+## Alert notifications
+
+The app checks LibreNMS for alert changes and notifies you the same way
+desktop does. It uses Core's `AlertChangeDetector` and `AlertSummaryText`,
+and desktop's `NotificationSettings`. Desktop's rules for which changes to
+notify about live in its WPF app, so `AlertNotificationPlanner` mirrors them.
+
+**When it checks:**
+
+| | While the app is open | In the background |
+| --- | --- | --- |
+| Android | Every poll interval (60 s by default, 30 s at most often) | About every 15 minutes (WorkManager's minimum), later under Doze or battery saver |
+| iOS | Every poll interval | When iOS allows (background app refresh): often every few hours or less, more often if you open the app a lot |
+
+Because it polls rather than receiving a push from the server, a background
+notification can lag the alert by minutes on Android and longer on iOS.
+Getting alerts on the phone the moment they fire needs a push from the
+server side, for example a LibreNMS alert transport. That's a separate piece of
+work from this app.
+
+**Details worth knowing:**
+
+- The first check after signing in (or after switching server) records what's
+  already open without notifying, like desktop's "don't notify on first poll".
+  Later checks, including background wakes in a fresh process, compare
+  against that saved state (`alert-watch.json` in the app's data folder).
+- Your own acknowledge/unacknowledge from the Alerts tab doesn't notify you.
+- A later notification for the same alert replaces the earlier one, and
+  acknowledging or recovering an alert removes its notification.
+- More changes than desktop's per-poll limit (5) become one summary
+  notification ("3 new critical alerts").
+- Sounds and how notifications appear are set by the phone. On Android there
+  are three channels (critical, warnings, updates) you can tune under the
+  app's notification settings.
+- Signing out stops the checks and forgets the saved state.
 
 ## How the code is shared with desktop
 
@@ -55,8 +96,8 @@ tests/
   (see `tests/DesktopNMS.Core.Tests/DesktopNMS.Core.Tests.csproj`).
 - **Keep the head thin.** Anything that isn't a page or a platform API belongs
   in `DashyNMS.Mobile.Shared`, where it's plain .NET and unit tested. The
-  head only supplies adapters for navigation, dialogs, the browser and
-  secure storage.
+  head only supplies adapters for navigation, dialogs, the browser, secure
+  storage, notifications and background scheduling.
 
 ## Building
 
@@ -101,18 +142,17 @@ App Store Connect, with no Mac needed.
 
 Roughly in order, following what desktop already has:
 
-1. **Alert notifications.** Background polling (Android WorkManager / iOS
-   background fetch) using desktop's `AlertChangeDetector` and
-   `NotificationStateStore`, with per-severity settings and quiet hours.
-2. **Health**: sensors (dBm, temperature, fans) coloured against their limits.
-3. **Graphs**: device and port graphs via Core's `IGraphsApi`.
-4. **Device detail, fuller**: ports and neighbours, event log, maintenance
+1. **Health**: sensors (dBm, temperature, fans) coloured against their limits.
+2. **Graphs**: device and port graphs via Core's `IGraphsApi`.
+3. **Device detail, fuller**: ports and neighbours, event log, maintenance
    windows, rediscover.
-5. **Groups and locations**, plus pinned and recently viewed devices.
-6. **Integrations**: Unimus config backups and Graylog messages (Core already
+4. **Groups and locations**, plus pinned and recently viewed devices.
+5. **Integrations**: Unimus config backups and Graylog messages (Core already
    has both clients; they need keychain-backed secret stores like the
    LibreNMS token's).
-7. **Store builds**: Play internal testing (TestFlight is in place, see above).
+6. **Store builds**: Play internal testing (TestFlight is in place, see above).
+7. **Instant alerts**: a push from the server side, so alerts don't wait for
+   the next background check.
 
 ## Upstream notes
 
@@ -126,3 +166,7 @@ Things found while porting that would be better fixed in the desktop repo:
   Moving those (and `AddDesktopNmsCore`'s registration of them) into the WPF
   project would let Core target plain `net9.0`/`net10.0`. Mobile could then
   use a normal `ProjectReference` instead of compiling the sources.
+- The rules for which alert changes deserve a notification (`ShouldNotify`,
+  the titles, and the summary cap in `AlertNotificationService`) live in the WPF
+  app, so mobile's `AlertNotificationPlanner` has to mirror them. Moving
+  them into Core would give both apps one copy.

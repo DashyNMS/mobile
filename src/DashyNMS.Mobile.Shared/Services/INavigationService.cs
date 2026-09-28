@@ -14,6 +14,8 @@ public static class Routes
 
     public const string Main = "//main";
 
+    public const string Alerts = "//main/alerts";
+
     public const string DeviceDetail = "device";
 
     /// <summary>Query attribute carrying the device id for <see cref="DeviceDetail"/>.</summary>

@@ -6,4 +6,6 @@
 	<application android:allowBackup="false" android:icon="@mipmap/appicon" android:roundIcon="@mipmap/appicon_round" android:supportsRtl="true" android:label="DashyNMS"></application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 	<uses-permission android:name="android.permission.INTERNET" />
+	<!-- Android 13+: asked for at sign-in, for alert notifications. -->
+	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

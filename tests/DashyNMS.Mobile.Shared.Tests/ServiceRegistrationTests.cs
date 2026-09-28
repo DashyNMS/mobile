@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
@@ -21,7 +22,10 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(DeviceDetailViewModel))]
     [InlineData(typeof(AlertsViewModel))]
     [InlineData(typeof(SettingsViewModel))]
-    public void Every_view_model_resolves(Type viewModel)
+    [InlineData(typeof(AlertWatcher))]
+    [InlineData(typeof(AlertWatchCoordinator))]
+    [InlineData(typeof(NotificationRouter))]
+    public void Every_view_model_and_alert_service_resolves(Type viewModel)
     {
         var services = new ServiceCollection()
             .AddDashyNmsMobile()
@@ -29,7 +33,9 @@ public sealed class ServiceRegistrationTests
             .AddSingleton(Substitute.For<ISecureStorage>())
             .AddSingleton(Substitute.For<INavigationService>())
             .AddSingleton(Substitute.For<IDialogService>())
-            .AddSingleton(Substitute.For<ILauncherService>());
+            .AddSingleton(Substitute.For<ILauncherService>())
+            .AddSingleton(Substitute.For<IAlertNotifier>())
+            .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());
 
         using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
 

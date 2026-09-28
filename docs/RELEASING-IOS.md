@@ -98,6 +98,10 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 
 ## Notes
 
+- Alert notifications use local notifications and background app refresh
+  (`UIBackgroundModes: fetch` in `Info.plist`). Neither needs an App ID
+  capability, so the App ID and profile from the steps above don't need to
+  change. Remote push would need them, but the app doesn't use it.
 - `ITSAppUsesNonExemptEncryption` is `false` in `Platforms/iOS/Info.plist`,
   because the app only uses standard HTTPS. This skips the export-compliance
   question on every build. Revisit it if the app ever adds its own cryptography.

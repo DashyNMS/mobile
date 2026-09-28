@@ -24,6 +24,60 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Text="Alert notifications" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Checks every few minutes while DashyNMS is open, and in the background when your phone allows it." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" VerticalOptions="Center" />
+                    </Grid>
+
+                    <VerticalStackLayout Spacing="14" IsVisible="{Binding NotificationsEnabled}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Critical alerts" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyCritical}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Warnings" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyWarning}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="When an alert recovers" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnRecovery}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="When someone acknowledges an alert" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnAcknowledge}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Quiet hours" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding QuietHoursEnabled}" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding QuietHoursEnabled}">
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+                                <Label Text="From" VerticalOptions="Center" />
+                                <Picker Grid.Column="1" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursStart}" />
+                                <Label Grid.Column="2" Text="to" VerticalOptions="Center" />
+                                <Picker Grid.Column="3" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursEnd}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Still notify critical alerts" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding QuietHoursAllowCritical}" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <Button Text="Send a test notification" Command="{Binding SendTestNotificationCommand}" />
+                        <Label Style="{StaticResource Caption}"
+                               Text="Sounds and how each kind of alert appears are set in your phone's notification settings for DashyNMS." />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="TIMESTAMPS" />
             <Border Style="{StaticResource Card}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">

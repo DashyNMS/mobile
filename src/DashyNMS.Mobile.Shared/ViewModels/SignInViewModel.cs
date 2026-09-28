@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
@@ -14,6 +15,8 @@ public sealed partial class SignInViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly SecretCache _secrets;
+    private readonly IAlertNotifier _notifier;
+    private readonly NotificationRouter _router;
     private bool _restoreAttempted;
 
     [ObservableProperty]
@@ -31,9 +34,17 @@ public sealed partial class SignInViewModel : ViewModelBase
     [ObservableProperty]
     private bool _rememberToken = true;
 
-    public SignInViewModel(ISessionService session, ISettingsStore settings, INavigationService navigation, SecretCache secrets)
+    public SignInViewModel(
+        ISessionService session,
+        ISettingsStore settings,
+        INavigationService navigation,
+        SecretCache secrets,
+        IAlertNotifier notifier,
+        NotificationRouter router)
     {
         _secrets = secrets;
+        _notifier = notifier;
+        _router = router;
         _session = session;
         _settings = settings;
         _navigation = navigation;
@@ -74,7 +85,7 @@ public sealed partial class SignInViewModel : ViewModelBase
 
         if (restored)
         {
-            await _navigation.GoToAsync(Routes.Main);
+            await ShowMainAsync();
         }
     }
 
@@ -101,7 +112,22 @@ public sealed partial class SignInViewModel : ViewModelBase
         {
             // Never leave the token sitting in a text box behind the app.
             ApiToken = string.Empty;
-            await _navigation.GoToAsync(Routes.Main);
+            await ShowMainAsync();
         }
+    }
+
+    private async Task ShowMainAsync()
+    {
+        await _navigation.GoToAsync(Routes.Main);
+
+        // Asked here, once there's something to be notified about; the
+        // platforms only actually prompt the first time.
+        if (_settings.Current.Notifications.Enabled)
+        {
+            await _notifier.RequestPermissionAsync();
+        }
+
+        // A tapped notification may be what opened the app.
+        await _router.MainShownAsync();
     }
 }

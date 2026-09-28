@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
@@ -15,14 +16,21 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
+    private readonly ISelfActionTracker _selfActions;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
 
     /// <summary>Hide alerts someone has already acknowledged.</summary>
     [ObservableProperty]
     private bool _hideAcknowledged;
 
-    public AlertsViewModel(ILibreNmsClient client, ISettingsStore settings, IDialogService dialogs, INavigationService navigation)
+    public AlertsViewModel(
+        ILibreNmsClient client,
+        ISettingsStore settings,
+        IDialogService dialogs,
+        INavigationService navigation,
+        ISelfActionTracker selfActions)
     {
+        _selfActions = selfActions;
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
@@ -70,6 +78,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
         if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
         {
+            // So the next alert check doesn't notify you about your own acknowledgement.
+            _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
             await RefreshAsync();
         }
     }
@@ -94,6 +104,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
+            _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
             await RefreshAsync();
         }
     }

@@ -1,5 +1,7 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.ViewModels;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
@@ -15,8 +17,8 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Core's LibreNMS client and settings, the session, and the view models.
-    /// The app head adds <see cref="ISecureStorage"/>, navigation, dialogs and
-    /// the launcher on top.
+    /// The app head adds <see cref="ISecureStorage"/>, navigation, dialogs, the
+    /// launcher and the platform's notifications and background scheduling on top.
     /// </summary>
     /// <remarks>
     /// Mirrors desktop's <c>AddDesktopNmsCore</c>, minus its DPAPI secret
@@ -35,6 +37,15 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SecretCache>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
+
+        // Alert notifications. The app head supplies IAlertNotifier and
+        // IBackgroundAlertScheduler for its platform.
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
+        services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
+        services.AddSingleton<AlertWatcher>();
+        services.AddSingleton<AlertWatchCoordinator>();
+        services.AddSingleton<NotificationRouter>();
 
         services.AddTransient<SignInViewModel>();
         services.AddTransient<DashboardViewModel>();

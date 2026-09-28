@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Adapters;
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Pages;
 using DashyNMS.Mobile.Services;
 using Microsoft.Extensions.Logging;
@@ -30,6 +31,14 @@ public static class MauiProgram
 		builder.Services.AddSingleton<INavigationService, ShellNavigationService>();
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
+
+#if ANDROID
+		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
+		builder.Services.AddSingleton<IBackgroundAlertScheduler, AndroidAlertScheduler>();
+#elif IOS
+		builder.Services.AddSingleton<IAlertNotifier, IosAlertNotifier>();
+		builder.Services.AddSingleton<IBackgroundAlertScheduler, IosAlertScheduler>();
+#endif
 
 		// Shell resolves registered pages through DI, so each gets its view model.
 		builder.Services.AddSingleton<AppShell>();
