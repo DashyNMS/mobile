@@ -39,8 +39,11 @@ public class MainActivity : MauiAppCompatActivity
 		int? deviceId = intent.HasExtra(AndroidAlertNotifier.ExtraDeviceId)
 			? intent.GetIntExtra(AndroidAlertNotifier.ExtraDeviceId, 0)
 			: null;
+		int? alertId = intent.HasExtra(AndroidAlertNotifier.ExtraAlertId)
+			? intent.GetIntExtra(AndroidAlertNotifier.ExtraAlertId, 0)
+			: null;
 
 		var router = IPlatformApplication.Current?.Services.GetService<NotificationRouter>();
-		_ = router?.OpenAsync(new NotificationTarget(deviceId));
+		_ = router?.OpenAsync(new NotificationTarget(deviceId, alertId));
 	}
 }

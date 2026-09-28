@@ -138,6 +138,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     private bool CanTogglePin() => Device is not null && _bookmarks.PinningEnabled;
 
     /// <summary>Pinned devices stay at the top of the Devices tab.</summary>
+    [RelayCommand]
+    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
+
     [RelayCommand(CanExecute = nameof(CanTogglePin))]
     private void TogglePin()
     {

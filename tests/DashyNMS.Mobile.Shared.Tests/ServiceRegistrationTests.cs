@@ -25,6 +25,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(MaintenanceViewModel))]
     [InlineData(typeof(DeviceSections.DeviceSectionViewModel))]
     [InlineData(typeof(DeviceSections.DeviceGraphsViewModel))]
+    [InlineData(typeof(AlertDetailViewModel))]
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]

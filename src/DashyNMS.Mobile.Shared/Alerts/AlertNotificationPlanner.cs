@@ -100,7 +100,8 @@ public static class AlertNotificationPlanner
             detail,
             alert.Severity,
             change.IsProblem,
-            alert.DeviceId);
+            alert.DeviceId,
+            alert.Id);
     }
 
     private static AlertNotification Summary(IReadOnlyList<AlertChange> changes)

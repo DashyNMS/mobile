@@ -121,7 +121,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
     });
 
     [RelayCommand]
-    private Task OpenDeviceAsync(AlertItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.Alert.DeviceId);
+    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
 
     [RelayCommand]
     private Task OpenPinnedAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);

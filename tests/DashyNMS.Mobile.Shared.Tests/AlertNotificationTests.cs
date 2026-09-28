@@ -94,6 +94,7 @@ public sealed class AlertWatcherTests
         Assert.Equal("Critical: host9", shown.Title);
         Assert.Equal("Rule 2", shown.Body);
         Assert.Equal(9, shown.DeviceId);
+        Assert.Equal(2, shown.AlertId); // tapping it opens the alert's own page
         Assert.True(shown.IsProblem);
     }
 
@@ -148,6 +149,7 @@ public sealed class AlertWatcherTests
         Assert.Equal("3 new critical alerts", summary.Title);
         Assert.Equal("+2 more", summary.Detail);
         Assert.Null(summary.DeviceId);
+        Assert.Null(summary.AlertId);
     }
 
     [Fact]

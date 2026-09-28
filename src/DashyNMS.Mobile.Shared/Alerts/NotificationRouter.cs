@@ -3,8 +3,11 @@ using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Alerts;
 
-/// <summary>Where a tapped notification leads: a device, or the alert list when null.</summary>
-public sealed record NotificationTarget(int? DeviceId);
+/// <summary>
+/// Where a tapped notification leads: the alert, else the device, else (a
+/// summary of several) the alert list.
+/// </summary>
+public sealed record NotificationTarget(int? DeviceId, int? AlertId = null);
 
 /// <summary>
 /// Opens the screen a tapped notification points at. A tap can also be what
@@ -63,7 +66,21 @@ public sealed class NotificationRouter
         return pending is null ? Task.CompletedTask : NavigateAsync(pending);
     }
 
-    private Task NavigateAsync(NotificationTarget target) => target.DeviceId is { } deviceId
-        ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId })
-        : _navigation.GoToAsync(Routes.Alerts);
+    private Task NavigateAsync(NotificationTarget target)
+    {
+        if (target.AlertId is { } alertId)
+        {
+            var parameters = new Dictionary<string, object> { [Routes.AlertIdParameter] = alertId };
+            if (target.DeviceId is { } device)
+            {
+                parameters[Routes.DeviceIdParameter] = device;
+            }
+
+            return _navigation.GoToAsync(Routes.AlertDetail, parameters);
+        }
+
+        return target.DeviceId is { } deviceId
+            ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId })
+            : _navigation.GoToAsync(Routes.Alerts);
+    }
 }

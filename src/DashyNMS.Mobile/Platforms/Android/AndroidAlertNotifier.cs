@@ -16,6 +16,7 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
     /// <summary>Intent extras MainActivity reads when a notification is tapped.</summary>
     internal const string ExtraFromNotification = "net.pckp.dashynms.fromNotification";
     internal const string ExtraDeviceId = "net.pckp.dashynms.deviceId";
+    internal const string ExtraAlertId = "net.pckp.dashynms.alertId";
 
     private const string CriticalChannel = "alerts-critical";
     private const string WarningChannel = "alerts-warning";
@@ -91,6 +92,11 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
         if (notification.DeviceId is { } deviceId)
         {
             intent.PutExtra(ExtraDeviceId, deviceId);
+        }
+
+        if (notification.AlertId is { } alertId)
+        {
+            intent.PutExtra(ExtraAlertId, alertId);
         }
 
         // One request code per tag, or every notification would share (and

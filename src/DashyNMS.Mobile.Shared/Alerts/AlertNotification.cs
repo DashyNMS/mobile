@@ -8,7 +8,8 @@ namespace DashyNMS.Mobile.Alerts;
 /// this one, so an alert's "Recovered" takes the place of its "Critical".
 /// </param>
 /// <param name="IsProblem">Something starting or resuming (as opposed to a recovery or acknowledgement).</param>
-/// <param name="DeviceId">Where tapping it goes - that device - or null for the alert list.</param>
+/// <param name="DeviceId">The alert's device, or null for a summary of several.</param>
+/// <param name="AlertId">Where tapping it goes - that alert's page - or null (a summary) for the alert list.</param>
 public sealed record AlertNotification(
     string Tag,
     string Title,
@@ -16,7 +17,8 @@ public sealed record AlertNotification(
     string? Detail,
     AlertSeverity Severity,
     bool IsProblem,
-    int? DeviceId)
+    int? DeviceId,
+    int? AlertId = null)
 {
     public const string SummaryTag = "summary";
 

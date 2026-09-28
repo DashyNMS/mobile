@@ -205,9 +205,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task OpenDeviceAsync(AlertItem? item) => item is null
-        ? Task.CompletedTask
-        : _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = item.Alert.DeviceId });
+    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
 
     internal string BuildCsv() => CsvWriter.ToCsv(
         CsvHeaders,

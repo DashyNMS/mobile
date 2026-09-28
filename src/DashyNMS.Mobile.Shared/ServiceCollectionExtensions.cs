@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<DevicesViewModel>();
         services.AddTransient<DeviceDetailViewModel>();
         services.AddTransient<AlertsViewModel>();
+        services.AddTransient<AlertDetailViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 

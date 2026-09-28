@@ -41,9 +41,14 @@ rather than rewritten.
   rule, note and alert id. Filters are remembered between launches. Swipe to
   acknowledge (with an optional note) or unacknowledge. **Export** shares the
   filtered list as CSV, in desktop's columns.
+- **Alert detail**: tap any alert (in the list, on the dashboard, in Device
+  View or in a notification) for its own page: why it fired - desktop's
+  fault details, with the columns the rule tests first - the rule's
+  condition, notes and procedure, the rule's recent history on that device,
+  and acknowledge / unacknowledge.
 - **Alert notifications**: new, reopened and (optionally) recovered or
   acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
-  Tapping one opens the device, or the alert list for a summary.
+  Tapping one opens the alert, or the alert list for a summary.
 - **Settings**: the connected server and version, notification options
   (per severity, recovery, acknowledgement, quiet hours, a test
   notification), the *Server stores timestamps in UTC* option (the same
@@ -167,6 +172,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
 | Worst severity at a glance | Tray icon with open-alert count | ⬜ App icon badge, home-screen widget |
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |
+| Alert detail: fault details, rule, history | ✅ | ✅ On its own page, from any alert or notification |
 | Acknowledge / unacknowledge | ✅ | ✅ |
 | Alert rules and templates | Full editor | ⬜ View only, maybe; editing is a desktop job |
 | Devices list | Sortable grid, column picker, state chips, Type/Location/Group filters, search | ✅ State chips (incl. maintenance), Type/Location/Group filters (one choice each), search, seven sorts |
@@ -203,8 +209,6 @@ Ordered by how much each adds on a phone, not by desktop's order.
    regenerated provisioning profile.
 2. **App icon badge**: the open-alert count on the icon, the phone's version
    of desktop's tray icon.
-3. **Alert detail**: the rule, note and fault details for one alert (the
-   list's filters, search and export are done).
 
 **Then: the rest of the everyday views**
 

@@ -32,6 +32,12 @@ public static class Routes
 
     public const string Maintenance = "maintenance";
 
+    /// <summary>One alert - with <see cref="AlertIdParameter"/>, and <see cref="DeviceIdParameter"/> when known.</summary>
+    public const string AlertDetail = "alert";
+
+    /// <summary>Query attribute: the alert id for <see cref="AlertDetail"/>.</summary>
+    public const string AlertIdParameter = "alertid";
+
     /// <summary>Query attribute: a <c>DeviceSection</c>.</summary>
     public const string SectionParameter = "section";
 
@@ -43,4 +49,15 @@ public static class Routes
 
     /// <summary>Query attribute: the port's display name, for titles.</summary>
     public const string PortNameParameter = "portname";
+}
+
+public static class NavigationServiceExtensions
+{
+    /// <summary>An alert's own page - what tapping an alert anywhere opens.</summary>
+    public static Task GoToAlertAsync(this INavigationService navigation, DesktopNMS.Core.Models.Alert alert) =>
+        navigation.GoToAsync(Routes.AlertDetail, new Dictionary<string, object>
+        {
+            [Routes.AlertIdParameter] = alert.Id,
+            [Routes.DeviceIdParameter] = alert.DeviceId,
+        });
 }

@@ -66,7 +66,7 @@
                             <Border Style="{StaticResource Card}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer
-                                        Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                        Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Border.GestureRecognizers>
                                 <Grid ColumnDefinitions="6,*" ColumnSpacing="12">

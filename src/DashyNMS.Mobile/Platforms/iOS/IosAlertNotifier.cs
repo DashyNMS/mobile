@@ -10,6 +10,7 @@ public sealed class IosAlertNotifier : IAlertNotifier
 {
     /// <summary>Notification user info key carrying the device id, for tap handling.</summary>
     internal const string DeviceIdKey = "deviceId";
+    internal const string AlertIdKey = "alertId";
 
     public async Task<bool> RequestPermissionAsync()
     {
@@ -35,10 +36,18 @@ public sealed class IosAlertNotifier : IAlertNotifier
             content.Sound = UNNotificationSound.Default;
         }
 
+        var userInfo = new NSMutableDictionary();
         if (notification.DeviceId is { } deviceId)
         {
-            content.UserInfo = NSDictionary.FromObjectAndKey(NSNumber.FromInt32(deviceId), new NSString(DeviceIdKey));
+            userInfo[new NSString(DeviceIdKey)] = NSNumber.FromInt32(deviceId);
         }
+
+        if (notification.AlertId is { } alertId)
+        {
+            userInfo[new NSString(AlertIdKey)] = NSNumber.FromInt32(alertId);
+        }
+
+        content.UserInfo = userInfo;
 
         // Same identifier as an earlier notification for this alert: iOS replaces it.
         var request = UNNotificationRequest.FromIdentifier(notification.Tag, content, trigger: null);
@@ -74,9 +83,12 @@ internal sealed class NotificationCenterDelegate : UNUserNotificationCenterDeleg
         int? deviceId = userInfo?.ObjectForKey(new NSString(IosAlertNotifier.DeviceIdKey)) is NSNumber number
             ? number.Int32Value
             : null;
+        int? alertId = userInfo?.ObjectForKey(new NSString(IosAlertNotifier.AlertIdKey)) is NSNumber alertNumber
+            ? alertNumber.Int32Value
+            : null;
 
         var router = IPlatformApplication.Current?.Services.GetService<NotificationRouter>();
-        _ = router?.OpenAsync(new NotificationTarget(deviceId));
+        _ = router?.OpenAsync(new NotificationTarget(deviceId, alertId));
 
         completionHandler();
     }
