@@ -34,6 +34,17 @@ public sealed partial class SignInViewModel : ViewModelBase
     [ObservableProperty]
     private bool _rememberToken = true;
 
+    /// <summary>
+    /// True while signing back in with the saved token - the page shows the
+    /// logo and a spinner instead of the form, so the form doesn't flash up
+    /// only to vanish a moment later (issue #28).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowForm))]
+    private bool _isRestoring;
+
+    public bool ShowForm => !IsRestoring;
+
     public SignInViewModel(
         ISessionService session,
         ISettingsStore settings,
@@ -54,6 +65,10 @@ public sealed partial class SignInViewModel : ViewModelBase
         _backupAddress = current.BackupServerAddress ?? string.Empty;
         _allowUntrustedCertificate = current.AllowUntrustedCertificate;
         _rememberToken = current.RememberToken || string.IsNullOrEmpty(current.ServerUrl);
+
+        // Whether there's a token isn't known until the keychain has been
+        // read, but a remembered server is a good guess that there is.
+        _isRestoring = current.RememberToken && !string.IsNullOrEmpty(current.ServerUrl);
     }
 
     /// <summary>
@@ -87,6 +102,10 @@ public sealed partial class SignInViewModel : ViewModelBase
         {
             await ShowMainAsync();
         }
+
+        // Signed in, or it didn't work: either way the form is what's
+        // wanted if this page is shown again (after signing out).
+        IsRestoring = false;
     }
 
     [RelayCommand]

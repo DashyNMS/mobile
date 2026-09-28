@@ -372,6 +372,33 @@ public sealed class SignInViewModelTests
         Assert.False(vm.HasError);
         Assert.Empty(_navigation.Visits);
     }
+
+    [Fact]
+    public async Task A_remembered_server_shows_signing_in_rather_than_the_form_until_restore_fails()
+    {
+        _session.TryRestoreAsync(default).ReturnsForAnyArgs(ConnectionTestResult.Failure("The server didn't answer."));
+        var vm = new SignInViewModel(
+            _session, Fakes.Settings(new AppSettings { ServerUrl = "https://nms.example.com", RememberToken = true }),
+            _navigation, Fakes.Secrets(), _notifier, new NotificationRouter(_session, _navigation));
+
+        Assert.True(vm.IsRestoring);
+        Assert.False(vm.ShowForm);
+
+        await vm.AppearingCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsRestoring);
+        Assert.True(vm.ShowForm);
+        Assert.Equal("The server didn't answer.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public void A_first_launch_goes_straight_to_the_form()
+    {
+        var vm = NewViewModel();
+
+        Assert.False(vm.IsRestoring);
+        Assert.True(vm.ShowForm);
+    }
 }
 
 public sealed class FormattingTests

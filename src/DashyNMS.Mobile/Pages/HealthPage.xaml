@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.HealthPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:HealthViewModel"
@@ -74,6 +75,7 @@
 
         <Label Grid.Row="4" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
+        <controls:LoadingIndicator Grid.Row="5" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
         <RefreshView Grid.Row="5" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
             <CollectionView ItemsSource="{Binding Sensors}" SelectionMode="None">
                 <CollectionView.ItemsLayout>

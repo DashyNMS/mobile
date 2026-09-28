@@ -7,7 +7,20 @@
     x:DataType="vm:SignInViewModel"
     Title="Sign in">
 
-    <ScrollView>
+    <Grid>
+
+    <!-- Signing back in with the saved token: no form to flash up and vanish (#28). -->
+    <VerticalStackLayout IsVisible="{Binding IsRestoring}" Spacing="16"
+                         HorizontalOptions="Center" VerticalOptions="Center">
+        <HorizontalStackLayout Spacing="12" HorizontalOptions="Center">
+            <Image Source="dashynms_logo.png" WidthRequest="44" HeightRequest="44" SemanticProperties.Description="DashyNMS logo" />
+            <Label Text="DashyNMS" FontSize="32" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+        </HorizontalStackLayout>
+        <ActivityIndicator IsRunning="{Binding IsRestoring}" />
+        <Label Style="{StaticResource Caption}" Text="Signing in…" HorizontalOptions="Center" />
+    </VerticalStackLayout>
+
+    <ScrollView IsVisible="{Binding ShowForm}">
         <VerticalStackLayout Padding="24,48,24,24" Spacing="12" MaximumWidthRequest="520">
 
             <HorizontalStackLayout Spacing="12">
@@ -65,5 +78,7 @@
 
         </VerticalStackLayout>
     </ScrollView>
+
+    </Grid>
 
 </ContentPage>
