@@ -120,8 +120,45 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         var rule = ruleTask.Result;
         var log = (logTask.Result ?? []).Where(e => e.RuleId == alert.RuleId).ToList();
 
-        Groups.ReplaceAll(BuildGroups(Alert, rule, log, utc));
+        _rule = rule;
+        _ruleLog = log;
+        ShowGroups();
     });
+
+    private AlertRule? _rule;
+    private IReadOnlyList<AlertLogEntry> _ruleLog = [];
+
+    /// <summary>
+    /// "Why it fired" shows the columns the rule tests by default (#46) -
+    /// desktop keeps the rest for when the reader asks for the full row.
+    /// This is that ask, for every match at once.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AllFieldsText))]
+    private bool _showAllFields;
+
+    /// <summary>Whether there's anything the toggle would add.</summary>
+    [ObservableProperty]
+    private bool _hasMoreFields;
+
+    public string AllFieldsText => ShowAllFields ? "Show only what the rule tests" : "Show all fields";
+
+    partial void OnShowAllFieldsChanged(bool value) => ShowGroups();
+
+    [RelayCommand]
+    private void ToggleAllFields() => ShowAllFields = !ShowAllFields;
+
+    private void ShowGroups()
+    {
+        if (Alert is not { } alert)
+        {
+            return;
+        }
+
+        var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
+        HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
+        Groups.ReplaceAll(BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields));
+    }
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
     [RelayCommand]
@@ -180,7 +217,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
         : Task.CompletedTask;
 
-    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc)
+    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false)
     {
         var status = StatusFor(alert.Severity);
 
@@ -204,12 +241,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         {
             yield return new SectionGroup(
                 detail.Faults.Count == 1 ? "Why it fired" : $"Why it fired · {detail.Faults.Count} matches",
-                detail.Faults.Select(f => FaultRow(f, status)));
+                detail.Faults.Select(f => FaultRow(f, status, showAllFields)));
         }
 
         if (detail.Resolved.Count > 0)
         {
-            yield return new SectionGroup("Cleared since the last check", detail.Resolved.Select(f => FaultRow(f, RowStatus.Ok)));
+            yield return new SectionGroup("Cleared since the last check", detail.Resolved.Select(f => FaultRow(f, RowStatus.Ok, showAllFields)));
         }
 
         if (rule is not null)
@@ -234,15 +271,29 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// A fault as one row: what faulted ("Gi0/1 - uplink to core"), the
-    /// values the rule tests, and - smaller - everything else measured.
+    /// When the rule's tested columns can't be picked out, how many of the
+    /// measured fields show before "Show all fields".
     /// </summary>
-    internal static SectionRow FaultRow(AlertFault fault, RowStatus status) => new(fault.Title)
+    internal const int UntestedFieldsShown = 3;
+
+    /// <summary>
+    /// A fault as one row: what faulted ("Gi0/1 - uplink to core") and the
+    /// values the rule tests. Everything else measured - or, when the tested
+    /// columns can't be picked out, all but the first few - only with
+    /// <paramref name="showAllFields"/>, smaller (#46).
+    /// </summary>
+    internal static SectionRow FaultRow(AlertFault fault, RowStatus status, bool showAllFields = false) => new(fault.Title)
     {
-        Subtitle = Fields(fault.PrimaryFields),
-        Detail = Fields(fault.SecondaryFields),
+        Subtitle = Fields(showAllFields || fault.HasTriggerFields
+            ? fault.PrimaryFields
+            : fault.PrimaryFields.Take(UntestedFieldsShown).ToList()),
+        Detail = showAllFields ? Fields(fault.SecondaryFields) : null,
         Status = status,
     };
+
+    /// <summary>Whether <see cref="FaultRow"/> leaves anything out until "Show all fields".</summary>
+    private static bool HasHiddenFields(AlertFault fault) =>
+        fault.HasSecondaryFields || (!fault.HasTriggerFields && fault.PrimaryFields.Count > UntestedFieldsShown);
 
     private static IEnumerable<SectionRow> RuleRows(AlertRule rule)
     {

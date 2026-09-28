@@ -13,7 +13,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// <summary>
 /// One device, as desktop's Device View: its state, identity and open
 /// alerts, the way into each section (sensors, ports, graphs...), and the
-/// actions - pin, rediscover, schedule maintenance, open in the browser.
+/// actions - pin, rediscover, schedule maintenance, SSH and Telnet.
 /// </summary>
 public sealed partial class DeviceDetailViewModel : ViewModelBase
 {
@@ -27,7 +27,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText))]
-    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand), nameof(OpenSshCommand), nameof(OpenTelnetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand), nameof(OpenSshCommand), nameof(OpenTelnetCommand))]
     private Device? _device;
 
     [ObservableProperty]
@@ -41,7 +41,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         DeviceBookmarks bookmarks,
         IDialogService dialogs,
         INavigationService navigation,
-        Graylog.GraylogSetup? graylog = null)
+        Graylog.GraylogSetup? graylog = null,
+        DeviceSectionLoader? sections = null)
     {
         _client = client;
         _settings = settings;
@@ -50,12 +51,97 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         _dialogs = dialogs;
         _navigation = navigation;
         _graylog = graylog;
+        _sectionLoader = sections;
+        BuildSectionCards();
     }
 
-    /// <summary>Desktop's Device View tabs, each opening on its own page - Graylog's too, once it's set up.</summary>
-    public IReadOnlyList<DeviceSectionInfo> Sections => _graylog?.IsConfigured == true
-        ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
-        : DeviceSectionInfo.All;
+    private readonly DeviceSectionLoader? _sectionLoader;
+    private IReadOnlyList<DeviceSectionCard> _sectionCards = [];
+    private CancellationTokenSource? _sectionsCts;
+
+    /// <summary>
+    /// Desktop's Device View tabs as cards, each with a quick view and
+    /// opening on its own page (#43) - Graylog's too, once it's set up. Only
+    /// the ones with something to show, as desktop hides empty tabs (#44).
+    /// </summary>
+    public BulkObservableCollection<DeviceSectionCard> SectionCards { get; } = new();
+
+    /// <summary>The sections listed, in order.</summary>
+    public IReadOnlyList<DeviceSectionInfo> Sections => SectionCards.Select(c => c.Info).ToList();
+
+    /// <summary>Awaited by tests: every section's quick view has loaded (or failed).</summary>
+    internal Task SectionsLoaded { get; private set; } = Task.CompletedTask;
+
+    private void BuildSectionCards()
+    {
+        IEnumerable<DeviceSectionInfo> infos = _graylog?.IsConfigured == true
+            ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
+            : DeviceSectionInfo.All;
+
+        foreach (var card in _sectionCards)
+        {
+            card.PropertyChanged -= OnSectionCardChanged;
+        }
+
+        _sectionCards = infos.Select(info => new DeviceSectionCard(info)).ToList();
+        foreach (var card in _sectionCards)
+        {
+            card.PropertyChanged += OnSectionCardChanged;
+        }
+
+        ShowVisibleSections();
+    }
+
+    private void OnSectionCardChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DeviceSectionCard.IsVisible))
+        {
+            ShowVisibleSections();
+        }
+    }
+
+    private void ShowVisibleSections()
+    {
+        SectionCards.ReplaceAll(_sectionCards.Where(c => c.IsVisible).ToList());
+        OnPropertyChanged(nameof(Sections));
+    }
+
+    /// <summary>
+    /// Every section's quick view, all at once and in the background, as
+    /// desktop loads its tabs - the page is already showing the device.
+    /// </summary>
+    private async Task LoadSectionsAsync(CancellationToken cancellationToken)
+    {
+        if (_sectionLoader is null)
+        {
+            return;
+        }
+
+        await Task.WhenAll(_sectionCards.Where(c => c.HasQuickView).Select(async card =>
+        {
+            card.IsLoading = true;
+            try
+            {
+                var groups = await _sectionLoader.LoadAsync(card.Info.Section, DeviceId, cancellationToken);
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    card.Show(groups);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer refresh (or another device) took over.
+            }
+            catch (Exception)
+            {
+                card.Failed();
+            }
+            finally
+            {
+                card.IsLoading = false;
+            }
+        }));
+    }
 
     /// <summary>"Last discovered 3h ago", when LibreNMS says.</summary>
     public string? LastDiscoveredText => Device?.LastDiscovered is { } at
@@ -115,18 +201,25 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
         var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
         await Task.WhenAll(deviceTask, alertsTask, graylogTask);
-        OnPropertyChanged(nameof(Sections));
-
         Device = deviceTask.Result;
         if (Device is null)
         {
             ErrorMessage = "LibreNMS no longer has this device.";
+            SectionCards.ReplaceAll([]);
+            OnPropertyChanged(nameof(Sections));
         }
         else
         {
             // Onto the Devices tab's recently viewed strip, as desktop's Device View does.
             _bookmarks.RecordViewed(DeviceId, Title);
             IsPinned = _bookmarks.IsPinned(DeviceId);
+
+            // Fresh cards each refresh (Graylog may have been set up since),
+            // loading behind the device's own details.
+            _sectionsCts?.Cancel();
+            _sectionsCts = new CancellationTokenSource();
+            BuildSectionCards();
+            SectionsLoaded = LoadSectionsAsync(_sectionsCts.Token);
         }
 
         var utc = _settings.Current.ServerTimestampsAreUtc;
@@ -220,10 +313,4 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                 $"Nothing on this phone opens {scheme}:// links. Install an {name} app that does, then try again.");
         }
     }
-
-    private bool CanOpenInBrowser() => Device is not null && _client.Connection is not null;
-
-    [RelayCommand(CanExecute = nameof(CanOpenInBrowser))]
-    private Task OpenInBrowserAsync() =>
-        _client.Connection is { } connection ? _launcher.OpenAsync(connection.DeviceUrl(DeviceId)) : Task.CompletedTask;
 }

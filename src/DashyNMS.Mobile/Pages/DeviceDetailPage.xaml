@@ -12,7 +12,6 @@
 
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="{Binding PinText}" Command="{Binding TogglePinCommand}" />
-        <ToolbarItem Text="Open in browser" Command="{Binding OpenInBrowserCommand}" />
     </ContentPage.ToolbarItems>
 
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
@@ -70,28 +69,54 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
-                <!-- Desktop's Device View tabs, each on its own page. -->
-                <Label Style="{StaticResource SectionHeader}" Text="MORE" />
-                <Border Style="{StaticResource Card}" Padding="0">
-                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sections}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="sections:DeviceSectionInfo">
-                                <Grid ColumnDefinitions="*,Auto" Padding="14,10">
-                                    <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer
-                                            Command="{Binding OpenSectionCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
-                                            CommandParameter="{Binding .}" />
-                                    </Grid.GestureRecognizers>
-                                    <VerticalStackLayout>
+                <!-- Desktop's Device View tabs as cards: a quick view of each,
+                     tapping through to it in full (#43). Sections the device
+                     has nothing in drop out once they've loaded (#44). -->
+                <Label Style="{StaticResource SectionHeader}" Text="SECTIONS" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding SectionCards}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="sections:DeviceSectionCard">
+                            <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding OpenSectionCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                        CommandParameter="{Binding Info}" />
+                                </Border.GestureRecognizers>
+                                <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
+                                    <!-- Red or amber when something in the section needs attention. -->
+                                    <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3"
+                                             IsVisible="{Binding NeedsAttention}" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2">
                                         <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" />
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Description}" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Description}"
+                                               IsVisible="{Binding ShowSummary, Converter={StaticResource Invert}}" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding SummaryText}" IsVisible="{Binding ShowSummary}" />
+
+                                        <!-- The worst few rows: sensors or ports in trouble come first. -->
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Highlights}" IsVisible="{Binding HasHighlights}"
+                                                             Spacing="2" Margin="0,6,0,0">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="sections:SectionRow">
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                        <Label Text="{Binding Title}" FontSize="13" LineBreakMode="TailTruncation" />
+                                                        <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
+                                                               TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
                                     </VerticalStackLayout>
-                                    <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                    <Grid Grid.Column="2" VerticalOptions="Center">
+                                        <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                                           WidthRequest="18" HeightRequest="18" />
+                                        <Label Text="›" FontSize="22" Style="{StaticResource Caption}"
+                                               IsVisible="{Binding IsLoading, Converter={StaticResource Invert}}" />
+                                    </Grid>
                                 </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </Border>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
                 <Label Style="{StaticResource SectionHeader}" Text="DETAILS" />
                 <Border Style="{StaticResource Card}">

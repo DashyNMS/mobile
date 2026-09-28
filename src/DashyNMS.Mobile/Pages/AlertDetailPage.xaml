@@ -36,6 +36,11 @@
                         <Button Text="Unacknowledge" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
                         <Button Grid.Column="1" Text="Open device" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                     </Grid>
+
+                    <!-- Why it fired shows what the rule tests; this adds everything else measured (#46). -->
+                    <Button Text="{Binding AllFieldsText}" Command="{Binding ToggleAllFieldsCommand}" IsVisible="{Binding HasMoreFields}"
+                            BackgroundColor="Transparent" BorderWidth="0" HorizontalOptions="Start" Padding="0"
+                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                 </VerticalStackLayout>
             </CollectionView.Header>
 

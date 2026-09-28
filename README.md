@@ -38,9 +38,11 @@ rather than rewritten.
   device after the list loads, as on desktop.
 - **Device detail**: state, identity, uptime and the device's own open alerts,
   **Rediscover** and **Schedule maintenance** (now or later, a duration, and
-  desktop's skip/mute/run-alerts choice), pin, "Open in browser", **SSH** and
+  desktop's skip/mute/run-alerts choice), pin, **SSH** and
   **Telnet** (in whichever app on the phone handles those links), and
-  desktop's Device View sections, each on its own searchable page:
+  desktop's Device View sections as cards with a quick view (counts, what
+  needs attention, the worst few rows), hiding ones the device has nothing
+  in, as desktop does. Each opens its own searchable page:
   availability and outages, sensors (coloured against desktop's thresholds or
   the sensor's own limits), graphs, CPU/memory/storage, ports (tap one for
   its traffic, packet and error graphs), neighbours
@@ -56,7 +58,8 @@ rather than rewritten.
   Loads a page at a time; search covers what's loaded.
 - **Alert detail**: tap any alert (in the list, on the dashboard, in Device
   View or in a notification) for its own page: why it fired - desktop's
-  fault details, with the columns the rule tests first - the rule's
+  fault details, showing the columns the rule tests, with the rest behind
+  "Show all fields" - the rule's
   condition, notes and procedure, the rule's recent history on that device,
   and acknowledge / unacknowledge.
 - **Alert notifications**: new, reopened and (optionally) recovered or
@@ -249,7 +252,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Device View: overview, active alerts | ✅ | ✅ |
 | Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ✅ Each section on its own page, searchable; neighbours link to their devices |
 | Device actions: rediscover, maintenance window, edit, delete | ✅ | 🟡 Rediscover and maintenance windows; edit/delete stay on desktop |
-| Open in browser / SSH / Telnet | ✅ | ✅ SSH and Telnet open in whichever app on the phone handles the link |
+| Open in browser / SSH / Telnet | ✅ | SSH and Telnet, in whichever app on the phone handles the link; no Open in browser |
 | Health (sensors across all devices vs limits) | ✅ | ✅ Desktop's four categories, problems first |
 | Groups and locations | ✅ | ✅ Counts and devices down; opens the Devices list filtered (editing stays on desktop) |
 | Neighbours views | ✅ | 🟡 Every CDP/LLDP link, down ends first (desktop's own custom views stay on desktop) |

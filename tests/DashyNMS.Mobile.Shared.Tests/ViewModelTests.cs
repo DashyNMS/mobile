@@ -318,7 +318,7 @@ public sealed class DeviceDetailViewModelTests
         await vm.LoadAsync(7);
 
         Assert.True(vm.HasError);
-        Assert.False(vm.OpenInBrowserCommand.CanExecute(null));
+        Assert.False(vm.TogglePinCommand.CanExecute(null));
     }
 }
 
