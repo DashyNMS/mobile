@@ -35,6 +35,8 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(Logs.LogsViewModel))]
     [InlineData(typeof(Topology.NeighboursViewModel))]
     [InlineData(typeof(Map.MapViewModel))]
+    [InlineData(typeof(Graylog.GraylogViewModel))]
+    [InlineData(typeof(Graylog.GraylogSettingsViewModel))]
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]

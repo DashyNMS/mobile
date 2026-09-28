@@ -68,6 +68,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
 		builder.Services.AddTransient<MapPage>();
+		builder.Services.AddTransient<GraylogPage>();
+		builder.Services.AddTransient<GraylogSettingsPage>();
 
 		return builder.Build();
 	}

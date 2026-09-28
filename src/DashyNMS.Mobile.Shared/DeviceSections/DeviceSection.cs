@@ -1,8 +1,11 @@
 namespace DashyNMS.Mobile.DeviceSections;
 
-/// <summary>Device View's tabs, as desktop's (Graylog and Unimus wait for those integrations).</summary>
+/// <summary>Device View's tabs, as desktop's (Unimus waits for that integration).</summary>
 public enum DeviceSection
 {
+    /// <summary>The device's Graylog messages - its own page, and only listed once Graylog is set up.</summary>
+    Graylog = -1,
+
     Availability,
     Sensors,
     Resources,
@@ -39,5 +42,10 @@ public sealed record DeviceSectionInfo(DeviceSection Section, string Title, stri
         new(DeviceSection.EventLog, "Event log", "The device's recent events"),
     ];
 
-    public static DeviceSectionInfo For(DeviceSection section) => All.First(s => s.Section == section);
+    /// <summary>Not in <see cref="All"/>: it isn't LibreNMS data, and only shows when Graylog is set up.</summary>
+    public static DeviceSectionInfo Graylog { get; } =
+        new(DeviceSection.Graylog, "Graylog", "Syslog and other messages from this device");
+
+    public static DeviceSectionInfo For(DeviceSection section) =>
+        section == DeviceSection.Graylog ? Graylog : All.First(s => s.Section == section);
 }

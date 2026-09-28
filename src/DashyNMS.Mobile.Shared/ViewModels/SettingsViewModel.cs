@@ -143,6 +143,14 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenThresholdsAsync() => _navigation.GoToAsync(Routes.Thresholds);
 
+    /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
+    public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
+        ? "On · " + server.Trim()
+        : "Off";
+
+    [RelayCommand]
+    private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
+
     /// <summary>
     /// Only where the phone lets an app set the number (iPhone). Android
     /// launchers show a dot or count from the app's notifications themselves.
@@ -243,6 +251,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(ServerUrl));
         OnPropertyChanged(nameof(ServerVersion));
+        OnPropertyChanged(nameof(GraylogStatusText));
     }
 
     /// <summary>Shows a sample notification, like desktop's preview button.</summary>

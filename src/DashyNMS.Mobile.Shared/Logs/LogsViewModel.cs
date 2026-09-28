@@ -48,13 +48,28 @@ public sealed partial class LogsViewModel : ViewModelBase
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    public LogsViewModel(INetworkLogs logs, ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
+    public LogsViewModel(
+        INetworkLogs logs,
+        ILibreNmsClient client,
+        ISettingsStore settings,
+        INavigationService navigation,
+        Graylog.GraylogSetup? graylog = null)
     {
         _logs = logs;
         _client = client;
         _settings = settings;
         _navigation = navigation;
+        _graylog = graylog;
     }
+
+    private readonly Graylog.GraylogSetup? _graylog;
+
+    /// <summary>Whether to offer Graylog beside LibreNMS's own logs - only once it's set up in Settings.</summary>
+    public async Task<bool> HasGraylogAsync() => _graylog is not null && await _graylog.EnsureConfiguredAsync();
+
+    /// <summary>Every device's Graylog messages, as desktop's Logs tab.</summary>
+    [RelayCommand]
+    private Task OpenGraylogAsync() => _navigation.GoToAsync(Routes.Graylog);
 
     public bool ShowingAlertLog => !ShowingEventLog;
 
