@@ -5,6 +5,9 @@ using Android.Text;
 using Android.Text.Style;
 using Android.Views;
 using Android.Widget;
+using Color = Android.Graphics.Color;
+using Paint = Android.Graphics.Paint;
+using RectF = Android.Graphics.RectF;
 using DashyNMS.Mobile.Widgets;
 
 namespace DashyNMS.Mobile;
