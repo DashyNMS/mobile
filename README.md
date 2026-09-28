@@ -247,10 +247,7 @@ address and in-app updates. Nor does it mention mobile yet.
 
 Ordered by how much each adds on a phone, not by desktop's order.
 
-**Next: the rest of the everyday views**
-
-
-**Later**
+What's left is the less everyday:
 
 1. **Integrations**: Graylog messages and Unimus config backups, including
    Device View's Graylog and Unimus sections. Core already has both clients;
