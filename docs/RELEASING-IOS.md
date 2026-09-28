@@ -82,7 +82,7 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 ## Each release
 
 1. Bump `<Version>` in `Directory.Build.props` if this is a new version
-   (the display version, for example `0.2.0`). The build number is set
+   (the display version, for example `1.1.0`). The build number is set
    automatically from the workflow run number, so repeat uploads of the same
    version are fine.
 2. Actions → **TestFlight** → *Run workflow* → choose the branch.
