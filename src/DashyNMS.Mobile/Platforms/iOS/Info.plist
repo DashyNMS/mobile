@@ -26,6 +26,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- Only standard HTTPS/TLS to the user's own LibreNMS server, which is
+	     exempt from US export rules - saves answering the encryption question
+	     for every TestFlight build. Revisit if custom cryptography is added. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
 </dict>

@@ -85,13 +85,17 @@ dotnet build src/DashyNMS.Mobile -f net10.0-android -t:Run
 
 # iOS (macOS with a matching Xcode)
 dotnet workload install maui-ios
-dotnet build src/DashyNMS.Mobile -f net10.0-ios -t:Run
+dotnet build src/DashyNMS.Mobile -p:TargetFrameworks=net10.0-ios -t:Run
 ```
 
 Or open `DashyNMS.Mobile.slnx` in Visual Studio or Rider.
 
 CI (`.github/workflows/ci.yml`) runs both test suites, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
+
+To ship an iOS build to testers, see [docs/RELEASING-IOS.md](docs/RELEASING-IOS.md).
+The manually triggered **TestFlight** workflow signs the app and uploads it to
+App Store Connect, with no Mac needed.
 
 ## Roadmap
 
@@ -108,7 +112,7 @@ Roughly in order, following what desktop already has:
 6. **Integrations**: Unimus config backups and Graylog messages (Core already
    has both clients; they need keychain-backed secret stores like the
    LibreNMS token's).
-7. **Store builds**: signing, TestFlight / Play internal testing.
+7. **Store builds**: Play internal testing (TestFlight is in place, see above).
 
 ## Upstream notes
 
