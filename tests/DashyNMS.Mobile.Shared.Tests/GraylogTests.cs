@@ -405,7 +405,9 @@ public sealed class GraylogViewModelTests
         Assert.Contains(DeviceSectionInfo.Graylog, vm.Sections);
         Assert.Equal(Routes.Graylog, navigation.Visits.Single().Route);
 
+        // Section cards are built per refresh, so switching Graylog off shows on the next one.
         _api.IsConfigured.Returns(false);
+        await vm.LoadAsync(1);
         Assert.DoesNotContain(DeviceSectionInfo.Graylog, vm.Sections);
     }
 }
