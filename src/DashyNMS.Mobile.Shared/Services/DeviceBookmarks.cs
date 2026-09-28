@@ -57,6 +57,51 @@ public sealed class DeviceBookmarks
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>Desktop's switch for the recently viewed strip.</summary>
+    public bool ShowRecentlyViewed
+    {
+        get => Current.ShowRecentlyViewedDevices;
+        set
+        {
+            if (Current.ShowRecentlyViewedDevices == value)
+            {
+                return;
+            }
+
+            Current.ShowRecentlyViewedDevices = value;
+            _settings.Save();
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// How many recently viewed devices are remembered and shown (#35) -
+    /// desktop's setting, 1 to <see cref="AppSettings.MaxRecentlyViewedDeviceCount"/>.
+    /// Lowering it drops the oldest straight away rather than at the next view.
+    /// </summary>
+    public int RecentlyViewedCount
+    {
+        get => Math.Clamp(Current.RecentlyViewedDeviceCount, 1, AppSettings.MaxRecentlyViewedDeviceCount);
+        set
+        {
+            var count = Math.Clamp(value, 1, AppSettings.MaxRecentlyViewedDeviceCount);
+            if (Current.RecentlyViewedDeviceCount == count)
+            {
+                return;
+            }
+
+            Current.RecentlyViewedDeviceCount = count;
+            var list = Current.RecentlyViewedDevices;
+            if (list.Count > count)
+            {
+                list.RemoveRange(count, list.Count - count);
+            }
+
+            _settings.Save();
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
     /// <summary>Moves the device to the front of the recently viewed list.</summary>
     public void RecordViewed(int deviceId, string displayName)
     {
@@ -64,7 +109,7 @@ public sealed class DeviceBookmarks
         list.RemoveAll(d => d.DeviceId == deviceId);
         list.Insert(0, new RecentlyViewedDevice { DeviceId = deviceId, DisplayName = displayName, ViewedAt = _time.GetUtcNow() });
 
-        var cap = Math.Clamp(Current.RecentlyViewedDeviceCount, 1, AppSettings.MaxRecentlyViewedDeviceCount);
+        var cap = RecentlyViewedCount;
         if (list.Count > cap)
         {
             list.RemoveRange(cap, list.Count - cap);

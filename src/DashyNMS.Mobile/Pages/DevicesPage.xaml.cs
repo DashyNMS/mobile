@@ -22,6 +22,10 @@ public partial class DevicesPage : ContentPage, IQueryAttributable
 		{
 			_viewModel.ShowOnly(group, location);
 		}
+		else if (query.TryGetValue(Routes.StateParameter, out var s) && s is DesktopNMS.Core.Models.DeviceState state)
+		{
+			_viewModel.ShowOnlyState(state);
+		}
 
 		// Applied once: coming back to the tab later shouldn't reapply it.
 		query.Clear();

@@ -41,14 +41,27 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly DeviceBookmarks _bookmarks;
+    private readonly MaintenanceScan _maintenance;
     private readonly HashSet<string> _probedOses = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _wirelessOses = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Up and not in a maintenance window - maintenance is counted on its own, as on the Devices tab.</summary>
     [ObservableProperty]
     private int _devicesUp;
 
     [ObservableProperty]
     private int _devicesDown;
+
+    /// <summary>In a maintenance window (#33) - filled in after the rest, since it's one request per device.</summary>
+    [ObservableProperty]
+    private int _devicesMaintenance;
+
+    /// <summary>
+    /// Watched devices with no open alert at all - the alert pie widget's
+    /// "OK", so the counts cover every device (#31).
+    /// </summary>
+    [ObservableProperty]
+    private int _devicesOk;
 
     /// <summary>Disabled plus ignored - not being watched either way.</summary>
     [ObservableProperty]
@@ -76,14 +89,42 @@ public sealed partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private string _wirelessSummary = string.Empty;
 
-    public DashboardViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DeviceBookmarks bookmarks)
+    public DashboardViewModel(
+        ILibreNmsClient client,
+        ISettingsStore settings,
+        INavigationService navigation,
+        DeviceBookmarks bookmarks,
+        MaintenanceScan? maintenance = null)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
         _bookmarks = bookmarks;
+        _maintenance = maintenance ?? new MaintenanceScan(client, TimeProvider.System);
         ApplyLayout();
     }
+
+    /// <summary>Awaited by tests: the maintenance count, filled in after the rest of the dashboard.</summary>
+    internal Task MaintenanceCounted { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// A count's tap: the Alerts tab with only that kind showing (#32) -
+    /// "critical", "warning" or "acknowledged".
+    /// </summary>
+    [RelayCommand]
+    private Task ShowAlertsAsync(string? kind) => string.IsNullOrEmpty(kind)
+        ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.Alerts, new Dictionary<string, object> { [Routes.AlertFilterParameter] = kind });
+
+    /// <summary>
+    /// A device count's tap: the Devices tab with only that state showing
+    /// (#34) - "up", "down", "maintenance" or "disabled".
+    /// </summary>
+    [RelayCommand]
+    private Task ShowDevicesAsync(string? state) =>
+        Enum.TryParse<DeviceState>(state, ignoreCase: true, out var parsed)
+            ? _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.StateParameter] = parsed })
+            : Task.CompletedTask;
 
     /// <summary>The cards showing, in the order chosen.</summary>
     public BulkObservableCollection<DashboardCard> Cards { get; } = new();
@@ -135,9 +176,9 @@ public sealed partial class DashboardViewModel : ViewModelBase
         await Task.WhenAll(devicesTask, alertsTask);
 
         var devices = devicesTask.Result;
-        DevicesUp = devices.Count(d => d.State == DeviceState.Up);
         DevicesDown = devices.Count(d => d.State == DeviceState.Down);
         DevicesInactive = devices.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
+        CountUp(devices, _maintenanceIds);
 
         var byId = devices.ToDictionary(d => d.DeviceId);
 
@@ -146,6 +187,15 @@ public sealed partial class DashboardViewModel : ViewModelBase
         CriticalAlerts = active.Count(a => a.Severity == AlertSeverity.Critical);
         WarningAlerts = active.Count(a => a.Severity == AlertSeverity.Warning);
         AcknowledgedAlerts = alerts.Count - active.Count;
+
+        var alerted = alerts.Select(a => a.DeviceId).ToHashSet();
+        DevicesOk = devices.Count(d => d.State != DeviceState.Disabled && !alerted.Contains(d.DeviceId));
+
+        // Last, and without holding up the rest: one request per device.
+        if (Shows(DashboardLayout.DeviceStatus))
+        {
+            MaintenanceCounted = CountMaintenanceAsync(devices);
+        }
 
         TopAlerts.ReplaceAll(active
             .OrderByDescending(a => a.Severity.SortRank())
@@ -346,6 +396,20 @@ public sealed partial class DashboardViewModel : ViewModelBase
         }));
 
         return results;
+    }
+
+    private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
+
+    private void CountUp(IReadOnlyList<Device> devices, IReadOnlySet<int> maintenance)
+    {
+        DevicesMaintenance = devices.Count(d => maintenance.Contains(d.DeviceId));
+        DevicesUp = devices.Count(d => d.State == DeviceState.Up && !maintenance.Contains(d.DeviceId));
+    }
+
+    private async Task CountMaintenanceAsync(IReadOnlyList<Device> devices)
+    {
+        _maintenanceIds = await _maintenance.ScanAsync(devices);
+        CountUp(devices, _maintenanceIds);
     }
 
     private bool Shows(string type) => Cards.Any(c => c.Type == type);

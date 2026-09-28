@@ -48,6 +48,24 @@
                             MinimumWidthRequest="140" />
                 </Grid>
             </Border>
+            <Border Style="{StaticResource Card}" Margin="0,8,0,0">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Text="Recently viewed" />
+                            <Label Style="{StaticResource Caption}" Text="The strip on the Devices tab and the dashboard card, as on desktop." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding ShowRecentlyViewed}" VerticalOptions="Center" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ShowRecentlyViewed}">
+                        <Label Text="How many to keep" VerticalOptions="Center" />
+                        <Picker Grid.Column="1" Title="How many to keep"
+                                ItemsSource="{Binding RecentlyViewedCountLabels}"
+                                SelectedIndex="{Binding RecentlyViewedCountIndex}"
+                                MinimumWidthRequest="80" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
 
             <Label Style="{StaticResource SectionHeader}" Text="APP ICON" IsVisible="{Binding CanShowAppBadge}" />
             <Border Style="{StaticResource Card}" IsVisible="{Binding CanShowAppBadge}">

@@ -31,8 +31,8 @@ public static class DashboardLayout
     /// <summary>Every card the phone can show, in the order Customise lists them.</summary>
     public static IReadOnlyList<DashboardCardKind> Kinds { get; } =
     [
-        new(AlertsGauge, "Alerts", "Open alerts by severity, with desktop's gauge."),
-        new(DeviceStatus, "Devices", "Devices up, down and disabled."),
+        new(AlertsGauge, "Alerts", "Open alerts by severity, and devices with none."),
+        new(DeviceStatus, "Devices", "Devices up, down, in maintenance and disabled."),
         new(Alerts, "Needs attention", "The five alerts that most need looking at."),
         new(PinnedDevices, "Pinned devices", "The devices you've pinned, with their state."),
         new(RecentlyViewed, "Recently viewed", "Devices you've opened lately."),

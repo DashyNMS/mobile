@@ -35,16 +35,11 @@ public sealed record FacetOption(string? Key, string Label)
 /// </summary>
 /// <remarks>
 /// Desktop's facets are multi-select checkbox lists; here each is a single
-/// choice, which suits a phone. Maintenance has no bulk endpoint, so - as on
-/// desktop - it's one request per device, capped at
-/// <see cref="MaxConcurrentMaintenanceChecks"/> at once and at most every
-/// <see cref="MaintenanceRescanInterval"/>, after the list is already shown.
+/// choice, which suits a phone. Maintenance is looked up after the list is
+/// already shown - see <see cref="MaintenanceScan"/>, shared with the dashboard.
 /// </remarks>
 public sealed partial class DevicesViewModel : ViewModelBase
 {
-    internal const int MaxConcurrentMaintenanceChecks = 16;
-    internal static readonly TimeSpan MaintenanceRescanInterval = TimeSpan.FromSeconds(60);
-
     /// <summary>The Group filter's "Not in a group" choice.</summary>
     internal const string NoGroupKey = "\0none";
 
@@ -52,11 +47,10 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly ISettingsStore _settings;
     private readonly DeviceBookmarks _bookmarks;
-    private readonly TimeProvider _time;
+    private readonly MaintenanceScan _maintenance;
     private List<DeviceItem> _all = [];
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
-    private DateTimeOffset? _lastMaintenanceScan;
-    private HashSet<int> _maintenanceIds = [];
+    private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private bool _resetting;
 
     [ObservableProperty]
@@ -96,13 +90,14 @@ public sealed partial class DevicesViewModel : ViewModelBase
         INavigationService navigation,
         ISettingsStore settings,
         DeviceBookmarks bookmarks,
-        TimeProvider time)
+        TimeProvider time,
+        MaintenanceScan? maintenance = null)
     {
         _client = client;
         _navigation = navigation;
         _settings = settings;
         _bookmarks = bookmarks;
-        _time = time;
+        _maintenance = maintenance ?? new MaintenanceScan(client, time);
         _selectedSort = SortOptions[0];
         _bookmarks.Changed += (_, _) => OnBookmarksChanged();
         RebuildRecent();
@@ -279,6 +274,26 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    /// <summary>
+    /// Only devices in <paramref name="state"/> - just that state chip on,
+    /// every other filter cleared - for the dashboard's device counts (#34).
+    /// Disabled covers ignored devices too, as its chip does.
+    /// </summary>
+    public void ShowOnlyState(DeviceState state)
+    {
+        _resetting = true;
+        ShowUp = state == DeviceState.Up;
+        ShowDown = state == DeviceState.Down;
+        ShowMaintenance = state == DeviceState.Maintenance;
+        ShowDisabled = state is DeviceState.Disabled or DeviceState.Ignored;
+        SelectedType = AllTypes;
+        SelectedGroup = AllGroups;
+        SelectedLocation = AllLocations;
+        SearchText = string.Empty;
+        _resetting = false;
+        ApplyFilter();
+    }
+
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
@@ -356,42 +371,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
     private async Task ScanMaintenanceAsync()
     {
-        var now = _time.GetUtcNow();
-        if (_lastMaintenanceScan is { } last && now - last < MaintenanceRescanInterval)
-        {
-            ApplyMaintenance();
-            return;
-        }
-
-        _lastMaintenanceScan = now;
-        var found = new HashSet<int>();
-        using var gate = new SemaphoreSlim(MaxConcurrentMaintenanceChecks);
-
-        // Disabled devices aren't polled, so maintenance means nothing for them.
-        await Task.WhenAll(_all.Where(d => !d.Device.Disabled).Select(async d =>
-        {
-            await gate.WaitAsync();
-            try
-            {
-                if (await _client.Devices.IsUnderMaintenanceAsync(d.DeviceId))
-                {
-                    lock (found)
-                    {
-                        found.Add(d.DeviceId);
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // One device failing to answer doesn't change anyone else's state.
-            }
-            finally
-            {
-                gate.Release();
-            }
-        }));
-
-        _maintenanceIds = found;
+        _maintenanceIds = await _maintenance.ScanAsync(_all.Select(d => d.Device).ToList());
         ApplyMaintenance();
     }
 
