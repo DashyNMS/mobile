@@ -211,6 +211,10 @@ public sealed partial class AlertsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>The network-wide alert and event logs.</summary>
+    [RelayCommand]
+    private Task OpenLogsAsync() => _navigation.GoToAsync(Routes.Logs);
+
     [RelayCommand]
     private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
 

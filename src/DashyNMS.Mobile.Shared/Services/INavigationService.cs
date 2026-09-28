@@ -31,6 +31,9 @@ public static class Routes
     /// <summary>Choosing the dashboard Graph card's device and graph.</summary>
     public const string PickGraph = "pickgraph";
 
+    /// <summary>The network-wide event and alert logs.</summary>
+    public const string Logs = "logs";
+
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 

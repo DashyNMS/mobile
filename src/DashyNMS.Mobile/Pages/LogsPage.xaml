@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.LogsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
+    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="logs:LogsViewModel"
+    Title="Logs">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Style="{StaticResource Chip}" Text="Event log" Command="{Binding ShowEventLogCommand}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding ShowingEventLog}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+            <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Alert log" Command="{Binding ShowAlertLogCommand}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding ShowingAlertLog}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
+                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </Grid>
+
+        <SearchBar Grid.Row="1" Text="{Binding SearchText}" Placeholder="Search what's loaded" Margin="0,6,0,0" />
+
+        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.EmptyView>
+                    <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                           HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="0,32" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="sections:SectionRow">
+                        <Border Style="{StaticResource Card}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
+                                <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="{Binding Title}" LineBreakMode="WordWrap" MaxLines="3" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Detail}" FontSize="12" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Text="{Binding Value}" IsVisible="{Binding HasValue}" VerticalOptions="Center"
+                                       TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <Button Text="Load more" Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}" Margin="0,8,0,16" />
+                </CollectionView.Footer>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+
+</ContentPage>

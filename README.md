@@ -51,6 +51,9 @@ rather than rewritten.
   rule, note and alert id. Filters are remembered between launches. Swipe to
   acknowledge (with an optional note) or unacknowledge. **Export** shares the
   filtered list as CSV, in desktop's columns.
+- **Logs** (Alerts → Logs): LibreNMS's event log and alert log for the whole
+  network, newest first, with each entry's device and a tap through to it.
+  Loads a page at a time; search covers what's loaded.
 - **Alert detail**: tap any alert (in the list, on the dashboard, in Device
   View or in a notification) for its own page: why it fired - desktop's
   fault details, with the columns the rule tests first - the rule's
@@ -223,7 +226,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Groups and locations | ✅ | ✅ Counts and devices down; opens the Devices list filtered (editing stays on desktop) |
 | Neighbours views | ✅ | ⬜ |
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
-| Logs: event log, Graylog | ✅ | ⬜ |
+| Logs: event log, Graylog | ✅ | 🟡 Network-wide event log and alert log (Alerts → Logs); Graylog to come |
 | Unimus config backups and diffs | ✅ | ⬜ |
 | Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | ✅ Poll interval, thresholds, device names, light/dark, timestamps, notifications (accent colour and server logo stay desktop's) |
 | Update checks | ✅ | ➖ The stores handle it |
@@ -275,6 +278,10 @@ Things found while porting that would be better fixed in the desktop repo:
   Moving those (and `AddDesktopNmsCore`'s registration of them) into the WPF
   project would let Core target plain `net9.0`/`net10.0`. Mobile could then
   use a normal `ProjectReference` instead of compiling the sources.
+- `ILogsApi` only takes one device. LibreNMS's `logs/eventlog` and
+  `logs/alertlog` routes treat the device as optional and then list every
+  device's entries, which mobile's `NetworkLogs` uses through Core's transport.
+  An overload without the device in Core would let both apps share it.
 - The rules for which alert changes deserve a notification (`ShouldNotify`,
   the titles, and the summary cap in `AlertNotificationService`) live in the WPF
   app, so mobile's `AlertNotificationPlanner` has to mirror them. Moving

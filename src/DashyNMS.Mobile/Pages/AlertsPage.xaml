@@ -8,6 +8,7 @@
     Title="Alerts">
 
     <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Logs" Command="{Binding OpenLogsCommand}" />
         <ToolbarItem Text="Export" Command="{Binding ExportCsvCommand}" />
     </ContentPage.ToolbarItems>
 

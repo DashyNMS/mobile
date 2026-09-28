@@ -73,6 +73,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
+        services.AddSingleton<Logs.INetworkLogs, Logs.NetworkLogs>();
+        services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 
