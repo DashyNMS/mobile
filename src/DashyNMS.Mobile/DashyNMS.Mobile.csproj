@@ -89,7 +89,9 @@
 	     IosWidgetBuildOutput is xcodebuild's folder for the configuration and
 	     SDK it built (Release-iphoneos, Debug-iphonesimulator). -->
 	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(IncludeIosWidget)' == 'true'">
-		<CodesignEntitlements>Platforms\iOS\Entitlements.Widget.plist</CodesignEntitlements>
+		<!-- Device builds only: entitlements make the build insist on a signing
+		     identity, which a CI simulator build doesn't have. -->
+		<CodesignEntitlements Condition="!$(RuntimeIdentifier.StartsWith('iossimulator'))">Platforms\iOS\Entitlements.Widget.plist</CodesignEntitlements>
 		<IosWidgetBuildOutput Condition="'$(IosWidgetBuildOutput)' == ''">Release-iphoneos</IosWidgetBuildOutput>
 	</PropertyGroup>
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(IncludeIosWidget)' == 'true'">

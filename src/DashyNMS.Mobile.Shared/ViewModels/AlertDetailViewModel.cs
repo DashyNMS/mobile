@@ -285,7 +285,6 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
     /// <summary>Rules and the log are extras: without them the alert still shows.</summary>
     private static async Task<T?> BestEffort<T>(Func<Task<T>> load)
-        where T : class
     {
         try
         {
@@ -293,7 +292,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         }
         catch (LibreNmsApiException)
         {
-            return null;
+            return default;
         }
     }
 }
