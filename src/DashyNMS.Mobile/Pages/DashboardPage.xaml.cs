@@ -15,6 +15,9 @@ public partial class DashboardPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+
+		// Also picks up Customise's changes, and the phone's theme for the graph.
+		_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
 		_viewModel.RefreshCommand.Execute(null);
 	}
 }

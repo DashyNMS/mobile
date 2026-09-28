@@ -61,6 +61,9 @@ public static class MauiProgram
 		builder.Services.AddTransient<HealthPage>();
 		builder.Services.AddTransient<GroupsLocationsPage>();
 		builder.Services.AddTransient<ThresholdsPage>();
+		builder.Services.AddTransient<CustomiseDashboardPage>();
+		builder.Services.AddTransient<SensorPickerPage>();
+		builder.Services.AddTransient<GraphPickerPage>();
 
 		return builder.Build();
 	}

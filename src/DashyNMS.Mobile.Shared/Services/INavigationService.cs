@@ -22,6 +22,15 @@ public static class Routes
     /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
     public const string Devices = "//main/devices";
 
+    /// <summary>Choosing and ordering the dashboard's cards.</summary>
+    public const string CustomiseDashboard = "customisedashboard";
+
+    /// <summary>Choosing the dashboard Sensors card's sensors.</summary>
+    public const string PickSensors = "picksensors";
+
+    /// <summary>Choosing the dashboard Graph card's device and graph.</summary>
+    public const string PickGraph = "pickgraph";
+
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 

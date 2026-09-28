@@ -70,6 +70,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<HealthViewModel>();
         services.AddTransient<GroupsLocationsViewModel>();
         services.AddTransient<ThresholdsViewModel>();
+        services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
+        services.AddTransient<Dashboard.SensorPickerViewModel>();
+        services.AddTransient<Dashboard.GraphPickerViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 

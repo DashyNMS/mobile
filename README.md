@@ -17,8 +17,18 @@ rather than rewritten.
   including the optional backup address and self-signed-certificate switch.
   The token is kept in the platform keychain/keystore, and you're signed
   straight back in next launch.
-- **Dashboard**: open alerts by severity, devices up/down/inactive, and the
-  five alerts that most need attention. Pull to refresh.
+- **Dashboard**: desktop's widgets as a column of cards you choose and
+  order (Dashboard → Customise), kept in desktop's own dashboard setting:
+  - alert counts, with desktop's gauge as a bar
+  - device counts
+  - the five alerts most needing attention
+  - pinned and recently viewed devices
+  - sensors you pick, coloured against their thresholds
+  - one device graph you pick, with its time range
+  - wireless controllers' access points and clients, found as desktop finds
+    them (one device per OS first)
+
+  Each card only fetches what it needs. Pull to refresh.
 - **Devices**: every device, with desktop's Up / Down / Maintenance / Disabled
   chips (with counts), search across name, IP, OS, hardware, location, type,
   contact, serial and id, Type / Location / Group filters, and sorting by
@@ -35,8 +45,6 @@ rather than rewritten.
   its traffic, packet and error graphs), neighbours
   (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
   VRFs), wireless, inventory and the event log.
-- **Dashboard** also shows your pinned devices with their live state, and
-  recently viewed devices.
 - **Alerts**: open alerts, most severe first, with desktop's Critical /
   Warning / Acknowledged filter chips (with counts) and search across device,
   rule, note and alert id. Filters are remembered between launches. Swipe to
@@ -196,7 +204,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Area | Desktop | Mobile |
 | --- | --- | --- |
 | Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ |
-| Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | 🟡 Fixed layout: alert and device counts, top five alerts |
+| Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | ✅ The same widgets as cards you show, hide and order (one column, so no resizing; one of each) |
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
 | Worst severity at a glance | Tray icon with open-alert count | ✅ Home-screen widget; app icon badge (iPhone; Android's launcher dot comes from notifications) |
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |

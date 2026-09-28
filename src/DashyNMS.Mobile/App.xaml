@@ -12,6 +12,8 @@
 
             <converters:StatusColorConverter x:Key="StatusColor" />
             <converters:IsNotNullConverter x:Key="IsNotNull" />
+            <converters:StarConverter x:Key="Star" />
+            <converters:InvertConverter x:Key="Invert" />
 
             <!-- A card: the list rows and dashboard tiles. -->
             <Style x:Key="Card" TargetType="Border">

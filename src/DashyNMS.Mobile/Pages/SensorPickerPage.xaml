@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SensorPickerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="dash:SensorPickerViewModel"
+    Title="Dashboard sensors">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+
+        <SearchBar Text="{Binding SearchText}" Placeholder="Sensor or device" />
+        <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding HintText}" Margin="4,6" />
+        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+        <CollectionView Grid.Row="3" ItemsSource="{Binding Sensors}" SelectionMode="None">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="dash:PickableSensor">
+                    <Border Style="{StaticResource Card}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding ToggleCommand, Source={RelativeSource AncestorType={x:Type dash:SensorPickerViewModel}}, x:DataType=dash:SensorPickerViewModel}"
+                                CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding Row.Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding DeviceName}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding Row.Value}" VerticalOptions="Center"
+                                   TextColor="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
+                            <CheckBox Grid.Column="2" IsChecked="{Binding IsPicked}" IsEnabled="False" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+    </Grid>
+
+</ContentPage>
