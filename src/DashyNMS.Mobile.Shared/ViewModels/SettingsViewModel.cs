@@ -25,6 +25,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly IAlertNotifier _notifier;
     private readonly AlertWatchCoordinator _coordinator;
     private readonly IAppBadge _badge;
+    private readonly IAppearance _appearance;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -36,7 +37,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         INavigationService navigation,
         IAlertNotifier notifier,
         AlertWatchCoordinator coordinator,
-        IAppBadge badge)
+        IAppBadge badge,
+        IAppearance appearance)
     {
         _session = session;
         _settings = settings;
@@ -45,6 +47,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _notifier = notifier;
         _coordinator = coordinator;
         _badge = badge;
+        _appearance = appearance;
         _serverTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc;
     }
 
@@ -82,6 +85,59 @@ public sealed partial class SettingsViewModel : ViewModelBase
             OnPropertyChanged();
         }
     }
+
+    /// <summary>The in-app check's choices: 30 seconds (the fastest the app allows) to 15 minutes.</summary>
+    internal static readonly int[] PollIntervals = [30, 60, 120, 300, 600, 900];
+
+    public IReadOnlyList<string> PollIntervalLabels { get; } =
+        PollIntervals.Select(s => s < 60 ? $"{s} seconds" : s == 60 ? "1 minute" : $"{s / 60} minutes").ToList();
+
+    /// <summary>
+    /// Desktop's poll interval: how often alerts are checked while the app is
+    /// open. Background checks run when the phone allows, whatever this is.
+    /// </summary>
+    public int PollIntervalIndex
+    {
+        get
+        {
+            var current = _settings.Current.PollIntervalSeconds;
+            var index = Array.FindIndex(PollIntervals, s => s >= current);
+            return index < 0 ? PollIntervals.Length - 1 : index;
+        }
+
+        set
+        {
+            if (value < 0 || value >= PollIntervals.Length || PollIntervals[value] == _settings.Current.PollIntervalSeconds)
+            {
+                return;
+            }
+
+            _settings.Current.PollIntervalSeconds = PollIntervals[value];
+            _settings.Save();
+            OnPropertyChanged();
+            _coordinator.SettingsChanged();
+        }
+    }
+
+    public IReadOnlyList<string> AppearanceLabels { get; } = ["Same as the phone", "Light", "Dark"];
+
+    public int AppearanceIndex
+    {
+        get => (int)_appearance.Current;
+        set
+        {
+            if (value < 0 || value >= AppearanceLabels.Count || value == (int)_appearance.Current)
+            {
+                return;
+            }
+
+            _appearance.Set((AppearanceChoice)value);
+            OnPropertyChanged();
+        }
+    }
+
+    [RelayCommand]
+    private Task OpenThresholdsAsync() => _navigation.GoToAsync(Routes.Thresholds);
 
     /// <summary>
     /// Only where the phone lets an app set the number (iPhone). Android

@@ -28,6 +28,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     private CancellationTokenSource? _loop;
     private bool _foreground;
     private bool _started;
+    private int _pollInterval;
 
     public AlertWatchCoordinator(
         ISessionService session,
@@ -49,6 +50,7 @@ public sealed class AlertWatchCoordinator : IDisposable
         _widgets = widgets;
         _time = time;
         _logger = logger;
+        _pollInterval = settings.Current.PollIntervalSeconds;
     }
 
     /// <summary>
@@ -97,7 +99,18 @@ public sealed class AlertWatchCoordinator : IDisposable
     }
 
     /// <summary>Call after changing notification settings.</summary>
-    public void SettingsChanged() => Apply();
+    public void SettingsChanged()
+    {
+        // A new poll interval takes effect now, not after the old one runs out.
+        var interval = _settings.Current.PollIntervalSeconds;
+        if (interval != _pollInterval)
+        {
+            _pollInterval = interval;
+            StopLoop();
+        }
+
+        Apply();
+    }
 
     public void Dispose()
     {

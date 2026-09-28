@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.ThresholdsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:ThresholdsViewModel"
+    Title="Health thresholds">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="4">
+
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+            <Label Style="{StaticResource SectionHeader}" Text="OPTICAL POWER (dBm)" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource Caption}" Text="Weaker is more negative." />
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Warning at or below" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding DbmWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Critical at or below" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding DbmCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="SIGNAL (dBm)" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource Caption}" Text="Wireless signal strength." />
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Warning at or below" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding SignalWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Critical at or below" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding SignalCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="TEMPERATURE (°C)" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource Caption}" Text="Too cold or too hot." />
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Low critical" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding TemperatureLowCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Low warning" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding TemperatureLowWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="High warning" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding TemperatureHighWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="High critical" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding TemperatureHighCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="FAN SPEED (RPM)" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource Caption}" Text="Too slow or too fast." />
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Low critical" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding FanLowCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="Low warning" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding FanLowWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="High warning" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding FanHighWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
+                        <Label Text="High critical" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding FanHighCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout>
+                        <Label Text="Always use these thresholds" />
+                        <Label Style="{StaticResource Caption}"
+                               Text="Off: a sensor's own limits set in LibreNMS win for the bounds they set, as on desktop. On: these apply everywhere." />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding OverrideSensorLimits}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <Button Text="Reset to desktop's defaults" Command="{Binding ResetToDefaultsCommand}" Margin="0,16,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

@@ -22,6 +22,9 @@ public static class Routes
     /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
     public const string Devices = "//main/devices";
 
+    /// <summary>Health thresholds, pushed from Settings.</summary>
+    public const string Thresholds = "thresholds";
+
     /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
     public const string GroupsLocations = "groupslocations";
 

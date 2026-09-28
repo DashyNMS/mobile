@@ -73,7 +73,11 @@ rather than rewritten.
   is a small Swift WidgetKit extension (`ios-widget/`), which needs a
   one-off App Group setup before TestFlight builds include it; see
   [docs/RELEASING-IOS.md](docs/RELEASING-IOS.md#home-screen-widget).
-- **Settings**: the connected server and version, the app icon badge, notification options
+- **Settings**: the connected server and version, light/dark (the phone's
+  own, or fixed), how often to check alerts while the app is open (desktop's
+  poll interval, 30 seconds to 15 minutes), desktop's Health thresholds
+  (dBm, signal, temperature, fan speed, and whether they override a sensor's
+  own limits, checked before saving), the app icon badge, notification options
   (per severity, recovery, acknowledgement, quiet hours, a test
   notification), the *Server stores timestamps in UTC* option (the same
   setting as on desktop), and sign-out.
@@ -212,7 +216,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
 | Logs: event log, Graylog | ✅ | ⬜ |
 | Unimus config backups and diffs | ✅ | ⬜ |
-| Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | 🟡 Device names, timestamps and notifications |
+| Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | ✅ Poll interval, thresholds, device names, light/dark, timestamps, notifications (accent colour and server logo stay desktop's) |
 | Update checks | ✅ | ➖ The stores handle it |
 
 The website describes desktop only, and leaves out several things desktop
@@ -225,18 +229,17 @@ Ordered by how much each adds on a phone, not by desktop's order.
 
 **Next: the rest of the everyday views**
 
-1. **More settings**: poll interval, health thresholds, theme.
 
 **Later**
 
-2. **Geographical map** of devices and their state.
-3. **Integrations**: Graylog messages and Unimus config backups, including
+1. **Geographical map** of devices and their state.
+2. **Integrations**: Graylog messages and Unimus config backups, including
    Device View's Graylog and Unimus sections. Core already has both clients;
    they need keychain-backed secret stores like the LibreNMS token's.
-4. **Rules and templates**, read-only.
-5. **Instant alerts**: a push from the server side, so alerts don't wait for
+3. **Rules and templates**, read-only.
+4. **Instant alerts**: a push from the server side, so alerts don't wait for
    the next background check.
-6. **Store builds**: Play internal testing (TestFlight is in place, see
+5. **Store builds**: Play internal testing (TestFlight is in place, see
    above).
 
 ## Upstream notes

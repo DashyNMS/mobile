@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         // platform can set a number on the icon (registered later, it wins).
         services.AddSingleton<IAppBadge, NoAppBadge>();
         services.AddSingleton<IHomeWidgets, NoHomeWidgets>();
+        services.AddSingleton<IAppearance, InMemoryAppearance>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
@@ -68,6 +69,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AlertDetailViewModel>();
         services.AddTransient<HealthViewModel>();
         services.AddTransient<GroupsLocationsViewModel>();
+        services.AddTransient<ThresholdsViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 

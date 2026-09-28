@@ -24,6 +24,17 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="APPEARANCE" />
+            <Border Style="{StaticResource Card}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="Light or dark" VerticalOptions="Center" />
+                    <Picker Grid.Column="1" Title="Appearance"
+                            ItemsSource="{Binding AppearanceLabels}"
+                            SelectedIndex="{Binding AppearanceIndex}"
+                            MinimumWidthRequest="160" />
+                </Grid>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="DEVICES" />
             <Border Style="{StaticResource Card}">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -106,6 +117,34 @@
                         <Label Style="{StaticResource Caption}"
                                Text="Sounds and how each kind of alert appears are set in your phone's notification settings for DashyNMS." />
                     </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="CHECKING" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="14">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Check alerts every" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="While DashyNMS is open. In the background, your phone decides how often." />
+                        </VerticalStackLayout>
+                        <Picker Grid.Column="1" Title="Check alerts every"
+                                ItemsSource="{Binding PollIntervalLabels}"
+                                SelectedIndex="{Binding PollIntervalIndex}"
+                                MinimumWidthRequest="120" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenThresholdsCommand}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout>
+                            <Label Text="Health thresholds" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="When dBm, signal, temperature and fan speed readings turn amber or red, as desktop's." />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 

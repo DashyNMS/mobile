@@ -32,6 +32,8 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
 		builder.Services.AddSingleton<IShareService, ShareService>();
+		builder.Services.AddSingleton<MauiAppearance>();
+		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
 
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
@@ -58,6 +60,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertDetailPage>();
 		builder.Services.AddTransient<HealthPage>();
 		builder.Services.AddTransient<GroupsLocationsPage>();
+		builder.Services.AddTransient<ThresholdsPage>();
 
 		return builder.Build();
 	}

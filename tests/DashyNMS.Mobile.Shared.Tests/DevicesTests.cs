@@ -388,7 +388,7 @@ public sealed class DeviceNameSettingTests
         var coordinator = new AlertWatchCoordinator(
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
-        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator, new NoAppBadge());
+        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator, new NoAppBadge(), new InMemoryAppearance());
 
         Assert.Equal(["Hostname", "sysName", "LibreNMS display name"], vm.DeviceNameStyles);
         vm.DeviceNameStyleIndex = 1;

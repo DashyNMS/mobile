@@ -44,6 +44,8 @@ public sealed partial class HealthViewModel : ViewModelBase
     internal static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(1);
 
     private IReadOnlyList<HealthSensor> _all = [];
+    private IReadOnlyList<DesktopNMS.Core.Models.Sensor> _sensors = [];
+    private IReadOnlyDictionary<int, string> _names = new Dictionary<int, string>();
     private bool _loaded;
     private DateTimeOffset _loadedAt;
 
@@ -72,6 +74,15 @@ public sealed partial class HealthViewModel : ViewModelBase
             .ToList();
         _selectedCategory = Categories[0];
         _selectedCategory.IsSelected = true;
+
+        // Thresholds changed in Settings: recolour what's already here.
+        settings.Changed += (_, _) =>
+        {
+            if (_loaded)
+            {
+                Rebuild();
+            }
+        };
     }
 
     public IReadOnlyList<HealthCategoryOption> Categories { get; }
@@ -156,10 +167,20 @@ public sealed partial class HealthViewModel : ViewModelBase
         await Task.WhenAll(sensorsTask, devicesTask);
 
         var style = _settings.Current.DeviceNameStyle;
-        var names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
-        var settings = _settings.Current;
+        _names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
+        _sensors = sensorsTask.Result;
 
-        _all = sensorsTask.Result
+        _loaded = true;
+        _loadedAt = DateTimeOffset.UtcNow;
+        Rebuild();
+    });
+
+    private void Rebuild()
+    {
+        var settings = _settings.Current;
+        var names = _names;
+
+        _all = _sensors
             .Where(s => SensorCategoryRegistry.Resolve(s.SensorClass) is not null)
             .Select(s =>
             {
@@ -179,10 +200,8 @@ public sealed partial class HealthViewModel : ViewModelBase
             .ThenBy(s => s.Row.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        _loaded = true;
-        _loadedAt = DateTimeOffset.UtcNow;
         ApplyFilter();
-    });
+    }
 
     /// <summary>A sensor opens its device's Sensors section, where it sits among the device's others.</summary>
     [RelayCommand]

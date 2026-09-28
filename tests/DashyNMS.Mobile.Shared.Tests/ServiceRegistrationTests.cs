@@ -28,6 +28,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(AlertDetailViewModel))]
     [InlineData(typeof(HealthViewModel))]
     [InlineData(typeof(GroupsLocationsViewModel))]
+    [InlineData(typeof(ThresholdsViewModel))]
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]

@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Adapters;
 using DashyNMS.Mobile.Alerts;
 
 namespace DashyNMS.Mobile;
@@ -7,9 +8,10 @@ public partial class App : Application
 	private readonly AppShell _shell;
 	private readonly AlertWatchCoordinator _alerts;
 
-	public App(AppShell shell, AlertWatchCoordinator alerts)
+	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance)
 	{
 		InitializeComponent();
+		appearance.Apply();
 		_shell = shell;
 		_alerts = alerts;
 		_alerts.Start();
