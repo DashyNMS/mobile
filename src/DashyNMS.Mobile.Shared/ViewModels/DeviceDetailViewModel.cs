@@ -92,7 +92,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             .Select(p => new KeyValuePair<string, string>(p.Label, p.Value!))
             .ToList();
 
-    public ObservableCollection<AlertItem> Alerts { get; } = new();
+    public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
     public bool HasAlerts => Alerts.Count > 0;
 
@@ -123,14 +123,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }
 
         var utc = _settings.Current.ServerTimestampsAreUtc;
-        Alerts.Clear();
-        foreach (var alert in alertsTask.Result
-                     .Where(a => a.DeviceId == DeviceId)
-                     .OrderByDescending(a => a.Severity.SortRank())
-                     .ThenByDescending(a => a.Timestamp))
-        {
-            Alerts.Add(new AlertItem(alert, utc));
-        }
+        Alerts.ReplaceAll(alertsTask.Result
+            .Where(a => a.DeviceId == DeviceId)
+            .OrderByDescending(a => a.Severity.SortRank())
+            .ThenByDescending(a => a.Timestamp)
+            .Select(alert => new AlertItem(alert, utc)));
 
         OnPropertyChanged(nameof(HasAlerts));
     });

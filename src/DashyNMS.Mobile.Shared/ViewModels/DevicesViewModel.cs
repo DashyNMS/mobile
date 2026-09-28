@@ -113,9 +113,9 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
     private static FacetOption AllGroups { get; } = new(null, "All groups");
 
-    public ObservableCollection<DeviceItem> Devices { get; } = new();
+    public BulkObservableCollection<DeviceItem> Devices { get; } = new();
 
-    public ObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
+    public BulkObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
 
     public IReadOnlyList<SortOption> SortOptions { get; } =
     [
@@ -128,11 +128,11 @@ public sealed partial class DevicesViewModel : ViewModelBase
         new(DeviceSort.Hardware, "Hardware"),
     ];
 
-    public ObservableCollection<FacetOption> TypeOptions { get; } = [AllTypes];
+    public BulkObservableCollection<FacetOption> TypeOptions { get; } = [AllTypes];
 
-    public ObservableCollection<FacetOption> LocationOptions { get; } = [AllLocations];
+    public BulkObservableCollection<FacetOption> LocationOptions { get; } = [AllLocations];
 
-    public ObservableCollection<FacetOption> GroupOptions { get; } = [AllGroups];
+    public BulkObservableCollection<FacetOption> GroupOptions { get; } = [AllGroups];
 
     public int UpCount => _all.Count(d => d.State == DeviceState.Up);
 
@@ -386,11 +386,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
     private void RebuildRecent()
     {
-        RecentlyViewed.Clear();
-        foreach (var recent in _bookmarks.RecentlyViewed)
-        {
-            RecentlyViewed.Add(recent);
-        }
+        RecentlyViewed.ReplaceAll(_bookmarks.RecentlyViewed);
 
         OnPropertyChanged(nameof(ShowRecentlyViewed));
     }
@@ -424,11 +420,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
             return;
         }
 
-        Devices.Clear();
-        foreach (var device in _all.Where(Allows).OrderByDescending(d => d.IsPinned).ThenBy(d => d, Comparer))
-        {
-            Devices.Add(device);
-        }
+        Devices.ReplaceAll(_all.Where(Allows).OrderByDescending(d => d.IsPinned).ThenBy(d => d, Comparer));
 
         UpdateCounts();
     }
@@ -529,7 +521,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     /// the current choice if it's still there.
     /// </summary>
     private static void RebuildFacet(
-        ObservableCollection<FacetOption> options,
+        BulkObservableCollection<FacetOption> options,
         FacetOption all,
         IEnumerable<string?> values,
         Func<string, string> label,
@@ -544,12 +536,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
             .Select(g => new FacetOption(g.Key, $"{label(g.Key)} ({g.Count()})"))
             .ToList();
 
-        options.Clear();
-        options.Add(all);
-        foreach (var option in counted)
-        {
-            options.Add(option);
-        }
+        options.ReplaceAll(counted.Prepend(all));
 
         // The same choice, with its refreshed count - or back to all if it's gone.
         select(current.Key is null

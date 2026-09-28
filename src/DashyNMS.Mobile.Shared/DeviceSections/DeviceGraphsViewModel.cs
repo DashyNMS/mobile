@@ -63,7 +63,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     /// <summary>Set by the page from the phone's theme.</summary>
     public bool DarkTheme { get; set; }
 
-    public ObservableCollection<GraphType> Graphs { get; } = new();
+    public BulkObservableCollection<GraphType> Graphs { get; } = new();
 
     public IReadOnlyList<GraphRangeOption> Ranges { get; } =
     [
@@ -112,12 +112,8 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                 var wireless = WirelessGraphsAsync(deviceId);
                 await Task.WhenAll(deviceWide, health, wireless);
 
-                Graphs.Clear();
-                foreach (var graph in deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
-                             .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase))
-                {
-                    Graphs.Add(graph);
-                }
+                Graphs.ReplaceAll(deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
+                    .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase));
             });
         }
         finally
@@ -141,11 +137,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         _loadingList = true;
         try
         {
-            Graphs.Clear();
-            foreach (var graph in PortGraphs)
-            {
-                Graphs.Add(graph);
-            }
+            Graphs.ReplaceAll(PortGraphs);
         }
         finally
         {

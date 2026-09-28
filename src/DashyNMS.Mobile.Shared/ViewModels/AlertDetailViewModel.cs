@@ -79,7 +79,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     public bool HasDevice => DeviceId is not null;
 
     /// <summary>Alert facts, faults, the rule and history, as Device View's grouped rows.</summary>
-    public ObservableCollection<SectionGroup> Groups { get; } = new();
+    public BulkObservableCollection<SectionGroup> Groups { get; } = new();
 
     public Task LoadAsync(int alertId, int? deviceId = null)
     {
@@ -99,7 +99,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             Alert = null;
             IsGone = true;
             Title = "Alert cleared";
-            Groups.Clear();
+            Groups.ReplaceAll([]);
             return;
         }
 
@@ -116,11 +116,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         var rule = ruleTask.Result;
         var log = (logTask.Result ?? []).Where(e => e.RuleId == alert.RuleId).ToList();
 
-        Groups.Clear();
-        foreach (var group in BuildGroups(Alert, rule, log, utc))
-        {
-            Groups.Add(group);
-        }
+        Groups.ReplaceAll(BuildGroups(Alert, rule, log, utc));
     });
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>

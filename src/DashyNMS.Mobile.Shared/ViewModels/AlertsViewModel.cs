@@ -76,7 +76,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _searchText = filter.SearchText ?? string.Empty;
     }
 
-    public ObservableCollection<AlertItem> Alerts { get; } = new();
+    public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
     public bool IsEmpty => Alerts.Count == 0 && !IsBusy;
 
@@ -251,11 +251,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
-        Alerts.Clear();
-        foreach (var item in _all.Where(Allows))
-        {
-            Alerts.Add(item);
-        }
+        Alerts.ReplaceAll(_all.Where(Allows));
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));

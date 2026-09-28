@@ -31,7 +31,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
 
     public DeviceSection Section { get; private set; }
 
-    public ObservableCollection<SectionGroup> Groups { get; } = new();
+    public BulkObservableCollection<SectionGroup> Groups { get; } = new();
 
     /// <summary>Long lists (ports, FDB, ARP) get a search box; short ones don't need it.</summary>
     public bool ShowSearch => _all.Sum(g => g.Count) > 12;
@@ -89,21 +89,12 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     private void ApplyFilter()
     {
         var term = SearchText.Trim();
-        Groups.Clear();
-        foreach (var group in _all)
-        {
-            if (term.Length == 0)
-            {
-                Groups.Add(group);
-                continue;
-            }
-
-            var rows = group.Where(r => r.Matches(term)).ToList();
-            if (rows.Count > 0)
-            {
-                Groups.Add(new SectionGroup(group.Name, rows));
-            }
-        }
+        Groups.ReplaceAll(term.Length == 0
+            ? _all
+            : _all
+                .Select(group => new SectionGroup(group.Name, group.Where(r => r.Matches(term))))
+                .Where(group => group.Count > 0)
+                .ToList());
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));

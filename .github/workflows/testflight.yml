@@ -155,6 +155,7 @@ jobs:
           cat "$RUNNER_TEMP/widget-entitlements.xml"; echo
           grep -q "group.net.pckp.DashyNMS" "$RUNNER_TEMP/widget-entitlements.xml"
           grep -q "net.pckp.DashyNMS.widget" "$RUNNER_TEMP/widget-entitlements.xml"
+          plutil -p "$APPEX/Info.plist"
 
       - name: Upload to TestFlight
         env:

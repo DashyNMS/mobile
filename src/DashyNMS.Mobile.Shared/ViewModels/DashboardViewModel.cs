@@ -53,17 +53,17 @@ public sealed partial class DashboardViewModel : ViewModelBase
     }
 
     /// <summary>Pinned devices with their live state, as desktop's Pinned devices widget.</summary>
-    public ObservableCollection<DeviceItem> PinnedDevices { get; } = new();
+    public BulkObservableCollection<DeviceItem> PinnedDevices { get; } = new();
 
     /// <summary>As desktop's Recently viewed widget, newest first.</summary>
-    public ObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
+    public BulkObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
 
     public bool HasPinnedDevices => PinnedDevices.Count > 0;
 
     public bool HasRecentlyViewed => RecentlyViewed.Count > 0;
 
     /// <summary>The most severe, then most recent, open unacknowledged alerts.</summary>
-    public ObservableCollection<AlertItem> TopAlerts { get; } = new();
+    public BulkObservableCollection<AlertItem> TopAlerts { get; } = new();
 
     public bool HasNoAlerts => TopAlerts.Count == 0 && LastUpdated is not null;
 
@@ -86,33 +86,21 @@ public sealed partial class DashboardViewModel : ViewModelBase
         AcknowledgedAlerts = alerts.Count - active.Count;
 
         var utc = _settings.Current.ServerTimestampsAreUtc;
-        TopAlerts.Clear();
-        foreach (var alert in active
-                     .OrderByDescending(a => a.Severity.SortRank())
-                     .ThenByDescending(a => a.Timestamp)
-                     .Take(TopAlertCount))
-        {
-            TopAlerts.Add(new AlertItem(alert, utc));
-        }
+        TopAlerts.ReplaceAll(active
+            .OrderByDescending(a => a.Severity.SortRank())
+            .ThenByDescending(a => a.Timestamp)
+            .Take(TopAlertCount)
+            .Select(alert => new AlertItem(alert, utc)));
 
         // Pinned in the order they were pinned, as desktop; a pin whose device
         // has since gone from LibreNMS just doesn't show.
         var style = _settings.Current.DeviceNameStyle;
         var byId = devices.ToDictionary(d => d.DeviceId);
-        PinnedDevices.Clear();
-        foreach (var pin in _bookmarks.PinningEnabled ? _settings.Current.PinnedDevices : [])
-        {
-            if (byId.TryGetValue(pin.DeviceId, out var device))
-            {
-                PinnedDevices.Add(new DeviceItem(device, style) { IsPinned = true });
-            }
-        }
+        PinnedDevices.ReplaceAll((_bookmarks.PinningEnabled ? _settings.Current.PinnedDevices : [])
+            .Where(pin => byId.ContainsKey(pin.DeviceId))
+            .Select(pin => new DeviceItem(byId[pin.DeviceId], style) { IsPinned = true }));
 
-        RecentlyViewed.Clear();
-        foreach (var recent in _bookmarks.RecentlyViewed)
-        {
-            RecentlyViewed.Add(recent);
-        }
+        RecentlyViewed.ReplaceAll(_bookmarks.RecentlyViewed);
 
         LastUpdated = DateTime.Now;
         OnPropertyChanged(nameof(HasNoAlerts));
