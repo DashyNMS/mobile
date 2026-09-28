@@ -1,0 +1,80 @@
+name: CodeQL
+
+# Security analysis of every language in the repo: the workflows themselves,
+# the C# (shared code, the MAUI head and the desktop Core it compiles), and
+# the iOS widget's Swift. Runs on pull requests so a finding shows on the PR
+# before it merges, and weekly so new queries catch old code.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # 03:47 UTC every Monday - off-peak, and apart from desktop's run.
+    - cron: "47 3 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+            runner: ubuntu-latest
+          # Analysed from source rather than built: building the MAUI head
+          # needs the Android or iOS workloads, and none mode covers the
+          # same code without them.
+          - language: csharp
+            build-mode: none
+            runner: ubuntu-latest
+          # Swift has to be built, and only builds on macOS - as CI builds it.
+          - language: swift
+            build-mode: manual
+            runner: macos-26
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: true
+
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      # Before CodeQL starts watching: it runs traced commands under Rosetta,
+      # where Homebrew refuses to install. Only the Swift build needs tracing.
+      - name: Generate the widget's Xcode project
+        if: matrix.language == 'swift'
+        working-directory: ios-widget
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - name: Build widget extension
+        if: matrix.language == 'swift'
+        working-directory: ios-widget
+        run: |
+          xcodebuild -project DashyNMSWidget.xcodeproj -target DashyNMSWidget \
+            -configuration Debug -sdk iphonesimulator \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          category: "/language:${{ matrix.language }}"

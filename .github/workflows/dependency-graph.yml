@@ -1,0 +1,45 @@
+name: Dependency graph
+
+# Sends every NuGet package - direct and transitive - to GitHub's dependency
+# graph, so Dependabot alerts cover them. GitHub's own automatic submission
+# can't do this here: it restores every project, and the MAUI head won't
+# restore without the maui-android workload. So it's done here instead, after
+# installing it (turn automatic submission off in Settings → Code security).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    name: Submit NuGet dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # the dependency submission API
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      # Restore writes obj/project.assets.json, the full resolved package
+      # graph each project uses, which the detector reads.
+      - name: Restore
+        run: |
+          dotnet restore src/DashyNMS.Mobile
+          dotnet restore tests/DashyNMS.Mobile.Shared.Tests
+          dotnet restore tests/DesktopNMS.Core.Tests
+
+      - name: Submit to the dependency graph
+        uses: advanced-security/component-detection-dependency-submission-action@b282c67b1008fde9b60da4bdfcd8849613e293b2 # v0.1.6
+        with:
+          detectorsCategories: NuGet
