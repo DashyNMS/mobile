@@ -167,7 +167,7 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
 
     /// <summary>"(0) Emergency" to "(7) Debug" - each includes every more severe level.</summary>
     public IReadOnlyList<string> LevelLabels { get; } =
-        Enumerable.Range(0, 8).Select(GraylogQuery.LevelText).ToList();
+        Enumerable.Range(0, 8).Select(l => GraylogQuery.LevelText(l)).ToList();
 
     /// <summary><c>graylog.device-page.loglevel</c> - where a device's Graylog page starts.</summary>
     public int DeviceLogLevel

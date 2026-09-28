@@ -102,7 +102,7 @@ public sealed partial class GraylogViewModel : ViewModelBase
 
     /// <summary>"Any level", then "(0) Emergency" to "(7) Debug" - each includes every more severe level.</summary>
     public IReadOnlyList<string> LevelLabels { get; } =
-        new[] { "Any level" }.Concat(Enumerable.Range(0, 8).Select(GraylogQuery.LevelText)).ToList();
+        new[] { "Any level" }.Concat(Enumerable.Range(0, 8).Select(l => GraylogQuery.LevelText(l))).ToList();
 
     /// <summary>"All streams", then each enabled stream the account can read.</summary>
     public IReadOnlyList<string> StreamLabels { get; private set; } = ["All streams"];
