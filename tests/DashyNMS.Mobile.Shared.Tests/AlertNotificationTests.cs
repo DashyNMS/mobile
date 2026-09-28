@@ -506,7 +506,7 @@ public sealed class NotificationSettingsViewModelTests
         var watcher = new AlertWatcher(
             Fakes.Client(), session, Fakes.Secrets(), settings, store, new SelfActionTracker(), notifier, new NoAppBadge(), new NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatcher>.Instance);
         var coordinator = new AlertWatchCoordinator(session, settings, watcher, scheduler, store, new NoAppBadge(), new NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
-        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), notifier, coordinator, new NoAppBadge(), new InMemoryAppearance());
+        var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), notifier, coordinator, new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets());
 
         vm.NotificationsEnabled = false;
 

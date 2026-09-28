@@ -1,13 +1,14 @@
 using DashyNMS.Mobile.Widgets;
 using Foundation;
+using Microsoft.Maui.Storage;
 using Microsoft.Extensions.Logging;
 
 namespace DashyNMS.Mobile;
 
 /// <summary>
 /// Feeds the WidgetKit extension (ios-widget/): the snapshot goes in the App
-/// Group folder the app and widget share, and the widget re-reads it on its
-/// own schedule.
+/// Group folder the app and widgets share, and they re-read it on their own
+/// schedule.
 /// </summary>
 /// <remarks>
 /// WidgetCenter - the API that lists placed widgets and asks them to reload -
@@ -29,7 +30,28 @@ public sealed class IosHomeWidgets : IHomeWidgets
         _folder = NSFileManager.DefaultManager.GetContainerUrl(AppGroup)?.Path;
     }
 
+    private const string HideDetailsKey = "widgets.hideLockScreenDetails";
+
     public bool IsInUse => _folder is not null;
+
+    public bool HasLockScreenWidgets => _folder is not null;
+
+    /// <summary>On unless turned off: a lock screen is for anyone holding the phone.</summary>
+    public bool HideLockScreenDetails
+    {
+        get => Preferences.Default.Get(HideDetailsKey, true);
+        set
+        {
+            Preferences.Default.Set(HideDetailsKey, value);
+
+            // Straight away, not at the next check: re-save what's there with the new choice.
+            if (_folder is not null)
+            {
+                var path = Path.Combine(_folder, SnapshotFile);
+                Update(WidgetSnapshot.FromJson(File.Exists(path) ? File.ReadAllText(path) : null));
+            }
+        }
+    }
 
     public void Update(WidgetSnapshot snapshot)
     {
@@ -42,7 +64,7 @@ public sealed class IosHomeWidgets : IHomeWidgets
         {
             var path = Path.Combine(_folder, SnapshotFile);
             var temp = path + ".tmp";
-            File.WriteAllText(temp, snapshot.ToJson());
+            File.WriteAllText(temp, (snapshot with { HideLockScreenDetails = HideLockScreenDetails }).ToJson());
             File.Move(temp, path, overwrite: true);
         }
         catch (Exception ex)

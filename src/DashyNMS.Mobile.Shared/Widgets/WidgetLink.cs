@@ -5,7 +5,8 @@ namespace DashyNMS.Mobile.Widgets;
 
 /// <summary>
 /// The dashynms:// links an iOS widget opens the app with: <c>dashynms://alerts</c>
-/// for the alert list, <c>dashynms://alert/5?device=3</c> for one alert.
+/// for the alert list, <c>dashynms://alert/5?device=3</c> for one alert,
+/// <c>dashynms://device/3</c> for a device (the pinned devices and sensors widgets).
 /// </summary>
 /// <remarks>
 /// Any app or web page can open a custom scheme, so a link is only ever
@@ -37,6 +38,9 @@ public static class WidgetLink
 
                 int? deviceId = TryParseId(QueryValue(uri, "device"), out var device) ? device : null;
                 return new NotificationTarget(deviceId, alertId);
+
+            case "device":
+                return TryParseId(uri.AbsolutePath.Trim('/'), out var id) ? new NotificationTarget(id) : null;
 
             default:
                 return null;

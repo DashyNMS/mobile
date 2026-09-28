@@ -30,7 +30,7 @@ public sealed class MoreSettingsTests
         var coordinator = new AlertWatchCoordinator(
             session, _settings, watcher, Substitute.For<IBackgroundAlertScheduler>(), store, new NoAppBadge(),
             new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
-        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance);
+        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance, new DashyNMS.Mobile.Widgets.NoHomeWidgets());
     }
 
     [Fact]

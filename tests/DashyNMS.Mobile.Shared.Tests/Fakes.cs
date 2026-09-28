@@ -14,6 +14,7 @@ internal static class Fakes
         var client = Substitute.For<ILibreNmsClient>();
         client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(devices ?? []);
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(alerts ?? []);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Sensor>());
         return client;
     }
 
@@ -108,6 +109,10 @@ internal sealed class RecordingBadge : IAppBadge
 internal sealed class RecordingWidgets : DashyNMS.Mobile.Widgets.IHomeWidgets
 {
     public bool IsInUse { get; set; } = true;
+
+    public bool HasLockScreenWidgets => true;
+
+    public bool HideLockScreenDetails { get; set; } = true;
 
     public List<DashyNMS.Mobile.Widgets.WidgetSnapshot> Updates { get; } = new();
 

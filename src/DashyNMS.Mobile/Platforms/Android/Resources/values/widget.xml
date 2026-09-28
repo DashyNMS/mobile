@@ -1,11 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The home-screen widget: the app's dark surface and status colours (Resources/Styles/Colors.xaml). -->
+<!-- The home-screen widgets: the app's dark surface and status colours
+     (Resources/Styles/Colors.xaml), plus lighter tints for coloured text,
+     which the plain status colours are too dark for on this background. -->
 <resources>
     <color name="widget_background">#171B23</color>
+    <color name="widget_tile">#1F2430</color>
+    <color name="widget_track">#262C38</color>
     <color name="widget_text">#E6EAF0</color>
     <color name="widget_text_secondary">#8B93A1</color>
     <color name="widget_critical">#DA3633</color>
     <color name="widget_warning">#DB9A04</color>
+    <color name="widget_acknowledged">#6E7A91</color>
     <color name="widget_ok">#2EA043</color>
-    <string name="widget_description">Open alerts and devices down, from your last alert check.</string>
+    <color name="widget_inactive">#6E6E6E</color>
+    <color name="widget_critical_text">#FF7B72</color>
+    <color name="widget_warning_text">#E3B341</color>
+    <color name="widget_acknowledged_text">#9AA6BE</color>
+    <color name="widget_ok_text">#56D364</color>
+    <color name="widget_critical_tile">#3A1E20</color>
+    <color name="widget_warning_tile">#352A12</color>
+    <string name="widget_description">Open alerts, worst first, from your last alert check.</string>
+    <string name="widget_pie_description">Your devices by their worst alert: critical, warning, acknowledged or OK.</string>
+    <string name="widget_overview_description">Devices up and down, alert counts and the top alerts.</string>
+    <string name="widget_pinned_description">The devices you\'ve pinned in DashyNMS, and how they are.</string>
+    <string name="widget_sensors_description">The sensors on your dashboard\'s Sensors card.</string>
 </resources>

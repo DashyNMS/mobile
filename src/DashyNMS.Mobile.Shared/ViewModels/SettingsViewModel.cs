@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
@@ -26,6 +27,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly AlertWatchCoordinator _coordinator;
     private readonly IAppBadge _badge;
     private readonly IAppearance _appearance;
+    private readonly IHomeWidgets _widgets;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -38,7 +40,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
         IAlertNotifier notifier,
         AlertWatchCoordinator coordinator,
         IAppBadge badge,
-        IAppearance appearance)
+        IAppearance appearance,
+        IHomeWidgets widgets)
     {
         _session = session;
         _settings = settings;
@@ -48,6 +51,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _coordinator = coordinator;
         _badge = badge;
         _appearance = appearance;
+        _widgets = widgets;
         _serverTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc;
     }
 
@@ -156,6 +160,22 @@ public sealed partial class SettingsViewModel : ViewModelBase
     {
         get => _settings.Current.AlertTabBadgeIncludesAcknowledged;
         set => SetNotification(_settings.Current.AlertTabBadgeIncludesAcknowledged, value, v => _settings.Current.AlertTabBadgeIncludesAcknowledged = v);
+    }
+
+    /// <summary>Only where there are lock-screen widgets (iPhone).</summary>
+    public bool HasLockScreenWidgets => _widgets.HasLockScreenWidgets;
+
+    public bool HideLockScreenDetails
+    {
+        get => _widgets.HideLockScreenDetails;
+        set
+        {
+            if (value != _widgets.HideLockScreenDetails)
+            {
+                _widgets.HideLockScreenDetails = value;
+                OnPropertyChanged();
+            }
+        }
     }
 
     public bool NotificationsEnabled

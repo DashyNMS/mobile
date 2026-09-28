@@ -8,7 +8,7 @@ rather than rewritten.
 
 > **Status: early.** Sign-in, a dashboard, devices and Device View, alerts
 > (with detail, acknowledge/unacknowledge and export), alert notifications, an
-> app icon badge, a home-screen widget and settings are in place. See the
+> app icon badge, home-screen and lock-screen widgets and settings are in place. See the
 > [roadmap](#roadmap) for what's next.
 
 ## What it does today
@@ -85,12 +85,24 @@ rather than rewritten.
   four categories (dBm, signal, temperature, fan speed), coloured against
   the same thresholds as Device View, problems first, with Critical /
   Warning / OK chips and search. Tap a sensor for its device's sensors.
-- **Home-screen widget**: open alerts by severity, devices down and (on
-  larger sizes) the top three alerts, with the time of the last check. Tap
-  an alert to open it, or anywhere else for the alert list. It draws the
-  snapshot each alert check saves, so it stays current in the background
-  and never holds the API token. Android's is a normal app widget. iPhone's
-  is a small Swift WidgetKit extension (`ios-widget/`), which needs a
+- **Home-screen widgets**, drawn from the snapshot each alert check saves,
+  so they stay current in the background and never hold the API token:
+  - *Alerts*: the worst alert in full (small), three with counts (medium),
+    or six with their rules wrapped, acknowledged ones last (large).
+  - *Alert pie chart*: every device once, by its worst alert - critical,
+    warning, acknowledged or OK - with the devices behind the red and amber
+    on the large size.
+  - *Overview* (large): a devices bar, up/down/disabled, alert counts and the
+    top alerts.
+  - *Pinned devices* and *Sensors* (medium, large): the app's pinned devices,
+    and the dashboard Sensors card's sensors against their limits. Sensors
+    are only read while some are picked, at most every 15 minutes.
+  - *Lock screen* (iPhone): inline, circular and rectangular. Counts only
+    unless Settings → Lock screen widgets → Hide alert details is turned off.
+
+  Tap an alert or device to open it, anywhere else for the alert list.
+  Android's are normal app widgets that show more as they're resized.
+  iPhone's are a Swift WidgetKit extension (`ios-widget/`), which needs a
   one-off App Group setup before TestFlight builds include it; see
   [docs/RELEASING-IOS.md](docs/RELEASING-IOS.md#home-screen-widget).
 - **Settings**: the connected server and version, light/dark (the phone's

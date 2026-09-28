@@ -98,9 +98,12 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 
 ## Home-screen widget
 
-The widget is a Swift WidgetKit extension (`ios-widget/`), bundle ID
-`net.pckp.DashyNMS.widget`. The app and the widget share a snapshot of the
-last alert check through the App Group `group.net.pckp.DashyNMS`.
+The widgets are one Swift WidgetKit extension (`ios-widget/`), bundle ID
+`net.pckp.DashyNMS.widget`: Alerts, Alert pie chart, Overview, Pinned
+devices, Sensors and the lock-screen Alerts, as one widget bundle. The app and
+the widgets share a snapshot of the last alert check through the App Group
+`group.net.pckp.DashyNMS`, so adding a widget kind needs no new App ID,
+profile or secret.
 
 The TestFlight workflow leaves the widget out until the
 `IOS_WIDGET_PROVISIONING_PROFILE_BASE64` secret exists, so builds work as

@@ -66,6 +66,17 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="LOCK SCREEN WIDGETS" IsVisible="{Binding HasLockScreenWidgets}" />
+            <Border Style="{StaticResource Card}" IsVisible="{Binding HasLockScreenWidgets}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout>
+                        <Label Text="Hide alert details" />
+                        <Label Style="{StaticResource Caption}" Text="Lock screen widgets show counts only - no device or rule names - for anyone who picks up your phone." />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding HideLockScreenDetails}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" />
             <Border Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="14">
