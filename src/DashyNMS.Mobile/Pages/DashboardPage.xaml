@@ -42,19 +42,6 @@
                                 </VerticalStackLayout>
                             </Border>
                         </Grid>
-                        <!-- Desktop's alerts gauge, as a bar: each severity's share of open alerts. -->
-                        <Border StrokeThickness="0" HeightRequest="8" StrokeShape="RoundRectangle 4" IsVisible="{Binding Dashboard.HasOpenAlerts}">
-                            <Grid ColumnSpacing="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{Binding Dashboard.CriticalShare, Converter={StaticResource Star}}" />
-                                    <ColumnDefinition Width="{Binding Dashboard.WarningShare, Converter={StaticResource Star}}" />
-                                    <ColumnDefinition Width="{Binding Dashboard.AcknowledgedShare, Converter={StaticResource Star}}" />
-                                </Grid.ColumnDefinitions>
-                                <BoxView Color="{StaticResource CriticalColor}" />
-                                <BoxView Grid.Column="1" Color="{StaticResource WarningColor}" />
-                                <BoxView Grid.Column="2" Color="{StaticResource InactiveColor}" />
-                            </Grid>
-                        </Border>
                     </VerticalStackLayout>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.AlertsGauge>
