@@ -138,21 +138,83 @@ To ship an iOS build to testers, see [docs/RELEASING-IOS.md](docs/RELEASING-IOS.
 The manually triggered **TestFlight** workflow signs the app and uploads it to
 App Store Connect, with no Mac needed.
 
+## Feature parity
+
+What desktop has (from its code, README and the website), and where mobile
+stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
+
+| Area | Desktop | Mobile |
+| --- | --- | --- |
+| Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ |
+| Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | 🟡 Fixed layout: alert and device counts, top five alerts |
+| Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
+| Worst severity at a glance | Tray icon with open-alert count | ⬜ App icon badge, home-screen widget |
+| Alerts list | Severity/state filters, search, CSV export | 🟡 Hide acknowledged only |
+| Acknowledge / unacknowledge | ✅ | ✅ |
+| Alert rules and templates | Full editor | ⬜ View only, maybe; editing is a desktop job |
+| Devices list | Sortable grid, column picker, filters | 🟡 Search and up/down filter |
+| Pinned and recently viewed devices | ✅ | ⬜ |
+| Bulk actions, add device | ✅ | ➖ Maybe add device later |
+| Device View: overview, active alerts | ✅ | ✅ |
+| Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ⬜ |
+| Device actions: rediscover, maintenance window, edit, delete | ✅ | ⬜ Rediscover and maintenance first |
+| Open in browser / SSH / Telnet | ✅ | 🟡 Browser only |
+| Health (sensors across all devices vs limits) | ✅ | ⬜ |
+| Groups and locations | ✅ | ⬜ |
+| Neighbours views | ✅ | ⬜ |
+| Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
+| Logs: event log, Graylog | ✅ | ⬜ |
+| Unimus config backups and diffs | ✅ | ⬜ |
+| Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | 🟡 Timestamps and notifications only |
+| Update checks | ✅ | ➖ The stores handle it |
+
+The website describes desktop only, and leaves out several things desktop
+already has: Neighbours, Maps, Logs/Graylog, Unimus, the backup server
+address and in-app updates. Nor does it mention mobile yet.
+
 ## Roadmap
 
-Roughly in order, following what desktop already has:
+Ordered by how much each adds on a phone, not by desktop's order.
 
-1. **Health**: sensors (dBm, temperature, fans) coloured against their limits.
-2. **Graphs**: device and port graphs via Core's `IGraphsApi`.
-3. **Device detail, fuller**: ports and neighbours, event log, maintenance
-   windows, rediscover.
-4. **Groups and locations**, plus pinned and recently viewed devices.
-5. **Integrations**: Unimus config backups and Graylog messages (Core already
-   has both clients; they need keychain-backed secret stores like the
-   LibreNMS token's).
-6. **Store builds**: Play internal testing (TestFlight is in place, see above).
-7. **Instant alerts**: a push from the server side, so alerts don't wait for
-   the next background check.
+**Next: the things you open the app for**
+
+1. **Widgets**: a home-screen widget with open alerts by severity and devices
+   down, tapping through to the app. Android widgets can be written in C#
+   here. iOS widgets have to be a small Swift WidgetKit extension, built
+   alongside the MAUI app and reading a snapshot the app shares through an
+   App Group. That needs the App Group capability on the App ID and a
+   regenerated provisioning profile.
+2. **App icon badge**: the open-alert count on the icon, the phone's version
+   of desktop's tray icon.
+3. **Alerts list parity**: severity and state filters and search, plus an
+   alert detail view with the rule, note and fault details.
+4. **Pinned and recently viewed devices**, on the dashboard and at the top of
+   Devices.
+5. **Device View, core tabs**: availability and outages, sensors, ports,
+   event log. Plus the two actions you want in a hurry: rediscover and
+   schedule maintenance.
+
+**Then: the rest of the everyday views**
+
+6. **Health**: sensors across all devices, coloured against their limits.
+7. **Graphs**: device and port graphs via Core's `IGraphsApi`.
+8. **Groups and locations**, with the same click-through to Device View.
+9. **Device View, remaining tabs**: resources, neighbours, VLANs, FDB/ARP,
+   routing, wireless, inventory.
+10. **More settings**: poll interval, health thresholds, device name style,
+    theme.
+
+**Later**
+
+11. **Geographical map** of devices and their state.
+12. **Integrations**: Graylog messages and Unimus config backups. Core
+    already has both clients; they need keychain-backed secret stores like
+    the LibreNMS token's.
+13. **Rules and templates**, read-only.
+14. **Instant alerts**: a push from the server side, so alerts don't wait for
+    the next background check.
+15. **Store builds**: Play internal testing (TestFlight is in place, see
+    above).
 
 ## Upstream notes
 
