@@ -41,9 +41,23 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#11141A" />
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#11141A" BaseSize="128,128" />
 		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\dashynms_logo.svg" BaseSize="96,96" />
+	</ItemGroup>
+
+	<!-- The logo's ring runs almost to the edge of its artwork. Android masks
+	     adaptive icons to a circle (or squircle) that only shows the middle
+	     ~61%, so it gets a smaller foreground than iOS, whose rounded square
+	     shows nearly everything. -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" ForegroundScale="0.58" Color="#171B23" />
+	</ItemGroup>
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) != 'android'">
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" ForegroundScale="0.78" Color="#171B23" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<MauiFont Include="Resources\Fonts\*" />
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 	</ItemGroup>

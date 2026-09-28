@@ -10,7 +10,10 @@
     <ScrollView>
         <VerticalStackLayout Padding="24,48,24,24" Spacing="12" MaximumWidthRequest="520">
 
-            <Label Text="DashyNMS" FontSize="32" FontFamily="OpenSansSemibold" />
+            <HorizontalStackLayout Spacing="12">
+                <Image Source="dashynms_logo.png" WidthRequest="44" HeightRequest="44" SemanticProperties.Description="DashyNMS logo" />
+                <Label Text="DashyNMS" FontSize="32" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+            </HorizontalStackLayout>
             <Label Style="{StaticResource Caption}"
                    Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
 
