@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.MapPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:map="clr-namespace:DashyNMS.Mobile.Map;assembly=DashyNMS.Mobile.Shared"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="map:MapViewModel"
+    Title="Map">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Refresh" Command="{Binding RefreshCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Margin="16,8" />
+        <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding UnplacedText}"
+               IsVisible="{Binding UnplacedText, Converter={StaticResource IsNotNull}}" Margin="16,6" />
+
+        <!-- Leaflet and the pins; see MapHtml for how it's locked down. -->
+        <WebView Grid.Row="2" x:Name="MapView" />
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" VerticalOptions="Center" />
+
+        <!-- The tapped location's devices. -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="8" IsVisible="{Binding HasSelection}" MaximumHeightRequest="320">
+            <Grid RowDefinitions="Auto,*">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="{Binding SelectedLocation}" FontFamily="OpenSansSemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <Button Grid.Column="1" Text="Close" Command="{Binding ClearSelectionCommand}" BackgroundColor="Transparent"
+                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                </Grid>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeviceItem">
+                            <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12" Padding="0,8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type map:MapViewModel}}, x:DataType=map:MapViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}" WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="{Binding Name}" LineBreakMode="TailTruncation" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Text="{Binding StateText}" VerticalOptions="Center"
+                                       TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Border>
+
+    </Grid>
+
+</ContentPage>

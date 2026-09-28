@@ -1,0 +1,129 @@
+using DashyNMS.Mobile.Map;
+using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Models;
+
+namespace DashyNMS.Mobile.Tests;
+
+public sealed class MapHtmlTests
+{
+    private static string Page(string name = "London", string tiles = "https://tile.openstreetmap.org/{z}/{x}/{y}.png") =>
+        MapHtml.Build([new MapPinData(0, name, 51.5, -0.12, 3, "down")], tiles, openStreetMapTiles: true, dark: false, "/*leaflet*/", "/*css*/");
+
+    [Fact]
+    public void Only_this_pages_own_scripts_run_and_images_come_only_from_the_tile_server()
+    {
+        var page = Page();
+
+        var csp = System.Text.RegularExpressions.Regex.Match(page, "Content-Security-Policy\" content=\"([^\"]+)\"").Groups[1].Value;
+        Assert.StartsWith("default-src 'none'; script-src 'nonce-", csp);
+        Assert.DoesNotContain("unsafe-inline'; img", csp.Replace("style-src 'unsafe-inline'", string.Empty));
+        Assert.EndsWith("img-src https: data:", csp);
+        var nonce = System.Text.RegularExpressions.Regex.Match(csp, "nonce-([^']+)").Groups[1].Value;
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, $"<script nonce=\"{System.Text.RegularExpressions.Regex.Escape(nonce)}\">").Count);
+        Assert.NotEqual(nonce, System.Text.RegularExpressions.Regex.Match(Page(), "nonce-([^']+)").Groups[1].Value); // one-off
+        Assert.Contains("OpenStreetMap contributors", page);
+    }
+
+    [Fact]
+    public void A_hostile_location_name_cant_close_the_script_or_become_markup()
+    {
+        var page = Page("</script><script>alert(1)</script><img src=x onerror=steal()>");
+
+        Assert.DoesNotContain("</script><script>alert", page);
+        Assert.DoesNotContain("<img src=x", page);
+        Assert.Contains("\\u003C/script\\u003E", page); // still there, as data
+        Assert.Contains("el.textContent", page);         // and drawn as text
+    }
+
+    [Fact]
+    public void An_http_tile_server_is_allowed_only_when_desktops_setting_says_so() =>
+        Assert.EndsWith("img-src http: data:\">", Page(tiles: "http://tiles.lan/{z}/{x}/{y}.png").Split('\n').First(l => l.Contains("Content-Security-Policy")).Trim());
+
+    [Theory]
+    [InlineData("dashynms-map://pin/3", 3)]
+    [InlineData("DASHYNMS-MAP://pin/0", 0)]
+    [InlineData("dashynms-map://pin/x", null)]
+    [InlineData("dashynms-map://device/3", null)]
+    [InlineData("https://evil.example/pin/3", null)]
+    [InlineData(null, null)]
+    public void Only_a_pin_tap_is_read_from_a_navigation(string? url, int? pin) => Assert.Equal(pin, MapHtml.PinFrom(url));
+}
+
+public sealed class MapViewModelTests
+{
+    private readonly ILibreNmsClient _client = Fakes.Client(devices:
+    [
+        At(Fakes.Device(1, "core-sw", location: "London"), 1),
+        At(Fakes.Device(2, "access-sw", up: false, location: "London"), 1),
+        At(Fakes.Device(3, "leeds-rtr", location: "Leeds"), 2),
+        Fakes.Device(4, "lab-server"),
+        At(Fakes.Device(5, "nowhere-sw", location: "Null Island"), 3),
+    ]);
+
+    private static Device At(Device device, int locationId)
+    {
+        device.LocationId = locationId;
+        return device;
+    }
+
+    private readonly IMapAssets _assets = Substitute.For<IMapAssets>();
+    private readonly RecordingNavigation _navigation = new();
+
+    public MapViewModelTests()
+    {
+        _assets.LeafletAsync().Returns(("/*js*/", "/*css*/"));
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Location { Id = 1, Name = "London", Latitude = 51.5074, Longitude = -0.1278 },
+            new Location { Id = 2, Name = "Leeds", Latitude = 53.8008, Longitude = -1.5491 },
+            new Location { Id = 3, Name = "Null Island", Latitude = 0, Longitude = 0 },
+        ]);
+    }
+
+    private async Task<MapViewModel> Loaded(AppSettings? settings = null)
+    {
+        var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        return vm;
+    }
+
+    [Fact]
+    public async Task One_pin_per_location_red_when_a_device_there_is_down()
+    {
+        var vm = await Loaded();
+
+        Assert.Contains("\"name\":\"London\"", vm.MapPage);
+        Assert.Contains("\"count\":2,\"state\":\"down\"", vm.MapPage);
+        Assert.Contains("\"name\":\"Leeds\"", vm.MapPage);
+        Assert.Contains("tile.openstreetmap.org", vm.MapPage);
+        Assert.Equal("2 devices have no location with coordinates, so aren't on the map.", vm.UnplacedText);
+    }
+
+    [Fact]
+    public async Task Desktops_own_tile_server_setting_is_used()
+    {
+        var vm = await Loaded(new AppSettings { MapTileUrl = "https://tiles.example.net/{z}/{x}/{y}.png" });
+
+        Assert.Contains("tiles.example.net", vm.MapPage);
+        Assert.DoesNotContain("OpenStreetMap contributors", vm.MapPage);
+    }
+
+    [Fact]
+    public async Task Tapping_a_pin_lists_its_devices_down_first_and_they_open()
+    {
+        var vm = await Loaded();
+        var london = System.Text.RegularExpressions.Regex.Match(vm.MapPage!, "\"id\":(\\d+),\"name\":\"London\"").Groups[1].Value;
+
+        vm.SelectPin(int.Parse(london));
+
+        Assert.Equal("London", vm.SelectedLocation);
+        Assert.Equal(["access-sw", "core-sw"], vm.Devices.Select(d => d.Name));
+        await vm.OpenDeviceCommand.ExecuteAsync(vm.Devices[0]);
+        Assert.Equal(2, Assert.Single(_navigation.Visits).Parameters![Services.Routes.DeviceIdParameter]);
+
+        vm.ClearSelectionCommand.Execute(null);
+        Assert.False(vm.HasSelection);
+        Assert.Empty(vm.Devices);
+    }
+}

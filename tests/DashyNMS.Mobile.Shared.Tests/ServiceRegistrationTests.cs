@@ -34,6 +34,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(Dashboard.GraphPickerViewModel))]
     [InlineData(typeof(Logs.LogsViewModel))]
     [InlineData(typeof(Topology.NeighboursViewModel))]
+    [InlineData(typeof(Map.MapViewModel))]
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]
@@ -47,6 +48,7 @@ public sealed class ServiceRegistrationTests
             .AddSingleton(Substitute.For<IDialogService>())
             .AddSingleton(Substitute.For<ILauncherService>())
             .AddSingleton(Substitute.For<IShareService>())
+            .AddSingleton(Substitute.For<Map.IMapAssets>())
             .AddSingleton(Substitute.For<IAlertNotifier>())
             .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());
 

@@ -76,6 +76,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Logs.INetworkLogs, Logs.NetworkLogs>();
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
+        services.AddTransient<Map.MapViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 

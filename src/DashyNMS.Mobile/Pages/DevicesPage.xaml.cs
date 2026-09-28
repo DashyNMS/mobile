@@ -31,8 +31,12 @@ public partial class DevicesPage : ContentPage, IQueryAttributable
 	{
 		const string groups = "Groups & locations";
 		const string neighbours = "Neighbours";
-		switch (await DisplayActionSheetAsync("Devices", "Cancel", null, groups, neighbours))
+		const string map = "Map";
+		switch (await DisplayActionSheetAsync("Devices", "Cancel", null, map, groups, neighbours))
 		{
+			case map:
+				await _viewModel.OpenMapCommand.ExecuteAsync(null);
+				break;
 			case groups:
 				await _viewModel.OpenGroupsLocationsCommand.ExecuteAsync(null);
 				break;

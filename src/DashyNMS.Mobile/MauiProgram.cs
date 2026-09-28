@@ -32,6 +32,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
 		builder.Services.AddSingleton<IShareService, ShareService>();
+		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
 
@@ -66,6 +67,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<GraphPickerPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<MapPage>();
 
 		return builder.Build();
 	}
