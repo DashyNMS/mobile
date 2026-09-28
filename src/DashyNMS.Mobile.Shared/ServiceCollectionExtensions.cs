@@ -1,5 +1,6 @@
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Storage;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Alerting;
@@ -43,6 +44,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SecretCache>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<DeviceBookmarks>();
 
         // Alert notifications. The app head supplies IAlertNotifier and
         // IBackgroundAlertScheduler for its platform.

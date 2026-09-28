@@ -58,6 +58,28 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     private NotificationSettings Notifications => _settings.Current.Notifications;
 
+    /// <summary>Desktop's name choices, for the Device names picker.</summary>
+    public IReadOnlyList<string> DeviceNameStyles { get; } =
+        Enum.GetValues<DeviceNameStyle>().Select(s => s.ToDisplayString()).ToList();
+
+    /// <summary>Which name devices go by - hostname, sysName or display name - as on desktop.</summary>
+    public int DeviceNameStyleIndex
+    {
+        get => Array.IndexOf(Enum.GetValues<DeviceNameStyle>(), _settings.Current.DeviceNameStyle);
+        set
+        {
+            var styles = Enum.GetValues<DeviceNameStyle>();
+            if (value < 0 || value >= styles.Length || styles[value] == _settings.Current.DeviceNameStyle)
+            {
+                return;
+            }
+
+            _settings.Current.DeviceNameStyle = styles[value];
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
+
     public bool NotificationsEnabled
     {
         get => Notifications.Enabled;

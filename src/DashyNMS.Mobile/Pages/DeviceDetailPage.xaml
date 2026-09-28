@@ -9,6 +9,7 @@
     Title="{Binding Title}">
 
     <ContentPage.ToolbarItems>
+        <ToolbarItem Text="{Binding PinText}" Command="{Binding TogglePinCommand}" />
         <ToolbarItem Text="Open in browser" Command="{Binding OpenInBrowserCommand}" />
     </ContentPage.ToolbarItems>
 

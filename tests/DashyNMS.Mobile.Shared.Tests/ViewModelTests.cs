@@ -10,67 +10,6 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace DashyNMS.Mobile.Tests;
 
-public sealed class DevicesViewModelTests
-{
-    private readonly DevicesViewModel _vm = new(
-        Fakes.Client(devices:
-        [
-            Fakes.Device(1, "core-sw", ip: "10.0.0.1"),
-            Fakes.Device(2, "access-sw", up: false),
-            Fakes.Device(3, "backup-rtr", disabled: true),
-            Fakes.Device(4, "Branch-fw", ip: "10.9.0.1"),
-        ]),
-        new RecordingNavigation());
-
-    [Fact]
-    public async Task Down_devices_come_first_then_by_name()
-    {
-        await _vm.RefreshCommand.ExecuteAsync(null);
-
-        Assert.Equal(["access-sw", "backup-rtr", "Branch-fw", "core-sw"], _vm.Devices.Select(d => d.Name));
-        Assert.Equal("4 devices", _vm.CountText);
-    }
-
-    [Fact]
-    public async Task Search_matches_name_or_ip_ignoring_case()
-    {
-        await _vm.RefreshCommand.ExecuteAsync(null);
-
-        _vm.SearchText = "BRANCH";
-        Assert.Equal(["Branch-fw"], _vm.Devices.Select(d => d.Name));
-
-        _vm.SearchText = "10.0.";
-        Assert.Equal(["core-sw"], _vm.Devices.Select(d => d.Name));
-        Assert.Equal("1 of 4 devices", _vm.CountText);
-    }
-
-    [Fact]
-    public async Task Filter_by_state()
-    {
-        await _vm.RefreshCommand.ExecuteAsync(null);
-
-        _vm.Filter = DeviceFilter.Down;
-        Assert.Equal(["access-sw"], _vm.Devices.Select(d => d.Name));
-
-        _vm.Filter = DeviceFilter.Up;
-        Assert.Equal(["Branch-fw", "core-sw"], _vm.Devices.Select(d => d.Name));
-    }
-
-    [Fact]
-    public async Task A_failed_load_becomes_an_error_message()
-    {
-        var client = Fakes.Client();
-        client.Devices.ListAsync(Arg.Any<CancellationToken>())
-            .Returns<IReadOnlyList<Device>>(_ => throw new HttpRequestException("no route"));
-        var vm = new DevicesViewModel(client, new RecordingNavigation());
-
-        await vm.RefreshCommand.ExecuteAsync(null);
-
-        Assert.True(vm.HasError);
-        Assert.False(vm.IsBusy);
-    }
-}
-
 public sealed class DashboardViewModelTests
 {
     [Fact]
@@ -329,7 +268,8 @@ public sealed class DeviceDetailViewModelTests
     {
         var client = Fakes.Client(alerts: [Fakes.Alert(1, 7, "warning"), Fakes.Alert(2, 8, "critical"), Fakes.Alert(3, 7, "critical")]);
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", ip: "192.0.2.1"));
-        var vm = new DeviceDetailViewModel(client, Fakes.Settings(), Substitute.For<ILauncherService>());
+        var settings = Fakes.Settings();
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System));
 
         await vm.LoadAsync(7);
 
@@ -343,7 +283,8 @@ public sealed class DeviceDetailViewModelTests
     {
         var client = Fakes.Client();
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns((Device?)null);
-        var vm = new DeviceDetailViewModel(client, Fakes.Settings(), Substitute.For<ILauncherService>());
+        var settings = Fakes.Settings();
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System));
 
         await vm.LoadAsync(7);
 

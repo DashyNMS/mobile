@@ -24,6 +24,20 @@
                 </VerticalStackLayout>
             </Border>
 
+            <Label Style="{StaticResource SectionHeader}" Text="DEVICES" />
+            <Border Style="{StaticResource Card}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout VerticalOptions="Center">
+                        <Label Text="Device names" />
+                        <Label Style="{StaticResource Caption}" Text="Which name devices go by in lists and titles, as on desktop." />
+                    </VerticalStackLayout>
+                    <Picker Grid.Column="1" Title="Device names"
+                            ItemsSource="{Binding DeviceNameStyles}"
+                            SelectedIndex="{Binding DeviceNameStyleIndex}"
+                            MinimumWidthRequest="140" />
+                </Grid>
+            </Border>
+
             <Label Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" />
             <Border Style="{StaticResource Card}">
                 <VerticalStackLayout Spacing="14">

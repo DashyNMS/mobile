@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Marks a pinned device in the list, in the accent colour; website line-icon style. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 3h6l-1 5 3 3v2H7v-2l3-3z" fill="#3B82F6"/>
+  <path d="M12 13v8"/>
+</svg>

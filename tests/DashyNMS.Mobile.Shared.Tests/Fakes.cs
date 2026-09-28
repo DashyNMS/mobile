@@ -27,8 +27,30 @@ internal static class Fakes
     public static SecretCache Secrets() =>
         new(Substitute.For<ISecureStorage>(), Microsoft.Extensions.Logging.Abstractions.NullLogger<SecretCache>.Instance);
 
-    public static Device Device(int id, string name, bool up = true, bool disabled = false, bool ignore = false, string? ip = null) =>
-        new() { DeviceId = id, Hostname = name, Status = up, Disabled = disabled, Ignore = ignore, Ip = ip };
+    public static Device Device(
+        int id,
+        string name,
+        bool up = true,
+        bool disabled = false,
+        bool ignore = false,
+        string? ip = null,
+        string? type = null,
+        string? location = null,
+        long uptime = 0,
+        string? sysName = null) =>
+        new()
+        {
+            DeviceId = id,
+            Hostname = name,
+            SysName = sysName,
+            Status = up,
+            Disabled = disabled,
+            Ignore = ignore,
+            Ip = ip,
+            Type = type,
+            Location = location,
+            Uptime = uptime,
+        };
 
     /// <summary>StateValue 1 is active, 2 acknowledged - see AlertStateExtensions.FromValue.</summary>
     public static Alert Alert(int id, int deviceId, string severity, bool acknowledged = false, DateTime? at = null) =>

@@ -18,8 +18,13 @@ rather than rewritten.
   straight back in next launch.
 - **Dashboard**: open alerts by severity, devices up/down/inactive, and the
   five alerts that most need attention. Pull to refresh.
-- **Devices**: every device, down devices first, searchable by name, IP, OS,
-  hardware or location, and filterable by state.
+- **Devices**: every device, with desktop's Up / Down / Maintenance / Disabled
+  chips (with counts), search across name, IP, OS, hardware, location, type,
+  contact, serial and id, Type / Location / Group filters, and sorting by
+  name, status, IP, uptime, location, OS or hardware. Swipe to pin a device
+  to the top; recently viewed devices show in a strip above the list. Pins
+  and recents are desktop's own settings. Maintenance windows are checked per
+  device after the list loads, as on desktop.
 - **Device detail**: state, identity, uptime and the device's own open alerts,
   plus an "Open in browser" link to the device in LibreNMS.
 - **Alerts**: open alerts, most severe first, with desktop's Critical /
@@ -155,8 +160,8 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |
 | Acknowledge / unacknowledge | ✅ | ✅ |
 | Alert rules and templates | Full editor | ⬜ View only, maybe; editing is a desktop job |
-| Devices list | Sortable grid, column picker, filters | 🟡 Search and up/down filter |
-| Pinned and recently viewed devices | ✅ | ⬜ |
+| Devices list | Sortable grid, column picker, state chips, Type/Location/Group filters, search | ✅ State chips (incl. maintenance), Type/Location/Group filters (one choice each), search, seven sorts |
+| Pinned and recently viewed devices | ✅ | ✅ On Devices (swipe or Device View to pin); not yet on the dashboard |
 | Bulk actions, add device | ✅ | ➖ Maybe add device later |
 | Device View: overview, active alerts | ✅ | ✅ |
 | Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ⬜ |
@@ -168,7 +173,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
 | Logs: event log, Graylog | ✅ | ⬜ |
 | Unimus config backups and diffs | ✅ | ⬜ |
-| Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | 🟡 Timestamps and notifications only |
+| Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | 🟡 Device names, timestamps and notifications |
 | Update checks | ✅ | ➖ The stores handle it |
 
 The website describes desktop only, and leaves out several things desktop
@@ -191,8 +196,8 @@ Ordered by how much each adds on a phone, not by desktop's order.
    of desktop's tray icon.
 3. **Alert detail**: the rule, note and fault details for one alert (the
    list's filters, search and export are done).
-4. **Pinned and recently viewed devices**, on the dashboard and at the top of
-   Devices.
+4. **Pinned and recently viewed devices on the dashboard** (they're done on
+   Devices).
 5. **Device View, core tabs**: availability and outages, sensors, ports,
    event log. Plus the two actions you want in a hurry: rediscover and
    schedule maintenance.

@@ -1,85 +1,567 @@
 using System.Collections.ObjectModel;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-public enum DeviceFilter
+public enum DeviceSort
 {
-    All,
-    Down,
-    Up,
+    Name,
+    Status,
+    IpAddress,
+    Uptime,
+    Location,
+    Os,
+    Hardware,
 }
 
-/// <summary>Every device, searchable, down devices first.</summary>
+public sealed record SortOption(DeviceSort Sort, string Label);
+
+/// <summary>One choice in a Type / Location / Group filter: <see cref="Key"/> null is "all".</summary>
+public sealed record FacetOption(string? Key, string Label)
+{
+    public override string ToString() => Label;
+}
+
+/// <summary>
+/// Every device, as desktop's Devices tab: state chips (up, down,
+/// maintenance, disabled), search, Type / Location / Group filters, a choice
+/// of sort, pinned devices on top, and the recently viewed strip.
+/// </summary>
+/// <remarks>
+/// Desktop's facets are multi-select checkbox lists; here each is a single
+/// choice, which suits a phone. Maintenance has no bulk endpoint, so - as on
+/// desktop - it's one request per device, capped at
+/// <see cref="MaxConcurrentMaintenanceChecks"/> at once and at most every
+/// <see cref="MaintenanceRescanInterval"/>, after the list is already shown.
+/// </remarks>
 public sealed partial class DevicesViewModel : ViewModelBase
 {
+    internal const int MaxConcurrentMaintenanceChecks = 16;
+    internal static readonly TimeSpan MaintenanceRescanInterval = TimeSpan.FromSeconds(60);
+
+    private const string NoGroupKey = "\0none";
+
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;
-    private IReadOnlyList<DeviceItem> _all = Array.Empty<DeviceItem>();
+    private readonly ISettingsStore _settings;
+    private readonly DeviceBookmarks _bookmarks;
+    private readonly TimeProvider _time;
+    private List<DeviceItem> _all = [];
+    private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
+    private DateTimeOffset? _lastMaintenanceScan;
+    private HashSet<int> _maintenanceIds = [];
+    private bool _resetting;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
 
     [ObservableProperty]
-    private DeviceFilter _filter = DeviceFilter.All;
+    private bool _showUp = true;
 
-    public DevicesViewModel(ILibreNmsClient client, INavigationService navigation)
+    [ObservableProperty]
+    private bool _showDown = true;
+
+    [ObservableProperty]
+    private bool _showMaintenance = true;
+
+    /// <summary>Disabled and ignored together, as desktop's chip.</summary>
+    [ObservableProperty]
+    private bool _showDisabled = true;
+
+    [ObservableProperty]
+    private SortOption _selectedSort;
+
+    [ObservableProperty]
+    private FacetOption _selectedType = AllTypes;
+
+    [ObservableProperty]
+    private FacetOption _selectedLocation = AllLocations;
+
+    [ObservableProperty]
+    private FacetOption _selectedGroup = AllGroups;
+
+    /// <summary>The Filters panel (sort, type, location, group) is open.</summary>
+    [ObservableProperty]
+    private bool _isFilterPanelOpen;
+
+    public DevicesViewModel(
+        ILibreNmsClient client,
+        INavigationService navigation,
+        ISettingsStore settings,
+        DeviceBookmarks bookmarks,
+        TimeProvider time)
     {
         _client = client;
         _navigation = navigation;
+        _settings = settings;
+        _bookmarks = bookmarks;
+        _time = time;
+        _selectedSort = SortOptions[0];
+        _bookmarks.Changed += (_, _) => OnBookmarksChanged();
+        RebuildRecent();
     }
+
+    private static FacetOption AllTypes { get; } = new(null, "All types");
+
+    private static FacetOption AllLocations { get; } = new(null, "All locations");
+
+    private static FacetOption AllGroups { get; } = new(null, "All groups");
 
     public ObservableCollection<DeviceItem> Devices { get; } = new();
 
-    public IReadOnlyList<DeviceFilter> Filters { get; } = Enum.GetValues<DeviceFilter>();
+    public ObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
 
-    /// <summary>"12 of 340 devices".</summary>
+    public IReadOnlyList<SortOption> SortOptions { get; } =
+    [
+        new(DeviceSort.Name, "Name"),
+        new(DeviceSort.Status, "Status (down first)"),
+        new(DeviceSort.IpAddress, "IP address"),
+        new(DeviceSort.Uptime, "Uptime (shortest first)"),
+        new(DeviceSort.Location, "Location"),
+        new(DeviceSort.Os, "OS"),
+        new(DeviceSort.Hardware, "Hardware"),
+    ];
+
+    public ObservableCollection<FacetOption> TypeOptions { get; } = [AllTypes];
+
+    public ObservableCollection<FacetOption> LocationOptions { get; } = [AllLocations];
+
+    public ObservableCollection<FacetOption> GroupOptions { get; } = [AllGroups];
+
+    public int UpCount => _all.Count(d => d.State == DeviceState.Up);
+
+    public int DownCount => _all.Count(d => d.State == DeviceState.Down);
+
+    public int MaintenanceCount => _all.Count(d => d.State == DeviceState.Maintenance);
+
+    public int DisabledCount => _all.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
+
+    /// <summary>"340 devices", or "12 of 340 devices" when filtered.</summary>
     public string CountText => Devices.Count == _all.Count
-        ? $"{_all.Count} devices"
-        : $"{Devices.Count} of {_all.Count} devices";
+        ? $"{_all.Count} {Plural(_all.Count)}"
+        : $"{Devices.Count} of {_all.Count} {Plural(_all.Count)}";
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    /// <summary>Anything narrowing the list - shows Clear.</summary>
+    public bool HasActiveFilters =>
+        !ShowUp || !ShowDown || !ShowMaintenance || !ShowDisabled
+        || SelectedType.Key is not null || SelectedLocation.Key is not null || SelectedGroup.Key is not null
+        || !string.IsNullOrWhiteSpace(SearchText);
 
-    partial void OnFilterChanged(DeviceFilter value) => ApplyFilter();
+    /// <summary>A Type / Location / Group filter or a non-default sort - lights up the Filters button.</summary>
+    public bool HasPanelFilters =>
+        SelectedType.Key is not null || SelectedLocation.Key is not null || SelectedGroup.Key is not null
+        || SelectedSort.Sort != DeviceSort.Name;
+
+    /// <summary>The strip shows while browsing, not while searching.</summary>
+    public bool ShowRecentlyViewed => RecentlyViewed.Count > 0 && string.IsNullOrWhiteSpace(SearchText);
+
+    public bool PinningEnabled => _bookmarks.PinningEnabled;
+
+    public string EmptyText => _all.Count == 0 ? "No devices." : "No devices match these filters.";
+
+    /// <summary>Group membership and maintenance, loaded after the list itself - awaited by tests.</summary>
+    internal Task Extras { get; private set; } = Task.CompletedTask;
+
+    partial void OnSearchTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(ShowRecentlyViewed));
+        ApplyFilter();
+    }
+
+    partial void OnShowUpChanged(bool value) => ApplyFilter();
+
+    partial void OnShowDownChanged(bool value) => ApplyFilter();
+
+    partial void OnShowMaintenanceChanged(bool value) => ApplyFilter();
+
+    partial void OnShowDisabledChanged(bool value) => ApplyFilter();
+
+    // A picker whose choices are being refilled briefly sends back null;
+    // treat that as "all" (or the default sort) rather than as a choice.
+    partial void OnSelectedSortChanged(SortOption value)
+    {
+        if (value is null)
+        {
+            SelectedSort = SortOptions[0];
+            return;
+        }
+
+        ApplyFilter();
+    }
+
+    partial void OnSelectedTypeChanged(FacetOption value)
+    {
+        if (value is null)
+        {
+            SelectedType = AllTypes;
+            return;
+        }
+
+        ApplyFilter();
+    }
+
+    partial void OnSelectedLocationChanged(FacetOption value)
+    {
+        if (value is null)
+        {
+            SelectedLocation = AllLocations;
+            return;
+        }
+
+        ApplyFilter();
+    }
+
+    partial void OnSelectedGroupChanged(FacetOption value)
+    {
+        if (value is null)
+        {
+            SelectedGroup = AllGroups;
+            return;
+        }
+
+        ApplyFilter();
+    }
+
+    [RelayCommand]
+    private void ToggleUp() => ShowUp = !ShowUp;
+
+    [RelayCommand]
+    private void ToggleDown() => ShowDown = !ShowDown;
+
+    [RelayCommand]
+    private void ToggleMaintenance() => ShowMaintenance = !ShowMaintenance;
+
+    [RelayCommand]
+    private void ToggleDisabled() => ShowDisabled = !ShowDisabled;
+
+    [RelayCommand]
+    private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
+
+    /// <summary>Everything back to showing all devices (sort stays as chosen).</summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        _resetting = true;
+        ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
+        SelectedType = AllTypes;
+        SelectedLocation = AllLocations;
+        SelectedGroup = AllGroups;
+        SearchText = string.Empty;
+        _resetting = false;
+        ApplyFilter();
+    }
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
         var devices = await _client.Devices.ListAsync();
+        var style = _settings.Current.DeviceNameStyle;
+        var pinned = _bookmarks.PinnedIds;
+
         _all = devices
-            .Select(d => new DeviceItem(d))
-            .OrderBy(d => d.State == DeviceState.Down ? 0 : 1)
-            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(d => new DeviceItem(d, style)
+            {
+                IsPinned = pinned.Contains(d.DeviceId),
+                IsUnderMaintenance = _maintenanceIds.Contains(d.DeviceId),
+            })
             .ToList();
+
+        RebuildFacet(TypeOptions, AllTypes, _all.Select(d => d.Device.Type), TypeLabel, v => SelectedType = v, SelectedType);
+        RebuildFacet(LocationOptions, AllLocations, _all.Select(d => d.Device.Location), v => Blank(v), v => SelectedLocation = v, SelectedLocation);
         ApplyFilter();
+
+        // The list is up; the slower extras fill in behind it.
+        Extras = LoadExtrasAsync();
     });
 
     [RelayCommand]
-    private Task OpenDeviceAsync(DeviceItem? item) => item is null
-        ? Task.CompletedTask
-        : _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = item.DeviceId });
+    private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
+
+    [RelayCommand]
+    private Task OpenRecentAsync(RecentlyViewedDevice? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
+
+    [RelayCommand]
+    private void TogglePin(DeviceItem? item)
+    {
+        if (item is null || !PinningEnabled)
+        {
+            return;
+        }
+
+        _bookmarks.SetPinned(item.DeviceId, item.Name, !item.IsPinned);
+    }
+
+    private Task OpenAsync(int deviceId) =>
+        _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });
+
+    private async Task LoadExtrasAsync()
+    {
+        await Task.WhenAll(LoadGroupsAsync(), ScanMaintenanceAsync());
+        UpdateCounts();
+        ApplyFilter();
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        try
+        {
+            _groups = await _client.DeviceGroups.GetMembershipByDeviceAsync();
+        }
+        catch (Exception)
+        {
+            // Groups are a nicety: without them the Group filter just stays at "All".
+            return;
+        }
+
+        var keys = _all.SelectMany(d => GroupsOrNone(d.DeviceId));
+        RebuildFacet(GroupOptions, AllGroups, keys, k => k == NoGroupKey ? "Not in a group" : k, v => SelectedGroup = v, SelectedGroup);
+    }
+
+    private async Task ScanMaintenanceAsync()
+    {
+        var now = _time.GetUtcNow();
+        if (_lastMaintenanceScan is { } last && now - last < MaintenanceRescanInterval)
+        {
+            ApplyMaintenance();
+            return;
+        }
+
+        _lastMaintenanceScan = now;
+        var found = new HashSet<int>();
+        using var gate = new SemaphoreSlim(MaxConcurrentMaintenanceChecks);
+
+        // Disabled devices aren't polled, so maintenance means nothing for them.
+        await Task.WhenAll(_all.Where(d => !d.Device.Disabled).Select(async d =>
+        {
+            await gate.WaitAsync();
+            try
+            {
+                if (await _client.Devices.IsUnderMaintenanceAsync(d.DeviceId))
+                {
+                    lock (found)
+                    {
+                        found.Add(d.DeviceId);
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // One device failing to answer doesn't change anyone else's state.
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }));
+
+        _maintenanceIds = found;
+        ApplyMaintenance();
+    }
+
+    private void ApplyMaintenance()
+    {
+        foreach (var device in _all)
+        {
+            device.IsUnderMaintenance = _maintenanceIds.Contains(device.DeviceId);
+        }
+    }
+
+    private void OnBookmarksChanged()
+    {
+        var pinned = _bookmarks.PinnedIds;
+        foreach (var device in _all)
+        {
+            device.IsPinned = pinned.Contains(device.DeviceId);
+        }
+
+        RebuildRecent();
+        ApplyFilter();
+    }
+
+    private void RebuildRecent()
+    {
+        RecentlyViewed.Clear();
+        foreach (var recent in _bookmarks.RecentlyViewed)
+        {
+            RecentlyViewed.Add(recent);
+        }
+
+        OnPropertyChanged(nameof(ShowRecentlyViewed));
+    }
+
+    private bool Allows(DeviceItem device)
+    {
+        var stateAllowed = device.State switch
+        {
+            DeviceState.Up => ShowUp,
+            DeviceState.Down => ShowDown,
+            DeviceState.Maintenance => ShowMaintenance,
+            _ => ShowDisabled,
+        };
+
+        if (!stateAllowed
+            || (SelectedType.Key is { } type && !string.Equals(device.Device.Type ?? string.Empty, type, StringComparison.OrdinalIgnoreCase))
+            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.Location ?? string.Empty, location, StringComparison.Ordinal))
+            || (SelectedGroup.Key is { } group && !GroupsOrNone(device.DeviceId).Contains(group)))
+        {
+            return false;
+        }
+
+        var term = SearchText.Trim();
+        return term.Length == 0 || device.Matches(term);
+    }
 
     private void ApplyFilter()
     {
-        var text = SearchText.Trim();
-        var shown = _all.Where(d => Filter switch
-            {
-                DeviceFilter.Down => d.State == DeviceState.Down,
-                DeviceFilter.Up => d.State == DeviceState.Up,
-                _ => true,
-            })
-            .Where(d => text.Length == 0 || d.Matches(text));
-
-        Devices.Clear();
-        foreach (var item in shown)
+        if (_resetting)
         {
-            Devices.Add(item);
+            return;
         }
 
-        OnPropertyChanged(nameof(CountText));
+        Devices.Clear();
+        foreach (var device in _all.Where(Allows).OrderByDescending(d => d.IsPinned).ThenBy(d => d, Comparer))
+        {
+            Devices.Add(device);
+        }
+
+        UpdateCounts();
     }
+
+    private void UpdateCounts()
+    {
+        OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(HasPanelFilters));
+        OnPropertyChanged(nameof(UpCount));
+        OnPropertyChanged(nameof(DownCount));
+        OnPropertyChanged(nameof(MaintenanceCount));
+        OnPropertyChanged(nameof(DisabledCount));
+    }
+
+    private IEnumerable<string> GroupsOrNone(int deviceId) =>
+        _groups.TryGetValue(deviceId, out var names) && names.Count > 0 ? names : [NoGroupKey];
+
+    private IComparer<DeviceItem> Comparer => SelectedSort.Sort switch
+    {
+        DeviceSort.Status => By(d => StatusRank(d.State)),
+        DeviceSort.IpAddress => Comparer<DeviceItem>.Create(CompareIp),
+        DeviceSort.Uptime => By(d => d.Device.State == DeviceState.Up ? d.Device.Uptime : long.MaxValue),
+        DeviceSort.Location => ByText(d => d.Device.Location),
+        DeviceSort.Os => ByText(d => d.Device.Os),
+        DeviceSort.Hardware => ByText(d => d.Device.Hardware),
+        _ => Comparer<DeviceItem>.Create((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name)),
+    };
+
+    /// <summary>Sorts by <paramref name="key"/>, then by name.</summary>
+    private static IComparer<DeviceItem> By<T>(Func<DeviceItem, T> key) => Comparer<DeviceItem>.Create((a, b) =>
+    {
+        var byKey = Comparer<T>.Default.Compare(key(a), key(b));
+        return byKey != 0 ? byKey : StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
+    });
+
+    /// <summary>Text, with blanks last rather than first.</summary>
+    private static IComparer<DeviceItem> ByText(Func<DeviceItem, string?> key) => Comparer<DeviceItem>.Create((a, b) =>
+    {
+        var x = key(a);
+        var y = key(b);
+        var blanks = string.IsNullOrWhiteSpace(x).CompareTo(string.IsNullOrWhiteSpace(y));
+        if (blanks != 0)
+        {
+            return blanks;
+        }
+
+        var byKey = StringComparer.OrdinalIgnoreCase.Compare(x, y);
+        return byKey != 0 ? byKey : StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
+    });
+
+    /// <summary>Down first - the ones that need you - then maintenance, up, disabled, ignored.</summary>
+    private static int StatusRank(DeviceState state) => state switch
+    {
+        DeviceState.Down => 0,
+        DeviceState.Maintenance => 1,
+        DeviceState.Up => 2,
+        DeviceState.Disabled => 3,
+        _ => 4,
+    };
+
+    /// <summary>Numerically (10.0.0.9 before 10.0.0.10), IPv4 before IPv6, anything unparseable last.</summary>
+    private static int CompareIp(DeviceItem a, DeviceItem b)
+    {
+        var x = IpKey(a.Device.Ip);
+        var y = IpKey(b.Device.Ip);
+
+        if (x is null || y is null)
+        {
+            var missing = (x is null).CompareTo(y is null);
+            return missing != 0 ? missing : StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
+        }
+
+        var length = x.Length.CompareTo(y.Length);
+        if (length != 0)
+        {
+            return length;
+        }
+
+        for (var i = 0; i < x.Length; i++)
+        {
+            var part = x[i].CompareTo(y[i]);
+            if (part != 0)
+            {
+                return part;
+            }
+        }
+
+        return StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
+    }
+
+    private static byte[]? IpKey(string? ip) =>
+        IPAddress.TryParse(ip, out var address) ? address.GetAddressBytes() : null;
+
+    /// <summary>
+    /// Refills a facet's choices ("Router (12)"), most common first, keeping
+    /// the current choice if it's still there.
+    /// </summary>
+    private static void RebuildFacet(
+        ObservableCollection<FacetOption> options,
+        FacetOption all,
+        IEnumerable<string?> values,
+        Func<string, string> label,
+        Action<FacetOption> select,
+        FacetOption current)
+    {
+        var counted = values
+            .Select(v => v ?? string.Empty)
+            .GroupBy(v => v, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => label(g.Key), StringComparer.OrdinalIgnoreCase)
+            .Select(g => new FacetOption(g.Key, $"{label(g.Key)} ({g.Count()})"))
+            .ToList();
+
+        options.Clear();
+        options.Add(all);
+        foreach (var option in counted)
+        {
+            options.Add(option);
+        }
+
+        // The same choice, with its refreshed count - or back to all if it's gone.
+        select(current.Key is null
+            ? all
+            : counted.FirstOrDefault(o => string.Equals(o.Key, current.Key, StringComparison.OrdinalIgnoreCase)) ?? all);
+    }
+
+    /// <summary>As desktop: "Unspecified" for a blank type, capitalised otherwise.</summary>
+    private static string TypeLabel(string type) =>
+        string.IsNullOrWhiteSpace(type) ? "Unspecified" : char.ToUpperInvariant(type[0]) + type[1..];
+
+    private static string Blank(string value) => string.IsNullOrWhiteSpace(value) ? "Unspecified" : value;
+
+    private static string Plural(int count) => count == 1 ? "device" : "devices";
 }

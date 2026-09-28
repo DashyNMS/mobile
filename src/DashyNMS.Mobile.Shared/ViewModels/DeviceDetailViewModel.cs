@@ -15,22 +15,31 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly ILauncherService _launcher;
+    private readonly DeviceBookmarks _bookmarks;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties))]
-    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText))]
+    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand))]
     private Device? _device;
 
-    public DeviceDetailViewModel(ILibreNmsClient client, ISettingsStore settings, ILauncherService launcher)
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PinText))]
+    private bool _isPinned;
+
+    public DeviceDetailViewModel(ILibreNmsClient client, ISettingsStore settings, ILauncherService launcher, DeviceBookmarks bookmarks)
     {
         _client = client;
         _settings = settings;
         _launcher = launcher;
+        _bookmarks = bookmarks;
     }
 
     public int DeviceId { get; private set; }
 
-    public string Title => Device?.BestName ?? "Device";
+    /// <summary>Following desktop's hostname / sysName / display name preference.</summary>
+    public string Title => Device is null ? "Device" : _settings.Current.DeviceNameStyle.Resolve(Device, Device.Hostname);
+
+    public string PinText => IsPinned ? "Unpin" : "Pin";
 
     public DeviceState? State => Device?.State;
 
@@ -83,6 +92,12 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         {
             ErrorMessage = "LibreNMS no longer has this device.";
         }
+        else
+        {
+            // Onto the Devices tab's recently viewed strip, as desktop's Device View does.
+            _bookmarks.RecordViewed(DeviceId, Title);
+            IsPinned = _bookmarks.IsPinned(DeviceId);
+        }
 
         var utc = _settings.Current.ServerTimestampsAreUtc;
         Alerts.Clear();
@@ -96,6 +111,16 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(HasAlerts));
     });
+
+    private bool CanTogglePin() => Device is not null && _bookmarks.PinningEnabled;
+
+    /// <summary>Pinned devices stay at the top of the Devices tab.</summary>
+    [RelayCommand(CanExecute = nameof(CanTogglePin))]
+    private void TogglePin()
+    {
+        _bookmarks.SetPinned(DeviceId, Title, !IsPinned);
+        IsPinned = _bookmarks.IsPinned(DeviceId);
+    }
 
     private bool CanOpenInBrowser() => Device is not null && _client.Connection is not null;
 
