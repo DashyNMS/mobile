@@ -306,6 +306,9 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private Task OpenGroupsLocationsAsync() => _navigation.GoToAsync(Routes.GroupsLocations);
 
     [RelayCommand]
+    private Task OpenNeighboursAsync() => _navigation.GoToAsync(Routes.Neighbours);
+
+    [RelayCommand]
     private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
 
     [RelayCommand]

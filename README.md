@@ -68,7 +68,10 @@ rather than rewritten.
   live in the background too. Android launchers show their own dot or
   count from DashyNMS's notifications instead, as Android gives apps no
   way to set a number.
-- **Groups & locations** (Devices tab → Groups): desktop's Groups and
+- **Neighbours** (Devices → More): every CDP/LLDP link across the network,
+  one row per cable. Links with a device or port down come first, with a
+  "down only" filter and search. Tap to open either end.
+- **Groups & locations** (Devices → More): desktop's Groups and
   Locations tabs as one page. Every device group or location with its device
   count, how many are down or disabled, and coordinates where LibreNMS has
   them. Anything with devices down comes first. Tap one for the Devices list
@@ -224,7 +227,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Open in browser / SSH / Telnet | ✅ | ✅ SSH and Telnet open in whichever app on the phone handles the link |
 | Health (sensors across all devices vs limits) | ✅ | ✅ Desktop's four categories, problems first |
 | Groups and locations | ✅ | ✅ Counts and devices down; opens the Devices list filtered (editing stays on desktop) |
-| Neighbours views | ✅ | ⬜ |
+| Neighbours views | ✅ | 🟡 Every CDP/LLDP link, down ends first (desktop's own custom views stay on desktop) |
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
 | Logs: event log, Graylog | ✅ | 🟡 Network-wide event log and alert log (Alerts → Logs); Graylog to come |
 | Unimus config backups and diffs | ✅ | ⬜ |

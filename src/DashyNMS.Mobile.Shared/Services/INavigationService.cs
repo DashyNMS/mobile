@@ -31,6 +31,9 @@ public static class Routes
     /// <summary>Choosing the dashboard Graph card's device and graph.</summary>
     public const string PickGraph = "pickgraph";
 
+    /// <summary>Every CDP/LLDP link across the network.</summary>
+    public const string Neighbours = "neighbours";
+
     /// <summary>The network-wide event and alert logs.</summary>
     public const string Logs = "logs";
 

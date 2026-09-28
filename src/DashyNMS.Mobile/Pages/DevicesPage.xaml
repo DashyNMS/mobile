@@ -9,7 +9,8 @@
     Title="Devices">
 
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Groups" Command="{Binding OpenGroupsLocationsCommand}" />
+        <!-- The network-wide views, in one menu rather than a crowded toolbar. -->
+        <ToolbarItem Text="More" Clicked="OnMoreClicked" />
     </ContentPage.ToolbarItems>
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">

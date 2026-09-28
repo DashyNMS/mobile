@@ -33,6 +33,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(Dashboard.SensorPickerViewModel))]
     [InlineData(typeof(Dashboard.GraphPickerViewModel))]
     [InlineData(typeof(Logs.LogsViewModel))]
+    [InlineData(typeof(Topology.NeighboursViewModel))]
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]

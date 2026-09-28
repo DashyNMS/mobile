@@ -19,5 +19,6 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.PickSensors, typeof(SensorPickerPage));
 		Routing.RegisterRoute(Routes.PickGraph, typeof(GraphPickerPage));
 		Routing.RegisterRoute(Routes.Logs, typeof(LogsPage));
+		Routing.RegisterRoute(Routes.Neighbours, typeof(NeighboursPage));
 	}
 }
