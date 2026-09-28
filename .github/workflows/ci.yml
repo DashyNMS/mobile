@@ -70,9 +70,9 @@ jobs:
       - name: Install MAUI iOS workload
         run: dotnet workload install maui-ios
 
-      # TargetFrameworks (not -f): on macOS the project also targets Android,
-      # and restore would otherwise want that workload too.
+      # MobilePlatform=ios (see the csproj): on macOS the project also targets
+      # Android, and restore would otherwise want that workload too.
       # A simulator build needs no signing identity; device builds and
       # App Store packaging come later, with certificates in secrets.
       - name: Build
-        run: dotnet build src/DashyNMS.Mobile -p:TargetFrameworks=net10.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64
+        run: dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64

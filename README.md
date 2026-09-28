@@ -85,7 +85,7 @@ dotnet build src/DashyNMS.Mobile -f net10.0-android -t:Run
 
 # iOS (macOS with a matching Xcode)
 dotnet workload install maui-ios
-dotnet build src/DashyNMS.Mobile -p:TargetFrameworks=net10.0-ios -t:Run
+dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -t:Run
 ```
 
 Or open `DashyNMS.Mobile.slnx` in Visual Studio or Rider.

@@ -13,6 +13,13 @@
 		<TargetFrameworks>net10.0-android</TargetFrameworks>
 		<TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('osx'))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
 
+		<!-- -p:MobilePlatform=ios (or android) builds just that platform, so
+		     only its workload is needed. Not -p:TargetFrameworks=...: a global
+		     property reaches the referenced libraries too and breaks them, and
+		     -f still restores every platform. -->
+		<TargetFrameworks Condition="'$(MobilePlatform)' == 'ios'">net10.0-ios</TargetFrameworks>
+		<TargetFrameworks Condition="'$(MobilePlatform)' == 'android'">net10.0-android</TargetFrameworks>
+
 		<OutputType>Exe</OutputType>
 		<RootNamespace>DashyNMS.Mobile</RootNamespace>
 		<UseMaui>true</UseMaui>
