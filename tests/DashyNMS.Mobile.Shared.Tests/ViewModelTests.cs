@@ -77,6 +77,21 @@ public sealed class AlertsViewModelTests
     private AlertsViewModel NewViewModel() =>
         new(_client, _settings, _dialogs, new RecordingNavigation(), _selfActions, _share, _badge, _time);
 
+    [Fact]
+    public async Task Alerts_name_their_device_by_the_Device_names_setting()
+    {
+        _appSettings.DeviceNameStyle = DeviceNameStyle.SysName;
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(1, "10.0.0.1", sysName: "core-sw-01")]);
+        var vm = NewViewModel();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal("core-sw-01", vm.Alerts.Single(a => a.Id == 1).Device);
+
+        // A device LibreNMS didn't list keeps the alert's own hostname.
+        Assert.Equal("host2", vm.Alerts.Single(a => a.Id == 3).Device);
+    }
+
     private async Task<AlertsViewModel> LoadedViewModel()
     {
         var vm = NewViewModel();

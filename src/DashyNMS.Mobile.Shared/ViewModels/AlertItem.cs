@@ -1,5 +1,6 @@
 using System.Globalization;
 using DesktopNMS.Core;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
@@ -8,12 +9,29 @@ namespace DashyNMS.Mobile.ViewModels;
 public sealed class AlertItem
 {
     private readonly bool _serverTimestampsAreUtc;
+    private readonly string? _deviceName;
 
-    public AlertItem(Alert alert, bool serverTimestampsAreUtc)
+    /// <param name="deviceName">
+    /// The device's name as the Device names setting picks it (see
+    /// <see cref="For"/>); without it, the hostname LibreNMS sent with the alert.
+    /// </param>
+    public AlertItem(Alert alert, bool serverTimestampsAreUtc, string? deviceName = null)
     {
         Alert = alert;
         _serverTimestampsAreUtc = serverTimestampsAreUtc;
+        _deviceName = deviceName;
     }
+
+    /// <summary>
+    /// An alert named as desktop names it: the Device names setting applied to
+    /// its device, found in <paramref name="devices"/> - the alert itself only
+    /// carries the hostname, so without the device that's what shows.
+    /// </summary>
+    public static AlertItem For(Alert alert, AppSettings settings, IReadOnlyDictionary<int, Device>? devices) =>
+        new(
+            alert,
+            settings.ServerTimestampsAreUtc,
+            settings.DeviceNameStyle.Resolve(devices?.GetValueOrDefault(alert.DeviceId), alert.Hostname));
 
     public Alert Alert { get; }
 
@@ -21,7 +39,7 @@ public sealed class AlertItem
 
     public string Rule => Alert.DisplayRuleName;
 
-    public string Device => Alert.DisplayHostname;
+    public string Device => _deviceName ?? Alert.DisplayHostname;
 
     public AlertSeverity Severity => Alert.Severity;
 

@@ -139,23 +139,23 @@ public sealed partial class DashboardViewModel : ViewModelBase
         DevicesDown = devices.Count(d => d.State == DeviceState.Down);
         DevicesInactive = devices.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
 
+        var byId = devices.ToDictionary(d => d.DeviceId);
+
         var alerts = alertsTask.Result;
         var active = alerts.Where(a => !a.IsAcknowledged).ToList();
         CriticalAlerts = active.Count(a => a.Severity == AlertSeverity.Critical);
         WarningAlerts = active.Count(a => a.Severity == AlertSeverity.Warning);
         AcknowledgedAlerts = alerts.Count - active.Count;
 
-        var utc = _settings.Current.ServerTimestampsAreUtc;
         TopAlerts.ReplaceAll(active
             .OrderByDescending(a => a.Severity.SortRank())
             .ThenByDescending(a => a.Timestamp)
             .Take(TopAlertCount)
-            .Select(alert => new AlertItem(alert, utc)));
+            .Select(alert => AlertItem.For(alert, _settings.Current, byId)));
 
         // Pinned in the order they were pinned, as desktop; a pin whose device
         // has since gone from LibreNMS just doesn't show.
         var style = _settings.Current.DeviceNameStyle;
-        var byId = devices.ToDictionary(d => d.DeviceId);
         PinnedDevices.ReplaceAll((_bookmarks.PinningEnabled ? _settings.Current.PinnedDevices : [])
             .Where(pin => byId.ContainsKey(pin.DeviceId))
             .Select(pin => new DeviceItem(byId[pin.DeviceId], style) { IsPinned = true }));

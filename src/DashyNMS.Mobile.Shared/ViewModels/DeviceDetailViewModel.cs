@@ -134,7 +134,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             .Where(a => a.DeviceId == DeviceId)
             .OrderByDescending(a => a.Severity.SortRank())
             .ThenByDescending(a => a.Timestamp)
-            .Select(alert => new AlertItem(alert, utc)));
+            .Select(alert => new AlertItem(alert, utc, Device is null ? null : Title)));
 
         OnPropertyChanged(nameof(HasAlerts));
     });

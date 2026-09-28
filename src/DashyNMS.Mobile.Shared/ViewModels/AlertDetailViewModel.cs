@@ -104,7 +104,11 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         }
 
         IsGone = false;
-        Alert = new AlertItem(alert, utc);
+
+        // Named by the Device names setting, as everywhere else; the alert
+        // alone only carries the hostname.
+        var device = await BestEffort(() => _client.Devices.GetAsync(alert.DeviceId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Alert = new AlertItem(alert, utc, _settings.Current.DeviceNameStyle.Resolve(device, alert.Hostname));
         DeviceId = alert.DeviceId;
         OnPropertyChanged(nameof(HasDevice));
         Title = alert.DisplayRuleName;
