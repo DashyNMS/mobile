@@ -61,6 +61,29 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task Search_filters_once_typing_pauses_not_on_every_keystroke()
+    {
+        var vm = await Loaded();
+        vm.SearchDelay = TimeSpan.FromMilliseconds(50);
+        var reloads = 0;
+        vm.Devices.CollectionChanged += (_, _) => reloads++;
+
+        vm.SearchText = "c";
+        vm.SearchText = "co";
+        vm.SearchText = "cor";
+        Assert.Equal(0, reloads);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (reloads == 0 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(20);
+        }
+
+        Assert.Equal(1, reloads);
+        Assert.Equal(["core-sw"], Names(vm));
+    }
+
+    [Fact]
     public async Task State_chips_count_and_filter_with_ignored_counted_as_disabled()
     {
         var vm = await Loaded();

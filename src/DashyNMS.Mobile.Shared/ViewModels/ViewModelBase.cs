@@ -13,7 +13,42 @@ public abstract partial class ViewModelBase : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasError))]
     private string? _errorMessage;
 
+    /// <summary>How long typing has to pause before a search box filters - see <see cref="WhenTypingPauses"/>.</summary>
+    internal static TimeSpan DefaultSearchDelay { get; set; } = TimeSpan.FromMilliseconds(250);
+
+    private CancellationTokenSource? _typing;
+
+    /// <summary>This view model's <see cref="DefaultSearchDelay"/>; zero filters on every keystroke.</summary>
+    internal TimeSpan SearchDelay { get; set; } = DefaultSearchDelay;
+
     public bool IsNotBusy => !IsBusy;
+
+    /// <summary>
+    /// Runs <paramref name="apply"/> once typing pauses, on the thread that
+    /// typed. Filtering (and reloading the list) on every keystroke made
+    /// searching a few hundred devices lag behind the keyboard.
+    /// </summary>
+    protected void WhenTypingPauses(Action apply)
+    {
+        _typing?.Cancel();
+        if (SearchDelay <= TimeSpan.Zero)
+        {
+            _typing = null;
+            apply();
+            return;
+        }
+
+        var typing = _typing = new CancellationTokenSource();
+        var scheduler = SynchronizationContext.Current is null
+            ? TaskScheduler.Current
+            : TaskScheduler.FromCurrentSynchronizationContext();
+
+        _ = Task.Delay(SearchDelay, typing.Token).ContinueWith(
+            _ => apply(),
+            typing.Token,
+            TaskContinuationOptions.OnlyOnRanToCompletion,
+            scheduler);
+    }
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 

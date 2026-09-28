@@ -62,7 +62,7 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
     partial void OnProblemsOnlyChanged(bool value) => ApplyFilter();
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
     private void ToggleProblemsOnly() => ProblemsOnly = !ProblemsOnly;

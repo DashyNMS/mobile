@@ -42,7 +42,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
         ? $"LibreNMS has no {DeviceSectionInfo.For(Section).Title.ToLowerInvariant()} for this device."
         : "Nothing matches.";
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     public Task LoadAsync(int deviceId, DeviceSection section, string? deviceName = null)
     {

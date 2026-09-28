@@ -61,7 +61,7 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         ? PickedCount == 0 ? "Search for a sensor or device to add." : "On the card. Search to add more."
         : Sensors.Count == 0 ? "No sensors match." : string.Empty;
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
     private Task LoadAsync() => RunAsync(async () =>

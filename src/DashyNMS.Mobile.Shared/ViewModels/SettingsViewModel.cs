@@ -254,28 +254,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(GraylogStatusText));
     }
 
-    /// <summary>Shows a sample notification, like desktop's preview button.</summary>
-    [RelayCommand]
-    private async Task SendTestNotificationAsync()
-    {
-        if (!await _notifier.RequestPermissionAsync())
-        {
-            await _dialogs.AlertAsync(
-                "Notifications are off",
-                "DashyNMS isn't allowed to show notifications. Turn them on for DashyNMS in your phone's settings.");
-            return;
-        }
-
-        await _notifier.ShowAsync(new AlertNotification(
-            "preview",
-            "Critical: core-sw-01",
-            "Preview: this is what a DashyNMS alert looks like.",
-            null,
-            AlertSeverity.Critical,
-            IsProblem: true,
-            DeviceId: null));
-    }
-
     [RelayCommand]
     private async Task SignOutAsync()
     {

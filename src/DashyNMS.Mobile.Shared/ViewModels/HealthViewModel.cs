@@ -127,7 +127,7 @@ public sealed partial class HealthViewModel : ViewModelBase
 
     partial void OnShowOkChanged(bool value) => ApplyFilter();
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
     private void SelectCategory(HealthCategoryOption? category)
