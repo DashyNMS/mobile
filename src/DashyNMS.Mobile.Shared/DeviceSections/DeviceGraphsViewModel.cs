@@ -12,7 +12,7 @@ public sealed record GraphRangeOption(GraphTimeRange Range, string Label);
 /// <summary>
 /// A device's own LibreNMS graphs, as desktop's Graphs tab: its device-wide,
 /// health and wireless graphs in one list, a time range, and the chosen graph
-/// drawn by LibreNMS.
+/// drawn by LibreNMS. Or one port's graphs, as desktop's port graphs panel.
 /// </summary>
 public sealed partial class DeviceGraphsViewModel : ViewModelBase
 {
@@ -44,6 +44,21 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     }
 
     public int DeviceId { get; private set; }
+
+    /// <summary>The port whose graphs these are, or null for the device's own.</summary>
+    public string? PortIfName { get; private set; }
+
+    /// <summary>
+    /// The port graphs LibreNMS draws for any port - desktop's list (the rest,
+    /// like PAgP or FDB count, only exist on some ports).
+    /// </summary>
+    internal static IReadOnlyList<GraphType> PortGraphs { get; } =
+    [
+        new() { Name = "port_bits", Description = "Traffic" },
+        new() { Name = "port_upkts", Description = "Unicast packets" },
+        new() { Name = "port_nupkts", Description = "Broadcast and multicast packets" },
+        new() { Name = "port_errors", Description = "Errors" },
+    ];
 
     /// <summary>Set by the page from the phone's theme.</summary>
     public bool DarkTheme { get; set; }
@@ -115,6 +130,33 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         await LoadGraphAsync();
     }
 
+    /// <summary>One port's graphs, opened from Device View's ports.</summary>
+    public async Task LoadPortAsync(int deviceId, string ifName, string? portName = null, string? deviceName = null)
+    {
+        DeviceId = deviceId;
+        PortIfName = ifName;
+        var port = string.IsNullOrWhiteSpace(portName) ? ifName : portName;
+        Title = string.IsNullOrWhiteSpace(deviceName) ? port : $"{port} · {deviceName}";
+
+        _loadingList = true;
+        try
+        {
+            Graphs.Clear();
+            foreach (var graph in PortGraphs)
+            {
+                Graphs.Add(graph);
+            }
+        }
+        finally
+        {
+            _loadingList = false;
+        }
+
+        OnPropertyChanged(nameof(HasNoGraphs));
+        SelectedGraph = Graphs[0];
+        await LoadGraphAsync();
+    }
+
     [RelayCommand]
     private void SelectRange(GraphRangeOption? range)
     {
@@ -143,7 +185,9 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
 
         return RunAsync(async () =>
         {
-            var svg = await _client.Graphs.GetSvgAsync(DeviceId, graph.Name, range.Range, GraphWidth, GraphHeight);
+            var svg = PortIfName is { } ifName
+                ? await _client.Graphs.GetPortSvgAsync(DeviceId, ifName, graph.Name, range.Range, GraphWidth, GraphHeight)
+                : await _client.Graphs.GetSvgAsync(DeviceId, graph.Name, range.Range, GraphWidth, GraphHeight);
             var html = DeviceSections.GraphHtml.Build(svg, DarkTheme);
             _cache[key] = html;
 

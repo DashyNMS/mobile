@@ -30,7 +30,8 @@ rather than rewritten.
   desktop's skip/mute/run-alerts choice), pin, "Open in browser", and
   desktop's Device View sections, each on its own searchable page:
   availability and outages, sensors (coloured against desktop's thresholds or
-  the sensor's own limits), graphs, CPU/memory/storage, ports, neighbours
+  the sensor's own limits), graphs, CPU/memory/storage, ports (tap one for
+  its traffic, packet and error graphs), neighbours
   (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
   VRFs), wireless, inventory and the event log.
 - **Dashboard** also shows your pinned devices with their live state, and
@@ -204,8 +205,6 @@ Ordered by how much each adds on a phone, not by desktop's order.
    of desktop's tray icon.
 3. **Alert detail**: the rule, note and fault details for one alert (the
    list's filters, search and export are done).
-4. **Port graphs**: tap a port for its traffic graph (Core's
-   `GetPortSvgAsync`), as desktop's port graphs panel.
 
 **Then: the rest of the everyday views**
 

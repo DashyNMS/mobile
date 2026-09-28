@@ -13,6 +13,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private IReadOnlyList<SectionGroup> _all = [];
     private bool _loaded;
+    private string? _deviceName;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -47,6 +48,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     {
         DeviceId = deviceId;
         Section = section;
+        _deviceName = deviceName;
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
         return RefreshAsync();
@@ -61,11 +63,28 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
         OnPropertyChanged(nameof(ShowSearch));
     });
 
-    /// <summary>A neighbour that's a LibreNMS device opens that device.</summary>
+    /// <summary>A neighbour that's a LibreNMS device opens that device; a port opens its graphs.</summary>
     [RelayCommand]
-    private Task OpenLinkAsync(SectionRow? row) => row?.LinkDeviceId is { } id
-        ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
-        : Task.CompletedTask;
+    private Task OpenLinkAsync(SectionRow? row)
+    {
+        if (row?.LinkDeviceId is { } id)
+        {
+            return _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id });
+        }
+
+        if (row?.LinkPortIfName is { } ifName)
+        {
+            return _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object>
+            {
+                [Routes.DeviceIdParameter] = DeviceId,
+                [Routes.PortParameter] = ifName,
+                [Routes.PortNameParameter] = row.Title,
+                [Routes.DeviceNameParameter] = _deviceName ?? string.Empty,
+            });
+        }
+
+        return Task.CompletedTask;
+    }
 
     private void ApplyFilter()
     {

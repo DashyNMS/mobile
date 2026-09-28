@@ -20,6 +20,16 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 		_viewModel.PropertyChanged += OnViewModelChanged;
 		GraphView.SizeChanged += (_, _) => FitHeight();
 
+		// The page is only ever our own graph page: never follow a link or
+		// redirect out of it, whatever the (untrusted) graph contains.
+		GraphView.Navigating += (_, e) =>
+		{
+			if (!IsOwnPage(e.Url))
+			{
+				e.Cancel = true;
+			}
+		};
+
 		if (Application.Current is { } app)
 		{
 			app.RequestedThemeChanged += (_, e) =>
@@ -35,7 +45,15 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 		if (query.TryGetValue(Routes.DeviceIdParameter, out var id) && id is int deviceId)
 		{
 			query.TryGetValue(Routes.DeviceNameParameter, out var name);
-			_ = _viewModel.LoadAsync(deviceId, name as string);
+			if (query.TryGetValue(Routes.PortParameter, out var port) && port is string ifName)
+			{
+				query.TryGetValue(Routes.PortNameParameter, out var portName);
+				_ = _viewModel.LoadPortAsync(deviceId, ifName, portName as string, name as string);
+			}
+			else
+			{
+				_ = _viewModel.LoadAsync(deviceId, name as string);
+			}
 		}
 	}
 
@@ -46,6 +64,18 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 			GraphView.Source = _viewModel.GraphPage is { } html ? new HtmlWebViewSource { Html = html } : null;
 		}
 	}
+
+	/// <summary>
+	/// Loading an <see cref="HtmlWebViewSource"/> can itself raise Navigating,
+	/// with a blank, data: or local file: address (iOS uses the app bundle as
+	/// the base URL, Android file:///android_asset/). Anything else - http(s),
+	/// tel:, a custom scheme - is a way out of the page.
+	/// </summary>
+	private static bool IsOwnPage(string? url) =>
+		string.IsNullOrEmpty(url)
+		|| url.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
+		|| url.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
+		|| url.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
 
 	private void FitHeight()
 	{

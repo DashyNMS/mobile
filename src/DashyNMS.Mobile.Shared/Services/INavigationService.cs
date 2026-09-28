@@ -27,6 +27,7 @@ public static class Routes
     /// <summary>One Device View section - with <see cref="DeviceIdParameter"/> and <see cref="SectionParameter"/>.</summary>
     public const string DeviceSection = "devicesection";
 
+    /// <summary>A device's graphs - or, with <see cref="PortParameter"/>, one port's.</summary>
     public const string DeviceGraphs = "devicegraphs";
 
     public const string Maintenance = "maintenance";
@@ -36,4 +37,10 @@ public static class Routes
 
     /// <summary>Query attribute: the device's name, for titles.</summary>
     public const string DeviceNameParameter = "name";
+
+    /// <summary>Query attribute: a port's ifName, for <see cref="DeviceGraphs"/>.</summary>
+    public const string PortParameter = "port";
+
+    /// <summary>Query attribute: the port's display name, for titles.</summary>
+    public const string PortNameParameter = "portname";
 }

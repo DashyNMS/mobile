@@ -39,6 +39,9 @@ public sealed record SectionRow(string Title)
     /// <summary>Another LibreNMS device this row leads to (a neighbour).</summary>
     public int? LinkDeviceId { get; init; }
 
+    /// <summary>A port of this device whose graphs this row leads to - its SNMP ifName, which LibreNMS's port graph API takes.</summary>
+    public string? LinkPortIfName { get; init; }
+
     public bool HasSubtitle => !string.IsNullOrWhiteSpace(Subtitle);
 
     public bool HasValue => !string.IsNullOrWhiteSpace(Value);
@@ -47,7 +50,7 @@ public sealed record SectionRow(string Title)
 
     public bool HasBar => Bar is not null;
 
-    public bool IsLink => LinkDeviceId is not null;
+    public bool IsLink => LinkDeviceId is not null || LinkPortIfName is not null;
 
     /// <summary>Left padding for <see cref="Depth"/>.</summary>
     public double Indent => Depth * 14;
