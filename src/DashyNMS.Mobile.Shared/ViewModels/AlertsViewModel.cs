@@ -115,6 +115,24 @@ public sealed partial class AlertsViewModel : ViewModelBase
     [RelayCommand]
     private void ToggleAcknowledged() => ShowAcknowledged = !ShowAcknowledged;
 
+    /// <summary>
+    /// Only one kind of alert, for the dashboard's counts (#32): "critical"
+    /// or "warning" turns every other chip off; "acknowledged" has no chip of
+    /// its own that shows only those, so it searches for the state, which
+    /// the search box shows and ✕ clears.
+    /// </summary>
+    public void ShowOnly(string kind)
+    {
+        _loading = true;
+        var acknowledged = string.Equals(kind, "acknowledged", StringComparison.OrdinalIgnoreCase);
+        ShowCritical = acknowledged || string.Equals(kind, "critical", StringComparison.OrdinalIgnoreCase);
+        ShowWarning = acknowledged || string.Equals(kind, "warning", StringComparison.OrdinalIgnoreCase);
+        ShowAcknowledged = acknowledged;
+        SearchText = acknowledged ? AlertState.Acknowledged.ToDisplayString() : string.Empty;
+        _loading = false;
+        OnFilterChanged();
+    }
+
     /// <summary>Back to everything, as desktop's clear (✕) button.</summary>
     [RelayCommand]
     private void ClearFilters()

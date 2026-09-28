@@ -18,27 +18,44 @@
         <!-- One template per card kind (DashboardLayout); each reads from the card's Dashboard. -->
         <pages:DashboardCardTemplateSelector x:Key="CardTemplates">
 
+            <!-- Each count opens its tab filtered to it (#32, #34); OK has no
+                 list of its own to open, so it's the only tile that doesn't. -->
             <pages:DashboardCardTemplateSelector.AlertsGauge>
                 <DataTemplate x:DataType="vm:DashboardCard">
                     <VerticalStackLayout Spacing="6">
                         <Label Style="{StaticResource SectionHeader}" Text="ALERTS" />
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
                             <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="critical" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
                                     <Label Text="{Binding Dashboard.CriticalAlerts}" FontSize="28" TextColor="{StaticResource CriticalColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Critical" />
                                 </VerticalStackLayout>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="warning" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
                                     <Label Text="{Binding Dashboard.WarningAlerts}" FontSize="28" TextColor="{StaticResource WarningColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Warning" />
                                 </VerticalStackLayout>
                             </Border>
-                            <Border Grid.Column="2" Style="{StaticResource Card}">
+                            <Border Grid.Row="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="acknowledged" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.AcknowledgedAlerts}" FontSize="28" />
+                                    <Label Text="{Binding Dashboard.AcknowledgedAlerts}" FontSize="28" TextColor="{StaticResource InactiveColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Acknowledged" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Dashboard.DevicesOk}" FontSize="28" TextColor="{StaticResource OkColor}" />
+                                    <Label Style="{StaticResource Caption}" Text="OK - devices with no alerts" LineBreakMode="TailTruncation" />
                                 </VerticalStackLayout>
                             </Border>
                         </Grid>
@@ -50,20 +67,38 @@
                 <DataTemplate x:DataType="vm:DashboardCard">
                     <VerticalStackLayout Spacing="6">
                         <Label Style="{StaticResource SectionHeader}" Text="DEVICES" />
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
                             <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="up" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
                                     <Label Text="{Binding Dashboard.DevicesUp}" FontSize="28" TextColor="{StaticResource OkColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Up" />
                                 </VerticalStackLayout>
                             </Border>
                             <Border Grid.Column="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="down" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
                                     <Label Text="{Binding Dashboard.DevicesDown}" FontSize="28" TextColor="{StaticResource CriticalColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Down" />
                                 </VerticalStackLayout>
                             </Border>
-                            <Border Grid.Column="2" Style="{StaticResource Card}">
+                            <Border Grid.Row="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="maintenance" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout>
+                                    <Label Text="{Binding Dashboard.DevicesMaintenance}" FontSize="28" TextColor="{StaticResource MaintenanceColor}" />
+                                    <Label Style="{StaticResource Caption}" Text="Maintenance" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="disabled" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
                                     <Label Text="{Binding Dashboard.DevicesInactive}" FontSize="28" TextColor="{StaticResource InactiveColor}" />
                                     <Label Style="{StaticResource Caption}" Text="Disabled / ignored" />

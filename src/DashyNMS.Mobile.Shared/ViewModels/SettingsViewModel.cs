@@ -28,6 +28,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly IAppBadge _badge;
     private readonly IAppearance _appearance;
     private readonly IHomeWidgets _widgets;
+    private readonly DeviceBookmarks _bookmarks;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -41,8 +42,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         AlertWatchCoordinator coordinator,
         IAppBadge badge,
         IAppearance appearance,
-        IHomeWidgets widgets)
+        IHomeWidgets widgets,
+        DeviceBookmarks? bookmarks = null)
     {
+        _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
         _session = session;
         _settings = settings;
         _dialogs = dialogs;
@@ -71,6 +74,47 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Desktop's name choices, for the Device names picker.</summary>
     public IReadOnlyList<string> DeviceNameStyles { get; } =
         Enum.GetValues<DeviceNameStyle>().Select(s => s.ToDisplayString()).ToList();
+
+    /// <summary>The choices for how many recently viewed devices to keep, up to desktop's ceiling.</summary>
+    internal static readonly int[] RecentlyViewedCounts = [3, 5, 10, 15, 20, AppSettings.MaxRecentlyViewedDeviceCount];
+
+    public IReadOnlyList<string> RecentlyViewedCountLabels { get; } =
+        RecentlyViewedCounts.Select(n => n.ToString(CultureInfo.CurrentCulture)).ToList();
+
+    /// <summary>Desktop's recently viewed switch: the strip on the Devices tab and the dashboard card.</summary>
+    public bool ShowRecentlyViewed
+    {
+        get => _bookmarks.ShowRecentlyViewed;
+        set
+        {
+            if (_bookmarks.ShowRecentlyViewed != value)
+            {
+                _bookmarks.ShowRecentlyViewed = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    /// <summary>How many recently viewed devices to keep (#35); a count desktop allows but the list doesn't shows as the next one up.</summary>
+    public int RecentlyViewedCountIndex
+    {
+        get
+        {
+            var index = Array.FindIndex(RecentlyViewedCounts, n => n >= _bookmarks.RecentlyViewedCount);
+            return index < 0 ? RecentlyViewedCounts.Length - 1 : index;
+        }
+
+        set
+        {
+            if (value < 0 || value >= RecentlyViewedCounts.Length || RecentlyViewedCounts[value] == _bookmarks.RecentlyViewedCount)
+            {
+                return;
+            }
+
+            _bookmarks.RecentlyViewedCount = RecentlyViewedCounts[value];
+            OnPropertyChanged();
+        }
+    }
 
     /// <summary>Which name devices go by - hostname, sysName or display name - as on desktop.</summary>
     public int DeviceNameStyleIndex

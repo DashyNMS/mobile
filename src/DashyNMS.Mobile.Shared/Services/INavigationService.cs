@@ -58,6 +58,12 @@ public static class Routes
     /// <summary>Query attribute: a location's name, for <see cref="Devices"/>.</summary>
     public const string LocationParameter = "location";
 
+    /// <summary>Query attribute: a <c>DeviceState</c> to show only, for <see cref="Devices"/>.</summary>
+    public const string StateParameter = "state";
+
+    /// <summary>Query attribute: "critical", "warning" or "acknowledged" to show only, for <see cref="Alerts"/>.</summary>
+    public const string AlertFilterParameter = "show";
+
     public const string DeviceDetail = "device";
 
     /// <summary>Query attribute carrying the device id for <see cref="DeviceDetail"/>.</summary>

@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<DeviceBookmarks>();
+        services.AddSingleton<MaintenanceScan>();
 
         // Alert notifications. The app head supplies IAlertNotifier and
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
