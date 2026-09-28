@@ -142,6 +142,20 @@ jobs:
           $WIDGET_ARGS
           -o "$RUNNER_TEMP/ipa"
 
+      # App Store Connect rejects an extension signed without entitlements
+      # (90166), so check before spending an upload on it.
+      - name: Check the widget's signature
+        if: env.WITH_WIDGET == 'true'
+        run: |
+          IPA=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
+          rm -rf "$RUNNER_TEMP/ipa-check" && mkdir "$RUNNER_TEMP/ipa-check"
+          unzip -q "$IPA" -d "$RUNNER_TEMP/ipa-check"
+          APPEX=$(find "$RUNNER_TEMP/ipa-check/Payload" -name "DashyNMSWidget.appex" -type d | head -1)
+          codesign -d --entitlements - --xml "$APPEX" > "$RUNNER_TEMP/widget-entitlements.xml"
+          cat "$RUNNER_TEMP/widget-entitlements.xml"; echo
+          grep -q "group.net.pckp.DashyNMS" "$RUNNER_TEMP/widget-entitlements.xml"
+          grep -q "net.pckp.DashyNMS.widget" "$RUNNER_TEMP/widget-entitlements.xml"
+
       - name: Upload to TestFlight
         env:
           API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}

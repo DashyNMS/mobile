@@ -95,9 +95,15 @@
 		<IosWidgetBuildOutput Condition="'$(IosWidgetBuildOutput)' == ''">Release-iphoneos</IosWidgetBuildOutput>
 	</PropertyGroup>
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(IncludeIosWidget)' == 'true'">
+		<!-- The .NET build re-signs the extension with the app's identity, and
+		     without entitlements unless given them - which App Store Connect
+		     rejects (90166). These are the ones xcodebuild signed it with (App
+		     Group, application-identifier, team), from its .xcent; a simulator
+		     build, unsigned, has none. -->
 		<AdditionalAppExtensions Include="$(MSBuildThisFileDirectory)..\..\ios-widget\build">
 			<Name>DashyNMSWidget</Name>
 			<BuildOutput>$(IosWidgetBuildOutput)</BuildOutput>
+			<CodesignEntitlements Condition="Exists('$(MSBuildThisFileDirectory)../../ios-widget/build/DashyNMSWidget.build/$(IosWidgetBuildOutput)/DashyNMSWidget.build/DashyNMSWidget.appex.xcent')">$(MSBuildThisFileDirectory)../../ios-widget/build/DashyNMSWidget.build/$(IosWidgetBuildOutput)/DashyNMSWidget.build/DashyNMSWidget.appex.xcent</CodesignEntitlements>
 		</AdditionalAppExtensions>
 	</ItemGroup>
 
