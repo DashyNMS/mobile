@@ -104,5 +104,5 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 - The distribution certificate expires after a year, and the profile expires
   with it. Renew both and update the three signing secrets.
 - To build locally on a Mac instead, install the certificate and profile,
-  then run the same `dotnet publish` command as the workflow (note `-p:MobilePlatform=ios` rather than `-f`) and upload the
+  then run the same `dotnet publish` command as the workflow (note it passes both `-p:MobilePlatform=ios` and `-f net10.0-ios`) and upload the
   IPA with Apple's **Transporter** app.
