@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.DeviceDetailPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
+    x:DataType="vm:DeviceDetailViewModel"
+    Title="{Binding Title}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Open in browser" Command="{Binding OpenInBrowserCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="4">
+
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="12">
+                        <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}"
+                                 WidthRequest="16" HeightRequest="16" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding Title}" FontSize="20" FontFamily="OpenSansSemibold"
+                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                        <Label Grid.Column="2" Text="{Binding StateText}" VerticalOptions="Center"
+                               TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
+                    </Grid>
+                </Border>
+
+                <Label Style="{StaticResource SectionHeader}" Text="OPEN ALERTS" IsVisible="{Binding HasAlerts}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AlertItem">
+                            <Border Style="{StaticResource Card}">
+                                <Grid ColumnDefinitions="6,*" ColumnSpacing="12">
+                                    <BoxView Color="{Binding Severity, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                                    <VerticalStackLayout Grid.Column="1">
+                                        <Label Text="{Binding Rule}" FontFamily="OpenSansSemibold" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Summary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Style="{StaticResource SectionHeader}" Text="DETAILS" />
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Properties}" Spacing="10">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sys:KeyValuePair(x:String,x:String)">
+                                <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Key}" />
+                                    <Label Grid.Column="1" Text="{Binding Value}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+
+</ContentPage>

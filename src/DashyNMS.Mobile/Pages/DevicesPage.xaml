@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.DevicesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:DevicesViewModel"
+    Title="Devices">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+
+        <SearchBar Text="{Binding SearchText}" Placeholder="Name, IP, OS, hardware or location" />
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" Margin="0,4">
+            <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />
+            <Picker Grid.Column="1"
+                    Title="Show"
+                    ItemsSource="{Binding Filters}"
+                    SelectedItem="{Binding Filter}"
+                    WidthRequest="120" />
+        </Grid>
+
+        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Devices}" SelectionMode="None">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.EmptyView>
+                    <Label Style="{StaticResource Caption}" Text="No devices match." HorizontalOptions="Center" Margin="0,32" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DeviceItem">
+                        <Border Style="{StaticResource Card}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12">
+                                <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}"
+                                         WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="{Binding Name}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
+                                    <Label Text="{Binding StateText}" HorizontalOptions="End"
+                                           TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding UptimeText}" HorizontalOptions="End" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+
+</ContentPage>

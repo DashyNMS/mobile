@@ -1,0 +1,76 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  # Shared code and the desktop's Core suite, on plain .NET - fast, and
+  # catches upstream Core changes that don't hold up off Windows.
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test shared code
+        run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug
+
+      - name: Test desktop Core (portable build)
+        run: dotnet test tests/DesktopNMS.Core.Tests -c Debug
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "21"
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Build
+        run: dotnet build src/DashyNMS.Mobile -f net10.0-android -c Release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashynms-android
+          path: src/DashyNMS.Mobile/bin/Release/net10.0-android/*-Signed.apk
+          if-no-files-found: error
+
+  ios:
+    name: iOS (simulator)
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios
+
+      # A simulator build needs no signing identity; device builds and
+      # App Store packaging come later, with certificates in secrets.
+      - name: Build
+        run: dotnet build src/DashyNMS.Mobile -f net10.0-ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64

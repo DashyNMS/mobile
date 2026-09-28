@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SignInPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:SignInViewModel"
+    Title="Sign in">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24,48,24,24" Spacing="12" MaximumWidthRequest="520">
+
+            <Label Text="DashyNMS" FontSize="32" FontFamily="OpenSansSemibold" />
+            <Label Style="{StaticResource Caption}"
+                   Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
+
+            <Label Text="Server address" Margin="0,16,0,0" />
+            <Entry Text="{Binding ServerUrl}"
+                   Placeholder="nms.example.com"
+                   Keyboard="Url"
+                   IsSpellCheckEnabled="False"
+                   IsTextPredictionEnabled="False"
+                   AutomationId="ServerUrl" />
+
+            <Label Text="API token" />
+            <Entry Text="{Binding ApiToken}"
+                   Placeholder="Paste your API token"
+                   IsPassword="True"
+                   IsSpellCheckEnabled="False"
+                   IsTextPredictionEnabled="False"
+                   ReturnCommand="{Binding SignInCommand}"
+                   AutomationId="ApiToken" />
+
+            <Label Text="Backup address (optional)" />
+            <Entry Text="{Binding BackupAddress}"
+                   Placeholder="Used when the server address doesn't answer"
+                   Keyboard="Url"
+                   IsSpellCheckEnabled="False"
+                   IsTextPredictionEnabled="False" />
+
+            <Grid ColumnDefinitions="*,Auto">
+                <Label Text="Remember token on this device" VerticalOptions="Center" />
+                <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*,Auto">
+                <VerticalStackLayout VerticalOptions="Center">
+                    <Label Text="Allow untrusted certificate" />
+                    <Label Style="{StaticResource Caption}" Text="Only for a self-signed server you trust." />
+                </VerticalStackLayout>
+                <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" />
+            </Grid>
+
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+            <Button Text="Sign in"
+                    Command="{Binding SignInCommand}"
+                    IsEnabled="{Binding IsNotBusy}"
+                    Margin="0,8,0,0"
+                    AutomationId="SignIn" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

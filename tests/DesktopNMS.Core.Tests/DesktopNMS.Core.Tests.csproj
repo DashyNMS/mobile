@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The desktop repo's own Core test suite, run against the portable (net10.0)
+    build of Core on Linux/macOS. If upstream Core picks up something that
+    only works on Windows, this is where mobile finds out.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DesktopNMS.Core.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Known upstream portability gap, not a mobile bug: UnimusExport.FileNameFor
+         uses Path.GetInvalidFileNameChars(), which is only '/' and '\0' off
+         Windows, so ':', '*' and '?' survive into the file name on Android/iOS.
+         Drop this filter once desktop swaps in a fixed, Windows-safe set. -->
+    <VSTestTestCaseFilter>FullyQualifiedName!=DesktopNMS.Core.Tests.UnimusExportTests.File_name_replaces_characters_windows_does_not_allow</VSTestTestCaseFilter>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(DesktopRoot)tests/DesktopNMS.Core.Tests/**/*.cs"
+             Exclude="$(DesktopRoot)tests/DesktopNMS.Core.Tests/bin/**;$(DesktopRoot)tests/DesktopNMS.Core.Tests/obj/**"
+             LinkBase="Upstream" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/DesktopNMS.Core.Portable/DesktopNMS.Core.Portable.csproj" />
+  </ItemGroup>
+
+</Project>

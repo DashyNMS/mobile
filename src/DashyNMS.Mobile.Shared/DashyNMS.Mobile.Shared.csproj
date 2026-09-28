@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Everything in the mobile app that isn't a page or a platform API: view
+    models, session handling and secret storage over an abstract secure store.
+    Plain net10.0, so it builds and tests anywhere without the MAUI workloads.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DashyNMS.Mobile</RootNamespace>
+    <AssemblyName>DashyNMS.Mobile.Shared</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The desktop app's session service depends only on Core, so it is
+         shared as-is rather than rewritten. -->
+    <Compile Include="$(DesktopRoot)src/DesktopNMS/Services/SessionService.cs" Link="Desktop/SessionService.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../DesktopNMS.Core.Portable/DesktopNMS.Core.Portable.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DashyNMS.Mobile.Shared.Tests" />
+  </ItemGroup>
+
+</Project>

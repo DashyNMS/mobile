@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:SettingsViewModel"
+    Title="Settings">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="4">
+
+            <Label Style="{StaticResource SectionHeader}" Text="SERVER" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                        <Label Style="{StaticResource Caption}" Text="Address" />
+                        <Label Grid.Column="1" Text="{Binding ServerUrl}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                        <Label Style="{StaticResource Caption}" Text="LibreNMS" />
+                        <Label Grid.Column="1" Text="{Binding ServerVersion}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="TIMESTAMPS" />
+            <Border Style="{StaticResource Card}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout>
+                        <Label Text="Server stores timestamps in UTC" />
+                        <Label Style="{StaticResource Caption}"
+                               Text="Turn on if alert times look off by your UTC offset. Same as desktop's setting." />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding ServerTimestampsAreUtc}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <Button Text="Sign out"
+                    Command="{Binding SignOutCommand}"
+                    BackgroundColor="{StaticResource CriticalColor}"
+                    Margin="0,24,0,0" />
+
+            <Label Style="{StaticResource Caption}"
+                   Text="{Binding AppVersion, StringFormat='DashyNMS mobile {0}'}"
+                   HorizontalOptions="Center"
+                   Margin="0,16,0,0" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

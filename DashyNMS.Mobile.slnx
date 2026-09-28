@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj" />
+    <Project Path="src/DashyNMS.Mobile/DashyNMS.Mobile.csproj" />
+    <Project Path="src/DesktopNMS.Core.Portable/DesktopNMS.Core.Portable.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DashyNMS.Mobile.Shared.Tests/DashyNMS.Mobile.Shared.Tests.csproj" />
+    <Project Path="tests/DesktopNMS.Core.Tests/DesktopNMS.Core.Tests.csproj" />
+  </Folder>
+</Solution>

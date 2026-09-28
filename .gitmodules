@@ -1,0 +1,3 @@
+[submodule "external/desktop"]
+	path = external/desktop
+	url = https://github.com/DashyNMS/desktop

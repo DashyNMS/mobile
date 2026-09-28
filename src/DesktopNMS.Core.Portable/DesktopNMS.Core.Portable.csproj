@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The desktop app's DesktopNMS.Core, compiled for plain net10.0 so Android
+    and iOS can use it. Nothing is copied: the sources come straight from the
+    external/desktop submodule, so a fix there reaches mobile on the next
+    submodule bump.
+
+    The desktop project targets net9.0-windows only because of its DPAPI
+    secret stores (Security/Dpapi*). Those classes still compile here, but
+    mobile never registers them - it stores secrets with the platform
+    keychain/keystore instead (see DashyNMS.Mobile.Shared). Don't call
+    AddDesktopNmsCore() from mobile for the same reason.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>DesktopNMS.Core</RootNamespace>
+    <!-- Same assembly name as on desktop, so the desktop tests' internals
+         access (InternalsVisibleTo) and any serialised type names match. -->
+    <AssemblyName>DesktopNMS.Core</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Upstream code, built as upstream builds it: don't fail or nag on
+         warnings the desktop repo doesn't see (platform analyzers mostly). -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="$(DesktopRoot)src/DesktopNMS.Core/**/*.cs"
+             Exclude="$(DesktopRoot)src/DesktopNMS.Core/bin/**;$(DesktopRoot)src/DesktopNMS.Core/obj/**"
+             LinkBase="DesktopNMS.Core" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <!-- Only so the upstream DPAPI stores compile; never used at runtime on mobile. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="DesktopNMS.Core.Tests" />
+  </ItemGroup>
+
+</Project>

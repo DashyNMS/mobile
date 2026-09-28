@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="DashyNMS.Mobile.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
+    Shell.FlyoutBehavior="Disabled"
+    Title="DashyNMS">
+
+    <!-- Sign-in comes first; SignInPage moves on to //main once there is a session. -->
+    <ShellContent
+        Route="signin"
+        Shell.NavBarIsVisible="False"
+        ContentTemplate="{DataTemplate pages:SignInPage}" />
+
+    <TabBar Route="main">
+        <Tab Title="Dashboard" Route="dashboard">
+            <ShellContent ContentTemplate="{DataTemplate pages:DashboardPage}" />
+        </Tab>
+        <Tab Title="Devices" Route="devices">
+            <ShellContent ContentTemplate="{DataTemplate pages:DevicesPage}" />
+        </Tab>
+        <Tab Title="Alerts" Route="alerts">
+            <ShellContent ContentTemplate="{DataTemplate pages:AlertsPage}" />
+        </Tab>
+        <Tab Title="Settings" Route="settings">
+            <ShellContent ContentTemplate="{DataTemplate pages:SettingsPage}" />
+        </Tab>
+    </TabBar>
+
+</Shell>

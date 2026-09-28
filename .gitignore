@@ -1,0 +1,12 @@
+bin/
+obj/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+artifacts/
+publish/
+TestResults/
+*.keystore
+*.jks
