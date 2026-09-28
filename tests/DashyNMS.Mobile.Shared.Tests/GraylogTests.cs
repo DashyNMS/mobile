@@ -46,10 +46,14 @@ public sealed class GraylogSetupTests
     [Fact]
     public async Task Switched_on_with_a_password_connects_on_first_use()
     {
+        // Saved on an earlier run: in the keychain before the app starts.
         _appSettings.Graylog = new GraylogSettings { Enabled = true, Server = "graylog.example.com", Username = "admin" };
-        _passwords.Save("secret");
+        var storage = Substitute.For<ISecureStorage>();
+        storage.GetAsync(SecureGraylogPasswordProtector.Key).Returns("secret");
+        var secrets = new SecretCache(storage, NullLogger<SecretCache>.Instance);
+        var setup = new GraylogSetup(_api, new SecureGraylogPasswordProtector(secrets), Fakes.Settings(_appSettings), secrets, NullLogger<GraylogSetup>.Instance);
 
-        await _setup.EnsureConfiguredAsync();
+        await setup.EnsureConfiguredAsync();
 
         _api.Received(1).Configure(Arg.Is<GraylogConnection>(c =>
             c.Root == new Uri("https://graylog.example.com/") && c.Username == "admin" && c.Password == "secret"));
