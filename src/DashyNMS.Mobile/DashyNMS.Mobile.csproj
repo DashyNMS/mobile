@@ -68,9 +68,13 @@
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
 	</ItemGroup>
 
-	<!-- Background alert checks on Android (see AndroidAlertScheduler). -->
+	<!-- Background alert checks on Android (see AndroidAlertScheduler).
+	     Pinned to the release built on the same AndroidX Core (1.16) and
+	     Lifecycle (2.9) as MAUI 10.0.20: newer ones pull those up underneath
+	     MAUI, which breaks the build (core vs core-ktx duplicate classes) and
+	     risks mismatched Lifecycle at runtime. Move it with MAUI, not ahead. -->
 	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
-		<PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.11.2.1" />
+		<PackageReference Include="Xamarin.AndroidX.Work.Runtime" Version="2.10.3" />
 	</ItemGroup>
 
 	<ItemGroup>
