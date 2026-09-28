@@ -11,4 +11,11 @@ public interface IShareService
     /// <param name="contentType">MIME type, e.g. "text/csv".</param>
     /// <param name="title">The share sheet's title, where the platform shows one.</param>
     Task ShareTextFileAsync(string fileName, string contents, string contentType, string title);
+
+    /// <summary>
+    /// Deletes files written for earlier shares - they hold device names,
+    /// rules and notes, and nothing needs them once the share sheet has taken
+    /// them (#9). Done before each export, at start-up and on sign-out.
+    /// </summary>
+    void ClearExports();
 }

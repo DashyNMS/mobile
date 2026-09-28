@@ -68,7 +68,20 @@ download it once.
 
 ### 7. Add the GitHub secrets
 
-In the repo: Settings → Secrets and variables → Actions → *New repository secret*:
+The secrets go in a `testflight` **environment**, not the repository, so only
+`main` can use them and a maintainer approves each run. Otherwise anyone who
+can push a branch could edit the workflow there and read the signing
+certificate and API key.
+
+#### Protecting the signing secrets
+
+1. Settings → Environments → **New environment** → `testflight`.
+2. **Deployment branches and tags** → *Selected branches and tags* → add `main`.
+3. **Required reviewers** → add the maintainer(s).
+4. If these secrets were ever added as *repository* secrets, delete those
+   copies (Settings → Secrets and variables → Actions → Repository secrets).
+
+Then, in the `testflight` environment → *Add environment secret*:
 
 | Secret | Value |
 | --- | --- |

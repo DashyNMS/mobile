@@ -102,6 +102,23 @@ public sealed class DeviceBookmarks
         }
     }
 
+    /// <summary>
+    /// Forgets every pinned and recently viewed device - on sign-out, so a
+    /// signed-out phone doesn't list which devices were being watched (#10).
+    /// </summary>
+    public void Clear()
+    {
+        if (Current.PinnedDevices.Count == 0 && Current.RecentlyViewedDevices.Count == 0)
+        {
+            return;
+        }
+
+        Current.PinnedDevices.Clear();
+        Current.RecentlyViewedDevices.Clear();
+        _settings.Save();
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Moves the device to the front of the recently viewed list.</summary>
     public void RecordViewed(int deviceId, string displayName)
     {

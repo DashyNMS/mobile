@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
         // platform can set a number on the icon (registered later, it wins).
         services.AddSingleton<IAppBadge, NoAppBadge>();
+        services.AddSingleton<INotificationPrivacy, SystemNotificationPrivacy>();
         services.AddSingleton<IHomeWidgets, NoHomeWidgets>();
         services.AddSingleton<IAppearance, InMemoryAppearance>();
         services.AddSingleton(TimeProvider.System);

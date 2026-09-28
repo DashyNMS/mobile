@@ -15,9 +15,18 @@ concurrency:
   group: testflight
   cancel-in-progress: false
 
+# Read-only token: the upload uses the App Store Connect key, not GitHub (#7).
+permissions:
+  contents: read
+
 jobs:
   testflight:
     name: Build and upload
+    # The signing certificate and App Store Connect key live in this
+    # environment's secrets, which only main can use and a maintainer has to
+    # approve - so a workflow edited on another branch can't read them (#5).
+    # See docs/RELEASING-IOS.md, "Protecting the signing secrets".
+    environment: testflight
     runs-on: macos-26
     timeout-minutes: 60
     env:
@@ -26,11 +35,11 @@ jobs:
       # the app alone, exactly as before.
       WITH_WIDGET: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 != '' }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           submodules: true
 
-      - uses: actions/setup-dotnet@v5
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
           global-json-file: global.json
 
@@ -172,7 +181,7 @@ jobs:
             --apiKey "$API_KEY_ID" --apiIssuer "$API_ISSUER_ID"
 
       - name: Keep the IPA
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: dashynms-ios-${{ env.BUILD_NUMBER }}
           path: ${{ runner.temp }}/ipa/*.ipa
