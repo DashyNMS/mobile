@@ -158,6 +158,18 @@ Roughly in order, following what desktop already has:
 
 Things found while porting that would be better fixed in the desktop repo:
 
+- `SettingsStore.Save()` is `Changed?.Invoke(this, Write())`. The
+  null-conditional skips `Write()` as well when nothing subscribes to
+  `Changed`, so settings are silently never saved. Desktop always has a
+  subscriber, so it doesn't notice. Mobile works around it with
+  `MobileSettingsStore`. The fix is to call `Write()` first, then raise the
+  event.
+- `AppPaths` uses `Environment.GetFolderPath(SpecialFolder.ApplicationData)`,
+  which returns an empty string off Windows when the folder doesn't exist
+  yet, which is always the case on a fresh phone install. Everything then
+  lands in a relative `DashyNMS` folder. Mobile creates the folder first
+  (`MobileStorage.EnsureDataFolder`). Passing `SpecialFolderOption.Create`
+  in `AppPaths` would fix it at the source.
 - `UnimusExport.FileNameFor` relies on `Path.GetInvalidFileNameChars()`,
   which only contains `/` and `\0` off Windows. That means `:`, `*` and `?`
   survive into file names exported from a phone. A fixed, Windows-safe set

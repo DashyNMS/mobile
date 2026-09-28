@@ -1,5 +1,6 @@
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Storage;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
@@ -27,13 +28,18 @@ public static class ServiceCollectionExtensions
     /// </remarks>
     public static IServiceCollection AddDashyNmsMobile(this IServiceCollection services)
     {
+        // Before anything touches desktop's AppPaths - see MobileStorage.
+        MobileStorage.EnsureDataFolder();
+
         services.AddSingleton<ServerFailover>();
         services.AddSingleton<LibreNmsTransport>();
         services.AddSingleton<ILibreNmsTransport>(sp => sp.GetRequiredService<LibreNmsTransport>());
         services.AddSingleton<LibreNmsClient>();
         services.AddSingleton<ILibreNmsClient>(sp => sp.GetRequiredService<LibreNmsClient>());
 
-        services.AddSingleton<ISettingsStore, SettingsStore>();
+        // Desktop's store, wrapped so Save() writes - see MobileSettingsStore.
+        services.AddSingleton<SettingsStore>();
+        services.AddSingleton<ISettingsStore>(sp => new MobileSettingsStore(sp.GetRequiredService<SettingsStore>()));
         services.AddSingleton<SecretCache>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
