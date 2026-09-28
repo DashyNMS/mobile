@@ -102,18 +102,35 @@ public sealed class DeviceSectionLoader
 
     internal static SectionRow SensorRow(Sensor sensor, AppSettings settings)
     {
+        var reading = ReadSensor(sensor, settings);
+        return new SectionRow(reading.Name)
+        {
+            Value = reading.Value,
+            Status = reading.Status,
+            Subtitle = reading.Limits,
+        };
+    }
+
+    /// <summary>
+    /// A sensor's reading, coloured as desktop does: its category's thresholds
+    /// from Settings (dBm, signal, temperature, fan speed - which also honour
+    /// the sensor's own LibreNMS limits), or for anything else the sensor's
+    /// own limits. Shared by Device View's Sensors section and the Health page,
+    /// so the two can't disagree.
+    /// </summary>
+    internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings)
+    {
         var registered = SensorCategoryRegistry.Resolve(sensor.SensorClass);
         var severity = registered is not null
             ? registered.Thresholds(settings, sensor).Evaluate(sensor.Current)
             : AgainstOwnLimits(sensor.Current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
 
         var unit = registered?.UnitSuffix ?? UnitFor(sensor.SensorClass);
-        return new SectionRow(string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!)
-        {
-            Value = sensor.Current.ToString("0.##", CultureInfo.CurrentCulture) + unit,
-            Status = ToStatus(severity),
-            Subtitle = Limits(sensor.LimitLow, sensor.LimitHigh, unit),
-        };
+        return new SensorReading(
+            string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
+            sensor.Current.ToString("0.##", CultureInfo.CurrentCulture) + unit,
+            ToStatus(severity),
+            Limits(sensor.LimitLow, sensor.LimitHigh, unit));
     }
 
     private static string SensorClassName(string? sensorClass) =>
@@ -479,3 +496,6 @@ public sealed class DeviceSectionLoader
         _ => null,
     };
 }
+
+/// <summary>A sensor's name, reading and colour - see <see cref="DeviceSectionLoader.ReadSensor"/>.</summary>
+internal sealed record SensorReading(string Name, string Value, RowStatus Status, string? Limits);

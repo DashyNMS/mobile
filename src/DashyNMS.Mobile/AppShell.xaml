@@ -23,6 +23,9 @@
         <Tab Title="Alerts" Route="alerts" Icon="tab_alerts.png">
             <ShellContent ContentTemplate="{DataTemplate pages:AlertsPage}" />
         </Tab>
+        <Tab Title="Health" Route="health" Icon="tab_health.png">
+            <ShellContent ContentTemplate="{DataTemplate pages:HealthPage}" />
+        </Tab>
         <Tab Title="Settings" Route="settings" Icon="tab_settings.png">
             <ShellContent ContentTemplate="{DataTemplate pages:SettingsPage}" />
         </Tab>

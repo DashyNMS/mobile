@@ -56,6 +56,10 @@ rather than rewritten.
   live in the background too. Android launchers show their own dot or
   count from DashyNMS's notifications instead, as Android gives apps no
   way to set a number.
+- **Health**: desktop's Health tab. Every sensor across the network in its
+  four categories (dBm, signal, temperature, fan speed), coloured against
+  the same thresholds as Device View, problems first, with Critical /
+  Warning / OK chips and search. Tap a sensor for its device's sensors.
 - **Home-screen widget**: open alerts by severity, devices down and (on
   larger sizes) the top three alerts, with the time of the last check. Tap
   an alert to open it, or anywhere else for the alert list. It draws the
@@ -197,7 +201,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ✅ Each section on its own page, searchable; neighbours link to their devices |
 | Device actions: rediscover, maintenance window, edit, delete | ✅ | 🟡 Rediscover and maintenance windows; edit/delete stay on desktop |
 | Open in browser / SSH / Telnet | ✅ | 🟡 Browser only |
-| Health (sensors across all devices vs limits) | ✅ | ⬜ |
+| Health (sensors across all devices vs limits) | ✅ | ✅ Desktop's four categories, problems first |
 | Groups and locations | ✅ | ⬜ |
 | Neighbours views | ✅ | ⬜ |
 | Maps: network, geographical, custom | ✅ | ⬜ Geographical suits a phone best |
@@ -216,20 +220,19 @@ Ordered by how much each adds on a phone, not by desktop's order.
 
 **Next: the rest of the everyday views**
 
-1. **Health**: sensors across all devices, coloured against their limits.
-2. **Groups and locations**, with the same click-through to Device View.
-3. **More settings**: poll interval, health thresholds, theme.
+1. **Groups and locations**, with the same click-through to Device View.
+2. **More settings**: poll interval, health thresholds, theme.
 
 **Later**
 
-4. **Geographical map** of devices and their state.
-5. **Integrations**: Graylog messages and Unimus config backups, including
+3. **Geographical map** of devices and their state.
+4. **Integrations**: Graylog messages and Unimus config backups, including
    Device View's Graylog and Unimus sections. Core already has both clients;
    they need keychain-backed secret stores like the LibreNMS token's.
-6. **Rules and templates**, read-only.
-7. **Instant alerts**: a push from the server side, so alerts don't wait for
+5. **Rules and templates**, read-only.
+6. **Instant alerts**: a push from the server side, so alerts don't wait for
    the next background check.
-8. **Store builds**: Play internal testing (TestFlight is in place, see
+7. **Store builds**: Play internal testing (TestFlight is in place, see
    above).
 
 ## Upstream notes
