@@ -38,7 +38,8 @@ rather than rewritten.
   device after the list loads, as on desktop.
 - **Device detail**: state, identity, uptime and the device's own open alerts,
   **Rediscover** and **Schedule maintenance** (now or later, a duration, and
-  desktop's skip/mute/run-alerts choice), pin, "Open in browser", and
+  desktop's skip/mute/run-alerts choice), pin, "Open in browser", **SSH** and
+  **Telnet** (in whichever app on the phone handles those links), and
   desktop's Device View sections, each on its own searchable page:
   availability and outages, sensors (coloured against desktop's thresholds or
   the sensor's own limits), graphs, CPU/memory/storage, ports (tap one for
@@ -217,7 +218,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Device View: overview, active alerts | ✅ | ✅ |
 | Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ✅ Each section on its own page, searchable; neighbours link to their devices |
 | Device actions: rediscover, maintenance window, edit, delete | ✅ | 🟡 Rediscover and maintenance windows; edit/delete stay on desktop |
-| Open in browser / SSH / Telnet | ✅ | 🟡 Browser only |
+| Open in browser / SSH / Telnet | ✅ | ✅ SSH and Telnet open in whichever app on the phone handles the link |
 | Health (sensors across all devices vs limits) | ✅ | ✅ Desktop's four categories, problems first |
 | Groups and locations | ✅ | ✅ Counts and devices down; opens the Devices list filtered (editing stays on desktop) |
 | Neighbours views | ✅ | ⬜ |

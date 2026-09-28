@@ -26,7 +26,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText))]
-    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand), nameof(OpenSshCommand), nameof(OpenTelnetCommand))]
     private Device? _device;
 
     [ObservableProperty]
@@ -184,6 +184,30 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         [Routes.DeviceIdParameter] = DeviceId,
         [Routes.DeviceNameParameter] = Title,
     });
+
+    private bool CanOpenInApp() => DeviceLinks.For(DeviceLinks.Ssh, Device) is not null;
+
+    [RelayCommand(CanExecute = nameof(CanOpenInApp))]
+    private Task OpenSshAsync() => OpenInAppAsync(DeviceLinks.Ssh, "SSH");
+
+    [RelayCommand(CanExecute = nameof(CanOpenInApp))]
+    private Task OpenTelnetAsync() => OpenInAppAsync(DeviceLinks.Telnet, "Telnet");
+
+    /// <summary>Desktop's "Open in" SSH / Telnet: the phone's own app for the link, or a word on why nothing happened.</summary>
+    private async Task OpenInAppAsync(string scheme, string name)
+    {
+        if (DeviceLinks.For(scheme, Device) is not { } uri)
+        {
+            return;
+        }
+
+        if (!await _launcher.TryOpenAppAsync(uri))
+        {
+            await _dialogs.AlertAsync(
+                $"No {name} app",
+                $"Nothing on this phone opens {scheme}:// links. Install an {name} app that does, then try again.");
+        }
+    }
 
     private bool CanOpenInBrowser() => Device is not null && _client.Connection is not null;
 

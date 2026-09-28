@@ -8,4 +8,15 @@
 	<uses-permission android:name="android.permission.INTERNET" />
 	<!-- Android 13+: asked for at sign-in, for alert notifications. -->
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+	<!-- Android 11+: lets "SSH" and "Telnet" in Device View see whether an app handles those links. -->
+	<queries>
+		<intent>
+			<action android:name="android.intent.action.VIEW" />
+			<data android:scheme="ssh" />
+		</intent>
+		<intent>
+			<action android:name="android.intent.action.VIEW" />
+			<data android:scheme="telnet" />
+		</intent>
+	</queries>
 </manifest>

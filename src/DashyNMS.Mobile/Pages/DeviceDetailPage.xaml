@@ -40,6 +40,12 @@
                     <Button Grid.Column="1" Text="Maintenance…" Command="{Binding ScheduleMaintenanceCommand}" />
                 </Grid>
 
+                <!-- Desktop's "Open in" SSH / Telnet, in whichever app on the phone handles the link. -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Button Text="SSH" Command="{Binding OpenSshCommand}" />
+                    <Button Grid.Column="1" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
+                </Grid>
+
                 <Label Style="{StaticResource SectionHeader}" Text="OPEN ALERTS" IsVisible="{Binding HasAlerts}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Spacing="8">
                     <BindableLayout.ItemTemplate>

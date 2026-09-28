@@ -49,6 +49,13 @@
 			</array>
 		</dict>
 	</array>
+	<!-- So "SSH" and "Telnet" in Device View can tell whether an app handles
+	     those links, and say so if not. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>ssh</string>
+		<string>telnet</string>
+	</array>
 	<!-- Only standard HTTPS/TLS to the user's own LibreNMS server, which is
 	     exempt from US export rules - saves answering the encryption question
 	     for every TestFlight build. Revisit if custom cryptography is added. -->
