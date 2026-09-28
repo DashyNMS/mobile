@@ -6,42 +6,123 @@ using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Infrastructure;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-/// <summary>Open alerts, most severe first, with acknowledge and unacknowledge.</summary>
+/// <summary>
+/// Open alerts, most severe first: desktop's Alerts tab filters (critical,
+/// warning, acknowledged, search), acknowledge/unacknowledge, and CSV export.
+/// </summary>
+/// <remarks>
+/// Filters mean what they do on desktop, and are kept in the same
+/// <see cref="AlertFilterSettings"/>: active alerts always show,
+/// acknowledged ones only with <see cref="ShowAcknowledged"/>, and alerts with
+/// no severity of their own always show, as desktop has no chip for them.
+/// </remarks>
 public sealed partial class AlertsViewModel : ViewModelBase
 {
+    /// <summary>Desktop's CSV columns, so an export opens the same either way.</summary>
+    internal static readonly string[] CsvHeaders = ["Severity", "Device", "Alert", "State", "Age", "Note"];
+
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
+    private readonly IShareService _share;
+    private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
+    private bool _loading;
 
-    /// <summary>Hide alerts someone has already acknowledged.</summary>
     [ObservableProperty]
-    private bool _hideAcknowledged;
+    private bool _showCritical;
+
+    [ObservableProperty]
+    private bool _showWarning;
+
+    [ObservableProperty]
+    private bool _showAcknowledged;
+
+    [ObservableProperty]
+    private string _searchText;
 
     public AlertsViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
         IDialogService dialogs,
         INavigationService navigation,
-        ISelfActionTracker selfActions)
+        ISelfActionTracker selfActions,
+        IShareService share,
+        TimeProvider time)
     {
-        _selfActions = selfActions;
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
         _navigation = navigation;
+        _selfActions = selfActions;
+        _share = share;
+        _time = time;
+
+        // Carry on where the last session left off, as desktop does.
+        var filter = settings.Current.Filter;
+        _showCritical = filter.ShowCritical;
+        _showWarning = filter.ShowWarning;
+        _showAcknowledged = filter.ShowAcknowledged;
+        _searchText = filter.SearchText ?? string.Empty;
     }
 
     public ObservableCollection<AlertItem> Alerts { get; } = new();
 
     public bool IsEmpty => Alerts.Count == 0 && !IsBusy;
 
-    partial void OnHideAcknowledgedChanged(bool value) => ApplyFilter();
+    /// <summary>What the empty list says: nothing open at all, or nothing matching.</summary>
+    public string EmptyText => _all.Count == 0 ? "No open alerts." : "No alerts match these filters.";
+
+    /// <summary>Unacknowledged critical alerts, for the Critical chip - whatever the filters.</summary>
+    public int CriticalCount => _all.Count(a => a.Severity == AlertSeverity.Critical && !a.IsAcknowledged);
+
+    public int WarningCount => _all.Count(a => a.Severity == AlertSeverity.Warning && !a.IsAcknowledged);
+
+    public int AcknowledgedCount => _all.Count(a => a.IsAcknowledged);
+
+    /// <summary>"12 alerts", or "3 of 12 alerts" when filtered.</summary>
+    public string CountText => Alerts.Count == _all.Count
+        ? $"{_all.Count} {Plural(_all.Count)}"
+        : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
+
+    /// <summary>True when anything narrows the list - shows the Clear button.</summary>
+    public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
+
+    partial void OnShowCriticalChanged(bool value) => OnFilterChanged();
+
+    partial void OnShowWarningChanged(bool value) => OnFilterChanged();
+
+    partial void OnShowAcknowledgedChanged(bool value) => OnFilterChanged();
+
+    partial void OnSearchTextChanged(string value) => OnFilterChanged();
+
+    [RelayCommand]
+    private void ToggleCritical() => ShowCritical = !ShowCritical;
+
+    [RelayCommand]
+    private void ToggleWarning() => ShowWarning = !ShowWarning;
+
+    [RelayCommand]
+    private void ToggleAcknowledged() => ShowAcknowledged = !ShowAcknowledged;
+
+    /// <summary>Back to everything, as desktop's clear (✕) button.</summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        _loading = true;
+        ShowCritical = true;
+        ShowWarning = true;
+        ShowAcknowledged = true;
+        SearchText = string.Empty;
+        _loading = false;
+        OnFilterChanged();
+    }
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -56,6 +137,20 @@ public sealed partial class AlertsViewModel : ViewModelBase
             .ToList();
         ApplyFilter();
     });
+
+    /// <summary>The list as it's filtered now, as a CSV file, through the share sheet.</summary>
+    [RelayCommand]
+    private async Task ExportCsvAsync()
+    {
+        if (Alerts.Count == 0)
+        {
+            await _dialogs.AlertAsync("Nothing to export", "No alerts match the current filters.");
+            return;
+        }
+
+        var fileName = $"alerts-{_time.GetLocalNow():yyyy-MM-dd-HHmmss}.csv";
+        await RunAsync(() => _share.ShareTextFileAsync(fileName, BuildCsv(), "text/csv", "Export alerts"));
+    }
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as desktop's default.</summary>
     [RelayCommand]
@@ -114,14 +209,68 @@ public sealed partial class AlertsViewModel : ViewModelBase
         ? Task.CompletedTask
         : _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = item.Alert.DeviceId });
 
+    internal string BuildCsv() => CsvWriter.ToCsv(
+        CsvHeaders,
+        Alerts.Select(a => (IReadOnlyList<string>)[a.SeverityText, a.Device, a.Rule, a.StateText, a.AgeText, a.Note ?? string.Empty]));
+
+    private bool Allows(AlertItem alert)
+    {
+        var severityAllowed = alert.Severity switch
+        {
+            AlertSeverity.Critical => ShowCritical,
+            AlertSeverity.Warning => ShowWarning,
+            _ => true,
+        };
+
+        var stateAllowed = alert.State switch
+        {
+            AlertState.Acknowledged => ShowAcknowledged,
+            AlertState.Recovered => false,
+            _ => true,
+        };
+
+        var term = SearchText.Trim();
+        return severityAllowed && stateAllowed && (term.Length == 0 || alert.Matches(term));
+    }
+
+    private void OnFilterChanged()
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        ApplyFilter();
+        SaveFilter();
+    }
+
     private void ApplyFilter()
     {
         Alerts.Clear();
-        foreach (var item in _all.Where(a => !HideAcknowledged || !a.IsAcknowledged))
+        foreach (var item in _all.Where(Allows))
         {
             Alerts.Add(item);
         }
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(CriticalCount));
+        OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(AcknowledgedCount));
     }
+
+    private void SaveFilter()
+    {
+        var filter = _settings.Current.Filter;
+        filter.ShowCritical = ShowCritical;
+        filter.ShowWarning = ShowWarning;
+        filter.ShowAcknowledged = ShowAcknowledged;
+        filter.SearchText = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
+        _settings.Save();
+    }
+
+    private static string Plural(int count) =>
+        count == 1 ? "alert" : "alerts";
 }

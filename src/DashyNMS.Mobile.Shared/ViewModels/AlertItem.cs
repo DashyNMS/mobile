@@ -1,3 +1,4 @@
+using System.Globalization;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Models;
 
@@ -34,15 +35,27 @@ public sealed class AlertItem
 
     public bool IsNotAcknowledged => !IsAcknowledged;
 
+    public string? Note => string.IsNullOrWhiteSpace(Alert.Note) ? null : Alert.Note;
+
+    public bool HasNote => Note is not null;
+
     public DateTime? LocalTimestamp => ServerTime.ToLocal(Alert.Timestamp, _serverTimestampsAreUtc);
 
+    /// <summary>"5m ago", or empty when the server gave no time.</summary>
+    public string AgeText => Alert.Timestamp is { } t ? Formatting.Age(ServerTime.Age(t, _serverTimestampsAreUtc)) : string.Empty;
+
     /// <summary>"5m ago · Acknowledged", as the list's second line.</summary>
-    public string Summary
-    {
-        get
-        {
-            var age = Alert.Timestamp is { } t ? Formatting.Age(ServerTime.Age(t, _serverTimestampsAreUtc)) : "unknown time";
-            return $"{age} · {StateText}";
-        }
-    }
+    public string Summary => $"{(AgeText.Length > 0 ? AgeText : "unknown time")} · {StateText}";
+
+    /// <summary>
+    /// The fields desktop's alert search looks in: device, rule, severity,
+    /// state, note and alert id.
+    /// </summary>
+    public bool Matches(string term) =>
+        Device.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || Rule.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || SeverityText.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || StateText.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || (Note?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || Id.ToString(CultureInfo.InvariantCulture).Contains(term, StringComparison.Ordinal);
 }

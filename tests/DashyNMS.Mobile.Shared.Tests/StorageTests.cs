@@ -62,6 +62,7 @@ public sealed class MobileSettingsStoreTests
             .AddSingleton(Substitute.For<INavigationService>())
             .AddSingleton(Substitute.For<IDialogService>())
             .AddSingleton(Substitute.For<ILauncherService>())
+            .AddSingleton(Substitute.For<IShareService>())
             .AddSingleton(Substitute.For<IAlertNotifier>())
             .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());
         using var provider = services.BuildServiceProvider();

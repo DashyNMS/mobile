@@ -16,6 +16,8 @@
     <!-- The desktop app's session service depends only on Core, so it is
          shared as-is rather than rewritten. -->
     <Compile Include="$(DesktopRoot)src/DesktopNMS/Services/SessionService.cs" Link="Desktop/SessionService.cs" />
+    <!-- RFC 4180 CSV with spreadsheet formula-injection escaping; no WPF in it. -->
+    <Compile Include="$(DesktopRoot)src/DesktopNMS/Infrastructure/CsvWriter.cs" Link="Desktop/CsvWriter.cs" />
   </ItemGroup>
 
   <ItemGroup>

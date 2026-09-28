@@ -22,8 +22,11 @@ rather than rewritten.
   hardware or location, and filterable by state.
 - **Device detail**: state, identity, uptime and the device's own open alerts,
   plus an "Open in browser" link to the device in LibreNMS.
-- **Alerts**: open alerts, most severe first. Swipe to acknowledge (with an
-  optional note) or unacknowledge.
+- **Alerts**: open alerts, most severe first, with desktop's Critical /
+  Warning / Acknowledged filter chips (with counts) and search across device,
+  rule, note and alert id. Filters are remembered between launches. Swipe to
+  acknowledge (with an optional note) or unacknowledge. **Export** shares the
+  filtered list as CSV, in desktop's columns.
 - **Alert notifications**: new, reopened and (optionally) recovered or
   acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
   Tapping one opens the device, or the alert list for a summary.
@@ -149,7 +152,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | 🟡 Fixed layout: alert and device counts, top five alerts |
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
 | Worst severity at a glance | Tray icon with open-alert count | ⬜ App icon badge, home-screen widget |
-| Alerts list | Severity/state filters, search, CSV export | 🟡 Hide acknowledged only |
+| Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |
 | Acknowledge / unacknowledge | ✅ | ✅ |
 | Alert rules and templates | Full editor | ⬜ View only, maybe; editing is a desktop job |
 | Devices list | Sortable grid, column picker, filters | 🟡 Search and up/down filter |
@@ -186,8 +189,8 @@ Ordered by how much each adds on a phone, not by desktop's order.
    regenerated provisioning profile.
 2. **App icon badge**: the open-alert count on the icon, the phone's version
    of desktop's tray icon.
-3. **Alerts list parity**: severity and state filters and search, plus an
-   alert detail view with the rule, note and fault details.
+3. **Alert detail**: the rule, note and fault details for one alert (the
+   list's filters, search and export are done).
 4. **Pinned and recently viewed devices**, on the dashboard and at the top of
    Devices.
 5. **Device View, core tabs**: availability and outages, sensors, ports,

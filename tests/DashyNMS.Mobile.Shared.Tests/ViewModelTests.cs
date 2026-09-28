@@ -3,8 +3,10 @@ using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
+using Microsoft.Extensions.Time.Testing;
 
 namespace DashyNMS.Mobile.Tests;
 
@@ -116,30 +118,177 @@ public sealed class AlertsViewModelTests
         Fakes.Alert(3, 2, "critical"),
     ]);
 
+    private readonly AppSettings _appSettings = new();
+    private readonly ISettingsStore _settings;
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
-
     private readonly ISelfActionTracker _selfActions = Substitute.For<ISelfActionTracker>();
+    private readonly IShareService _share = Substitute.For<IShareService>();
+    private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 28, 14, 30, 5, TimeSpan.Zero));
 
-    private AlertsViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, new RecordingNavigation(), _selfActions);
+    public AlertsViewModelTests()
+    {
+        _settings = Fakes.Settings(_appSettings);
+        _time.SetLocalTimeZone(TimeZoneInfo.Utc);
+    }
+
+    private AlertsViewModel NewViewModel() =>
+        new(_client, _settings, _dialogs, new RecordingNavigation(), _selfActions, _share, _time);
+
+    private async Task<AlertsViewModel> LoadedViewModel()
+    {
+        var vm = NewViewModel();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        return vm;
+    }
 
     [Fact]
     public async Task Unacknowledged_first_then_by_severity()
     {
-        var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
+        var vm = await LoadedViewModel();
 
         Assert.Equal([3, 1, 2], vm.Alerts.Select(a => a.Id));
+        Assert.Equal("3 alerts", vm.CountText);
+        Assert.False(vm.HasActiveFilters);
+    }
 
-        vm.HideAcknowledged = true;
+    [Fact]
+    public async Task Severity_and_state_filters_narrow_the_list()
+    {
+        var vm = await LoadedViewModel();
+
+        vm.ShowAcknowledged = false;
         Assert.Equal([3, 1], vm.Alerts.Select(a => a.Id));
+
+        vm.ToggleCriticalCommand.Execute(null);
+        Assert.Equal([1], vm.Alerts.Select(a => a.Id));
+        Assert.Equal("1 of 3 alerts", vm.CountText);
+        Assert.True(vm.HasActiveFilters);
+    }
+
+    [Fact]
+    public async Task Alerts_with_no_severity_always_show_as_on_desktop()
+    {
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>())
+            .Returns([Fakes.Alert(9, 1, "")]);
+        var vm = await LoadedViewModel();
+
+        vm.ShowCritical = false;
+        vm.ShowWarning = false;
+
+        Assert.Equal([9], vm.Alerts.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task Chip_counts_ignore_the_filters()
+    {
+        var vm = await LoadedViewModel();
+        vm.ShowCritical = false;
+        vm.SearchText = "nothing matches this";
+
+        Assert.Equal((1, 1, 1), (vm.CriticalCount, vm.WarningCount, vm.AcknowledgedCount));
+        Assert.Equal("No alerts match these filters.", vm.EmptyText);
+    }
+
+    [Theory]
+    [InlineData("host2", new[] { 3 })]      // device
+    [InlineData("RULE 1", new[] { 1 })]     // rule, any case
+    [InlineData("warning", new[] { 1 })]    // severity
+    [InlineData("acknowledged", new[] { 2 })] // state
+    [InlineData("3", new[] { 3 })]          // alert id
+    public async Task Search_looks_where_desktop_does(string term, int[] expected)
+    {
+        var vm = await LoadedViewModel();
+
+        vm.SearchText = term;
+
+        Assert.Equal(expected, vm.Alerts.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task Search_finds_notes()
+    {
+        var withNote = Fakes.Alert(5, 1, "warning");
+        withNote.Note = "Waiting on the ISP";
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([withNote, Fakes.Alert(6, 1, "warning")]);
+        var vm = await LoadedViewModel();
+
+        vm.SearchText = "isp";
+
+        Assert.Equal([5], vm.Alerts.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task Filters_are_remembered_in_desktops_settings()
+    {
+        var vm = await LoadedViewModel();
+
+        vm.ShowWarning = false;
+        vm.SearchText = "core";
+
+        Assert.False(_appSettings.Filter.ShowWarning);
+        Assert.Equal("core", _appSettings.Filter.SearchText);
+        _settings.Received().Save();
+
+        var next = NewViewModel();
+        Assert.False(next.ShowWarning);
+        Assert.Equal("core", next.SearchText);
+    }
+
+    [Fact]
+    public async Task Clear_brings_everything_back()
+    {
+        var vm = await LoadedViewModel();
+        vm.ShowCritical = false;
+        vm.ShowAcknowledged = false;
+        vm.SearchText = "host1";
+
+        vm.ClearFiltersCommand.Execute(null);
+
+        Assert.Equal([3, 1, 2], vm.Alerts.Select(a => a.Id));
+        Assert.False(vm.HasActiveFilters);
+        Assert.Null(_appSettings.Filter.SearchText);
+        Assert.True(_appSettings.Filter.ShowCritical);
+    }
+
+    [Fact]
+    public async Task Export_shares_the_filtered_list_as_csv()
+    {
+        var formula = Fakes.Alert(7, 1, "warning");
+        formula.Note = "=HYPERLINK(\"http://x\")";
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([formula, Fakes.Alert(8, 2, "critical")]);
+        var vm = await LoadedViewModel();
+        vm.ShowCritical = false;
+        string? csv = null;
+        await _share.ShareTextFileAsync(Arg.Any<string>(), Arg.Do<string>(c => csv = c), Arg.Any<string>(), Arg.Any<string>());
+
+        await vm.ExportCsvCommand.ExecuteAsync(null);
+
+        await _share.Received(1).ShareTextFileAsync("alerts-2026-09-28-143005.csv", Arg.Any<string>(), "text/csv", Arg.Any<string>());
+        var lines = csv!.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("Severity,Device,Alert,State,Age,Note", lines[0]);
+        Assert.Equal(2, lines.Length); // the critical one is filtered out
+        // Desktop's CsvWriter defuses spreadsheet formulas from server-supplied text.
+        Assert.StartsWith("Warning,host1,Rule 7,Active,", lines[1]);
+        Assert.EndsWith("\"'=HYPERLINK(\"\"http://x\"\")\"", lines[1]);
+    }
+
+    [Fact]
+    public async Task Exporting_nothing_says_so_instead()
+    {
+        var vm = await LoadedViewModel();
+        vm.SearchText = "nothing matches this";
+
+        await vm.ExportCsvCommand.ExecuteAsync(null);
+
+        await _share.DidNotReceiveWithAnyArgs().ShareTextFileAsync(default!, default!, default!, default!);
+        await _dialogs.Received(1).AlertAsync("Nothing to export", Arg.Any<string>());
     }
 
     [Fact]
     public async Task Acknowledge_sends_the_trimmed_note_and_reloads()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs("  on it  ");
-        var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
+        var vm = await LoadedViewModel();
 
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
 
@@ -152,8 +301,7 @@ public sealed class AlertsViewModelTests
     public async Task Cancelling_the_note_prompt_acknowledges_nothing()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs((string?)null);
-        var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
+        var vm = await LoadedViewModel();
 
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts[0]);
 
@@ -165,8 +313,7 @@ public sealed class AlertsViewModelTests
     public async Task Unacknowledge_needs_confirmation()
     {
         _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
-        var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
+        var vm = await LoadedViewModel();
 
         await vm.UnacknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 2));
 

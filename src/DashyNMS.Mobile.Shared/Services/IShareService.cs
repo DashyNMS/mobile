@@ -1,0 +1,14 @@
+namespace DashyNMS.Mobile.Services;
+
+/// <summary>
+/// Hands a file to the platform share sheet (Files, Mail, AirDrop, Drive...) -
+/// a phone's stand-in for desktop's Save dialog.
+/// </summary>
+public interface IShareService
+{
+    /// <param name="fileName">What the file is called wherever it's shared to.</param>
+    /// <param name="contents">The file's text.</param>
+    /// <param name="contentType">MIME type, e.g. "text/csv".</param>
+    /// <param name="title">The share sheet's title, where the platform shows one.</param>
+    Task ShareTextFileAsync(string fileName, string contents, string contentType, string title);
+}
