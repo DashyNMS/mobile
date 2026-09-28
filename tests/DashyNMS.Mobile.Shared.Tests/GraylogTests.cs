@@ -62,9 +62,13 @@ public sealed class GraylogSetupTests
     [Fact]
     public async Task Switched_off_or_missing_its_password_stays_disconnected()
     {
+        // Switched off, with the password in the keychain - so only the switch keeps it disconnected.
         _appSettings.Graylog = new GraylogSettings { Enabled = false, Server = "graylog.example.com", Username = "admin" };
-        _passwords.Save("secret");
-        await _setup.EnsureConfiguredAsync();
+        var storage = Substitute.For<ISecureStorage>();
+        storage.GetAsync(SecureGraylogPasswordProtector.Key).Returns("secret");
+        var secrets = new SecretCache(storage, NullLogger<SecretCache>.Instance);
+        await new GraylogSetup(_api, new SecureGraylogPasswordProtector(secrets), Fakes.Settings(_appSettings), secrets, NullLogger<GraylogSetup>.Instance)
+            .EnsureConfiguredAsync();
 
         var withoutPassword = new GraylogSetup(_api, new SecureGraylogPasswordProtector(Fakes.Secrets()), Fakes.Settings(new AppSettings
         {
