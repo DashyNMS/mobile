@@ -172,7 +172,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     partial void OnSearchTextChanged(string value)
     {
         OnPropertyChanged(nameof(ShowRecentlyViewed));
-        ApplyFilter();
+        WhenTypingPauses(ApplyFilter);
     }
 
     partial void OnShowUpChanged(bool value) => ApplyFilter();

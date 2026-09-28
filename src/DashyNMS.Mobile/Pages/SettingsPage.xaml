@@ -124,7 +124,6 @@
                             </Grid>
                         </VerticalStackLayout>
 
-                        <Button Text="Send a test notification" Command="{Binding SendTestNotificationCommand}" />
                         <Label Style="{StaticResource Caption}"
                                Text="Sounds and how each kind of alert appears are set in your phone's notification settings for DashyNMS." />
                     </VerticalStackLayout>

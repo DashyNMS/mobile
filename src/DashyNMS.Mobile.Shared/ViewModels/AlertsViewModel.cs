@@ -104,7 +104,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     partial void OnShowAcknowledgedChanged(bool value) => OnFilterChanged();
 
-    partial void OnSearchTextChanged(string value) => OnFilterChanged();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
 
     [RelayCommand]
     private void ToggleCritical() => ShowCritical = !ShowCritical;

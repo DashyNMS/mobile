@@ -85,7 +85,7 @@ public sealed partial class LogsViewModel : ViewModelBase
 
     partial void OnShowingEventLogChanged(bool value) => _ = EnsureLoadedAsync();
 
-    partial void OnSearchTextChanged(string value) => ApplyFilter();
+    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
     private void ShowEventLog() => ShowingEventLog = true;
