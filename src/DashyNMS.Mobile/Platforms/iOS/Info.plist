@@ -26,9 +26,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- Only standard HTTPS/TLS to the user's own LibreNMS server, which is
-	     exempt from US export rules - saves answering the encryption question
-	     for every TestFlight build. Revisit if custom cryptography is added. -->
 	<!-- Background alert checks (IosAlertScheduler): background app refresh,
 	     with the task identifier it registers. -->
 	<key>UIBackgroundModes</key>
@@ -39,6 +36,22 @@
 	<array>
 		<string>net.pckp.DashyNMS.alert-check</string>
 	</array>
+	<!-- dashynms:// links, which the home-screen widget opens the app with
+	     (WidgetLink): the alert list, or one alert. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>net.pckp.DashyNMS</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>dashynms</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Only standard HTTPS/TLS to the user's own LibreNMS server, which is
+	     exempt from US export rules - saves answering the encryption question
+	     for every TestFlight build. Revisit if custom cryptography is added. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>XSAppIconAssets</key>

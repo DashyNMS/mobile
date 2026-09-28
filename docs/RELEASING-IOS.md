@@ -96,6 +96,44 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
    through a short Beta App Review. Apple will want a test account or notes
    explaining that the app needs the tester's own LibreNMS server.
 
+## Home-screen widget
+
+The widget is a Swift WidgetKit extension (`ios-widget/`), bundle ID
+`net.pckp.DashyNMS.widget`. The app and the widget share a snapshot of the
+last alert check through the App Group `group.net.pckp.DashyNMS`.
+
+The TestFlight workflow leaves the widget out until the
+`IOS_WIDGET_PROVISIONING_PROFILE_BASE64` secret exists, so builds work as
+before until you've done the following once:
+
+1. **Register the App Group.** Identifiers → **+** → *App Groups* →
+   description *DashyNMS*, identifier `group.net.pckp.DashyNMS`.
+2. **Give the app's App ID the capability.** Identifiers →
+   `net.pckp.DashyNMS` → tick **App Groups** → *Configure* → choose the group
+   → Save. Apple invalidates the app's existing profiles when you do this.
+3. **Register the widget's App ID.** Identifiers → **+** → App IDs → App →
+   explicit bundle ID `net.pckp.DashyNMS.widget` → tick **App Groups**,
+   configure it with the same group.
+4. **Regenerate the app's profile.** Profiles → the App Store profile from
+   step 4 above → Edit → Save (or create a new one) → download it, and
+   replace the `IOS_PROVISIONING_PROFILE_BASE64` secret with it.
+5. **Create the widget's profile.** Profiles → **+** → *App Store Connect*
+   → App ID `net.pckp.DashyNMS.widget` → the same distribution certificate
+   → download, then add it as a new secret:
+
+   | Secret | Value |
+   | --- | --- |
+   | `IOS_WIDGET_PROVISIONING_PROFILE_BASE64` | `base64 -i Widget.mobileprovision` |
+
+The next TestFlight run builds the extension, signs it with its own profile,
+and embeds it. Steps 2 and 4 go together: a build with the widget asks for the
+App Group, and signing fails if the app's profile doesn't allow it.
+
+The widget re-reads the snapshot about every 15 minutes, which iOS may
+stretch. .NET can't ask WidgetKit to reload straight away, because that API
+(`WidgetCenter`) is Swift-only. The snapshot itself is written by every alert
+check, in the app and in background refresh.
+
 ## Notes
 
 - **Build numbers.** App Store Connect rejects a build number it has already
@@ -108,8 +146,8 @@ In the repo: Settings → Secrets and variables → Actions → *New repository 
 
 - Alert notifications use local notifications and background app refresh
   (`UIBackgroundModes: fetch` in `Info.plist`). Neither needs an App ID
-  capability, so the App ID and profile from the steps above don't need to
-  change. Remote push would need them, but the app doesn't use it.
+  capability. Only the widget does (App Groups, above). Remote push would
+  need one too, but the app doesn't use it.
 - `ITSAppUsesNonExemptEncryption` is `false` in `Platforms/iOS/Info.plist`,
   because the app only uses standard HTTPS. This skips the export-compliance
   question on every build. Revisit it if the app ever adds its own cryptography.

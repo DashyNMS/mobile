@@ -1,6 +1,7 @@
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -39,6 +40,7 @@ public sealed class AlertWatcherTests
     private readonly SelfActionTracker _selfActions = new();
     private readonly RecordingNotifier _notifier = new();
     private readonly RecordingBadge _badge = new();
+    private readonly RecordingWidgets _widgets = new() { IsInUse = false };
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
     private readonly AlertWatcher _watcher;
 
@@ -48,7 +50,7 @@ public sealed class AlertWatcherTests
         _session.IsConnected.Returns(true);
         _session.Connection.Returns(new LibreNmsConnection(new Uri(Server), "token"));
         _watcher = new AlertWatcher(
-            _client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _time, NullLogger<AlertWatcher>.Instance);
+            _client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance);
     }
 
     private void ServerReturns(params Alert[] alerts) =>
@@ -292,6 +294,7 @@ public sealed class AlertWatchCoordinatorTests
     private readonly IBackgroundAlertScheduler _scheduler = Substitute.For<IBackgroundAlertScheduler>();
     private readonly InMemoryWatchStore _store = new();
     private readonly RecordingBadge _badge = new();
+    private readonly RecordingWidgets _widgets = new() { IsInUse = false };
     private readonly AlertWatchCoordinator _coordinator;
 
     public AlertWatchCoordinatorTests()
@@ -299,9 +302,9 @@ public sealed class AlertWatchCoordinatorTests
         var client = Fakes.Client();
         var watcher = new AlertWatcher(
             client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, new SelfActionTracker(),
-            new RecordingNotifier(), _badge, TimeProvider.System, NullLogger<AlertWatcher>.Instance);
+            new RecordingNotifier(), _badge, _widgets, TimeProvider.System, NullLogger<AlertWatcher>.Instance);
         _coordinator = new AlertWatchCoordinator(
-            _session, Fakes.Settings(_settings), watcher, _scheduler, _store, _badge, TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
+            _session, Fakes.Settings(_settings), watcher, _scheduler, _store, _badge, _widgets, TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
         _coordinator.Start();
     }
 
@@ -501,8 +504,8 @@ public sealed class NotificationSettingsViewModelTests
         var store = new InMemoryWatchStore();
         var notifier = new RecordingNotifier();
         var watcher = new AlertWatcher(
-            Fakes.Client(), session, Fakes.Secrets(), settings, store, new SelfActionTracker(), notifier, new NoAppBadge(), TimeProvider.System, NullLogger<AlertWatcher>.Instance);
-        var coordinator = new AlertWatchCoordinator(session, settings, watcher, scheduler, store, new NoAppBadge(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
+            Fakes.Client(), session, Fakes.Secrets(), settings, store, new SelfActionTracker(), notifier, new NoAppBadge(), new NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatcher>.Instance);
+        var coordinator = new AlertWatchCoordinator(session, settings, watcher, scheduler, store, new NoAppBadge(), new NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
         var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), notifier, coordinator, new NoAppBadge());
 
         vm.NotificationsEnabled = false;

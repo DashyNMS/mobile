@@ -70,9 +70,29 @@ jobs:
       - name: Install MAUI iOS workload
         run: dotnet workload install maui-ios
 
+      # The home-screen widget is a Swift WidgetKit extension (ios-widget/),
+      # built on its own and embedded by the app build below.
+      - name: Build widget extension
+        working-directory: ios-widget
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -project DashyNMSWidget.xcodeproj -target DashyNMSWidget \
+            -configuration Debug -sdk iphonesimulator \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
+
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
       # Android, and restore would otherwise want that workload too.
       # A simulator build needs no signing identity; device builds and
-      # App Store packaging come later, with certificates in secrets.
+      # App Store packaging are the TestFlight workflow's.
       - name: Build
-        run: dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64
+        run: >
+          dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64
+          -p:IncludeIosWidget=true -p:IosWidgetBuildOutput=Debug-iphonesimulator
+
+      - name: Check the widget is embedded
+        run: |
+          APP=$(find src/DashyNMS.Mobile/bin/Debug/net10.0-ios -maxdepth 3 -type d -name "*.app" | head -1)
+          echo "App bundle: $APP"
+          ls "$APP/PlugIns"
+          test -d "$APP/PlugIns/DashyNMSWidget.appex"

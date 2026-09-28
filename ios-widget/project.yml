@@ -1,0 +1,42 @@
+# XcodeGen spec for DashyNMS's iOS home-screen widget. WidgetKit widgets
+# have to be Swift app extensions, so this builds one on its own (CI runs
+# `xcodegen generate` then `xcodebuild`), and the MAUI app embeds the
+# result - see AdditionalAppExtensions in src/DashyNMS.Mobile.
+name: DashyNMSWidget
+options:
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  DashyNMSWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - DashyNMSWidget
+    info:
+      path: generated/Info.plist
+      properties:
+        CFBundleDisplayName: DashyNMS
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: generated/DashyNMSWidget.entitlements
+      properties:
+        # Where the app leaves the snapshot the widget draws.
+        com.apple.security.application-groups:
+          - group.net.pckp.DashyNMS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.pckp.DashyNMS.widget
+        # Overridden by the workflows so they match the app's (App Store
+        # Connect requires an extension's versions to match its app's).
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SKIP_INSTALL: "YES"
+        GENERATE_INFOPLIST_FILE: "NO"
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework

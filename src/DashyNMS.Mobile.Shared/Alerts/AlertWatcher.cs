@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -49,9 +50,12 @@ public sealed class AlertWatcher
     private readonly ISelfActionTracker _selfActions;
     private readonly IAlertNotifier _notifier;
     private readonly IAppBadge _badge;
+    private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private int? _devicesDown;
+    private DateTimeOffset _devicesDownAt;
 
     public AlertWatcher(
         ILibreNmsClient client,
@@ -62,6 +66,7 @@ public sealed class AlertWatcher
         ISelfActionTracker selfActions,
         IAlertNotifier notifier,
         IAppBadge badge,
+        IHomeWidgets widgets,
         TimeProvider time,
         ILogger<AlertWatcher> logger)
     {
@@ -73,6 +78,7 @@ public sealed class AlertWatcher
         _selfActions = selfActions;
         _notifier = notifier;
         _badge = badge;
+        _widgets = widgets;
         _time = time;
         _logger = logger;
     }
@@ -108,6 +114,12 @@ public sealed class AlertWatcher
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
             _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
             _badge.SetCount(AlertBadge.Count(alerts, settings));
+
+            if (_widgets.IsInUse)
+            {
+                var devicesDown = await DevicesDownAsync(cancellationToken).ConfigureAwait(false);
+                _widgets.Update(WidgetSnapshot.Build(alerts, devicesDown, _time.GetUtcNow()));
+            }
 
             if (!hasBaseline && settings.Notifications.SuppressOnFirstPoll)
             {
@@ -149,6 +161,36 @@ public sealed class AlertWatcher
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>How long a devices-down count stays good enough for a widget.</summary>
+    internal static readonly TimeSpan DevicesDownMaxAge = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Devices down, for the widgets - read at most every few minutes, since
+    /// the device list is far bigger than the alert list, and kept (or left
+    /// unknown) if reading it fails: the alerts matter more.
+    /// </summary>
+    private async Task<int?> DevicesDownAsync(CancellationToken cancellationToken)
+    {
+        var now = _time.GetUtcNow();
+        if (_devicesDown is not null && now - _devicesDownAt < DevicesDownMaxAge)
+        {
+            return _devicesDown;
+        }
+
+        try
+        {
+            var devices = await _client.Devices.ListAsync(cancellationToken).ConfigureAwait(false);
+            _devicesDown = devices.Count(d => d.State == DesktopNMS.Core.Models.DeviceState.Down);
+            _devicesDownAt = now;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not read devices for the widget");
+        }
+
+        return _devicesDown;
     }
 
     private async Task<bool> EnsureSignedInAsync(CancellationToken cancellationToken)

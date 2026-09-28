@@ -4,6 +4,7 @@ using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Storage;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -51,6 +52,7 @@ public static class ServiceCollectionExtensions
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
         // platform can set a number on the icon (registered later, it wins).
         services.AddSingleton<IAppBadge, NoAppBadge>();
+        services.AddSingleton<IHomeWidgets, NoHomeWidgets>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();

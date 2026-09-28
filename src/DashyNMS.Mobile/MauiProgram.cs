@@ -36,10 +36,12 @@ public static class MauiProgram
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, AndroidAlertScheduler>();
+		builder.Services.AddSingleton<Widgets.IHomeWidgets, AndroidHomeWidgets>();
 #elif IOS
 		builder.Services.AddSingleton<IAlertNotifier, IosAlertNotifier>();
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, IosAlertScheduler>();
 		builder.Services.AddSingleton<IAppBadge, IosAppBadge>();
+		builder.Services.AddSingleton<Widgets.IHomeWidgets, IosHomeWidgets>();
 #endif
 
 		// Shell resolves registered pages through DI, so each gets its view model.

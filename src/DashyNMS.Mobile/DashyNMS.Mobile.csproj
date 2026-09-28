@@ -82,4 +82,21 @@
 		<ProjectReference Include="..\DashyNMS.Mobile.Shared\DashyNMS.Mobile.Shared.csproj" />
 	</ItemGroup>
 
+	<!-- The iOS home-screen widget: a Swift WidgetKit extension (ios-widget/),
+	     built by xcodebuild beforehand and embedded with -p:IncludeIosWidget=true.
+	     Opt-in because it needs the App Group capability on the App ID and a
+	     profile of its own - builds without it are just the app, as before.
+	     IosWidgetBuildOutput is xcodebuild's folder for the configuration and
+	     SDK it built (Release-iphoneos, Debug-iphonesimulator). -->
+	<PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(IncludeIosWidget)' == 'true'">
+		<CodesignEntitlements>Platforms\iOS\Entitlements.Widget.plist</CodesignEntitlements>
+		<IosWidgetBuildOutput Condition="'$(IosWidgetBuildOutput)' == ''">Release-iphoneos</IosWidgetBuildOutput>
+	</PropertyGroup>
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios' And '$(IncludeIosWidget)' == 'true'">
+		<AdditionalAppExtensions Include="$(MSBuildThisFileDirectory)..\..\ios-widget\build">
+			<Name>DashyNMSWidget</Name>
+			<BuildOutput>$(IosWidgetBuildOutput)</BuildOutput>
+		</AdditionalAppExtensions>
+	</ItemGroup>
+
 </Project>

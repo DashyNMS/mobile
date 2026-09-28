@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Services;
 using Microsoft.Extensions.Logging;
@@ -20,6 +21,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     private readonly IBackgroundAlertScheduler _scheduler;
     private readonly IAlertWatchStore _store;
     private readonly IAppBadge _badge;
+    private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatchCoordinator> _logger;
     private readonly object _gate = new();
@@ -34,6 +36,7 @@ public sealed class AlertWatchCoordinator : IDisposable
         IBackgroundAlertScheduler scheduler,
         IAlertWatchStore store,
         IAppBadge badge,
+        IHomeWidgets widgets,
         TimeProvider time,
         ILogger<AlertWatchCoordinator> logger)
     {
@@ -43,17 +46,20 @@ public sealed class AlertWatchCoordinator : IDisposable
         _scheduler = scheduler;
         _store = store;
         _badge = badge;
+        _widgets = widgets;
         _time = time;
         _logger = logger;
     }
 
     /// <summary>
-    /// Checks feed the notifications and the app icon's count; with neither
-    /// wanted there's nothing to check for, in the app or the background.
+    /// Checks feed the notifications, the app icon's count and the home-screen
+    /// widgets; with none wanted there's nothing to check for, in the app or
+    /// the background.
     /// </summary>
     public bool ChecksNeeded =>
         _settings.Current.Notifications.Enabled
-        || (_settings.Current.ShowAlertTabBadge && _badge.IsSupported);
+        || (_settings.Current.ShowAlertTabBadge && _badge.IsSupported)
+        || _widgets.IsInUse;
 
     /// <summary>True while the in-app timer is running.</summary>
     public bool IsForegroundLoopRunning
@@ -108,6 +114,7 @@ public sealed class AlertWatchCoordinator : IDisposable
             _scheduler.Cancel();
             _store.Clear();
             _badge.SetCount(0);
+            _widgets.Update(WidgetSnapshot.SignedOut);
             StopLoop();
             return;
         }

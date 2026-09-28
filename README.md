@@ -6,8 +6,9 @@ your phone. It's built with .NET MAUI and runs on **the same Core library as
 the desktop app**, so API handling, models, alert logic and fixes are shared
 rather than rewritten.
 
-> **Status: early.** Sign-in, a dashboard, devices, device detail, open alerts
-> (with acknowledge/unacknowledge), alert notifications and settings are in place. See the
+> **Status: early.** Sign-in, a dashboard, devices and Device View, alerts
+> (with detail, acknowledge/unacknowledge and export), alert notifications, an
+> app icon badge, a home-screen widget and settings are in place. See the
 > [roadmap](#roadmap) for what's next.
 
 ## What it does today
@@ -55,6 +56,14 @@ rather than rewritten.
   live in the background too. Android launchers show their own dot or
   count from DashyNMS's notifications instead, as Android gives apps no
   way to set a number.
+- **Home-screen widget**: open alerts by severity, devices down and (on
+  larger sizes) the top three alerts, with the time of the last check. Tap
+  an alert to open it, or anywhere else for the alert list. It draws the
+  snapshot each alert check saves, so it stays current in the background
+  and never holds the API token. Android's is a normal app widget. iPhone's
+  is a small Swift WidgetKit extension (`ios-widget/`), which needs a
+  one-off App Group setup before TestFlight builds include it; see
+  [docs/RELEASING-IOS.md](docs/RELEASING-IOS.md#home-screen-widget).
 - **Settings**: the connected server and version, the app icon badge, notification options
   (per severity, recovery, acknowledgement, quiet hours, a test
   notification), the *Server stores timestamps in UTC* option (the same
@@ -176,7 +185,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ |
 | Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | 🟡 Fixed layout: alert and device counts, top five alerts |
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
-| Worst severity at a glance | Tray icon with open-alert count | 🟡 App icon badge (iPhone; Android's launcher dot comes from notifications); home-screen widget next |
+| Worst severity at a glance | Tray icon with open-alert count | ✅ Home-screen widget; app icon badge (iPhone; Android's launcher dot comes from notifications) |
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |
 | Alert detail: fault details, rule, history | ✅ | ✅ On its own page, from any alert or notification |
 | Acknowledge / unacknowledge | ✅ | ✅ |
@@ -205,32 +214,23 @@ address and in-app updates. Nor does it mention mobile yet.
 
 Ordered by how much each adds on a phone, not by desktop's order.
 
-**Next: the things you open the app for**
+**Next: the rest of the everyday views**
 
-1. **Widgets**: a home-screen widget with open alerts by severity and devices
-   down, tapping through to the app. Android widgets can be written in C#
-   here. iOS widgets have to be a small Swift WidgetKit extension, built
-   alongside the MAUI app and reading a snapshot the app shares through an
-   App Group. That needs the App Group capability on the App ID and a
-   regenerated provisioning profile.
-
-**Then: the rest of the everyday views**
-
-5. **Health**: sensors across all devices, coloured against their limits.
-6. **Groups and locations**, with the same click-through to Device View.
-7. **More settings**: poll interval, health thresholds, theme.
+1. **Health**: sensors across all devices, coloured against their limits.
+2. **Groups and locations**, with the same click-through to Device View.
+3. **More settings**: poll interval, health thresholds, theme.
 
 **Later**
 
-8. **Geographical map** of devices and their state.
-9. **Integrations**: Graylog messages and Unimus config backups, including
+4. **Geographical map** of devices and their state.
+5. **Integrations**: Graylog messages and Unimus config backups, including
    Device View's Graylog and Unimus sections. Core already has both clients;
    they need keychain-backed secret stores like the LibreNMS token's.
-10. **Rules and templates**, read-only.
-11. **Instant alerts**: a push from the server side, so alerts don't wait for
-    the next background check.
-12. **Store builds**: Play internal testing (TestFlight is in place, see
-    above).
+6. **Rules and templates**, read-only.
+7. **Instant alerts**: a push from the server side, so alerts don't wait for
+   the next background check.
+8. **Store builds**: Play internal testing (TestFlight is in place, see
+   above).
 
 ## Upstream notes
 

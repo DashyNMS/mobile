@@ -104,6 +104,16 @@ internal sealed class RecordingBadge : IAppBadge
     public void SetCount(int count) => Count = count;
 }
 
+/// <summary>Records what the home-screen widgets were given.</summary>
+internal sealed class RecordingWidgets : DashyNMS.Mobile.Widgets.IHomeWidgets
+{
+    public bool IsInUse { get; set; } = true;
+
+    public List<DashyNMS.Mobile.Widgets.WidgetSnapshot> Updates { get; } = new();
+
+    public void Update(DashyNMS.Mobile.Widgets.WidgetSnapshot snapshot) => Updates.Add(snapshot);
+}
+
 /// <summary>Records where the view model asked to go.</summary>
 internal sealed class RecordingNavigation : INavigationService
 {

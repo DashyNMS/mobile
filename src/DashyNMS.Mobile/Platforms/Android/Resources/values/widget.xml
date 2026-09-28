@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The home-screen widget: the app's dark surface and status colours (Resources/Styles/Colors.xaml). -->
+<resources>
+    <color name="widget_background">#171B23</color>
+    <color name="widget_text">#E6EAF0</color>
+    <color name="widget_text_secondary">#8B93A1</color>
+    <color name="widget_critical">#DA3633</color>
+    <color name="widget_warning">#DB9A04</color>
+    <color name="widget_ok">#2EA043</color>
+    <string name="widget_description">Open alerts and devices down, from your last alert check.</string>
+</resources>
