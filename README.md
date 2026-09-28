@@ -26,7 +26,15 @@ rather than rewritten.
   and recents are desktop's own settings. Maintenance windows are checked per
   device after the list loads, as on desktop.
 - **Device detail**: state, identity, uptime and the device's own open alerts,
-  plus an "Open in browser" link to the device in LibreNMS.
+  **Rediscover** and **Schedule maintenance** (now or later, a duration, and
+  desktop's skip/mute/run-alerts choice), pin, "Open in browser", and
+  desktop's Device View sections, each on its own searchable page:
+  availability and outages, sensors (coloured against desktop's thresholds or
+  the sensor's own limits), graphs, CPU/memory/storage, ports, neighbours
+  (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
+  VRFs), wireless, inventory and the event log.
+- **Dashboard** also shows your pinned devices with their live state, and
+  recently viewed devices.
 - **Alerts**: open alerts, most severe first, with desktop's Critical /
   Warning / Acknowledged filter chips (with counts) and search across device,
   rule, note and alert id. Filters are remembered between launches. Swipe to
@@ -161,11 +169,11 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Acknowledge / unacknowledge | ✅ | ✅ |
 | Alert rules and templates | Full editor | ⬜ View only, maybe; editing is a desktop job |
 | Devices list | Sortable grid, column picker, state chips, Type/Location/Group filters, search | ✅ State chips (incl. maintenance), Type/Location/Group filters (one choice each), search, seven sorts |
-| Pinned and recently viewed devices | ✅ | ✅ On Devices (swipe or Device View to pin); not yet on the dashboard |
+| Pinned and recently viewed devices | ✅ | ✅ On Devices and the dashboard (pin by swiping or from Device View) |
 | Bulk actions, add device | ✅ | ➖ Maybe add device later |
 | Device View: overview, active alerts | ✅ | ✅ |
-| Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ⬜ |
-| Device actions: rediscover, maintenance window, edit, delete | ✅ | ⬜ Rediscover and maintenance first |
+| Device View: availability/outages, sensors, resources (CPU/memory/disk), ports, neighbours, VLANs, FDB/ARP, routing, wireless, inventory, graphs, event log | ✅ | ✅ Each section on its own page, searchable; neighbours link to their devices |
+| Device actions: rediscover, maintenance window, edit, delete | ✅ | 🟡 Rediscover and maintenance windows; edit/delete stay on desktop |
 | Open in browser / SSH / Telnet | ✅ | 🟡 Browser only |
 | Health (sensors across all devices vs limits) | ✅ | ⬜ |
 | Groups and locations | ✅ | ⬜ |
@@ -196,32 +204,25 @@ Ordered by how much each adds on a phone, not by desktop's order.
    of desktop's tray icon.
 3. **Alert detail**: the rule, note and fault details for one alert (the
    list's filters, search and export are done).
-4. **Pinned and recently viewed devices on the dashboard** (they're done on
-   Devices).
-5. **Device View, core tabs**: availability and outages, sensors, ports,
-   event log. Plus the two actions you want in a hurry: rediscover and
-   schedule maintenance.
+4. **Port graphs**: tap a port for its traffic graph (Core's
+   `GetPortSvgAsync`), as desktop's port graphs panel.
 
 **Then: the rest of the everyday views**
 
-6. **Health**: sensors across all devices, coloured against their limits.
-7. **Graphs**: device and port graphs via Core's `IGraphsApi`.
-8. **Groups and locations**, with the same click-through to Device View.
-9. **Device View, remaining tabs**: resources, neighbours, VLANs, FDB/ARP,
-   routing, wireless, inventory.
-10. **More settings**: poll interval, health thresholds, device name style,
-    theme.
+5. **Health**: sensors across all devices, coloured against their limits.
+6. **Groups and locations**, with the same click-through to Device View.
+7. **More settings**: poll interval, health thresholds, theme.
 
 **Later**
 
-11. **Geographical map** of devices and their state.
-12. **Integrations**: Graylog messages and Unimus config backups. Core
-    already has both clients; they need keychain-backed secret stores like
-    the LibreNMS token's.
-13. **Rules and templates**, read-only.
-14. **Instant alerts**: a push from the server side, so alerts don't wait for
+8. **Geographical map** of devices and their state.
+9. **Integrations**: Graylog messages and Unimus config backups, including
+   Device View's Graylog and Unimus sections. Core already has both clients;
+   they need keychain-backed secret stores like the LibreNMS token's.
+10. **Rules and templates**, read-only.
+11. **Instant alerts**: a push from the server side, so alerts don't wait for
     the next background check.
-15. **Store builds**: Play internal testing (TestFlight is in place, see
+12. **Store builds**: Play internal testing (TestFlight is in place, see
     above).
 
 ## Upstream notes

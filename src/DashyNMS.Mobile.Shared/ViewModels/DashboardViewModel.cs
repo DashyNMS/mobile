@@ -8,7 +8,10 @@ using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-/// <summary>At-a-glance counts: devices by state and open alerts by severity, plus the worst few alerts.</summary>
+/// <summary>
+/// At-a-glance counts (devices by state, open alerts by severity), the worst
+/// few alerts, and desktop's pinned and recently viewed device widgets.
+/// </summary>
 public sealed partial class DashboardViewModel : ViewModelBase
 {
     /// <summary>How many alerts the dashboard lists before "see all".</summary>
@@ -17,6 +20,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
+    private readonly DeviceBookmarks _bookmarks;
 
     [ObservableProperty]
     private int _devicesUp;
@@ -40,12 +44,23 @@ public sealed partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private DateTime? _lastUpdated;
 
-    public DashboardViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
+    public DashboardViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DeviceBookmarks bookmarks)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
+        _bookmarks = bookmarks;
     }
+
+    /// <summary>Pinned devices with their live state, as desktop's Pinned devices widget.</summary>
+    public ObservableCollection<DeviceItem> PinnedDevices { get; } = new();
+
+    /// <summary>As desktop's Recently viewed widget, newest first.</summary>
+    public ObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
+
+    public bool HasPinnedDevices => PinnedDevices.Count > 0;
+
+    public bool HasRecentlyViewed => RecentlyViewed.Count > 0;
 
     /// <summary>The most severe, then most recent, open unacknowledged alerts.</summary>
     public ObservableCollection<AlertItem> TopAlerts { get; } = new();
@@ -80,12 +95,40 @@ public sealed partial class DashboardViewModel : ViewModelBase
             TopAlerts.Add(new AlertItem(alert, utc));
         }
 
+        // Pinned in the order they were pinned, as desktop; a pin whose device
+        // has since gone from LibreNMS just doesn't show.
+        var style = _settings.Current.DeviceNameStyle;
+        var byId = devices.ToDictionary(d => d.DeviceId);
+        PinnedDevices.Clear();
+        foreach (var pin in _bookmarks.PinningEnabled ? _settings.Current.PinnedDevices : [])
+        {
+            if (byId.TryGetValue(pin.DeviceId, out var device))
+            {
+                PinnedDevices.Add(new DeviceItem(device, style) { IsPinned = true });
+            }
+        }
+
+        RecentlyViewed.Clear();
+        foreach (var recent in _bookmarks.RecentlyViewed)
+        {
+            RecentlyViewed.Add(recent);
+        }
+
         LastUpdated = DateTime.Now;
         OnPropertyChanged(nameof(HasNoAlerts));
+        OnPropertyChanged(nameof(HasPinnedDevices));
+        OnPropertyChanged(nameof(HasRecentlyViewed));
     });
 
     [RelayCommand]
-    private Task OpenDeviceAsync(AlertItem? item) => item is null
-        ? Task.CompletedTask
-        : _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = item.Alert.DeviceId });
+    private Task OpenDeviceAsync(AlertItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.Alert.DeviceId);
+
+    [RelayCommand]
+    private Task OpenPinnedAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
+
+    [RelayCommand]
+    private Task OpenRecentAsync(RecentlyViewedDevice? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
+
+    private Task OpenAsync(int deviceId) =>
+        _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });
 }

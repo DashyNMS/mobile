@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.DeviceGraphsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    xmlns:models="clr-namespace:DesktopNMS.Core.Models;assembly=DesktopNMS.Core"
+    x:DataType="sections:DeviceGraphsViewModel"
+    Title="{Binding Title}">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0" RowSpacing="6">
+
+        <Picker Title="Graph"
+                ItemsSource="{Binding Graphs}"
+                SelectedItem="{Binding SelectedGraph}"
+                ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
+
+        <Picker Grid.Row="1" Title="Time range"
+                ItemsSource="{Binding Ranges}"
+                SelectedItem="{Binding SelectedRange}"
+                ItemDisplayBinding="{Binding Label, x:DataType=sections:GraphRangeOption}" />
+
+        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <Label Grid.Row="2" Style="{StaticResource Caption}" Text="LibreNMS has no graphs for this device."
+               IsVisible="{Binding HasNoGraphs}" HorizontalOptions="Center" Margin="0,24" />
+
+        <ActivityIndicator Grid.Row="3" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+        <!-- LibreNMS draws the graph as SVG; a web view shows it, scaled to fit. -->
+        <WebView Grid.Row="4" x:Name="GraphView" VerticalOptions="Start" BackgroundColor="Transparent" />
+
+    </Grid>
+
+</ContentPage>

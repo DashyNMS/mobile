@@ -23,7 +23,8 @@ public sealed class DashboardViewModelTests
                 Fakes.Alert(2, 1, "warning"),
                 Fakes.Alert(3, 2, "critical", acknowledged: true),
             ]);
-        var vm = new DashboardViewModel(client, Fakes.Settings(), new RecordingNavigation());
+        var settings = Fakes.Settings();
+        var vm = new DashboardViewModel(client, settings, new RecordingNavigation(), new DeviceBookmarks(settings, TimeProvider.System));
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
@@ -40,7 +41,8 @@ public sealed class DashboardViewModelTests
         var alerts = Enumerable.Range(1, 8)
             .Select(i => Fakes.Alert(i, 1, i % 2 == 0 ? "critical" : "warning", at: day.AddHours(i)))
             .ToList();
-        var vm = new DashboardViewModel(Fakes.Client(alerts: alerts), Fakes.Settings(), new RecordingNavigation());
+        var settings = Fakes.Settings();
+        var vm = new DashboardViewModel(Fakes.Client(alerts: alerts), settings, new RecordingNavigation(), new DeviceBookmarks(settings, TimeProvider.System));
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
@@ -269,7 +271,7 @@ public sealed class DeviceDetailViewModelTests
         var client = Fakes.Client(alerts: [Fakes.Alert(1, 7, "warning"), Fakes.Alert(2, 8, "critical"), Fakes.Alert(3, 7, "critical")]);
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", ip: "192.0.2.1"));
         var settings = Fakes.Settings();
-        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System));
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System), Substitute.For<IDialogService>(), new RecordingNavigation());
 
         await vm.LoadAsync(7);
 
@@ -284,7 +286,7 @@ public sealed class DeviceDetailViewModelTests
         var client = Fakes.Client();
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns((Device?)null);
         var settings = Fakes.Settings();
-        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System));
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System), Substitute.For<IDialogService>(), new RecordingNavigation());
 
         await vm.LoadAsync(7);
 

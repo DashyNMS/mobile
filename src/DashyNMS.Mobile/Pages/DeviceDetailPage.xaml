@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
+    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:DeviceDetailViewModel"
     Title="{Binding Title}">
 
@@ -30,6 +31,15 @@
                     </Grid>
                 </Border>
 
+                <Label Style="{StaticResource Caption}" Text="{Binding LastDiscoveredText}" Margin="4,4,0,0"
+                       IsVisible="{Binding LastDiscoveredText, Converter={StaticResource IsNotNull}}" />
+
+                <!-- Desktop's device management actions. -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,8,0,0">
+                    <Button Text="Rediscover" Command="{Binding RediscoverCommand}" />
+                    <Button Grid.Column="1" Text="Maintenance…" Command="{Binding ScheduleMaintenanceCommand}" />
+                </Grid>
+
                 <Label Style="{StaticResource SectionHeader}" Text="OPEN ALERTS" IsVisible="{Binding HasAlerts}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Spacing="8">
                     <BindableLayout.ItemTemplate>
@@ -46,6 +56,29 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+
+                <!-- Desktop's Device View tabs, each on its own page. -->
+                <Label Style="{StaticResource SectionHeader}" Text="MORE" />
+                <Border Style="{StaticResource Card}" Padding="0">
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sections}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sections:DeviceSectionInfo">
+                                <Grid ColumnDefinitions="*,Auto" Padding="14,10">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding OpenSectionCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                            CommandParameter="{Binding .}" />
+                                    </Grid.GestureRecognizers>
+                                    <VerticalStackLayout>
+                                        <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Description}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
 
                 <Label Style="{StaticResource SectionHeader}" Text="DETAILS" />
                 <Border Style="{StaticResource Card}">

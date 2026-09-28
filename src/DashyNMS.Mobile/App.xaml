@@ -11,6 +11,7 @@
             </ResourceDictionary.MergedDictionaries>
 
             <converters:StatusColorConverter x:Key="StatusColor" />
+            <converters:IsNotNullConverter x:Key="IsNotNull" />
 
             <!-- A card: the list rows and dashboard tiles. -->
             <Style x:Key="Card" TargetType="Border">

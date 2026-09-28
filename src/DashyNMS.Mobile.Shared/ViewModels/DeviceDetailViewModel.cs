@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -9,30 +10,52 @@ using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-/// <summary>One device: its state, identity and open alerts.</summary>
+/// <summary>
+/// One device, as desktop's Device View: its state, identity and open
+/// alerts, the way into each section (sensors, ports, graphs...), and the
+/// actions - pin, rediscover, schedule maintenance, open in the browser.
+/// </summary>
 public sealed partial class DeviceDetailViewModel : ViewModelBase
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly ILauncherService _launcher;
     private readonly DeviceBookmarks _bookmarks;
+    private readonly IDialogService _dialogs;
+    private readonly INavigationService _navigation;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText))]
-    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText))]
+    [NotifyCanExecuteChangedFor(nameof(OpenInBrowserCommand), nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand))]
     private Device? _device;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinText))]
     private bool _isPinned;
 
-    public DeviceDetailViewModel(ILibreNmsClient client, ISettingsStore settings, ILauncherService launcher, DeviceBookmarks bookmarks)
+    public DeviceDetailViewModel(
+        ILibreNmsClient client,
+        ISettingsStore settings,
+        ILauncherService launcher,
+        DeviceBookmarks bookmarks,
+        IDialogService dialogs,
+        INavigationService navigation)
     {
         _client = client;
         _settings = settings;
         _launcher = launcher;
         _bookmarks = bookmarks;
+        _dialogs = dialogs;
+        _navigation = navigation;
     }
+
+    /// <summary>Desktop's Device View tabs, each opening on its own page.</summary>
+    public IReadOnlyList<DeviceSectionInfo> Sections { get; } = DeviceSectionInfo.All;
+
+    /// <summary>"Last discovered 3h ago", when LibreNMS says.</summary>
+    public string? LastDiscoveredText => Device?.LastDiscovered is { } at
+        ? "Last discovered " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, _settings.Current.ServerTimestampsAreUtc))
+        : null;
 
     public int DeviceId { get; private set; }
 
@@ -121,6 +144,46 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         _bookmarks.SetPinned(DeviceId, Title, !IsPinned);
         IsPinned = _bookmarks.IsPinned(DeviceId);
     }
+
+    [RelayCommand]
+    private Task OpenSectionAsync(DeviceSectionInfo? section) => section is null
+        ? Task.CompletedTask
+        : _navigation.GoToAsync(section.Section == DeviceSection.Graphs ? Routes.DeviceGraphs : Routes.DeviceSection, new Dictionary<string, object>
+        {
+            [Routes.DeviceIdParameter] = DeviceId,
+            [Routes.SectionParameter] = section.Section,
+            [Routes.DeviceNameParameter] = Title,
+        });
+
+    private bool HasDevice() => Device is not null;
+
+    /// <summary>Asks LibreNMS to rediscover the device now, as desktop's Rediscover.</summary>
+    [RelayCommand(CanExecute = nameof(HasDevice))]
+    private async Task RediscoverAsync()
+    {
+        var confirmed = await _dialogs.ConfirmAsync(
+            "Rediscover",
+            $"Ask LibreNMS to rediscover {Title} now? It runs on the server's next discovery pass.",
+            "Rediscover",
+            "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        string? message = null;
+        if (await RunAsync(async () => message = await _client.Devices.DiscoverAsync(DeviceId)))
+        {
+            await _dialogs.AlertAsync("Rediscover requested", string.IsNullOrWhiteSpace(message) ? $"{Title} will be rediscovered shortly." : message);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(HasDevice))]
+    private Task ScheduleMaintenanceAsync() => _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>
+    {
+        [Routes.DeviceIdParameter] = DeviceId,
+        [Routes.DeviceNameParameter] = Title,
+    });
 
     private bool CanOpenInBrowser() => Device is not null && _client.Connection is not null;
 

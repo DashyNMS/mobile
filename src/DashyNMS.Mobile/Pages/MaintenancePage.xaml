@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.MaintenancePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:MaintenanceViewModel"
+    Title="Schedule maintenance">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="6">
+
+            <Label Text="{Binding DeviceName}" FontSize="20" FontFamily="OpenSansSemibold" />
+
+            <Label Style="{StaticResource SectionHeader}" Text="WHEN" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Start now" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding StartNow}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsVisible="{Binding IsScheduledForLater}">
+                        <DatePicker Date="{Binding StartDate}" Format="ddd d MMM yyyy" />
+                        <TimePicker Grid.Column="1" Time="{Binding StartTime}" Format="HH:mm" />
+                    </Grid>
+                    <Label Style="{StaticResource Caption}" IsVisible="{Binding IsScheduledForLater}"
+                           Text="In the LibreNMS server's own time." />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="{Binding DurationText, StringFormat='FOR {0}'}" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <FlexLayout BindableLayout.ItemsSource="{Binding Presets}" Wrap="Wrap">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DurationPreset">
+                                <Button Style="{StaticResource Chip}" Text="{Binding Label}" Margin="0,0,8,8"
+                                        Command="{Binding ApplyPresetCommand, Source={RelativeSource AncestorType={x:Type vm:MaintenanceViewModel}}, x:DataType=vm:MaintenanceViewModel}"
+                                        CommandParameter="{Binding .}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+                        <Label Text="Hours" VerticalOptions="Center" />
+                        <Stepper Grid.Column="1" Minimum="0" Maximum="168" Increment="1" Value="{Binding DurationHours}" />
+                        <Label Grid.Column="2" Text="Minutes" VerticalOptions="Center" />
+                        <Picker Grid.Column="3" ItemsSource="{Binding MinuteChoices}" SelectedItem="{Binding DurationMinutes}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="ALERTS DURING MAINTENANCE" />
+            <Border Style="{StaticResource Card}">
+                <Picker ItemsSource="{Binding Behaviors}"
+                        SelectedItem="{Binding SelectedBehavior}"
+                        ItemDisplayBinding="{Binding Label, x:DataType=vm:MaintenanceBehaviorOption}" />
+            </Border>
+
+            <Label Style="{StaticResource SectionHeader}" Text="DETAILS (OPTIONAL)" />
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="6">
+                    <Entry Text="{Binding MaintenanceTitle}" Placeholder="{Binding DeviceName}" />
+                    <Editor Text="{Binding Notes}" Placeholder="Notes" AutoSize="TextChanges" MinimumHeightRequest="80" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+            <Button Text="Schedule" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" Margin="0,12,0,0" />
+            <Button Text="Cancel" Command="{Binding CancelCommand}" BackgroundColor="Transparent"
+                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

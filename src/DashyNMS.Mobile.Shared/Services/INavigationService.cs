@@ -14,10 +14,26 @@ public static class Routes
 
     public const string Main = "//main";
 
+    /// <summary>Back one page.</summary>
+    public const string Back = "..";
+
     public const string Alerts = "//main/alerts";
 
     public const string DeviceDetail = "device";
 
     /// <summary>Query attribute carrying the device id for <see cref="DeviceDetail"/>.</summary>
     public const string DeviceIdParameter = "id";
+
+    /// <summary>One Device View section - with <see cref="DeviceIdParameter"/> and <see cref="SectionParameter"/>.</summary>
+    public const string DeviceSection = "devicesection";
+
+    public const string DeviceGraphs = "devicegraphs";
+
+    public const string Maintenance = "maintenance";
+
+    /// <summary>Query attribute: a <c>DeviceSection</c>.</summary>
+    public const string SectionParameter = "section";
+
+    /// <summary>Query attribute: the device's name, for titles.</summary>
+    public const string DeviceNameParameter = "name";
 }

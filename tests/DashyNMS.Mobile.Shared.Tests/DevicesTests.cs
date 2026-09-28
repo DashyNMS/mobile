@@ -340,7 +340,7 @@ public sealed class DeviceDetailBookmarkTests
         var bookmarks = new DeviceBookmarks(settings, TimeProvider.System);
         var client = Fakes.Client();
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
-        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), bookmarks);
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), bookmarks, Substitute.For<IDialogService>(), new RecordingNavigation());
 
         await vm.LoadAsync(7);
 
@@ -396,5 +396,33 @@ public sealed class DeviceFilterNullTests
         Assert.Null(vm.SelectedType.Key);
         Assert.Equal(DeviceSort.Name, vm.SelectedSort.Sort);
         Assert.Single(vm.Devices);
+    }
+}
+
+public sealed class DashboardBookmarkTests
+{
+    [Fact]
+    public async Task Pinned_devices_show_live_and_in_pin_order_with_recents()
+    {
+        var appSettings = new AppSettings();
+        var settings = Fakes.Settings(appSettings);
+        var bookmarks = new DeviceBookmarks(settings, TimeProvider.System);
+        bookmarks.SetPinned(2, "old name", pinned: true);
+        bookmarks.SetPinned(1, "core", pinned: true);
+        bookmarks.SetPinned(9, "gone", pinned: true); // no longer in LibreNMS
+        bookmarks.RecordViewed(1, "core");
+        var client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr", up: false)]);
+        var navigation = new RecordingNavigation();
+        var vm = new DashboardViewModel(client, settings, navigation, bookmarks);
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal(["edge-rtr", "core-sw"], vm.PinnedDevices.Select(d => d.Name));
+        Assert.Equal(DeviceState.Down, vm.PinnedDevices[0].State);
+        Assert.Equal([1], vm.RecentlyViewed.Select(r => r.DeviceId));
+        Assert.True(vm.HasPinnedDevices && vm.HasRecentlyViewed);
+
+        await vm.OpenPinnedCommand.ExecuteAsync(vm.PinnedDevices[0]);
+        Assert.Equal(2, navigation.Visits.Single().Parameters![Routes.DeviceIdParameter]);
     }
 }

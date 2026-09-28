@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.DeviceSectionPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="sections:DeviceSectionViewModel"
+    Title="{Binding Title}">
+
+    <!-- Any Device View section: its rows, in titled groups. -->
+    <Grid RowDefinitions="Auto,Auto,*" Padding="16,8,16,0">
+
+        <SearchBar Text="{Binding SearchText}" Placeholder="Search" IsVisible="{Binding ShowSearch}" />
+
+        <Label Grid.Row="1" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                           HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="0,32" />
+                </CollectionView.EmptyView>
+                <CollectionView.GroupHeaderTemplate>
+                    <DataTemplate x:DataType="sections:SectionGroup">
+                        <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
+                    </DataTemplate>
+                </CollectionView.GroupHeaderTemplate>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="sections:SectionRow">
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,6">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="10">
+                                <!-- Inventory nesting. -->
+                                <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
+
+                                <VerticalStackLayout Grid.Column="1">
+                                    <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
+                                           LineBreakMode="TailTruncation" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
+                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3" />
+                                </VerticalStackLayout>
+
+                                <Label Grid.Column="2" Text="{Binding Value}" IsVisible="{Binding HasValue}"
+                                       VerticalOptions="Center" HorizontalTextAlignment="End"
+                                       TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+
+                                <Label Grid.Column="3" Text="›" FontSize="20" VerticalOptions="Center"
+                                       Style="{StaticResource Caption}" IsVisible="{Binding IsLink}" />
+
+                                <!-- CPU / memory / storage use. -->
+                                <ProgressBar Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,6,0,0"
+                                             Progress="{Binding Bar}" IsVisible="{Binding HasBar}"
+                                             ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </RefreshView>
+
+    </Grid>
+
+</ContentPage>

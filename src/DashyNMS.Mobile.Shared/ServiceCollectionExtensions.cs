@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Alerts;
+using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Storage;
@@ -61,6 +62,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<DeviceDetailViewModel>();
         services.AddTransient<AlertsViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<MaintenanceViewModel>();
+
+        // Device View sections.
+        services.AddSingleton<DeviceSectionLoader>();
+        services.AddTransient<DeviceSectionViewModel>();
+        services.AddTransient<DeviceGraphsViewModel>();
 
         return services;
     }
