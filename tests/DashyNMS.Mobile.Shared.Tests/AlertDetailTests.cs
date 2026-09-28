@@ -61,8 +61,9 @@ public sealed class AlertDetailViewModelTests
         var fault = Assert.Single(vm.Groups[1]);
         Assert.Equal("Gi0/1 - uplink", fault.Title);
         Assert.Equal("ifInErrors_delta: 812", fault.Subtitle); // the column the rule tests
-        Assert.Contains("ifSpeed", fault.Detail);                // everything else, smaller
+        Assert.Null(fault.Detail);                               // the rest only when asked (#46)
         Assert.Equal(RowStatus.Critical, fault.Status);
+        Assert.True(vm.HasMoreFields);
 
         var ruleRow = vm.Groups[2][0];
         Assert.Equal("Port errors", ruleRow.Title);
@@ -72,6 +73,13 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal(RowStatus.Ok, vm.Groups[3][1].Status);
         Assert.True(vm.CanAcknowledge);
         Assert.False(vm.CanUnacknowledge);
+
+        // Show all fields: everything else measured, smaller, for every match.
+        vm.ToggleAllFieldsCommand.Execute(null);
+        var full = Assert.Single(vm.Groups[1]);
+        Assert.Equal("ifInErrors_delta: 812", full.Subtitle);
+        Assert.Contains("ifSpeed", full.Detail);
+        Assert.Equal("Show only what the rule tests", vm.AllFieldsText);
     }
 
     [Fact]
