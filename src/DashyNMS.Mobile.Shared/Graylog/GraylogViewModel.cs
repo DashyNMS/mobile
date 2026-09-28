@@ -195,9 +195,19 @@ public sealed partial class GraylogViewModel : ViewModelBase
     [RelayCommand]
     private void Toggle(GraylogMessageItem? item)
     {
-        if (item is not null)
+        if (item is null)
         {
-            item.IsExpanded = !item.IsExpanded;
+            return;
+        }
+
+        item.IsExpanded = !item.IsExpanded;
+
+        // CollectionView grows a cell whose content grows but doesn't shrink
+        // it again; putting the item back makes it measure the cell afresh.
+        var index = Messages.IndexOf(item);
+        if (index >= 0)
+        {
+            Messages[index] = item;
         }
     }
 

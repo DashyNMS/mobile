@@ -180,7 +180,9 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
     public string? QueryField
     {
         get => _draft.QueryField;
-        set => Set(_draft.QueryField, string.IsNullOrWhiteSpace(value) ? GraylogSettings.DefaultQueryField : value.Trim(), v => _draft.QueryField = v);
+        // As typed - replacing a blank with "source" here would put it
+        // straight back in the box mid-edit. Save fills the default in.
+        set => Set(_draft.QueryField, value ?? string.Empty, v => _draft.QueryField = v);
     }
 
     /// <summary><c>graylog.match-any-address</c>.</summary>
@@ -238,6 +240,7 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
         }
 
         _draft.Port = port;
+        _draft.QueryField = string.IsNullOrWhiteSpace(_draft.QueryField) ? GraylogSettings.DefaultQueryField : _draft.QueryField.Trim();
 
         if (_draft.Enabled && BuildConnection(out var error) is null)
         {

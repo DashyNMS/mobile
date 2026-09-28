@@ -195,6 +195,19 @@ public sealed class GraylogSettingsTests
     }
 
     [Fact]
+    public async Task The_match_field_can_be_cleared_while_typing_and_saves_as_source()
+    {
+        FillIn();
+
+        _vm.QueryField = "";
+        Assert.Equal("", _vm.QueryField);
+
+        await _vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(GraylogSettings.DefaultQueryField, _appSettings.Graylog.QueryField);
+    }
+
+    [Fact]
     public void The_base_uri_only_shows_for_Other()
     {
         Assert.False(_vm.IsBaseUriVisible);
@@ -325,6 +338,30 @@ public sealed class GraylogViewModelTests
         var visit = _navigation.Visits.Single();
         Assert.Equal(Routes.DeviceDetail, visit.Route);
         Assert.Equal(2, visit.Parameters![Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public async Task Opening_or_closing_a_message_has_the_list_measure_it_again()
+    {
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        var message = vm.Messages[1];
+        var replaced = new List<int>();
+        vm.Messages.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace)
+            {
+                replaced.Add(e.NewStartingIndex);
+            }
+        };
+
+        vm.ToggleCommand.Execute(message);
+        vm.ToggleCommand.Execute(message);
+
+        Assert.False(message.IsExpanded);
+        Assert.Equal([1, 1], replaced);
+        Assert.Same(message, vm.Messages[1]);
     }
 
     [Fact]
