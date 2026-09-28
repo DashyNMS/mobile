@@ -8,12 +8,11 @@
     xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:DashboardViewModel"
+    Shell.NavBarIsVisible="False"
+    ios:Page.UseSafeArea="True"
     Title="Dashboard">
-
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Customise" Command="{Binding CustomiseCommand}" />
-    </ContentPage.ToolbarItems>
 
     <ContentPage.Resources>
         <!-- One template per card kind (DashboardLayout); each reads from the card's Dashboard. -->
@@ -43,19 +42,6 @@
                                 </VerticalStackLayout>
                             </Border>
                         </Grid>
-                        <!-- Desktop's alerts gauge, as a bar: each severity's share of open alerts. -->
-                        <Border StrokeThickness="0" HeightRequest="8" StrokeShape="RoundRectangle 4" IsVisible="{Binding Dashboard.HasOpenAlerts}">
-                            <Grid ColumnSpacing="0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="{Binding Dashboard.CriticalShare, Converter={StaticResource Star}}" />
-                                    <ColumnDefinition Width="{Binding Dashboard.WarningShare, Converter={StaticResource Star}}" />
-                                    <ColumnDefinition Width="{Binding Dashboard.AcknowledgedShare, Converter={StaticResource Star}}" />
-                                </Grid.ColumnDefinitions>
-                                <BoxView Color="{StaticResource CriticalColor}" />
-                                <BoxView Grid.Column="1" Color="{StaticResource WarningColor}" />
-                                <BoxView Grid.Column="2" Color="{StaticResource InactiveColor}" />
-                            </Grid>
-                        </Border>
                     </VerticalStackLayout>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.AlertsGauge>
@@ -273,10 +259,33 @@
     </ContentPage.Resources>
 
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-        <ScrollView>
+        <!-- No scroll bar: it sat beside the first cards, looking like one of
+             their own (#29). -->
+        <ScrollView VerticalScrollBarVisibility="Never">
             <VerticalStackLayout Padding="16" Spacing="4">
 
+                <!-- The logo and name instead of a title bar, scrolling away
+                     with the cards; Customise is the sliders icon (#30, #41). -->
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
+                    <Image Source="dashynms_logo.png" WidthRequest="30" HeightRequest="30" VerticalOptions="Center"
+                           SemanticProperties.Description="DashyNMS logo" />
+                    <Label Grid.Column="1" Text="DashyNMS" FontSize="24" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                    <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44"
+                          SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
+                        </Grid.GestureRecognizers>
+                        <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
+                        <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
+                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              StrokeThickness="1.8" StrokeLineCap="Round"
+                              WidthRequest="24" HeightRequest="24" Aspect="None"
+                              HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                </Grid>
+
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}"
                                      BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"

@@ -61,6 +61,30 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task Loading_shows_only_for_the_first_fetch()
+    {
+        var gate = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(gate.Task);
+        var vm = NewViewModel();
+
+        var first = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.IsLoadingFirstTime);
+
+        gate.SetResult([Fakes.Device(1, "core-sw")]);
+        await first;
+        Assert.False(vm.IsLoadingFirstTime);
+
+        var second = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(second.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.IsLoadingFirstTime);
+
+        second.SetResult([Fakes.Device(1, "core-sw")]);
+        await refresh;
+    }
+
+    [Fact]
     public async Task Search_filters_once_typing_pauses_not_on_every_keystroke()
     {
         var vm = await Loaded();

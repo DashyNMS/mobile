@@ -77,6 +77,21 @@ public sealed class AlertsViewModelTests
     private AlertsViewModel NewViewModel() =>
         new(_client, _settings, _dialogs, new RecordingNavigation(), _selfActions, _share, _badge, _time);
 
+    [Fact]
+    public async Task Alerts_name_their_device_by_the_Device_names_setting()
+    {
+        _appSettings.DeviceNameStyle = DeviceNameStyle.SysName;
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(1, "10.0.0.1", sysName: "core-sw-01")]);
+        var vm = NewViewModel();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal("core-sw-01", vm.Alerts.Single(a => a.Id == 1).Device);
+
+        // A device LibreNMS didn't list keeps the alert's own hostname.
+        Assert.Equal("host2", vm.Alerts.Single(a => a.Id == 3).Device);
+    }
+
     private async Task<AlertsViewModel> LoadedViewModel()
     {
         var vm = NewViewModel();
@@ -371,6 +386,33 @@ public sealed class SignInViewModelTests
 
         Assert.False(vm.HasError);
         Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task A_remembered_server_shows_signing_in_rather_than_the_form_until_restore_fails()
+    {
+        _session.TryRestoreAsync(default).ReturnsForAnyArgs(ConnectionTestResult.Failure("The server didn't answer."));
+        var vm = new SignInViewModel(
+            _session, Fakes.Settings(new AppSettings { ServerUrl = "https://nms.example.com", RememberToken = true }),
+            _navigation, Fakes.Secrets(), _notifier, new NotificationRouter(_session, _navigation));
+
+        Assert.True(vm.IsRestoring);
+        Assert.False(vm.ShowForm);
+
+        await vm.AppearingCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsRestoring);
+        Assert.True(vm.ShowForm);
+        Assert.Equal("The server didn't answer.", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public void A_first_launch_goes_straight_to_the_form()
+    {
+        var vm = NewViewModel();
+
+        Assert.False(vm.IsRestoring);
+        Assert.True(vm.ShowForm);
     }
 }
 

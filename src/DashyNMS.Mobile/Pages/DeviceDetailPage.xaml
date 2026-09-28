@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.DeviceDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
@@ -19,6 +20,7 @@
             <VerticalStackLayout Padding="16" Spacing="4">
 
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
 
                 <Border Style="{StaticResource Card}">
                     <Grid ColumnDefinitions="16,*,Auto" ColumnSpacing="12">

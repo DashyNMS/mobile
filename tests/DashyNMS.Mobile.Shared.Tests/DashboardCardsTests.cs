@@ -141,17 +141,6 @@ public sealed class DashboardCardsTests
     }
 
     [Fact]
-    public async Task The_gauge_is_each_severitys_share_of_open_alerts()
-    {
-        var vm = NewViewModel();
-
-        await vm.RefreshCommand.ExecuteAsync(null);
-
-        Assert.Equal((0.5, 0.25, 0.25), (vm.CriticalShare, vm.WarningShare, vm.AcknowledgedShare));
-        Assert.True(vm.HasOpenAlerts);
-    }
-
-    [Fact]
     public async Task The_sensors_card_shows_the_picked_sensors_in_order_coloured()
     {
         var card = DashboardLayout.Ensure(_appSettings, DashboardLayout.Sensors);

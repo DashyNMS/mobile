@@ -131,13 +131,16 @@ public sealed partial class AlertsViewModel : ViewModelBase
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        var alerts = await _client.Alerts.ListAsync(AlertQuery.Open);
-        var utc = _settings.Current.ServerTimestampsAreUtc;
+        var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
+        var devicesTask = DevicesByIdAsync();
+        await Task.WhenAll(alertsTask, devicesTask);
+
+        var alerts = alertsTask.Result;
         _all = alerts
             .OrderBy(a => a.IsAcknowledged)
             .ThenByDescending(a => a.Severity.SortRank())
             .ThenByDescending(a => a.Timestamp)
-            .Select(a => new AlertItem(a, utc))
+            .Select(a => AlertItem.For(a, _settings.Current, devicesTask.Result))
             .ToList();
         ApplyFilter();
 
@@ -251,6 +254,19 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
         ApplyFilter();
         SaveFilter();
+    }
+
+    /// <summary>For naming each alert's device - best effort, since the alerts still make sense by hostname.</summary>
+    private async Task<IReadOnlyDictionary<int, Device>?> DevicesByIdAsync()
+    {
+        try
+        {
+            return (await _client.Devices.ListAsync()).ToDictionary(d => d.DeviceId);
+        }
+        catch (LibreNmsApiException)
+        {
+            return null;
+        }
     }
 
     private void ApplyFilter()

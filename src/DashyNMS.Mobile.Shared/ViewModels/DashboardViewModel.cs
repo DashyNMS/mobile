@@ -106,15 +106,6 @@ public sealed partial class DashboardViewModel : ViewModelBase
 
     public bool HasNoAlerts => TopAlerts.Count == 0 && LastUpdated is not null;
 
-    /// <summary>Desktop's alerts gauge: each severity's share of open alerts, for the proportion bar.</summary>
-    public double CriticalShare => Share(CriticalAlerts);
-
-    public double WarningShare => Share(WarningAlerts);
-
-    public double AcknowledgedShare => Share(AcknowledgedAlerts);
-
-    public bool HasOpenAlerts => CriticalAlerts + WarningAlerts + AcknowledgedAlerts > 0;
-
     /// <summary>The Sensors card's sensors, coloured as on the Health tab.</summary>
     public BulkObservableCollection<SectionRow> PinnedSensors { get; } = new();
 
@@ -148,23 +139,23 @@ public sealed partial class DashboardViewModel : ViewModelBase
         DevicesDown = devices.Count(d => d.State == DeviceState.Down);
         DevicesInactive = devices.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
 
+        var byId = devices.ToDictionary(d => d.DeviceId);
+
         var alerts = alertsTask.Result;
         var active = alerts.Where(a => !a.IsAcknowledged).ToList();
         CriticalAlerts = active.Count(a => a.Severity == AlertSeverity.Critical);
         WarningAlerts = active.Count(a => a.Severity == AlertSeverity.Warning);
         AcknowledgedAlerts = alerts.Count - active.Count;
 
-        var utc = _settings.Current.ServerTimestampsAreUtc;
         TopAlerts.ReplaceAll(active
             .OrderByDescending(a => a.Severity.SortRank())
             .ThenByDescending(a => a.Timestamp)
             .Take(TopAlertCount)
-            .Select(alert => new AlertItem(alert, utc)));
+            .Select(alert => AlertItem.For(alert, _settings.Current, byId)));
 
         // Pinned in the order they were pinned, as desktop; a pin whose device
         // has since gone from LibreNMS just doesn't show.
         var style = _settings.Current.DeviceNameStyle;
-        var byId = devices.ToDictionary(d => d.DeviceId);
         PinnedDevices.ReplaceAll((_bookmarks.PinningEnabled ? _settings.Current.PinnedDevices : [])
             .Where(pin => byId.ContainsKey(pin.DeviceId))
             .Select(pin => new DeviceItem(byId[pin.DeviceId], style) { IsPinned = true }));
@@ -181,10 +172,6 @@ public sealed partial class DashboardViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasNoAlerts));
         OnPropertyChanged(nameof(HasPinnedDevices));
         OnPropertyChanged(nameof(HasRecentlyViewed));
-        OnPropertyChanged(nameof(HasOpenAlerts));
-        OnPropertyChanged(nameof(CriticalShare));
-        OnPropertyChanged(nameof(WarningShare));
-        OnPropertyChanged(nameof(AcknowledgedShare));
         OnPropertyChanged(nameof(HasNoPinnedSensors));
         OnPropertyChanged(nameof(GraphNeedsSetUp));
         OnPropertyChanged(nameof(HasNoWirelessControllers));
@@ -365,12 +352,6 @@ public sealed partial class DashboardViewModel : ViewModelBase
 
     private DashboardWidget? Widget(string type) =>
         DashboardLayout.Current(_settings.Current).FirstOrDefault(w => w.WidgetType == type);
-
-    private double Share(int count)
-    {
-        var total = CriticalAlerts + WarningAlerts + AcknowledgedAlerts;
-        return total == 0 ? 0 : (double)count / total;
-    }
 
     private Task OpenAsync(int deviceId) =>
         _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });

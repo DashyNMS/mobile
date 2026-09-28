@@ -6,8 +6,17 @@ namespace DashyNMS.Mobile.ViewModels;
 public abstract partial class ViewModelBase : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    [NotifyPropertyChangedFor(nameof(IsNotBusy), nameof(IsLoadingFirstTime))]
     private bool _isBusy;
+
+    private bool _hasLoaded;
+
+    /// <summary>
+    /// Busy with the page's first fetch - there's nothing on it yet, so it
+    /// shows desktop-style "Loading…" rather than a blank page (issue #45).
+    /// Later refreshes keep what's shown and use the pull-to-refresh spinner.
+    /// </summary>
+    public bool IsLoadingFirstTime => IsBusy && !_hasLoaded;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -77,6 +86,8 @@ public abstract partial class ViewModelBase : ObservableObject
         }
         finally
         {
+            // Set before IsBusy so its change notification sees it.
+            _hasLoaded = true;
             IsBusy = false;
         }
     }

@@ -7,7 +7,29 @@
     x:DataType="vm:SignInViewModel"
     Title="Sign in">
 
-    <ScrollView>
+    <!-- While signing back in, the page is the launch splash's colour
+         (MauiSplashScreen in the csproj), whatever the theme. -->
+    <ContentPage.Triggers>
+        <DataTrigger TargetType="ContentPage" Binding="{Binding IsRestoring}" Value="True">
+            <Setter Property="BackgroundColor" Value="#11141A" />
+        </DataTrigger>
+    </ContentPage.Triggers>
+
+    <Grid>
+
+    <!-- Signing back in with the saved token: a copy of the launch splash -
+         same colour, same mark, same size, centred - so launch reads as one
+         splash rather than a page flashing up and vanishing (#28). A small
+         spinner under it says it's working if the server is slow. -->
+    <Grid IsVisible="{Binding IsRestoring}">
+        <Image Source="splash_mark.png" WidthRequest="128" HeightRequest="128"
+               HorizontalOptions="Center" VerticalOptions="Center"
+               SemanticProperties.Description="DashyNMS, signing in" />
+        <ActivityIndicator IsRunning="{Binding IsRestoring}" Color="#3B82F6"
+                           HorizontalOptions="Center" VerticalOptions="Center" TranslationY="112" />
+    </Grid>
+
+    <ScrollView IsVisible="{Binding ShowForm}">
         <VerticalStackLayout Padding="24,48,24,24" Spacing="12" MaximumWidthRequest="520">
 
             <HorizontalStackLayout Spacing="12">
@@ -65,5 +87,7 @@
 
         </VerticalStackLayout>
     </ScrollView>
+
+    </Grid>
 
 </ContentPage>

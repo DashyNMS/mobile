@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.DeviceSectionPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="sections:DeviceSectionViewModel"
     Title="{Binding Title}">
@@ -14,6 +15,7 @@
 
         <Label Grid.Row="1" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
+        <controls:LoadingIndicator Grid.Row="2" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
         <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
             <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
                 <CollectionView.EmptyView>
