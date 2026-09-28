@@ -1,6 +1,5 @@
 ﻿using BackgroundTasks;
 using DashyNMS.Mobile.Alerts;
-using DesktopNMS.Core.Configuration;
 using Foundation;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
@@ -47,7 +46,7 @@ public class AppDelegate : MauiUIApplicationDelegate
 			// iOS runs a refresh task once; ask for the next unless there's
 			// nothing to check for any more.
 			if (result.Outcome != AlertCheckOutcome.NotSignedIn
-				&& services.GetRequiredService<ISettingsStore>().Current.Notifications.Enabled)
+				&& services.GetRequiredService<AlertWatchCoordinator>().ChecksNeeded)
 			{
 				services.GetRequiredService<IBackgroundAlertScheduler>().Schedule();
 			}

@@ -47,6 +47,14 @@ public sealed class AlertWatchCoordinator : IDisposable
         _logger = logger;
     }
 
+    /// <summary>
+    /// Checks feed the notifications and the app icon's count; with neither
+    /// wanted there's nothing to check for, in the app or the background.
+    /// </summary>
+    public bool ChecksNeeded =>
+        _settings.Current.Notifications.Enabled
+        || (_settings.Current.ShowAlertTabBadge && _badge.IsSupported);
+
     /// <summary>True while the in-app timer is running.</summary>
     public bool IsForegroundLoopRunning
     {
@@ -120,9 +128,7 @@ public sealed class AlertWatchCoordinator : IDisposable
             _badge.SetCount(0);
         }
 
-        // Checks feed the notifications and the app icon's count; with both
-        // off there's nothing to check for.
-        if (!_settings.Current.Notifications.Enabled && !(_settings.Current.ShowAlertTabBadge && _badge.IsSupported))
+        if (!ChecksNeeded)
         {
             _scheduler.Cancel();
             StopLoop();
