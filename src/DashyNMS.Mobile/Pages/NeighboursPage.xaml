@@ -46,7 +46,7 @@
                             <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
                                 <Ellipse Style="{StaticResource Dot}" Fill="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Row.Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Row.Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Row.Subtitle}" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Row.Detail}" IsVisible="{Binding Row.HasDetail}" FontSize="12"
                                            TextColor="{Binding Row.Status, Converter={StaticResource StatusText}}" />

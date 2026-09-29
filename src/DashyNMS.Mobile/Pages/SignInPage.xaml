@@ -37,7 +37,7 @@
             <VerticalStackLayout Spacing="12" Padding="0,0,0,6">
                 <Image Source="dashynms_logo.png" WidthRequest="72" HeightRequest="72" HorizontalOptions="Center"
                        SemanticProperties.Description="DashyNMS logo" />
-                <Label Text="DashyNMS" FontSize="28" FontFamily="OpenSansSemibold" HorizontalOptions="Center"
+                <Label Text="DashyNMS" FontSize="28" FontFamily="Display" HorizontalOptions="Center"
                        SemanticProperties.HeadingLevel="Level1" />
                 <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
                        Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
@@ -46,7 +46,7 @@
             <Border Style="{StaticResource Card}" Padding="16">
                 <VerticalStackLayout Spacing="14">
                     <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="Server address" />
+                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Server address" />
                         <Border Style="{StaticResource Field}">
                             <Entry Text="{Binding ServerUrl}"
                                    Placeholder="nms.example.com"
@@ -57,7 +57,7 @@
                         </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="API token" />
+                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
                         <Border Style="{StaticResource Field}">
                             <Entry Text="{Binding ApiToken}"
                                    Placeholder="Paste your API token"
@@ -69,7 +69,7 @@
                         </Border>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="Backup address (optional)" />
+                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
                         <Border Style="{StaticResource Field}">
                             <Entry Text="{Binding BackupAddress}"
                                    Placeholder="Used when the server address doesn't answer"

@@ -26,7 +26,7 @@
         <Border Grid.Row="3" Style="{StaticResource Card}" Margin="8" IsVisible="{Binding HasSelection}" MaximumHeightRequest="320">
             <Grid RowDefinitions="Auto,*">
                 <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="{Binding SelectedLocation}" FontFamily="OpenSansSemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
                     <Button Grid.Column="1" Text="Close" Command="{Binding ClearSelectionCommand}" BackgroundColor="Transparent"
                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                 </Grid>

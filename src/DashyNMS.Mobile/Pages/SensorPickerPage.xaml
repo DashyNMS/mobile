@@ -28,7 +28,7 @@
                         </Border.GestureRecognizers>
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
                             <VerticalStackLayout>
-                                <Label Text="{Binding Row.Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding Row.Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
                                 <Label Style="{StaticResource Caption}" Text="{Binding DeviceName}" LineBreakMode="TailTruncation" />
                             </VerticalStackLayout>
                             <Label Grid.Column="1" Text="{Binding Row.Value}" VerticalOptions="Center"

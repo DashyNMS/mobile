@@ -32,8 +32,8 @@
                                            TextColor="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
                                 </HorizontalStackLayout>
                             </Border>
-                            <Label Text="{Binding Alert.Rule}" FontSize="22" FontFamily="OpenSansSemibold" />
-                            <Label Text="{Binding Alert.Device}" FontFamily="OpenSansSemibold"
+                            <Label Text="{Binding Alert.Rule}" FontSize="22" FontFamily="Display" />
+                            <Label Text="{Binding Alert.Device}" FontFamily="BodySemibold"
                                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding OpenDeviceCommand}" />
@@ -66,7 +66,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,0,0,6">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                             <VerticalStackLayout>
-                                <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" />
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" />
                                 <!-- Fault values and rule conditions: shown whole, not truncated. -->
                                 <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" />
                                 <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"

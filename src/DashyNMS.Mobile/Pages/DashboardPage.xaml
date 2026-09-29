@@ -143,7 +143,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:AlertItem">
-                                        <Grid ColumnDefinitions="10,*" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
                                                     Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
@@ -154,6 +154,8 @@
                                                 <Label Style="{StaticResource RowTitle}" Text="{Binding Device}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Rule}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
+                                            <!-- The device, the alert, then how long ago at the right (#69). -->
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
@@ -219,12 +221,13 @@
                 <DataTemplate x:DataType="vm:DashboardCard">
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="4">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Style="{StaticResource CardTitle}" Text="Sensors" />
-                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Choose" Command="{Binding Dashboard.PickSensorsCommand}"
-                                        HeightRequest="32" MinimumHeightRequest="32" />
-                            </Grid>
-                            <Label Style="{StaticResource Caption}" Text="Choose sensors to keep an eye on here." IsVisible="{Binding Dashboard.HasNoPinnedSensors}" />
+                            <!-- Chosen in Customise (Set up), or from this hint - not a button on the card. -->
+                            <Label Style="{StaticResource CardTitle}" Text="Sensors" Margin="0,0,0,4" />
+                            <Label Style="{StaticResource Caption}" Text="Tap to choose sensors to keep an eye on here." IsVisible="{Binding Dashboard.HasNoPinnedSensors}">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.PickSensorsCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedSensors}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
@@ -239,7 +242,7 @@
                                                 <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
-                                            <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="OpenSansSemibold"
+                                            <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="BodySemibold"
                                                    TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                         </Grid>
                                     </DataTemplate>
@@ -254,12 +257,13 @@
                 <DataTemplate x:DataType="vm:DashboardCard">
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Style="{StaticResource CardTitle}" Text="{Binding Dashboard.GraphTitle}" LineBreakMode="TailTruncation" />
-                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding Dashboard.PickGraphCommand}"
-                                        HeightRequest="32" MinimumHeightRequest="32" />
-                            </Grid>
-                            <Label Style="{StaticResource Caption}" Text="Choose a device and one of its graphs." IsVisible="{Binding Dashboard.GraphNeedsSetUp}" />
+                            <!-- Changed in Customise (Set up), or from this hint - not a button on the card. -->
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Dashboard.GraphTitle}" LineBreakMode="TailTruncation" />
+                            <Label Style="{StaticResource Caption}" Text="Tap to choose a device and one of its graphs." IsVisible="{Binding Dashboard.GraphNeedsSetUp}">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.PickGraphCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
                             <Grid IsVisible="{Binding Dashboard.GraphPage, Converter={StaticResource IsNotNull}}">
                                 <controls:GraphView Html="{Binding Dashboard.GraphPage}" />
                                 <!-- The web view would swallow taps; this opens the device's graphs. -->
@@ -327,7 +331,7 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
                     <Image Source="dashynms_logo.png" WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
                            SemanticProperties.Description="DashyNMS logo" />
-                    <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
                     <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
                             SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">

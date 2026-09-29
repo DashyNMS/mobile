@@ -158,7 +158,7 @@
                 <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
                     <VerticalStackLayout Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Quiet hours" VerticalOptions="Center" FontFamily="OpenSansSemibold" />
+                            <Label Text="Quiet hours" VerticalOptions="Center" FontFamily="BodySemibold" />
                             <Switch Grid.Column="1" IsToggled="{Binding QuietHoursEnabled}" />
                         </Grid>
                         <VerticalStackLayout Spacing="10" IsVisible="{Binding QuietHoursEnabled}">

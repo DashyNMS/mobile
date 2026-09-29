@@ -101,7 +101,7 @@
                                 </VerticalStackLayout>
                                 <!-- The reading, and the limit it's measured against under it. -->
                                 <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                    <Label Text="{Binding Value}" FontFamily="OpenSansSemibold" HorizontalOptions="End"
+                                    <Label Text="{Binding Value}" FontFamily="BodySemibold" HorizontalOptions="End"
                                            TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                     <Label Style="{StaticResource Faint}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
                                            HorizontalOptions="End" />

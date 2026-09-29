@@ -5,50 +5,26 @@ namespace DashyNMS.Mobile.Controls;
 /// <summary>
 /// Lays cards out in as many equal columns as fit (#65): one on a phone,
 /// two or three on a tablet or in landscape - as desktop's Device View flows
-/// its cards across a wide window. Each child's width is set from the
-/// columns that fit <see cref="MinColumnWidth"/>, up to <see cref="MaxColumns"/>.
+/// its cards across a wide window. Columns are as many as fit
+/// <see cref="MinColumnWidth"/>, up to <see cref="MaxColumns"/>; each row is
+/// as tall as its tallest card, and hidden cards take no place.
 /// </summary>
-public sealed class CardGrid : FlexLayout
+/// <remarks>
+/// Its own layout rather than a wrapping FlexLayout: inside the page's
+/// scrolling stack, FlexLayout measured itself with no height, so on a
+/// phone Device View showed none of its cards but the Device one (#69).
+/// </remarks>
+public sealed class CardGrid : Layout
 {
     public static readonly BindableProperty MinColumnWidthProperty = BindableProperty.Create(
-        nameof(MinColumnWidth), typeof(double), typeof(CardGrid), 340d, propertyChanged: (view, _, _) => ((CardGrid)view).Arrange());
+        nameof(MinColumnWidth), typeof(double), typeof(CardGrid), 340d, propertyChanged: Invalidate);
 
     public static readonly BindableProperty MaxColumnsProperty = BindableProperty.Create(
-        nameof(MaxColumns), typeof(int), typeof(CardGrid), 3, propertyChanged: (view, _, _) => ((CardGrid)view).Arrange());
+        nameof(MaxColumns), typeof(int), typeof(CardGrid), 3, propertyChanged: Invalidate);
 
     /// <summary>Gap between cards, across and down.</summary>
     public static readonly BindableProperty GapProperty = BindableProperty.Create(
-        nameof(Gap), typeof(double), typeof(CardGrid), 8d, propertyChanged: (view, _, _) => ((CardGrid)view).Arrange());
-
-    private int _columns = 1;
-
-    public CardGrid()
-    {
-        Wrap = FlexWrap.Wrap;
-        Direction = FlexDirection.Row;
-        JustifyContent = FlexJustify.Start;
-        AlignItems = FlexAlignItems.Stretch;
-        AlignContent = FlexAlignContent.Start;
-        ChildAdded += (_, e) =>
-        {
-            if (e.Element is View view)
-            {
-                view.PropertyChanged += OnChildChanged;
-            }
-
-            Arrange();
-        };
-        ChildRemoved += (_, e) =>
-        {
-            if (e.Element is View view)
-            {
-                view.PropertyChanged -= OnChildChanged;
-            }
-
-            Arrange();
-        };
-        SizeChanged += (_, _) => Arrange();
-    }
+        nameof(Gap), typeof(double), typeof(CardGrid), 8d, propertyChanged: Invalidate);
 
     public double MinColumnWidth
     {
@@ -68,43 +44,74 @@ public sealed class CardGrid : FlexLayout
         set => SetValue(GapProperty, value);
     }
 
-    /// <summary>A card showing or hiding moves the ones after it along.</summary>
-    private void OnChildChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    protected override ILayoutManager CreateLayoutManager() => new CardGridManager(this);
+
+    private static void Invalidate(BindableObject view, object oldValue, object newValue) =>
+        ((CardGrid)view).InvalidateMeasure();
+
+    /// <summary>How many columns fit <paramref name="width"/>, and how wide each is.</summary>
+    private (int Columns, double ColumnWidth) Columns(double width)
     {
-        if (e.PropertyName == nameof(IsVisible))
-        {
-            Arrange();
-        }
+        var columns = Math.Clamp((int)((width + Gap) / (MinColumnWidth + Gap)), 1, Math.Max(1, MaxColumns));
+        return (columns, Math.Max(0, (width - (Gap * (columns - 1))) / columns));
     }
 
-    /// <summary>
-    /// A fixed width per card rather than a percentage basis: a percentage
-    /// can't take the gaps into account, so the last card in a row would
-    /// wrap. Cards after the first in a row get the gap on their left; only
-    /// visible cards count towards where a row starts.
-    /// </summary>
-    private void Arrange()
+    /// <summary>Measures each row as its tallest card, then places the cards in them.</summary>
+    private sealed class CardGridManager(CardGrid grid) : LayoutManager(grid)
     {
-        if (Width <= 0)
+        private readonly List<double> _rowHeights = [];
+
+        public override Size Measure(double widthConstraint, double heightConstraint)
         {
-            return;
-        }
+            var padding = grid.Padding;
+            var width = double.IsInfinity(widthConstraint)
+                ? grid.MinColumnWidth
+                : widthConstraint - padding.HorizontalThickness;
+            var (columns, columnWidth) = grid.Columns(width);
 
-        _columns = Math.Clamp((int)((Width + Gap) / (MinColumnWidth + Gap)), 1, Math.Max(1, MaxColumns));
-        var width = Math.Floor((Width - (Gap * (_columns - 1))) / _columns) - 0.5;
-        var position = 0;
-
-        foreach (var child in Children.OfType<View>())
-        {
-            SetGrow((IView)child, 0);
-            SetShrink((IView)child, 0);
-            child.WidthRequest = width;
-            child.Margin = new Thickness(_columns > 1 && position % _columns != 0 ? Gap : 0, 0, 0, Gap);
-
-            if (child.IsVisible)
+            _rowHeights.Clear();
+            var index = 0;
+            foreach (var child in Visible())
             {
-                position++;
+                var size = child.Measure(columnWidth, double.PositiveInfinity);
+                if (index % columns == 0)
+                {
+                    _rowHeights.Add(0);
+                }
+
+                _rowHeights[^1] = Math.Max(_rowHeights[^1], size.Height);
+                index++;
             }
+
+            var height = _rowHeights.Sum() + (grid.Gap * Math.Max(0, _rowHeights.Count - 1)) + padding.VerticalThickness;
+            return new Size(width + padding.HorizontalThickness, height);
         }
+
+        public override Size ArrangeChildren(Rect bounds)
+        {
+            var padding = grid.Padding;
+            var (columns, columnWidth) = grid.Columns(bounds.Width - padding.HorizontalThickness);
+            var y = bounds.Top + padding.Top;
+            var index = 0;
+            foreach (var child in Visible())
+            {
+                var row = index / columns;
+                var column = index % columns;
+                if (column == 0 && row > 0)
+                {
+                    y += RowHeight(row - 1) + grid.Gap;
+                }
+
+                var x = bounds.Left + padding.Left + (column * (columnWidth + grid.Gap));
+                child.Arrange(new Rect(x, y, columnWidth, Math.Max(RowHeight(row), child.DesiredSize.Height)));
+                index++;
+            }
+
+            return bounds.Size;
+        }
+
+        private double RowHeight(int row) => row < _rowHeights.Count ? _rowHeights[row] : 0;
+
+        private IEnumerable<IView> Visible() => grid.Where(child => child.Visibility != Visibility.Collapsed);
     }
 }
