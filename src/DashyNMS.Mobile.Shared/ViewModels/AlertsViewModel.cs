@@ -43,6 +43,14 @@ public sealed partial class AlertsViewModel : ViewModelBase
     [ObservableProperty]
     private bool _showWarning;
 
+    /// <summary>
+    /// Alerts with LibreNMS's ok severity (and any unrecognised one) - the
+    /// OK chip (#64). Kept in desktop's ShowUnknownSeverity, its filter for
+    /// everything that isn't critical or warning, which has no chip there.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showOk;
+
     [ObservableProperty]
     private bool _showAcknowledged;
 
@@ -72,6 +80,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         var filter = settings.Current.Filter;
         _showCritical = filter.ShowCritical;
         _showWarning = filter.ShowWarning;
+        _showOk = filter.ShowUnknownSeverity;
         _showAcknowledged = filter.ShowAcknowledged;
         _searchText = filter.SearchText ?? string.Empty;
     }
@@ -88,6 +97,9 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     public int WarningCount => _all.Count(a => a.Severity == AlertSeverity.Warning && !a.IsAcknowledged);
 
+    /// <summary>Unacknowledged alerts that are neither critical nor warning - LibreNMS's ok severity.</summary>
+    public int OkCount => _all.Count(a => a.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning) && !a.IsAcknowledged);
+
     public int AcknowledgedCount => _all.Count(a => a.IsAcknowledged);
 
     /// <summary>"12 alerts", or "3 of 12 alerts" when filtered.</summary>
@@ -96,11 +108,13 @@ public sealed partial class AlertsViewModel : ViewModelBase
         : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
 
     /// <summary>True when anything narrows the list - shows the Clear button.</summary>
-    public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
 
     partial void OnShowCriticalChanged(bool value) => OnFilterChanged();
 
     partial void OnShowWarningChanged(bool value) => OnFilterChanged();
+
+    partial void OnShowOkChanged(bool value) => OnFilterChanged();
 
     partial void OnShowAcknowledgedChanged(bool value) => OnFilterChanged();
 
@@ -111,6 +125,9 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleWarning() => ShowWarning = !ShowWarning;
+
+    [RelayCommand]
+    private void ToggleOk() => ShowOk = !ShowOk;
 
     [RelayCommand]
     private void ToggleAcknowledged() => ShowAcknowledged = !ShowAcknowledged;
@@ -127,6 +144,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         var acknowledged = string.Equals(kind, "acknowledged", StringComparison.OrdinalIgnoreCase);
         ShowCritical = acknowledged || string.Equals(kind, "critical", StringComparison.OrdinalIgnoreCase);
         ShowWarning = acknowledged || string.Equals(kind, "warning", StringComparison.OrdinalIgnoreCase);
+        ShowOk = acknowledged || string.Equals(kind, "ok", StringComparison.OrdinalIgnoreCase);
         ShowAcknowledged = acknowledged;
         SearchText = acknowledged ? AlertState.Acknowledged.ToDisplayString() : string.Empty;
         _loading = false;
@@ -140,6 +158,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _loading = true;
         ShowCritical = true;
         ShowWarning = true;
+        ShowOk = true;
         ShowAcknowledged = true;
         SearchText = string.Empty;
         _loading = false;
@@ -249,7 +268,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         {
             AlertSeverity.Critical => ShowCritical,
             AlertSeverity.Warning => ShowWarning,
-            _ => true,
+            _ => ShowOk,
         };
 
         var stateAllowed = alert.State switch
@@ -297,6 +316,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(OkCount));
         OnPropertyChanged(nameof(AcknowledgedCount));
     }
 
@@ -305,6 +325,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         var filter = _settings.Current.Filter;
         filter.ShowCritical = ShowCritical;
         filter.ShowWarning = ShowWarning;
+        filter.ShowUnknownSeverity = ShowOk;
         filter.ShowAcknowledged = ShowAcknowledged;
         filter.SearchText = string.IsNullOrWhiteSpace(SearchText) ? null : SearchText;
         _settings.Save();

@@ -36,20 +36,25 @@ rather than rewritten.
   to the top; recently viewed devices show in a strip above the list. Pins
   and recents are desktop's own settings. Maintenance windows are checked per
   device after the list loads, as on desktop.
-- **Device detail**: state, identity, uptime and the device's own open alerts,
-  **Rediscover** and **Schedule maintenance** (now or later, a duration, and
-  desktop's skip/mute/run-alerts choice), pin, **SSH** and
-  **Telnet** (in whichever app on the phone handles those links), and
-  desktop's Device View sections as cards with a quick view (counts, what
-  needs attention, the worst few rows), hiding ones the device has nothing
-  in, as desktop does. Each opens its own searchable page:
+- **Device detail**, laid out as desktop's Device View overview: the name,
+  state and hardware/OS/IP; **Rediscover**, **Schedule maintenance** (now or
+  later, a duration, and desktop's skip/mute/run-alerts choice), pin, and
+  **SSH** and **Telnet** (in whichever app on the phone handles those links);
+  desktop's stat tiles (30-day availability, uptime, ports up, active
+  alerts); the Device card (names, IP, OS, hardware, serial, location,
+  contact, groups, dependencies, added, last discovered, object ID,
+  description); then desktop's overview cards - ping response, active
+  alerts, availability, resources, sensors, connected to, busiest ports -
+  and the rest of its sections as cards, one column on a phone and a grid on
+  a tablet or in landscape. Sections the device has nothing in drop out, as
+  on desktop. Each opens its own searchable page:
   availability and outages, sensors (coloured against desktop's thresholds or
   the sensor's own limits), graphs, CPU/memory/storage, ports (tap one for
   its traffic, packet and error graphs), neighbours
   (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
   VRFs), wireless, inventory and the event log.
 - **Alerts**: open alerts, most severe first, with desktop's Critical /
-  Warning / Acknowledged filter chips (with counts) and search across device,
+  Warning / OK / Acknowledged filter chips (with counts) and search across device,
   rule, note and alert id. Filters are remembered between launches. Swipe to
   acknowledge (with an optional note) or unacknowledge. **Export** shares the
   filtered list as CSV, in desktop's columns.

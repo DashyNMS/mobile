@@ -18,7 +18,8 @@
         <SearchBar Text="{Binding SearchText}" Placeholder="Device, rule, note or alert id" />
 
         <!-- Desktop's filter chips. Counts are of open alerts, whatever's filtered. -->
-        <HorizontalStackLayout Grid.Row="1" Spacing="8" Margin="0,6,0,0">
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,6,0,0">
+        <HorizontalStackLayout Spacing="8">
             <Button Style="{StaticResource Chip}"
                     Text="{Binding CriticalCount, StringFormat='Critical {0}'}"
                     Command="{Binding ToggleCriticalCommand}">
@@ -41,6 +42,18 @@
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
+            <!-- LibreNMS's ok severity (#64). -->
+            <Button Style="{StaticResource Chip}"
+                    Text="{Binding OkCount, StringFormat='OK {0}'}"
+                    Command="{Binding ToggleOkCommand}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource OkColor}" />
+                        <Setter Property="BorderColor" Value="{StaticResource OkColor}" />
+                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
             <Button Style="{StaticResource Chip}"
                     Text="{Binding AcknowledgedCount, StringFormat='Acknowledged {0}'}"
                     Command="{Binding ToggleAcknowledgedCommand}">
@@ -53,6 +66,7 @@
                 </Button.Triggers>
             </Button>
         </HorizontalStackLayout>
+        </ScrollView>
 
         <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="4,6,0,2">
             <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />

@@ -18,6 +18,8 @@ public partial class DeviceDetailPage : ContentPage, IQueryAttributable
 	{
 		if (query.TryGetValue(Routes.DeviceIdParameter, out var value) && value is int deviceId)
 		{
+			// The ping graph is drawn for the phone's theme, as the dashboard's.
+			_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
 			_ = _viewModel.LoadAsync(deviceId);
 		}
 	}

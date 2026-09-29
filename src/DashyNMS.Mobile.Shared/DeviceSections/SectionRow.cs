@@ -39,6 +39,13 @@ public sealed record SectionRow(string Title)
     /// <summary>Another LibreNMS device this row leads to (a neighbour).</summary>
     public int? LinkDeviceId { get; init; }
 
+    /// <summary>
+    /// A number the row can be ranked by - a port's traffic (bytes/s in and
+    /// out), an availability window's length in seconds - for the device
+    /// page's quick views (busiest ports, the 30-day figure).
+    /// </summary>
+    public double? SortValue { get; init; }
+
     /// <summary>A port of this device whose graphs this row leads to - its SNMP ifName, which LibreNMS's port graph API takes.</summary>
     public string? LinkPortIfName { get; init; }
 
