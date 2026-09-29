@@ -67,5 +67,6 @@ Open the app, enter your server's address and paste the token. That's it.
 
 ---
 
-<sub>DashyNMS isn't affiliated with LibreNMS. LibreNMS is a trademark of its respective owners.
-Building the app yourself or contributing? See the [developer guide](docs/DEVELOPING.md).</sub>
+<sub>DashyNMS isn't affiliated with LibreNMS. LibreNMS is a trademark of its respective owners.<br>
+The source is published for reference and security review only. All rights reserved; see [LICENSE](LICENSE).<br>
+Found a security problem? See [SECURITY.md](SECURITY.md). Technical notes are in the [developer guide](docs/DEVELOPING.md).</sub>
