@@ -96,8 +96,8 @@ public sealed class CardGrid : FlexLayout
 
         foreach (var child in Children.OfType<View>())
         {
-            SetGrow(child, 0);
-            SetShrink(child, 0);
+            SetGrow((IView)child, 0);
+            SetShrink((IView)child, 0);
             child.WidthRequest = width;
             child.Margin = new Thickness(_columns > 1 && position % _columns != 0 ? Gap : 0, 0, 0, Gap);
 
