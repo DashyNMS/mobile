@@ -202,7 +202,9 @@ public sealed class OverviewWidgetProvider : AppWidgetProvider
 
 /// <summary>The devices pinned in the app.</summary>
 [Register("net/pckp/dashynms/PinnedWidgetProvider")]
-[BroadcastReceiver(Label = "DashyNMS pinned devices", Exported = true)]
+// Out of the widget gallery until it's designed: only the mock-ups' widgets for now. The
+// provider stays, disabled, so turning it back on is one word.
+[BroadcastReceiver(Label = "DashyNMS pinned devices", Exported = true, Enabled = false)]
 [IntentFilter(new[] { AppWidgetManager.ActionAppwidgetUpdate })]
 [MetaData(AppWidgetManager.MetaDataAppwidgetProvider, Resource = "@xml/widget_pinned_info")]
 public sealed class PinnedWidgetProvider : AppWidgetProvider
@@ -222,7 +224,8 @@ public sealed class PinnedWidgetProvider : AppWidgetProvider
 
 /// <summary>The dashboard Sensors card's sensors.</summary>
 [Register("net/pckp/dashynms/SensorsWidgetProvider")]
-[BroadcastReceiver(Label = "DashyNMS sensors", Exported = true)]
+// Out of the widget gallery until it's designed - see PinnedWidgetProvider.
+[BroadcastReceiver(Label = "DashyNMS sensors", Exported = true, Enabled = false)]
 [IntentFilter(new[] { AppWidgetManager.ActionAppwidgetUpdate })]
 [MetaData(AppWidgetManager.MetaDataAppwidgetProvider, Resource = "@xml/widget_sensors_info")]
 public sealed class SensorsWidgetProvider : AppWidgetProvider

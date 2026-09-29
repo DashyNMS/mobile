@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
     x:DataType="topo:NeighboursViewModel"
+    SafeAreaEdges="Container"
     Title="Neighbours">
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">

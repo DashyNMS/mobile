@@ -262,7 +262,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     /// LibreNMS knows it (a card full of dashes is noise). The three names
     /// only when they differ, as desktop's.
     /// </summary>
-    public IReadOnlyList<KeyValuePair<string, string>> Properties
+    public IReadOnlyList<DeviceProperty> Properties
     {
         get
         {
@@ -288,7 +288,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                     ("Serial", d.Serial),
                     ("Type", TypeText),
                     ("Purpose", d.Purpose),
-                    ("Location", d.Location),
+                    ("Location", d.LocationName()),
                     ("Contact", d.Contact),
                     ("Groups", _groups.Count > 0 ? string.Join(", ", _groups) : null),
                     ("Depends on", d.DependencyParentHostname),
@@ -298,7 +298,16 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                     ("Description", d.SysDescr),
                 }
                 .Where(p => !string.IsNullOrWhiteSpace(p.Value))
-                .Select(p => new KeyValuePair<string, string>(p.Label, p.Value!.Trim()))
+                .Select(p => new DeviceProperty(p.Label, p.Value!.Trim())
+                {
+                    // As desktop's Groups & locations: tap through to the devices there.
+                    Link = p.Label switch
+                    {
+                        "Location" => DevicePropertyLink.Location,
+                        "Groups" => DevicePropertyLink.Groups,
+                        _ => DevicePropertyLink.None,
+                    },
+                })
                 .ToList();
         }
     }
@@ -307,6 +316,31 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     /// <summary>Set by the page from the phone's theme, for the ping graph.</summary>
     public bool DarkTheme { get; set; }
+
+    /// <summary>
+    /// A tapped Location or Groups row: the Devices page showing only the
+    /// devices there, as desktop's Groups &amp; locations. Several groups ask
+    /// which first.
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenPropertyAsync(DeviceProperty? property)
+    {
+        switch (property?.Link)
+        {
+            case DevicePropertyLink.Location:
+                await _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.LocationParameter] = property.Value });
+                break;
+
+            case DevicePropertyLink.Groups:
+                var group = _groups.Count == 1 ? _groups[0] : await _dialogs.ChooseAsync("Show the devices in", _groups);
+                if (group is not null)
+                {
+                    await _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.GroupParameter] = group });
+                }
+
+                break;
+        }
+    }
 
     /// <summary>LibreNMS's own 24h ping graph (<c>device_icmp_perf</c>), as desktop's Ping response card; null until it's in.</summary>
     [ObservableProperty]

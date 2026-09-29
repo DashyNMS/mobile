@@ -22,6 +22,9 @@ public sealed record SectionRow(string Title)
 {
     public string? Subtitle { get; init; }
 
+    /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
+    public bool IsCode { get; init; }
+
     /// <summary>The reading, on the right - "42.5 °C", "Established", "99.98%".</summary>
     public string? Value { get; init; }
 
@@ -50,6 +53,12 @@ public sealed record SectionRow(string Title)
     public string? LinkPortIfName { get; init; }
 
     public bool HasSubtitle => !string.IsNullOrWhiteSpace(Subtitle);
+
+    /// <summary>A subtitle to draw as code (see <see cref="IsCode"/>).</summary>
+    public bool HasCode => IsCode && HasSubtitle;
+
+    /// <summary>A subtitle to draw as ordinary text.</summary>
+    public bool HasText => !IsCode && HasSubtitle;
 
     public bool HasValue => !string.IsNullOrWhiteSpace(Value);
 
@@ -80,4 +89,7 @@ public sealed class SectionGroup : ObservableCollection<SectionRow>
     }
 
     public string Name { get; }
+
+    /// <summary>Alert detail's "Why it fired": its card carries the "Show all fields" link (#69).</summary>
+    public bool HasFields { get; init; }
 }

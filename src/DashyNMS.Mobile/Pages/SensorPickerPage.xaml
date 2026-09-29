@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     x:DataType="dash:SensorPickerViewModel"
+    SafeAreaEdges="Container"
     Title="Dashboard sensors">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">

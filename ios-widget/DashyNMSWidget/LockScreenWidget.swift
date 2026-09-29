@@ -14,7 +14,7 @@ struct LockScreenWidget: Widget {
         }
         .configurationDisplayName("Alerts")
         .description("Active alerts on your lock screen.")
-        .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryRectangular])
+        .supportedFamilies([.accessoryCircular, .accessoryRectangular])
     }
 }
 

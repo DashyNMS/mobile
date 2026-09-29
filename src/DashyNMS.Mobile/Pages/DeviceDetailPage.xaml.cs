@@ -14,6 +14,12 @@ public partial class DeviceDetailPage : ContentPage, IQueryAttributable
 		BindingContext = _viewModel = viewModel;
 	}
 
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		TopBar.Apply(this);
+	}
+
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
 		if (query.TryGetValue(Routes.DeviceIdParameter, out var value) && value is int deviceId)

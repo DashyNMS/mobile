@@ -32,6 +32,8 @@
     <Color x:Key="TextFaintDark">#7F8A9A</Color>
     <Color x:Key="StrokeDark">#232A36</Color>
     <Color x:Key="ChipStrokeDark">#3A4250</Color>
+    <!-- Behind code and fields: the mock-ups' block, darker than a card. -->
+    <Color x:Key="CodeDark">#0D1015</Color>
     <Color x:Key="TextLight">#11141A</Color>
     <Color x:Key="TextSecondaryLight">#4B5563</Color>
     <Color x:Key="TextFaintLight">#6B7280</Color>

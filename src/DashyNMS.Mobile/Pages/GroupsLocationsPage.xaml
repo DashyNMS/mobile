@@ -6,6 +6,7 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:GroupsLocationsViewModel"
+    SafeAreaEdges="Container"
     Title="Groups &amp; locations">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">

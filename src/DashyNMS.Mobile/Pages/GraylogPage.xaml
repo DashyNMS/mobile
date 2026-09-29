@@ -6,6 +6,7 @@
     xmlns:graylog="clr-namespace:DashyNMS.Mobile.Graylog;assembly=DashyNMS.Mobile.Shared"
     xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
     x:DataType="graylog:GraylogViewModel"
+    SafeAreaEdges="Container"
     Title="{Binding Title}">
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">

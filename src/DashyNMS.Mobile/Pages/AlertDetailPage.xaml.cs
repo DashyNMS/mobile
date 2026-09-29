@@ -14,6 +14,12 @@ public partial class AlertDetailPage : ContentPage, IQueryAttributable
 		BindingContext = _viewModel = viewModel;
 	}
 
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		TopBar.Apply(this);
+	}
+
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
 		if (query.TryGetValue(Routes.AlertIdParameter, out var id) && id is int alertId)

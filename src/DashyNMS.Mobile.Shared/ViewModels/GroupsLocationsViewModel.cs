@@ -137,8 +137,8 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase
     internal static IReadOnlyList<PlaceRow> BuildLocations(IReadOnlyList<Device> devices, IReadOnlyList<Location> locations)
     {
         var byName = devices
-            .Where(d => !string.IsNullOrWhiteSpace(d.Location))
-            .GroupBy(d => d.Location!, StringComparer.OrdinalIgnoreCase)
+            .Where(d => d.LocationName() is not null)
+            .GroupBy(d => d.LocationName()!, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
         var known = locations.ToDictionary(l => l.Name, StringComparer.OrdinalIgnoreCase);
 

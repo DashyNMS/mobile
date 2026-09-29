@@ -3,84 +3,111 @@
     x:Class="DashyNMS.Mobile.Pages.AlertDetailPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:AlertDetailViewModel"
+    ios:Page.UseSafeArea="True"
     Title="{Binding Title}">
 
-    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}" Padding="16,8,16,0">
-        <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+    <!-- As the Alert detail mock-up: "‹ Alerts", a header card with the
+         severity, rule, device and the actions, then a card per section -
+         why it fired, the rule, and its history on the device. -->
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16,4,16,24" Spacing="12">
 
-            <CollectionView.Header>
-                <VerticalStackLayout Spacing="8" Padding="0,0,0,4">
-                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <controls:BackBar x:Name="TopBar" />
 
-                    <!-- A recovery notification can point at an alert LibreNMS has since dropped. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding IsGone}">
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
+
+                <!-- A recovery notification can point at an alert LibreNMS has since dropped. -->
+                <Border Style="{StaticResource Card}" IsVisible="{Binding IsGone}">
+                    <VerticalStackLayout Spacing="12">
                         <Label Text="This alert has cleared, and LibreNMS no longer lists it." />
-                    </Border>
+                        <Button Style="{StaticResource SecondaryButton}" Text="Open device" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
+                    </VerticalStackLayout>
+                </Border>
 
-                    <!-- As the mock-ups: the severity as a pill, the rule as the title,
-                         then the device and when. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding HasAlert}">
-                        <VerticalStackLayout Spacing="6">
-                            <Border Style="{StaticResource Pill}" BackgroundColor="{Binding Alert.Severity, Converter={StaticResource StatusTint}}">
-                                <HorizontalStackLayout Spacing="6">
-                                    <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
-                                             Fill="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
-                                    <Label Style="{StaticResource PillText}" Text="{Binding Alert.SeverityText}"
-                                           TextColor="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
-                                </HorizontalStackLayout>
-                            </Border>
-                            <Label Text="{Binding Alert.Rule}" FontSize="22" FontFamily="Display" />
-                            <Label Text="{Binding Alert.Device}" FontFamily="BodySemibold"
-                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenDeviceCommand}" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                            <Label Style="{StaticResource Faint}" Text="{Binding Alert.Summary}" />
-                        </VerticalStackLayout>
-                    </Border>
+                <Border Style="{StaticResource Card}" Padding="16" IsVisible="{Binding HasAlert}">
+                    <VerticalStackLayout Spacing="8">
+                        <Border Style="{StaticResource Pill}" BackgroundColor="{Binding Alert.Severity, Converter={StaticResource StatusTint}}">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                         Fill="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
+                                <Label Style="{StaticResource PillText}" Text="{Binding Alert.SeverityText}"
+                                       TextColor="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
+                            </HorizontalStackLayout>
+                        </Border>
+                        <Label Text="{Binding Alert.Rule}" FontSize="22" FontFamily="Display" />
+                        <Label Text="{Binding Alert.Device}" FontFamily="BodySemibold" FontSize="15"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenDeviceCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                        <Label Style="{StaticResource Faint}" Text="{Binding RaisedText}" />
+                        <Label Style="{StaticResource Caption}" Text="{Binding Alert.Note}" FontAttributes="Italic" IsVisible="{Binding Alert.HasNote}" />
 
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Text="Acknowledge…" Command="{Binding AcknowledgeCommand}" IsVisible="{Binding CanAcknowledge}" />
-                        <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
-                        <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
-                    </Grid>
-
-                    <!-- Why it fired shows what the rule tests; this adds everything else measured (#46). -->
-                    <Button Text="{Binding AllFieldsText}" Command="{Binding ToggleAllFieldsCommand}" IsVisible="{Binding HasMoreFields}"
-                            Style="{StaticResource LinkButton}" HorizontalOptions="Start" Padding="0" />
-                </VerticalStackLayout>
-            </CollectionView.Header>
-
-            <CollectionView.GroupHeaderTemplate>
-                <DataTemplate x:DataType="sections:SectionGroup">
-                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
-                </DataTemplate>
-            </CollectionView.GroupHeaderTemplate>
-
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="sections:SectionRow">
-                    <Border Style="{StaticResource Card}" Margin="0,0,0,6">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                            <VerticalStackLayout>
-                                <Label Text="{Binding Title}" FontFamily="BodySemibold" />
-                                <!-- Fault values and rule conditions: shown whole, not truncated. -->
-                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
-                                       FontSize="12" LineBreakMode="WordWrap" />
-                            </VerticalStackLayout>
-                            <Label Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding HasValue}"
-                                   VerticalOptions="Start" HorizontalTextAlignment="End"
-                                   TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,8,0,0">
+                            <Button Text="Acknowledge" Command="{Binding AcknowledgeCommand}" IsVisible="{Binding CanAcknowledge}" />
+                            <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
+                            <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                         </Grid>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
 
-        </CollectionView>
+                <!-- A card per section; rows split by a line, fields and the rule's condition monospaced. -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding CardGroups}" Spacing="12">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="sections:SectionGroup">
+                            <Border Style="{StaticResource Card}" Padding="16,14">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Style="{StaticResource CardTitle}" Text="{Binding Name}" Margin="0,0,0,4" />
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding .}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="sections:SectionRow">
+                                                <VerticalStackLayout Spacing="4" Padding="0,8,0,0">
+                                                    <BoxView Style="{StaticResource Divider}" Margin="0,0,0,6" />
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="14" />
+                                                        <Label Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding HasValue}" FontSize="13"
+                                                               HorizontalTextAlignment="End"
+                                                               TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                                    </Grid>
+                                                    <!-- Fields and conditions as the mock-up's code block; prose (notes, procedure) as text. -->
+                                                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10"
+                                                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}"
+                                                            IsVisible="{Binding HasCode}">
+                                                        <Label Text="{Binding Subtitle}" FontFamily="Mono" FontSize="12.5" LineHeight="1.3"
+                                                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                                    </Border>
+                                                    <Label Text="{Binding Subtitle}" FontSize="14" LineBreakMode="WordWrap"
+                                                           IsVisible="{Binding HasText}" />
+                                                    <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontFamily="Mono" FontSize="11.5"
+                                                           LineBreakMode="WordWrap" Style="{StaticResource Faint}" />
+                                                </VerticalStackLayout>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                    <!-- "Show all fields", in Why it fired's own card. -->
+                                    <ContentView IsVisible="{Binding HasFields}">
+                                        <Button Style="{StaticResource LinkButton}" HorizontalOptions="Start" Padding="0" Margin="0,6,0,0"
+                                                x:DataType="vm:AlertDetailViewModel"
+                                                BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:AlertDetailViewModel}}}"
+                                                Text="{Binding AllFieldsText}" Command="{Binding ToggleAllFieldsCommand}" IsVisible="{Binding HasMoreFields}" />
+                                    </ContentView>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
     </RefreshView>
 
 </ContentPage>

@@ -12,7 +12,7 @@ struct AlertPieWidget: Widget {
         }
         .configurationDisplayName("Alert pie chart")
         .description("Your devices by their worst alert: critical, warning, acknowledged or OK.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -119,31 +119,14 @@ struct AlertPieWidgetView: View {
         .padding(.horizontal, 16)
     }
 
+    /// As the mock-up: the ring filling the widget, the device count inside.
     private func small(_ counts: DeviceCounts) -> some View {
-        VStack(spacing: 4) {
-            HStack {
-                Eyebrow(text: "Devices")
-                Spacer()
-            }
-            ZStack {
-                Donut(counts: counts, lineWidth: 12)
-                if counts.needingALook == 0 {
-                    centre("All", "OK", size: 20)
-                } else {
-                    centre(String(counts.needingALook), "need a look", size: 20)
-                }
-            }
-            .frame(maxHeight: .infinity)
-            HStack(spacing: 8) {
-                Text(String(counts.critical)).foregroundColor(.dnCriticalText)
-                Text(String(counts.warning)).foregroundColor(.dnWarningText)
-                Text(String(counts.acknowledged)).foregroundColor(.dnAcknowledgedText)
-                Text(String(counts.ok)).foregroundColor(.dnOkText)
-            }
-            .font(.system(size: 11.5, weight: .semibold, design: .monospaced))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
+        ZStack {
+            Donut(counts: counts, lineWidth: 14)
+            centre(String(counts.total), "devices", size: 24)
         }
+        .padding(4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func percentOk(_ counts: DeviceCounts) -> String {

@@ -3,14 +3,17 @@ import WidgetKit
 
 /// DashyNMS's widgets, all drawn from the snapshot the app saves after each
 /// alert check. The kinds are what a placed widget is tied to: keep them.
+///
+/// Only the mock-ups' set for now: Alerts (small, medium), the alert pie
+/// (small), Overview (large) and the lock screen (circular, rectangular).
+/// Pinned devices and Sensors are left out of the gallery until they're
+/// designed too; their code stays.
 @main
 struct DashyNMSWidgets: WidgetBundle {
     var body: some Widget {
         AlertsWidget()
         AlertPieWidget()
         OverviewWidget()
-        PinnedDevicesWidget()
-        SensorsWidget()
         LockScreenWidget()
     }
 }
@@ -41,8 +44,8 @@ struct Provider: TimelineProvider {
     }
 }
 
-/// Alerts in full: the worst alert (small), three with counts (medium), or
-/// six with their rules wrapped in full (large).
+/// Alerts, as the mock-ups: the worst alert (small), or the counts beside
+/// the three worst (medium).
 struct AlertsWidget: Widget {
     let kind = "DashyNMSAlerts"
 
@@ -52,7 +55,7 @@ struct AlertsWidget: Widget {
         }
         .configurationDisplayName("Alerts")
         .description("Open alerts, worst first, from your last alert check.")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
 
@@ -66,12 +69,10 @@ struct AlertsWidgetView: View {
         Group {
             if !snapshot.signedIn {
                 SignedOutView()
+            } else if family == .systemSmall {
+                small
             } else {
-                switch family {
-                case .systemSmall: small
-                case .systemLarge: large
-                default: medium
-                }
+                medium
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -81,41 +82,28 @@ struct AlertsWidgetView: View {
 
     // MARK: Small
 
+    /// The worst alert: its severity as a pill, the device, the rule, and
+    /// how old it is with the counts underneath.
     private var small: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
-                Eyebrow(text: "Alerts")
-                Spacer()
-                HStack(spacing: 7) {
-                    Text(Format.count(snapshot.critical)).foregroundColor(.dnCriticalText)
-                    Text(Format.count(snapshot.warning)).foregroundColor(.dnWarningText)
-                    Text(Format.count(snapshot.acknowledged)).foregroundColor(.dnAcknowledgedText)
-                }
-                .font(.system(size: 12, weight: .semibold, design: .monospaced))
-            }
-
+        VStack(alignment: .leading, spacing: 3) {
             if let worst = snapshot.activeAlerts.first {
-                Text(worst.severity == "critical" ? "CRITICAL" : "WARNING")
-                    .font(.system(size: 10.5, weight: .bold))
-                    .tracking(0.6)
-                    .foregroundColor(worst.severity == "critical" ? .dnCriticalText : .dnWarningText)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(RoundedRectangle(cornerRadius: 6).fill(worst.severity == "critical" ? Color.dnCriticalTile : Color.dnWarningTile))
-                Text(worst.rule)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.dnText)
-                    .lineLimit(3)
-                    .minimumScaleFactor(0.85)
-                Spacer(minLength: 0)
+                SeverityPill(severity: worst.severity)
+                    .padding(.bottom, 5)
                 Text(worst.device)
-                    .font(.system(size: 12.5))
-                    .foregroundColor(.dnText.opacity(0.85))
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.dnText)
                     .lineLimit(1)
-                Text(smallFooter(worst))
-                    .font(.system(size: 11.5))
+                    .minimumScaleFactor(0.8)
+                Text(worst.rule)
+                    .font(.system(size: 13))
                     .foregroundColor(.dnSecondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+                Text(smallFooter(worst))
+                    .font(.system(size: 11))
+                    .foregroundColor(.dnFaint)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             } else {
                 Spacer(minLength: 0)
                 EmptyMessage(text: "No active alerts.", systemImage: "checkmark.circle.fill")
@@ -124,124 +112,89 @@ struct AlertsWidgetView: View {
         }
     }
 
+    /// "4m · 3 critical, 7 warning".
     private func smallFooter(_ alert: WidgetAlert) -> String {
         let age = Format.age(alert.raisedAt, now: entry.date)
-        let more = snapshot.active - 1
-        let parts = [age.isEmpty ? nil : (age == "just now" ? age : "\(age) ago"), more > 0 ? "\(more) more" : nil].compactMap { $0 }
-        return parts.joined(separator: " · ")
+        let counts = "\(snapshot.critical) critical, \(snapshot.warning) warning"
+        return age.isEmpty ? counts : "\(age == "just now" ? "now" : age) · \(counts)"
     }
 
     // MARK: Medium
 
+    /// The counts in a column at the left, the three worst alerts beside them.
     private var medium: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 10) {
-                Text("\(snapshot.critical) critical").foregroundColor(.dnCriticalText)
-                Text("\(snapshot.warning) warning").foregroundColor(.dnWarningText)
-                if snapshot.acknowledged > 0 {
-                    Text("\(snapshot.acknowledged) ack'd").foregroundColor(.dnAcknowledgedText)
-                }
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 0) {
+                BigCount(value: snapshot.critical, label: "Critical", color: .dnCriticalText)
                 Spacer(minLength: 0)
-                Text(Format.age(snapshot.checkedAt, now: entry.date))
-                    .foregroundColor(.dnSecondary)
-                    .font(.system(size: 11))
+                BigCount(value: snapshot.warning, label: "Warning", color: .dnWarningText)
             }
-            .font(.system(size: 12, weight: .semibold))
-            .lineLimit(1)
+            .frame(width: 70, alignment: .leading)
 
             if snapshot.activeAlerts.isEmpty {
-                Spacer(minLength: 0)
-                EmptyMessage(text: "No active alerts.", systemImage: "checkmark.circle.fill")
-                Spacer(minLength: 0)
-            } else {
-                ForEach(snapshot.activeAlerts.prefix(3), id: \.alertId) { alert in
-                    Link(destination: Links.alert(alert)) {
-                        HStack(alignment: .top, spacing: 9) {
-                            Dot(color: .state(alert.severity)).padding(.top, 5)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(alert.rule)
-                                    .font(.system(size: 13, weight: .semibold))
-                                    .foregroundColor(.dnText)
-                                    .lineLimit(1)
-                                Text(alert.device)
-                                    .font(.system(size: 11.5))
-                                    .foregroundColor(.dnSecondary)
-                                    .lineLimit(1)
-                            }
-                            Spacer(minLength: 4)
-                            Text(Format.age(alert.raisedAt, now: entry.date))
-                                .font(.system(size: 11.5))
-                                .foregroundColor(.dnSecondary)
-                        }
-                    }
+                VStack {
+                    Spacer(minLength: 0)
+                    EmptyMessage(text: "No active alerts.", systemImage: "checkmark.circle.fill")
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
-            }
-        }
-    }
-
-    // MARK: Large
-
-    private var large: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("Alerts")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.dnText)
-                Spacer()
-                Text(Format.checked(snapshot.checkedAt, now: entry.date))
-                    .font(.system(size: 11))
-                    .foregroundColor(.dnSecondary)
-            }
-
-            HStack(spacing: 8) {
-                CountTile(value: snapshot.critical, label: "Critical", text: .dnCriticalText, tile: .dnCriticalTile)
-                CountTile(value: snapshot.warning, label: "Warning", text: .dnWarningText, tile: .dnWarningTile)
-                CountTile(value: snapshot.acknowledged, label: "Acknowledged", text: .dnAcknowledgedText, tile: .dnAcknowledgedTile)
-            }
-
-            if snapshot.alerts.isEmpty {
-                Spacer(minLength: 0)
-                EmptyMessage(text: "No open alerts.", systemImage: "checkmark.circle.fill")
-                Spacer(minLength: 0)
             } else {
-                VStack(alignment: .leading, spacing: 9) {
-                    ForEach(snapshot.alerts.prefix(6), id: \.alertId) { alert in
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(snapshot.activeAlerts.prefix(3).enumerated()), id: \.element.alertId) { index, alert in
+                        if index > 0 {
+                            Spacer(minLength: 0)
+                        }
                         Link(destination: Links.alert(alert)) {
-                            HStack(alignment: .top, spacing: 9) {
-                                Dot(color: alert.acknowledged ? .dnAcknowledged : .state(alert.severity)).padding(.top, 5)
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text(alert.rule)
-                                        .font(.system(size: 13, weight: .semibold))
+                            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                                Dot(color: .state(alert.severity))
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(alert.device)
+                                        .font(.system(size: 14, weight: .semibold))
                                         .foregroundColor(.dnText)
-                                        .lineLimit(2)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                    Text(largeDetail(alert))
-                                        .font(.system(size: 11.5))
+                                        .lineLimit(1)
+                                    Text(alert.rule)
+                                        .font(.system(size: 12))
                                         .foregroundColor(.dnSecondary)
                                         .lineLimit(1)
                                 }
-                                Spacer(minLength: 0)
                             }
-                            .opacity(alert.acknowledged ? 0.6 : 1)
                         }
                     }
-                }
-                Spacer(minLength: 0)
-                let more = snapshot.critical + snapshot.warning + snapshot.acknowledged - min(snapshot.alerts.count, 6)
-                if more > 0 {
-                    Text("\(more) more in the app")
-                        .font(.system(size: 11))
-                        .foregroundColor(.dnSecondary)
                 }
             }
         }
     }
+}
 
-    private func largeDetail(_ alert: WidgetAlert) -> String {
-        let age = Format.age(alert.raisedAt, now: entry.date)
-        return [alert.device, age.isEmpty ? nil : age, alert.acknowledged ? "Acknowledged" : nil]
-            .compactMap { $0 }
-            .joined(separator: " · ")
+/// A severity as the mock-ups' tinted pill: "Critical".
+struct SeverityPill: View {
+    let severity: String
+
+    var body: some View {
+        Text(severity == "critical" ? "Critical" : severity == "warning" ? "Warning" : "OK")
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundColor(Color.stateText(severity))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Capsule().fill(Color.state(severity).opacity(0.18)))
+    }
+}
+
+/// A count over its label, as the medium Alerts widget's column.
+struct BigCount: View {
+    let value: Int
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(Format.count(value))
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundColor(.dnSecondary)
+        }
     }
 }

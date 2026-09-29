@@ -6,6 +6,7 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="sections:DeviceSectionViewModel"
+    SafeAreaEdges="Container"
     Title="{Binding Title}">
 
     <!-- Any Device View section: its rows, in titled groups. -->

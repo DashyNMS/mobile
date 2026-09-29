@@ -19,6 +19,11 @@ public sealed class GraphView : WebView
     {
         BackgroundColor = Colors.Transparent;
         VerticalOptions = LayoutOptions.Start;
+
+        // A height before the first layout: a web view with none measures as
+        // nothing, and in Device View's card grid it stayed that way - the
+        // ping graph drew blank. The width sets the real height from here.
+        HeightRequest = 200;
         SizeChanged += (_, _) =>
         {
             if (Width > 0)
