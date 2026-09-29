@@ -210,9 +210,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenThresholdsAsync() => _navigation.GoToAsync(Routes.Thresholds);
 
-    /// <summary>"On Â· graylog.example.com", or "Off" - the Graylog row's second line.</summary>
+    /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
     public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
-        ? "On Â· " + server.Trim()
+        ? "On · " + server.Trim()
         : "Off";
 
     [RelayCommand]
@@ -348,21 +348,21 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>The server card's name line: just the host, the address in full is on its page.</summary>
     public string ServerHost => _session.Connection?.WebRoot.Host ?? "Not signed in";
 
-    /// <summary>"LibreNMS 25.9.0 Â· https", with plain http called out (#3).</summary>
-    public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " Â· not secure (http)" : " Â· https");
+    /// <summary>"LibreNMS 25.9.0 · https", with plain http called out (#3).</summary>
+    public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
 
     public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)];
 
-    /// <summary>"Hostname Â· 10 recently viewed".</summary>
-    public string DevicesSummary => DeviceNameStyles[Math.Max(0, DeviceNameStyleIndex)] + " Â· " + (ShowRecentlyViewed
+    /// <summary>"Hostname · 10 recently viewed".</summary>
+    public string DevicesSummary => DeviceNameStyles[Math.Max(0, DeviceNameStyleIndex)] + " · " + (ShowRecentlyViewed
         ? _bookmarks.RecentlyViewedCount.ToString(CultureInfo.CurrentCulture) + " recently viewed"
         : "recently viewed off");
 
-    /// <summary>"Every 1 minute while open Â· icon badge on".</summary>
+    /// <summary>"Every 1 minute while open · icon badge on".</summary>
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
-        + (CanShowAppBadge ? (ShowAppBadge ? " Â· icon badge on" : " Â· icon badge off") : string.Empty);
+        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" : " · icon badge off") : string.Empty);
 
-    /// <summary>"Critical and warnings Â· quiet 22:00-07:00", or "Off".</summary>
+    /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
     public string NotificationsSummary
     {
         get
@@ -379,7 +379,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
                 (false, true) => "Warnings only",
                 _ => "No severities",
             };
-            return QuietHoursEnabled ? which + " Â· quiet " + Hours[QuietHoursStart] + "–" + Hours[QuietHoursEnd] : which;
+            return QuietHoursEnabled ? which + " · quiet " + Hours[QuietHoursStart] + "–" + Hours[QuietHoursEnd] : which;
         }
     }
 
