@@ -15,7 +15,7 @@ public interface IAlertNotifier
 /// <summary>
 /// Runs <see cref="AlertWatcher.CheckAsync"/> while the app isn't open -
 /// WorkManager on Android, background app refresh on iOS. Both decide the
-/// exact timing themselves; see the README for what to expect.
+/// exact timing themselves; see docs/DEVELOPING.md for what to expect.
 /// </summary>
 public interface IBackgroundAlertScheduler
 {
