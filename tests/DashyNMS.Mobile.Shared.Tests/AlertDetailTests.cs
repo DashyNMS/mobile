@@ -60,10 +60,11 @@ public sealed class AlertDetailViewModelTests
 
         var fault = Assert.Single(vm.Groups[1]);
         Assert.Equal("Gi0/1 - uplink", fault.Title);
-        Assert.Equal("ifInErrors_delta: 812", fault.Subtitle); // the column the rule tests
-        Assert.Null(fault.Detail);                               // the rest only when asked (#46)
+        Assert.Equal([new SectionField("ifInErrors_delta", "812")], fault.Fields); // the column the rule tests; the rest only when asked (#46)
         Assert.Equal(RowStatus.Critical, fault.Status);
         Assert.True(vm.HasMoreFields);
+        Assert.Equal("Show all fields", vm.Groups[1].FooterText); // on the card itself (Batch 11)
+        Assert.Same(vm.ToggleAllFieldsCommand, vm.Groups[1].FooterCommand);
 
         var ruleRow = vm.Groups[2][0];
         Assert.Equal("Port errors", ruleRow.Title);
@@ -77,8 +78,9 @@ public sealed class AlertDetailViewModelTests
         // Show all fields: everything else measured, smaller, for every match.
         vm.ToggleAllFieldsCommand.Execute(null);
         var full = Assert.Single(vm.Groups[1]);
-        Assert.Equal("ifInErrors_delta: 812", full.Subtitle);
-        Assert.Contains("ifSpeed", full.Detail);
+        Assert.Equal(new SectionField("ifInErrors_delta", "812"), full.Fields[0]);
+        Assert.Contains(full.Fields, f => f.Name == "ifSpeed" && f.IsSecondary);
+        Assert.Equal("Show only what the rule tests", vm.Groups[1].FooterText);
         Assert.Equal("Show only what the rule tests", vm.AllFieldsText);
     }
 
@@ -143,6 +145,18 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal(5, visit.Parameters![Routes.AlertIdParameter]);
         Assert.Equal(3, visit.Parameters[Routes.DeviceIdParameter]);
     }
+
+    [Theory]
+    [InlineData(
+        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\" AND sensors.sensor_alert = 1 AND (macros.a = 1 OR (b = 2 AND c = 3))",
+        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\"\nAND sensors.sensor_alert = 1\nAND (macros.a = 1 OR (b = 2 AND c = 3))")]
+    [InlineData(
+        "%bgpPeers.bgpPeerState != \"established\" && %macros.device_up = 1 || x = 'a OR b'",
+        "%bgpPeers.bgpPeerState != \"established\"\n&& %macros.device_up = 1\n|| x = 'a OR b'")]
+    [InlineData("ports.ifOperStatus = \"down\"", "ports.ifOperStatus = \"down\"")]
+    [InlineData("hostname = \"ANDROID\" and vendor = 'x'", "hostname = \"ANDROID\"\nand vendor = 'x'")]
+    public void Breaks_the_rule_condition_at_its_top_level_ands_and_ors(string condition, string expected) =>
+        Assert.Equal(expected, AlertDetailViewModel.BreakCondition(condition));
 }
 
 public sealed class AlertNotificationTargetTests

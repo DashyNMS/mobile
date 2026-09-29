@@ -19,14 +19,15 @@
 
     <!-- The card grid's templates: ping and active alerts draw from the
          page's view model, the sections from their own card - one grid, so
-         a three-column tablet has no gap after the first two (#69). -->
+         a three-column tablet has no gap after the first two (#69).
+         Each binding finds the view model itself: a BindingContext bound to
+         it with RelativeSource found nothing here, so the Ping response card
+         never showed (Batch 11). -->
     <ContentPage.Resources>
         <pages:DeviceCardTemplateSelector x:Key="GridCardTemplates">
             <pages:DeviceCardTemplateSelector.Ping>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
-                    <ContentView x:DataType="vm:DeviceDetailViewModel"
-                                 BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}"
-                                 IsVisible="{Binding PingGraphPage, Converter={StaticResource IsNotNull}}">
+                    <ContentView IsVisible="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource IsNotNull}}">
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -34,11 +35,11 @@
                                     <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="24h" />
                                 </Grid>
                                 <Grid>
-                                    <controls:GraphView Html="{Binding PingGraphPage}" />
+                                    <controls:GraphView Html="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
                                     <!-- The web view would swallow taps. -->
                                     <BoxView Color="Transparent">
                                         <BoxView.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding OpenGraphsCommand}" />
+                                            <TapGestureRecognizer Command="{Binding OpenGraphsCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
                                         </BoxView.GestureRecognizers>
                                     </BoxView>
                                 </Grid>
@@ -49,16 +50,17 @@
             </pages:DeviceCardTemplateSelector.Ping>
             <pages:DeviceCardTemplateSelector.Alerts>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
-                    <ContentView x:DataType="vm:DeviceDetailViewModel"
-                                 BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}">
+                    <ContentView>
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <Label Style="{StaticResource CardTitle}" Text="Active alerts" />
-                                    <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="{Binding ActiveAlertsNote}" />
+                                    <Label Grid.Column="1" Style="{StaticResource CardNote}"
+                                           Text="{Binding ActiveAlertsNote, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
                                 </Grid>
-                                <Label Style="{StaticResource Caption}" Text="No active alerts." IsVisible="{Binding HasAlerts, Converter={StaticResource Invert}}" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Spacing="6">
+                                <Label Style="{StaticResource Caption}" Text="No active alerts."
+                                       IsVisible="{Binding HasAlerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource Invert}}" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" Spacing="6">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AlertItem">
                                             <Grid ColumnDefinitions="10,*" ColumnSpacing="10">
