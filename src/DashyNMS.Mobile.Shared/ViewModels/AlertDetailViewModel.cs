@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
@@ -175,7 +176,20 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
         var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
         HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
-        Groups.ReplaceAll(BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields));
+        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields).ToList();
+        if (HasMoreFields || ShowAllFields)
+        {
+            // The link on Why it fired's card. On the group rather than bound
+            // back to this view model from inside the card list, where the
+            // binding found nothing and left an empty gap (Batch 11).
+            foreach (var group in groups.Where(g => g.HasFields))
+            {
+                group.FooterText = AllFieldsText;
+                group.FooterCommand = ToggleAllFieldsCommand;
+            }
+        }
+
+        Groups.ReplaceAll(groups);
         OnPropertyChanged(nameof(CardGroups));
     }
 
@@ -306,11 +320,13 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     /// </summary>
     internal static SectionRow FaultRow(AlertFault fault, RowStatus status, bool showAllFields = false) => new(fault.Title)
     {
-        IsCode = true,
-        Subtitle = Fields(showAllFields || fault.HasTriggerFields
-            ? fault.PrimaryFields
-            : fault.PrimaryFields.Take(UntestedFieldsShown).ToList()),
-        Detail = showAllFields ? Fields(fault.SecondaryFields) : null,
+        Fields =
+        [
+            .. (showAllFields || fault.HasTriggerFields ? fault.PrimaryFields : fault.PrimaryFields.Take(UntestedFieldsShown))
+                .Select(f => new SectionField(f.Name, f.Value)),
+            .. (showAllFields ? fault.SecondaryFields : [])
+                .Select(f => new SectionField(f.Name, f.Value, IsSecondary: true)),
+        ],
         Status = status,
     };
 
@@ -326,28 +342,91 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             ? rule.Query
             : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query;
 
+        // As the mock-up: the rule's name over its condition, and notes and
+        // procedure below, without lines between - one card, not a list. The
+        // severity is in the header already; only "Disabled" is news here.
         yield return new SectionRow(rule.Name ?? $"Rule {rule.Id}")
         {
-            Value = rule.Disabled ? "Disabled" : rule.Severity.ToDisplayString(),
-            Status = rule.Disabled ? RowStatus.Inactive : StatusFor(rule.Severity),
-            Subtitle = string.IsNullOrWhiteSpace(condition) ? null : condition,
+            Value = rule.Disabled ? "Disabled" : null,
+            Status = rule.Disabled ? RowStatus.Inactive : RowStatus.None,
+            Subtitle = string.IsNullOrWhiteSpace(condition) ? null : BreakCondition(condition.Trim()),
             IsCode = true,
+            IsStacked = true,
             Detail = rule.Extra?.Invert == true ? "Inverted: alerts when the condition doesn't match" : null,
         };
 
         if (!string.IsNullOrWhiteSpace(rule.Notes))
         {
-            yield return new SectionRow("Notes") { Subtitle = rule.Notes };
+            yield return new SectionRow("Notes") { Subtitle = rule.Notes, IsStacked = true };
         }
 
         if (!string.IsNullOrWhiteSpace(rule.Procedure))
         {
-            yield return new SectionRow("Procedure") { Subtitle = rule.Procedure };
+            yield return new SectionRow("Procedure") { Subtitle = rule.Procedure, IsStacked = true };
         }
     }
 
-    private static string? Fields(IReadOnlyList<AlertFaultField> fields) =>
-        fields.Count == 0 ? null : string.Join("\n", fields.Select(f => $"{f.Name}: {f.Value}"));
+    /// <summary>
+    /// A rule's condition with each top-level AND / OR starting a line, as
+    /// the mock-up's rule card: one run-on line was hard to read (Batch 11).
+    /// Bracketed groups and quoted text ("(power|psu)") stay as they are.
+    /// </summary>
+    internal static string BreakCondition(string condition)
+    {
+        var text = new StringBuilder(condition.Length + 16);
+        var depth = 0;
+        char? quote = null;
+        for (var i = 0; i < condition.Length; i++)
+        {
+            var c = condition[i];
+            if (quote is not null)
+            {
+                if (c == quote)
+                {
+                    quote = null;
+                }
+            }
+            else if (c is '"' or '\'')
+            {
+                quote = c;
+            }
+            else if (c == '(')
+            {
+                depth++;
+            }
+            else if (c == ')')
+            {
+                depth = Math.Max(0, depth - 1);
+            }
+            else if (depth == 0 && c == ' ' && StartsOperator(condition, i + 1) is { } length)
+            {
+                // " AND x" -> "\nAND x": the operator leads its line.
+                text.Append('\n').Append(condition, i + 1, length);
+                i += length;
+                continue;
+            }
+
+            text.Append(c);
+        }
+
+        return text.ToString();
+    }
+
+    /// <summary>The length of an AND / OR / &amp;&amp; / || starting at <paramref name="at"/> and followed by a space.</summary>
+    private static int? StartsOperator(string text, int at)
+    {
+        foreach (var op in (string[])["AND", "OR", "&&", "||"])
+        {
+            if (at + op.Length < text.Length
+                && string.Compare(text, at, op, 0, op.Length, StringComparison.OrdinalIgnoreCase) == 0
+                && text[at + op.Length] == ' ')
+            {
+                return op.Length;
+            }
+        }
+
+        return null;
+    }
 
     private static RowStatus StatusFor(AlertSeverity severity) => severity switch
     {

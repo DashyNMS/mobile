@@ -69,15 +69,37 @@
                                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding .}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="sections:SectionRow">
-                                                <VerticalStackLayout Spacing="4" Padding="0,8,0,0">
-                                                    <BoxView Style="{StaticResource Divider}" Margin="0,0,0,6" />
-                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <VerticalStackLayout Spacing="6" Padding="0,6,0,0">
+                                                    <!-- A line between list rows; none within the rule's block. -->
+                                                    <BoxView Style="{StaticResource Divider}" Margin="0,0,0,4" IsVisible="{Binding HasDivider}" />
+                                                    <Label Style="{StaticResource Caption}" Text="{Binding Title}" IsVisible="{Binding HasCaptionTitle}" />
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding HasHeadingTitle}">
                                                         <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="14" />
                                                         <Label Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding HasValue}" FontSize="13"
                                                                HorizontalTextAlignment="End"
                                                                TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                                     </Grid>
-                                                    <!-- Fields and conditions as the mock-up's code block; prose (notes, procedure) as text. -->
+                                                    <!-- Why it fired's fields, one to a line - name, then value - as the mock-up. -->
+                                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Fields}" IsVisible="{Binding HasFields}">
+                                                        <BindableLayout.ItemTemplate>
+                                                            <DataTemplate x:DataType="sections:SectionField">
+                                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="2*,3*" ColumnSpacing="12" RowSpacing="8" Padding="0,4,0,4">
+                                                                    <Grid.Triggers>
+                                                                        <!-- The fields the rule doesn't test, after "Show all fields". -->
+                                                                        <DataTrigger TargetType="Grid" Binding="{Binding IsSecondary}" Value="True">
+                                                                            <Setter Property="Opacity" Value="0.65" />
+                                                                        </DataTrigger>
+                                                                    </Grid.Triggers>
+                                                                    <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" />
+                                                                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding Name}"
+                                                                           FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding Value}"
+                                                                           FontFamily="Mono" FontSize="13" LineBreakMode="CharacterWrap" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </BindableLayout.ItemTemplate>
+                                                    </VerticalStackLayout>
+                                                    <!-- The rule's condition as the mock-up's code block; prose (notes, procedure) as text. -->
                                                     <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10"
                                                             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}"
                                                             IsVisible="{Binding HasCode}">
@@ -94,12 +116,8 @@
                                     </VerticalStackLayout>
 
                                     <!-- "Show all fields", in Why it fired's own card. -->
-                                    <ContentView IsVisible="{Binding HasFields}">
-                                        <Button Style="{StaticResource LinkButton}" HorizontalOptions="Start" Padding="0" Margin="0,6,0,0"
-                                                x:DataType="vm:AlertDetailViewModel"
-                                                BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:AlertDetailViewModel}}}"
-                                                Text="{Binding AllFieldsText}" Command="{Binding ToggleAllFieldsCommand}" IsVisible="{Binding HasMoreFields}" />
-                                    </ContentView>
+                                    <Button Style="{StaticResource LinkButton}" HorizontalOptions="Start" Padding="0" Margin="0,6,0,0"
+                                            Text="{Binding FooterText}" Command="{Binding FooterCommand}" IsVisible="{Binding HasFooter}" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
