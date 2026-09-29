@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:services="clr-namespace:DashyNMS.Mobile.Services;assembly=DashyNMS.Mobile.Shared"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:SettingsViewModel"
     ios:Page.UseSafeArea="True"
@@ -114,6 +115,37 @@
                             <Label Text="Graylog" FontSize="15" FontFamily="BodySemibold" />
                             <Label Style="{StaticResource Faint}" Text="{Binding GraylogStatusText}" LineBreakMode="TailTruncation" />
                         </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- About: the privacy policy has to be reachable in the app as
+                 well as on the store listing (App Store guideline 5.1.1). -->
+            <Label Style="{StaticResource SectionHeader}" Text="About" Margin="4,4,0,-4" />
+            <Border Style="{StaticResource Card}" Padding="14,0">
+                <VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
+                        </Grid.GestureRecognizers>
+                        <Label Text="Privacy policy" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
+                        </Grid.GestureRecognizers>
+                        <Label Text="Help and support" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Website}" />
+                        </Grid.GestureRecognizers>
+                        <Label Text="DashyNMS website" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
                         <Label Grid.Column="1" Style="{StaticResource Chevron}" />
                     </Grid>
                 </VerticalStackLayout>

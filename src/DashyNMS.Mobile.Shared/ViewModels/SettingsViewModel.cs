@@ -43,6 +43,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly IShareService? _share;
     private readonly Graylog.GraylogSetup? _graylog;
     private readonly INotificationPrivacy _privacy;
+    private readonly ILauncherService? _launcher;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -60,9 +61,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DeviceBookmarks? bookmarks = null,
         IShareService? share = null,
         Graylog.GraylogSetup? graylog = null,
-        INotificationPrivacy? privacy = null)
+        INotificationPrivacy? privacy = null,
+        ILauncherService? launcher = null)
     {
         _privacy = privacy ?? new SystemNotificationPrivacy();
+        _launcher = launcher;
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
         _share = share;
         _graylog = graylog;
@@ -87,6 +90,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     public string AppVersion { get; } =
         typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
+
+    /// <summary>The About card's links - privacy policy, help, the website (see <see cref="AppLinks"/>) - in the browser.</summary>
+    [RelayCommand]
+    private Task OpenLinkAsync(Uri? link) =>
+        link is null || _launcher is null ? Task.CompletedTask : _launcher.OpenAsync(link);
 
     /// <summary>"00:00" to "23:00", for the quiet-hours pickers (index = hour).</summary>
     public IReadOnlyList<string> Hours { get; } =
