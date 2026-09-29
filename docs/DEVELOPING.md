@@ -117,9 +117,8 @@ rather than rewritten.
 
   Tap an alert or device to open it, anywhere else for the alert list.
   Android's are normal app widgets that show more as they're resized.
-  iPhone's are a Swift WidgetKit extension (`ios-widget/`), which needs a
-  one-off App Group setup before TestFlight builds include it; see
-  [docs/RELEASING-IOS.md](RELEASING-IOS.md#home-screen-widget).
+  iPhone's are a Swift WidgetKit extension (`ios-widget/`), which uses an
+  App Group, set up for TestFlight builds (see [Releasing](#releasing)).
 - **More** (the last tab): every page, under Monitor, Network, Logs and App
   headings. Pin up to three to the tab bar beside Dashboard and More, which
   always stay. Devices, Alerts and Health are pinned until you choose; a page
@@ -236,9 +235,47 @@ Or open `DashyNMS.Mobile.slnx` in Visual Studio or Rider.
 CI (`.github/workflows/ci.yml`) runs both test suites, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
-To ship an iOS build to testers, see [docs/RELEASING-IOS.md](RELEASING-IOS.md).
-The manually triggered **TestFlight** workflow signs the app and uploads it to
-App Store Connect, with no Mac needed.
+To ship an iOS build, see [Releasing](#releasing) below. The manually
+triggered **TestFlight** workflow signs the app and uploads it to App Store
+Connect, with no Mac needed.
+
+## Releasing
+
+The one-time Apple setup (App IDs, the App Group, certificates and profiles)
+is done; the old step-by-step guide for it is in git history as
+`docs/RELEASING-IOS.md` if it's ever needed again.
+
+**Each release:**
+
+1. Bump `<Version>` in `Directory.Build.props` for a new version (the
+   display version, for example `1.1.0`). Build numbers are set
+   automatically, so repeat uploads of one version are fine.
+2. Actions → **TestFlight** → *Run workflow* on `main`, and approve the run.
+   Leave *Build number* blank unless you need a particular one.
+3. The build appears in App Store Connect → **TestFlight** once Apple has
+   processed it (typically 5-30 minutes). Test it, then choose it on the
+   version page and submit.
+
+**The workflow's secrets** live in the `testflight` environment (only `main`
+can use them, and a maintainer approves each run), not in repository secrets:
+
+| Secret | What it is |
+| --- | --- |
+| `IOS_DIST_CERT_P12_BASE64` / `IOS_DIST_CERT_PASSWORD` | The Apple Distribution certificate, base64, and its password |
+| `IOS_PROVISIONING_PROFILE_BASE64` | The app's App Store profile (with the App Group) |
+| `IOS_WIDGET_PROVISIONING_PROFILE_BASE64` | The widget's profile; without it builds ship the app alone |
+| `APPSTORE_API_KEY_ID` / `APPSTORE_API_ISSUER_ID` / `APPSTORE_API_PRIVATE_KEY` | The App Store Connect API key the upload uses (the `.p8`'s whole contents) |
+
+**Worth knowing:**
+
+- The distribution certificate expires after a year, and the profiles with
+  it: renew them and update the signing secrets.
+- A build number App Store Connect has already seen is rejected. The
+  workflow uses its run number + 100; if that collides, raise the
+  `IOS_BUILD_NUMBER_OFFSET` repository variable or type a number in.
+- `ITSAppUsesNonExemptEncryption` is `false` (standard HTTPS only), which
+  skips the export-compliance question on each build. Revisit it if the app
+  ever adds its own cryptography.
 
 ## Feature parity
 

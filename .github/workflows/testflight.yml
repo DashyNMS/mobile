@@ -2,7 +2,7 @@ name: TestFlight
 
 # Builds a signed App Store IPA and uploads it to TestFlight. Run it by hand
 # from the Actions tab (or `gh workflow run testflight.yml`); see
-# docs/RELEASING-IOS.md for the one-time Apple setup and the secrets it needs.
+# docs/DEVELOPING.md, "Releasing", for the steps and the secrets it needs.
 on:
   workflow_dispatch:
     inputs:
@@ -25,13 +25,13 @@ jobs:
     # The signing certificate and App Store Connect key live in this
     # environment's secrets, which only main can use and a maintainer has to
     # approve - so a workflow edited on another branch can't read them (#5).
-    # See docs/RELEASING-IOS.md, "Protecting the signing secrets".
+    # See docs/DEVELOPING.md, "Releasing".
     environment: testflight
     runs-on: macos-26
     timeout-minutes: 60
     env:
       # The home-screen widget ships only once its profile is in secrets
-      # (docs/RELEASING-IOS.md, "Home-screen widget"); until then builds are
+      # (docs/DEVELOPING.md, "Releasing"); until then builds are
       # the app alone, exactly as before.
       WITH_WIDGET: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 != '' }}
     steps:
