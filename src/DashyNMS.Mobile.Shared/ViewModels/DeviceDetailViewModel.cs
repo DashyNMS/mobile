@@ -284,7 +284,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                     ("Contact", d.Contact),
                     ("Groups", _groups.Count > 0 ? string.Join(", ", _groups) : null),
                     ("Depends on", d.DependencyParentHostname),
-                    ("Added", d.Inserted is { } added ? DesktopNMS.Core.ServerTime.ToLocal(added, utc)?.ToString("d MMM yyyy", CultureInfo.CurrentCulture) : null),
+                    ("Added", d.Inserted is { } added ? DesktopNMS.Core.ServerTime.ToLocal(added, utc).ToString("d MMM yyyy", CultureInfo.CurrentCulture) : null),
                     ("Last discovered", d.LastDiscovered is { } at ? Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, utc)) : null),
                     ("Object ID", d.SysObjectId),
                     ("Description", d.SysDescr),
