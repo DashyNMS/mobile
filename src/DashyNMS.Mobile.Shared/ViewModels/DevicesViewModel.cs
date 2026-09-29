@@ -310,7 +310,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
             .ToList();
 
         RebuildFacet(TypeOptions, AllTypes, _all.Select(d => d.Device.Type), TypeLabel, v => SelectedType = v, SelectedType);
-        RebuildFacet(LocationOptions, AllLocations, _all.Select(d => d.Device.Location), v => Blank(v), v => SelectedLocation = v, SelectedLocation);
+        RebuildFacet(LocationOptions, AllLocations, _all.Select(d => d.Device.LocationName()), v => Blank(v), v => SelectedLocation = v, SelectedLocation);
         ApplyFilter();
 
         // The list is up; the slower extras fill in behind it.
@@ -405,7 +405,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
         if (!stateAllowed
             || (SelectedType.Key is { } type && !string.Equals(device.Device.Type ?? string.Empty, type, StringComparison.OrdinalIgnoreCase))
-            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.Location ?? string.Empty, location, StringComparison.Ordinal))
+            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.LocationName() ?? string.Empty, location, StringComparison.Ordinal))
             || (SelectedGroup.Key is { } group && !GroupsOrNone(device.DeviceId).Contains(group)))
         {
             return false;
@@ -447,7 +447,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         DeviceSort.Status => By(d => StatusRank(d.State)),
         DeviceSort.IpAddress => Comparer<DeviceItem>.Create(CompareIp),
         DeviceSort.Uptime => By(d => d.Device.State == DeviceState.Up ? d.Device.Uptime : long.MaxValue),
-        DeviceSort.Location => ByText(d => d.Device.Location),
+        DeviceSort.Location => ByText(d => d.Device.LocationName()),
         DeviceSort.Os => ByText(d => d.Device.Os),
         DeviceSort.Hardware => ByText(d => d.Device.Hardware),
         _ => Comparer<DeviceItem>.Create((a, b) => StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name)),

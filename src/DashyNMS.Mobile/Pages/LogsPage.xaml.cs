@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Logs;
 using DashyNMS.Mobile.Services;
 
@@ -12,6 +13,7 @@ public partial class LogsPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		SearchReveal.Attach(List, Search);
 	}
 
 	protected override void OnAppearing()

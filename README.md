@@ -103,17 +103,14 @@ rather than rewritten.
   Warning / OK chips and search. Tap a sensor for its device's sensors.
 - **Home-screen widgets**, drawn from the snapshot each alert check saves,
   so they stay current in the background and never hold the API token:
-  - *Alerts*: the worst alert in full (small), three with counts (medium),
-    or six with their rules wrapped, acknowledged ones last (large).
-  - *Alert pie chart*: every device once, by its worst alert - critical,
-    warning, acknowledged or OK - with the devices behind the red and amber
-    on the large size.
+  The set in the design mock-ups:
+  - *Alerts*: the worst alert with its severity, device and rule (small), or
+    the critical and warning counts beside the three worst (medium).
+  - *Alert pie chart* (small): every device once, by its worst alert -
+    critical, warning, acknowledged or OK - with the count in the middle.
   - *Overview* (large): a devices bar, up/down/disabled, alert counts and the
     top alerts.
-  - *Pinned devices* and *Sensors* (medium, large): the app's pinned devices,
-    and the dashboard Sensors card's sensors against their limits. Sensors
-    are only read while some are picked, at most every 15 minutes.
-  - *Lock screen* (iPhone): inline, circular and rectangular. Counts only
+  - *Lock screen* (iPhone): circular and rectangular. Counts only
     unless Settings → Lock screen widgets → Hide alert details is turned off.
 
   Tap an alert or device to open it, anywhere else for the alert list.

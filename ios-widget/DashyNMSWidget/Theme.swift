@@ -13,10 +13,11 @@ extension Color {
     }
 
     static let dnBackground = Color(hex: 0x171B23)
-    static let dnTile = Color(hex: 0x1F2430)
+    static let dnTile = Color(hex: 0x1E2430)
     static let dnTrack = Color(hex: 0x262C38)
-    static let dnText = Color(hex: 0xE6EAF0)
-    static let dnSecondary = Color(hex: 0x8B93A1)
+    static let dnText = Color(hex: 0xE8EEF6)
+    static let dnSecondary = Color(hex: 0xA3ADBB)
+    static let dnFaint = Color(hex: 0x7F8A9A)
 
     static let dnCritical = Color(hex: 0xDA3633)
     static let dnWarning = Color(hex: 0xDB9A04)
@@ -25,7 +26,7 @@ extension Color {
     static let dnInactive = Color(hex: 0x6E6E6E)
 
     static let dnCriticalText = Color(hex: 0xFF7B72)
-    static let dnWarningText = Color(hex: 0xE3B341)
+    static let dnWarningText = Color(hex: 0xF2C14E)
     static let dnAcknowledgedText = Color(hex: 0x9AA6BE)
     static let dnOkText = Color(hex: 0x56D364)
 

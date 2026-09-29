@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 
@@ -39,7 +40,7 @@ public sealed partial class DeviceItem : ObservableObject
     public string? AlternateName => _nameStyle.ResolveSecondary(Device, Device.Hostname, Name);
 
     /// <summary>"10.0.0.1 · Cisco C9300 · London DC" - whichever of those are known.</summary>
-    public string Details => string.Join(" · ", new[] { Device.Ip, Device.Hardware, Device.Location }
+    public string Details => string.Join(" · ", new[] { Device.Ip, Device.Hardware, Device.LocationName() }
         .Where(s => !string.IsNullOrWhiteSpace(s)));
 
     /// <summary>As desktop: maintenance takes over from up/down while a window is open.</summary>
@@ -58,7 +59,7 @@ public sealed partial class DeviceItem : ObservableObject
         || Contains(Device.Ip, term)
         || Contains(Device.Os, term)
         || Contains(Device.Hardware, term)
-        || Contains(Device.Location, term)
+        || Contains(Device.LocationName(), term)
         || Contains(Device.Type, term)
         || Contains(Device.Contact, term)
         || Contains(Device.Serial, term)

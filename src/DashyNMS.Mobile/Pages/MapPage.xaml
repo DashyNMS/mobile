@@ -6,6 +6,7 @@
     xmlns:map="clr-namespace:DashyNMS.Mobile.Map;assembly=DashyNMS.Mobile.Shared"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="map:MapViewModel"
+    SafeAreaEdges="Container"
     Title="Map">
 
     <ContentPage.ToolbarItems>

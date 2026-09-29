@@ -42,6 +42,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasAlert))]
     [NotifyPropertyChangedFor(nameof(CanAcknowledge))]
     [NotifyPropertyChangedFor(nameof(CanUnacknowledge))]
+    [NotifyPropertyChangedFor(nameof(RaisedText))]
     private AlertItem? _alert;
 
     [ObservableProperty]
@@ -81,6 +82,22 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     /// <summary>Alert facts, faults, the rule and history, as Device View's grouped rows.</summary>
     public BulkObservableCollection<SectionGroup> Groups { get; } = new();
 
+    /// <summary>
+    /// The groups drawn as cards under the header: all but "Alert", whose
+    /// device, severity, state and time the header card already shows.
+    /// </summary>
+    public IReadOnlyList<SectionGroup> CardGroups => Groups.Where(g => g.Name != AlertGroupName).ToList();
+
+    /// <summary>"Raised 38m ago, 09:14 · #4821" - the header card's quiet line.</summary>
+    public string? RaisedText => Alert is not { } alert ? null : string.Join(" · ", new[]
+    {
+        "Raised " + (alert.AgeText.Length > 0 ? alert.AgeText : "at an unknown time")
+            + (alert.LocalTimestamp is { } at ? ", " + at.ToString("HH:mm", CultureInfo.CurrentCulture) : string.Empty),
+        "#" + alert.Id.ToString(CultureInfo.InvariantCulture),
+    });
+
+    internal const string AlertGroupName = "Alert";
+
     public Task LoadAsync(int alertId, int? deviceId = null)
     {
         AlertId = alertId;
@@ -100,6 +117,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             IsGone = true;
             Title = "Alert cleared";
             Groups.ReplaceAll([]);
+            OnPropertyChanged(nameof(CardGroups));
             return;
         }
 
@@ -158,6 +176,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
         HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
         Groups.ReplaceAll(BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields));
+        OnPropertyChanged(nameof(CardGroups));
     }
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
@@ -233,7 +252,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             facts.Add(new SectionRow("Note") { Subtitle = note });
         }
 
-        yield return new SectionGroup("Alert", facts);
+        yield return new SectionGroup(AlertGroupName, facts);
 
         // The newest log entry for the rule carries the faults for the alert showing now.
         var detail = AlertFaultParser.Parse(ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(rule));
@@ -241,7 +260,10 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         {
             yield return new SectionGroup(
                 detail.Faults.Count == 1 ? "Why it fired" : $"Why it fired · {detail.Faults.Count} matches",
-                detail.Faults.Select(f => FaultRow(f, status, showAllFields)));
+                detail.Faults.Select(f => FaultRow(f, status, showAllFields)))
+            {
+                HasFields = true,
+            };
         }
 
         if (detail.Resolved.Count > 0)
@@ -284,6 +306,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     /// </summary>
     internal static SectionRow FaultRow(AlertFault fault, RowStatus status, bool showAllFields = false) => new(fault.Title)
     {
+        IsCode = true,
         Subtitle = Fields(showAllFields || fault.HasTriggerFields
             ? fault.PrimaryFields
             : fault.PrimaryFields.Take(UntestedFieldsShown).ToList()),
@@ -308,6 +331,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             Value = rule.Disabled ? "Disabled" : rule.Severity.ToDisplayString(),
             Status = rule.Disabled ? RowStatus.Inactive : StatusFor(rule.Severity),
             Subtitle = string.IsNullOrWhiteSpace(condition) ? null : condition,
+            IsCode = true,
             Detail = rule.Extra?.Invert == true ? "Inverted: alerts when the condition doesn't match" : null,
         };
 

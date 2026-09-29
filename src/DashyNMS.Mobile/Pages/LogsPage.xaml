@@ -9,6 +9,7 @@
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="logs:LogsViewModel"
     ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Logs">
 
     <!-- As the Logs mock-up (#69): Event log / Alert log as a segmented
@@ -39,13 +40,16 @@
             </Grid>
         </Border>
 
-        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search what's loaded" Margin="0,6,0,4" />
-
         <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
         <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-                <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None">
+                <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
+                    <!-- The search box sits above the first row, tucked out of sight until the
+                         list is pulled down - see SearchReveal. -->
+                    <CollectionView.Header>
+                        <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search the log" Margin="6,6,6,2" />
+                    </CollectionView.Header>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />

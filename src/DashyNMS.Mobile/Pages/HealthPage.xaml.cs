@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Pages;
@@ -10,6 +11,7 @@ public partial class HealthPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		SearchReveal.Attach(List, Search);
 	}
 
 	protected override void OnAppearing()

@@ -20,6 +20,7 @@ public static class MauiProgram
 				fonts.AddFont("IBMPlexSans-Regular.ttf", "BodyRegular");
 				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "BodySemibold");
 				fonts.AddFont("Sora-Bold.ttf", "Display");
+				fonts.AddFont("IBMPlexMono-Regular.ttf", "Mono");
 			});
 
 #if DEBUG

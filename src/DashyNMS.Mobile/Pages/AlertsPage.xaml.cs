@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 
@@ -12,6 +13,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		SearchReveal.Attach(List, Search);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
