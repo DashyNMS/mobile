@@ -56,6 +56,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INotificationPrivacy, SystemNotificationPrivacy>();
         services.AddSingleton<IHomeWidgets, NoHomeWidgets>();
         services.AddSingleton<IAppearance, InMemoryAppearance>();
+        services.AddSingleton<IAppPreferences, InMemoryPreferences>();
+        services.AddSingleton<TabPins>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
@@ -79,7 +81,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
         services.AddTransient<Map.MapViewModel>();
-        services.AddTransient<SettingsViewModel>();
+        // One for Settings and its section pages (#67), which all show and change the same values.
+        services.AddSingleton<SettingsViewModel>();
+        services.AddTransient<MoreViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 
         // Graylog: independent of the LibreNMS sign-in, as on desktop - see GraylogSetup.

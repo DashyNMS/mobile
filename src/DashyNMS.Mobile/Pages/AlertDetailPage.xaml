@@ -20,27 +20,38 @@
                         <Label Text="This alert has cleared, and LibreNMS no longer lists it." />
                     </Border>
 
+                    <!-- As the mock-ups: the severity as a pill, the rule as the title,
+                         then the device and when. -->
                     <Border Style="{StaticResource Card}" IsVisible="{Binding HasAlert}">
-                        <Grid ColumnDefinitions="6,*" ColumnSpacing="12">
-                            <BoxView Color="{Binding Alert.Severity, Converter={StaticResource StatusColor}}" CornerRadius="3" />
-                            <VerticalStackLayout Grid.Column="1">
-                                <Label Text="{Binding Alert.Rule}" FontSize="18" FontFamily="OpenSansSemibold" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding Alert.Device}" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding Alert.Summary}" />
-                            </VerticalStackLayout>
-                        </Grid>
+                        <VerticalStackLayout Spacing="6">
+                            <Border Style="{StaticResource Pill}" BackgroundColor="{Binding Alert.Severity, Converter={StaticResource StatusTint}}">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                             Fill="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
+                                    <Label Style="{StaticResource PillText}" Text="{Binding Alert.SeverityText}"
+                                           TextColor="{Binding Alert.Severity, Converter={StaticResource StatusText}}" />
+                                </HorizontalStackLayout>
+                            </Border>
+                            <Label Text="{Binding Alert.Rule}" FontSize="22" FontFamily="OpenSansSemibold" />
+                            <Label Text="{Binding Alert.Device}" FontFamily="OpenSansSemibold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenDeviceCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Label Style="{StaticResource Faint}" Text="{Binding Alert.Summary}" />
+                        </VerticalStackLayout>
                     </Border>
 
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                         <Button Text="Acknowledge…" Command="{Binding AcknowledgeCommand}" IsVisible="{Binding CanAcknowledge}" />
-                        <Button Text="Unacknowledge" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
-                        <Button Grid.Column="1" Text="Open device" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
+                        <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
+                        <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                     </Grid>
 
                     <!-- Why it fired shows what the rule tests; this adds everything else measured (#46). -->
                     <Button Text="{Binding AllFieldsText}" Command="{Binding ToggleAllFieldsCommand}" IsVisible="{Binding HasMoreFields}"
-                            BackgroundColor="Transparent" BorderWidth="0" HorizontalOptions="Start" Padding="0"
-                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            Style="{StaticResource LinkButton}" HorizontalOptions="Start" Padding="0" />
                 </VerticalStackLayout>
             </CollectionView.Header>
 
@@ -63,7 +74,7 @@
                             </VerticalStackLayout>
                             <Label Grid.Column="1" Text="{Binding Value}" IsVisible="{Binding HasValue}"
                                    VerticalOptions="Start" HorizontalTextAlignment="End"
-                                   TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                   TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                         </Grid>
                     </Border>
                 </DataTemplate>

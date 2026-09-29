@@ -48,7 +48,7 @@
             <Grid ColumnDefinitions="*,Auto">
                 <Label Text="{Binding SelectedDevice.Name}" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
                 <Button Grid.Column="1" Text="Change device" Command="{Binding ChangeDeviceCommand}" BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
             </Grid>
             <Picker Title="Graph" ItemsSource="{Binding Graphs}" SelectedItem="{Binding SelectedGraph}"
                     ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />

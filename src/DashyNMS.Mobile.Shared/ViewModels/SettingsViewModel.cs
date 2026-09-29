@@ -10,6 +10,17 @@ using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
 
+/// <summary>A Settings section with its own page (#67); Health thresholds and Graylog have theirs already.</summary>
+public enum SettingsSection
+{
+    Server,
+    Appearance,
+    Devices,
+    AlertChecks,
+    Notifications,
+    LockScreen,
+}
+
 /// <summary>Which server we're on, timestamps, notifications, and signing out.</summary>
 /// <remarks>
 /// Notification options are desktop's own <see cref="NotificationSettings"/>,
@@ -318,9 +329,72 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _settings.Save();
     }
 
+    /// <summary>A section page's title.</summary>
+    public static string Title(SettingsSection section) => section switch
+    {
+        SettingsSection.Server => "Server",
+        SettingsSection.Appearance => "Appearance",
+        SettingsSection.Devices => "Devices",
+        SettingsSection.AlertChecks => "Alert checks",
+        SettingsSection.Notifications => "Notifications",
+        SettingsSection.LockScreen => "Lock screen",
+        _ => "Settings",
+    };
+
+    [RelayCommand]
+    private Task OpenSectionAsync(SettingsSection section) =>
+        _navigation.GoToAsync(Routes.SettingsSection, new Dictionary<string, object> { [Routes.SettingsSectionParameter] = section });
+
+    /// <summary>The server card's name line: just the host, the address in full is on its page.</summary>
+    public string ServerHost => _session.Connection?.WebRoot.Host ?? "Not signed in";
+
+    /// <summary>"LibreNMS 25.9.0 · https", with plain http called out (#3).</summary>
+    public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
+
+    public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)];
+
+    /// <summary>"Hostname · 10 recently viewed".</summary>
+    public string DevicesSummary => DeviceNameStyles[Math.Max(0, DeviceNameStyleIndex)] + " · " + (ShowRecentlyViewed
+        ? _bookmarks.RecentlyViewedCount.ToString(CultureInfo.CurrentCulture) + " recently viewed"
+        : "recently viewed off");
+
+    /// <summary>"Every 1 minute while open · icon badge on".</summary>
+    public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
+        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" : " · icon badge off") : string.Empty);
+
+    /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
+    public string NotificationsSummary
+    {
+        get
+        {
+            if (!NotificationsEnabled)
+            {
+                return "Off";
+            }
+
+            var which = (NotifyCritical, NotifyWarning) switch
+            {
+                (true, true) => "Critical and warnings",
+                (true, false) => "Critical only",
+                (false, true) => "Warnings only",
+                _ => "No severities",
+            };
+            return QuietHoursEnabled ? which + " · quiet " + Hours[QuietHoursStart] + "–" + Hours[QuietHoursEnd] : which;
+        }
+    }
+
+    public string LockScreenSummary => HideLockScreenDetails ? "Alert details hidden when locked" : "Alert details shown when locked";
+
     /// <summary>Called when the page shows, since the session may have changed since it was built.</summary>
     public void Refresh()
     {
+        OnPropertyChanged(nameof(ServerHost));
+        OnPropertyChanged(nameof(ServerSummary));
+        OnPropertyChanged(nameof(AppearanceSummary));
+        OnPropertyChanged(nameof(DevicesSummary));
+        OnPropertyChanged(nameof(AlertChecksSummary));
+        OnPropertyChanged(nameof(NotificationsSummary));
+        OnPropertyChanged(nameof(LockScreenSummary));
         OnPropertyChanged(nameof(ServerUrl));
         OnPropertyChanged(nameof(ServerVersion));
         OnPropertyChanged(nameof(IsServerInsecure));

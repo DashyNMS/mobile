@@ -15,9 +15,9 @@
             <Button Style="{StaticResource Chip}" Text="{Binding ProblemCount, StringFormat='Down only ({0})'}" Command="{Binding ToggleProblemsOnlyCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ProblemsOnly}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource CriticalColor}" />
-                        <Setter Property="BorderColor" Value="{StaticResource CriticalColor}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
@@ -43,13 +43,13 @@
                                     Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type topo:NeighboursViewModel}}, x:DataType=topo:NeighboursViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
-                                <BoxView Color="{Binding Row.Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                            <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1">
                                     <Label Text="{Binding Row.Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Row.Subtitle}" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Row.Detail}" IsVisible="{Binding Row.HasDetail}" FontSize="12"
-                                           TextColor="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
+                                           TextColor="{Binding Row.Status, Converter={StaticResource StatusText}}" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding Row.Value}" Style="{StaticResource Caption}" VerticalOptions="Center" />
                             </Grid>

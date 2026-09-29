@@ -31,25 +31,6 @@ public partial class DevicesPage : ContentPage, IQueryAttributable
 		query.Clear();
 	}
 
-	private async void OnMoreClicked(object? sender, EventArgs e)
-	{
-		const string groups = "Groups & locations";
-		const string neighbours = "Neighbours";
-		const string map = "Map";
-		switch (await DisplayActionSheetAsync("Devices", "Cancel", null, map, groups, neighbours))
-		{
-			case map:
-				await _viewModel.OpenMapCommand.ExecuteAsync(null);
-				break;
-			case groups:
-				await _viewModel.OpenGroupsLocationsCommand.ExecuteAsync(null);
-				break;
-			case neighbours:
-				await _viewModel.OpenNeighboursCommand.ExecuteAsync(null);
-				break;
-		}
-	}
-
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();

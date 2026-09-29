@@ -7,225 +7,118 @@
     x:DataType="vm:SettingsViewModel"
     Title="Settings">
 
+    <!-- One row per section, each summarising its values and opening its
+         own page (#67), rather than every setting on one long page. -->
     <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="4">
+        <VerticalStackLayout Padding="16" Spacing="12">
 
-            <Label Style="{StaticResource SectionHeader}" Text="SERVER" />
+            <!-- The server as a card of its own, as in the mock-ups. -->
             <Border Style="{StaticResource Card}">
-                <VerticalStackLayout Spacing="10">
-                    <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
-                        <Label Style="{StaticResource Caption}" Text="Address" />
-                        <VerticalStackLayout Grid.Column="1">
-                            <Label Text="{Binding ServerUrl}" />
-                            <!-- Plain http: the token and everything loaded go unencrypted (#3). -->
-                            <Label Text="Not secure - this server doesn't use HTTPS" FontSize="12"
-                                   TextColor="{StaticResource CriticalColor}" IsVisible="{Binding IsServerInsecure}" />
-                        </VerticalStackLayout>
-                    </Grid>
-                    <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
-                        <Label Style="{StaticResource Caption}" Text="LibreNMS" />
-                        <Label Grid.Column="1" Text="{Binding ServerVersion}" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-
-            <Label Style="{StaticResource SectionHeader}" Text="APPEARANCE" />
-            <Border Style="{StaticResource Card}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Label Text="Light or dark" VerticalOptions="Center" />
-                    <Picker Grid.Column="1" Title="Appearance"
-                            ItemsSource="{Binding AppearanceLabels}"
-                            SelectedIndex="{Binding AppearanceIndex}"
-                            MinimumWidthRequest="160" />
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Image Source="dashynms_logo.png" WidthRequest="40" HeightRequest="40" VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                        <Label Style="{StaticResource RowTitle}" Text="{Binding ServerHost}" />
+                        <Label Style="{StaticResource Faint}" Text="{Binding ServerSummary}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Style="{StaticResource Chevron}" />
                 </Grid>
             </Border>
 
-            <Label Style="{StaticResource SectionHeader}" Text="DEVICES" />
-            <Border Style="{StaticResource Card}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <VerticalStackLayout VerticalOptions="Center">
-                        <Label Text="Device names" />
-                        <Label Style="{StaticResource Caption}" Text="Which name devices go by in lists and titles, as on desktop." />
-                    </VerticalStackLayout>
-                    <Picker Grid.Column="1" Title="Device names"
-                            ItemsSource="{Binding DeviceNameStyles}"
-                            SelectedIndex="{Binding DeviceNameStyleIndex}"
-                            MinimumWidthRequest="140" />
-                </Grid>
-            </Border>
-            <Border Style="{StaticResource Card}" Margin="0,8,0,0">
-                <VerticalStackLayout Spacing="14">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout>
-                            <Label Text="Recently viewed" />
-                            <Label Style="{StaticResource Caption}" Text="The strip on the Devices tab and the dashboard card, as on desktop." />
-                        </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding ShowRecentlyViewed}" VerticalOptions="Center" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ShowRecentlyViewed}">
-                        <Label Text="How many to keep" VerticalOptions="Center" />
-                        <Picker Grid.Column="1" Title="How many to keep"
-                                ItemsSource="{Binding RecentlyViewedCountLabels}"
-                                SelectedIndex="{Binding RecentlyViewedCountIndex}"
-                                MinimumWidthRequest="80" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-
-            <Label Style="{StaticResource SectionHeader}" Text="APP ICON" IsVisible="{Binding CanShowAppBadge}" />
-            <Border Style="{StaticResource Card}" IsVisible="{Binding CanShowAppBadge}">
-                <VerticalStackLayout Spacing="14">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout>
-                            <Label Text="Alert count on the app icon" />
-                            <Label Style="{StaticResource Caption}" Text="Open alerts, as desktop's Alerts tab badge. Updated with each alert check." />
-                        </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding ShowAppBadge}" VerticalOptions="Center" />
-                    </Grid>
-                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowAppBadge}">
-                        <Label Text="Count acknowledged alerts too" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding BadgeIncludesAcknowledged}" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-
-            <Label Style="{StaticResource SectionHeader}" Text="LOCK SCREEN WIDGETS" IsVisible="{Binding HasLockScreenWidgets}" />
-            <Border Style="{StaticResource Card}" IsVisible="{Binding HasLockScreenWidgets}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <VerticalStackLayout>
-                        <Label Text="Hide alert details" />
-                        <Label Style="{StaticResource Caption}" Text="Lock screen widgets show counts only - no device or rule names - for anyone who picks up your phone." />
-                    </VerticalStackLayout>
-                    <Switch Grid.Column="1" IsToggled="{Binding HideLockScreenDetails}" VerticalOptions="Center" />
-                </Grid>
-            </Border>
-
-            <Label Style="{StaticResource SectionHeader}" Text="NOTIFICATIONS" />
-            <Border Style="{StaticResource Card}">
-                <VerticalStackLayout Spacing="14">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout>
-                            <Label Text="Alert notifications" />
-                            <Label Style="{StaticResource Caption}"
-                                   Text="Checks every few minutes while DashyNMS is open, and in the background when your phone allows it." />
-                        </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" VerticalOptions="Center" />
-                    </Grid>
-
-                    <VerticalStackLayout Spacing="14" IsVisible="{Binding NotificationsEnabled}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNotificationDetails}">
-                            <VerticalStackLayout>
-                                <Label Text="Hide details on the lock screen" />
-                                <Label Style="{StaticResource Caption}" Text="A locked phone shows how serious an alert is, but not the device or rule." />
-                            </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding HideNotificationDetails}" VerticalOptions="Center" />
-                        </Grid>
-                        <Label Style="{StaticResource Caption}" IsVisible="{Binding CanHideNotificationDetails, Converter={StaticResource Invert}}"
-                               Text="A locked iPhone hides alert details while Show Previews is set to When Unlocked (Settings → Notifications)." />
-
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Critical alerts" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding NotifyCritical}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Warnings" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding NotifyWarning}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="When an alert recovers" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnRecovery}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="When someone acknowledges an alert" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnAcknowledge}" />
-                        </Grid>
-
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Text="Quiet hours" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding QuietHoursEnabled}" />
-                        </Grid>
-                        <VerticalStackLayout Spacing="10" IsVisible="{Binding QuietHoursEnabled}">
-                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
-                                <Label Text="From" VerticalOptions="Center" />
-                                <Picker Grid.Column="1" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursStart}" />
-                                <Label Grid.Column="2" Text="to" VerticalOptions="Center" />
-                                <Picker Grid.Column="3" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursEnd}" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="Still notify critical alerts" VerticalOptions="Center" />
-                                <Switch Grid.Column="1" IsToggled="{Binding QuietHoursAllowCritical}" />
-                            </Grid>
-                        </VerticalStackLayout>
-
-                        <Label Style="{StaticResource Caption}"
-                               Text="Sounds and how each kind of alert appears are set in your phone's notification settings for DashyNMS." />
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <Label Style="{StaticResource SectionHeader}" Text="CHECKING" />
-            <Border Style="{StaticResource Card}">
-                <VerticalStackLayout Spacing="14">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <Border Style="{StaticResource Card}" Padding="14,0">
+                <VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
+                        </Grid.GestureRecognizers>
                         <VerticalStackLayout VerticalOptions="Center">
-                            <Label Text="Check alerts every" />
-                            <Label Style="{StaticResource Caption}"
-                                   Text="While DashyNMS is open. In the background, your phone decides how often." />
+                            <Label Text="Appearance" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding AppearanceSummary}" />
                         </VerticalStackLayout>
-                        <Picker Grid.Column="1" Title="Check alerts every"
-                                ItemsSource="{Binding PollIntervalLabels}"
-                                SelectedIndex="{Binding PollIntervalIndex}"
-                                MinimumWidthRequest="120" />
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
                     </Grid>
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Devices}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Devices" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding DevicesSummary}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.AlertChecks}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Alert checks" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding AlertChecksSummary}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Notifications}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Notifications" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding NotificationsSummary}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
                         <Grid.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenThresholdsCommand}" />
                         </Grid.GestureRecognizers>
-                        <VerticalStackLayout>
-                            <Label Text="Health thresholds" />
-                            <Label Style="{StaticResource Caption}"
-                                   Text="When dBm, signal, temperature and fan speed readings turn amber or red, as desktop's." />
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Health thresholds" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="When dBm, signal, temperature and fan speed turn amber or red" />
                         </VerticalStackLayout>
-                        <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
 
-            <Label Style="{StaticResource SectionHeader}" Text="INTEGRATIONS" />
-            <Border Style="{StaticResource Card}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Grid.GestureRecognizers>
-                        <TapGestureRecognizer Command="{Binding OpenGraylogSettingsCommand}" />
-                    </Grid.GestureRecognizers>
-                    <VerticalStackLayout>
-                        <Label Text="Graylog" />
-                        <Label Style="{StaticResource Caption}" Text="{Binding GraylogStatusText}" LineBreakMode="TailTruncation" />
-                    </VerticalStackLayout>
-                    <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center" Style="{StaticResource Caption}" />
-                </Grid>
+            <Border Style="{StaticResource Card}" Padding="14,0">
+                <VerticalStackLayout>
+                    <!-- Only where there are lock-screen widgets (iPhone). -->
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8" IsVisible="{Binding HasLockScreenWidgets}">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Lock screen widgets" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding LockScreenSummary}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" IsVisible="{Binding HasLockScreenWidgets}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                        <Grid.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenGraylogSettingsCommand}" />
+                        </Grid.GestureRecognizers>
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Graylog" FontSize="15" FontFamily="OpenSansSemibold" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding GraylogStatusText}" LineBreakMode="TailTruncation" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                    </Grid>
+                </VerticalStackLayout>
             </Border>
 
-            <Label Style="{StaticResource SectionHeader}" Text="TIMESTAMPS" />
-            <Border Style="{StaticResource Card}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <VerticalStackLayout>
-                        <Label Text="Server stores timestamps in UTC" />
-                        <Label Style="{StaticResource Caption}"
-                               Text="Turn on if alert times look off by your UTC offset. Same as desktop's setting." />
-                    </VerticalStackLayout>
-                    <Switch Grid.Column="1" IsToggled="{Binding ServerTimestampsAreUtc}" VerticalOptions="Center" />
-                </Grid>
-            </Border>
+            <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" Margin="0,12,0,0" />
 
-            <Button Text="Sign out"
-                    Command="{Binding SignOutCommand}"
-                    BackgroundColor="{StaticResource CriticalColor}"
-                    Margin="0,24,0,0" />
-
-            <Label Style="{StaticResource Caption}"
+            <Label Style="{StaticResource Faint}"
                    Text="{Binding AppVersion, StringFormat='DashyNMS mobile {0}'}"
                    HorizontalOptions="Center"
-                   Margin="0,16,0,0" />
+                   Margin="0,8,0,0" />
 
         </VerticalStackLayout>
     </ScrollView>

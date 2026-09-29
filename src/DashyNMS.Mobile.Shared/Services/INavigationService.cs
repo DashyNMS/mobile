@@ -17,7 +17,24 @@ public static class Routes
     /// <summary>Back one page.</summary>
     public const string Back = "..";
 
+    /// <summary>
+    /// The Alerts page. Like the other tab routes, it's the tab when pinned
+    /// and pushed onto More when not - see <see cref="AppPages.Resolve"/>.
+    /// </summary>
     public const string Alerts = "//main/alerts";
+
+    public const string Health = "//main/health";
+
+    public const string Settings = "//main/settings";
+
+    /// <summary>The More tab (#68): every page, and which are pinned to the tab bar.</summary>
+    public const string More = "//main/more";
+
+    /// <summary>A Settings section's own page (#67) - with <see cref="SettingsSectionParameter"/>.</summary>
+    public const string SettingsSection = "settingssection";
+
+    /// <summary>Query attribute: a <c>SettingsSection</c>, for <see cref="SettingsSection"/>.</summary>
+    public const string SettingsSectionParameter = "section";
 
     /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
     public const string Devices = "//main/devices";

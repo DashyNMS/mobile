@@ -28,7 +28,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="{Binding SelectedLocation}" FontFamily="OpenSansSemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
                     <Button Grid.Column="1" Text="Close" Command="{Binding ClearSelectionCommand}" BackgroundColor="Transparent"
-                            TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                 </Grid>
                 <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
@@ -45,7 +45,7 @@
                                     <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding StateText}" VerticalOptions="Center"
-                                       TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
+                                       TextColor="{Binding State, Converter={StaticResource StatusText}}" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

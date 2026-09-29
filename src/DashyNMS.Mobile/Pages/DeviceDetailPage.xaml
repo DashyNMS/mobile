@@ -19,25 +19,6 @@
         <ToolbarItem Text="{Binding PinText}" Command="{Binding TogglePinCommand}" />
     </ContentPage.ToolbarItems>
 
-    <ContentPage.Resources>
-        <!-- A card's heading, as desktop's: small caps, muted - "ACTIVE ALERTS". -->
-        <Style x:Key="CardTitle" TargetType="Label">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="FontFamily" Value="OpenSansSemibold" />
-            <Setter Property="CharacterSpacing" Value="0.6" />
-            <Setter Property="TextTransform" Value="Uppercase" />
-            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray300}}" />
-        </Style>
-
-        <!-- The note at a heading's right: "2 open". -->
-        <Style x:Key="CardNote" TargetType="Label">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="HorizontalOptions" Value="End" />
-            <Setter Property="LineBreakMode" Value="TailTruncation" />
-            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray300}}" />
-        </Style>
-    </ContentPage.Resources>
-
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <ScrollView>
             <VerticalStackLayout Padding="16" Spacing="8">
@@ -50,12 +31,17 @@
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="4">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <Label Text="{Binding Title}" FontSize="22" FontFamily="OpenSansSemibold"
+                            <Label Text="{Binding Title}" FontSize="24" FontFamily="OpenSansSemibold"
                                    LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                            <!-- State pill: the state's colour behind its own text. -->
-                            <Border Grid.Column="1" StrokeThickness="0" StrokeShape="RoundRectangle 11" Padding="10,2"
-                                    BackgroundColor="{Binding State, Converter={StaticResource StatusColor}}" VerticalOptions="Center">
-                                <Label Text="{Binding StateText}" FontSize="12" FontFamily="OpenSansSemibold" TextColor="{StaticResource White}" />
+                            <!-- State pill: tinted, with a dot and the state in its readable colour. -->
+                            <Border Grid.Column="1" Style="{StaticResource Pill}"
+                                    BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                             Fill="{Binding State, Converter={StaticResource StatusText}}" />
+                                    <Label Style="{StaticResource PillText}" Text="{Binding StateText}"
+                                           TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                </HorizontalStackLayout>
                             </Border>
                         </Grid>
                         <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
@@ -64,58 +50,58 @@
 
                         <!-- Desktop's actions, and "Open in" SSH / Telnet in whichever app handles the link. -->
                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" Margin="0,10,0,0">
-                            <Button Text="Rediscover" Command="{Binding RediscoverCommand}" />
-                            <Button Grid.Column="1" Text="Maintenance…" Command="{Binding ScheduleMaintenanceCommand}" />
-                            <Button Grid.Row="1" Text="SSH" Command="{Binding OpenSshCommand}" />
-                            <Button Grid.Row="1" Grid.Column="1" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
+                            <Button Text="Rediscover" Style="{StaticResource SecondaryButton}" Command="{Binding RediscoverCommand}" />
+                            <Button Grid.Column="1" Text="Maintenance…" Style="{StaticResource SecondaryButton}" Command="{Binding ScheduleMaintenanceCommand}" />
+                            <Button Grid.Row="1" Text="SSH" Style="{StaticResource SecondaryButton}" Command="{Binding OpenSshCommand}" />
+                            <Button Grid.Row="1" Grid.Column="1" Text="Telnet" Style="{StaticResource SecondaryButton}" Command="{Binding OpenTelnetCommand}" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
 
                 <!-- ==================== Stat tiles ==================== -->
-                <!-- Desktop's four, each with a bar in its colour; two across on a phone, four with room. -->
+                <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room. -->
                 <controls:CardGrid MinColumnWidth="150" MaxColumns="4">
                     <Border Style="{StaticResource Card}" Padding="0">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Availability" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="12,10">
-                                <Label Text="{Binding AvailabilityTileText}" FontSize="22" FontFamily="OpenSansSemibold" />
-                                <Label Style="{StaticResource Caption}" Text="Availability · 30 days" FontSize="12" />
-                            </VerticalStackLayout>
-                        </Grid>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Availability · 30 days" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding AvailabilityTileText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                        </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{StaticResource Primary}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="12,10">
-                                <Label Text="{Binding UptimeText}" FontSize="22" FontFamily="OpenSansSemibold" />
-                                <Label Style="{StaticResource Caption}" Text="Uptime" FontSize="12" />
-                            </VerticalStackLayout>
-                        </Grid>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{StaticResource Primary}" />
+                                <Label Style="{StaticResource Faint}" Text="Uptime" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding UptimeText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                        </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Ports" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="12,10">
-                                <Label Text="{Binding PortsTileText}" FontSize="22" FontFamily="OpenSansSemibold" />
-                                <Label Style="{StaticResource Caption}" Text="Ports up" FontSize="12" />
-                            </VerticalStackLayout>
-                        </Grid>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Ports up" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding PortsTileText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                        </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
-                        <Grid ColumnDefinitions="4,*">
-                            <BoxView Color="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
-                            <VerticalStackLayout Grid.Column="1" Padding="12,10">
-                                <Label Text="{Binding Alerts.Count}" FontSize="22" FontFamily="OpenSansSemibold" />
-                                <Label Style="{StaticResource Caption}" Text="Active alerts" FontSize="12" />
-                            </VerticalStackLayout>
-                        </Grid>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Active alerts" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Alerts.Count}" FontSize="24" FontFamily="OpenSansSemibold" />
+                        </VerticalStackLayout>
                     </Border>
                 </controls:CardGrid>
 
@@ -168,13 +154,13 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Spacing="6">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:AlertItem">
-                                        <Grid ColumnDefinitions="4,*" ColumnSpacing="10">
+                                        <Grid ColumnDefinitions="10,*" ColumnSpacing="10">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
                                                     Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
                                                     CommandParameter="{Binding .}" />
                                             </Grid.GestureRecognizers>
-                                            <BoxView Color="{Binding Severity, Converter={StaticResource StatusColor}}" CornerRadius="2" />
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
                                                 <Label Text="{Binding Rule}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Summary}" FontSize="12" />
@@ -210,7 +196,7 @@
                                     <Grid Grid.Column="1" VerticalOptions="Center">
                                         <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
                                                            WidthRequest="16" HeightRequest="16" />
-                                        <Label Text="›" FontSize="20" Style="{StaticResource Caption}"
+                                        <Label Style="{StaticResource Chevron}"
                                                IsVisible="{Binding IsLoading, Converter={StaticResource Invert}}" />
                                     </Grid>
 
@@ -229,7 +215,7 @@
                                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                         <Label Text="{Binding Title}" FontSize="13" LineBreakMode="TailTruncation" />
                                                         <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
-                                                               TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                                               TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                                     </Grid>
                                                     <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
                                                                  ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />

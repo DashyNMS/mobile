@@ -9,11 +9,6 @@
     x:DataType="vm:DevicesViewModel"
     Title="Devices">
 
-    <ContentPage.ToolbarItems>
-        <!-- The network-wide views, in one menu rather than a crowded toolbar. -->
-        <ToolbarItem Text="More" Clicked="OnMoreClicked" />
-    </ContentPage.ToolbarItems>
-
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <SearchBar Text="{Binding SearchText}" Placeholder="Name, IP, OS, hardware, location, serial" />
@@ -24,36 +19,36 @@
                 <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource OkColor}" />
-                            <Setter Property="BorderColor" Value="{StaticResource OkColor}" />
-                            <Setter Property="TextColor" Value="{StaticResource White}" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource OkStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
                 <Button Style="{StaticResource Chip}" Text="{Binding DownCount, StringFormat='Down {0}'}" Command="{Binding ToggleDownCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDown}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource CriticalColor}" />
-                            <Setter Property="BorderColor" Value="{StaticResource CriticalColor}" />
-                            <Setter Property="TextColor" Value="{StaticResource White}" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
                 <Button Style="{StaticResource Chip}" Text="{Binding MaintenanceCount, StringFormat='Maintenance {0}'}" Command="{Binding ToggleMaintenanceCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowMaintenance}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource MaintenanceColor}" />
-                            <Setter Property="BorderColor" Value="{StaticResource MaintenanceColor}" />
-                            <Setter Property="TextColor" Value="{StaticResource White}" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource MaintenanceTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource MaintenanceStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
                 <Button Style="{StaticResource Chip}" Text="{Binding DisabledCount, StringFormat='Disabled {0}'}" Command="{Binding ToggleDisabledCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDisabled}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource InactiveColor}" />
-                            <Setter Property="BorderColor" Value="{StaticResource InactiveColor}" />
-                            <Setter Property="TextColor" Value="{StaticResource White}" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource InactiveTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource InactiveStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
@@ -67,7 +62,7 @@
                     Command="{Binding ClearFiltersCommand}"
                     IsVisible="{Binding HasActiveFilters}"
                     BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
                     Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" />
             <Button Grid.Column="2"
                     Style="{StaticResource Chip}"
@@ -76,7 +71,7 @@
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding HasPanelFilters}" Value="True">
                         <Setter Property="BorderColor" Value="{StaticResource Primary}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
@@ -147,7 +142,7 @@
                             <SwipeView.LeftItems>
                                 <SwipeItems Mode="Execute">
                                     <SwipeItem Text="{Binding PinText}"
-                                               BackgroundColor="{StaticResource Primary}"
+                                               BackgroundColor="{StaticResource ButtonPrimary}"
                                                Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                                CommandParameter="{Binding .}" />
                                 </SwipeItems>
@@ -159,21 +154,20 @@
                                         Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Border.GestureRecognizers>
-                                <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12">
-                                    <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}"
-                                             WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                                <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
+                                    <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}" />
                                     <VerticalStackLayout Grid.Column="1">
                                         <HorizontalStackLayout Spacing="6">
                                             <Image Source="pin_marker.png" WidthRequest="14" HeightRequest="14"
                                                    VerticalOptions="Center" IsVisible="{Binding IsPinned}" />
-                                            <Label Text="{Binding Name}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                            <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
                                         </HorizontalStackLayout>
                                         <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                        <Label Text="{Binding StateText}" HorizontalOptions="End"
-                                               TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
-                                        <Label Style="{StaticResource Caption}" Text="{Binding UptimeText}" HorizontalOptions="End" />
+                                        <Label Text="{Binding StateText}" HorizontalOptions="End" FontFamily="OpenSansSemibold" FontSize="13"
+                                               TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>
                                 </Grid>
                             </Border>
