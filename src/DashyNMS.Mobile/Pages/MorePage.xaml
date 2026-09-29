@@ -36,7 +36,7 @@
                                                             Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
                                                             CommandParameter="{Binding .}" />
                                                     </VerticalStackLayout.GestureRecognizers>
-                                                    <Label Text="{Binding Title}" FontSize="15" FontFamily="OpenSansSemibold" />
+                                                    <Label Text="{Binding Title}" FontSize="15" FontFamily="BodySemibold" />
                                                     <Label Style="{StaticResource Faint}" Text="{Binding Description}" />
                                                 </VerticalStackLayout>
 

@@ -72,7 +72,7 @@
                                                 </Grid.GestureRecognizers>
                                                 <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" />
                                                 <VerticalStackLayout Grid.Column="1">
-                                                    <Label Text="{Binding Rule}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                                    <Label Text="{Binding Rule}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
                                                     <Label Style="{StaticResource Caption}" Text="{Binding Summary}" FontSize="12" />
                                                 </VerticalStackLayout>
                                             </Grid>
@@ -148,7 +148,7 @@
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="4">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <Label Text="{Binding Title}" FontSize="24" FontFamily="OpenSansSemibold"
+                            <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
                                    LineBreakMode="TailTruncation" VerticalOptions="Center" />
                             <!-- State pill: tinted, with a dot and the state in its readable colour. -->
                             <Border Grid.Column="1" Style="{StaticResource Pill}"
@@ -187,7 +187,7 @@
                                 <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
                                 <Label Style="{StaticResource Faint}" Text="Availability · 30 days" />
                             </HorizontalStackLayout>
-                            <Label Text="{Binding AvailabilityTileText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                            <Label Text="{Binding AvailabilityTileText}" FontSize="24" FontFamily="BodySemibold" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
@@ -196,7 +196,7 @@
                                 <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{StaticResource Primary}" />
                                 <Label Style="{StaticResource Faint}" Text="Uptime" />
                             </HorizontalStackLayout>
-                            <Label Text="{Binding UptimeText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                            <Label Text="{Binding UptimeText}" FontSize="24" FontFamily="BodySemibold" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
@@ -208,7 +208,7 @@
                                 <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
                                 <Label Style="{StaticResource Faint}" Text="Ports up" />
                             </HorizontalStackLayout>
-                            <Label Text="{Binding PortsTileText}" FontSize="24" FontFamily="OpenSansSemibold" />
+                            <Label Text="{Binding PortsTileText}" FontSize="24" FontFamily="BodySemibold" />
                         </VerticalStackLayout>
                     </Border>
                     <Border Style="{StaticResource Card}" Padding="0">
@@ -217,7 +217,7 @@
                                 <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
                                 <Label Style="{StaticResource Faint}" Text="Active alerts" />
                             </HorizontalStackLayout>
-                            <Label Text="{Binding Alerts.Count}" FontSize="24" FontFamily="OpenSansSemibold" />
+                            <Label Text="{Binding Alerts.Count}" FontSize="24" FontFamily="BodySemibold" />
                         </VerticalStackLayout>
                     </Border>
                 </controls:CardGrid>

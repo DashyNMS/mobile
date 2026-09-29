@@ -15,13 +15,8 @@
          control, and the entries in one card with the time at the right. -->
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
-        <controls:PageHeader x:Name="Header" Title="Logs">
-            <controls:PageHeader.Actions>
-                <!-- Shown once Graylog is set up - see LogsPage.xaml.cs. -->
-                <Button x:Name="GraylogButton" Style="{StaticResource LinkButton}" Text="Graylog"
-                        Command="{Binding OpenGraylogCommand}" IsVisible="False" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
+        <!-- Graylog has its own page in More, so it isn't repeated here. -->
+        <controls:PageHeader x:Name="Header" Title="Logs" />
 
         <Border Grid.Row="1" Style="{StaticResource SegmentBar}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="4">

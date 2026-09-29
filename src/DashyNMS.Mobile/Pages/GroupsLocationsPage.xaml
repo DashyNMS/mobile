@@ -55,7 +55,7 @@
                             <Grid ColumnDefinitions="10,*,Auto,Auto" ColumnSpacing="12">
                                 <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="TailTruncation" />
                                 </VerticalStackLayout>
                                 <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">

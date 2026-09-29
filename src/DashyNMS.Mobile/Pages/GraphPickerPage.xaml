@@ -34,7 +34,7 @@
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
                             <VerticalStackLayout>
-                                <Label Text="{Binding Name}" FontFamily="OpenSansSemibold" />
+                                <Label Text="{Binding Name}" FontFamily="BodySemibold" />
                                 <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                             </VerticalStackLayout>
                         </Border>
@@ -46,7 +46,7 @@
         <!-- Step two: the graph and range. -->
         <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding HasDevice}">
             <Grid ColumnDefinitions="*,Auto">
-                <Label Text="{Binding SelectedDevice.Name}" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                <Label Text="{Binding SelectedDevice.Name}" FontFamily="BodySemibold" VerticalOptions="Center" />
                 <Button Grid.Column="1" Text="Change device" Command="{Binding ChangeDeviceCommand}" BackgroundColor="Transparent"
                         TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
             </Grid>

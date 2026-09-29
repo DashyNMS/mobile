@@ -40,7 +40,7 @@
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
                                 <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
                                            LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"

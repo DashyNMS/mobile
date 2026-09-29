@@ -89,7 +89,7 @@ rather than rewritten.
   count, how many are down or disabled, and coordinates where LibreNMS has
   them. Anything with devices down comes first. Tap one for the Devices list
   filtered to it.
-- **Graylog** (More, or Alerts → Logs → Graylog, and a Graylog section in Device
+- **Graylog** (More, and a Graylog section in Device
   View): messages from your Graylog server, found as LibreNMS finds them -
   by time range, level, stream and message text, newest first, and for a
   device by its names and addresses (optionally every interface address).

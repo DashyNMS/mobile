@@ -15,8 +15,11 @@ public static class MauiProgram
 			.UseMauiApp<App>()
 			.ConfigureFonts(fonts =>
 			{
-				fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-				fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+				// The mock-ups' type (#69): IBM Plex Sans for text, Sora for
+				// titles and the name. Both SIL OFL - see docs/licences.
+				fonts.AddFont("IBMPlexSans-Regular.ttf", "BodyRegular");
+				fonts.AddFont("IBMPlexSans-SemiBold.ttf", "BodySemibold");
+				fonts.AddFont("Sora-Bold.ttf", "Display");
 			});
 
 #if DEBUG

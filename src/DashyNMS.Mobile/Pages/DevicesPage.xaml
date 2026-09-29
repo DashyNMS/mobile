@@ -169,7 +169,7 @@
                                         <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                        <Label Text="{Binding StateText}" HorizontalOptions="End" FontFamily="OpenSansSemibold" FontSize="13"
+                                        <Label Text="{Binding StateText}" HorizontalOptions="End" FontFamily="BodySemibold" FontSize="13"
                                                TextColor="{Binding State, Converter={StaticResource StatusText}}" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>

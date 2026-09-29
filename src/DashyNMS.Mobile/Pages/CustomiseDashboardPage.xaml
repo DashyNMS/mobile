@@ -19,7 +19,7 @@
                         <Border Style="{StaticResource Card}">
                             <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6">
                                 <VerticalStackLayout>
-                                    <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" />
+                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Description}" />
                                 </VerticalStackLayout>
                                 <Button Grid.Column="1" Text="▲" WidthRequest="40" Padding="0" BackgroundColor="Transparent"

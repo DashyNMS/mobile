@@ -43,7 +43,7 @@
             <!-- A tile's number, beside its label. -->
             <Style x:Key="TileNumber" TargetType="Label">
                 <Setter Property="FontSize" Value="24" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
@@ -58,7 +58,7 @@
 
             <Style x:Key="PillText" TargetType="Label">
                 <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
             </Style>
 
             <!-- A status dot, in place of the coloured strips cards used to have. -->
@@ -78,7 +78,7 @@
                 <Setter Property="HeightRequest" Value="36" />
                 <Setter Property="MinimumHeightRequest" Value="36" />
                 <Setter Property="FontSize" Value="14" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
             </Style>
 
@@ -125,20 +125,20 @@
                 <Setter Property="MinimumHeightRequest" Value="40" />
                 <Setter Property="Padding" Value="6,0" />
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
             </Style>
 
             <!-- A page's own big title, where there's no navigation bar. -->
             <Style x:Key="PageTitle" TargetType="Label">
                 <Setter Property="FontSize" Value="28" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="Display" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
             <!-- A card's heading: "Needs attention", "Busiest ports". -->
             <Style x:Key="CardTitle" TargetType="Label">
                 <Setter Property="FontSize" Value="15" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>
 
@@ -154,7 +154,7 @@
             <!-- A row's title, the device or rule. -->
             <Style x:Key="RowTitle" TargetType="Label">
                 <Setter Property="FontSize" Value="15" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="LineBreakMode" Value="TailTruncation" />
             </Style>
 
@@ -172,7 +172,7 @@
             <!-- A heading over a group of cards: "MONITOR", "LOCK SCREEN". -->
             <Style x:Key="SectionHeader" TargetType="Label">
                 <Setter Property="FontSize" Value="12" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="CharacterSpacing" Value="0.8" />
                 <Setter Property="TextTransform" Value="Uppercase" />
                 <Setter Property="Margin" Value="4,16,0,6" />
@@ -189,14 +189,14 @@
             <Style x:Key="SecondaryButton" TargetType="Button">
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
             </Style>
 
             <!-- Text-only: See all, Choose, Show all fields. -->
             <Style x:Key="LinkButton" TargetType="Button">
                 <Setter Property="BackgroundColor" Value="Transparent" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Padding" Value="8,0" />
             </Style>
@@ -207,7 +207,7 @@
                 <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
                 <Setter Property="BorderWidth" Value="1" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="HeightRequest" Value="48" />
             </Style>
 
