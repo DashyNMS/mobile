@@ -58,6 +58,7 @@ public sealed class DeviceSectionLoader
             .OrderBy(w => w.DurationSeconds)
             .Select(w => new SectionRow(Units.Window(w.DurationSeconds))
             {
+                SortValue = w.DurationSeconds,
                 Value = Units.Percent(w.Percent),
                 Status = w.Percent >= 99.9 ? RowStatus.Ok : w.Percent >= 99 ? RowStatus.Warning : RowStatus.Critical,
             });
@@ -226,6 +227,7 @@ public sealed class DeviceSectionLoader
         {
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
+            SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,
             Subtitle = port.IfAlias is { Length: > 0 } alias && alias != port.DisplayName ? alias : null,
             Value = port.IsUp ? $"↓{Units.Bits(port.IfInOctetsRate * 8)}  ↑{Units.Bits(port.IfOutOctetsRate * 8)}" : IsAdminDown(port) ? "Shut down" : "Down",
             Status = port.IsUp ? (errors > 0 ? RowStatus.Warning : RowStatus.Ok) : IsAdminDown(port) ? RowStatus.Inactive : RowStatus.Critical,

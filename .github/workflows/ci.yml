@@ -71,8 +71,10 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Pinned: workload set 10.0.401.1 brings .NET for iOS 27, which needs
+      # Xcode 27 - newer than the macos-26 runner has. Move on when it does.
       - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios
+        run: dotnet workload install maui-ios --version 10.0.401
 
       # The home-screen widget is a Swift WidgetKit extension (ios-widget/),
       # built on its own and embedded by the app build below.

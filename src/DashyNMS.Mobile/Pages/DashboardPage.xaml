@@ -18,8 +18,7 @@
         <!-- One template per card kind (DashboardLayout); each reads from the card's Dashboard. -->
         <pages:DashboardCardTemplateSelector x:Key="CardTemplates">
 
-            <!-- Each count opens its tab filtered to it (#32, #34); OK has no
-                 list of its own to open, so it's the only tile that doesn't. -->
+            <!-- Each count opens its tab filtered to it (#32, #34, #64). -->
             <pages:DashboardCardTemplateSelector.AlertsGauge>
                 <DataTemplate x:DataType="vm:DashboardCard">
                     <VerticalStackLayout Spacing="6">
@@ -53,9 +52,12 @@
                                 </VerticalStackLayout>
                             </Border>
                             <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="ok" />
+                                </Border.GestureRecognizers>
                                 <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.DevicesOk}" FontSize="28" TextColor="{StaticResource OkColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="OK - devices with no alerts" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Dashboard.OkAlerts}" FontSize="28" TextColor="{StaticResource OkColor}" />
+                                    <Label Style="{StaticResource Caption}" Text="OK" />
                                 </VerticalStackLayout>
                             </Border>
                         </Grid>

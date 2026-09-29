@@ -26,7 +26,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     private readonly Graylog.GraylogSetup? _graylog;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText), nameof(Subtitle), nameof(TypeText))]
     [NotifyCanExecuteChangedFor(nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand), nameof(OpenSshCommand), nameof(OpenTelnetCommand))]
     private Device? _device;
 
@@ -72,11 +72,35 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     /// <summary>Awaited by tests: every section's quick view has loaded (or failed).</summary>
     internal Task SectionsLoaded { get; private set; } = Task.CompletedTask;
 
+    /// <summary>
+    /// Desktop's Overview cards first, in its order - availability,
+    /// resources, sensors, connected to, busiest ports - then its other
+    /// sections as they come in its sidebar.
+    /// </summary>
+    internal static readonly DeviceSection[] CardOrder =
+    [
+        DeviceSection.Availability,
+        DeviceSection.Resources,
+        DeviceSection.Sensors,
+        DeviceSection.Neighbours,
+        DeviceSection.Ports,
+        DeviceSection.Graphs,
+        DeviceSection.Vlans,
+        DeviceSection.Fdb,
+        DeviceSection.Arp,
+        DeviceSection.Routing,
+        DeviceSection.Wireless,
+        DeviceSection.Inventory,
+        DeviceSection.EventLog,
+        DeviceSection.Graylog,
+    ];
+
     private void BuildSectionCards()
     {
-        IEnumerable<DeviceSectionInfo> infos = _graylog?.IsConfigured == true
-            ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
-            : DeviceSectionInfo.All;
+        IEnumerable<DeviceSectionInfo> infos = (_graylog?.IsConfigured == true
+                ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
+                : DeviceSectionInfo.All)
+            .OrderBy(info => Array.IndexOf(CardOrder, info.Section) is var i and >= 0 ? i : int.MaxValue);
 
         foreach (var card in _sectionCards)
         {
@@ -98,7 +122,59 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         {
             ShowVisibleSections();
         }
+        else if (e.PropertyName == nameof(DeviceSectionCard.Groups))
+        {
+            RaiseTiles();
+        }
     }
+
+    // ------------------------------------------------------------ stat tiles
+
+    /// <summary>A loaded section's card, for the tiles.</summary>
+    private DeviceSectionCard? Card(DeviceSection section) => _sectionCards.FirstOrDefault(c => c.Info.Section == section);
+
+    /// <summary>Desktop's Availability tile: the 30-day figure, "—" until it's in.</summary>
+    public string AvailabilityTileText =>
+        Card(DeviceSection.Availability) is { } card && DeviceSectionCard.ThirtyDayWindow(card.Groups) is { } window
+            ? window.Value ?? "—"
+            : "—";
+
+    /// <summary>Green from 99.9%, amber from 99%, red below - desktop's thresholds, as the section colours them.</summary>
+    public RowStatus AvailabilityTileStatus =>
+        Card(DeviceSection.Availability) is { } card && DeviceSectionCard.ThirtyDayWindow(card.Groups) is { } window
+            ? window.Status
+            : RowStatus.None;
+
+    /// <summary>Desktop's Ports up tile: "46 / 52".</summary>
+    public string PortsTileText => Card(DeviceSection.Ports) is { Groups.Count: > 0 } card
+        ? $"{card.Groups.FirstOrDefault(g => g.Name == "Up")?.Count ?? 0} / {card.Count}"
+        : "—";
+
+    /// <summary>Green with every port up, amber with any down - desktop's.</summary>
+    public RowStatus PortsTileStatus => Card(DeviceSection.Ports) is { Groups.Count: > 0 } card
+        ? card.Groups.Any(g => g.Name == "Down" && g.Count > 0) ? RowStatus.Warning : RowStatus.Ok
+        : RowStatus.None;
+
+    /// <summary>Red with any critical, amber with other alerts, green with none - desktop's.</summary>
+    public RowStatus AlertsTileStatus =>
+        Alerts.Any(a => a.Severity == AlertSeverity.Critical && !a.IsAcknowledged) ? RowStatus.Critical
+        : Alerts.Count > 0 ? RowStatus.Warning
+        : RowStatus.Ok;
+
+    private void RaiseTiles()
+    {
+        OnPropertyChanged(nameof(AvailabilityTileText));
+        OnPropertyChanged(nameof(AvailabilityTileStatus));
+        OnPropertyChanged(nameof(PortsTileText));
+        OnPropertyChanged(nameof(PortsTileStatus));
+        OnPropertyChanged(nameof(AlertsTileStatus));
+    }
+
+    [RelayCommand]
+    private Task OpenTileAsync(string? section) =>
+        Enum.TryParse<DeviceSection>(section, out var parsed)
+            ? OpenSectionAsync(DeviceSectionInfo.For(parsed))
+            : Task.CompletedTask;
 
     private void ShowVisibleSections()
     {
@@ -159,29 +235,108 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     public string StateText => Device?.State.ToDisplayString() ?? string.Empty;
 
-    public string UptimeText => Device is null ? string.Empty : Formatting.Uptime(Device.Uptime);
+    /// <summary>Desktop's Uptime tile: a dash for a device that isn't up, as uptime means nothing then.</summary>
+    public string UptimeText => Device is { State: DeviceState.Up } up ? Formatting.Uptime(up.Uptime) : "—";
 
-    /// <summary>Label/value pairs for whatever LibreNMS knows about the device.</summary>
-    public IReadOnlyList<KeyValuePair<string, string>> Properties => Device is null
-        ? Array.Empty<KeyValuePair<string, string>>()
-        : new (string Label, string? Value)[]
+    /// <summary>Under the name, as desktop's header: "C9300-48P · iosxe · 192.0.2.10", leaving out what isn't known.</summary>
+    public string Subtitle => Device is null ? string.Empty
+        : string.Join(" · ", new[] { Device.Hardware, Device.Os, Device.Ip }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    /// <summary>"Network", "Server"... - LibreNMS's lowercase type, capitalised as the Devices tab shows it.</summary>
+    public string? TypeText => Device?.Type is { Length: > 0 } type
+        ? char.ToUpper(type[0], CultureInfo.CurrentCulture) + type[1..]
+        : null;
+
+    private IReadOnlyList<string> _groups = [];
+
+    /// <summary>
+    /// Desktop's Device card: what the device is and where, each only when
+    /// LibreNMS knows it (a card full of dashes is noise). The three names
+    /// only when they differ, as desktop's.
+    /// </summary>
+    public IReadOnlyList<KeyValuePair<string, string>> Properties
+    {
+        get
+        {
+            if (Device is not { } d)
             {
-                ("Hostname", Device.Hostname),
-                ("sysName", Device.SysName),
-                ("IP address", Device.Ip),
-                ("OS", Device.Os),
-                ("Hardware", Device.Hardware),
-                ("Version", Device.Version),
-                ("Serial", Device.Serial),
-                ("Location", Device.Location),
-                ("Type", Device.Type),
-                ("Purpose", Device.Purpose),
-                ("Contact", Device.Contact),
-                ("Uptime", UptimeText),
+                return [];
             }
-            .Where(p => !string.IsNullOrWhiteSpace(p.Value))
-            .Select(p => new KeyValuePair<string, string>(p.Label, p.Value!))
-            .ToList();
+
+            var utc = _settings.Current.ServerTimestampsAreUtc;
+            var names = new[] { d.Hostname, d.SysName, d.Display }
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count();
+
+            return new (string Label, string? Value)[]
+                {
+                    ("Hostname", names > 1 ? d.Hostname : null),
+                    ("sysName", names > 1 ? d.SysName : null),
+                    ("Display name", names > 1 ? d.Display : null),
+                    ("IP address", d.Ip),
+                    ("Operating system", string.Join(" ", new[] { d.Os, d.Version }.Where(p => !string.IsNullOrWhiteSpace(p)))),
+                    ("Hardware", d.Hardware),
+                    ("Serial", d.Serial),
+                    ("Type", TypeText),
+                    ("Purpose", d.Purpose),
+                    ("Location", d.Location),
+                    ("Contact", d.Contact),
+                    ("Groups", _groups.Count > 0 ? string.Join(", ", _groups) : null),
+                    ("Depends on", d.DependencyParentHostname),
+                    ("Added", d.Inserted is { } added ? DesktopNMS.Core.ServerTime.ToLocal(added, utc).ToString("d MMM yyyy", CultureInfo.CurrentCulture) : null),
+                    ("Last discovered", d.LastDiscovered is { } at ? Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, utc)) : null),
+                    ("Object ID", d.SysObjectId),
+                    ("Description", d.SysDescr),
+                }
+                .Where(p => !string.IsNullOrWhiteSpace(p.Value))
+                .Select(p => new KeyValuePair<string, string>(p.Label, p.Value!.Trim()))
+                .ToList();
+        }
+    }
+
+    // ------------------------------------------------------------ ping
+
+    /// <summary>Set by the page from the phone's theme, for the ping graph.</summary>
+    public bool DarkTheme { get; set; }
+
+    /// <summary>LibreNMS's own 24h ping graph (<c>device_icmp_perf</c>), as desktop's Ping response card; null until it's in.</summary>
+    [ObservableProperty]
+    private string? _pingGraphPage;
+
+    /// <summary>The ping graph opens the device's graphs, as desktop's does.</summary>
+    [RelayCommand]
+    private Task OpenGraphsAsync() => OpenSectionAsync(DeviceSectionInfo.For(DeviceSection.Graphs));
+
+    /// <summary>Best effort: a device LibreNMS doesn't ping just has no card.</summary>
+    private async Task LoadPingGraphAsync(int deviceId)
+    {
+        try
+        {
+            var svg = await _client.Graphs.GetSvgAsync(deviceId, "device_icmp_perf", new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400);
+            PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
+        }
+        catch (Exception)
+        {
+            PingGraphPage = null;
+        }
+    }
+
+    /// <summary>The device's groups, for the Device card - best effort, as a token may not read them.</summary>
+    private async Task LoadGroupsAsync(int deviceId)
+    {
+        try
+        {
+            var groups = await _client.DeviceGroups.ListForDeviceAsync(deviceId);
+            _groups = groups.Select(g => g.Name).Where(n => !string.IsNullOrWhiteSpace(n)).OrderBy(n => n, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+        catch (Exception)
+        {
+            _groups = [];
+        }
+
+        OnPropertyChanged(nameof(Properties));
+    }
 
     public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
@@ -220,6 +375,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             _sectionsCts = new CancellationTokenSource();
             BuildSectionCards();
             SectionsLoaded = LoadSectionsAsync(_sectionsCts.Token);
+
+            // Extras for the Device and Ping response cards, behind the rest.
+            Extras = Task.WhenAll(LoadGroupsAsync(DeviceId), LoadPingGraphAsync(DeviceId));
         }
 
         var utc = _settings.Current.ServerTimestampsAreUtc;
@@ -230,7 +388,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             .Select(alert => new AlertItem(alert, utc, Device is null ? null : Title)));
 
         OnPropertyChanged(nameof(HasAlerts));
+        OnPropertyChanged(nameof(ActiveAlertsNote));
+        RaiseTiles();
     });
+
+    /// <summary>Awaited by tests: the groups and ping graph, loaded after the device.</summary>
+    internal Task Extras { get; private set; } = Task.CompletedTask;
+
+    /// <summary>The Active alerts card's note, as desktop's: "2 open".</summary>
+    public string ActiveAlertsNote => Alerts.Count == 0 ? "None" : $"{Alerts.Count} open";
 
     private bool CanTogglePin() => Device is not null && _bookmarks.PinningEnabled;
 

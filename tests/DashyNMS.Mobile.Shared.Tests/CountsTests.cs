@@ -31,14 +31,20 @@ public sealed class CountsTests
         new(_client, _settings, _navigation, new DeviceBookmarks(_settings, TimeProvider.System), new MaintenanceScan(_client, TimeProvider.System));
 
     [Fact]
-    public async Task Ok_counts_watched_devices_with_no_open_alert()
+    public async Task Ok_counts_open_alerts_with_LibreNMSs_ok_severity()
     {
-        var vm = NewDashboard();
+        var client = Fakes.Client(alerts:
+        [
+            Fakes.Alert(1, 1, "critical"),
+            Fakes.Alert(2, 2, "ok"),
+            Fakes.Alert(3, 2, "ok"),
+            Fakes.Alert(4, 3, "ok", acknowledged: true), // acknowledged counts as that
+        ]);
+        var vm = new DashboardViewModel(client, _settings, _navigation, new DeviceBookmarks(_settings, TimeProvider.System));
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
-        // Device 2 only: 1 and 3 have alerts (acknowledged counts), 4 is disabled.
-        Assert.Equal(1, vm.DevicesOk);
+        Assert.Equal((1, 0, 2, 1), (vm.CriticalAlerts, vm.WarningAlerts, vm.OkAlerts, vm.AcknowledgedAlerts));
     }
 
     [Fact]
@@ -93,6 +99,7 @@ public sealed class CountsTests
             Fakes.Alert(1, 1, "critical"),
             Fakes.Alert(2, 1, "warning"),
             Fakes.Alert(3, 2, "critical", acknowledged: true),
+            Fakes.Alert(4, 2, "ok"),
         ]);
         var vm = new AlertsViewModel(client, _settings, Substitute.For<IDialogService>(), _navigation,
             Substitute.For<ISelfActionTracker>(), Substitute.For<IShareService>(), new RecordingBadge(), new FakeTimeProvider());
@@ -103,6 +110,12 @@ public sealed class CountsTests
 
         vm.ShowOnly("warning");
         Assert.Equal([2], vm.Alerts.Select(a => a.Id));
+
+        vm.ShowOnly("ok");
+        Assert.Equal([4], vm.Alerts.Select(a => a.Id));
+        Assert.Equal(1, vm.OkCount);
+        Assert.False(_appSettings.Filter.ShowCritical);
+        Assert.True(_appSettings.Filter.ShowUnknownSeverity); // desktop's filter for the rest
 
         vm.ShowOnly("acknowledged");
         Assert.Equal([3], vm.Alerts.Select(a => a.Id));

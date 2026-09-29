@@ -57,11 +57,11 @@ public sealed partial class DashboardViewModel : ViewModelBase
     private int _devicesMaintenance;
 
     /// <summary>
-    /// Watched devices with no open alert at all - the alert pie widget's
-    /// "OK", so the counts cover every device (#31).
+    /// Open, unacknowledged alerts with LibreNMS's ok severity (#64) -
+    /// what the Alerts tab's OK chip shows.
     /// </summary>
     [ObservableProperty]
-    private int _devicesOk;
+    private int _okAlerts;
 
     /// <summary>Disabled plus ignored - not being watched either way.</summary>
     [ObservableProperty]
@@ -188,8 +188,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
         WarningAlerts = active.Count(a => a.Severity == AlertSeverity.Warning);
         AcknowledgedAlerts = alerts.Count - active.Count;
 
-        var alerted = alerts.Select(a => a.DeviceId).ToHashSet();
-        DevicesOk = devices.Count(d => d.State != DeviceState.Disabled && !alerted.Contains(d.DeviceId));
+        OkAlerts = active.Count(a => a.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning));
 
         // Last, and without holding up the rest: one request per device.
         if (Shows(DashboardLayout.DeviceStatus))
