@@ -15,6 +15,7 @@ public partial class HealthPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_ = _viewModel.RefreshIfStaleAsync();
 	}
 }

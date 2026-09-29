@@ -431,4 +431,14 @@ public sealed class FormattingTests
     [InlineData(3 * 3600, "3h ago")]
     [InlineData(2 * 86400, "2d ago")]
     public void Age(int seconds, string expected) => Assert.Equal(expected, Formatting.Age(TimeSpan.FromSeconds(seconds)));
+
+    [Fact]
+    public void An_alert_row_shows_its_age_short_at_the_right_and_its_id_and_state_below()
+    {
+        var item = new AlertItem(Fakes.Alert(4821, 1, "critical", at: DateTime.Now.AddMinutes(-5).AddSeconds(-10)), serverTimestampsAreUtc: false);
+
+        Assert.Equal("5m", item.ShortAge);
+        Assert.Equal("#4821 · Active", item.MetaText);
+        Assert.Equal("now", new AlertItem(Fakes.Alert(1, 1, "critical", at: DateTime.Now), false).ShortAge);
+    }
 }

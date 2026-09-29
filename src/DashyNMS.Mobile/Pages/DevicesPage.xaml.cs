@@ -34,6 +34,7 @@ public partial class DevicesPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 
 		// Every time, like the other tabs: after a sign-out and sign-in the
 		// page is reused, and a once-only load would keep the old server's list.

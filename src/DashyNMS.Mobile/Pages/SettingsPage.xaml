@@ -4,13 +4,19 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:SettingsViewModel"
+    ios:Page.UseSafeArea="True"
     Title="Settings">
 
     <!-- One row per section, each summarising its values and opening its
          own page (#67), rather than every setting on one long page. -->
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="12">
+
+            <!-- Pinned to the tab bar, Settings has its own big title; from More, the navigation bar. -->
+            <controls:PageHeader x:Name="Header" Title="Settings" Margin="0,-4,0,-8" />
 
             <!-- The server as a card of its own, as in the mock-ups. -->
             <Border Style="{StaticResource Card}">

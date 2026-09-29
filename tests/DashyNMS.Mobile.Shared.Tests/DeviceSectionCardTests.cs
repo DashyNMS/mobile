@@ -127,6 +127,10 @@ public sealed class DeviceSectionCardTests
         Assert.Equal(RowStatus.Warning, vm.PortsTileStatus);
         Assert.Equal(RowStatus.Ok, vm.AlertsTileStatus);
         Assert.Contains(vm.Properties, p => p is { Key: "IP address", Value: "192.0.2.1" });
+
+        // Ping and active alerts lead the one card grid, then the sections (#69).
+        Assert.Equal([DeviceOverviewCard.Ping, DeviceOverviewCard.Alerts], vm.GridCards.Take(2));
+        Assert.Equal(vm.SectionCards, vm.GridCards.Skip(2));
     }
 
     [Fact]

@@ -82,6 +82,52 @@
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
             </Style>
 
+            <!-- A list whose rows share one card, as the mock-ups group them:
+                 the card holds the scrolling list, each row draws the line under it. -->
+            <Style x:Key="ListCard" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+            </Style>
+
+            <!-- A row in a ListCard. -->
+            <Style x:Key="ListRow" TargetType="Grid">
+                <Setter Property="Padding" Value="14,11,14,0" />
+                <Setter Property="MinimumHeightRequest" Value="56" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+            </Style>
+
+            <!-- A text box's well, as on Sign in: the entry sits inside, on the alt surface. -->
+            <Style x:Key="Field" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="MinimumHeightRequest" Value="46" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
+            </Style>
+
+            <!-- A segmented control: Health's sensor types, Event log / Alert log. -->
+            <Style x:Key="SegmentBar" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 14" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="Padding" Value="4" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
+            </Style>
+
+            <!-- One segment; the page's trigger raises the chosen one onto the card colour. -->
+            <Style x:Key="Segment" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                <Setter Property="CornerRadius" Value="10" />
+                <Setter Property="HeightRequest" Value="40" />
+                <Setter Property="MinimumHeightRequest" Value="40" />
+                <Setter Property="Padding" Value="6,0" />
+                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+            </Style>
+
             <!-- A page's own big title, where there's no navigation bar. -->
             <Style x:Key="PageTitle" TargetType="Label">
                 <Setter Property="FontSize" Value="28" />
