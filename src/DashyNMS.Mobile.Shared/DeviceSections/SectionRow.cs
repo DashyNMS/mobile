@@ -52,6 +52,30 @@ public sealed record SectionRow(string Title)
     /// <summary>A port of this device whose graphs this row leads to - its SNMP ifName, which LibreNMS's port graph API takes.</summary>
     public string? LinkPortIfName { get; init; }
 
+    /// <summary>
+    /// Named values drawn one to a line, name then value - an alert fault's
+    /// fields in "Why it fired", as the mock-up, where one block of
+    /// "name: value" text ran the reasons together (Batch 11).
+    /// </summary>
+    public IReadOnlyList<SectionField> Fields { get; init; } = [];
+
+    public bool HasFields => Fields.Count > 0;
+
+    /// <summary>
+    /// Part of one block rather than a row in a list - alert detail's rule,
+    /// its notes and procedure - so no line above it.
+    /// </summary>
+    public bool IsStacked { get; init; }
+
+    /// <summary>The line above a row in a list (see <see cref="IsStacked"/>).</summary>
+    public bool HasDivider => !IsStacked;
+
+    /// <summary>A stacked row's title is a label for its text ("Notes"), drawn small, not a heading.</summary>
+    public bool HasCaptionTitle => IsStacked && !IsCode;
+
+    /// <summary>The title as a heading - every row but a stacked one's label.</summary>
+    public bool HasHeadingTitle => !HasCaptionTitle;
+
     public bool HasSubtitle => !string.IsNullOrWhiteSpace(Subtitle);
 
     /// <summary>A subtitle to draw as code (see <see cref="IsCode"/>).</summary>
@@ -73,11 +97,18 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
-        Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term);
+        Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>
         field?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
 }
+
+/// <summary>
+/// One of a row's <see cref="SectionRow.Fields"/>. Secondary fields are the
+/// ones the rule doesn't test, shown fainter after "Show all fields".
+/// </summary>
+public sealed record SectionField(string Name, string Value, bool IsSecondary = false);
 
 /// <summary>A titled run of rows ("Temperature", "BGP sessions").</summary>
 public sealed class SectionGroup : ObservableCollection<SectionRow>
@@ -92,4 +123,11 @@ public sealed class SectionGroup : ObservableCollection<SectionRow>
 
     /// <summary>Alert detail's "Why it fired": its card carries the "Show all fields" link (#69).</summary>
     public bool HasFields { get; init; }
+
+    /// <summary>A link at the foot of the group's card - "Show all fields".</summary>
+    public string? FooterText { get; set; }
+
+    public System.Windows.Input.ICommand? FooterCommand { get; set; }
+
+    public bool HasFooter => FooterCommand is not null && !string.IsNullOrEmpty(FooterText);
 }

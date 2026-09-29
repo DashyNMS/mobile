@@ -40,6 +40,19 @@ public static class MauiProgram
 		});
 #endif
 
+#if IOS
+		// A search box in a list's header (Batch 10) drew UISearchBar's own
+		// bar round it: a black outline on the toned page. Minimal style with
+		// no background image leaves just the rounded field. After Background,
+		// which would otherwise put the bar's tint back.
+		Microsoft.Maui.Handlers.SearchBarHandler.Mapper.AppendToMapping(nameof(IView.Background), (handler, _) =>
+		{
+			handler.PlatformView.SearchBarStyle = UIKit.UISearchBarStyle.Minimal;
+			handler.PlatformView.BackgroundImage = new UIKit.UIImage();
+			handler.PlatformView.BarTintColor = UIKit.UIColor.Clear;
+		});
+#endif
+
 		// Core, the session and view models - shared with the unit tests.
 		builder.Services.AddDashyNmsMobile();
 
