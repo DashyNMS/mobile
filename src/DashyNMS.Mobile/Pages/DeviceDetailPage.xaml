@@ -28,9 +28,8 @@
             <pages:DeviceCardTemplateSelector.Ping>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
                     <ContentView x:DataType="vm:DeviceDetailViewModel"
-                    <ContentView x:DataType="vm:DeviceDetailViewModel"
-                             BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}"
-                             IsVisible="{Binding PingGraphPage, Converter={StaticResource IsNotNull}}">
+                                 BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}"
+                                 IsVisible="{Binding PingGraphPage, Converter={StaticResource IsNotNull}}">
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -54,8 +53,7 @@
             <pages:DeviceCardTemplateSelector.Alerts>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
                     <ContentView x:DataType="vm:DeviceDetailViewModel"
-                    <ContentView x:DataType="vm:DeviceDetailViewModel"
-                             BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}">
+                                 BindingContext="{Binding Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}}">
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">

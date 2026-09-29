@@ -45,7 +45,7 @@ public sealed class PageHeader : Grid
 
             if (value is not null)
             {
-                SetColumn(value, 1);
+                SetColumn((IView)value, 1);
                 value.VerticalOptions = LayoutOptions.Center;
                 Add(value);
             }
