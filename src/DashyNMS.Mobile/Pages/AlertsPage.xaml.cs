@@ -28,6 +28,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_viewModel.RefreshCommand.Execute(null);
 	}
 }

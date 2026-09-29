@@ -62,6 +62,17 @@ public sealed class AlertItem
     /// <summary>"5m ago", or empty when the server gave no time.</summary>
     public string AgeText => Alert.Timestamp is { } t ? Formatting.Age(ServerTime.Age(t, _serverTimestampsAreUtc)) : string.Empty;
 
+    /// <summary>"5m", "now" - the list's age at the row's right, as the mock-ups (#69).</summary>
+    public string ShortAge => AgeText switch
+    {
+        "" => string.Empty,
+        "just now" => "now",
+        var age => age.Replace(" ago", string.Empty, StringComparison.Ordinal),
+    };
+
+    /// <summary>"#4821 · Acknowledged": the list's quiet third line, with the age at the right instead.</summary>
+    public string MetaText => $"#{Id.ToString(CultureInfo.InvariantCulture)} · {StateText}";
+
     /// <summary>"5m ago · Acknowledged", as the list's second line.</summary>
     public string Summary => $"{(AgeText.Length > 0 ? AgeText : "unknown time")} · {StateText}";
 

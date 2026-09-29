@@ -23,6 +23,19 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
+#if ANDROID
+		// An entry in a Field well (Sign in) has the well as its outline, so
+		// Android's underline would draw a second one.
+		Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("FieldWell", (handler, entry) =>
+		{
+			if (entry is Entry { Parent: Border })
+			{
+				handler.PlatformView.BackgroundTintList =
+					Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
+			}
+		});
+#endif
+
 		// Core, the session and view models - shared with the unit tests.
 		builder.Services.AddDashyNmsMobile();
 

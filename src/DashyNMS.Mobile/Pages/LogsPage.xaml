@@ -3,73 +3,87 @@
     x:Class="DashyNMS.Mobile.Pages.LogsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="logs:LogsViewModel"
+    ios:Page.UseSafeArea="True"
     Title="Logs">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <!-- As the Logs mock-up (#69): Event log / Alert log as a segmented
+         control, and the entries in one card with the time at the right. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-            <Button Style="{StaticResource Chip}" Text="Event log" Command="{Binding ShowEventLogCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowingEventLog}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-            <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Alert log" Command="{Binding ShowAlertLogCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowingAlertLog}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-        </Grid>
+        <controls:PageHeader x:Name="Header" Title="Logs">
+            <controls:PageHeader.Actions>
+                <!-- Shown once Graylog is set up - see LogsPage.xaml.cs. -->
+                <Button x:Name="GraylogButton" Style="{StaticResource LinkButton}" Text="Graylog"
+                        Command="{Binding OpenGraylogCommand}" IsVisible="False" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
-        <SearchBar Grid.Row="1" Text="{Binding SearchText}" Placeholder="Search what's loaded" Margin="0,6,0,0" />
+        <Border Grid.Row="1" Style="{StaticResource SegmentBar}">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                <Button Style="{StaticResource Segment}" Text="Event log" FontSize="14" Command="{Binding ShowEventLogCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowingEventLog}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Style="{StaticResource Segment}" Text="Alert log" FontSize="14" Command="{Binding ShowAlertLogCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowingAlertLog}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+        </Border>
 
-        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search what's loaded" Margin="0,6,0,4" />
 
-        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.EmptyView>
-                    <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
-                           HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="0,32" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="sections:SectionRow">
-                        <Border Style="{StaticResource Card}">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
-                                <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Title}" LineBreakMode="WordWrap" MaxLines="3" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Detail}" FontSize="12" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="2" Text="{Binding Value}" IsVisible="{Binding HasValue}" VerticalOptions="Center"
+        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+                <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None">
+                    <CollectionView.EmptyView>
+                        <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                               HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="sections:SectionRow">
+                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" VerticalOptions="Center" />
+                                <!-- Device (and type, user), then the time at the right. -->
+                                <Label Grid.Column="1" Style="{StaticResource RowTitle}" Text="{Binding Subtitle}" />
+                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding Detail}" VerticalOptions="Center" />
+                                <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Title}" FontSize="14"
+                                       LineBreakMode="WordWrap" MaxLines="3"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                <Label Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource PillText}" Text="{Binding Value}"
+                                       IsVisible="{Binding HasValue}" Margin="0,2,0,0"
                                        TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                <BoxView Grid.Row="3" Grid.ColumnSpan="3" Style="{StaticResource Divider}" Margin="0,11,0,0" />
                             </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-                <CollectionView.Footer>
-                    <Button Text="Load more" Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}" Margin="0,8,0,16" />
-                </CollectionView.Footer>
-            </CollectionView>
-        </RefreshView>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.Footer>
+                        <Button Style="{StaticResource SecondaryButton}" Text="Load more" Command="{Binding LoadMoreCommand}"
+                                IsVisible="{Binding CanLoadMore}" Margin="14,12" />
+                    </CollectionView.Footer>
+                </CollectionView>
+            </RefreshView>
+        </Border>
 
     </Grid>
 

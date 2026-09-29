@@ -15,6 +15,7 @@ public partial class SettingsPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_viewModel.Refresh();
 	}
 }

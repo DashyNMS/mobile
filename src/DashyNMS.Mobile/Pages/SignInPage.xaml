@@ -29,59 +29,82 @@
                            HorizontalOptions="Center" VerticalOptions="Center" TranslationY="112" />
     </Grid>
 
+    <!-- As the Sign in mock-up (#69): the logo as on the splash, the
+         fields in one card, the switches in another, then Sign in. -->
     <ScrollView IsVisible="{Binding ShowForm}">
-        <VerticalStackLayout Padding="24,48,24,24" Spacing="12" MaximumWidthRequest="520">
+        <VerticalStackLayout Padding="16,48,16,24" Spacing="14" MaximumWidthRequest="520">
 
-            <HorizontalStackLayout Spacing="12">
-                <Image Source="dashynms_logo.png" WidthRequest="44" HeightRequest="44" SemanticProperties.Description="DashyNMS logo" />
-                <Label Text="DashyNMS" FontSize="32" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
-            </HorizontalStackLayout>
-            <Label Style="{StaticResource Caption}"
-                   Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
+            <VerticalStackLayout Spacing="12" Padding="0,0,0,6">
+                <Image Source="dashynms_logo.png" WidthRequest="72" HeightRequest="72" HorizontalOptions="Center"
+                       SemanticProperties.Description="DashyNMS logo" />
+                <Label Text="DashyNMS" FontSize="28" FontFamily="OpenSansSemibold" HorizontalOptions="Center"
+                       SemanticProperties.HeadingLevel="Level1" />
+                <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
+                       Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
+            </VerticalStackLayout>
 
-            <Label Text="Server address" Margin="0,16,0,0" />
-            <Entry Text="{Binding ServerUrl}"
-                   Placeholder="nms.example.com"
-                   Keyboard="Url"
-                   IsSpellCheckEnabled="False"
-                   IsTextPredictionEnabled="False"
-                   AutomationId="ServerUrl" />
-
-            <Label Text="API token" />
-            <Entry Text="{Binding ApiToken}"
-                   Placeholder="Paste your API token"
-                   IsPassword="True"
-                   IsSpellCheckEnabled="False"
-                   IsTextPredictionEnabled="False"
-                   ReturnCommand="{Binding SignInCommand}"
-                   AutomationId="ApiToken" />
-
-            <Label Text="Backup address (optional)" />
-            <Entry Text="{Binding BackupAddress}"
-                   Placeholder="Used when the server address doesn't answer"
-                   Keyboard="Url"
-                   IsSpellCheckEnabled="False"
-                   IsTextPredictionEnabled="False" />
-
-            <Grid ColumnDefinitions="*,Auto">
-                <Label Text="Remember token on this device" VerticalOptions="Center" />
-                <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" />
-            </Grid>
-
-            <Grid ColumnDefinitions="*,Auto">
-                <VerticalStackLayout VerticalOptions="Center">
-                    <Label Text="Allow untrusted certificate" />
-                    <Label Style="{StaticResource Caption}" Text="Only for a self-signed server you trust." />
+            <Border Style="{StaticResource Card}" Padding="16">
+                <VerticalStackLayout Spacing="14">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="Server address" />
+                        <Border Style="{StaticResource Field}">
+                            <Entry Text="{Binding ServerUrl}"
+                                   Placeholder="nms.example.com"
+                                   Keyboard="Url"
+                                   IsSpellCheckEnabled="False"
+                                   IsTextPredictionEnabled="False"
+                                   AutomationId="ServerUrl" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="API token" />
+                        <Border Style="{StaticResource Field}">
+                            <Entry Text="{Binding ApiToken}"
+                                   Placeholder="Paste your API token"
+                                   IsPassword="True"
+                                   IsSpellCheckEnabled="False"
+                                   IsTextPredictionEnabled="False"
+                                   ReturnCommand="{Binding SignInCommand}"
+                                   AutomationId="ApiToken" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Style="{StaticResource Caption}" FontFamily="OpenSansSemibold" Text="Backup address (optional)" />
+                        <Border Style="{StaticResource Field}">
+                            <Entry Text="{Binding BackupAddress}"
+                                   Placeholder="Used when the server address doesn't answer"
+                                   Keyboard="Url"
+                                   IsSpellCheckEnabled="False"
+                                   IsTextPredictionEnabled="False" />
+                        </Border>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
-                <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" />
-            </Grid>
+            </Border>
+
+            <Border Style="{StaticResource Card}" Padding="14,0">
+                <VerticalStackLayout>
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="56">
+                        <Label Text="Remember token on this device" VerticalOptions="Center" />
+                        <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" VerticalOptions="Center" />
+                    </Grid>
+                    <BoxView Style="{StaticResource Divider}" />
+                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="64" Padding="0,8">
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Allow untrusted certificate" />
+                            <Label Style="{StaticResource Faint}" Text="Only for a self-signed server you trust." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" VerticalOptions="Center" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
 
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
             <Button Text="Sign in"
                     Command="{Binding SignInCommand}"
                     IsEnabled="{Binding IsNotBusy}"
-                    Margin="0,8,0,0"
+                    HeightRequest="50"
+                    FontSize="16"
                     AutomationId="SignIn" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 

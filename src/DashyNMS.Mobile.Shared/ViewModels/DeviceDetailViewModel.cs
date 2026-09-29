@@ -69,6 +69,13 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     /// <summary>The sections listed, in order.</summary>
     public IReadOnlyList<DeviceSectionInfo> Sections => SectionCards.Select(c => c.Info).ToList();
 
+    /// <summary>
+    /// What the page's card grid shows: ping and active alerts, then the
+    /// sections - one grid, so a three-column tablet has no gap after the
+    /// first two (#69). The page picks each one's template by type.
+    /// </summary>
+    public IReadOnlyList<object> GridCards => [DeviceOverviewCard.Ping, DeviceOverviewCard.Alerts, .. SectionCards];
+
     /// <summary>Awaited by tests: every section's quick view has loaded (or failed).</summary>
     internal Task SectionsLoaded { get; private set; } = Task.CompletedTask;
 
@@ -180,6 +187,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     {
         SectionCards.ReplaceAll(_sectionCards.Where(c => c.IsVisible).ToList());
         OnPropertyChanged(nameof(Sections));
+        OnPropertyChanged(nameof(GridCards));
     }
 
     /// <summary>
@@ -362,6 +370,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             ErrorMessage = "LibreNMS no longer has this device.";
             SectionCards.ReplaceAll([]);
             OnPropertyChanged(nameof(Sections));
+            OnPropertyChanged(nameof(GridCards));
         }
         else
         {

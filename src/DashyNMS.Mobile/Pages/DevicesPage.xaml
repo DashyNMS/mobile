@@ -6,10 +6,16 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:DevicesViewModel"
+    ios:Page.UseSafeArea="True"
     Title="Devices">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,*" Padding="16,8,16,0">
+
+    <controls:PageHeader x:Name="Header" Title="Devices" />
+
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
 
         <SearchBar Text="{Binding SearchText}" Placeholder="Name, IP, OS, hardware, location, serial" />
 
@@ -127,11 +133,10 @@
         <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
         <controls:LoadingIndicator Grid.Row="6" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
-        <RefreshView Grid.Row="6" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <!-- The rows share one card, as the mock-ups group them (#69). -->
+        <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+        <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
             <CollectionView ItemsSource="{Binding Devices}" SelectionMode="None">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
-                </CollectionView.ItemsLayout>
                 <CollectionView.EmptyView>
                     <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsNotBusy}" HorizontalOptions="Center" Margin="0,32" />
                 </CollectionView.EmptyView>
@@ -148,13 +153,12 @@
                                 </SwipeItems>
                             </SwipeView.LeftItems>
 
-                            <Border Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
+                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                                <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                         CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
-                                <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
+                                </Grid.GestureRecognizers>
                                     <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}" />
                                     <VerticalStackLayout Grid.Column="1">
                                         <HorizontalStackLayout Spacing="6">
@@ -169,14 +173,16 @@
                                                TextColor="{Binding State, Converter={StaticResource StatusText}}" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>
-                                </Grid>
-                            </Border>
+                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" Margin="0,11,0,0" />
+                            </Grid>
                         </SwipeView>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>
+        </Border>
 
+    </Grid>
     </Grid>
 
 </ContentPage>

@@ -19,6 +19,7 @@ public partial class LogsPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_ = _viewModel.EnsureLoadedAsync();
 		_ = ShowGraylogAsync();
 	}
@@ -27,6 +28,7 @@ public partial class LogsPage : ContentPage
 	private async Task ShowGraylogAsync()
 	{
 		var show = await _viewModel.HasGraylogAsync();
+		GraylogButton.IsVisible = show;
 		if (show && !ToolbarItems.Contains(_graylog))
 		{
 			ToolbarItems.Add(_graylog);
