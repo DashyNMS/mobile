@@ -32,7 +32,7 @@
                                 <Label Style="{StaticResource Caption}" Text="{Binding DeviceName}" LineBreakMode="TailTruncation" />
                             </VerticalStackLayout>
                             <Label Grid.Column="1" Text="{Binding Row.Value}" VerticalOptions="Center"
-                                   TextColor="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
+                                   TextColor="{Binding Row.Status, Converter={StaticResource StatusText}}" />
                             <CheckBox Grid.Column="2" IsChecked="{Binding IsPicked}" IsEnabled="False" VerticalOptions="Center" />
                         </Grid>
                     </Border>

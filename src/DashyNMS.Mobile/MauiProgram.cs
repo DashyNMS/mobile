@@ -35,6 +35,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
+		builder.Services.AddSingleton<IAppPreferences, MauiPreferences>();
 
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
@@ -56,6 +57,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<DeviceDetailPage>();
 		builder.Services.AddTransient<AlertsPage>();
 		builder.Services.AddTransient<SettingsPage>();
+		builder.Services.AddTransient<SettingsSectionPage>();
+		builder.Services.AddTransient<MorePage>();
 		builder.Services.AddTransient<DeviceSectionPage>();
 		builder.Services.AddTransient<DeviceGraphsPage>();
 		builder.Services.AddTransient<MaintenancePage>();

@@ -120,6 +120,11 @@ public sealed class CountsTests
         vm.ShowOnly("acknowledged");
         Assert.Equal([3], vm.Alerts.Select(a => a.Id));
         Assert.True(vm.HasActiveFilters);
+
+        // The dashboard's See all.
+        vm.ShowOnly("all");
+        Assert.Equal(4, vm.Alerts.Count);
+        Assert.False(vm.HasActiveFilters);
     }
 
     [Fact]

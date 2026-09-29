@@ -24,6 +24,54 @@
     <Color x:Key="SurfaceAltDark">#1E2430</Color>
     <Color x:Key="BackgroundDark">#11141A</Color>
 
+    <!-- The design mock-ups' tokens (the "DashyNMS Mobile mock-ups" canvas):
+         text in three strengths, card strokes, and the light theme's
+         surfaces, which mirror the dark ones. -->
+    <Color x:Key="TextDark">#E8EEF6</Color>
+    <Color x:Key="TextSecondaryDark">#A3ADBB</Color>
+    <Color x:Key="TextFaintDark">#7F8A9A</Color>
+    <Color x:Key="StrokeDark">#232A36</Color>
+    <Color x:Key="ChipStrokeDark">#3A4250</Color>
+    <Color x:Key="TextLight">#11141A</Color>
+    <Color x:Key="TextSecondaryLight">#4B5563</Color>
+    <Color x:Key="TextFaintLight">#6B7280</Color>
+    <Color x:Key="StrokeLight">#E3E7ED</Color>
+    <Color x:Key="BackgroundLight">#F4F6F9</Color>
+    <Color x:Key="SurfaceLight">#FFFFFF</Color>
+    <Color x:Key="SurfaceAltLight">#EEF1F5</Color>
+    <!-- Filled buttons: white text on it passes 4.5:1, which PrimaryDark doesn't. -->
+    <Color x:Key="ButtonPrimary">#2563EB</Color>
+
+    <!-- Status colours as text: the fills above are too dark to read on
+         dark cards and too light on white ones. -->
+    <Color x:Key="CriticalTextDark">#FF7B72</Color>
+    <Color x:Key="CriticalTextLight">#B42318</Color>
+    <Color x:Key="WarningTextDark">#F2C14E</Color>
+    <Color x:Key="WarningTextLight">#8A5A00</Color>
+    <Color x:Key="OkTextDark">#56D364</Color>
+    <Color x:Key="OkTextLight">#1A7F37</Color>
+    <Color x:Key="MaintenanceTextDark">#79B8FF</Color>
+    <Color x:Key="MaintenanceTextLight">#0B5CAD</Color>
+    <Color x:Key="InactiveTextDark">#A3ADBB</Color>
+    <Color x:Key="InactiveTextLight">#4B5563</Color>
+    <Color x:Key="PrimaryTextDark">#60A5FA</Color>
+    <Color x:Key="PrimaryTextLight">#1D4ED8</Color>
+
+    <!-- Status tints (16%) behind chips and pills that are on, with the
+         status colour as their outline. -->
+    <Color x:Key="CriticalTint">#29DA3633</Color>
+    <Color x:Key="WarningTint">#29DB9A04</Color>
+    <Color x:Key="OkTint">#292EA043</Color>
+    <Color x:Key="MaintenanceTint">#294C9AFF</Color>
+    <Color x:Key="InactiveTint">#296E6E6E</Color>
+    <Color x:Key="PrimaryTint">#293B82F6</Color>
+    <Color x:Key="CriticalStroke">#DA3633</Color>
+    <Color x:Key="WarningStroke">#DB9A04</Color>
+    <Color x:Key="OkStroke">#2EA043</Color>
+    <Color x:Key="MaintenanceStroke">#4C9AFF</Color>
+    <Color x:Key="InactiveStroke">#6E6E6E</Color>
+    <Color x:Key="PrimaryStroke">#3B82F6</Color>
+
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
     <Color x:Key="Magenta">#D600AA</Color>

@@ -34,6 +34,37 @@ public sealed class MoreSettingsTests
     }
 
     [Fact]
+    public void Each_section_row_summarises_its_values()
+    {
+        _appSettings.Notifications.Enabled = true;
+        _appSettings.Notifications.Critical.Enabled = true;
+        _appSettings.Notifications.Warning.Enabled = false;
+        _appSettings.Notifications.QuietHoursEnabled = true;
+        _appSettings.Notifications.QuietHoursStartHour = 22;
+        _appSettings.Notifications.QuietHoursEndHour = 7;
+
+        Assert.Equal("Same as the phone", _vm.AppearanceSummary);
+        Assert.Equal("Every 1 minute while open", _vm.AlertChecksSummary); // no badge on this platform
+        Assert.Equal("Critical only · quiet 22:00–07:00", _vm.NotificationsSummary);
+        Assert.EndsWith("recently viewed", _vm.DevicesSummary);
+        Assert.Equal("Not signed in", _vm.ServerHost);
+
+        _appSettings.Notifications.Enabled = false;
+        Assert.Equal("Off", _vm.NotificationsSummary);
+    }
+
+    [Fact]
+    public async Task A_section_row_opens_its_page()
+    {
+        await _vm.OpenSectionCommand.ExecuteAsync(SettingsSection.Notifications);
+
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Routes.SettingsSection, visit.Route);
+        Assert.Equal(SettingsSection.Notifications, visit.Parameters![Routes.SettingsSectionParameter]);
+        Assert.Equal("Notifications", SettingsViewModel.Title(SettingsSection.Notifications));
+    }
+
+    [Fact]
     public void Poll_interval_is_desktops_setting_from_30_seconds_up()
     {
         Assert.Equal("1 minute", _vm.PollIntervalLabels[_vm.PollIntervalIndex]); // desktop's default, 60 s

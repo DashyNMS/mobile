@@ -14,18 +14,18 @@
             <Button Style="{StaticResource Chip}" Text="Event log" Command="{Binding ShowEventLogCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowingEventLog}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
             <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Alert log" Command="{Binding ShowAlertLogCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowingAlertLog}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
@@ -52,15 +52,15 @@
                                     Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
-                                <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                            <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1">
                                     <Label Text="{Binding Title}" LineBreakMode="WordWrap" MaxLines="3" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Detail}" FontSize="12" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding Value}" IsVisible="{Binding HasValue}" VerticalOptions="Center"
-                                       TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                             </Grid>
                         </Border>
                     </DataTemplate>

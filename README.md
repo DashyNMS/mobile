@@ -58,7 +58,7 @@ rather than rewritten.
   rule, note and alert id. Filters are remembered between launches. Swipe to
   acknowledge (with an optional note) or unacknowledge. **Export** shares the
   filtered list as CSV, in desktop's columns.
-- **Logs** (Alerts → Logs): LibreNMS's event log and alert log for the whole
+- **Logs** (More, or Alerts → Logs): LibreNMS's event log and alert log for the whole
   network, newest first, with each entry's device and a tap through to it.
   Loads a page at a time; search covers what's loaded.
 - **Alert detail**: tap any alert (in the list, on the dashboard, in Device
@@ -76,20 +76,20 @@ rather than rewritten.
   live in the background too. Android launchers show their own dot or
   count from DashyNMS's notifications instead, as Android gives apps no
   way to set a number.
-- **Map** (Devices → More): desktop's geographical map. One pin per LibreNMS
+- **Map** (More): desktop's geographical map. One pin per LibreNMS
   location, showing its device count, red if any device there is down. It
   uses OpenStreetMap tiles, or the tile server in desktop's own map setting,
   drawn with Leaflet bundled inside the app. Tap a pin for that location's
   devices. Devices without usable coordinates are counted, not dropped.
-- **Neighbours** (Devices → More): every CDP/LLDP link across the network,
+- **Neighbours** (More): every CDP/LLDP link across the network,
   one row per cable. Links with a device or port down come first, with a
   "down only" filter and search. Tap to open either end.
-- **Groups & locations** (Devices → More): desktop's Groups and
+- **Groups & locations** (More): desktop's Groups and
   Locations tabs as one page. Every device group or location with its device
   count, how many are down or disabled, and coordinates where LibreNMS has
   them. Anything with devices down comes first. Tap one for the Devices list
   filtered to it.
-- **Graylog** (Alerts → Logs → Graylog, and a Graylog section in Device
+- **Graylog** (More, or Alerts → Logs → Graylog, and a Graylog section in Device
   View): messages from your Graylog server, found as LibreNMS finds them -
   by time range, level, stream and message text, newest first, and for a
   device by its names and addresses (optionally every interface address).
@@ -121,14 +121,19 @@ rather than rewritten.
   iPhone's are a Swift WidgetKit extension (`ios-widget/`), which needs a
   one-off App Group setup before TestFlight builds include it; see
   [docs/RELEASING-IOS.md](docs/RELEASING-IOS.md#home-screen-widget).
-- **Settings**: the connected server and version, light/dark (the phone's
-  own, or fixed), how often to check alerts while the app is open (desktop's
-  poll interval, 30 seconds to 15 minutes), desktop's Health thresholds
-  (dBm, signal, temperature, fan speed, and whether they override a sensor's
-  own limits, checked before saving), the app icon badge, notification options
-  (per severity, recovery, acknowledgement, quiet hours, a test
-  notification), the *Server stores timestamps in UTC* option (the same
-  setting as on desktop), and sign-out.
+- **More** (the last tab): every page, under Monitor, Network, Logs and App
+  headings. Pin up to three to the tab bar beside Dashboard and More, which
+  always stay. Devices, Alerts and Health are pinned until you choose; a page
+  that isn't pinned opens from More, and links to it (a dashboard count, a
+  notification) open it there.
+- **Settings** (More → Settings): a row per section, each summarising its
+  values and opening its own page - the server (address, version, the
+  *Server stores timestamps in UTC* option), appearance (the phone's
+  light/dark, or fixed), devices (desktop's name choice, recently viewed),
+  alert checks (how often while the app is open - desktop's poll interval,
+  30 seconds to 15 minutes - and the app icon badge), notifications (per
+  severity, recovery, acknowledgement, quiet hours), desktop's Health
+  thresholds, lock screen widgets and Graylog - then sign-out.
 
 ## Alert notifications
 

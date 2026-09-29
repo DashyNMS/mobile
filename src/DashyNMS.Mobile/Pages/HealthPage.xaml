@@ -21,9 +21,9 @@
                                 CommandParameter="{Binding .}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                                    <Setter Property="BorderColor" Value="{StaticResource Primary}" />
-                                    <Setter Property="TextColor" Value="{StaticResource White}" />
+                                    <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                    <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
@@ -39,27 +39,27 @@
             <Button Style="{StaticResource Chip}" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource CriticalColor}" />
-                        <Setter Property="BorderColor" Value="{StaticResource CriticalColor}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}" Text="{Binding WarningCount, StringFormat='Warning {0}'}" Command="{Binding ToggleWarningCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource WarningColor}" />
-                        <Setter Property="BorderColor" Value="{StaticResource WarningColor}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource WarningStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}" Text="{Binding OkCount, StringFormat='OK {0}'}" Command="{Binding ToggleOkCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource OkColor}" />
-                        <Setter Property="BorderColor" Value="{StaticResource OkColor}" />
-                        <Setter Property="TextColor" Value="{StaticResource White}" />
+                        <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
+                        <Setter Property="BorderColor" Value="{StaticResource OkStroke}" />
+                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
@@ -69,7 +69,7 @@
             <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />
             <Button Grid.Column="1" Text="Clear" Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
                     BackgroundColor="Transparent"
-                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
                     Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" />
         </Grid>
 
@@ -93,15 +93,15 @@
                                     Command="{Binding OpenSensorCommand, Source={RelativeSource AncestorType={x:Type vm:HealthViewModel}}, x:DataType=vm:HealthViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
-                                <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                            <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1">
                                     <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="12" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="OpenSansSemibold"
-                                       TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                             </Grid>
                         </Border>
                     </DataTemplate>

@@ -136,10 +136,17 @@ public sealed partial class AlertsViewModel : ViewModelBase
     /// Only one kind of alert, for the dashboard's counts (#32): "critical"
     /// or "warning" turns every other chip off; "acknowledged" has no chip of
     /// its own that shows only those, so it searches for the state, which
-    /// the search box shows and ✕ clears.
+    /// the search box shows and ✕ clears. "all" - the dashboard's See all -
+    /// clears every filter.
     /// </summary>
     public void ShowOnly(string kind)
     {
+        if (string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            ClearFilters();
+            return;
+        }
+
         _loading = true;
         var acknowledged = string.Equals(kind, "acknowledged", StringComparison.OrdinalIgnoreCase);
         ShowCritical = acknowledged || string.Equals(kind, "critical", StringComparison.OrdinalIgnoreCase);

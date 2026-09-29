@@ -14,6 +14,8 @@
     ios:Page.UseSafeArea="True"
     Title="Dashboard">
 
+    <!-- Each widget is one card, its title inside, as in the design
+         mock-ups: counts as tiles, lists as rows with a status dot. -->
     <ContentPage.Resources>
         <!-- One template per card kind (DashboardLayout); each reads from the card's Dashboard. -->
         <pages:DashboardCardTemplateSelector x:Key="CardTemplates">
@@ -21,225 +23,244 @@
             <!-- Each count opens its tab filtered to it (#32, #34, #64). -->
             <pages:DashboardCardTemplateSelector.AlertsGauge>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource SectionHeader}" Text="ALERTS" />
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
-                            <Border Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="critical" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.CriticalAlerts}" FontSize="28" TextColor="{StaticResource CriticalColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Critical" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="warning" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.WarningAlerts}" FontSize="28" TextColor="{StaticResource WarningColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Warning" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Row="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="acknowledged" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.AcknowledgedAlerts}" FontSize="28" TextColor="{StaticResource InactiveColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Acknowledged" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="ok" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.OkAlerts}" FontSize="28" TextColor="{StaticResource OkColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="OK" />
-                                </VerticalStackLayout>
-                            </Border>
-                        </Grid>
-                    </VerticalStackLayout>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Style="{StaticResource CardTitle}" Text="Alerts" />
+                                <Label Grid.Column="1" Style="{StaticResource CardNote}"
+                                       Text="{Binding Dashboard.LastUpdated, StringFormat='Checked {0:HH:mm}'}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                                <Border Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="critical" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.CriticalAlerts}"
+                                               TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Critical" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="warning" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.WarningAlerts}"
+                                               TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Warning" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Row="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="ok" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.OkAlerts}"
+                                               TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="OK" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="acknowledged" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.AcknowledgedAlerts}"
+                                               TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Acknowledged" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.AlertsGauge>
 
             <pages:DashboardCardTemplateSelector.DeviceStatus>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource SectionHeader}" Text="DEVICES" />
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
-                            <Border Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="up" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.DevicesUp}" FontSize="28" TextColor="{StaticResource OkColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Up" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="down" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.DevicesDown}" FontSize="28" TextColor="{StaticResource CriticalColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Down" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Row="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="maintenance" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.DevicesMaintenance}" FontSize="28" TextColor="{StaticResource MaintenanceColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Maintenance" />
-                                </VerticalStackLayout>
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="disabled" />
-                                </Border.GestureRecognizers>
-                                <VerticalStackLayout>
-                                    <Label Text="{Binding Dashboard.DevicesInactive}" FontSize="28" TextColor="{StaticResource InactiveColor}" />
-                                    <Label Style="{StaticResource Caption}" Text="Disabled / ignored" />
-                                </VerticalStackLayout>
-                            </Border>
-                        </Grid>
-                    </VerticalStackLayout>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Style="{StaticResource CardTitle}" Text="Devices" />
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                                <Border Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="up" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesUp}"
+                                               TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Up" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="down" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesDown}"
+                                               TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Down" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Row="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="maintenance" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesMaintenance}"
+                                               TextColor="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Maintenance" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="disabled" />
+                                    </Border.GestureRecognizers>
+                                    <HorizontalStackLayout Spacing="10">
+                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesInactive}"
+                                               TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
+                                        <Label Style="{StaticResource Caption}" FontSize="14" Text="Disabled" VerticalOptions="Center" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.DeviceStatus>
 
             <pages:DashboardCardTemplateSelector.Alerts>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource SectionHeader}" Text="NEEDS ATTENTION" />
-                        <Label Style="{StaticResource Caption}" Text="Nothing needs attention." IsVisible="{Binding Dashboard.HasNoAlerts}" Margin="4,0" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}" Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AlertItem">
-                                    <Border Style="{StaticResource Card}">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="6,*" ColumnSpacing="12">
-                                            <BoxView Color="{Binding Severity, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Style="{StaticResource CardTitle}" Text="Needs attention" />
+                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="See all"
+                                        Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="all"
+                                        HeightRequest="32" MinimumHeightRequest="32" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="Nothing needs attention." IsVisible="{Binding Dashboard.HasNoAlerts}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:AlertItem">
+                                        <Grid ColumnDefinitions="10,*" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Text="{Binding Rule}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
-                                                <Label Style="{StaticResource Caption}" Text="{Binding Device}" LineBreakMode="TailTruncation" />
-                                                <Label Style="{StaticResource Caption}" Text="{Binding Summary}" />
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Device}" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Rule}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                         </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
-                    </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Alerts>
 
             <pages:DashboardCardTemplateSelector.PinnedDevices>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource SectionHeader}" Text="PINNED DEVICES" />
-                        <Label Style="{StaticResource Caption}" Text="Pin a device from Devices or its Device View to see it here."
-                               IsVisible="{Binding Dashboard.HasPinnedDevices, Converter={StaticResource Invert}}" Margin="4,0" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedDevices}" Spacing="8">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="vm:DeviceItem">
-                                    <Border Style="{StaticResource Card}">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenPinnedCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12">
-                                            <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}" WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource CardTitle}" Text="Pinned" />
+                            <Label Style="{StaticResource Caption}" Text="Pin a device from Devices or its Device View to see it here."
+                                   IsVisible="{Binding Dashboard.HasPinnedDevices, Converter={StaticResource Invert}}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedDevices}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DeviceItem">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenPinnedCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Text="{Binding Name}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
-                                            <Label Grid.Column="2" Text="{Binding StateText}" VerticalOptions="Center"
-                                                   TextColor="{Binding State, Converter={StaticResource StatusColor}}" />
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding StateText}" VerticalOptions="Center" />
                                         </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
-                    </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.PinnedDevices>
 
             <pages:DashboardCardTemplateSelector.RecentlyViewed>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource SectionHeader}" Text="RECENTLY VIEWED" />
-                        <Label Style="{StaticResource Caption}" Text="Devices you open show here."
-                               IsVisible="{Binding Dashboard.HasRecentlyViewed, Converter={StaticResource Invert}}" Margin="4,0" />
-                        <FlexLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}" Wrap="Wrap">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="cfg:RecentlyViewedDevice">
-                                    <Button Style="{StaticResource Chip}" Text="{Binding DisplayName}" Margin="0,0,8,8"
-                                            Command="{Binding OpenRecentCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                            CommandParameter="{Binding .}" />
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </FlexLayout>
-                    </VerticalStackLayout>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Style="{StaticResource CardTitle}" Text="Recently viewed" />
+                            <Label Style="{StaticResource Caption}" Text="Devices you open show here."
+                                   IsVisible="{Binding Dashboard.HasRecentlyViewed, Converter={StaticResource Invert}}" />
+                            <FlexLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}" Wrap="Wrap">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="cfg:RecentlyViewedDevice">
+                                        <Button Style="{StaticResource Chip}" Text="{Binding DisplayName}" Margin="0,0,8,8"
+                                                Command="{Binding OpenRecentCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                        </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.RecentlyViewed>
 
             <pages:DashboardCardTemplateSelector.Sensors>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Style="{StaticResource SectionHeader}" Text="SENSORS" />
-                            <Button Grid.Column="1" Text="Choose" Command="{Binding Dashboard.PickSensorsCommand}" BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" VerticalOptions="End" />
-                        </Grid>
-                        <Label Style="{StaticResource Caption}" Text="Choose sensors to keep an eye on here." IsVisible="{Binding Dashboard.HasNoPinnedSensors}" Margin="4,0" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedSensors}" Spacing="6">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="sections:SectionRow">
-                                    <Border Style="{StaticResource Card}">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenRowCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="12">
-                                            <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Style="{StaticResource CardTitle}" Text="Sensors" />
+                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Choose" Command="{Binding Dashboard.PickSensorsCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="Choose sensors to keep an eye on here." IsVisible="{Binding Dashboard.HasNoPinnedSensors}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedSensors}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="sections:SectionRow">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenRowCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="OpenSansSemibold"
-                                                   TextColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                                   TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                         </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
-                    </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Sensors>
 
             <pages:DashboardCardTemplateSelector.Graph>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Style="{StaticResource SectionHeader}" Text="{Binding Dashboard.GraphTitle}" LineBreakMode="TailTruncation" />
-                            <Button Grid.Column="1" Text="Change" Command="{Binding Dashboard.PickGraphCommand}" BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" VerticalOptions="End" />
-                        </Grid>
-                        <Label Style="{StaticResource Caption}" Text="Choose a device and one of its graphs." IsVisible="{Binding Dashboard.GraphNeedsSetUp}" Margin="4,0" />
-                        <Border Style="{StaticResource Card}" Padding="0" IsVisible="{Binding Dashboard.GraphPage, Converter={StaticResource IsNotNull}}">
-                            <Grid>
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Style="{StaticResource CardTitle}" Text="{Binding Dashboard.GraphTitle}" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding Dashboard.PickGraphCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="Choose a device and one of its graphs." IsVisible="{Binding Dashboard.GraphNeedsSetUp}" />
+                            <Grid IsVisible="{Binding Dashboard.GraphPage, Converter={StaticResource IsNotNull}}">
                                 <controls:GraphView Html="{Binding Dashboard.GraphPage}" />
                                 <!-- The web view would swallow taps; this opens the device's graphs. -->
                                 <BoxView Color="Transparent">
@@ -248,41 +269,41 @@
                                     </BoxView.GestureRecognizers>
                                 </BoxView>
                             </Grid>
-                        </Border>
-                    </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Graph>
 
             <pages:DashboardCardTemplateSelector.Wireless>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Style="{StaticResource SectionHeader}" Text="WIRELESS" />
-                            <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding Dashboard.WirelessSummary}" VerticalOptions="End" />
-                        </Grid>
-                        <Label Style="{StaticResource Caption}" Text="No wireless controllers found." IsVisible="{Binding Dashboard.HasNoWirelessControllers}" Margin="4,0" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.WirelessControllers}" Spacing="6">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="sections:SectionRow">
-                                    <Border Style="{StaticResource Card}">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenRowCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12">
-                                            <Ellipse Fill="{Binding Status, Converter={StaticResource StatusColor}}" WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Style="{StaticResource CardTitle}" Text="Wireless" />
+                                <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="{Binding Dashboard.WirelessSummary}" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="No wireless controllers found." IsVisible="{Binding Dashboard.HasNoWirelessControllers}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.WirelessControllers}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="sections:SectionRow">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenRowCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Text="{Binding Title}" FontFamily="OpenSansSemibold" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" />
                                         </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
-                    </VerticalStackLayout>
+                    </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Wireless>
 
@@ -302,23 +323,24 @@
             <VerticalStackLayout Padding="16" Spacing="4">
 
                 <!-- The logo and name instead of a title bar, scrolling away
-                     with the cards; Customise is the sliders icon (#30, #41). -->
+                     with the cards; Customise is the sliders button (#30, #41). -->
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
-                    <Image Source="dashynms_logo.png" WidthRequest="30" HeightRequest="30" VerticalOptions="Center"
+                    <Image Source="dashynms_logo.png" WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
                            SemanticProperties.Description="DashyNMS logo" />
-                    <Label Grid.Column="1" Text="DashyNMS" FontSize="24" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
-                    <Grid Grid.Column="2" WidthRequest="44" HeightRequest="44"
-                          SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
-                        <Grid.GestureRecognizers>
+                    <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="OpenSansSemibold" VerticalOptions="Center" />
+                    <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                            SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
+                        <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
-                        </Grid.GestureRecognizers>
+                        </Border.GestureRecognizers>
                         <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
                         <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
-                              Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                              Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
                               StrokeThickness="1.8" StrokeLineCap="Round"
                               WidthRequest="24" HeightRequest="24" Aspect="None"
                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Grid>
+                    </Border>
                 </Grid>
 
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
@@ -328,7 +350,7 @@
                                      BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
                                      Spacing="12" />
 
-                <Label Style="{StaticResource Caption}"
+                <Label Style="{StaticResource Faint}"
                        Text="{Binding LastUpdated, StringFormat='Updated {0:HH:mm:ss}. Pull down to refresh.'}"
                        HorizontalOptions="Center"
                        Margin="0,16,0,0" />

@@ -47,8 +47,8 @@
                                     Command="{Binding ToggleCommand, Source={RelativeSource AncestorType={x:Type graylog:GraylogViewModel}}, x:DataType=graylog:GraylogViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="6,*" ColumnSpacing="12">
-                                <BoxView Color="{Binding Status, Converter={StaticResource StatusColor}}" CornerRadius="3" />
+                            <Grid ColumnDefinitions="10,*" ColumnSpacing="12">
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                 <VerticalStackLayout Grid.Column="1" Spacing="2">
                                     <Label Text="{Binding MessageText}" LineBreakMode="WordWrap" MaxLines="3"
                                            IsVisible="{Binding IsExpanded, Converter={StaticResource Invert}}" />

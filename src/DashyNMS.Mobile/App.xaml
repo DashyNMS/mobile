@@ -10,46 +10,171 @@
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
+            <!-- A status as a dot or fill, as readable text, or as a pill's tint. -->
             <converters:StatusColorConverter x:Key="StatusColor" />
+            <converters:StatusColorConverter x:Key="StatusText" Shade="Text" />
+            <converters:StatusColorConverter x:Key="StatusTint" Shade="Tint" />
             <converters:IsNotNullConverter x:Key="IsNotNull" />
             <converters:StarConverter x:Key="Star" />
             <converters:InvertConverter x:Key="Invert" />
 
-            <!-- A card: the list rows and dashboard tiles. -->
+            <!-- The styles below follow the design mock-ups ("DashyNMS Mobile
+                 mock-ups" canvas): outlined cards on a toned page, status
+                 dots rather than coloured strips, tinted chips and pills. -->
+
+            <!-- A card: a group of rows, a section of Device View, a list row. -->
             <Style x:Key="Card" TargetType="Border">
-                <Setter Property="StrokeShape" Value="RoundRectangle 10" />
-                <Setter Property="StrokeThickness" Value="0" />
-                <Setter Property="Padding" Value="14,12" />
-                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource SurfaceDark}}" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                <Setter Property="Padding" Value="14" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
             </Style>
 
-            <!-- A filter chip: outlined when off; the page's triggers fill it when on. -->
+            <!-- A count inside a card: the dashboard's Critical 3, Up 142. -->
+            <Style x:Key="Tile" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="Padding" Value="12,10" />
+                <Setter Property="MinimumHeightRequest" Value="48" />
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
+            </Style>
+
+            <!-- A tile's number, beside its label. -->
+            <Style x:Key="TileNumber" TargetType="Label">
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <!-- A severity or state as a pill: tinted, with its readable colour. -->
+            <Style x:Key="Pill" TargetType="Border">
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+                <Setter Property="StrokeThickness" Value="0" />
+                <Setter Property="Padding" Value="10,3" />
+                <Setter Property="HorizontalOptions" Value="Start" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <Style x:Key="PillText" TargetType="Label">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+            </Style>
+
+            <!-- A status dot, in place of the coloured strips cards used to have. -->
+            <Style x:Key="Dot" TargetType="Ellipse">
+                <Setter Property="WidthRequest" Value="10" />
+                <Setter Property="HeightRequest" Value="10" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <!-- A filter chip: outlined when off; the page's triggers tint it when on. -->
             <Style x:Key="Chip" TargetType="Button">
                 <Setter Property="BackgroundColor" Value="Transparent" />
-                <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}" />
+                <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
                 <Setter Property="BorderWidth" Value="1" />
-                <Setter Property="CornerRadius" Value="16" />
+                <Setter Property="CornerRadius" Value="18" />
                 <Setter Property="Padding" Value="14,0" />
-                <Setter Property="HeightRequest" Value="34" />
-                <Setter Property="MinimumHeightRequest" Value="34" />
-                <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray200}}" />
+                <Setter Property="HeightRequest" Value="36" />
+                <Setter Property="MinimumHeightRequest" Value="36" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+            </Style>
+
+            <!-- A page's own big title, where there's no navigation bar. -->
+            <Style x:Key="PageTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="28" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <!-- A card's heading: "Needs attention", "Busiest ports". -->
+            <Style x:Key="CardTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="VerticalOptions" Value="Center" />
+            </Style>
+
+            <!-- The note at a heading's right: "Checked 30s ago", "2 open". -->
+            <Style x:Key="CardNote" TargetType="Label">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="HorizontalOptions" Value="End" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="LineBreakMode" Value="TailTruncation" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+            </Style>
+
+            <!-- A row's title, the device or rule. -->
+            <Style x:Key="RowTitle" TargetType="Label">
+                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="LineBreakMode" Value="TailTruncation" />
             </Style>
 
             <Style x:Key="Caption" TargetType="Label">
                 <Setter Property="FontSize" Value="13" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray300}}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
             </Style>
 
+            <!-- The quietest text: ages, ids, "Updated 09:52". -->
+            <Style x:Key="Faint" TargetType="Label">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+            </Style>
+
+            <!-- A heading over a group of cards: "MONITOR", "LOCK SCREEN". -->
             <Style x:Key="SectionHeader" TargetType="Label">
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="12" />
                 <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="CharacterSpacing" Value="0.8" />
+                <Setter Property="TextTransform" Value="Uppercase" />
                 <Setter Property="Margin" Value="4,16,0,6" />
-                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray300}}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+            </Style>
+
+            <!-- A thin line between rows in a card. -->
+            <Style x:Key="Divider" TargetType="BoxView">
+                <Setter Property="HeightRequest" Value="1" />
+                <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+            </Style>
+
+            <!-- Beside a primary button: Open device, Rediscover. -->
+            <Style x:Key="SecondaryButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+            </Style>
+
+            <!-- Text-only: See all, Choose, Show all fields. -->
+            <Style x:Key="LinkButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="Transparent" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="Padding" Value="8,0" />
+            </Style>
+
+            <!-- Sign out: outlined, in the critical text colour, rather than a red slab. -->
+            <Style x:Key="DangerButton" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                <Setter Property="FontFamily" Value="OpenSansSemibold" />
+                <Setter Property="HeightRequest" Value="48" />
+            </Style>
+
+            <!-- A settings or More row's chevron. -->
+            <Style x:Key="Chevron" TargetType="Label">
+                <Setter Property="Text" Value="›" />
+                <Setter Property="FontSize" Value="22" />
+                <Setter Property="VerticalOptions" Value="Center" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
             </Style>
 
             <Style x:Key="Error" TargetType="Label">
-                <Setter Property="TextColor" Value="{StaticResource CriticalColor}" />
+                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                 <Setter Property="Margin" Value="0,8" />
             </Style>
         </ResourceDictionary>

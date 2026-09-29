@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SettingsSectionPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:SettingsViewModel"
+    Title="Settings">
+
+    <!-- One Settings section (#67); the page shows whichever it was opened
+         for. Each section is the card it was on the single Settings page. -->
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+
+            <!-- ==================== Server ==================== -->
+            <VerticalStackLayout x:Name="Server" Spacing="12" IsVisible="False">
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                            <Label Style="{StaticResource Caption}" Text="Address" />
+                            <VerticalStackLayout Grid.Column="1">
+                                <Label Text="{Binding ServerUrl}" />
+                                <!-- Plain http: the token and everything loaded go unencrypted (#3). -->
+                                <Label Text="Not secure - this server doesn't use HTTPS" FontSize="12" IsVisible="{Binding IsServerInsecure}"
+                                       TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                            <Label Style="{StaticResource Caption}" Text="LibreNMS" />
+                            <Label Grid.Column="1" Text="{Binding ServerVersion}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Text="Server stores timestamps in UTC" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Turn on if alert times look off by your UTC offset. Same as desktop's setting." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding ServerTimestampsAreUtc}" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ==================== Appearance ==================== -->
+            <Border x:Name="Appearance" Style="{StaticResource Card}" IsVisible="False">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Text="Light or dark" VerticalOptions="Center" />
+                    <Picker Grid.Column="1" Title="Appearance"
+                            ItemsSource="{Binding AppearanceLabels}"
+                            SelectedIndex="{Binding AppearanceIndex}"
+                            MinimumWidthRequest="160" />
+                </Grid>
+            </Border>
+
+            <!-- ==================== Devices ==================== -->
+            <VerticalStackLayout x:Name="Devices" Spacing="12" IsVisible="False">
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Device names" />
+                            <Label Style="{StaticResource Caption}" Text="Which name devices go by in lists and titles, as on desktop." />
+                        </VerticalStackLayout>
+                        <Picker Grid.Column="1" Title="Device names"
+                                ItemsSource="{Binding DeviceNameStyles}"
+                                SelectedIndex="{Binding DeviceNameStyleIndex}"
+                                MinimumWidthRequest="140" />
+                    </Grid>
+                </Border>
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="Recently viewed" />
+                                <Label Style="{StaticResource Caption}" Text="The strip on the Devices page and the dashboard card, as on desktop." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding ShowRecentlyViewed}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ShowRecentlyViewed}">
+                            <Label Text="How many to keep" VerticalOptions="Center" />
+                            <Picker Grid.Column="1" Title="How many to keep"
+                                    ItemsSource="{Binding RecentlyViewedCountLabels}"
+                                    SelectedIndex="{Binding RecentlyViewedCountIndex}"
+                                    MinimumWidthRequest="80" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ==================== Alert checks ==================== -->
+            <VerticalStackLayout x:Name="AlertChecks" Spacing="12" IsVisible="False">
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout VerticalOptions="Center">
+                            <Label Text="Check alerts every" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="While DashyNMS is open. In the background, your phone decides how often." />
+                        </VerticalStackLayout>
+                        <Picker Grid.Column="1" Title="Check alerts every"
+                                ItemsSource="{Binding PollIntervalLabels}"
+                                SelectedIndex="{Binding PollIntervalIndex}"
+                                MinimumWidthRequest="120" />
+                    </Grid>
+                </Border>
+                <Border Style="{StaticResource Card}" IsVisible="{Binding CanShowAppBadge}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="Alert count on the app icon" />
+                                <Label Style="{StaticResource Caption}" Text="Open alerts, as desktop's Alerts tab badge. Updated with each alert check." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding ShowAppBadge}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding ShowAppBadge}">
+                            <Label Text="Count acknowledged alerts too" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding BadgeIncludesAcknowledged}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ==================== Notifications ==================== -->
+            <VerticalStackLayout x:Name="Notifications" Spacing="12" IsVisible="False">
+                <Border Style="{StaticResource Card}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <VerticalStackLayout>
+                            <Label Text="Alert notifications" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Checks every few minutes while DashyNMS is open, and in the background when your phone allows it." />
+                        </VerticalStackLayout>
+                        <Switch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" VerticalOptions="Center" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Style="{StaticResource CardTitle}" Text="Notify me about" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Critical alerts" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyCritical}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Warnings" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyWarning}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="When an alert recovers" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnRecovery}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="When someone acknowledges an alert" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding NotifyOnAcknowledge}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="Quiet hours" VerticalOptions="Center" FontFamily="OpenSansSemibold" />
+                            <Switch Grid.Column="1" IsToggled="{Binding QuietHoursEnabled}" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding QuietHoursEnabled}">
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" ColumnSpacing="8">
+                                <Label Text="From" VerticalOptions="Center" />
+                                <Picker Grid.Column="1" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursStart}" />
+                                <Label Grid.Column="2" Text="to" VerticalOptions="Center" />
+                                <Picker Grid.Column="3" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursEnd}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Still notify critical alerts" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding QuietHoursAllowCritical}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNotificationDetails}">
+                            <VerticalStackLayout>
+                                <Label Text="Hide details on the lock screen" />
+                                <Label Style="{StaticResource Caption}" Text="A locked phone shows how serious an alert is, but not the device or rule." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding HideNotificationDetails}" VerticalOptions="Center" />
+                        </Grid>
+                        <Label Style="{StaticResource Caption}" IsVisible="{Binding CanHideNotificationDetails, Converter={StaticResource Invert}}"
+                               Text="A locked iPhone hides alert details while Show Previews is set to When Unlocked (Settings → Notifications)." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Style="{StaticResource Faint}" Margin="4,0"
+                       Text="Sounds and how each kind of alert appears are set in your phone's notification settings for DashyNMS." />
+            </VerticalStackLayout>
+
+            <!-- ==================== Lock screen ==================== -->
+            <Border x:Name="LockScreen" Style="{StaticResource Card}" IsVisible="False">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout>
+                        <Label Text="Hide alert details" />
+                        <Label Style="{StaticResource Caption}" Text="Lock screen widgets show counts only - no device or rule names - for anyone who picks up your phone." />
+                    </VerticalStackLayout>
+                    <Switch Grid.Column="1" IsToggled="{Binding HideLockScreenDetails}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
