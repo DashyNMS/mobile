@@ -113,6 +113,22 @@ public sealed class AlertWatcherTests
     }
 
     [Fact]
+    public async Task Notifications_name_devices_as_the_user_chose()
+    {
+        _settings.DeviceNameStyle = DeviceNameStyle.SysName;
+        var device = Fakes.Device(9, "10.0.9.1");
+        device.SysName = "edge-rtr-09";
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([device]);
+        BaselineOf(Fakes.Alert(1, 7, "warning"));
+        ServerReturns(Fakes.Alert(1, 7, "warning"), Fakes.Alert(2, 9, "critical"));
+
+        await _watcher.CheckAsync();
+
+        // Not the alert's own hostname (#80).
+        Assert.Equal("Critical: edge-rtr-09", Assert.Single(_notifier.Shown).Title);
+    }
+
+    [Fact]
     public async Task A_baseline_from_another_server_starts_again()
     {
         _store.State = new AlertWatchState("https://other.example.com/", new Dictionary<int, int>());

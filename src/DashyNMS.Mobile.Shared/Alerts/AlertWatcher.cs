@@ -134,8 +134,24 @@ public sealed class AlertWatcher
                 return new AlertCheckResult(AlertCheckOutcome.Baseline, changes.Count);
             }
 
+            // Devices named as the user chose to see them (#80), not by the
+            // alert's own hostname - often an IP. The device list (cached, as
+            // the widgets use it) is only read when there's something to say.
+            IReadOnlyDictionary<int, DesktopNMS.Core.Models.Device>? devicesById = null;
+            if (changes.Count > 0 && settings.Notifications.Enabled
+                && await DevicesAsync(cancellationToken).ConfigureAwait(false) is { } known)
+            {
+                devicesById = known.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First());
+            }
+
+            var nameStyle = settings.DeviceNameStyle;
             var localNow = _time.GetLocalNow().DateTime;
-            var plan = AlertNotificationPlanner.Plan(changes, settings.Notifications, localNow, _selfActions);
+            var plan = AlertNotificationPlanner.Plan(
+                changes,
+                settings.Notifications,
+                localNow,
+                _selfActions,
+                alert => nameStyle.Resolve(devicesById?.GetValueOrDefault(alert.DeviceId), alert.DisplayHostname));
 
             foreach (var tag in plan.Remove)
             {
@@ -197,7 +213,7 @@ public sealed class AlertWatcher
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogDebug(ex, "Could not read devices for the widgets");
+            _logger.LogDebug(ex, "Could not read devices for names and the widgets");
         }
 
         return _devices;

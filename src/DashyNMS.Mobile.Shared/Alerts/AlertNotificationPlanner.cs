@@ -17,12 +17,19 @@ namespace DashyNMS.Mobile.Alerts;
 /// </remarks>
 public static class AlertNotificationPlanner
 {
+    /// <param name="deviceName">
+    /// The device's name as the user chose to see names (Settings → Devices:
+    /// hostname, sysName or LibreNMS's display name) - the alert's own
+    /// hostname otherwise, which is often an IP (#80).
+    /// </param>
     public static AlertNotificationPlan Plan(
         IReadOnlyList<AlertChange> changes,
         NotificationSettings settings,
         DateTime localNow,
-        ISelfActionTracker selfActions)
+        ISelfActionTracker selfActions,
+        Func<Alert, string>? deviceName = null)
     {
+        var name = deviceName ?? (alert => alert.DisplayHostname);
         ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(settings);
 
@@ -47,10 +54,10 @@ public static class AlertNotificationPlanner
 
         if (notifiable.Count > settings.MaxToastsPerPoll)
         {
-            return new AlertNotificationPlan([Summary(notifiable)], remove);
+            return new AlertNotificationPlan([Summary(notifiable, name)], remove);
         }
 
-        return new AlertNotificationPlan(notifiable.Select(ForChange).ToList(), remove);
+        return new AlertNotificationPlan(notifiable.Select(c => ForChange(c, name)).ToList(), remove);
     }
 
     private static bool ShouldNotify(AlertChange change, NotificationSettings settings, DateTime localNow, ISelfActionTracker selfActions)
@@ -77,10 +84,10 @@ public static class AlertNotificationPlanner
         };
     }
 
-    private static AlertNotification ForChange(AlertChange change)
+    private static AlertNotification ForChange(AlertChange change, Func<Alert, string> name)
     {
         var alert = change.Alert;
-        var device = alert.DisplayHostname;
+        var device = name(alert);
 
         var title = change.Kind switch
         {
@@ -104,14 +111,14 @@ public static class AlertNotificationPlanner
             alert.Id);
     }
 
-    private static AlertNotification Summary(IReadOnlyList<AlertChange> changes)
+    private static AlertNotification Summary(IReadOnlyList<AlertChange> changes, Func<Alert, string> name)
     {
         var problems = changes.Where(c => c.IsProblem).ToList();
 
         // "3 new critical alerts" / "core-sw-02 — High temperature" / "+2 more".
         var (title, body, detail) = problems.Count > 0
             ? AlertSummaryText.Build(problems
-                .Select(c => new AlertSummaryItem(c.Alert.Severity, c.Alert.DisplayHostname, c.Alert.DisplayRuleName, Location: null))
+                .Select(c => new AlertSummaryItem(c.Alert.Severity, name(c.Alert), c.Alert.DisplayRuleName, Location: null))
                 .ToList())
             : ($"{changes.Count} alert updates", "See DashyNMS for details.", null);
 
