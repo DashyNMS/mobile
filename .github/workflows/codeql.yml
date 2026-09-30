@@ -3,12 +3,14 @@ name: CodeQL
 # Security analysis of every language in the repo: the workflows themselves,
 # the C# (shared code, the MAUI head and the desktop Core it compiles), and
 # the iOS widget's Swift. Runs on pull requests so a finding shows on the PR
-# before it merges, and weekly so new queries catch old code.
+# before it merges, and weekly so new queries catch old code. Release branches
+# (release/1.1.0 and on) are where the next version is built, so they are
+# scanned as they go, not only when they merge into main.
 on:
   push:
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
-    branches: [main]
+    branches: [main, "release/**"]
   schedule:
     # 03:47 UTC every Monday - off-peak, and apart from desktop's run.
     - cron: "47 3 * * 1"
