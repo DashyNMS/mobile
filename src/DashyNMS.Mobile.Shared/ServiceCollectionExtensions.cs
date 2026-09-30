@@ -80,6 +80,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Logs.INetworkLogs, Logs.NetworkLogs>();
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
+        services.AddTransient<Topology.NetworkMapViewModel>();
         services.AddTransient<Map.MapViewModel>();
         // One for Settings and its section pages (#67), which all show and change the same values.
         services.AddSingleton<SettingsViewModel>();

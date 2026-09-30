@@ -101,6 +101,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<GraphPickerPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<NetworkMapPage>();
 		builder.Services.AddTransient<MapPage>();
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();

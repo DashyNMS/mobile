@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tab bar icon, in the website's line-icon style (24px grid, 1.8 stroke): devices joined by links. The tab bar tints it, so only its shape matters. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="12" cy="5" r="2.5"/>
+  <circle cx="5" cy="18" r="2.5"/>
+  <circle cx="19" cy="18" r="2.5"/>
+  <path d="M10.8 7.2 6.2 15.8 M13.2 7.2l4.6 8.6 M7.5 18h9"/>
+</svg>

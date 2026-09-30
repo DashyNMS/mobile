@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NetworkMapPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="topo:NetworkMapViewModel"
+    SafeAreaEdges="Container"
+    Title="Network map">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Refresh" Command="{Binding RefreshCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <!-- As desktop's Network map (#86): LibreNMS's links drawn as a diagram.
+         Drag to move around, pinch to zoom, tap a device for its connections,
+         double-tap to zoom in. -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0" />
+
+        <VerticalStackLayout Grid.Row="1" Padding="16,0,16,6" Spacing="6">
+            <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Border Style="{StaticResource Field}" Padding="12,0">
+                    <Picker Title="Location" ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}" />
+                </Border>
+                <!-- Devices with no links at all, in a grid below the rest - off by default, as desktop. -->
+                <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Unlinked" Command="{Binding ToggleUnlinkedDevicesCommand}"
+                        SemanticProperties.Hint="Also show devices with no links">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowUnlinkedDevices}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        </VerticalStackLayout>
+
+        <!-- The map itself; see NetworkMapDrawable for how it's drawn. -->
+        <Grid Grid.Row="2">
+            <GraphicsView x:Name="MapCanvas" />
+
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,4" InputTransparent="True"
+                   HorizontalOptions="Start" VerticalOptions="Start" />
+
+            <Button Text="Fit" Style="{StaticResource SecondaryButton}" Clicked="OnFitClicked"
+                    HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Padding="14,0"
+                    SemanticProperties.Hint="Show the whole map" />
+
+            <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" />
+            <VerticalStackLayout IsVisible="{Binding IsLayingOut}" InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                <ActivityIndicator IsRunning="{Binding IsLayingOut}" />
+                <Label Style="{StaticResource Caption}" Text="Laying out the map…" />
+            </VerticalStackLayout>
+            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                   HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" Margin="32" />
+        </Grid>
+
+        <!-- The tapped device: its state, what it's connected to (tap one to go there), and Open. -->
+        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                    <VerticalStackLayout VerticalOptions="Center">
+                        <Label Text="{Binding SelectedNode.Name}" FontFamily="BodySemibold" FontSize="16" LineBreakMode="TailTruncation" />
+                        <Label Style="{StaticResource Faint}" Text="{Binding SelectedNodeStateText}" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}" />
+                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
+                </Grid>
+                <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
+                <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedConnections}" SelectionMode="None">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="topo:NetworkConnection">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,7">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding SelectNeighbourCommand, Source={RelativeSource AncestorType={x:Type topo:NetworkMapViewModel}}, x:DataType=topo:NetworkMapViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Label Text="{Binding NeighbourName}" LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Style="{StaticResource Faint}" Text="{Binding Ports}" FontFamily="Mono" FontSize="12" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Border>
+
+    </Grid>
+
+</ContentPage>
