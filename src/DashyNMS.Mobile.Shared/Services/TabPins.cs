@@ -7,6 +7,7 @@ public enum AppPage
     Alerts,
     Health,
     Map,
+    NetworkMap,
     Neighbours,
     GroupsLocations,
     Logs,
@@ -124,6 +125,7 @@ public static class AppPages
         AppPage.Alerts => "Alerts",
         AppPage.Health => "Health",
         AppPage.Map => "Map",
+        AppPage.NetworkMap => "Network map",
         AppPage.Neighbours => "Neighbours",
         AppPage.GroupsLocations => "Groups & locations",
         AppPage.Logs => "Event and alert logs",
@@ -136,6 +138,7 @@ public static class AppPages
     public static string TabTitle(AppPage page) => page switch
     {
         AppPage.GroupsLocations => "Groups",
+        AppPage.NetworkMap => "Network",
         AppPage.Logs => "Logs",
         _ => Title(page),
     };
@@ -146,6 +149,7 @@ public static class AppPages
         AppPage.Alerts => "Open alerts, most severe first",
         AppPage.Health => "Sensors across the network",
         AppPage.Map => "Devices by location",
+        AppPage.NetworkMap => "What's connected to what, as a diagram",
         AppPage.Neighbours => "Every CDP/LLDP link",
         AppPage.GroupsLocations => "Device counts and what's down",
         AppPage.Logs => "The whole network, newest first",
@@ -158,7 +162,7 @@ public static class AppPages
     public static string Group(AppPage page) => page switch
     {
         AppPage.Devices or AppPage.Alerts or AppPage.Health => "Monitor",
-        AppPage.Map or AppPage.Neighbours or AppPage.GroupsLocations => "Network",
+        AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.GroupsLocations => "Network",
         AppPage.Logs or AppPage.Graylog => "Logs",
         _ => "App",
     };
@@ -189,6 +193,7 @@ public static class AppPages
     public static string PushRoute(AppPage page) => page switch
     {
         AppPage.Map => Routes.Map,
+        AppPage.NetworkMap => Routes.NetworkMap,
         AppPage.Neighbours => Routes.Neighbours,
         AppPage.GroupsLocations => Routes.GroupsLocations,
         AppPage.Logs => Routes.Logs,

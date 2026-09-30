@@ -51,6 +51,9 @@ public static class Routes
     /// <summary>The geographical map of locations and their devices.</summary>
     public const string Map = "map";
 
+    /// <summary>The network map: devices and the links between them, as a diagram (#86).</summary>
+    public const string NetworkMap = "networkmap";
+
     /// <summary>Every CDP/LLDP link across the network.</summary>
     public const string Neighbours = "neighbours";
 

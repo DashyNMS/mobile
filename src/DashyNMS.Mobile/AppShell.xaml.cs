@@ -41,6 +41,7 @@ public partial class AppShell : Shell
 		AppPage.Alerts => typeof(AlertsPage),
 		AppPage.Health => typeof(HealthPage),
 		AppPage.Map => typeof(MapPage),
+		AppPage.NetworkMap => typeof(NetworkMapPage),
 		AppPage.Neighbours => typeof(NeighboursPage),
 		AppPage.GroupsLocations => typeof(GroupsLocationsPage),
 		AppPage.Logs => typeof(LogsPage),

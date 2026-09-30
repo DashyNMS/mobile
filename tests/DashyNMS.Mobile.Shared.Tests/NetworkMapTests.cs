@@ -1,0 +1,109 @@
+using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Topology;
+using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Models;
+
+namespace DashyNMS.Mobile.Tests;
+
+public sealed class NetworkMapViewModelTests
+{
+    private readonly ILibreNmsClient _client = Fakes.Client(devices:
+    [
+        Fakes.Device(1, "core-sw", location: "London"),
+        Fakes.Device(2, "dist-sw", location: "Leeds"),
+        Fakes.Device(3, "access-sw", up: false, location: "Leeds"),
+        Fakes.Device(4, "lab-server", location: "Leeds"),
+    ]);
+
+    private readonly RecordingNavigation _navigation = new();
+
+    public NetworkMapViewModelTests()
+    {
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            // core-sw <-> dist-sw, reported from both ends: one cable.
+            new NetworkLink { LocalDeviceId = 1, LocalPortId = 11, RemoteDeviceId = 2, RemotePortId = 21, RemotePort = "Te1/0/1" },
+            new NetworkLink { LocalDeviceId = 2, LocalPortId = 21, RemoteDeviceId = 1, RemotePortId = 11, RemotePort = "Te1/1/1" },
+            // dist-sw -> access-sw, from one end only.
+            new NetworkLink { LocalDeviceId = 2, LocalPortId = 22, RemoteDeviceId = 3, RemotePort = "Gi0/49" },
+            // A phone LibreNMS doesn't monitor: left out.
+            new NetworkLink { LocalDeviceId = 3, LocalPortId = 31, RemoteDeviceId = null, RemotePort = "Port 1" },
+        ]);
+        _client.Ports.ListAllNamesAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Port { PortId = 11, IfName = "Te1/1/1" },
+            new Port { PortId = 21, IfName = "Te1/0/1" },
+            new Port { PortId = 22, IfName = "Gi1/0/48" },
+        ]);
+    }
+
+    private async Task<NetworkMapViewModel> Loaded()
+    {
+        var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        return vm;
+    }
+
+    [Fact]
+    public async Task Draws_monitored_devices_joined_by_their_links_one_line_per_pair()
+    {
+        var vm = await Loaded();
+
+        Assert.Equal(["access-sw", "core-sw", "dist-sw"], vm.Nodes.Select(n => n.Name).Order());
+        Assert.Equal(2, vm.Edges.Count);
+        Assert.Equal("3 devices · 2 connections", vm.SummaryText);
+        Assert.True(vm.Edges.Single(e => e.Touches(vm.Nodes.Single(n => n.Name == "access-sw"))).IsToOfflineDevice); // dotted
+        Assert.DoesNotContain(vm.Nodes, n => n.Name == "lab-server"); // no links: left out by default
+    }
+
+    [Fact]
+    public async Task Filtering_by_location_keeps_only_the_links_inside_it()
+    {
+        var vm = await Loaded();
+        Assert.Equal(["All locations", "Leeds (3)", "London (1)"], vm.LocationOptions.Select(o => o.Label));
+
+        vm.SelectedLocation = vm.LocationOptions.Single(o => o.Key == "Leeds");
+        await vm.RebuildAsync();
+
+        Assert.Equal(["access-sw", "dist-sw"], vm.Nodes.Select(n => n.Name).Order());
+        Assert.Single(vm.Edges);
+
+        vm.ToggleUnlinkedDevicesCommand.Execute(null);
+        await vm.RebuildAsync();
+        Assert.Contains(vm.Nodes, n => n.Name == "lab-server"); // shown when asked, as on desktop
+    }
+
+    [Fact]
+    public async Task Search_selects_and_centres_the_best_match_and_lists_its_connections()
+    {
+        var vm = await Loaded();
+        NetworkNode? centred = null;
+        vm.CenterOnRequested += (_, node) => centred = node;
+
+        vm.SearchText = "dist";
+
+        Assert.Equal("dist-sw", vm.SelectedNode?.Name);
+        Assert.Same(vm.SelectedNode, centred);
+        Assert.Equal(
+            ["access-sw Gi1/0/48 → Gi0/49", "core-sw Te1/0/1 → Te1/1/1"],
+            vm.SelectedConnections.Select(c => $"{c.NeighbourName} {c.Ports}"));
+
+        // Tapping a connection goes to that device.
+        vm.SelectNeighbourCommand.Execute(vm.SelectedConnections[1]);
+        Assert.Equal("core-sw", vm.SelectedNode?.Name);
+
+        await vm.OpenSelectedDeviceCommand.ExecuteAsync(null);
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Routes.DeviceDetail, visit.Route);
+        Assert.Equal(1, visit.Parameters![Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public void Is_a_network_page_in_more()
+    {
+        Assert.Equal("Network", AppPages.Group(AppPage.NetworkMap));
+        Assert.Equal("Network map", AppPages.Title(AppPage.NetworkMap));
+        Assert.Equal("tab_networkmap.png", AppPages.Icon(AppPage.NetworkMap));
+        Assert.Equal(Routes.NetworkMap, AppPages.PushRoute(AppPage.NetworkMap));
+    }
+}
