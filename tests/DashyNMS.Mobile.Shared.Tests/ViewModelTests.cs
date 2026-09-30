@@ -275,16 +275,41 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
-    public async Task Acknowledge_sends_the_trimmed_note_and_reloads()
+    public async Task Acknowledge_sends_the_trimmed_note_and_updates_its_row_in_place()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs("  on it  ");
         var vm = await LoadedViewModel();
+        var before = vm.Alerts.Select(a => a.Id).ToList();
+        var resets = 0;
+        vm.Alerts.CollectionChanged += (_, e) => resets += e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset ? 1 : 0;
 
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
 
         await _client.Alerts.Received(1).AcknowledgeAsync(3, "on it", true, Arg.Any<CancellationToken>());
         _selfActions.Received(1).Record(3, AlertChangeKind.Acknowledged);
-        await _client.Alerts.Received(2).ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+
+        // No reload - that reset the list to the top (#93): the row changes where it is.
+        await _client.Alerts.Received(1).ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+        Assert.Equal(0, resets);
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+        var row = vm.Alerts.Single(a => a.Id == 3);
+        Assert.True(row.IsAcknowledged);
+        Assert.Equal("on it", row.Note);
+    }
+
+    [Fact]
+    public async Task Acknowledging_with_acknowledged_hidden_takes_just_that_row_out()
+    {
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(string.Empty);
+        var vm = await LoadedViewModel();
+        vm.ShowAcknowledged = false;
+        var others = vm.Alerts.Where(a => a.Id != 3).Select(a => a.Id).ToList();
+        var acknowledged = vm.AcknowledgedCount;
+
+        await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
+
+        Assert.Equal(others, vm.Alerts.Select(a => a.Id));
+        Assert.Equal(acknowledged + 1, vm.AcknowledgedCount); // the chip's count follows, without a reload
     }
 
     [Fact]

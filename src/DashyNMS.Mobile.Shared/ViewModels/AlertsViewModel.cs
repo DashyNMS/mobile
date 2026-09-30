@@ -290,7 +290,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         {
             // So the next alert check doesn't notify you about your own acknowledgement.
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
-            await RefreshAsync();
+            UpdateInPlace(item, AcknowledgedState, string.IsNullOrWhiteSpace(note) ? null : note.Trim());
         }
     }
 
@@ -315,8 +315,59 @@ public sealed partial class AlertsViewModel : ViewModelBase
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
-            await RefreshAsync();
+            UpdateInPlace(item, ActiveState, note: null);
         }
+    }
+
+    /// <summary>LibreNMS's alert state numbers (see AlertStateExtensions.FromValue).</summary>
+    private const int ActiveState = 1;
+
+    private const int AcknowledgedState = 2;
+
+    /// <summary>
+    /// The alert's new state straight onto its own row - replaced, or taken
+    /// out if the filters no longer show it - rather than reloading the whole
+    /// list, which on iOS reset it to the top: with 100 alerts, acknowledging
+    /// one lost your place (#93). The counts, the icon badge and the tab dot
+    /// follow from the same change; the next refresh or check picks up
+    /// anything else.
+    /// </summary>
+    private void UpdateInPlace(AlertItem item, int state, string? note)
+    {
+        var alert = item.Alert;
+        alert.StateValue = state;
+        if (note is not null)
+        {
+            alert.Note = note;
+        }
+
+        var changed = new AlertItem(alert, _settings.Current.ServerTimestampsAreUtc, item.Device);
+        _all = _all.Select(a => a.Id == item.Id ? changed : a).ToList();
+
+        var index = Alerts.IndexOf(item);
+        if (index >= 0)
+        {
+            if (Allows(changed))
+            {
+                Alerts[index] = changed;
+            }
+            else
+            {
+                Alerts.RemoveAt(index);
+            }
+        }
+
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(CriticalCount));
+        OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(OkCount));
+        OnPropertyChanged(nameof(AcknowledgedCount));
+
+        var alerts = _all.Select(a => a.Alert).ToList();
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
+        _tabDot?.Update(alerts, _settings.Current);
     }
 
     /// <summary>The network-wide alert and event logs.</summary>
