@@ -6,6 +6,7 @@ using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Topology;
+using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Topology;
 
