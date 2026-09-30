@@ -50,6 +50,7 @@ public sealed class AlertWatcher
     private readonly ISelfActionTracker _selfActions;
     private readonly IAlertNotifier _notifier;
     private readonly IAppBadge _badge;
+    private readonly AlertTabDot? _tabDot;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
@@ -70,7 +71,8 @@ public sealed class AlertWatcher
         IAppBadge badge,
         IHomeWidgets widgets,
         TimeProvider time,
-        ILogger<AlertWatcher> logger)
+        ILogger<AlertWatcher> logger,
+        AlertTabDot? tabDot = null)
     {
         _client = client;
         _session = session;
@@ -83,6 +85,7 @@ public sealed class AlertWatcher
         _widgets = widgets;
         _time = time;
         _logger = logger;
+        _tabDot = tabDot;
     }
 
     public async Task<AlertCheckResult> CheckAsync(CancellationToken cancellationToken = default)
@@ -116,6 +119,7 @@ public sealed class AlertWatcher
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
             _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
             _badge.SetCount(AlertBadge.Count(alerts, settings));
+            _tabDot?.Update(alerts, settings);
 
             if (_widgets.IsInUse)
             {
