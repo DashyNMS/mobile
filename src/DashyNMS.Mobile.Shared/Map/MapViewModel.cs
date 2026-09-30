@@ -126,6 +126,15 @@ public sealed partial class MapViewModel : ViewModelBase
         Devices.ReplaceAll([]);
     }
 
+    /// <summary>
+    /// The tapped location's devices on the Devices tab, filtered to it - as
+    /// Device View's Location row does - so a pin leads somewhere (#84).
+    /// </summary>
+    [RelayCommand]
+    private Task ShowInDevicesAsync() => SelectedLocation is not { } location
+        ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.LocationParameter] = location });
+
     [RelayCommand]
     private Task OpenDeviceAsync(DeviceItem? device) => device is null
         ? Task.CompletedTask
