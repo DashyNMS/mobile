@@ -61,6 +61,25 @@
 	     for every TestFlight build. Revisit if custom cryptography is added. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- The scene lifecycle, which apps built with the iOS 27 SDK must use:
+	     without it UIKit stops the app at launch. One window for now. -->
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>__MAUI_DEFAULT_SCENE_CONFIGURATION__</string>
+					<key>UISceneDelegateClassName</key>
+					<string>SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
 	<key>XSAppIconAssets</key>
 	<string>Assets.xcassets/appicon.appiconset</string>
 </dict>
