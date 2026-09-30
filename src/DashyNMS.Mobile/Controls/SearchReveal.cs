@@ -121,6 +121,15 @@ public static class SearchReveal
                 return;
             }
 
+            // At the bottom, iOS overshoots and springs back - which looked
+            // like a scroll up, so the box popped out and away again (#94).
+            // Nothing there counts; a real scroll up starts once off the end.
+            if (list.ItemsSource is System.Collections.ICollection { Count: > 0 } items && e.LastVisibleItemIndex >= items.Count - 1)
+            {
+                travelled = 0;
+                return;
+            }
+
             // Travel one way only; turning round starts the count again.
             travelled = Math.Sign(e.VerticalDelta) == Math.Sign(travelled) ? travelled + e.VerticalDelta : e.VerticalDelta;
 
