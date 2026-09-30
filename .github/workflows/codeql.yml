@@ -42,7 +42,7 @@ jobs:
           # Swift has to be built, and only builds on macOS - as CI builds it.
           - language: swift
             build-mode: manual
-            runner: macos-26
+            runner: xcode-27
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
