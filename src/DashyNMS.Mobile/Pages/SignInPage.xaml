@@ -47,36 +47,30 @@
                 <VerticalStackLayout Spacing="14">
                     <VerticalStackLayout Spacing="6">
                         <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Server address" />
-                        <Border Style="{StaticResource Field}">
-                            <Entry Text="{Binding ServerUrl}"
-                                   Placeholder="nms.example.com"
-                                   Keyboard="Url"
-                                   IsSpellCheckEnabled="False"
-                                   IsTextPredictionEnabled="False"
-                                   AutomationId="ServerUrl" />
-                        </Border>
+                        <Entry Text="{Binding ServerUrl}"
+                               Placeholder="nms.example.com"
+                               Keyboard="Url"
+                               IsSpellCheckEnabled="False"
+                               IsTextPredictionEnabled="False"
+                               AutomationId="ServerUrl" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
                         <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
-                        <Border Style="{StaticResource Field}">
-                            <Entry Text="{Binding ApiToken}"
-                                   Placeholder="Paste your API token"
-                                   IsPassword="True"
-                                   IsSpellCheckEnabled="False"
-                                   IsTextPredictionEnabled="False"
-                                   ReturnCommand="{Binding SignInCommand}"
-                                   AutomationId="ApiToken" />
-                        </Border>
+                        <Entry Text="{Binding ApiToken}"
+                               Placeholder="Paste your API token"
+                               IsPassword="True"
+                               IsSpellCheckEnabled="False"
+                               IsTextPredictionEnabled="False"
+                               ReturnCommand="{Binding SignInCommand}"
+                               AutomationId="ApiToken" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="6">
                         <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
-                        <Border Style="{StaticResource Field}">
-                            <Entry Text="{Binding BackupAddress}"
-                                   Placeholder="Used when the server address doesn't answer"
-                                   Keyboard="Url"
-                                   IsSpellCheckEnabled="False"
-                                   IsTextPredictionEnabled="False" />
-                        </Border>
+                        <Entry Text="{Binding BackupAddress}"
+                               Placeholder="Used when the server address doesn't answer"
+                               Keyboard="Url"
+                               IsSpellCheckEnabled="False"
+                               IsTextPredictionEnabled="False" />
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
