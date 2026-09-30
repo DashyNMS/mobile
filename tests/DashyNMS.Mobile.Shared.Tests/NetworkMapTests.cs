@@ -121,6 +121,62 @@ public sealed class NetworkMapViewModelTests
         Assert.Equal(1, visit.Parameters![Routes.DeviceIdParameter]);
     }
 
+    private sealed class MemoryLayouts : DesktopNMS.Core.Topology.IMapLayoutStore
+    {
+        private readonly Dictionary<string, Dictionary<int, DesktopNMS.Core.Topology.MapPoint>> _saved = [];
+
+        public IReadOnlyDictionary<int, DesktopNMS.Core.Topology.MapPoint> Get(string scopeKey) =>
+            _saved.TryGetValue(scopeKey, out var positions) ? new(positions) : new Dictionary<int, DesktopNMS.Core.Topology.MapPoint>();
+
+        public void Save(string scopeKey, IReadOnlyDictionary<int, DesktopNMS.Core.Topology.MapPoint> positions) =>
+            _saved[scopeKey] = new(positions);
+
+        public void Clear(string scopeKey) => _saved.Remove(scopeKey);
+    }
+
+    [Fact]
+    public async Task A_dragged_device_stays_where_it_was_put_until_the_layout_is_reset()
+    {
+        var layouts = new MemoryLayouts();
+        var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation, layouts);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        var core = vm.Nodes.Single(n => n.Name == "core-sw");
+        core.X = 1234;
+        core.Y = -567;
+        vm.NodeMoved(core);
+
+        var again = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation, layouts);
+        await again.RefreshCommand.ExecuteAsync(null);
+        var kept = again.Nodes.Single(n => n.Name == "core-sw");
+        Assert.Equal((1234.0, -567.0), (kept.X, kept.Y)); // #86, as desktop remembers it
+
+        await again.ResetLayoutCommand.ExecuteAsync(null);
+        Assert.NotEqual(1234.0, again.Nodes.Single(n => n.Name == "core-sw").X);
+    }
+
+    [Fact]
+    public async Task Neighbours_librenms_doesnt_monitor_join_their_switch_when_asked()
+    {
+        _client.Ports.ListAllStatusAsync(Arg.Any<CancellationToken>()).Returns(
+            [new Port { PortId = 31, DeviceId = 3, IfName = "Gi0/1", IfOperStatus = "up", IfAdminStatus = "up" }]);
+        var vm = await Loaded();
+        Assert.DoesNotContain(vm.Nodes, n => n.IsNeighbour); // off by default
+
+        vm.ToggleNeighboursCommand.Execute(null);
+        await vm.RebuildAsync();
+
+        var phone = Assert.Single(vm.Nodes, n => n.IsNeighbour);
+        Assert.Equal("Port 1", phone.Name);           // unnamed: its port
+        Assert.True(phone.DeviceId < 0);             // an id of the map's own, never a device's
+        Assert.Equal(DeviceState.Down, phone.State);  // follows its switch, access-sw, which is down
+        Assert.Contains(vm.Edges, e => e.Touches(phone) && e.Other(phone).Name == "access-sw");
+        Assert.EndsWith("· 1 neighbour", vm.SummaryText);
+
+        vm.Select(phone);
+        Assert.False(vm.HasSelectedDevice); // nothing to open
+    }
+
     [Fact]
     public void Is_a_network_page_in_more()
     {

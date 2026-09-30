@@ -142,9 +142,27 @@ public sealed class NetworkMapDrawable : IDrawable
             var faded = dimOthers && !ReferenceEquals(node, selected) && !neighbours.Contains(node);
             canvas.Alpha = faded ? 0.3f : 1;
             canvas.FillColor = StateColour(node.State);
-            canvas.FillCircle(centre, radius);
             canvas.StrokeColor = surface;
             canvas.StrokeSize = 1.5f;
+
+            if (node.IsNeighbour)
+            {
+                // Not a LibreNMS device - smaller, and square, as on desktop.
+                var half = radius * 0.7f;
+                var square = new RectF(centre.X - half, centre.Y - half, half * 2, half * 2);
+                canvas.FillRoundedRectangle(square, 2);
+                canvas.DrawRoundedRectangle(square, 2);
+                if (ReferenceEquals(node, selected))
+                {
+                    canvas.StrokeColor = accent;
+                    canvas.StrokeSize = 3;
+                    canvas.DrawRoundedRectangle(square.Inflate(4, 4), 3);
+                }
+
+                continue;
+            }
+
+            canvas.FillCircle(centre, radius);
             canvas.DrawCircle(centre, radius);
 
             if (ReferenceEquals(node, selected))

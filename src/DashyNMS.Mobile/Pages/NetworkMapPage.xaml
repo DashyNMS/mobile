@@ -9,16 +9,23 @@
     SafeAreaEdges="Container"
     Title="Network map">
 
+    <!-- For when it's pushed from More and has the navigation bar; as a tab, the header has these. -->
     <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Reset layout" Command="{Binding ResetLayoutCommand}" />
         <ToolbarItem Text="Refresh" Command="{Binding RefreshCommand}" />
     </ContentPage.ToolbarItems>
 
     <!-- As desktop's Network map (#86): LibreNMS's links drawn as a diagram.
-         Drag to move around, pinch to zoom, tap a device for its connections,
-         double-tap to zoom in. -->
+         Drag to move around, pinch to zoom, tap a device for its connections
+         then drag it to move it, double-tap to zoom in. -->
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0" />
+        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
+                        SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <VerticalStackLayout Grid.Row="1" Padding="16,0,16,6" Spacing="6">
             <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
@@ -34,10 +41,21 @@
         <Grid Grid.Row="2">
             <GraphicsView x:Name="MapCanvas" />
 
-            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,4" InputTransparent="True"
-                   HorizontalOptions="Start" VerticalOptions="Start" />
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
+                   HorizontalOptions="Start" VerticalOptions="End" />
 
-            <HorizontalStackLayout HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Spacing="8">
+            <HorizontalStackLayout HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Spacing="6">
+                <!-- What switches see that LibreNMS doesn't monitor, drawn small and square - off by default. -->
+                <Button Style="{StaticResource Chip}" Text="Neighbours" Command="{Binding ToggleNeighboursCommand}"
+                        SemanticProperties.Hint="Also show what switches see that LibreNMS doesn't monitor">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowNeighbours}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
                 <!-- Devices with no links at all, in a grid below the rest - off by default, as desktop. -->
                 <Button Style="{StaticResource Chip}" Text="Unlinked" Command="{Binding ToggleUnlinkedDevicesCommand}"
                         SemanticProperties.Hint="Also show devices with no links">
@@ -71,10 +89,15 @@
                         <Label Text="{Binding SelectedNode.Name}" FontFamily="BodySemibold" FontSize="16" LineBreakMode="WordWrap" MaxLines="3" />
                         <Label Style="{StaticResource Faint}" Text="{Binding SelectedNodeStateText}" />
                     </VerticalStackLayout>
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}" />
+                    <!-- A neighbour isn't a LibreNMS device: nothing to open. -->
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}"
+                            IsVisible="{Binding HasSelectedDevice}" />
                     <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
                 </Grid>
-                <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
+                <VerticalStackLayout Grid.Row="1" Spacing="2">
+                    <Label Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
+                    <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." />
+                </VerticalStackLayout>
                 <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedConnections}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NetworkConnection">
