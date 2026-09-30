@@ -245,19 +245,32 @@ The one-time Apple setup (App IDs, the App Group, certificates and profiles)
 is done; the old step-by-step guide for it is in git history as
 `docs/RELEASING-IOS.md` if it's ever needed again.
 
+**Branches:** `main` is what's in the App Store (or with Apple). Each
+version is built on its own branch, `release/<version>` (for example
+`release/1.1.0`), made from `main`:
+
+- Work for the version goes in PRs into its release branch, squash merged.
+- When it's ready, one PR takes the release branch into `main`; tag
+  `v<version>` there, and start the next release branch from the new `main`.
+  Keep the old release branch - it has the batch-by-batch history.
+- A fix for what's live goes to `main` (bumping the patch version, `1.0.1`),
+  then `main` is merged into the release branch so the fix carries on.
+
 **Each release:**
 
-1. Bump `<Version>` in `Directory.Build.props` for a new version (the
-   display version, for example `1.1.0`). Build numbers are set
+1. Bump `<Version>` in `Directory.Build.props` on the new release branch
+   (the display version, for example `1.1.0`). Build numbers are set
    automatically, so repeat uploads of one version are fine.
-2. Actions → **TestFlight** → *Run workflow* on `main`, and approve the run.
-   Leave *Build number* blank unless you need a particular one.
+2. Actions → **TestFlight** → *Run workflow* on the release branch (or
+   `main` for a fix), and approve the run. Leave *Build number* blank unless
+   you need a particular one.
 3. The build appears in App Store Connect → **TestFlight** once Apple has
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit.
 
 **The workflow's secrets** live in the `testflight` environment (only `main`
-can use them, and a maintainer approves each run), not in repository secrets:
+and `release/*` can use them, and a maintainer approves each run), not in
+repository secrets:
 
 | Secret | What it is |
 | --- | --- |
