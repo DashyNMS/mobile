@@ -12,11 +12,15 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 	private readonly AlertsViewModel _viewModel;
 	private readonly ShortcutReturn _shortcut = new();
 
+	/// <summary>The alert showing beside the list, if any - highlighted while the pane is there.</summary>
+	private int? _shown;
+
 	public AlertsPage(AlertsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		SearchReveal.Attach(List, SearchSlot, Search);
+		Split.SplitChanged += (_, _) => _viewModel.Select(Split.IsSplit ? _shown : null);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -62,6 +66,8 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 		view.ViewModel.AlertChanged += (_, change) => _viewModel.ShowChange(change);
 		view.Load(parameters);
 		Split.Detail = view;
+		_shown = parameters?.TryGetValue(Routes.AlertIdParameter, out var id) == true ? id as int? : null;
+		_viewModel.Select(_shown);
 		return true;
 	}
 

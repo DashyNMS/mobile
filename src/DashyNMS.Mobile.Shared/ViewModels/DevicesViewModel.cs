@@ -49,6 +49,8 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private readonly DeviceBookmarks _bookmarks;
     private readonly MaintenanceScan _maintenance;
     private List<DeviceItem> _all = [];
+
+    private int? _selectedId;
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private bool _resetting;
@@ -394,6 +396,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
                 IsUnderMaintenance = _maintenanceIds.Contains(d.DeviceId),
             })
             .ToList();
+        MarkSelected();
 
         RebuildFacet(TypeOptions, AllTypes, _all.Select(d => d.Device.Type), TypeLabel, v => SelectedType = v, SelectedType);
         RebuildFacet(LocationOptions, AllLocations, _all.Select(d => d.Device.LocationName()), v => Blank(v), v => SelectedLocation = v, SelectedLocation);
@@ -402,6 +405,24 @@ public sealed partial class DevicesViewModel : ViewModelBase
         // The list is up; the slower extras fill in behind it.
         Extras = LoadExtrasAsync();
     });
+
+    /// <summary>
+    /// Highlights the device whose detail is showing beside the list (#88),
+    /// or none. Kept across refreshes, which make new rows.
+    /// </summary>
+    public void Select(int? deviceId)
+    {
+        _selectedId = deviceId;
+        MarkSelected();
+    }
+
+    private void MarkSelected()
+    {
+        foreach (var item in _all)
+        {
+            item.IsSelected = item.DeviceId == _selectedId;
+        }
+    }
 
     [RelayCommand]
     private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);

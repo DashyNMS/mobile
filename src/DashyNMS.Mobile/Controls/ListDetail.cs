@@ -60,6 +60,9 @@ public sealed class ListDetail : Grid
     /// <summary>Whether the page is wide enough for the pane, so a tap should fill it rather than open a page.</summary>
     public bool IsSplit { get; private set; }
 
+    /// <summary>The pane came or went: the list's highlight goes with it.</summary>
+    public event EventHandler? SplitChanged;
+
     /// <summary>What's in the pane - the tapped alert or device - or null for the placeholder.</summary>
     public View? Detail
     {
@@ -82,7 +85,11 @@ public sealed class ListDetail : Grid
         ColumnDefinitions[0].Width = split ? new GridLength(ScreenLayout.ListPaneWidth(Width)) : GridLength.Star;
         ColumnDefinitions[1].Width = split ? GridLength.Star : new GridLength(0);
         _pane.IsVisible = split;
-        IsSplit = split;
+        if (split != IsSplit)
+        {
+            IsSplit = split;
+            SplitChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     private static Color Colour(string key) =>

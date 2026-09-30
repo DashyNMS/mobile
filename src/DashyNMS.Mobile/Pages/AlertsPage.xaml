@@ -137,6 +137,12 @@
                                 </SwipeView.RightItems>
 
                                 <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                                    <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
+                                    <Grid.Triggers>
+                                        <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                        </DataTrigger>
+                                    </Grid.Triggers>
                                     <Grid.GestureRecognizers>
                                         <TapGestureRecognizer
                                             Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"

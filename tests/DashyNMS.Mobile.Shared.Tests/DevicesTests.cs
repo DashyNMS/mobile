@@ -48,6 +48,22 @@ public sealed class DevicesViewModelTests
         return vm;
     }
 
+    [Fact]
+    public async Task The_device_showing_beside_the_list_stays_highlighted_through_refreshes()
+    {
+        var vm = await Loaded();
+        var id = vm.Devices[0].DeviceId;
+
+        vm.Select(id);
+        Assert.Equal([id], vm.Devices.Where(d => d.IsSelected).Select(d => d.DeviceId));
+
+        await vm.RefreshCommand.ExecuteAsync(null); // new rows
+        Assert.Equal([id], vm.Devices.Where(d => d.IsSelected).Select(d => d.DeviceId));
+
+        vm.Select(null);
+        Assert.DoesNotContain(vm.Devices, d => d.IsSelected);
+    }
+
     private static string[] Names(DevicesViewModel vm) => vm.Devices.Select(d => d.Name).ToArray();
 
     [Fact]

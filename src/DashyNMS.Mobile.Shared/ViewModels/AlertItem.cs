@@ -1,4 +1,5 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
@@ -6,8 +7,12 @@ using DesktopNMS.Core.Models;
 namespace DashyNMS.Mobile.ViewModels;
 
 /// <summary>One row of the alert list.</summary>
-public sealed class AlertItem
+public sealed partial class AlertItem : ObservableObject
 {
+    /// <summary>Its detail is showing beside the list, on a larger screen (#88).</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     private readonly bool _serverTimestampsAreUtc;
     private readonly string? _deviceName;
 
