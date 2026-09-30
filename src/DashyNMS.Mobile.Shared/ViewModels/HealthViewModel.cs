@@ -64,11 +64,18 @@ public sealed partial class HealthViewModel : ViewModelBase
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
+    /// <summary>The severity chips as the user last left them (#81).</summary>
+    private readonly ChipMemory _chips;
+
+    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IAppPreferences? preferences = null)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
+        _chips = new ChipMemory(preferences ?? new InMemoryPreferences(), "health");
+        _showCritical = _chips.Get("critical");
+        _showWarning = _chips.Get("warning");
+        _showOk = _chips.Get("ok");
         Categories = SensorCategoryRegistry.KnownClasses
             .Select(c => new HealthCategoryOption(c, SensorCategoryRegistry.Resolve(c)!.DisplayName))
             .ToList();
@@ -121,11 +128,23 @@ public sealed partial class HealthViewModel : ViewModelBase
         ApplyFilter();
     }
 
-    partial void OnShowCriticalChanged(bool value) => ApplyFilter();
+    partial void OnShowCriticalChanged(bool value)
+    {
+        _chips.Set("critical", value);
+        ApplyFilter();
+    }
 
-    partial void OnShowWarningChanged(bool value) => ApplyFilter();
+    partial void OnShowWarningChanged(bool value)
+    {
+        _chips.Set("warning", value);
+        ApplyFilter();
+    }
 
-    partial void OnShowOkChanged(bool value) => ApplyFilter();
+    partial void OnShowOkChanged(bool value)
+    {
+        _chips.Set("ok", value);
+        ApplyFilter();
+    }
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 

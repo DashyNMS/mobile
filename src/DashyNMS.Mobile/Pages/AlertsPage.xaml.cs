@@ -8,6 +8,7 @@ namespace DashyNMS.Mobile.Pages;
 public partial class AlertsPage : ContentPage, IQueryAttributable
 {
 	private readonly AlertsViewModel _viewModel;
+	private readonly ShortcutReturn _shortcut = new();
 
 	public AlertsPage(AlertsViewModel viewModel)
 	{
@@ -20,11 +21,27 @@ public partial class AlertsPage : ContentPage, IQueryAttributable
 	{
 		if (query.TryGetValue(Routes.AlertFilterParameter, out var value) && value is string kind)
 		{
+			_shortcut.Arrived();
 			_viewModel.ShowOnly(kind);
 		}
 
 		// Applied once: coming back to the tab later shouldn't reapply it.
 		query.Clear();
+	}
+
+	protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
+	{
+		base.OnNavigatedFrom(args);
+		_shortcut.Left(this, args);
+	}
+
+	protected override void OnNavigatedTo(NavigatedToEventArgs args)
+	{
+		base.OnNavigatedTo(args);
+		if (_shortcut.OpenedAfresh())
+		{
+			_viewModel.ShowSavedFilter();
+		}
 	}
 
 	protected override void OnAppearing()

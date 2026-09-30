@@ -53,6 +53,16 @@ public sealed partial class DevicesViewModel : ViewModelBase
     private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private bool _resetting;
 
+    /// <summary>The state chips as the user last left them (#81).</summary>
+    private readonly ChipMemory _chips;
+
+    /// <summary>
+    /// Showing a shortcut - a dashboard count, or a group or location - not
+    /// the user's own chips: not saved, and <see cref="ShowSavedFilter"/> puts
+    /// theirs back.
+    /// </summary>
+    private bool _shortcut;
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 
@@ -91,13 +101,19 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ISettingsStore settings,
         DeviceBookmarks bookmarks,
         TimeProvider time,
-        MaintenanceScan? maintenance = null)
+        MaintenanceScan? maintenance = null,
+        IAppPreferences? preferences = null)
     {
         _client = client;
         _navigation = navigation;
         _settings = settings;
         _bookmarks = bookmarks;
         _maintenance = maintenance ?? new MaintenanceScan(client, time);
+        _chips = new ChipMemory(preferences ?? new InMemoryPreferences(), "devices");
+        _showUp = _chips.Get("up");
+        _showDown = _chips.Get("down");
+        _showMaintenance = _chips.Get("maintenance");
+        _showDisabled = _chips.Get("disabled");
         _selectedSort = SortOptions[0];
         _bookmarks.Changed += (_, _) => OnBookmarksChanged();
         RebuildRecent();
@@ -170,13 +186,62 @@ public sealed partial class DevicesViewModel : ViewModelBase
         WhenTypingPauses(ApplyFilter);
     }
 
-    partial void OnShowUpChanged(bool value) => ApplyFilter();
+    partial void OnShowUpChanged(bool value) => OnChipChanged();
 
-    partial void OnShowDownChanged(bool value) => ApplyFilter();
+    partial void OnShowDownChanged(bool value) => OnChipChanged();
 
-    partial void OnShowMaintenanceChanged(bool value) => ApplyFilter();
+    partial void OnShowMaintenanceChanged(bool value) => OnChipChanged();
 
-    partial void OnShowDisabledChanged(bool value) => ApplyFilter();
+    partial void OnShowDisabledChanged(bool value) => OnChipChanged();
+
+    private void OnChipChanged()
+    {
+        if (!_resetting)
+        {
+            SaveChips();
+        }
+
+        ApplyFilter();
+    }
+
+    private void SaveChips()
+    {
+        if (_shortcut)
+        {
+            return;
+        }
+
+        _chips.Set("up", ShowUp);
+        _chips.Set("down", ShowDown);
+        _chips.Set("maintenance", ShowMaintenance);
+        _chips.Set("disabled", ShowDisabled);
+    }
+
+    /// <summary>
+    /// Back to the user's own chips after a shortcut, with the other filters
+    /// cleared - the page calls this when the tab is opened without one.
+    /// Nothing to do otherwise.
+    /// </summary>
+    public void ShowSavedFilter()
+    {
+        if (!_shortcut)
+        {
+            return;
+        }
+
+        _shortcut = false;
+        _resetting = true;
+        ShowUp = _chips.Get("up");
+        ShowDown = _chips.Get("down");
+        ShowMaintenance = _chips.Get("maintenance");
+        ShowDisabled = _chips.Get("disabled");
+        SelectedType = AllTypes;
+        SelectedLocation = AllLocations;
+        SelectedGroup = AllGroups;
+        SearchText = string.Empty;
+        _resetting = false;
+        ApplyFilter();
+    }
 
     // A picker whose choices are being refilled briefly sends back null;
     // treat that as "all" (or the default sort) rather than as a choice.
@@ -224,17 +289,34 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    // A chip tapped on a shortcut makes what's showing the user's own.
     [RelayCommand]
-    private void ToggleUp() => ShowUp = !ShowUp;
+    private void ToggleUp()
+    {
+        _shortcut = false;
+        ShowUp = !ShowUp;
+    }
 
     [RelayCommand]
-    private void ToggleDown() => ShowDown = !ShowDown;
+    private void ToggleDown()
+    {
+        _shortcut = false;
+        ShowDown = !ShowDown;
+    }
 
     [RelayCommand]
-    private void ToggleMaintenance() => ShowMaintenance = !ShowMaintenance;
+    private void ToggleMaintenance()
+    {
+        _shortcut = false;
+        ShowMaintenance = !ShowMaintenance;
+    }
 
     [RelayCommand]
-    private void ToggleDisabled() => ShowDisabled = !ShowDisabled;
+    private void ToggleDisabled()
+    {
+        _shortcut = false;
+        ShowDisabled = !ShowDisabled;
+    }
 
     [RelayCommand]
     private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
@@ -243,6 +325,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     [RelayCommand]
     private void ClearFilters()
     {
+        _shortcut = false;
         _resetting = true;
         ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
         SelectedType = AllTypes;
@@ -250,6 +333,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         SelectedGroup = AllGroups;
         SearchText = string.Empty;
         _resetting = false;
+        SaveChips();
         ApplyFilter();
     }
 
@@ -261,6 +345,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     /// </summary>
     public void ShowOnly(string? group = null, string? location = null)
     {
+        _shortcut = true;
         _resetting = true;
         ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
         SelectedType = AllTypes;
@@ -281,6 +366,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     /// </summary>
     public void ShowOnlyState(DeviceState state)
     {
+        _shortcut = true;
         _resetting = true;
         ShowUp = state == DeviceState.Up;
         ShowDown = state == DeviceState.Down;

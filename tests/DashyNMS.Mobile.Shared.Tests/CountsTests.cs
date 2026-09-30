@@ -114,8 +114,9 @@ public sealed class CountsTests
         vm.ShowOnly("ok");
         Assert.Equal([4], vm.Alerts.Select(a => a.Id));
         Assert.Equal(1, vm.OkCount);
-        Assert.False(_appSettings.Filter.ShowCritical);
-        Assert.True(_appSettings.Filter.ShowUnknownSeverity); // desktop's filter for the rest
+        // Shown, not saved over the user's own filter (#81).
+        Assert.True(_appSettings.Filter.ShowCritical);
+        Assert.True(_appSettings.Filter.ShowUnknownSeverity);
 
         vm.ShowOnly("acknowledged");
         Assert.Equal([3], vm.Alerts.Select(a => a.Id));

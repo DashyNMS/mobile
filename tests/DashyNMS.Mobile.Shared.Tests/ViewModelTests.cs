@@ -203,6 +203,28 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
+    public async Task A_dashboard_shortcut_doesnt_replace_the_users_own_filter()
+    {
+        var vm = await LoadedViewModel();
+        vm.ToggleAcknowledgedCommand.Execute(null); // the user turns Acknowledged off
+
+        vm.ShowOnly("all"); // then the dashboard's See all
+        Assert.True(vm.ShowAcknowledged);
+        Assert.False(_appSettings.Filter.ShowAcknowledged); // still theirs (#81)
+
+        vm.ShowSavedFilter(); // the tab opened normally again
+        Assert.False(vm.ShowAcknowledged);
+        Assert.False(NewViewModel().ShowAcknowledged);
+
+        // A chip tapped on a shortcut makes that the user's filter.
+        vm.ShowOnly("critical");
+        vm.ToggleWarningCommand.Execute(null);
+        Assert.True(_appSettings.Filter.ShowCritical);
+        Assert.True(_appSettings.Filter.ShowWarning);
+        Assert.False(_appSettings.Filter.ShowUnknownSeverity);
+    }
+
+    [Fact]
     public async Task Clear_brings_everything_back()
     {
         var vm = await LoadedViewModel();
