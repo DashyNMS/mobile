@@ -33,7 +33,9 @@ public sealed class MapHtmlTests
         Assert.DoesNotContain("</script><script>alert", page);
         Assert.DoesNotContain("<img src=x", page);
         Assert.Contains("\\u003C/script\\u003E", page); // still there, as data
-        Assert.Contains("el.textContent", page);         // and drawn as text
+        Assert.Contains("hole.textContent", page);       // counts drawn as text
+        Assert.Contains("title: title", page);           // names only as the marker's title attribute
+        Assert.DoesNotContain("innerHTML", page);
     }
 
     [Fact]
@@ -41,13 +43,27 @@ public sealed class MapHtmlTests
         Assert.EndsWith("img-src http: data:\">", Page(tiles: "http://tiles.lan/{z}/{x}/{y}.png").Split('\n').First(l => l.Contains("Content-Security-Policy")).Trim());
 
     [Theory]
-    [InlineData("dashynms-map://pin/3", 3)]
-    [InlineData("DASHYNMS-MAP://pin/0", 0)]
-    [InlineData("dashynms-map://pin/x", null)]
+    [InlineData("dashynms-map://pins/3", "3")]
+    [InlineData("DASHYNMS-MAP://pins/0", "0")]
+    [InlineData("dashynms-map://pins/2,5,9", "2,5,9")] // a merged pin (#84)
+    [InlineData("dashynms-map://pins/2,x", null)]
+    [InlineData("dashynms-map://pins/", null)]
     [InlineData("dashynms-map://device/3", null)]
-    [InlineData("https://evil.example/pin/3", null)]
+    [InlineData("https://evil.example/pins/3", null)]
     [InlineData(null, null)]
-    public void Only_a_pin_tap_is_read_from_a_navigation(string? url, int? pin) => Assert.Equal(pin, MapHtml.PinFrom(url));
+    public void Only_a_pin_tap_is_read_from_a_navigation(string? url, string? pins) =>
+        Assert.Equal(pins, MapHtml.PinsFrom(url) is { } ids ? string.Join(",", ids) : null);
+
+    [Fact]
+    public void Pins_that_land_together_merge_as_on_desktop()
+    {
+        var page = Page();
+
+        // Core's PinClustering, in the page: nearby pins merge and regroup on zoom (#84).
+        Assert.Contains($"var radius = {MapHtml.ClusterRadius};", page);
+        Assert.Contains("map.on('zoomend', draw)", page);
+        Assert.Contains("' locations'", page);
+    }
 }
 
 public sealed class MapViewModelTests
@@ -125,6 +141,24 @@ public sealed class MapViewModelTests
         vm.ClearSelectionCommand.Execute(null);
         Assert.False(vm.HasSelection);
         Assert.Empty(vm.Devices);
+    }
+
+    [Fact]
+    public async Task A_merged_pin_lists_every_locations_devices_together()
+    {
+        var vm = await Loaded();
+        var ids = System.Text.RegularExpressions.Regex.Matches(vm.MapPage!, "\"id\":(\\d+),\"name\":\"(London|Leeds)\"")
+            .Select(m => int.Parse(m.Groups[1].Value))
+            .ToList();
+
+        vm.SelectPins(ids);
+
+        Assert.Equal("2 locations", vm.SelectedLocation);
+        Assert.Equal(["access-sw", "core-sw", "leeds-rtr"], vm.Devices.Select(d => d.Name)); // down first
+        Assert.False(vm.HasSingleLocation); // no one location for Show in Devices
+
+        await vm.ShowInDevicesCommand.ExecuteAsync(null);
+        Assert.Empty(_navigation.Visits);
     }
 
     [Fact]

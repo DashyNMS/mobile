@@ -20,10 +20,10 @@ public partial class MapPage : ContentPage
 		// take the page anywhere - tiles are images, not navigations.
 		MapView.Navigating += (_, e) =>
 		{
-			if (MapHtml.PinFrom(e.Url) is { } pin)
+			if (MapHtml.PinsFrom(e.Url) is { } pins)
 			{
 				e.Cancel = true;
-				MainThread.BeginInvokeOnMainThread(() => _viewModel.SelectPin(pin));
+				MainThread.BeginInvokeOnMainThread(() => _viewModel.SelectPins(pins));
 			}
 			else if (!IsOwnPage(e.Url))
 			{
