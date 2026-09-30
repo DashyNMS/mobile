@@ -92,24 +92,13 @@
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
             </Style>
 
-            <!-- A row in a ListCard. With a pointer - an iPad trackpad, a Mac -
-                 it lights up under it, so it's clear it can be clicked (#88). -->
+            <!-- A row in a ListCard. No PointerOver highlight: on iOS the state
+                 stuck on after a tap, so rows stayed lit as if several were
+                 selected (#88). -->
             <Style x:Key="ListRow" TargetType="Grid">
                 <Setter Property="Padding" Value="14,11,14,0" />
                 <Setter Property="MinimumHeightRequest" Value="56" />
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
-                <Setter Property="VisualStateManager.VisualStateGroups">
-                    <VisualStateGroupList>
-                        <VisualStateGroup x:Name="CommonStates">
-                            <VisualState x:Name="Normal" />
-                            <VisualState x:Name="PointerOver">
-                                <VisualState.Setters>
-                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
-                                </VisualState.Setters>
-                            </VisualState>
-                        </VisualStateGroup>
-                    </VisualStateGroupList>
-                </Setter>
             </Style>
 
             <!-- A text box's well, as on Sign in: the entry sits inside, on the alt surface. -->
