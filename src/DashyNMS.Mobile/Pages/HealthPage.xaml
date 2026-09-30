@@ -38,6 +38,9 @@
             </FlexLayout>
         </Border>
 
+        <!-- Out of sight until the list is scrolled or pulled down - see SearchReveal. -->
+        <SearchBar Grid.Row="2" x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" Margin="-6,6,-6,0" />
+
         <!-- Severity chips, as desktop's; counts are of the whole category. -->
         <HorizontalStackLayout Grid.Row="3" Spacing="8" Margin="0,6,0,0">
             <Button Style="{StaticResource Chip}" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}">
@@ -81,11 +84,6 @@
         <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
                 <CollectionView ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
-                    <!-- The search box sits above the first row, tucked out of sight until the
-                         list is pulled down - see SearchReveal. -->
-                    <CollectionView.Header>
-                        <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" Margin="6,6,6,2" />
-                    </CollectionView.Header>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />

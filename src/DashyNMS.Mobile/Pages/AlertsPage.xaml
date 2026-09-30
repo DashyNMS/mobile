@@ -29,6 +29,9 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
+        <!-- Out of sight until the list is scrolled or pulled down - see SearchReveal. -->
+        <SearchBar Grid.Row="1" x:Name="Search" Text="{Binding SearchText}" Placeholder="Search alerts" Margin="-6,2,-6,0" />
+
         <!-- Desktop's filter chips. Counts are of open alerts, whatever's filtered. -->
         <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,6,0,0">
         <HorizontalStackLayout Spacing="8">
@@ -94,11 +97,6 @@
         <Border Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
                 <CollectionView ItemsSource="{Binding Alerts}" SelectionMode="None" x:Name="List">
-                    <!-- The search box sits above the first row, tucked out of sight until the
-                         list is pulled down - see SearchReveal. -->
-                    <CollectionView.Header>
-                        <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search alerts" Margin="6,6,6,2" />
-                    </CollectionView.Header>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsNotBusy}" HorizontalOptions="Center" Margin="0,32" />
                     </CollectionView.EmptyView>
