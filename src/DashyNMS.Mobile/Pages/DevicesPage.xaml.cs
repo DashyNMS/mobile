@@ -1,11 +1,13 @@
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>The Devices tab; Groups &amp; locations comes back here with <see cref="Routes.GroupParameter"/> or <see cref="Routes.LocationParameter"/>.</summary>
-public partial class DevicesPage : ContentPage, IQueryAttributable
+public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost
 {
 	private readonly DevicesViewModel _viewModel;
 	private readonly ShortcutReturn _shortcut = new();
@@ -49,6 +51,25 @@ public partial class DevicesPage : ContentPage, IQueryAttributable
 		{
 			_viewModel.ShowSavedFilter();
 		}
+	}
+
+	/// <summary>
+	/// A device tapped with room beside the list (#88) opens there, as does
+	/// one it links to (a neighbour, say); its sections and graphs still open
+	/// as pages of their own.
+	/// </summary>
+	public bool TryShowDetail(string route, IDictionary<string, object>? parameters)
+	{
+		if (!Split.IsSplit || route != Routes.DeviceDetail || Handler?.MauiContext?.Services is not { } services)
+		{
+			return false;
+		}
+
+		var view = new DeviceDetailView(services.GetRequiredService<DeviceDetailViewModel>());
+		view.Bar.ShowsBack = false;
+		view.Load(parameters);
+		Split.Detail = view;
+		return true;
 	}
 
 	protected override void OnAppearing()

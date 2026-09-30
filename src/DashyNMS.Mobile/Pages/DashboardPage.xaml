@@ -357,9 +357,11 @@
                         <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
                         <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
 
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}"
-                                             BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
-                                             Spacing="12" />
+                        <!-- One column on a phone; on an iPad or a Mac, as many as fit
+                             side by side (#88), in the order they're customised. -->
+                        <controls:CardGrid BindableLayout.ItemsSource="{Binding Cards}"
+                                           BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
+                                           MinColumnWidth="340" MaxColumns="3" Gap="12" />
 
                         <Label Style="{StaticResource Faint}"
                                Text="{Binding LastUpdated, StringFormat='Updated {0:HH:mm:ss}. Pull down to refresh.'}"

@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.MorePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:MoreViewModel"
@@ -12,80 +13,82 @@
 
     <!-- Every page, grouped, with a pin for the tab bar (#68). -->
     <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="4">
+        <controls:ReadableColumn>
+            <VerticalStackLayout Padding="16" Spacing="4">
 
-            <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                <Label Style="{StaticResource PageTitle}" Text="More" />
-                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding PinnedText}" VerticalOptions="Center" />
-            </Grid>
-            <Label Style="{StaticResource Caption}" Text="Pin up to three pages to the tab bar. Dashboard and More always stay." />
+                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                    <Label Style="{StaticResource PageTitle}" Text="More" />
+                    <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding PinnedText}" VerticalOptions="Center" />
+                </Grid>
+                <Label Style="{StaticResource Caption}" Text="Pin up to three pages to the tab bar. Dashboard and More always stay." />
 
-            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate x:DataType="vm:MoreGroup">
-                        <VerticalStackLayout>
-                            <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
-                            <Border Style="{StaticResource Card}" Padding="14,2,4,2">
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:MoreItem">
-                                            <Grid ColumnDefinitions="*,48,Auto" MinimumHeightRequest="56">
-                                                <VerticalStackLayout VerticalOptions="Center" Padding="0,8">
-                                                    <VerticalStackLayout.GestureRecognizers>
-                                                        <TapGestureRecognizer
-                                                            Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
-                                                            CommandParameter="{Binding .}" />
-                                                    </VerticalStackLayout.GestureRecognizers>
-                                                    <Label Text="{Binding Title}" FontSize="15" FontFamily="BodySemibold" />
-                                                    <Label Style="{StaticResource Faint}" Text="{Binding Description}" />
-                                                </VerticalStackLayout>
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MoreGroup">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
+                                <Border Style="{StaticResource Card}" Padding="14,2,4,2">
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:MoreItem">
+                                                <Grid ColumnDefinitions="*,48,Auto" MinimumHeightRequest="56">
+                                                    <VerticalStackLayout VerticalOptions="Center" Padding="0,8">
+                                                        <VerticalStackLayout.GestureRecognizers>
+                                                            <TapGestureRecognizer
+                                                                Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
+                                                                CommandParameter="{Binding .}" />
+                                                        </VerticalStackLayout.GestureRecognizers>
+                                                        <Label Text="{Binding Title}" FontSize="15" FontFamily="BodySemibold" />
+                                                        <Label Style="{StaticResource Faint}" Text="{Binding Description}" />
+                                                    </VerticalStackLayout>
 
-                                                <!-- The pin: filled when on the tab bar, dimmed when the bar is full. -->
-                                                <Grid Grid.Column="1" WidthRequest="48" HeightRequest="48"
-                                                      SemanticProperties.Description="{Binding PinDescription}">
-                                                    <Grid.GestureRecognizers>
-                                                        <TapGestureRecognizer
-                                                            Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
-                                                            CommandParameter="{Binding .}" />
-                                                    </Grid.GestureRecognizers>
-                                                    <Grid.Triggers>
-                                                        <DataTrigger TargetType="Grid" Binding="{Binding CanToggle}" Value="False">
-                                                            <Setter Property="Opacity" Value="0.4" />
-                                                        </DataTrigger>
-                                                    </Grid.Triggers>
-                                                    <Path Data="M9 3H15L14 9L18 12V14H6V12L10 9Z M12 14V21"
-                                                          StrokeThickness="1.6" StrokeLineJoin="Round" StrokeLineCap="Round"
-                                                          WidthRequest="24" HeightRequest="24" Aspect="None"
-                                                          HorizontalOptions="Center" VerticalOptions="Center"
-                                                          Fill="Transparent"
-                                                          Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}">
-                                                        <Path.Triggers>
-                                                            <DataTrigger TargetType="Path" Binding="{Binding IsPinned}" Value="True">
-                                                                <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                                                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                    <!-- The pin: filled when on the tab bar, dimmed when the bar is full. -->
+                                                    <Grid Grid.Column="1" WidthRequest="48" HeightRequest="48"
+                                                          SemanticProperties.Description="{Binding PinDescription}">
+                                                        <Grid.GestureRecognizers>
+                                                            <TapGestureRecognizer
+                                                                Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
+                                                                CommandParameter="{Binding .}" />
+                                                        </Grid.GestureRecognizers>
+                                                        <Grid.Triggers>
+                                                            <DataTrigger TargetType="Grid" Binding="{Binding CanToggle}" Value="False">
+                                                                <Setter Property="Opacity" Value="0.4" />
                                                             </DataTrigger>
-                                                        </Path.Triggers>
-                                                    </Path>
+                                                        </Grid.Triggers>
+                                                        <Path Data="M9 3H15L14 9L18 12V14H6V12L10 9Z M12 14V21"
+                                                              StrokeThickness="1.6" StrokeLineJoin="Round" StrokeLineCap="Round"
+                                                              WidthRequest="24" HeightRequest="24" Aspect="None"
+                                                              HorizontalOptions="Center" VerticalOptions="Center"
+                                                              Fill="Transparent"
+                                                              Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}">
+                                                            <Path.Triggers>
+                                                                <DataTrigger TargetType="Path" Binding="{Binding IsPinned}" Value="True">
+                                                                    <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                                    <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                                </DataTrigger>
+                                                            </Path.Triggers>
+                                                        </Path>
+                                                    </Grid>
+
+                                                    <Label Grid.Column="2" Style="{StaticResource Chevron}" Margin="4,0,10,0">
+                                                        <Label.GestureRecognizers>
+                                                            <TapGestureRecognizer
+                                                                Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
+                                                                CommandParameter="{Binding .}" />
+                                                        </Label.GestureRecognizers>
+                                                    </Label>
                                                 </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
-                                                <Label Grid.Column="2" Style="{StaticResource Chevron}" Margin="4,0,10,0">
-                                                    <Label.GestureRecognizers>
-                                                        <TapGestureRecognizer
-                                                            Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}"
-                                                            CommandParameter="{Binding .}" />
-                                                    </Label.GestureRecognizers>
-                                                </Label>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
-                            </Border>
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
             </VerticalStackLayout>
-
-        </VerticalStackLayout>
+        </controls:ReadableColumn>
     </ScrollView>
 
 </ContentPage>

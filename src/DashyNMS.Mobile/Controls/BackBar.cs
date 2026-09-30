@@ -20,6 +20,16 @@ public sealed class BackBar : Grid
         Add(_back);
     }
 
+    /// <summary>
+    /// Off beside a list on a larger screen (#88): there's no page to go
+    /// back from, but the glyphs at the right still belong.
+    /// </summary>
+    public bool ShowsBack
+    {
+        get => _back.IsVisible;
+        set => _back.IsVisible = value;
+    }
+
     /// <summary>The page's glyphs, at the right: pin, export.</summary>
     public View? Actions
     {

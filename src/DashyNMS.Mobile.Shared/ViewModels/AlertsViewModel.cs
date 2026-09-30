@@ -319,6 +319,18 @@ public sealed partial class AlertsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// A change made in Alert detail beside the list (#88), onto its row as
+    /// if it were made here.
+    /// </summary>
+    public void ShowChange(AlertStateChange change)
+    {
+        if (_all.FirstOrDefault(a => a.Id == change.AlertId) is { } item)
+        {
+            UpdateInPlace(item, change.Acknowledged ? AcknowledgedState : ActiveState, change.Note);
+        }
+    }
+
     /// <summary>LibreNMS's alert state numbers (see AlertStateExtensions.FromValue).</summary>
     private const int ActiveState = 1;
 

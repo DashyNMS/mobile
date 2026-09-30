@@ -4,18 +4,15 @@
     stat tiles, the Device card, then the overview cards and every other
     section as cards - one column on a phone, a grid when there's room.
 -->
-<ContentPage
-    x:Class="DashyNMS.Mobile.Pages.DeviceDetailPage"
+<ContentView
+    x:Class="DashyNMS.Mobile.Views.DeviceDetailView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    x:DataType="vm:DeviceDetailViewModel"
-    ios:Page.UseSafeArea="True"
-    Title="{Binding Title}">
+    x:DataType="vm:DeviceDetailViewModel">
 
     <!-- The card grid's templates: ping and active alerts draw from the
          page's view model, the sections from their own card - one grid, so
@@ -23,7 +20,7 @@
          Each binding finds the view model itself: a BindingContext bound to
          it with RelativeSource found nothing here, so the Ping response card
          never showed (Batch 11). -->
-    <ContentPage.Resources>
+    <ContentView.Resources>
         <pages:DeviceCardTemplateSelector x:Key="GridCardTemplates">
             <pages:DeviceCardTemplateSelector.Ping>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
@@ -133,7 +130,7 @@
                 </DataTemplate>
             </pages:DeviceCardTemplateSelector.Section>
         </pages:DeviceCardTemplateSelector>
-    </ContentPage.Resources>
+    </ContentView.Resources>
 
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <ScrollView>
@@ -274,4 +271,4 @@
         </ScrollView>
     </RefreshView>
 
-</ContentPage>
+</ContentView>

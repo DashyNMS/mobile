@@ -126,12 +126,17 @@ public sealed class AlertDetailViewModelTests
         _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(" on it ");
         var vm = NewViewModel();
         await vm.LoadAsync(5);
+        var changes = new List<AlertStateChange>();
+        vm.AlertChanged += (_, change) => changes.Add(change);
 
         await vm.AcknowledgeCommand.ExecuteAsync(null);
 
         await _client.Alerts.Received(1).AcknowledgeAsync(5, "on it", true, Arg.Any<CancellationToken>());
         _selfActions.Received(1).Record(5, AlertChangeKind.Acknowledged);
         await _client.Alerts.Received(2).GetAsync(5, Arg.Any<CancellationToken>());
+
+        // For the list beside it on a larger screen (#88).
+        Assert.Equal(new AlertStateChange(5, Acknowledged: true, "on it"), Assert.Single(changes));
     }
 
     [Fact]

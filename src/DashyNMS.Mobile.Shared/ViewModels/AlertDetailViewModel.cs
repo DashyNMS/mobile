@@ -39,6 +39,13 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
 
+    /// <summary>
+    /// Raised after you acknowledge or unacknowledge the alert here. Beside
+    /// the Alerts list on a larger screen (#88) the list stays on screen, so
+    /// it changes that row itself rather than waiting to reappear.
+    /// </summary>
+    public event EventHandler<AlertStateChange>? AlertChanged;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasAlert))]
     [NotifyPropertyChangedFor(nameof(CanAcknowledge))]
@@ -216,6 +223,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         {
             // So the next alert check doesn't notify you about your own acknowledgement.
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
             await RefreshAsync();
         }
     }
@@ -241,6 +249,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
             await RefreshAsync();
         }
     }
@@ -450,3 +459,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         }
     }
 }
+
+/// <summary>An alert acknowledged or unacknowledged on its own page - see <see cref="AlertDetailViewModel.AlertChanged"/>.</summary>
+/// <param name="Note">The acknowledgement's note, if one was given.</param>
+public sealed record AlertStateChange(int AlertId, bool Acknowledged, string? Note);

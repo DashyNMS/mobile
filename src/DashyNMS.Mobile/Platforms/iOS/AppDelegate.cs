@@ -1,6 +1,7 @@
-﻿using BackgroundTasks;
+ï»¿using BackgroundTasks;
 using DashyNMS.Mobile.Alerts;
 using Foundation;
+using ObjCRuntime;
 using Microsoft.Extensions.DependencyInjection;
 using UIKit;
 using UserNotifications;
@@ -23,6 +24,53 @@ public class AppDelegate : MauiUIApplicationDelegate
 		BGTaskScheduler.Shared.Register(IosAlertScheduler.TaskId, null, RunAlertCheck);
 
 		return launched;
+	}
+
+	/// <summary>
+	/// Keyboard shortcuts on an iPad or a Mac (#88), listed when ⌘ is held:
+	/// the app delegate is the end of the responder chain, so they work from
+	/// any page, even while typing in a search box.
+	/// </summary>
+	public override UIKeyCommand[] KeyCommands => _keyCommands ??= CreateKeyCommands();
+
+	private UIKeyCommand[]? _keyCommands;
+
+	private static UIKeyCommand[] CreateKeyCommands()
+	{
+		var commands = new List<UIKeyCommand>
+		{
+			KeyCommand("f", "Search", "shortcutSearch:"),
+			KeyCommand("r", "Refresh", "shortcutRefresh:"),
+		};
+		for (var tab = 1; tab <= KeyboardShortcuts.TabCount; tab++)
+		{
+			commands.Add(KeyCommand(tab.ToString(System.Globalization.CultureInfo.InvariantCulture), $"Tab {tab}", "shortcutTab:"));
+		}
+
+		return [.. commands];
+	}
+
+	private static UIKeyCommand KeyCommand(string key, string title, string selector)
+	{
+		var command = UIKeyCommand.Create((NSString)key, UIKeyModifierFlags.Command, new Selector(selector));
+		command.Title = title;
+		return command;
+	}
+
+	[Export("shortcutSearch:")]
+	public void ShortcutSearch(UIKeyCommand command) => KeyboardShortcuts.Search();
+
+	[Export("shortcutRefresh:")]
+	public void ShortcutRefresh(UIKeyCommand command) => KeyboardShortcuts.Refresh();
+
+	/// <summary>⌘1 to ⌘9: the key pressed says which tab.</summary>
+	[Export("shortcutTab:")]
+	public void ShortcutTab(UIKeyCommand command)
+	{
+		if (int.TryParse(command.Input, out var tab))
+		{
+			KeyboardShortcuts.ShowTab(tab - 1);
+		}
 	}
 
 	/// <summary>
