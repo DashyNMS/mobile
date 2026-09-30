@@ -6,7 +6,7 @@ namespace DashyNMS.Mobile.ViewModels;
 public abstract partial class ViewModelBase : ObservableObject
 {
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsNotBusy), nameof(IsLoadingFirstTime))]
+    [NotifyPropertyChangedFor(nameof(IsNotBusy), nameof(IsLoadingFirstTime), nameof(IsRefreshingAgain))]
     private bool _isBusy;
 
     private bool _hasLoaded;
@@ -17,6 +17,13 @@ public abstract partial class ViewModelBase : ObservableObject
     /// Later refreshes keep what's shown and use the pull-to-refresh spinner.
     /// </summary>
     public bool IsLoadingFirstTime => IsBusy && !_hasLoaded;
+
+    /// <summary>
+    /// Fetching again with the page already filled in - for a page that shows
+    /// its own small spinner rather than pull-to-refresh's (the dashboard's,
+    /// under its logo).
+    /// </summary>
+    public bool IsRefreshingAgain => IsBusy && _hasLoaded;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]

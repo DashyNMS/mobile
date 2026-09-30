@@ -10,6 +10,10 @@ public partial class DashboardPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+
+		// A pull starts the refresh (the view runs the command); its own
+		// spinner is put away at once, as the one under the logo shows the load.
+		Refresh.Refreshing += (_, _) => Dispatcher.Dispatch(() => Refresh.IsRefreshing = false);
 	}
 
 	protected override void OnAppearing()
