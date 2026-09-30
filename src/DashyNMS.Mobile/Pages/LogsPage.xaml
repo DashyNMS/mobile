@@ -42,9 +42,9 @@
 
         <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
              The gap below belongs to the list, so it's the same with the box away (#83). -->
-        <ContentView Grid.Row="2" x:Name="SearchSlot">
+        <Grid Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
             <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search the log" Margin="-6,6,-6,0" />
-        </ContentView>
+        </Grid>
 
         <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 

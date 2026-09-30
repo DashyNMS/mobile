@@ -31,9 +31,9 @@
 
         <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
              The gap below belongs to the chips, so it's the same with the box away (#83). -->
-        <ContentView Grid.Row="1" x:Name="SearchSlot">
+        <Grid Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
             <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search alerts" Margin="-6,2,-6,0" />
-        </ContentView>
+        </Grid>
 
         <!-- Desktop's filter chips. Counts are of open alerts, whatever's filtered. -->
         <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">

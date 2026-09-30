@@ -70,6 +70,12 @@ public sealed partial class MapViewModel : ViewModelBase
 
         var style = _settings.Current.DeviceNameStyle;
         var devices = devicesTask.Result;
+        foreach (var device in devices)
+        {
+            // Geocoded locations arrive as an object with the id and coordinates in it (#84).
+            DeviceLocation.CompleteFromLocationObject(device);
+        }
+
         var byId = devices.ToDictionary(d => d.DeviceId);
         var placement = GeoLocations.Build(devices, locationsTask.Result);
 
@@ -84,7 +90,9 @@ public sealed partial class MapViewModel : ViewModelBase
                 .OrderByDescending(d => d.State == DeviceState.Down)
                 .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            return (new MapPinData(index, pin.Name, pin.Latitude, pin.Longitude, members.Count, state), (IReadOnlyList<DeviceItem>)items);
+            // The name as the Devices tab's Location filter shows it, not a geocoded object's JSON.
+            var name = DeviceLocation.Name(pin.Name) ?? pin.Name;
+            return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state), (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 
         var unplaced = placement.UnplacedDeviceIds.Count;
