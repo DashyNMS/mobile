@@ -170,18 +170,21 @@ public sealed class NetworkMapDrawable : IDrawable
             }
 
             var centre = ToScreen(node);
-            var width = canvas.GetStringSize(node.Name, Microsoft.Maui.Graphics.Font.Default, 11).Width;
-            var box = new RectF(centre.X - width / 2 - 4, centre.Y + radius + 3, width + 8, 16);
+            var top = centre.Y + radius + 3;
 
             if (isFocus)
             {
-                // A backing plate, so the selected name reads over lines.
+                // A backing plate, so the selected name reads over lines -
+                // generous, as the measure can come out narrower than the drawn text.
+                var width = canvas.GetStringSize(node.Name, Microsoft.Maui.Graphics.Font.Default, 11).Width * 1.15f;
                 canvas.FillColor = surface.WithAlpha(0.85f);
-                canvas.FillRoundedRectangle(box, 3);
+                canvas.FillRoundedRectangle(new RectF(centre.X - width / 2 - 6, top, width + 12, 16), 3);
             }
 
+            // Drawn from a point, not into a box: a box sized from the measure
+            // clipped the end of longer names with "…".
             canvas.FontColor = text;
-            canvas.DrawString(node.Name, box, HorizontalAlignment.Center, VerticalAlignment.Center);
+            canvas.DrawString(node.Name, centre.X, top + 12, HorizontalAlignment.Center);
         }
     }
 
