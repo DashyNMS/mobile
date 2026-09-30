@@ -249,7 +249,8 @@ is done; the old step-by-step guide for it is in git history as
 version is built on its own branch, `release/<version>` (for example
 `release/1.1.0`), made from `main`:
 
-- Work for the version goes in PRs into its release branch, squash merged.
+- Work for the version is committed straight to its release branch, each
+  commit naming the issues it deals with (CI and CodeQL run on every push).
 - When it's ready, one PR takes the release branch into `main`; tag
   `v<version>` there, and start the next release branch from the new `main`.
   Keep the old release branch - it has the batch-by-batch history.
