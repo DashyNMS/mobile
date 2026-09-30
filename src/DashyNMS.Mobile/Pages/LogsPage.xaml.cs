@@ -13,7 +13,7 @@ public partial class LogsPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		SearchReveal.Attach(List, Search);
+		SearchReveal.Attach(List, SearchSlot, Search);
 	}
 
 	protected override void OnAppearing()
