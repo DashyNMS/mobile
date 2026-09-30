@@ -1,4 +1,4 @@
-ï»¿using BackgroundTasks;
+﻿using BackgroundTasks;
 using DashyNMS.Mobile.Alerts;
 using Foundation;
 using ObjCRuntime;
