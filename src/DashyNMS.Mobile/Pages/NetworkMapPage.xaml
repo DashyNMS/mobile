@@ -22,21 +22,10 @@
 
         <VerticalStackLayout Grid.Row="1" Padding="16,0,16,6" Spacing="6">
             <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Border Style="{StaticResource Field}" Padding="12,0">
-                    <Picker Title="Location" ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}" />
-                </Border>
-                <!-- Devices with no links at all, in a grid below the rest - off by default, as desktop. -->
-                <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Unlinked" Command="{Binding ToggleUnlinkedDevicesCommand}"
-                        SemanticProperties.Hint="Also show devices with no links">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ShowUnlinkedDevices}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
+            <!-- Location, device group (desktop's own scope), or both. -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Picker Title="Location" ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}" />
+                <Picker Grid.Column="1" Title="Group" ItemsSource="{Binding GroupOptions}" SelectedItem="{Binding SelectedGroup}" />
             </Grid>
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         </VerticalStackLayout>
@@ -48,9 +37,21 @@
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,4" InputTransparent="True"
                    HorizontalOptions="Start" VerticalOptions="Start" />
 
-            <Button Text="Fit" Style="{StaticResource SecondaryButton}" Clicked="OnFitClicked"
-                    HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Padding="14,0"
-                    SemanticProperties.Hint="Show the whole map" />
+            <HorizontalStackLayout HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Spacing="8">
+                <!-- Devices with no links at all, in a grid below the rest - off by default, as desktop. -->
+                <Button Style="{StaticResource Chip}" Text="Unlinked" Command="{Binding ToggleUnlinkedDevicesCommand}"
+                        SemanticProperties.Hint="Also show devices with no links">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowUnlinkedDevices}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Text="Fit" Style="{StaticResource SecondaryButton}" Clicked="OnFitClicked" Padding="14,0"
+                        SemanticProperties.Hint="Show the whole map" />
+            </HorizontalStackLayout>
 
             <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" />
             <VerticalStackLayout IsVisible="{Binding IsLayingOut}" InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
@@ -66,7 +67,8 @@
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">
-                        <Label Text="{Binding SelectedNode.Name}" FontFamily="BodySemibold" FontSize="16" LineBreakMode="TailTruncation" />
+                        <!-- Long device names wrap rather than lose their end beside Open and Close. -->
+                        <Label Text="{Binding SelectedNode.Name}" FontFamily="BodySemibold" FontSize="16" LineBreakMode="WordWrap" MaxLines="3" />
                         <Label Style="{StaticResource Faint}" Text="{Binding SelectedNodeStateText}" />
                     </VerticalStackLayout>
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}" />

@@ -155,10 +155,11 @@
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="4">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
                             <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
-                                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                   LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
                             <!-- State pill: tinted, with a dot and the state in its readable colour. -->
-                            <Border Grid.Column="1" Style="{StaticResource Pill}"
+                            <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="0,4,0,0"
                                     BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
                                 <HorizontalStackLayout Spacing="6">
                                     <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"

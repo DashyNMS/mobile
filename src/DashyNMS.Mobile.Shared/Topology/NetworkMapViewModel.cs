@@ -77,10 +77,9 @@ public sealed record NetworkConnection(NetworkNode Neighbour, string LocalPort, 
 /// matches desktop's.
 /// </summary>
 /// <remarks>
-/// Filtered by location rather than desktop's device groups - the question
-/// on a phone is usually "what's at this site". Only links between two
-/// devices both in the chosen location become lines, as desktop's scope
-/// works. Search finds a device by name, selects it and asks the page to
+/// Filtered by location, by device group (desktop's own scope), or both -
+/// then a device has to be in both. Only links between two devices both in
+/// scope become lines, as desktop's scope works. Search finds a device by name, selects it and asks the page to
 /// centre on it. Devices with no links at all are left out unless asked
 /// for, as on desktop - on a whole fleet they'd far outnumber the rest.
 /// </remarks>
@@ -93,6 +92,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     private IReadOnlyList<Device> _devices = [];
     private IReadOnlyList<NetworkLink> _links = [];
     private IReadOnlyDictionary<int, string>? _portNames;
+    private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private bool _loaded;
 
     /// <summary>Guards against an older layout (a location since switched away from) landing after a newer one.</summary>
@@ -100,6 +100,10 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     [ObservableProperty]
     private FacetOption _selectedLocation = AllLocations;
+
+    /// <summary>Desktop's own scope for this map - a device group; with a location too, devices must be in both.</summary>
+    [ObservableProperty]
+    private FacetOption _selectedGroup = AllGroups;
 
     [ObservableProperty]
     private bool _showUnlinkedDevices;
@@ -122,6 +126,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     private static FacetOption AllLocations { get; } = new(null, "All locations");
 
+    private static FacetOption AllGroups { get; } = new(null, "All groups");
+
     /// <summary>The map changed shape (a new location, or loaded): the page fits it to the screen.</summary>
     public event EventHandler? LayoutChanged;
 
@@ -136,6 +142,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     public IReadOnlyList<NetworkEdge> Edges { get; private set; } = [];
 
     public BulkObservableCollection<FacetOption> LocationOptions { get; } = [AllLocations];
+
+    public BulkObservableCollection<FacetOption> GroupOptions { get; } = [AllGroups];
 
     public BulkObservableCollection<NetworkConnection> SelectedConnections { get; } = new();
 
@@ -160,9 +168,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     /// <summary>Loaded, nothing to draw - a location whose devices have no links between them.</summary>
     public bool IsEmpty => _loaded && !IsBusy && !IsLayingOut && Nodes.Count == 0;
 
-    public string EmptyText => SelectedLocation.Key is null
-        ? "LibreNMS has no CDP or LLDP links between monitored devices."
-        : "No links between devices at this location.";
+    public string EmptyText =>
+        SelectedLocation.Key is null && SelectedGroup.Key is null ? "LibreNMS has no CDP or LLDP links between monitored devices."
+        : SelectedGroup.Key is null ? "No links between devices at this location."
+        : SelectedLocation.Key is null ? "No links between devices in this group."
+        : "No links between devices in this group at this location.";
 
     partial void OnSelectedLocationChanged(FacetOption value)
     {
@@ -170,6 +180,18 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         if (value is null)
         {
             SelectedLocation = AllLocations;
+            return;
+        }
+
+        SelectedNode = null;
+        _ = RebuildAsync();
+    }
+
+    partial void OnSelectedGroupChanged(FacetOption value)
+    {
+        if (value is null)
+        {
+            SelectedGroup = AllGroups;
             return;
         }
 
@@ -200,14 +222,17 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         var devicesTask = _client.Devices.ListAsync();
         var linksTask = _client.Links.ListAllAsync();
         var portsTask = PortNamesAsync();
-        await Task.WhenAll(devicesTask, linksTask, portsTask);
+        var groupsTask = GroupsAsync();
+        await Task.WhenAll(devicesTask, linksTask, portsTask, groupsTask);
 
         _devices = devicesTask.Result;
         _links = linksTask.Result;
         _portNames = portsTask.Result;
+        _groups = groupsTask.Result;
         _loaded = true;
 
         RebuildLocations();
+        RebuildGroups();
         await RebuildAsync();
     });
 
@@ -249,8 +274,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
         var version = ++_buildVersion;
         var location = SelectedLocation.Key;
+        var group = SelectedGroup.Key;
         var scope = _devices
             .Where(d => location is null || string.Equals(d.LocationName(), location, StringComparison.OrdinalIgnoreCase))
+            .Where(d => group is null
+                || (_groups.TryGetValue(d.DeviceId, out var names) && names.Contains(group, StringComparer.OrdinalIgnoreCase)))
             .Select(d => d.DeviceId)
             .ToList();
 
@@ -326,6 +354,39 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         if (!ReferenceEquals(keep, SelectedLocation))
         {
             SetProperty(ref _selectedLocation, keep, nameof(SelectedLocation));
+        }
+    }
+
+    /// <summary>Every device group with a member, and how many - the Group filter's choices.</summary>
+    private void RebuildGroups()
+    {
+        var counted = _groups.Values
+            .SelectMany(names => names)
+            .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new FacetOption(g.Key, $"{g.Key} ({g.Count()})"))
+            .ToList();
+
+        var selected = SelectedGroup.Key;
+        GroupOptions.ReplaceAll(counted.Prepend(AllGroups));
+
+        var keep = counted.FirstOrDefault(o => string.Equals(o.Key, selected, StringComparison.OrdinalIgnoreCase)) ?? AllGroups;
+        if (!ReferenceEquals(keep, SelectedGroup))
+        {
+            SetProperty(ref _selectedGroup, keep, nameof(SelectedGroup));
+        }
+    }
+
+    /// <summary>Which groups each device is in. Best effort: without them the map still draws, just without the Group filter's choices.</summary>
+    private async Task<IReadOnlyDictionary<int, IReadOnlyList<string>>> GroupsAsync()
+    {
+        try
+        {
+            return await _client.DeviceGroups.GetMembershipByDeviceAsync();
+        }
+        catch (LibreNmsApiException)
+        {
+            return new Dictionary<int, IReadOnlyList<string>>();
         }
     }
 

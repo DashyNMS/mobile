@@ -74,6 +74,29 @@ public sealed class NetworkMapViewModelTests
     }
 
     [Fact]
+    public async Task Filtering_by_group_as_desktop_does_and_with_a_location_needs_both()
+    {
+        _client.DeviceGroups.GetMembershipByDeviceAsync(Arg.Any<CancellationToken>()).Returns(new Dictionary<int, IReadOnlyList<string>>
+        {
+            [1] = ["Core"],
+            [2] = ["Core", "Switches"],
+            [3] = ["Switches"],
+        });
+        var vm = await Loaded();
+        Assert.Equal(["All groups", "Core (2)", "Switches (2)"], vm.GroupOptions.Select(o => o.Label));
+
+        vm.SelectedGroup = vm.GroupOptions.Single(o => o.Key == "Core");
+        await vm.RebuildAsync();
+        Assert.Equal(["core-sw", "dist-sw"], vm.Nodes.Select(n => n.Name).Order());
+
+        // With Leeds too, only dist-sw is in both: no links left to draw.
+        vm.SelectedLocation = vm.LocationOptions.Single(o => o.Key == "Leeds");
+        await vm.RebuildAsync();
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("No links between devices in this group at this location.", vm.EmptyText);
+    }
+
+    [Fact]
     public async Task Search_selects_and_centres_the_best_match_and_lists_its_connections()
     {
         var vm = await Loaded();
