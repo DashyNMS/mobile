@@ -29,7 +29,8 @@
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
                     <!-- The whole location on the Devices tab, filtered to it (#84). -->
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}"
+                            IsVisible="{Binding HasSingleLocation}" />
                     <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
                 </Grid>
                 <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">

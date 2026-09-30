@@ -92,7 +92,11 @@ public sealed partial class MapViewModel : ViewModelBase
                 .ToList();
             // The name as the Devices tab's Location filter shows it, not a geocoded object's JSON.
             var name = DeviceLocation.Name(pin.Name) ?? pin.Name;
-            return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state), (IReadOnlyList<DeviceItem>)items);
+            var down = members.Count(d => d.State == DeviceState.Down);
+            var maintenance = members.Count(d => d.State == DeviceState.Maintenance);
+            var off = members.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
+            var up = members.Count - down - maintenance - off;
+            return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off), (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 
         var unplaced = placement.UnplacedDeviceIds.Count;
@@ -103,10 +107,11 @@ public sealed partial class MapViewModel : ViewModelBase
         var (js, css) = assetsTask.Result;
         MapPage = MapHtml.Build(_pins.Select(p => p.Pin).ToList(), template, TileUrlTemplate.IsOpenStreetMap(template), DarkTheme, js, css);
 
-        // Keep the chosen location's list current, if it's still there.
-        if (SelectedLocation is { } selected && _pins.FirstOrDefault(p => p.Pin.Name == selected) is { Pin: { } kept })
+        // Keep the chosen locations' list current, as far as they're still there.
+        var kept = _pins.Where(p => _selectedNames.Contains(p.Pin.Name)).Select(p => p.Pin.Id).ToList();
+        if (kept.Count > 0)
         {
-            SelectPin(kept.Id);
+            SelectPins(kept);
         }
         else
         {
@@ -114,22 +119,43 @@ public sealed partial class MapViewModel : ViewModelBase
         }
     });
 
+    private IReadOnlyList<string> _selectedNames = [];
+
+    /// <summary>
+    /// One location, when a single place is chosen - what Show in Devices
+    /// filters to. A merged pin covers several, so it has none of its own.
+    /// </summary>
+    public bool HasSingleLocation => _selectedNames.Count == 1;
+
     /// <summary>A pin was tapped on the map.</summary>
-    public void SelectPin(int id)
+    public void SelectPin(int id) => SelectPins([id]);
+
+    /// <summary>
+    /// A pin was tapped - one location, or every location in a merged pin:
+    /// their devices together, down first, as desktop lists a merged pin's.
+    /// </summary>
+    public void SelectPins(IReadOnlyList<int> ids)
     {
-        if (id < 0 || id >= _pins.Count)
+        var chosen = ids.Where(id => id >= 0 && id < _pins.Count).Distinct().Select(id => _pins[id]).ToList();
+        if (chosen.Count == 0)
         {
             return;
         }
 
-        var (pin, devices) = _pins[id];
-        SelectedLocation = pin.Name;
-        Devices.ReplaceAll(devices);
+        _selectedNames = chosen.Select(p => p.Pin.Name).ToList();
+        OnPropertyChanged(nameof(HasSingleLocation));
+        SelectedLocation = chosen.Count == 1 ? chosen[0].Pin.Name : $"{chosen.Count} locations";
+        Devices.ReplaceAll(chosen
+            .SelectMany(p => p.Devices)
+            .OrderByDescending(d => d.State == DeviceState.Down)
+            .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase));
     }
 
     [RelayCommand]
     private void ClearSelection()
     {
+        _selectedNames = [];
+        OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = null;
         Devices.ReplaceAll([]);
     }
@@ -139,9 +165,9 @@ public sealed partial class MapViewModel : ViewModelBase
     /// Device View's Location row does - so a pin leads somewhere (#84).
     /// </summary>
     [RelayCommand]
-    private Task ShowInDevicesAsync() => SelectedLocation is not { } location
+    private Task ShowInDevicesAsync() => !HasSingleLocation
         ? Task.CompletedTask
-        : _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.LocationParameter] = location });
+        : _navigation.GoToAsync(Routes.Devices, new Dictionary<string, object> { [Routes.LocationParameter] = _selectedNames[0] });
 
     [RelayCommand]
     private Task OpenDeviceAsync(DeviceItem? device) => device is null
