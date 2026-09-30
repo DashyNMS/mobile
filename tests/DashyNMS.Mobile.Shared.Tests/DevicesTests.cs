@@ -269,6 +269,27 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task State_chips_are_remembered_and_shortcuts_dont_replace_them()
+    {
+        var preferences = new InMemoryPreferences();
+        var vm = new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        vm.ToggleDisabledCommand.Execute(null); // the user hides disabled devices
+        Assert.False(new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences).ShowDisabled);
+
+        // A shortcut (the dashboard's Down count) shows, but isn't saved (#81)...
+        vm.ShowOnlyState(DeviceState.Down);
+        Assert.False(vm.ShowUp);
+        Assert.True(new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences).ShowUp);
+
+        // ...and opening the tab normally puts the user's chips back.
+        vm.ShowSavedFilter();
+        Assert.True(vm.ShowUp);
+        Assert.False(vm.ShowDisabled);
+    }
+
+    [Fact]
     public async Task Unpinning_puts_it_back_in_order()
     {
         _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 5, DisplayName = "lab-server" });

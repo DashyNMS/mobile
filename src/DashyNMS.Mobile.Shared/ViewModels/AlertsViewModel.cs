@@ -37,6 +37,14 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
     private bool _loading;
 
+    /// <summary>
+    /// Showing one of the dashboard's shortcuts (<see cref="ShowOnly"/>), not
+    /// the user's own filter: it isn't saved, and <see cref="ShowSavedFilter"/>
+    /// puts theirs back. Before #81 a shortcut was saved over it, so a chip
+    /// turned off never seemed to stay off.
+    /// </summary>
+    private bool _shortcut;
+
     [ObservableProperty]
     private bool _showCritical;
 
@@ -120,17 +128,58 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
 
+    // A chip tapped on a shortcut makes what's showing the user's own filter.
     [RelayCommand]
-    private void ToggleCritical() => ShowCritical = !ShowCritical;
+    private void ToggleCritical()
+    {
+        _shortcut = false;
+        ShowCritical = !ShowCritical;
+    }
 
     [RelayCommand]
-    private void ToggleWarning() => ShowWarning = !ShowWarning;
+    private void ToggleWarning()
+    {
+        _shortcut = false;
+        ShowWarning = !ShowWarning;
+    }
 
     [RelayCommand]
-    private void ToggleOk() => ShowOk = !ShowOk;
+    private void ToggleOk()
+    {
+        _shortcut = false;
+        ShowOk = !ShowOk;
+    }
 
     [RelayCommand]
-    private void ToggleAcknowledged() => ShowAcknowledged = !ShowAcknowledged;
+    private void ToggleAcknowledged()
+    {
+        _shortcut = false;
+        ShowAcknowledged = !ShowAcknowledged;
+    }
+
+    /// <summary>
+    /// Back to the user's own filter after a shortcut - the page calls this
+    /// when the tab is opened without one, so the dashboard's "Critical"
+    /// doesn't stay on for good. Nothing to do otherwise.
+    /// </summary>
+    public void ShowSavedFilter()
+    {
+        if (!_shortcut)
+        {
+            return;
+        }
+
+        _shortcut = false;
+        var filter = _settings.Current.Filter;
+        _loading = true;
+        ShowCritical = filter.ShowCritical;
+        ShowWarning = filter.ShowWarning;
+        ShowOk = filter.ShowUnknownSeverity;
+        ShowAcknowledged = filter.ShowAcknowledged;
+        SearchText = filter.SearchText ?? string.Empty;
+        _loading = false;
+        ApplyFilter();
+    }
 
     /// <summary>
     /// Only one kind of alert, for the dashboard's counts (#32): "critical"
@@ -141,9 +190,11 @@ public sealed partial class AlertsViewModel : ViewModelBase
     /// </summary>
     public void ShowOnly(string kind)
     {
+        // Shown, not saved: the user's own filter comes back afterwards (#81).
+        _shortcut = true;
         if (string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase))
         {
-            ClearFilters();
+            ResetFilters();
             return;
         }
 
@@ -158,9 +209,15 @@ public sealed partial class AlertsViewModel : ViewModelBase
         OnFilterChanged();
     }
 
-    /// <summary>Back to everything, as desktop's clear (✕) button.</summary>
+    /// <summary>Back to everything, as desktop's clear (✕) button - the user's choice, so it's saved.</summary>
     [RelayCommand]
     private void ClearFilters()
+    {
+        _shortcut = false;
+        ResetFilters();
+    }
+
+    private void ResetFilters()
     {
         _loading = true;
         ShowCritical = true;
@@ -329,6 +386,11 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     private void SaveFilter()
     {
+        if (_shortcut)
+        {
+            return;
+        }
+
         var filter = _settings.Current.Filter;
         filter.ShowCritical = ShowCritical;
         filter.ShowWarning = ShowWarning;

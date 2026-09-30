@@ -70,6 +70,19 @@ public sealed class HealthViewModelTests
     }
 
     [Fact]
+    public void Severity_chips_are_remembered()
+    {
+        var preferences = new InMemoryPreferences();
+        var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation, preferences);
+
+        vm.ToggleOkCommand.Execute(null);
+
+        var next = new HealthViewModel(_client, Fakes.Settings(), _navigation, preferences);
+        Assert.False(next.ShowOk); // #81
+        Assert.True(next.ShowCritical);
+    }
+
+    [Fact]
     public async Task Tapping_a_sensor_opens_its_devices_sensors()
     {
         var vm = await Loaded("temperature");
