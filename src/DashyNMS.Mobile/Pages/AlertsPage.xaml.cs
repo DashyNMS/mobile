@@ -1,11 +1,13 @@
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Views;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>The Alerts tab; the dashboard's counts come here with <see cref="Routes.AlertFilterParameter"/>.</summary>
-public partial class AlertsPage : ContentPage, IQueryAttributable
+public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 {
 	private readonly AlertsViewModel _viewModel;
 	private readonly ShortcutReturn _shortcut = new();
@@ -42,6 +44,25 @@ public partial class AlertsPage : ContentPage, IQueryAttributable
 		{
 			_viewModel.ShowSavedFilter();
 		}
+	}
+
+	/// <summary>
+	/// An alert tapped with room beside the list (#88) opens there. Acknowledging
+	/// it there changes its row here, as acknowledging from the list does.
+	/// </summary>
+	public bool TryShowDetail(string route, IDictionary<string, object>? parameters)
+	{
+		if (!Split.IsSplit || route != Routes.AlertDetail || Handler?.MauiContext?.Services is not { } services)
+		{
+			return false;
+		}
+
+		var view = new AlertDetailView(services.GetRequiredService<AlertDetailViewModel>());
+		view.Bar.ShowsBack = false;
+		view.ViewModel.AlertChanged += (_, change) => _viewModel.ShowChange(change);
+		view.Load(parameters);
+		Split.Detail = view;
+		return true;
 	}
 
 	protected override void OnAppearing()

@@ -298,6 +298,28 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
+    public async Task A_change_made_in_the_detail_pane_beside_the_list_updates_its_row_in_place()
+    {
+        var vm = await LoadedViewModel();
+        var before = vm.Alerts.Select(a => a.Id).ToList();
+        var acknowledged = vm.AcknowledgedCount;
+        var resets = 0;
+        vm.Alerts.CollectionChanged += (_, e) => resets += e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset ? 1 : 0;
+
+        vm.ShowChange(new AlertStateChange(3, Acknowledged: true, "on it"));
+
+        Assert.Equal(0, resets);
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+        var row = vm.Alerts.Single(a => a.Id == 3);
+        Assert.True(row.IsAcknowledged);
+        Assert.Equal("on it", row.Note);
+        Assert.Equal(acknowledged + 1, vm.AcknowledgedCount);
+
+        vm.ShowChange(new AlertStateChange(99, Acknowledged: true, null)); // not in the list: nothing to do
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+    }
+
+    [Fact]
     public async Task Acknowledging_with_acknowledged_hidden_takes_just_that_row_out()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(string.Empty);

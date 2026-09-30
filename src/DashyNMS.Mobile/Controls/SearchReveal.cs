@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace DashyNMS.Mobile.Controls;
 
 /// <summary>
@@ -24,6 +26,23 @@ public static class SearchReveal
     private const uint SlideMilliseconds = 200;
 
     private const string AnimationName = "SearchReveal";
+
+    /// <summary>Each attached box's slide, for <see cref="Reveal"/> - weakly, so it goes with its page.</summary>
+    private static readonly ConditionalWeakTable<SearchBar, Action<bool>> Slides = new();
+
+    /// <summary>
+    /// Brings the box out, wherever the list is, and puts the cursor in it -
+    /// for ⌘F on an iPad or a Mac keyboard (#88).
+    /// </summary>
+    public static void Reveal(SearchBar search)
+    {
+        if (Slides.TryGetValue(search, out var slide))
+        {
+            slide(true);
+        }
+
+        search.Focus();
+    }
 
     /// <param name="slot">
     /// A Grid, clipped: a ContentView didn't clip on iOS, so at height 0 the
@@ -102,6 +121,8 @@ public static class SearchReveal
                     search.IsVisible = show;
                 });
         }
+
+        Slides.AddOrUpdate(search, Slide);
 
         search.TextChanged += (_, _) =>
         {

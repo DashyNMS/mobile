@@ -17,6 +17,9 @@
         <ToolbarItem Text="Export" IconImageSource="icon_export.png" Command="{Binding ExportCsvCommand}" />
     </ContentPage.ToolbarItems>
 
+    <!-- On an iPad or a Mac, the alert you tap shows beside the list (#88). -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose an alert to see it here.">
+
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Alerts">
@@ -162,5 +165,6 @@
         </Border>
 
     </Grid>
+    </controls:ListDetail>
 
 </ContentPage>

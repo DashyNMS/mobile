@@ -12,6 +12,9 @@
     SafeAreaEdges="Container"
     Title="Devices">
 
+    <!-- On an iPad or a Mac, the device you tap shows beside the list (#88). -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose a device to see it here.">
+
     <Grid RowDefinitions="Auto,*" Padding="16,8,16,0">
 
     <controls:PageHeader x:Name="Header" Title="Devices" />
@@ -189,5 +192,6 @@
 
     </Grid>
     </Grid>
+    </controls:ListDetail>
 
 </ContentPage>
