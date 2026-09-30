@@ -40,16 +40,14 @@
             </Grid>
         </Border>
 
+        <!-- Out of sight until the list is scrolled or pulled down - see SearchReveal. -->
+        <SearchBar Grid.Row="2" x:Name="Search" Text="{Binding SearchText}" Placeholder="Search the log" Margin="-6,6,-6,0" />
+
         <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
         <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
                 <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
-                    <!-- The search box sits above the first row, tucked out of sight until the
-                         list is pulled down - see SearchReveal. -->
-                    <CollectionView.Header>
-                        <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search the log" Margin="6,6,6,2" />
-                    </CollectionView.Header>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />
