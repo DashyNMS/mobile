@@ -320,54 +320,74 @@
         </pages:DashboardCardTemplateSelector>
     </ContentPage.Resources>
 
-    <!-- Pull to refresh, but its own spinner isn't used: it sits at the top of
-         the scroll, above the logo. Every load shows under the logo instead -
-         see the code-behind. -->
-    <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
-        <!-- No scroll bar: it sat beside the first cards, looking like one of
-             their own (#29). -->
-        <ScrollView VerticalScrollBarVisibility="Never">
-            <VerticalStackLayout Padding="16" Spacing="4">
 
-                <!-- The logo and name instead of a title bar, scrolling away
-                     with the cards; Customise is the sliders button (#30, #41). -->
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
-                    <Image Source="dashynms_logo.png" WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
-                           SemanticProperties.Description="DashyNMS logo" />
-                    <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
-                    <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
-                            SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
-                        </Border.GestureRecognizers>
-                        <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
-                        <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
-                              Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                              StrokeThickness="1.8" StrokeLineCap="Round"
-                              WidthRequest="24" HeightRequest="24" Aspect="None"
-                              HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                </Grid>
+    <Grid RowDefinitions="Auto,*">
 
-                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
-                <!-- Later loads, automatic or pulled: a small spinner in the same place. -->
-                <ActivityIndicator IsRunning="{Binding IsRefreshingAgain}" IsVisible="{Binding IsRefreshingAgain}"
-                                   HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" Margin="0,0,0,8"
-                                   SemanticProperties.Description="Refreshing" />
+        <!-- The logo, name and Customise stay put; the cards scroll beneath
+             them, fading out as they pass under (Customise is the sliders
+             button - #30, #41). -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="16,16,16,8">
+            <Image Source="dashynms_logo.png" WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
+                   SemanticProperties.Description="DashyNMS logo" />
+            <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
+            <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                    SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
+                </Border.GestureRecognizers>
+                <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
+                <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
+                      Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
+                      StrokeThickness="1.8" StrokeLineCap="Round"
+                      WidthRequest="24" HeightRequest="24" Aspect="None"
+                      HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+        </Grid>
 
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}"
-                                     BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
-                                     Spacing="12" />
+        <Grid Grid.Row="1">
+            <!-- Pull to refresh; its own spinner is put away (see the
+                 code-behind) for the one below, so there's only ever one. -->
+            <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
+                <!-- No scroll bar: it sat beside the first cards, looking like one of
+                     their own (#29). -->
+                <ScrollView VerticalScrollBarVisibility="Never">
+                    <VerticalStackLayout Padding="16,8,16,16" Spacing="4">
 
-                <Label Style="{StaticResource Faint}"
-                       Text="{Binding LastUpdated, StringFormat='Updated {0:HH:mm:ss}. Pull down to refresh.'}"
-                       HorizontalOptions="Center"
-                       Margin="0,16,0,0" />
+                        <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                        <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
 
-            </VerticalStackLayout>
-        </ScrollView>
-    </RefreshView>
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}"
+                                             BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
+                                             Spacing="12" />
+
+                        <Label Style="{StaticResource Faint}"
+                               Text="{Binding LastUpdated, StringFormat='Updated {0:HH:mm:ss}. Pull down to refresh.'}"
+                               HorizontalOptions="Center"
+                               Margin="0,16,0,0" />
+
+                    </VerticalStackLayout>
+                </ScrollView>
+            </RefreshView>
+
+            <!-- The cards fade out as they scroll up under the header. -->
+            <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+                <BoxView.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                        <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                    </LinearGradientBrush>
+                </BoxView.Background>
+            </BoxView>
+
+            <!-- Later loads, automatic or pulled: a small spinner just under the
+                 header, over the cards rather than pushing them down. -->
+            <ActivityIndicator IsRunning="{Binding IsRefreshingAgain}" IsVisible="{Binding IsRefreshingAgain}"
+                               HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Start"
+                               Margin="0,4,0,0" InputTransparent="True"
+                               SemanticProperties.Description="Refreshing" />
+        </Grid>
+
+    </Grid>
 
 </ContentPage>
