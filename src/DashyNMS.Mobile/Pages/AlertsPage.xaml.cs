@@ -14,7 +14,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		SearchReveal.Attach(List, Search);
+		SearchReveal.Attach(List, SearchSlot, Search);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
