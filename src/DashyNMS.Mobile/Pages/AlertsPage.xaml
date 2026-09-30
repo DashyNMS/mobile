@@ -108,18 +108,28 @@
                             <SwipeView Threshold="96">
                                 <!-- Swipe left to show Acknowledge (or Unacknowledge), then tap it: revealing rather
                                      than acting, so a stray sideways scroll can't acknowledge anything. -->
+                                <!-- Glyphs rather than words, which the revealed space cut off (#93):
+                                     a tick to acknowledge, an undo arrow to unacknowledge, named for VoiceOver. -->
                                 <SwipeView.RightItems>
                                     <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
-                                        <SwipeItem Text="Acknowledge"
-                                                   BackgroundColor="{StaticResource OkTextLight}"
-                                                   IsVisible="{Binding IsNotAcknowledged}"
-                                                   Command="{Binding AcknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
-                                                   CommandParameter="{Binding .}" />
-                                        <SwipeItem Text="Unacknowledge"
-                                                   BackgroundColor="{StaticResource WarningTextLight}"
-                                                   IsVisible="{Binding IsAcknowledged}"
-                                                   Command="{Binding UnacknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
-                                                   CommandParameter="{Binding .}" />
+                                        <SwipeItemView IsVisible="{Binding IsNotAcknowledged}"
+                                                       Command="{Binding AcknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
+                                                       CommandParameter="{Binding .}"
+                                                       SemanticProperties.Description="Acknowledge">
+                                            <Grid WidthRequest="76" BackgroundColor="{StaticResource OkTextLight}">
+                                                <Image Source="icon_acknowledge.png" WidthRequest="26" HeightRequest="26"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </SwipeItemView>
+                                        <SwipeItemView IsVisible="{Binding IsAcknowledged}"
+                                                       Command="{Binding UnacknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
+                                                       CommandParameter="{Binding .}"
+                                                       SemanticProperties.Description="Unacknowledge">
+                                            <Grid WidthRequest="76" BackgroundColor="{StaticResource WarningTextLight}">
+                                                <Image Source="icon_unacknowledge.png" WidthRequest="26" HeightRequest="26"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </SwipeItemView>
                                     </SwipeItems>
                                 </SwipeView.RightItems>
 

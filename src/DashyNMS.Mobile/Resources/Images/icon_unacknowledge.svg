@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Unacknowledge, for the Alerts list's swipe action (#93): an undo arrow, white on the amber action. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M9 14 4 9 9 4"/>
+  <path d="M4 9H14.5A5.5 5.5 0 0 1 14.5 20H11"/>
+</svg>
