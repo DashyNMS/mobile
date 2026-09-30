@@ -25,18 +25,28 @@ public class AppDelegate : MauiUIApplicationDelegate
 		return launched;
 	}
 
-	/// <summary>A dashynms:// link - the home-screen widget's taps - goes where a notification tap would.</summary>
-	public override bool OpenUrl(UIApplication application, NSUrl url, NSDictionary options)
+	/// <summary>
+	/// A dashynms:// link - the home-screen widget's taps - goes where a
+	/// notification tap would. With the scene lifecycle (see SceneDelegate)
+	/// iOS hands links to the scene rather than here, so the scene calls this.
+	/// </summary>
+	/// <returns>True if it was one of ours.</returns>
+	internal static bool OpenWidgetLink(NSUrl? url)
 	{
-		if (Uri.TryCreate(url.AbsoluteString, UriKind.Absolute, out var uri)
-			&& Widgets.WidgetLink.TryParse(uri) is { } target)
+		if (url?.AbsoluteString is not { } text
+			|| !Uri.TryCreate(text, UriKind.Absolute, out var uri)
+			|| Widgets.WidgetLink.TryParse(uri) is not { } target)
+		{
+			return false;
+		}
+
+		// After the scene has its window - on a cold launch this runs first.
+		MainThread.BeginInvokeOnMainThread(() =>
 		{
 			var router = IPlatformApplication.Current?.Services.GetService<NotificationRouter>();
 			_ = router?.OpenAsync(target);
-			return true;
-		}
-
-		return base.OpenUrl(application, url, options);
+		});
+		return true;
 	}
 
 	private static void RunAlertCheck(BGTask task)
