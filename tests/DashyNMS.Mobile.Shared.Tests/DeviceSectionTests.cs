@@ -24,6 +24,29 @@ public sealed class DeviceSectionLoaderTests
         new() { PortId = id, DeviceId = DeviceId, IfIndex = id, IfName = name, IfDescr = name, IfOperStatus = oper, IfAdminStatus = admin, IfInOctetsRate = inRate, IfOutOctetsRate = outRate, IfSpeed = 1_000_000_000 };
 
     [Fact]
+    public async Task An_endpoint_librenms_doesnt_have_for_the_device_is_an_empty_section_not_a_failure()
+    {
+        // As device 444's VLANs (#91): LibreNMS answers 404.
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Vlan>>(_ => throw new LibreNmsApiException("No VLANs found", System.Net.HttpStatusCode.NotFound));
+
+        Assert.Empty(await Load(DeviceSection.Vlans));
+
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Vlans));
+        card.Show(await Load(DeviceSection.Vlans));
+        Assert.False(card.IsVisible); // drops out, as an empty section does
+    }
+
+    [Fact]
+    public async Task A_real_failure_still_fails_so_the_card_can_say_so()
+    {
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Vlan>>(_ => throw new LibreNmsApiException("Server error", System.Net.HttpStatusCode.InternalServerError));
+
+        await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Vlans));
+    }
+
+    [Fact]
     public async Task Sensors_are_this_devices_only_grouped_by_kind_with_desktops_thresholds()
     {
         _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
