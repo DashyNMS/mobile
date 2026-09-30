@@ -21,6 +21,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     private readonly IBackgroundAlertScheduler _scheduler;
     private readonly IAlertWatchStore _store;
     private readonly IAppBadge _badge;
+    private readonly AlertTabDot? _tabDot;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatchCoordinator> _logger;
@@ -39,8 +40,10 @@ public sealed class AlertWatchCoordinator : IDisposable
         IAppBadge badge,
         IHomeWidgets widgets,
         TimeProvider time,
-        ILogger<AlertWatchCoordinator> logger)
+        ILogger<AlertWatchCoordinator> logger,
+        AlertTabDot? tabDot = null)
     {
+        _tabDot = tabDot;
         _session = session;
         _settings = settings;
         _watcher = watcher;
@@ -127,6 +130,7 @@ public sealed class AlertWatchCoordinator : IDisposable
             _scheduler.Cancel();
             _store.Clear();
             _badge.SetCount(0);
+            _tabDot?.Clear();
             _widgets.Update(WidgetSnapshot.SignedOut);
             StopLoop();
             return;
@@ -146,6 +150,7 @@ public sealed class AlertWatchCoordinator : IDisposable
         if (!_settings.Current.ShowAlertTabBadge)
         {
             _badge.SetCount(0);
+            _tabDot?.Clear();
         }
 
         if (!ChecksNeeded)

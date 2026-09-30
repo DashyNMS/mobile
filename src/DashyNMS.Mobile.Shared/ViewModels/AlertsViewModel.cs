@@ -33,6 +33,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly ISelfActionTracker _selfActions;
     private readonly IShareService _share;
     private readonly IAppBadge _badge;
+    private readonly AlertTabDot? _tabDot;
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
     private bool _loading;
@@ -73,7 +74,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
         ISelfActionTracker selfActions,
         IShareService share,
         IAppBadge badge,
-        TimeProvider time)
+        TimeProvider time,
+        AlertTabDot? tabDot = null)
     {
         _client = client;
         _settings = settings;
@@ -83,6 +85,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _share = share;
         _badge = badge;
         _time = time;
+        _tabDot = tabDot;
 
         // Carry on where the last session left off, as desktop does.
         var filter = settings.Current.Filter;
@@ -247,6 +250,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
         // Straight away, rather than at the next check - after acknowledging, say.
         _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
+        _tabDot?.Update(alerts, _settings.Current);
     });
 
     /// <summary>The list as it's filtered now, as a CSV file, through the share sheet.</summary>

@@ -61,6 +61,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
+        services.AddSingleton<AlertTabDot>();
         services.AddSingleton<AlertWatcher>();
         services.AddSingleton<AlertWatchCoordinator>();
         services.AddSingleton<NotificationRouter>();

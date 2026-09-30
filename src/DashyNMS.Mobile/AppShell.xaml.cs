@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Pages;
 using DashyNMS.Mobile.Services;
 
@@ -6,12 +7,14 @@ namespace DashyNMS.Mobile;
 public partial class AppShell : Shell
 {
 	private readonly TabPins _pins;
+	private readonly AlertTabDot _alertDot;
 	private readonly Dictionary<AppPage, Tab> _pinnedTabs = [];
 
-	public AppShell(TabPins pins)
+	public AppShell(TabPins pins, AlertTabDot alertDot)
 	{
 		InitializeComponent();
 		_pins = pins;
+		_alertDot = alertDot;
 
 		Routing.RegisterRoute(Routes.DeviceDetail, typeof(DeviceDetailPage));
 		Routing.RegisterRoute(Routes.DeviceSection, typeof(DeviceSectionPage));
@@ -33,6 +36,25 @@ public partial class AppShell : Shell
 
 		ArrangeTabs();
 		_pins.Changed += (_, _) => Dispatcher.Dispatch(ArrangeTabs);
+
+		// The Alerts dot (#90): redrawn when it changes, and whenever the tab
+		// bar may have been rebuilt underneath it.
+		_alertDot.Changed += (_, _) => Dispatcher.Dispatch(ShowAlertDot);
+		Navigated += (_, _) => ShowAlertDot();
+	}
+
+	/// <summary>
+	/// The dot goes on the Alerts tab when it's pinned, otherwise on More -
+	/// Alerts is then under it - so it's never out of sight.
+	/// </summary>
+	private void ShowAlertDot()
+	{
+		var visible = MainTabs.Items.Where(tab => tab.IsVisible).ToList();
+		var target = _pinnedTabs.TryGetValue(AppPage.Alerts, out var alerts) ? alerts : visible.LastOrDefault();
+		var index = target is null ? -1 : visible.IndexOf(target);
+#if IOS
+		TabDots.Show(index, _alertDot.Severity, _alertDot.Description);
+#endif
 	}
 
 	private static Type PageType(AppPage page) => page switch
@@ -88,5 +110,8 @@ public partial class AppShell : Shell
 
 			index++;
 		}
+
+		// The tabs moved: the dot goes with Alerts, or to More.
+		Dispatcher.Dispatch(ShowAlertDot);
 	}
 }
