@@ -25,7 +25,11 @@ public static class SearchReveal
 
     private const string AnimationName = "SearchReveal";
 
-    public static void Attach(CollectionView list, ContentView slot, SearchBar search)
+    /// <param name="slot">
+    /// A Grid, clipped: a ContentView didn't clip on iOS, so at height 0 the
+    /// box still drew over the chips below it rather than going away.
+    /// </param>
+    public static void Attach(CollectionView list, Grid slot, SearchBar search)
     {
         slot.IsClippedToBounds = true;
         search.VerticalOptions = LayoutOptions.Start;
@@ -41,6 +45,8 @@ public static class SearchReveal
 
         var shown = IsInUse();
         slot.HeightRequest = shown ? -1 : 0;
+        search.Opacity = shown ? 1 : 0;
+        search.IsVisible = shown;
         var travelled = 0.0;
 
         double FullHeight()
@@ -60,22 +66,40 @@ public static class SearchReveal
             travelled = 0;
             slot.AbortAnimation(AnimationName);
 
+            // Hidden, it measures as nothing: back in the layout first.
+            if (show)
+            {
+                search.IsVisible = true;
+            }
+
             var from = slot.Height >= 0 ? slot.Height : (show ? 0 : FullHeight());
             var to = show ? FullHeight() : 0;
+            var full = Math.Max(from, to);
+
+            // Height and a fade together, so it slides and fades rather than being cut off.
             slot.Animate(
                 AnimationName,
-                value => slot.HeightRequest = value,
+                value =>
+                {
+                    slot.HeightRequest = value;
+                    search.Opacity = full > 0 ? value / full : (show ? 1 : 0);
+                },
                 from,
                 to,
                 length: SlideMilliseconds,
                 easing: show ? Easing.CubicOut : Easing.CubicIn,
                 finished: (_, cancelled) =>
                 {
-                    // Once out, let it size itself (larger text, rotation).
-                    if (!cancelled && show)
+                    if (cancelled)
                     {
-                        slot.HeightRequest = -1;
+                        return;
                     }
+
+                    // Once out, let it size itself (larger text, rotation); once
+                    // away, keep it unreachable for taps and VoiceOver as well.
+                    slot.HeightRequest = show ? -1 : 0;
+                    search.Opacity = show ? 1 : 0;
+                    search.IsVisible = show;
                 });
         }
 

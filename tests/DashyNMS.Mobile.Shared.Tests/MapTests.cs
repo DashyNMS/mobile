@@ -142,6 +142,19 @@ public sealed class MapViewModelTests
     }
 
     [Fact]
+    public void A_geocoded_location_object_places_a_device_the_row_alone_wouldnt()
+    {
+        var device = Fakes.Device(9, "kl-sw");
+        device.Location = """{"id": 7, "location": "Kuala Lumpur DC", "lat": "3.139", "lng": 101.6869}""";
+
+        DashyNMS.Mobile.Services.DeviceLocation.CompleteFromLocationObject(device);
+
+        Assert.Equal(7, device.LocationId); // #84
+        Assert.Equal(3.139, device.Latitude);
+        Assert.Equal(101.6869, device.Longitude);
+    }
+
+    [Fact]
     public async Task The_map_refits_once_it_has_its_real_size()
     {
         var vm = await Loaded();
