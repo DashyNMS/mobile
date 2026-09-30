@@ -242,8 +242,10 @@ public sealed class DeviceSectionLoader
     internal static SectionRow PortRow(Port port)
     {
         var errors = (port.IfInErrorsRate ?? 0) + (port.IfOutErrorsRate ?? 0);
+        var (rank, state) = port.IsUp ? (1, "Up") : IsAdminDown(port) ? (2, "Shut down") : (0, "Down");
         return new SectionRow(port.DisplayName)
         {
+            Port = PortFacts.From(port, rank, state),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
             SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,

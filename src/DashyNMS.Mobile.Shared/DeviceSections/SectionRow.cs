@@ -61,6 +61,9 @@ public sealed record SectionRow(string Title)
 
     public bool HasFields => Fields.Count > 0;
 
+    /// <summary>A port row's facts, for the Ports page to sort and group by (#92); null on every other row.</summary>
+    public PortFacts? Port { get; init; }
+
     /// <summary>
     /// Part of one block rather than a row in a list - alert detail's rule,
     /// its notes and procedure - so no line above it.
