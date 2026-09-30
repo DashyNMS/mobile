@@ -23,6 +23,8 @@
     <Color x:Key="SurfaceDark">#171B23</Color>
     <Color x:Key="SurfaceAltDark">#1E2430</Color>
     <Color x:Key="BackgroundDark">#11141A</Color>
+    <!-- The page colour, see-through: what fades end on, so they fade rather than grey out. -->
+    <Color x:Key="BackgroundDarkClear">#0011141A</Color>
 
     <!-- The design mock-ups' tokens (the "DashyNMS Mobile mock-ups" canvas):
          text in three strengths, card strokes, and the light theme's
@@ -39,6 +41,7 @@
     <Color x:Key="TextFaintLight">#6B7280</Color>
     <Color x:Key="StrokeLight">#E3E7ED</Color>
     <Color x:Key="BackgroundLight">#F4F6F9</Color>
+    <Color x:Key="BackgroundLightClear">#00F4F6F9</Color>
     <Color x:Key="SurfaceLight">#FFFFFF</Color>
     <Color x:Key="SurfaceAltLight">#EEF1F5</Color>
     <!-- Filled buttons: white text on it passes 4.5:1, which PrimaryDark doesn't. -->
