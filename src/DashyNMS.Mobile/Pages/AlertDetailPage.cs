@@ -18,7 +18,7 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable
 	public AlertDetailPage(AlertDetailViewModel viewModel)
 	{
 		BindingContext = viewModel;
-		SetBinding(TitleProperty, static (AlertDetailViewModel vm) => vm.Title);
+		SetBinding(TitleProperty, new Binding(nameof(AlertDetailViewModel.Title)));
 		On<iOS>().SetUseSafeArea(true);
 		Content = _view = new AlertDetailView(viewModel);
 	}

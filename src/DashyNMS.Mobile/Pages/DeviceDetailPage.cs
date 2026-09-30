@@ -18,7 +18,7 @@ public sealed class DeviceDetailPage : ContentPage, IQueryAttributable
 	public DeviceDetailPage(DeviceDetailViewModel viewModel)
 	{
 		BindingContext = viewModel;
-		SetBinding(TitleProperty, static (DeviceDetailViewModel vm) => vm.Title);
+		SetBinding(TitleProperty, new Binding(nameof(DeviceDetailViewModel.Title)));
 		On<iOS>().SetUseSafeArea(true);
 		Content = _view = new DeviceDetailView(viewModel);
 	}
