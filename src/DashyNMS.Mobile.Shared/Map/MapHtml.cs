@@ -87,7 +87,22 @@ public static class MapHtml
                 marker.addTo(map);
                 bounds.push([p.lat, p.lng]);
               });
-              if (bounds.length) { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 }); } else { map.setView([20, 0], 2); }
+              function fit() {
+                if (bounds.length) { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 }); } else { map.setView([20, 0], 2); }
+              }
+              fit();
+              // The page can load before the web view has its final size, and the
+              // size changes again when the location panel opens: Leaflet then
+              // draws only part of the map and fits the pins to the wrong area
+              // (#84). Re-measure on every resize, and fit again the first time
+              // there's a real size.
+              var fitted = false;
+              function resized() {
+                map.invalidateSize();
+                if (!fitted && map.getSize().y > 0) { fitted = true; fit(); }
+              }
+              window.addEventListener('resize', resized);
+              setTimeout(resized, 250);
             })();
             </script>
             </body></html>

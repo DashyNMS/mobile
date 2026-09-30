@@ -126,4 +126,28 @@ public sealed class MapViewModelTests
         Assert.False(vm.HasSelection);
         Assert.Empty(vm.Devices);
     }
+
+    [Fact]
+    public async Task A_pin_leads_to_its_location_on_the_devices_tab()
+    {
+        var vm = await Loaded();
+        var leeds = System.Text.RegularExpressions.Regex.Match(vm.MapPage!, "\"id\":(\\d+),\"name\":\"Leeds\"").Groups[1].Value;
+        vm.SelectPin(int.Parse(leeds));
+
+        await vm.ShowInDevicesCommand.ExecuteAsync(null);
+
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Services.Routes.Devices, visit.Route);
+        Assert.Equal("Leeds", visit.Parameters![Services.Routes.LocationParameter]); // #84
+    }
+
+    [Fact]
+    public async Task The_map_refits_once_it_has_its_real_size()
+    {
+        var vm = await Loaded();
+
+        // Leaflet drew only part of the map when the page loaded before its final size (#84).
+        Assert.Contains("map.invalidateSize()", vm.MapPage);
+        Assert.Contains("addEventListener('resize'", vm.MapPage);
+    }
 }
