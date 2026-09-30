@@ -10,14 +10,20 @@
     Title="{Binding Title}">
 
     <!-- Any Device View section: its rows, in titled groups. -->
-    <Grid RowDefinitions="Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <SearchBar Text="{Binding SearchText}" Placeholder="Search" IsVisible="{Binding ShowSearch}" />
 
-        <Label Grid.Row="1" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <!-- Ports only: the order and grouping, by port ID until chosen, then remembered (#92). -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,4,0,8" IsVisible="{Binding IsPorts}">
+            <Picker Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+            <Picker Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+        </Grid>
 
-        <controls:LoadingIndicator Grid.Row="2" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
-        <RefreshView Grid.Row="2" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <controls:LoadingIndicator Grid.Row="3" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
+        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
             <CollectionView ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
                 <CollectionView.EmptyView>
                     <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"

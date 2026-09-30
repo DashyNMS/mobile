@@ -21,10 +21,59 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     [ObservableProperty]
     private string _title = string.Empty;
 
-    public DeviceSectionViewModel(DeviceSectionLoader loader, INavigationService navigation)
+    /// <summary>The Ports page's order (#92): by port ID until the user picks otherwise, then remembered.</summary>
+    [ObservableProperty]
+    private PortSortOption _selectedPortSort;
+
+    [ObservableProperty]
+    private PortGroupingOption _selectedPortGrouping;
+
+    private readonly IAppPreferences _preferences;
+
+    public DeviceSectionViewModel(DeviceSectionLoader loader, INavigationService navigation, IAppPreferences? preferences = null)
     {
         _loader = loader;
         _navigation = navigation;
+        _preferences = preferences ?? new InMemoryPreferences();
+        _selectedPortSort = PortArrangement.SortOptions.FirstOrDefault(o => o.Sort.ToString() == _preferences.Get(PortSortKey))
+            ?? PortArrangement.SortOptions[0];
+        _selectedPortGrouping = PortArrangement.GroupingOptions.FirstOrDefault(o => o.Grouping.ToString() == _preferences.Get(PortGroupingKey))
+            ?? PortArrangement.GroupingOptions[0];
+    }
+
+    private const string PortSortKey = "ports.sort";
+    private const string PortGroupingKey = "ports.grouping";
+
+    public IReadOnlyList<PortSortOption> PortSortOptions => PortArrangement.SortOptions;
+
+    public IReadOnlyList<PortGroupingOption> PortGroupingOptions => PortArrangement.GroupingOptions;
+
+    /// <summary>The Ports page has its sort and group choices; other sections keep their own order.</summary>
+    public bool IsPorts => Section == DeviceSection.Ports;
+
+    partial void OnSelectedPortSortChanged(PortSortOption value)
+    {
+        // A picker whose choices are being refilled briefly sends back null.
+        if (value is null)
+        {
+            SelectedPortSort = PortArrangement.SortOptions[0];
+            return;
+        }
+
+        _preferences.Set(PortSortKey, value.Sort.ToString());
+        ApplyFilter();
+    }
+
+    partial void OnSelectedPortGroupingChanged(PortGroupingOption value)
+    {
+        if (value is null)
+        {
+            SelectedPortGrouping = PortArrangement.GroupingOptions[0];
+            return;
+        }
+
+        _preferences.Set(PortGroupingKey, value.Grouping.ToString());
+        ApplyFilter();
     }
 
     public int DeviceId { get; private set; }
@@ -48,6 +97,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     {
         DeviceId = deviceId;
         Section = section;
+        OnPropertyChanged(nameof(IsPorts));
         _deviceName = deviceName;
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
@@ -89,9 +139,15 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase
     private void ApplyFilter()
     {
         var term = SearchText.Trim();
+
+        // Ports in the order and groups chosen; everything else as loaded.
+        var source = IsPorts
+            ? PortArrangement.Arrange(_all.SelectMany(g => g), SelectedPortSort.Sort, SelectedPortGrouping.Grouping)
+            : _all;
+
         Groups.ReplaceAll(term.Length == 0
-            ? _all
-            : _all
+            ? source
+            : source
                 .Select(group => new SectionGroup(group.Name, group.Where(r => r.Matches(term))))
                 .Where(group => group.Count > 0)
                 .ToList());
