@@ -29,13 +29,13 @@ public class SceneDelegate : MauiUISceneDelegate
 		}
 	}
 
-	public override void OpenUrlContexts(UIScene scene, NSSet<UIOpenUrlContext> urlContexts)
+	/// <summary>UIKit's scene:openURLContexts: - MAUI's scene delegate doesn't have it to override.</summary>
+	[Export("scene:openURLContexts:")]
+	public void OpenUrlContexts(UIScene scene, NSSet<UIOpenUrlContext> urlContexts)
 	{
 		foreach (var context in urlContexts)
 		{
 			AppDelegate.OpenWidgetLink(context.Url);
 		}
-
-		base.OpenUrlContexts(scene, urlContexts);
 	}
 }
