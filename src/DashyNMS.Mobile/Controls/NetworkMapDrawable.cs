@@ -189,20 +189,25 @@ public sealed class NetworkMapDrawable : IDrawable
 
             var centre = ToScreen(node);
             var top = centre.Y + radius + 3;
+            var measured = canvas.GetStringSize(node.Name, Microsoft.Maui.Graphics.Font.Default, 11).Width;
 
             if (isFocus)
             {
                 // A backing plate, so the selected name reads over lines -
-                // generous, as the measure can come out narrower than the drawn text.
-                var width = canvas.GetStringSize(node.Name, Microsoft.Maui.Graphics.Font.Default, 11).Width * 1.15f;
+                // a little generous, as the measure can come out narrower
+                // than the drawn text.
+                var plate = measured * 1.15f + 12;
                 canvas.FillColor = surface.WithAlpha(0.85f);
-                canvas.FillRoundedRectangle(new RectF(centre.X - width / 2 - 6, top, width + 12, 16), 3);
+                canvas.FillRoundedRectangle(new RectF(centre.X - plate / 2, top, plate, 16), 3);
             }
 
-            // Drawn from a point, not into a box: a box sized from the measure
-            // clipped the end of longer names with "…".
+            // Into a box, centred - drawing from a point didn't show on iOS,
+            // leaving the plate empty. The box is far wider than the measure,
+            // which on iOS came out narrower than the drawn text and clipped
+            // longer names with "…" when the box was sized to it.
+            var box = measured * 2 + 60;
             canvas.FontColor = text;
-            canvas.DrawString(node.Name, centre.X, top + 12, HorizontalAlignment.Center);
+            canvas.DrawString(node.Name, new RectF(centre.X - box / 2, top, box, 16), HorizontalAlignment.Center, VerticalAlignment.Center);
         }
     }
 
