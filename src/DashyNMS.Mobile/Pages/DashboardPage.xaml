@@ -320,7 +320,10 @@
         </pages:DashboardCardTemplateSelector>
     </ContentPage.Resources>
 
-    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+    <!-- Pull to refresh, but its own spinner isn't used: it sits at the top of
+         the scroll, above the logo. Every load shows under the logo instead -
+         see the code-behind. -->
+    <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
         <!-- No scroll bar: it sat beside the first cards, looking like one of
              their own (#29). -->
         <ScrollView VerticalScrollBarVisibility="Never">
@@ -349,6 +352,10 @@
 
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
                 <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
+                <!-- Later loads, automatic or pulled: a small spinner in the same place. -->
+                <ActivityIndicator IsRunning="{Binding IsRefreshingAgain}" IsVisible="{Binding IsRefreshingAgain}"
+                                   HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" Margin="0,0,0,8"
+                                   SemanticProperties.Description="Refreshing" />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}"
                                      BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
