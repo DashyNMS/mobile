@@ -20,6 +20,10 @@ public sealed partial class DeviceItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(State), nameof(StateText))]
     private bool _isUnderMaintenance;
 
+    /// <summary>Its detail is showing beside the list, on a larger screen (#88).</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
     public DeviceItem(Device device, DeviceNameStyle nameStyle = DeviceNameStyle.Hostname)
     {
         Device = device;

@@ -36,6 +36,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly AlertTabDot? _tabDot;
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
+
+    private int? _selectedId;
     private bool _loading;
 
     /// <summary>
@@ -246,6 +248,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
             .ThenByDescending(a => a.Timestamp)
             .Select(a => AlertItem.For(a, _settings.Current, devicesTask.Result))
             .ToList();
+        MarkSelected(_all);
         ApplyFilter();
 
         // Straight away, rather than at the next check - after acknowledging, say.
@@ -320,6 +323,24 @@ public sealed partial class AlertsViewModel : ViewModelBase
     }
 
     /// <summary>
+    /// Highlights the alert whose detail is showing beside the list (#88), or
+    /// none. Kept across refreshes, which make new rows.
+    /// </summary>
+    public void Select(int? alertId)
+    {
+        _selectedId = alertId;
+        MarkSelected(_all);
+    }
+
+    private void MarkSelected(IEnumerable<AlertItem> items)
+    {
+        foreach (var item in items)
+        {
+            item.IsSelected = item.Id == _selectedId;
+        }
+    }
+
+    /// <summary>
     /// A change made in Alert detail beside the list (#88), onto its row as
     /// if it were made here.
     /// </summary>
@@ -354,6 +375,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         }
 
         var changed = new AlertItem(alert, _settings.Current.ServerTimestampsAreUtc, item.Device);
+        MarkSelected([changed]);
         _all = _all.Select(a => a.Id == item.Id ? changed : a).ToList();
 
         var index = Alerts.IndexOf(item);

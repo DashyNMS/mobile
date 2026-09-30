@@ -320,6 +320,24 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
+    public async Task The_alert_showing_beside_the_list_stays_highlighted_through_refreshes_and_changes()
+    {
+        var vm = await LoadedViewModel();
+
+        vm.Select(3);
+        Assert.Equal([3], vm.Alerts.Where(a => a.IsSelected).Select(a => a.Id));
+
+        await vm.RefreshCommand.ExecuteAsync(null); // new rows
+        Assert.Equal([3], vm.Alerts.Where(a => a.IsSelected).Select(a => a.Id));
+
+        vm.ShowChange(new AlertStateChange(3, Acknowledged: true, null)); // its row replaced
+        Assert.True(vm.Alerts.Single(a => a.Id == 3).IsSelected);
+
+        vm.Select(null); // the pane went away
+        Assert.DoesNotContain(vm.Alerts, a => a.IsSelected);
+    }
+
+    [Fact]
     public async Task Acknowledging_with_acknowledged_hidden_takes_just_that_row_out()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(string.Empty);
