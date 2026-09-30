@@ -95,6 +95,12 @@ public static class MauiProgram
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
 		builder.Services.AddTransient<NetworkMapPage>();
+
+		// Where the network map's devices were dragged to, as desktop keeps
+		// them - in the app's own folder, one set per server and filter (#86).
+		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => new DesktopNMS.Core.Topology.MapLayoutStore(
+			Path.Combine(FileSystem.AppDataDirectory, "map-layouts.json"),
+			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()));
 		builder.Services.AddTransient<MapPage>();
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();

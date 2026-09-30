@@ -26,6 +26,13 @@ public sealed class NetworkNode
 
     public DeviceState State { get; set; } = DeviceState.Down;
 
+    /// <summary>
+    /// Something a switch sees that LibreNMS doesn't monitor (a phone, an
+    /// access point) rather than a device - drawn small and square, as on
+    /// desktop, with a negative id of the map's own (Core's Neighbours.NodeId).
+    /// </summary>
+    public bool IsNeighbour { get; init; }
+
     /// <summary>"192.0.2.33 · Aruba JL320A" - for the selected device's panel.</summary>
     public string Detail { get; set; } = string.Empty;
 
@@ -88,10 +95,15 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
+    private readonly IMapLayoutStore? _layouts;
+    private readonly ISessionService? _session;
 
     private IReadOnlyList<Device> _devices = [];
     private IReadOnlyList<NetworkLink> _links = [];
     private IReadOnlyDictionary<int, string>? _portNames;
+
+    /// <summary>Every port's state, for the neighbours' colours - only fetched once they're asked for.</summary>
+    private IReadOnlyDictionary<int, Port>? _portStates;
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private bool _loaded;
 
@@ -117,12 +129,39 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLayingOut;
 
-    public NetworkMapViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
+    /// <summary>
+    /// Also draw what switches in view see that LibreNMS doesn't monitor -
+    /// the neighbours of desktop's Neighbours views set to show on the map,
+    /// or, with none (views are made on desktop), every unmonitored one.
+    /// Off by default: on a whole fleet they'd swamp the devices.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showNeighbours;
+
+    public NetworkMapViewModel(
+        ILibreNmsClient client,
+        ISettingsStore settings,
+        INavigationService navigation,
+        IMapLayoutStore? layouts = null,
+        ISessionService? session = null)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
+        _layouts = layouts;
+        _session = session;
     }
+
+    /// <summary>
+    /// Which map this is - per server, location and group - for remembering
+    /// where devices were dragged to and where the view was (device ids
+    /// mean nothing on another LibreNMS).
+    /// </summary>
+    public string ScopeKey =>
+        $"{_session?.Connection?.WebRoot.Host ?? "server"}|location:{SelectedLocation.Key}|group:{SelectedGroup.Key}";
+
+    /// <summary>A LibreNMS device is selected (not a neighbour), so Open can go to its Device View.</summary>
+    public bool HasSelectedDevice => SelectedNode is { IsNeighbour: false };
 
     private static FacetOption AllLocations { get; } = new(null, "All locations");
 
@@ -149,7 +188,14 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     public bool HasSelectedNode => SelectedNode is not null;
 
-    public string SelectedNodeStateText => SelectedNode?.State switch
+    public string SelectedNodeStateText => SelectedNode is { IsNeighbour: true } neighbour
+        ? neighbour.State switch
+        {
+            DeviceState.Up => "Not monitored · its switch port is up",
+            DeviceState.Down => "Not monitored · its switch port is down",
+            _ => "Not monitored by LibreNMS",
+        }
+        : SelectedNode?.State switch
     {
         null => string.Empty,
         DeviceState.Up => "Up",
@@ -160,10 +206,22 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         _ => string.Empty,
     };
 
-    /// <summary>"42 devices · 51 connections"</summary>
-    public string SummaryText => Nodes.Count == 0
-        ? string.Empty
-        : $"{Nodes.Count} {(Nodes.Count == 1 ? "device" : "devices")} · {Edges.Count} {(Edges.Count == 1 ? "connection" : "connections")}";
+    /// <summary>"42 devices · 51 connections", and "· 12 neighbours" with them shown.</summary>
+    public string SummaryText
+    {
+        get
+        {
+            if (Nodes.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var neighbours = Nodes.Count(n => n.IsNeighbour);
+            var devices = Nodes.Count - neighbours;
+            var text = $"{devices} {(devices == 1 ? "device" : "devices")} · {Edges.Count} {(Edges.Count == 1 ? "connection" : "connections")}";
+            return neighbours > 0 ? text + $" · {neighbours} {(neighbours == 1 ? "neighbour" : "neighbours")}" : text;
+        }
+    }
 
     /// <summary>Loaded, nothing to draw - a location whose devices have no links between them.</summary>
     public bool IsEmpty => _loaded && !IsBusy && !IsLayingOut && Nodes.Count == 0;
@@ -201,11 +259,14 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     partial void OnShowUnlinkedDevicesChanged(bool value) => _ = RebuildAsync();
 
+    partial void OnShowNeighboursChanged(bool value) => _ = value && _portStates is null ? LoadPortStatesAsync() : RebuildAsync();
+
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(FindSearchMatch);
 
     partial void OnSelectedNodeChanged(NetworkNode? value)
     {
         OnPropertyChanged(nameof(HasSelectedNode));
+        OnPropertyChanged(nameof(HasSelectedDevice));
         OnPropertyChanged(nameof(SelectedNodeStateText));
         RebuildSelectedConnections();
         RedrawRequested?.Invoke(this, EventArgs.Empty);
@@ -215,6 +276,36 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleUnlinkedDevices() => ShowUnlinkedDevices = !ShowUnlinkedDevices;
+
+    [RelayCommand]
+    private void ToggleNeighbours() => ShowNeighbours = !ShowNeighbours;
+
+    /// <summary>A node was dragged and dropped (the page moved it): its place is remembered, as desktop's is.</summary>
+    public void NodeMoved(NetworkNode node) => SaveLayout();
+
+    /// <summary>Forgets where this map's devices were put and lays it out afresh.</summary>
+    [RelayCommand]
+    private Task ResetLayoutAsync()
+    {
+        _layouts?.Clear(ScopeKey);
+        return RebuildAsync();
+    }
+
+    /// <summary>The switch ports' states, for the neighbours' colours; not worth failing the map over.</summary>
+    private async Task LoadPortStatesAsync()
+    {
+        try
+        {
+            var ports = await _client.Ports.ListAllStatusAsync();
+            _portStates = ports.GroupBy(p => p.PortId).ToDictionary(g => g.Key, g => g.First());
+        }
+        catch (LibreNmsApiException)
+        {
+            _portStates = new Dictionary<int, Port>();
+        }
+
+        await RebuildAsync();
+    }
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -256,7 +347,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task OpenSelectedDeviceAsync() => SelectedNode is not { } node
+    private Task OpenSelectedDeviceAsync() => SelectedNode is not { IsNeighbour: false } node
         ? Task.CompletedTask
         : _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = node.DeviceId });
 
@@ -283,17 +374,43 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
             .ToList();
 
         var graph = NetworkTopology.Build(scope, _links, _portNames);
-        var linkedIds = graph.DeviceIds.Except(graph.UnlinkedDeviceIds).ToList();
-        var unlinkedIds = ShowUnlinkedDevices ? graph.UnlinkedDeviceIds.ToList() : [];
-        var pairs = graph.Edges.Select(e => (e.DeviceA, e.DeviceB)).ToList();
+        var byId = _devices.ToDictionary(d => d.DeviceId);
+
+        // Neighbours as desktop draws them: one node each, joined to the
+        // switches in view they're plugged into - which makes those switches
+        // linked, even with nothing else connected to them.
+        var neighbours = ShowNeighbours ? MapNeighbours(scope.ToHashSet(), byId) : [];
+        var neighbourEdges = Neighbours.MapEdges(neighbours, _portNames);
+        var neighbourNodes = neighbours.GroupBy(Neighbours.NodeId).ToDictionary(g => g.Key, g => g.ToList());
+
+        var allEdges = graph.Edges.Concat(neighbourEdges).ToList();
+        var linkedIds = graph.DeviceIds.Except(graph.UnlinkedDeviceIds)
+            .Concat(neighbourEdges.Select(e => e.DeviceB))
+            .Distinct()
+            .Concat(neighbourNodes.Keys)
+            .ToList();
+        var linkedSet = linkedIds.ToHashSet();
+        var unlinkedIds = ShowUnlinkedDevices ? graph.UnlinkedDeviceIds.Where(id => !linkedSet.Contains(id)).ToList() : [];
+        var pairs = allEdges.Select(e => (e.DeviceA, e.DeviceB)).ToList();
+
+        // Where devices were dragged to (or last laid out) stays put; only
+        // what's new is placed, beside what it's cabled to.
+        var key = ScopeKey;
+        var saved = _layouts?.Get(key) ?? new Dictionary<int, MapPoint>();
 
         IsLayingOut = true;
         var positions = await Task.Run(() =>
         {
-            var laidOut = ForceDirectedLayout.Compute(linkedIds, pairs, new Dictionary<int, MapPoint>());
-            foreach (var (id, point) in ForceDirectedLayout.Grid(unlinkedIds, laidOut.Values.ToList()))
+            var pinned = linkedIds.Where(saved.ContainsKey).ToDictionary(id => id, id => saved[id]);
+            var laidOut = ForceDirectedLayout.Compute(linkedIds, pairs, pinned);
+            foreach (var (id, point) in ForceDirectedLayout.Grid(unlinkedIds.Where(id => !saved.ContainsKey(id)).ToList(), laidOut.Values.ToList()))
             {
                 laidOut[id] = point;
+            }
+
+            foreach (var id in unlinkedIds.Where(saved.ContainsKey))
+            {
+                laidOut[id] = saved[id];
             }
 
             return laidOut;
@@ -304,12 +421,26 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
             return;
         }
 
-        var byId = _devices.ToDictionary(d => d.DeviceId);
         var style = _settings.Current.DeviceNameStyle;
         var nodes = new Dictionary<int, NetworkNode>();
         foreach (var id in linkedIds.Concat(unlinkedIds))
         {
             var point = positions[id];
+            if (neighbourNodes.TryGetValue(id, out var seen))
+            {
+                var first = seen[0];
+                nodes[id] = new NetworkNode(id)
+                {
+                    X = point.X,
+                    Y = point.Y,
+                    IsNeighbour = true,
+                    Name = first.IsUnnamed ? first.Mac ?? first.RemotePort ?? first.Name : first.Name,
+                    State = NeighbourState(seen, byId),
+                    Detail = string.Join(" · ", new[] { first.Description, first.Mac }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                };
+                continue;
+            }
+
             var node = new NetworkNode(id) { X = point.X, Y = point.Y };
             if (byId.TryGetValue(id, out var device))
             {
@@ -323,8 +454,9 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
         var selectedId = SelectedNode?.DeviceId;
         Nodes = nodes.Values.ToList();
-        Edges = graph.Edges.Select(e => new NetworkEdge(nodes[e.DeviceA], nodes[e.DeviceB], e)).ToList();
+        Edges = allEdges.Select(e => new NetworkEdge(nodes[e.DeviceA], nodes[e.DeviceB], e)).ToList();
         IsLayingOut = false;
+        SaveLayout();
 
         OnPropertyChanged(nameof(Nodes));
         OnPropertyChanged(nameof(Edges));
@@ -333,6 +465,65 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         OnPropertyChanged(nameof(EmptyText));
         SelectedNode = selectedId is { } sid && nodes.TryGetValue(sid, out var kept) ? kept : null;
         LayoutChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// The neighbours to draw: unmonitored ones on a switch in view - those
+    /// of desktop's Neighbours views set to show on the map, or all of them
+    /// with none - keeping, for one seen on several ports, only its live
+    /// links, as desktop does.
+    /// </summary>
+    private List<Neighbour> MapNeighbours(IReadOnlySet<int> scope, IReadOnlyDictionary<int, Device> byId)
+    {
+        var views = _settings.Current.NeighbourViews.Where(v => v.ShowOnMap).ToList();
+        var candidates = Neighbours.FromLinks(_links)
+            .Where(n => !n.IsMonitored && scope.Contains(n.SwitchDeviceId))
+            .Where(n => views.Count == 0 || views.Any(v => Neighbours.Matches(
+                v,
+                n,
+                byId.TryGetValue(n.SwitchDeviceId, out var sw) ? sw.BestName : null,
+                PortOf(n)?.IfAlias)))
+            .ToList();
+
+        bool SwitchUp(Neighbour n) => byId.TryGetValue(n.SwitchDeviceId, out var sw) && sw.State == DeviceState.Up;
+        return Neighbours.PreferLiveLinks(candidates, n => n, n => SwitchUp(n) && PortOf(n) is { IsUp: true }, SwitchUp).ToList();
+    }
+
+    private Port? PortOf(Neighbour neighbour) => _portStates?.GetValueOrDefault(neighbour.SwitchPortId);
+
+    /// <summary>A neighbour follows its switch port: up if any is, down if one is (or its switch is down), otherwise unknown - as desktop reads it.</summary>
+    private DeviceState NeighbourState(IReadOnlyList<Neighbour> seen, IReadOnlyDictionary<int, Device> byId)
+    {
+        var states = seen.Select(n =>
+            byId.TryGetValue(n.SwitchDeviceId, out var sw) && sw.State == DeviceState.Down ? DeviceState.Down
+            : PortOf(n) is not { } port ? DeviceState.Disabled
+            : port.IsUp ? DeviceState.Up
+            : string.Equals(port.IfAdminStatus, "down", StringComparison.OrdinalIgnoreCase) ? DeviceState.Disabled
+            : DeviceState.Down).ToList();
+
+        return states.Contains(DeviceState.Up) ? DeviceState.Up
+            : states.Contains(DeviceState.Down) ? DeviceState.Down
+            : DeviceState.Disabled;
+    }
+
+    /// <summary>
+    /// Remembers every node's place for this map, merged over what's saved
+    /// so devices not drawn just now (unlinked ones, with that off) keep theirs.
+    /// </summary>
+    private void SaveLayout()
+    {
+        if (_layouts is null || Nodes.Count == 0)
+        {
+            return;
+        }
+
+        var merged = new Dictionary<int, MapPoint>(_layouts.Get(ScopeKey));
+        foreach (var node in Nodes)
+        {
+            merged[node.DeviceId] = new MapPoint(node.X, node.Y);
+        }
+
+        _layouts.Save(ScopeKey, merged);
     }
 
     /// <summary>Every location with a device, and how many - the filter's choices.</summary>
