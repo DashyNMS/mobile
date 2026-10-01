@@ -28,7 +28,6 @@ public sealed partial class LogsViewModel : ViewModelBase
     /// <summary>Far enough back for a phone; past this, desktop or the web UI.</summary>
     internal const int MaxEntries = 1000;
 
-    private readonly INetworkLogs _logs;
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
@@ -49,12 +48,10 @@ public sealed partial class LogsViewModel : ViewModelBase
     private string _searchText = string.Empty;
 
     public LogsViewModel(
-        INetworkLogs logs,
         ILibreNmsClient client,
         ISettingsStore settings,
         INavigationService navigation)
     {
-        _logs = logs;
         _client = client;
         _settings = settings;
         _navigation = navigation;
@@ -138,14 +135,14 @@ public sealed partial class LogsViewModel : ViewModelBase
 
         if (ShowingEventLog)
         {
-            var entries = await _logs.EventLogAsync(_eventLimit);
+            var entries = await _client.Logs.ListEventLogAsync(null, _eventLimit);
             _events = entries.Select(e => EventRow(e, names, utc)).ToList();
             _eventsExhausted = entries.Count < _eventLimit;
             _eventsLoaded = true;
         }
         else
         {
-            var entriesTask = _logs.AlertLogAsync(_alertLimit);
+            var entriesTask = _client.Logs.ListAlertLogAsync(null, _alertLimit);
             var rulesTask = RuleNamesAsync();
             await Task.WhenAll(entriesTask, rulesTask);
             _alerts = entriesTask.Result.Select(e => AlertRow(e, names, rulesTask.Result, utc)).ToList();

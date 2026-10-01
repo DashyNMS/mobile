@@ -227,6 +227,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }));
     }
 
+    /// <summary>"took 4.2s": how long LibreNMS's last poll of the device ran.</summary>
+    internal static string? TookText(double? seconds) => seconds is { } s && s >= 0
+        ? "took " + s.ToString(s < 10 ? "0.#" : "0", CultureInfo.CurrentCulture) + "s"
+        : null;
+
     /// <summary>
     /// The foot of the page: "Last polled 3m ago" (#97) - polls run every few
     /// minutes, so it says whether what's shown is current. A server that
@@ -235,7 +240,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     public string? FreshnessText => Device switch
     {
         null => null,
-        { } d when LastPoll.At(d) is { } polled => "Last polled " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, _settings.Current.ServerTimestampsAreUtc)),
+        { LastPolled: { } polled } => "Last polled " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, _settings.Current.ServerTimestampsAreUtc)),
         { LastDiscovered: { } discovered } => "Last discovered " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(discovered, _settings.Current.ServerTimestampsAreUtc)),
         _ => null,
     };
@@ -302,8 +307,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                     ("Depends on", d.DependencyParentHostname),
                     ("Added", d.Inserted is { } added ? DesktopNMS.Core.ServerTime.ToLocal(added, utc).ToString("d MMM yyyy", CultureInfo.CurrentCulture) : null),
                     ("Last discovered", d.LastDiscovered is { } at ? Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, utc)) : null),
-                    ("Last polled", LastPoll.At(d) is { } polled
-                        ? string.Join(", ", new[] { Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, utc)), LastPoll.TookText(d) }.Where(p => p is not null))
+                    ("Last polled", d.LastPolled is { } polled
+                        ? string.Join(", ", new[] { Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, utc)), TookText(d.LastPolledTimeTaken) }.Where(p => p is not null))
                         : null),
                     ("Object ID", d.SysObjectId),
                     ("Description", d.SysDescr),

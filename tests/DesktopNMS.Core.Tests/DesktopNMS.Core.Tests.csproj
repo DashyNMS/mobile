@@ -12,11 +12,6 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <!-- Known upstream portability gap, not a mobile bug: UnimusExport.FileNameFor
-         uses Path.GetInvalidFileNameChars(), which is only '/' and '\0' off
-         Windows, so ':', '*' and '?' survive into the file name on Android/iOS.
-         Drop this filter once desktop swaps in a fixed, Windows-safe set. -->
-    <VSTestTestCaseFilter>FullyQualifiedName!=DesktopNMS.Core.Tests.UnimusExportTests.File_name_replaces_characters_windows_does_not_allow</VSTestTestCaseFilter>
   </PropertyGroup>
 
   <ItemGroup>

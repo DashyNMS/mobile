@@ -2,7 +2,6 @@ using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
-using DashyNMS.Mobile.Storage;
 using DashyNMS.Mobile.ViewModels;
 using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
@@ -25,24 +24,19 @@ public static class ServiceCollectionExtensions
     /// launcher and the platform's notifications and background scheduling on top.
     /// </summary>
     /// <remarks>
-    /// Mirrors desktop's <c>AddDesktopNmsCore</c>, minus its DPAPI secret
-    /// stores (Windows-only, replaced by keychain-backed ones) and the
-    /// integrations mobile doesn't have screens for yet (Unimus, update checks).
+    /// Mirrors desktop's <c>AddDesktopNmsCore</c>, plus keychain-backed secret
+    /// stores (Core leaves those to each app), minus the integrations mobile
+    /// doesn't have screens for yet (Unimus, update checks).
     /// </remarks>
     public static IServiceCollection AddDashyNmsMobile(this IServiceCollection services)
     {
-        // Before anything touches desktop's AppPaths - see MobileStorage.
-        MobileStorage.EnsureDataFolder();
-
         services.AddSingleton<ServerFailover>();
         services.AddSingleton<LibreNmsTransport>();
         services.AddSingleton<ILibreNmsTransport>(sp => sp.GetRequiredService<LibreNmsTransport>());
         services.AddSingleton<LibreNmsClient>();
         services.AddSingleton<ILibreNmsClient>(sp => sp.GetRequiredService<LibreNmsClient>());
 
-        // Desktop's store, wrapped so Save() writes - see MobileSettingsStore.
-        services.AddSingleton<SettingsStore>();
-        services.AddSingleton<ISettingsStore>(sp => new MobileSettingsStore(sp.GetRequiredService<SettingsStore>()));
+        services.AddSingleton<ISettingsStore, SettingsStore>();
         services.AddSingleton<SecretCache>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
@@ -79,7 +73,6 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
-        services.AddSingleton<Logs.INetworkLogs, Logs.NetworkLogs>();
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
         services.AddTransient<Topology.NetworkMapViewModel>();

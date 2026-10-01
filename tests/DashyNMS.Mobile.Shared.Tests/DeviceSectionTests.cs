@@ -528,8 +528,8 @@ public sealed class DeviceDetailActionTests
     {
         var device = Fakes.Device(8, "core-sw");
         device.LastDiscovered = DateTime.Now.AddHours(-3);
-        device.AdditionalData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
-            """{ "last_polled": "2026-10-01 09:41:07", "last_polled_timetaken": 4.2 }""");
+        device.LastPolled = new DateTime(2026, 10, 1, 9, 41, 7);
+        device.LastPolledTimeTaken = 4.2;
         _client.Devices.GetAsync("8", Arg.Any<CancellationToken>()).Returns(device);
 
         await _vm.LoadAsync(8);
@@ -539,6 +539,14 @@ public sealed class DeviceDetailActionTests
         Assert.EndsWith(", took 4.2s", polled.Value);
         Assert.Contains(_vm.Properties, p => p.Key == "Last discovered"); // still listed (#97)
     }
+
+    [Theory]
+    [InlineData(4.234, "took 4.2s")]
+    [InlineData(61.8, "took 62s")]
+    [InlineData(-1d, null)]
+    [InlineData(null, null)]
+    public void A_polls_length_reads_plainly(double? seconds, string? expected) =>
+        Assert.Equal(expected, DeviceDetailViewModel.TookText(seconds));
 
     [Fact]
     public async Task Without_a_poll_time_the_foot_falls_back_to_last_discovered()

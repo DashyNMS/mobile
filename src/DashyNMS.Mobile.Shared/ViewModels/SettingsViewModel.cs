@@ -476,6 +476,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         current.ServerUrl = null;
         current.BackupServerAddress = null;
         current.AllowUntrustedCertificate = false;
+        current.TrustedCertificates.Clear();
         current.Graylog = new GraylogSettings();
         _settings.Save();
         _graylog?.ForgetPassword();
