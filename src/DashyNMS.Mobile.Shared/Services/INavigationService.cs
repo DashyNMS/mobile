@@ -115,6 +115,9 @@ public static class Routes
     /// </summary>
     public const string DevicesParameter = "devices";
 
+    /// <summary>Query attribute: which dashboard card <see cref="PickSensors"/> or <see cref="PickGraph"/> sets up (#87).</summary>
+    public const string WidgetIdParameter = "widget";
+
     /// <summary>Query attribute: a port's ifName, for <see cref="DeviceGraphs"/>.</summary>
     public const string PortParameter = "port";
 

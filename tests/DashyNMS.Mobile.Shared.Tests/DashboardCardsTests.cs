@@ -19,7 +19,7 @@ public sealed class DashboardLayoutTests
     }
 
     [Fact]
-    public void Desktops_list_in_order_each_kind_once_ignoring_what_a_phone_cant_show()
+    public void Desktops_list_in_order_graphs_and_sensors_as_often_as_they_appear_others_once()
     {
         var settings = new AppSettings
         {
@@ -29,23 +29,54 @@ public sealed class DashboardLayoutTests
                 new DashboardWidget { WidgetType = "SomethingNew" },
                 new DashboardWidget { WidgetType = "Alerts" },
                 new DashboardWidget { WidgetType = "Graph" },
+                new DashboardWidget { WidgetType = "Alerts" },
             ],
         };
 
-        Assert.Equal(["Graph", "Alerts"], DashboardLayout.Current(settings).Select(w => w.WidgetType));
+        Assert.Equal(["Graph", "Alerts", "Graph"], DashboardLayout.Current(settings).Select(w => w.WidgetType));
     }
 
     [Fact]
     public void Saving_an_order_keeps_each_cards_own_set_up()
     {
         var settings = new AppSettings();
-        var graph = DashboardLayout.Ensure(settings, DashboardLayout.Graph);
+        var graph = DashboardLayout.Add(settings, DashboardLayout.Graph);
         graph.GraphDeviceId = 7;
+        var alerts = DashboardLayout.Current(settings).Single(w => w.WidgetType == DashboardLayout.Alerts);
 
-        DashboardLayout.Save(settings, [DashboardLayout.Graph, DashboardLayout.Alerts]);
+        DashboardLayout.Save(settings, [graph, alerts]);
 
         Assert.Equal(["Graph", "Alerts"], settings.DashboardWidgets.Select(w => w.WidgetType));
         Assert.Equal(7, settings.DashboardWidgets[0].GraphDeviceId);
+    }
+
+    [Fact]
+    public void Saving_on_the_phone_keeps_desktops_widgets_it_doesnt_show()
+    {
+        var unknown = new DashboardWidget { WidgetType = "SomethingNew", Title = "From desktop" };
+        var secondAlerts = new DashboardWidget { WidgetType = "Alerts", Title = "Critical only" };
+        var alerts = new DashboardWidget { WidgetType = "Alerts" };
+        var graph = new DashboardWidget { WidgetType = "Graph" };
+        var settings = new AppSettings { DashboardWidgets = [alerts, unknown, graph, secondAlerts] };
+
+        DashboardLayout.Save(settings, [graph]); // Alerts hidden on the phone
+
+        Assert.Equal([graph, unknown, secondAlerts], settings.DashboardWidgets);
+    }
+
+    [Fact]
+    public void Graphs_and_sensors_can_be_added_again_and_again_others_only_once()
+    {
+        var settings = new AppSettings();
+
+        var first = DashboardLayout.Add(settings, DashboardLayout.Graph);
+        var second = DashboardLayout.Add(settings, DashboardLayout.Graph);
+        var wireless = DashboardLayout.Add(settings, DashboardLayout.Wireless);
+
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.Same(wireless, DashboardLayout.Add(settings, DashboardLayout.Wireless));
+        Assert.Equal(2, DashboardLayout.Current(settings).Count(w => w.WidgetType == DashboardLayout.Graph));
+        Assert.Same(second, DashboardLayout.Find(settings, second.Id));
     }
 }
 
@@ -103,9 +134,44 @@ public sealed class CustomiseDashboardViewModelTests
 
         Assert.True(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Graph).CanSetUp);
         Assert.False(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Alerts).CanSetUp);
-        await vm.SetUpCommand.ExecuteAsync(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors));
+        var sensors = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors);
+        await vm.SetUpCommand.ExecuteAsync(sensors);
 
-        Assert.Equal(Routes.PickSensors, Assert.Single(navigation.Visits).Route);
+        // Shown first, so there's a card to set up, then its own set-up.
+        Assert.True(sensors.IsShown);
+        var visit = Assert.Single(navigation.Visits);
+        Assert.Equal(Routes.PickSensors, visit.Route);
+        Assert.Equal(sensors.Widget.Id, visit.Parameters![Routes.WidgetIdParameter]);
+        Assert.Contains(DashboardLayout.Sensors, Shown(_appSettings));
+    }
+
+    [Fact]
+    public async Task Adding_graph_cards_makes_one_each_time_and_opens_its_set_up()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = new CustomiseDashboardViewModel(_settings, navigation);
+
+        await vm.AddGraphCommand.ExecuteAsync(null);
+        await vm.AddGraphCommand.ExecuteAsync(null);
+
+        var graphs = vm.Cards.Where(c => c.Kind.Type == DashboardLayout.Graph).ToList();
+        Assert.Equal(2, graphs.Count); // the placeholder made way
+        Assert.All(graphs, g => Assert.True(g.IsShown));
+        Assert.Equal(
+            [.. DashboardLayout.DefaultTypes, DashboardLayout.Graph, DashboardLayout.Graph],
+            Shown(_appSettings));
+        Assert.Equal(graphs.Select(g => (object)g.Widget.Id), navigation.Visits.Select(v => v.Parameters![Routes.WidgetIdParameter]));
+    }
+
+    [Fact]
+    public void A_card_with_its_own_title_is_listed_by_it()
+    {
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        card.Title = "Core switch temps";
+
+        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
+
+        Assert.Equal("Core switch temps", vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors).Title);
     }
 }
 
@@ -143,7 +209,7 @@ public sealed class DashboardCardsTests
     [Fact]
     public async Task The_sensors_card_shows_the_picked_sensors_in_order_coloured()
     {
-        var card = DashboardLayout.Ensure(_appSettings, DashboardLayout.Sensors);
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         card.Sensors.Add(new PinnedSensor { SensorId = 20, DeviceId = 1 });
         card.Sensors.Add(new PinnedSensor { SensorId = 10, DeviceId = 1 });
         card.Sensors.Add(new PinnedSensor { SensorId = 99, DeviceId = 1 }); // gone from LibreNMS
@@ -156,37 +222,84 @@ public sealed class DashboardCardsTests
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
-        Assert.Equal(["CPU", "Inlet"], vm.PinnedSensors.Select(s => s.Title));
-        Assert.Equal(RowStatus.Critical, vm.PinnedSensors[0].Status);
-        Assert.Equal("core-sw", vm.PinnedSensors[0].Subtitle);
+        var sensors = vm.Cards.Single(c => c.Type == DashboardLayout.Sensors).Sensors;
+        Assert.Equal(["CPU", "Inlet"], sensors.Select(s => s.Title));
+        Assert.Equal(RowStatus.Critical, sensors[0].Status);
+        Assert.Equal("core-sw", sensors[0].Subtitle);
     }
 
     [Fact]
-    public async Task The_graph_card_draws_its_graph_or_asks_to_be_set_up()
+    public async Task Several_sensors_cards_each_show_their_own_from_one_request()
     {
-        DashboardLayout.Ensure(_appSettings, DashboardLayout.Graph);
+        var temps = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        temps.Title = "Core switch temps";
+        temps.Sensors.Add(new PinnedSensor { SensorId = 10, DeviceId = 1 });
+        var cpu = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        cpu.Sensors.Add(new PinnedSensor { SensorId = 20, DeviceId = 1 });
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { SensorId = 10, DeviceId = 1, SensorClass = "temperature", Description = "Inlet", Current = 30 },
+            new Sensor { SensorId = 20, DeviceId = 1, SensorClass = "temperature", Description = "CPU", Current = 80 },
+        ]);
         var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
-        Assert.True(vm.GraphNeedsSetUp);
-        Assert.Null(vm.GraphPage);
 
-        var card = DashboardLayout.Ensure(_appSettings, DashboardLayout.Graph);
-        card.GraphDeviceId = 1;
-        card.GraphName = "device_processor";
-        card.GraphTimeRangePreset = GraphTimeRangePreset.Week;
-        _client.Graphs.GetSvgAsync(1, "device_processor", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        var cards = vm.Cards.Where(c => c.Type == DashboardLayout.Sensors).ToList();
+        Assert.Equal(["Core switch temps", "Sensors"], cards.Select(c => c.Title));
+        Assert.Equal(["Inlet"], cards[0].Sensors.Select(s => s.Title));
+        Assert.Equal(["CPU"], cards[1].Sensors.Select(s => s.Title));
+        await _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Each_graph_card_draws_its_own_graph_or_asks_to_be_set_up()
+    {
+        var empty = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        var cpu = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        cpu.GraphDeviceId = 1;
+        cpu.GraphName = "device_processor";
+        cpu.GraphTimeRangePreset = GraphTimeRangePreset.Week;
+        var traffic = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        traffic.GraphDeviceId = 1;
+        traffic.GraphName = "device_bits";
+        traffic.Title = "WAN traffic";
+        _client.Graphs.GetSvgAsync(1, Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns("<svg width=\"1\" height=\"1\" xmlns=\"http://www.w3.org/2000/svg\"></svg>");
+        var vm = NewViewModel();
+
         await vm.RefreshCommand.ExecuteAsync(null);
 
-        Assert.False(vm.GraphNeedsSetUp);
-        Assert.Contains("data:image/svg+xml", vm.GraphPage);
+        var cards = vm.Cards.Where(c => c.Type == DashboardLayout.Graph).ToList();
+        Assert.True(cards[0].GraphNeedsSetUp);
+        Assert.Null(cards[0].GraphPage);
+        Assert.False(cards[1].GraphNeedsSetUp);
+        Assert.Contains("data:image/svg+xml", cards[1].GraphPage);
+        Assert.Equal(["Graph", "device_processor · core-sw", "WAN traffic"], cards.Select(c => c.Title));
         await _client.Graphs.Received(1).GetSvgAsync(1, "device_processor", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _client.Graphs.Received(1).GetSvgAsync(1, "device_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_cards_hint_opens_that_cards_own_set_up()
+    {
+        var navigation = new RecordingNavigation();
+        var second = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        var vm = new DashboardViewModel(_client, _settings, navigation, new DeviceBookmarks(_settings, TimeProvider.System));
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        await vm.OpenGraphCommand.ExecuteAsync(vm.Cards.First(c => c.Widget.Id == second.Id));
+
+        var visit = Assert.Single(navigation.Visits);
+        Assert.Equal(Routes.PickGraph, visit.Route);
+        Assert.Equal(second.Id, visit.Parameters![Routes.WidgetIdParameter]);
     }
 
     [Fact]
     public async Task Wireless_asks_one_device_per_os_then_only_the_wireless_ones_down_first()
     {
-        DashboardLayout.Ensure(_appSettings, DashboardLayout.Wireless);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Wireless);
         _client.Devices.GetWirelessSensorsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => (int)ci[0] switch
         {
             1 => Array.Empty<WirelessSensor>(),
@@ -271,5 +384,65 @@ public sealed class GraphPickerViewModelTests
         Assert.Equal((2, "device_bits", GraphTimeRangePreset.Week), (card.GraphDeviceId, card.GraphName, card.GraphTimeRangePreset));
         Assert.Equal("Traffic · edge-rtr", card.Title);
         Assert.Equal(Routes.Back, Assert.Single(navigation.Visits).Route);
+    }
+}
+
+public sealed class DashboardCardSetUpTests
+{
+    private readonly AppSettings _appSettings = new();
+    private readonly ISettingsStore _settings;
+    private readonly ILibreNmsClient _client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr")]);
+
+    public DashboardCardSetUpTests()
+    {
+        _settings = Fakes.Settings(_appSettings);
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { SensorId = 10, DeviceId = 1, SensorClass = "temperature", Description = "Inlet", Current = 30 },
+        ]);
+        _client.Graphs.ListAsync(2, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "device_bits", Description = "Traffic" }]);
+        _client.Graphs.ListHealthAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+    }
+
+    [Fact]
+    public async Task The_sensor_picker_sets_up_the_card_it_was_opened_for_and_names_it()
+    {
+        var first = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        var second = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        var vm = new SensorPickerViewModel(_client, _settings) { WidgetId = second.Id };
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Equal(string.Empty, vm.CardTitle); // still the kind's
+
+        vm.SearchText = "Inlet";
+        vm.ToggleCommand.Execute(vm.Sensors[0]);
+        vm.CardTitle = "  Core switch temps ";
+
+        Assert.Empty(first.Sensors);
+        Assert.Equal(10, Assert.Single(second.Sensors).SensorId);
+        Assert.Equal("Core switch temps", second.Title);
+
+        vm.CardTitle = string.Empty; // back to the kind's
+        Assert.Equal("Sensors", second.Title);
+    }
+
+    [Fact]
+    public async Task The_graph_picker_keeps_a_typed_title_or_names_the_card_after_its_graph()
+    {
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        var vm = new GraphPickerViewModel(_client, _settings, new RecordingNavigation()) { WidgetId = card.Id };
+        await vm.LoadCommand.ExecuteAsync(null);
+        await vm.ChooseDeviceCommand.ExecuteAsync(vm.Devices.Single(d => d.DeviceId == 2));
+        vm.SelectedGraph = vm.Graphs[0];
+        vm.CardTitle = "WAN traffic";
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(("WAN traffic", 2, "device_bits"), (card.Title, card.GraphDeviceId, card.GraphName));
+        Assert.Single(DashboardLayout.Current(_appSettings), w => w.WidgetType == DashboardLayout.Graph);
+
+        // Opened again, it shows the title it was given.
+        var again = new GraphPickerViewModel(_client, _settings, new RecordingNavigation()) { WidgetId = card.Id };
+        await again.LoadCommand.ExecuteAsync(null);
+        Assert.Equal("WAN traffic", again.CardTitle);
     }
 }
