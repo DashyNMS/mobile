@@ -36,9 +36,16 @@ public static class AlertBadge
     /// Active alerts, plus acknowledged ones when
     /// <see cref="AppSettings.AlertTabBadgeIncludesAcknowledged"/> says so -
     /// never recovered ones - or 0 with <see cref="AppSettings.ShowAlertTabBadge"/> off.
+    /// Only those at <paramref name="minimum"/> severity or above, when the
+    /// phone has one set (<see cref="AlertCountThreshold"/>, #96).
     /// </summary>
-    public static int Count(IEnumerable<Alert> alerts, AppSettings settings) => settings.ShowAlertTabBadge
-        ? alerts.Count(a => a.State == AlertState.Active
-            || (a.State == AlertState.Acknowledged && settings.AlertTabBadgeIncludesAcknowledged))
-        : 0;
+    public static int Count(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity minimum = AlertSeverity.Ok) =>
+        Counted(alerts, settings, minimum).Count();
+
+    /// <summary>The alerts <see cref="Count"/> counts; the Alerts tab's dot (<see cref="AlertTabDot"/>) looks at the same ones.</summary>
+    public static IEnumerable<Alert> Counted(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity minimum = AlertSeverity.Ok) => settings.ShowAlertTabBadge
+        ? alerts.Where(a => (a.State == AlertState.Active
+                || (a.State == AlertState.Acknowledged && settings.AlertTabBadgeIncludesAcknowledged))
+            && AlertCountThreshold.Counts(a, minimum))
+        : [];
 }

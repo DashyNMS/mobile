@@ -16,6 +16,7 @@ public sealed class MoreSettingsTests
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
     private readonly InMemoryAppearance _appearance = new();
+    private readonly AlertCountThreshold _threshold = new(new InMemoryPreferences());
     private readonly RecordingNavigation _navigation = new();
     private readonly SettingsViewModel _vm;
 
@@ -30,7 +31,7 @@ public sealed class MoreSettingsTests
         var coordinator = new AlertWatchCoordinator(
             session, _settings, watcher, Substitute.For<IBackgroundAlertScheduler>(), store, new NoAppBadge(),
             new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
-        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance, new DashyNMS.Mobile.Widgets.NoHomeWidgets());
+        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance, new DashyNMS.Mobile.Widgets.NoHomeWidgets(), countThreshold: _threshold);
     }
 
     [Fact]
@@ -82,6 +83,21 @@ public sealed class MoreSettingsTests
         _appSettings.PollIntervalSeconds = 45;
 
         Assert.Equal("1 minute", _vm.PollIntervalLabels[_vm.PollIntervalIndex]);
+    }
+
+    [Fact]
+    public void The_badge_threshold_is_chosen_from_three_and_kept_on_the_phone()
+    {
+        Assert.Equal(["OK and above", "Warning and above", "Critical only"], _vm.BadgeThresholdLabels);
+        Assert.Equal(0, _vm.BadgeThresholdIndex);
+
+        _vm.BadgeThresholdIndex = 2;
+
+        Assert.Equal(AlertSeverity.Critical, _threshold.Minimum);
+        Assert.Equal(2, _vm.BadgeThresholdIndex);
+
+        _vm.BadgeThresholdIndex = 7; // out of range: ignored
+        Assert.Equal(AlertSeverity.Critical, _threshold.Minimum);
     }
 
     [Fact]

@@ -44,6 +44,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly Graylog.GraylogSetup? _graylog;
     private readonly INotificationPrivacy _privacy;
     private readonly ILauncherService? _launcher;
+    private readonly AlertCountThreshold _countThreshold;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -62,8 +63,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         IShareService? share = null,
         Graylog.GraylogSetup? graylog = null,
         INotificationPrivacy? privacy = null,
-        ILauncherService? launcher = null)
+        ILauncherService? launcher = null,
+        AlertCountThreshold? countThreshold = null)
     {
+        _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
         _privacy = privacy ?? new SystemNotificationPrivacy();
         _launcher = launcher;
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
@@ -245,6 +248,31 @@ public sealed partial class SettingsViewModel : ViewModelBase
         set => SetNotification(_settings.Current.AlertTabBadgeIncludesAcknowledged, value, v => _settings.Current.AlertTabBadgeIncludesAcknowledged = v);
     }
 
+    /// <summary>The badge threshold's choices (#96): "OK and above", "Warning and above", "Critical only".</summary>
+    public IReadOnlyList<string> BadgeThresholdLabels { get; } = AlertCountThreshold.Choices.Select(AlertCountThreshold.Describe).ToList();
+
+    /// <summary>
+    /// Which alerts the app icon's count and the Alerts tab's dot notice:
+    /// a phone preference. Takes effect at the next alert check, as the
+    /// acknowledged switch beside it does.
+    /// </summary>
+    public int BadgeThresholdIndex
+    {
+        get => Math.Max(0, AlertCountThreshold.Choices.ToList().IndexOf(_countThreshold.Minimum));
+        set
+        {
+            if (value < 0 || value >= AlertCountThreshold.Choices.Count || value == BadgeThresholdIndex)
+            {
+                return;
+            }
+
+            _countThreshold.Minimum = AlertCountThreshold.Choices[value];
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AlertChecksSummary));
+            _coordinator.SettingsChanged();
+        }
+    }
+
     /// <summary>Only where there are lock-screen widgets (iPhone).</summary>
     public bool HasLockScreenWidgets => _widgets.HasLockScreenWidgets;
 
@@ -366,9 +394,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
         ? _bookmarks.RecentlyViewedCount.ToString(CultureInfo.CurrentCulture) + " recently viewed"
         : "recently viewed off");
 
-    /// <summary>"Every 1 minute while open · icon badge on".</summary>
+    /// <summary>"Every 1 minute while open · icon badge on", with ", critical only" when it counts less (#96).</summary>
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
-        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" : " · icon badge off") : string.Empty);
+        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" + (BadgeThresholdIndex > 0 ? ", " + BadgeThresholdLabels[BadgeThresholdIndex].ToLower(CultureInfo.CurrentCulture) : string.Empty) : " · icon badge off") : string.Empty);
 
     /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
     public string NotificationsSummary

@@ -51,6 +51,7 @@ public sealed class AlertWatcher
     private readonly IAlertNotifier _notifier;
     private readonly IAppBadge _badge;
     private readonly AlertTabDot? _tabDot;
+    private readonly AlertCountThreshold? _countThreshold;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
@@ -72,8 +73,10 @@ public sealed class AlertWatcher
         IHomeWidgets widgets,
         TimeProvider time,
         ILogger<AlertWatcher> logger,
-        AlertTabDot? tabDot = null)
+        AlertTabDot? tabDot = null,
+        AlertCountThreshold? countThreshold = null)
     {
+        _countThreshold = countThreshold;
         _client = client;
         _session = session;
         _secrets = secrets;
@@ -118,7 +121,7 @@ public sealed class AlertWatcher
             var hasBaseline = saved is not null && saved.Server == server;
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
             _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
-            _badge.SetCount(AlertBadge.Count(alerts, settings));
+            _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? DesktopNMS.Core.Models.AlertSeverity.Ok));
             _tabDot?.Update(alerts, settings);
 
             if (_widgets.IsInUse)

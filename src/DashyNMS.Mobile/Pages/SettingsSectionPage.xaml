@@ -118,6 +118,17 @@
                                 <Label Text="Count acknowledged alerts too" VerticalOptions="Center" />
                                 <Switch Grid.Column="1" IsToggled="{Binding BadgeIncludesAcknowledged}" />
                             </Grid>
+                            <!-- So a phone full of warnings needn't look like an outage (#96); the Alerts tab's dot follows it too. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding ShowAppBadge}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Count alerts from" />
+                                    <Label Style="{StaticResource Caption}" Text="For the app icon and the Alerts tab's dot." />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" Title="Count alerts from"
+                                        ItemsSource="{Binding BadgeThresholdLabels}"
+                                        SelectedIndex="{Binding BadgeThresholdIndex}"
+                                        MinimumWidthRequest="180" VerticalOptions="Center" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
                 </VerticalStackLayout>
