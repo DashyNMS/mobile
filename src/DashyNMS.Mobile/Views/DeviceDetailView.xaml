@@ -264,8 +264,8 @@
                 <controls:CardGrid BindableLayout.ItemsSource="{Binding GridCards}"
                                    BindableLayout.ItemTemplateSelector="{StaticResource GridCardTemplates}" />
 
-                <Label Style="{StaticResource Caption}" Text="{Binding LastDiscoveredText}" HorizontalOptions="Center" Margin="0,8,0,0"
-                       IsVisible="{Binding LastDiscoveredText, Converter={StaticResource IsNotNull}}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding FreshnessText}" HorizontalOptions="Center" Margin="0,8,0,0"
+                       IsVisible="{Binding FreshnessText, Converter={StaticResource IsNotNull}}" />
 
             </VerticalStackLayout>
         </ScrollView>

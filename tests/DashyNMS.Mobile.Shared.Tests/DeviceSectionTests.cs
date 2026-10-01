@@ -524,6 +524,36 @@ public sealed class DeviceDetailActionTests
     }
 
     [Fact]
+    public async Task The_foot_of_the_page_says_when_it_was_last_polled()
+    {
+        var device = Fakes.Device(8, "core-sw");
+        device.LastDiscovered = DateTime.Now.AddHours(-3);
+        device.AdditionalData = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
+            """{ "last_polled": "2026-10-01 09:41:07", "last_polled_timetaken": 4.2 }""");
+        _client.Devices.GetAsync("8", Arg.Any<CancellationToken>()).Returns(device);
+
+        await _vm.LoadAsync(8);
+
+        Assert.StartsWith("Last polled ", _vm.FreshnessText);
+        var polled = Assert.Single(_vm.Properties, p => p.Key == "Last polled");
+        Assert.EndsWith(", took 4.2s", polled.Value);
+        Assert.Contains(_vm.Properties, p => p.Key == "Last discovered"); // still listed (#97)
+    }
+
+    [Fact]
+    public async Task Without_a_poll_time_the_foot_falls_back_to_last_discovered()
+    {
+        var device = Fakes.Device(9, "old-server");
+        device.LastDiscovered = DateTime.Now.AddHours(-3);
+        _client.Devices.GetAsync("9", Arg.Any<CancellationToken>()).Returns(device);
+
+        await _vm.LoadAsync(9);
+
+        Assert.StartsWith("Last discovered ", _vm.FreshnessText);
+        Assert.DoesNotContain(_vm.Properties, p => p.Key == "Last polled");
+    }
+
+    [Fact]
     public async Task Rediscover_asks_first_then_shows_librenms_reply()
     {
         await _vm.LoadAsync(7);

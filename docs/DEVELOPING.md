@@ -370,7 +370,7 @@ Things found while porting that would be better fixed in the desktop repo:
   device's entries, which mobile's `NetworkLogs` uses through Core's transport.
   An overload without the device in Core would let both apps share it.
 - `GraylogApi` (and `UnimusApi`) turn "Allow untrusted certificate" into a
-  callback that accepts every certificate, as `LibreNmsTransport` does (#2).
+  callback that accepts every certificate, as `LibreNmsTransport` does (DashyNMS/desktop#189).
   Their logins are safe from redirects, though: .NET drops the
   `Authorization` header on any redirect it follows, which
   `GraylogTransportTests` checks.
@@ -378,3 +378,7 @@ Things found while porting that would be better fixed in the desktop repo:
   the titles, and the summary cap in `AlertNotificationService`) live in the WPF
   app, so mobile's `AlertNotificationPlanner` has to mirror them. Moving
   them into Core would give both apps one copy.
+- Core's `Device` has `LastDiscovered` but no `LastPolled`, though LibreNMS
+  sends `last_polled` and `last_polled_timetaken` with every device. Mobile
+  reads them from `AdditionalData` (`LastPoll`, #97); properties on `Device`
+  would let desktop show them too.
