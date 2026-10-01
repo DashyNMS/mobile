@@ -99,7 +99,19 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _showOk = filter.ShowUnknownSeverity;
         _showAcknowledged = filter.ShowAcknowledged;
         _searchText = filter.SearchText ?? string.Empty;
+
+        Selection.Changed += (_, _) =>
+        {
+            MarkSelected(_all);
+            OnPropertyChanged(nameof(SelectAllText));
+        };
     }
+
+    /// <summary>Ticking several alerts to acknowledge or unacknowledge at once (#85).</summary>
+    public BulkSelection Selection { get; } = new("alert");
+
+    /// <summary>"Select all" for what the filters show now, or "Select none".</summary>
+    public string SelectAllText => Selection.ToggleAllText(ShownIds());
 
     public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
@@ -340,6 +352,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         foreach (var item in items)
         {
             item.IsSelected = item.Id == _selectedId;
+            item.IsTicked = Selection.Contains(item.Id);
         }
     }
 
@@ -412,7 +425,101 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private Task OpenLogsAsync() => _navigation.GoToAsync(Routes.Logs);
 
     [RelayCommand]
-    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
+    private Task OpenAlertAsync(AlertItem? item)
+    {
+        if (item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Selecting: a tap ticks rather than opens.
+        if (Selection.IsSelecting)
+        {
+            Selection.Toggle(item.Id);
+            return Task.CompletedTask;
+        }
+
+        return _navigation.GoToAlertAsync(item.Alert);
+    }
+
+    [RelayCommand]
+    private void StartSelecting() => Selection.Start();
+
+    [RelayCommand]
+    private void StopSelecting() => Selection.Stop();
+
+    [RelayCommand]
+    private void SelectAll() => Selection.ToggleAll(ShownIds());
+
+    /// <summary>
+    /// Acknowledges every ticked alert that's active, with one note for all,
+    /// each row changing where it is as the single acknowledge does (#93).
+    /// </summary>
+    [RelayCommand]
+    private async Task AcknowledgeSelectedAsync()
+    {
+        var items = Ticked().Where(a => !a.IsAcknowledged).ToList();
+        if (items.Count == 0)
+        {
+            Selection.Report("None of the selected alerts are active, so there's nothing to acknowledge.");
+            return;
+        }
+
+        var note = await _dialogs.PromptAsync(
+            "Acknowledge alerts",
+            items.Count == 1 ? "1 alert. Add a note (optional):" : $"{items.Count} alerts. Add a note (optional):",
+            "Acknowledge",
+            "Note");
+        if (note is null)
+        {
+            return;
+        }
+
+        var text = note.Trim();
+        var result = await Selection.RunAsync(items, "Acknowledging", "Acknowledged", a => a.Id, BulkName, a => _client.Alerts.AcknowledgeAsync(a.Id, text));
+        foreach (var item in result.Succeeded)
+        {
+            _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+            UpdateInPlace(item, AcknowledgedState, text.Length == 0 ? null : text);
+        }
+    }
+
+    /// <summary>Puts every ticked acknowledged alert back to active, after asking once.</summary>
+    [RelayCommand]
+    private async Task UnacknowledgeSelectedAsync()
+    {
+        var items = Ticked().Where(a => a.IsAcknowledged).ToList();
+        if (items.Count == 0)
+        {
+            Selection.Report("None of the selected alerts are acknowledged.");
+            return;
+        }
+
+        var confirmed = await _dialogs.ConfirmAsync(
+            "Unacknowledge alerts",
+            items.Count == 1 ? "Put 1 alert back to active?" : $"Put {items.Count} alerts back to active?",
+            "Unacknowledge",
+            "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await Selection.RunAsync(items, "Unacknowledging", "Unacknowledged", a => a.Id, BulkName, a => _client.Alerts.UnmuteAsync(a.Id));
+        foreach (var item in result.Succeeded)
+        {
+            _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+            UpdateInPlace(item, ActiveState, note: null);
+        }
+    }
+
+    /// <summary>The ticked alerts still listed, in the list's order.</summary>
+    private List<AlertItem> Ticked() => _all.Where(a => Selection.Contains(a.Id)).ToList();
+
+    private List<int> ShownIds() => Alerts.Select(a => a.Id).ToList();
+
+    /// <summary>"Port down on core-sw-01", naming an alert in the summary of what failed.</summary>
+    private static string BulkName(AlertItem alert) => $"{alert.Rule} on {alert.Device}";
 
     internal string BuildCsv() => CsvWriter.ToCsv(
         CsvHeaders,
@@ -465,6 +572,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private void ApplyFilter()
     {
         Alerts.ReplaceAll(_all.Where(Allows));
+        OnPropertyChanged(nameof(SelectAllText));
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));

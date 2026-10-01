@@ -109,6 +109,12 @@ public static class Routes
     /// <summary>Query attribute: the device's name, for titles.</summary>
     public const string DeviceNameParameter = "name";
 
+    /// <summary>
+    /// Query attribute: several devices for <see cref="Maintenance"/> at once (#85) -
+    /// a list of <c>(int Id, string Name)</c>.
+    /// </summary>
+    public const string DevicesParameter = "devices";
+
     /// <summary>Query attribute: a port's ifName, for <see cref="DeviceGraphs"/>.</summary>
     public const string PortParameter = "port";
 
