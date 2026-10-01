@@ -24,6 +24,10 @@ public sealed partial class DeviceItem : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    /// <summary>Ticked for a bulk action (#85).</summary>
+    [ObservableProperty]
+    private bool _isTicked;
+
     public DeviceItem(Device device, DeviceNameStyle nameStyle = DeviceNameStyle.Hostname)
     {
         Device = device;

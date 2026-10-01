@@ -45,6 +45,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;
+    private readonly IDialogService? _dialogs;
     private readonly ISettingsStore _settings;
     private readonly DeviceBookmarks _bookmarks;
     private readonly MaintenanceScan _maintenance;
@@ -104,8 +105,10 @@ public sealed partial class DevicesViewModel : ViewModelBase
         DeviceBookmarks bookmarks,
         TimeProvider time,
         MaintenanceScan? maintenance = null,
-        IAppPreferences? preferences = null)
+        IAppPreferences? preferences = null,
+        IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _client = client;
         _navigation = navigation;
         _settings = settings;
@@ -119,7 +122,19 @@ public sealed partial class DevicesViewModel : ViewModelBase
         _selectedSort = SortOptions[0];
         _bookmarks.Changed += (_, _) => OnBookmarksChanged();
         RebuildRecent();
+
+        Selection.Changed += (_, _) =>
+        {
+            MarkSelected();
+            OnPropertyChanged(nameof(SelectAllText));
+        };
     }
+
+    /// <summary>Ticking several devices to pin, rediscover or put in maintenance at once (#85).</summary>
+    public BulkSelection Selection { get; } = new("device");
+
+    /// <summary>"Select all" for what the filters show now, or "Select none".</summary>
+    public string SelectAllText => Selection.ToggleAllText(ShownIds());
 
     private static FacetOption AllTypes { get; } = new(null, "All types");
 
@@ -421,11 +436,104 @@ public sealed partial class DevicesViewModel : ViewModelBase
         foreach (var item in _all)
         {
             item.IsSelected = item.DeviceId == _selectedId;
+            item.IsTicked = Selection.Contains(item.DeviceId);
         }
     }
 
     [RelayCommand]
-    private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
+    private Task OpenDeviceAsync(DeviceItem? item)
+    {
+        if (item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Selecting: a tap ticks rather than opens.
+        if (Selection.IsSelecting)
+        {
+            Selection.Toggle(item.DeviceId);
+            return Task.CompletedTask;
+        }
+
+        return OpenAsync(item.DeviceId);
+    }
+
+    [RelayCommand]
+    private void StartSelecting() => Selection.Start();
+
+    [RelayCommand]
+    private void StopSelecting() => Selection.Stop();
+
+    [RelayCommand]
+    private void SelectAll() => Selection.ToggleAll(ShownIds());
+
+    /// <summary>Pins every ticked device - on this phone only, as one pin is.</summary>
+    [RelayCommand]
+    private void PinSelected() => SetPinnedSelected(pinned: true);
+
+    [RelayCommand]
+    private void UnpinSelected() => SetPinnedSelected(pinned: false);
+
+    private void SetPinnedSelected(bool pinned)
+    {
+        if (!PinningEnabled)
+        {
+            return;
+        }
+
+        var items = Ticked().Where(d => d.IsPinned != pinned).ToList();
+        foreach (var item in items)
+        {
+            _bookmarks.SetPinned(item.DeviceId, item.Name, pinned);
+        }
+
+        Selection.Stop();
+        Selection.Report(items.Count == 0
+            ? (pinned ? "They're all pinned already." : "None of them are pinned.")
+            : new BulkResult<DeviceItem>(items, []).Describe(pinned ? "Pinned" : "Unpinned", "device"));
+    }
+
+    /// <summary>Asks LibreNMS to rediscover every ticked device, after asking once.</summary>
+    [RelayCommand]
+    private async Task RediscoverSelectedAsync()
+    {
+        var items = Ticked();
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var confirmed = _dialogs is null || await _dialogs.ConfirmAsync(
+            "Rediscover devices",
+            items.Count == 1 ? "Ask LibreNMS to rediscover 1 device?" : $"Ask LibreNMS to rediscover {items.Count} devices?",
+            "Rediscover",
+            "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await Selection.RunAsync(items, "Rediscovering", "Rediscovery requested for", d => d.DeviceId, d => d.Name, d => _client.Devices.DiscoverAsync(d.DeviceId));
+    }
+
+    /// <summary>One maintenance window for every ticked device: the form, with them all named.</summary>
+    [RelayCommand]
+    private async Task ScheduleMaintenanceSelectedAsync()
+    {
+        var devices = Ticked().Select(d => (d.DeviceId, d.Name)).ToList();
+        if (devices.Count == 0)
+        {
+            return;
+        }
+
+        Selection.Stop();
+        await _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object> { [Routes.DevicesParameter] = devices });
+    }
+
+    /// <summary>The ticked devices still listed.</summary>
+    private List<DeviceItem> Ticked() => _all.Where(d => Selection.Contains(d.DeviceId)).ToList();
+
+    private List<int> ShownIds() => Devices.Select(d => d.DeviceId).ToList();
 
     [RelayCommand]
     private Task OpenRecentAsync(RecentlyViewedDevice? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
@@ -530,6 +638,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         }
 
         Devices.ReplaceAll(_all.Where(Allows).OrderByDescending(d => d.IsPinned).ThenBy(d => d, Comparer));
+        OnPropertyChanged(nameof(SelectAllText));
 
         UpdateCounts();
     }

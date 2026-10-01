@@ -13,6 +13,10 @@ public sealed partial class AlertItem : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    /// <summary>Ticked for a bulk action (#85).</summary>
+    [ObservableProperty]
+    private bool _isTicked;
+
     private readonly bool _serverTimestampsAreUtc;
     private readonly string? _deviceName;
 
