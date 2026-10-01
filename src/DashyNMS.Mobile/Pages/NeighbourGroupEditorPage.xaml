@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NeighbourGroupEditorPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="topo:NeighbourGroupEditorViewModel"
+    Title="{Binding Heading}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <!-- As desktop's view editor (#98): a name, all or any, and the rules. -->
+    <ScrollView>
+        <controls:ReadableColumn>
+            <VerticalStackLayout Padding="16" Spacing="12">
+
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Entry Text="{Binding Name}" Placeholder="Group name, e.g. Wireless APs" />
+                        <Picker Title="Matching" ItemsSource="{Binding MatchChoices}" SelectedIndex="{Binding MatchIndex}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rules}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="topo:NeighbourRuleRow">
+                            <Border Style="{StaticResource Card}">
+                                <VerticalStackLayout Spacing="8">
+                                    <!-- A rule made by a newer version: shown, kept, and only removable. -->
+                                    <Label Style="{StaticResource Caption}" Text="{Binding UnsupportedText}" IsVisible="{Binding IsUnsupported}" />
+                                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsSupported}">
+                                        <Picker Title="Field" ItemsSource="{Binding Fields}" SelectedIndex="{Binding FieldIndex}" />
+                                        <Picker Title="Test" ItemsSource="{Binding Operators}" SelectedIndex="{Binding OperatorIndex}" />
+                                        <Entry Text="{Binding Value}" Placeholder="Value" />
+                                        <!-- Checked as it's typed, so a broken pattern is caught before Save. -->
+                                        <Label Style="{StaticResource Error}" Text="{Binding Problem}" IsVisible="{Binding HasProblem}" />
+                                    </VerticalStackLayout>
+                                    <Button Style="{StaticResource LinkButton}" Text="Remove rule" HorizontalOptions="Start"
+                                            Command="{Binding RemoveRuleCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupEditorViewModel}}, x:DataType=topo:NeighbourGroupEditorViewModel}"
+                                            CommandParameter="{Binding .}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Button Style="{StaticResource SecondaryButton}" Text="Add a rule" Command="{Binding AddRuleCommand}" />
+                <Button Text="Save" Command="{Binding SaveCommand}" />
+                <Button Style="{StaticResource DangerButton}" Text="Delete group" Command="{Binding DeleteCommand}"
+                        IsVisible="{Binding IsExisting}" Margin="0,12,0,0" />
+
+            </VerticalStackLayout>
+        </controls:ReadableColumn>
+    </ScrollView>
+
+</ContentPage>

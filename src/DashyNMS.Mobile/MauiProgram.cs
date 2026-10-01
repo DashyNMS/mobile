@@ -94,6 +94,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<GraphPickerPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<NeighbourGroupsPage>();
+		builder.Services.AddTransient<NeighbourGroupEditorPage>();
 		builder.Services.AddTransient<NetworkMapPage>();
 
 		// Where the network map's devices were dragged to, as desktop keeps

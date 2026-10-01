@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
@@ -6,24 +7,56 @@ using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Topology;
 
 namespace DashyNMS.Mobile.Topology;
 
-/// <summary>One link between two ends: the row, and the devices a tap can open.</summary>
-public sealed record NeighbourLink(SectionRow Row, int LocalDeviceId, string LocalName, int? RemoteDeviceId, string RemoteName, bool IsProblem);
+/// <summary>
+/// One link between two ends: the row, the devices a tap can open, and the
+/// neighbour as desktop's groups see it - from the switch's side, with the
+/// switch and its port's description (#98).
+/// </summary>
+public sealed record NeighbourLink(
+    SectionRow Row,
+    int LocalDeviceId,
+    string LocalName,
+    int? RemoteDeviceId,
+    string RemoteName,
+    bool IsProblem,
+    Neighbour Neighbour,
+    string SwitchName,
+    string? SwitchPortDescription);
+
+/// <summary>A group chip above the list: "All", or one of the user's groups, with how many it holds.</summary>
+public sealed partial class NeighbourGroupChip(NeighbourViewDefinition? group, string name) : ObservableObject
+{
+    /// <summary>Null for "All".</summary>
+    public NeighbourViewDefinition? Group { get; } = group;
+
+    public string Name { get; } = name;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Text))]
+    private int _count;
+
+    [ObservableProperty]
+    private bool _isSelected;
+
+    public string Text => $"{Name} {Count}";
+}
 
 /// <summary>
-/// Every CDP/LLDP link LibreNMS knows, across the network - Device View's
-/// Neighbours for all devices at once.
+/// Every CDP/LLDP link LibreNMS knows, across the network, laid out as the
+/// Devices tab is (#98): a search over every LLDP field, chips for the
+/// user's groups and for links that are down, a count, and device-style rows.
 /// </summary>
 /// <remarks>
-/// Desktop's Neighbours tab is built around views the user defines over
-/// what neighbours announce; on a phone the useful question is simpler -
-/// what's connected to what, and is either end down. A link both devices
-/// report (A sees B, B sees A) is one row. A link is a problem when either
-/// device or either port is down; problems come first, and a filter shows
-/// just them. Links to things LibreNMS doesn't monitor show the remote's
-/// own name and platform.
+/// <para>A link both devices report (A sees B, B sees A) is one row. It's a
+/// problem when either device or either port is down; problems come first.</para>
+/// <para>The groups are desktop's own neighbour views
+/// (<see cref="AppSettings.NeighbourViews"/>), matched by Core's
+/// <see cref="Neighbours.Matches"/>, so a group lists the same neighbours on
+/// both apps; they're made and changed in <see cref="NeighbourGroupsViewModel"/>.</para>
 /// </remarks>
 public sealed partial class NeighboursViewModel : ViewModelBase
 {
@@ -32,6 +65,7 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
     private IReadOnlyList<NeighbourLink> _all = [];
+    private string? _selectedGroupId;
     private bool _loaded;
 
     [ObservableProperty]
@@ -46,19 +80,30 @@ public sealed partial class NeighboursViewModel : ViewModelBase
         _settings = settings;
         _navigation = navigation;
         _dialogs = dialogs;
+        RebuildGroups();
     }
 
     public BulkObservableCollection<NeighbourLink> Links { get; } = new();
 
-    public int ProblemCount => _all.Count(l => l.IsProblem);
+    /// <summary>"All", then each group, in the user's order.</summary>
+    public ObservableCollection<NeighbourGroupChip> Groups { get; } = new();
 
-    public string CountText => Links.Count == _all.Count
-        ? $"{_all.Count} {(_all.Count == 1 ? "link" : "links")}"
-        : $"{Links.Count} of {_all.Count} links";
+    public int ProblemCount => InGroup().Count(l => l.IsProblem);
+
+    /// <summary>"24 neighbours", or "3 of 24 neighbours" when filtered.</summary>
+    public string CountText
+    {
+        get
+        {
+            var total = _all.Count;
+            var noun = total == 1 ? "neighbour" : "neighbours";
+            return Links.Count == total ? $"{total} {noun}" : $"{Links.Count} of {total} {noun}";
+        }
+    }
 
     public bool IsEmpty => _loaded && Links.Count == 0 && !IsBusy;
 
-    public string EmptyText => _all.Count == 0 ? "LibreNMS has no CDP or LLDP neighbours." : "No links match.";
+    public string EmptyText => _all.Count == 0 ? "LibreNMS has no CDP or LLDP neighbours." : "No neighbours match.";
 
     partial void OnProblemsOnlyChanged(bool value) => ApplyFilter();
 
@@ -66,6 +111,19 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleProblemsOnly() => ProblemsOnly = !ProblemsOnly;
+
+    /// <summary>A group chip: show just that group - or, tapped again, everything.</summary>
+    [RelayCommand]
+    private void SelectGroup(NeighbourGroupChip? chip)
+    {
+        var id = chip?.Group?.Id;
+        _selectedGroupId = id == _selectedGroupId ? null : id;
+        MarkSelectedGroup();
+        ApplyFilter();
+    }
+
+    [RelayCommand]
+    private Task EditGroupsAsync() => _navigation.GoToAsync(Routes.NeighbourGroups);
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -79,6 +137,13 @@ public sealed partial class NeighboursViewModel : ViewModelBase
         _loaded = true;
         ApplyFilter();
     });
+
+    /// <summary>Back from the groups editor: they may have been added, renamed, reordered or deleted.</summary>
+    public void GroupsChanged()
+    {
+        RebuildGroups();
+        ApplyFilter();
+    }
 
     /// <summary>A link to another LibreNMS device asks which end to open; otherwise it opens the one end there is.</summary>
     [RelayCommand]
@@ -103,6 +168,10 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
         await _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });
     }
+
+    /// <summary>Whether <paramref name="link"/> is in <paramref name="group"/> - Core's test, as desktop runs it.</summary>
+    internal static bool InGroup(NeighbourViewDefinition group, NeighbourLink link) =>
+        Neighbours.Matches(group, link.Neighbour, link.SwitchName, link.SwitchPortDescription);
 
     internal static IReadOnlyList<NeighbourLink> Build(
         IReadOnlyList<NetworkLink> links,
@@ -147,38 +216,91 @@ public sealed partial class NeighboursViewModel : ViewModelBase
                 remotePort is { IsUp: false } ? $"{remoteName} {remotePortName}" : null,
             }.Where(s => s is not null).ToList();
 
+            // As Devices' rows: the name, then what it is and where it plugs in.
+            var platform = remote is null ? link.RemotePlatform : null;
             var problem = down.Count > 0;
             result.Add(new NeighbourLink(
-                new SectionRow($"{localName} ↔ {remoteName}")
+                new SectionRow(remoteName)
                 {
-                    Subtitle = $"{localPortName} ↔ {remotePortName}",
+                    Subtitle = string.Join(" · ", new[] { platform, $"{localName} {localPortName} ↔ {remotePortName}" }.Where(s => !string.IsNullOrWhiteSpace(s))),
                     Value = link.Protocol?.ToUpperInvariant(),
-                    Detail = problem
-                        ? "Down: " + string.Join(", ", down)
-                        : remote is null ? link.RemotePlatform : null,
+                    Detail = problem ? "Down: " + string.Join(", ", down) : null,
                     Status = problem ? RowStatus.Critical : link.Active ? RowStatus.Ok : RowStatus.Inactive,
                 },
                 link.LocalDeviceId,
                 localName,
                 remote?.DeviceId,
                 remoteName,
-                problem));
+                problem,
+                Neighbours.FromLinks([link])[0],
+                local?.BestName ?? $"device {link.LocalDeviceId}", // as desktop names the switch for a Switch rule
+                localPort?.IfAlias));
         }
 
         return result
             .OrderByDescending(l => l.IsProblem)
-            .ThenBy(l => l.LocalName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(l => l.RemoteName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(l => l.Row.Subtitle, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>The search, over every LLDP field as well as what the row shows.</summary>
+    internal static bool Matches(NeighbourLink link, string term) =>
+        link.Row.Matches(term)
+        || new[]
+        {
+            link.Neighbour.AnnouncedName,
+            link.Neighbour.Description,
+            link.Neighbour.RemotePort,
+            link.Neighbour.Mac,
+            link.Neighbour.Protocol,
+            link.SwitchPortDescription,
+        }.Any(field => field?.Contains(term, StringComparison.OrdinalIgnoreCase) == true);
+
+    private IEnumerable<NeighbourLink> InGroup() =>
+        SelectedGroup() is { } group ? _all.Where(l => InGroup(group, l)) : _all;
+
+    private NeighbourViewDefinition? SelectedGroup() =>
+        _settings.Current.NeighbourViews.FirstOrDefault(v => v.Id == _selectedGroupId);
+
+    private void RebuildGroups()
+    {
+        // A group that has gone (deleted in the editor, or on desktop) shows everything again.
+        if (SelectedGroup() is null)
+        {
+            _selectedGroupId = null;
+        }
+
+        Groups.Clear();
+        Groups.Add(new NeighbourGroupChip(null, "All"));
+        foreach (var group in _settings.Current.NeighbourViews)
+        {
+            Groups.Add(new NeighbourGroupChip(group, group.Name));
+        }
+
+        MarkSelectedGroup();
+    }
+
+    private void MarkSelectedGroup()
+    {
+        foreach (var chip in Groups)
+        {
+            chip.IsSelected = chip.Group?.Id == _selectedGroupId;
+        }
     }
 
     private void ApplyFilter()
     {
         var term = SearchText.Trim();
-        Links.ReplaceAll(_all
+        Links.ReplaceAll(InGroup()
             .Where(l => !ProblemsOnly || l.IsProblem)
-            .Where(l => term.Length == 0 || l.Row.Matches(term))
+            .Where(l => term.Length == 0 || Matches(l, term))
             .ToList());
+
+        foreach (var chip in Groups)
+        {
+            chip.Count = chip.Group is { } group ? _all.Count(l => InGroup(group, l)) : _all.Count;
+        }
 
         OnPropertyChanged(nameof(ProblemCount));
         OnPropertyChanged(nameof(CountText));

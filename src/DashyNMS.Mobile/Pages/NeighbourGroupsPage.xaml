@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NeighbourGroupsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="topo:NeighbourGroupsViewModel"
+    Title="Neighbour groups">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Add" Command="{Binding AddCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <!-- Desktop's neighbour views (#98): the same groups on both apps. -->
+    <ScrollView>
+        <controls:ReadableColumn>
+            <VerticalStackLayout Padding="16" Spacing="8">
+
+                <Label Style="{StaticResource Caption}"
+                       Text="Sort neighbours into groups of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. Groups are shared with DashyNMS on your computer." />
+
+                <Label Style="{StaticResource Caption}" Text="No groups yet." IsVisible="{Binding HasNone}" Margin="0,12" />
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="topo:NeighbourGroupRow">
+                            <Border Style="{StaticResource Card}">
+                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                    <VerticalStackLayout>
+                                        <VerticalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout.GestureRecognizers>
+                                        <Label Text="{Binding Name}" FontFamily="BodySemibold" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Summary}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1" Text="▲" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
+                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                                            Command="{Binding MoveUpCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
+                                            CommandParameter="{Binding .}" SemanticProperties.Description="Move up" />
+                                    <Button Grid.Column="2" Text="▼" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
+                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                                            Command="{Binding MoveDownCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
+                                            CommandParameter="{Binding .}" SemanticProperties.Description="Move down" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Button Text="Add a group" Command="{Binding AddCommand}" Margin="0,8,0,0" />
+
+            </VerticalStackLayout>
+        </controls:ReadableColumn>
+    </ScrollView>
+
+</ContentPage>
