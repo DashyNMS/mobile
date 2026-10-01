@@ -8,14 +8,19 @@
     x:DataType="topo:NeighbourGroupsViewModel"
     Title="Neighbourhoods">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Add" Command="{Binding AddCommand}" />
-    </ContentPage.ToolbarItems>
-
     <!-- Desktop's neighbour views (#98): the same groups on both apps. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16" Spacing="8">
+            <VerticalStackLayout Padding="16,4,16,16" Spacing="8">
+
+                <!-- "‹ Neighbours" and Add, as the app's other pushed pages: the system bar
+                     stays hidden, so coming back to Neighbours never brings it back. -->
+                <controls:BackBar x:Name="TopBar">
+                    <controls:BackBar.Actions>
+                        <Button Style="{StaticResource LinkButton}" Text="Add" Command="{Binding AddCommand}" />
+                    </controls:BackBar.Actions>
+                </controls:BackBar>
+                <Label Style="{StaticResource PageTitle}" Text="Neighbourhoods" SemanticProperties.HeadingLevel="Level1" />
 
                 <Label Style="{StaticResource Caption}"
                        Text="Sort neighbours into neighbourhoods of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. They're shared with DashyNMS on your computer, where they're called neighbour views." />

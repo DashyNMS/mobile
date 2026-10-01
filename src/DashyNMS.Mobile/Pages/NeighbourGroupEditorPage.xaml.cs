@@ -25,6 +25,7 @@ public partial class NeighbourGroupEditorPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		TopBar.Apply(this);
 		if (!_loaded)
 		{
 			_loaded = true;
