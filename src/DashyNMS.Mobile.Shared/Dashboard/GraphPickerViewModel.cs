@@ -11,9 +11,10 @@ namespace DashyNMS.Mobile.Dashboard;
 public sealed record GraphRangeChoice(GraphTimeRangePreset Preset, string Label);
 
 /// <summary>
-/// Sets up the dashboard Graph card, as desktop's Graph widget: a device, one
-/// of its graphs (desktop's device-wide, health and wireless listings merged)
-/// and a time range. Kept in the card's own <see cref="DashboardWidget"/>.
+/// Sets up a dashboard Graph card, as desktop's Graph widget: a device, one
+/// of its graphs (desktop's device-wide, health and wireless listings merged),
+/// a time range and, if wanted, its own title. Kept in the card's own
+/// <see cref="DashboardWidget"/> - there can be several (#87).
 /// </summary>
 public sealed partial class GraphPickerViewModel : ViewModelBase
 {
@@ -40,15 +41,20 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
     [ObservableProperty]
     private GraphRangeChoice _selectedRange;
 
+    /// <summary>The card's own title ("WAN traffic"); blank for the graph and its device (#87).</summary>
+    [ObservableProperty]
+    private string _cardTitle = string.Empty;
+
     public GraphPickerViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
-
-        var preset = Widget()?.GraphTimeRangePreset ?? GraphTimeRangePreset.Day;
-        _selectedRange = Ranges.FirstOrDefault(r => r.Preset == preset) ?? Ranges[1];
+        _selectedRange = Ranges[1];
     }
+
+    /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
+    public string? WidgetId { get; set; }
 
     public IReadOnlyList<GraphRangeChoice> Ranges { get; } =
     [
@@ -80,6 +86,13 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
     [RelayCommand]
     private Task LoadAsync() => RunAsync(async () =>
     {
+        // Carry on from the card's set-up so far: its range and title now, its graph once loaded.
+        if (Widget() is { } existing)
+        {
+            SelectedRange = Ranges.FirstOrDefault(r => r.Preset == existing.GraphTimeRangePreset) ?? Ranges[1];
+            CardTitle = existing.GraphName is not null && !IsAutomaticTitle(existing) ? existing.Title : string.Empty;
+        }
+
         var style = _settings.Current.DeviceNameStyle;
         _devices = (await _client.Devices.ListAsync())
             .Select(d => new DeviceItem(d, style))
@@ -133,11 +146,11 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
             return;
         }
 
-        var widget = DashboardLayout.Ensure(_settings.Current, DashboardLayout.Graph);
+        var widget = Widget() ?? DashboardLayout.Add(_settings.Current, DashboardLayout.Graph);
         widget.GraphDeviceId = device.DeviceId;
         widget.GraphName = graph.Name;
         widget.GraphTimeRangePreset = SelectedRange.Preset;
-        widget.Title = $"{graph.Description} · {device.Name}";
+        widget.Title = string.IsNullOrWhiteSpace(CardTitle) ? AutomaticTitle(graph.Description, device.Name) : CardTitle.Trim();
         _settings.Save();
         await _navigation.GoToAsync(Routes.Back);
     }
@@ -153,6 +166,14 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
             .ToList());
     }
 
+    /// <summary>"Traffic · core-sw-01" - what a card is called until it's given a title of its own.</summary>
+    internal static string AutomaticTitle(string? graph, string device) => $"{graph} · {device}";
+
+    /// <summary>The card being set up, or null if it has gone (or none was named) - saving then adds one.</summary>
     private DashboardWidget? Widget() =>
-        DashboardLayout.Current(_settings.Current).FirstOrDefault(w => w.WidgetType == DashboardLayout.Graph);
+        DashboardLayout.Find(_settings.Current, WidgetId) is { WidgetType: DashboardLayout.Graph } widget ? widget : null;
+
+    /// <summary>Whether the card's title is the one made from its graph and device, not one typed in.</summary>
+    private static bool IsAutomaticTitle(DashboardWidget widget) =>
+        !DashboardLayout.HasOwnTitle(widget) || widget.Title.Contains(" · ", StringComparison.Ordinal);
 }

@@ -14,13 +14,16 @@
         <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
     </ContentPage.ToolbarItems>
 
-    <Grid RowDefinitions="Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
 
-        <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-        <ActivityIndicator Grid.Row="1" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        <!-- The card's own title (#87): "WAN traffic". Blank, it's named after the graph and device. -->
+        <Entry Text="{Binding CardTitle}" Placeholder="Card title (optional)" Margin="0,0,0,8" />
+
+        <Label Grid.Row="1" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 
         <!-- Step one: the device. -->
-        <Grid Grid.Row="2" RowDefinitions="Auto,*" IsVisible="{Binding ChoosingDevice}">
+        <Grid Grid.Row="3" RowDefinitions="Auto,*" IsVisible="{Binding ChoosingDevice}">
             <SearchBar Text="{Binding DeviceSearch}" Placeholder="Which device?" />
             <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None" Margin="0,6,0,0">
                 <CollectionView.ItemsLayout>
@@ -45,7 +48,7 @@
         </Grid>
 
         <!-- Step two: the graph and range. -->
-        <VerticalStackLayout Grid.Row="2" Spacing="8" IsVisible="{Binding HasDevice}">
+        <VerticalStackLayout Grid.Row="3" Spacing="8" IsVisible="{Binding HasDevice}">
             <Grid ColumnDefinitions="*,Auto">
                 <Label Text="{Binding SelectedDevice.Name}" FontFamily="BodySemibold" VerticalOptions="Center" />
                 <Button Grid.Column="1" Text="Change device" Command="{Binding ChangeDeviceCommand}" BackgroundColor="Transparent"

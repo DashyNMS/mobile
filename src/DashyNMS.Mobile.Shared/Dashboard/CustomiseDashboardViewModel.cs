@@ -10,29 +10,38 @@ namespace DashyNMS.Mobile.Dashboard;
 /// <summary>One card on the Customise page: shown or not, and where.</summary>
 public sealed partial class DashboardCardOption : ObservableObject
 {
-    public DashboardCardOption(DashboardCardKind kind, bool isShown)
+    public DashboardCardOption(DashboardWidget widget, bool isShown)
     {
-        Kind = kind;
+        Widget = widget;
+        Kind = DashboardLayout.KindOf(widget.WidgetType);
         _isShown = isShown;
     }
 
+    /// <summary>The card itself - its own title and set-up go with it (#87).</summary>
+    public DashboardWidget Widget { get; }
+
     public DashboardCardKind Kind { get; }
 
-    public string Title => Kind.Title;
+    /// <summary>Its own title once given one ("Core switch temps"), else the kind's.</summary>
+    public string Title => DashboardLayout.HasOwnTitle(Widget) ? Widget.Title : Kind.Title;
 
     public string Description => Kind.Description;
 
     /// <summary>Sensors and Graph have something to choose.</summary>
-    public bool CanSetUp => Kind.Type is DashboardLayout.Sensors or DashboardLayout.Graph;
+    public bool CanSetUp => Kind.AllowsSeveral;
 
     [ObservableProperty]
     private bool _isShown;
+
+    /// <summary>Its title may have changed in its set-up.</summary>
+    public void Refresh() => OnPropertyChanged(nameof(Title));
 }
 
 /// <summary>
 /// Which dashboard cards show, and in what order - the phone's version of
 /// desktop's dashboard edit mode, without the resizing a one-column screen
-/// doesn't need. Changes save as they're made.
+/// doesn't need. Sensors and Graph cards can be added as often as wanted,
+/// each with its own title and set-up (#87). Changes save as they're made.
 /// </summary>
 public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 {
@@ -43,24 +52,19 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     {
         _settings = settings;
         _navigation = navigation;
-
-        // Showing cards first, in their order; then the rest, in the catalogue's.
-        var shown = DashboardLayout.Current(settings.Current).Select(w => w.WidgetType).ToList();
-        foreach (var type in shown.Concat(DashboardLayout.Kinds.Select(k => k.Type).Except(shown)))
-        {
-            var option = new DashboardCardOption(DashboardLayout.KindOf(type), shown.Contains(type));
-            option.PropertyChanged += (_, e) =>
-            {
-                if (e.PropertyName == nameof(DashboardCardOption.IsShown))
-                {
-                    Save();
-                }
-            };
-            Cards.Add(option);
-        }
+        Build(DashboardLayout.Current(settings.Current));
     }
 
     public ObservableCollection<DashboardCardOption> Cards { get; } = new();
+
+    /// <summary>Back from a card's set-up: its title may be new.</summary>
+    public void Refresh()
+    {
+        foreach (var card in Cards)
+        {
+            card.Refresh();
+        }
+    }
 
     [RelayCommand]
     private void MoveUp(DashboardCardOption? card) => Move(card, -1);
@@ -68,27 +72,83 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     [RelayCommand]
     private void MoveDown(DashboardCardOption? card) => Move(card, +1);
 
+    /// <summary>Another Sensors card, after the cards showing, then straight to choosing its sensors.</summary>
     [RelayCommand]
-    private Task SetUpAsync(DashboardCardOption? card) => card?.Kind.Type switch
-    {
-        DashboardLayout.Sensors => _navigation.GoToAsync(Routes.PickSensors),
-        DashboardLayout.Graph => _navigation.GoToAsync(Routes.PickGraph),
-        _ => Task.CompletedTask,
-    };
+    private Task AddSensorsAsync() => AddAsync(DashboardLayout.Sensors);
 
-    /// <summary>Back to the dashboard as it came.</summary>
+    /// <summary>Another Graph card, then straight to choosing its graph.</summary>
+    [RelayCommand]
+    private Task AddGraphAsync() => AddAsync(DashboardLayout.Graph);
+
+    /// <summary>A card's own set-up: its sensors or graph, and its title. Shown first if it wasn't.</summary>
+    [RelayCommand]
+    private Task SetUpAsync(DashboardCardOption? card)
+    {
+        if (card is null || !card.CanSetUp)
+        {
+            return Task.CompletedTask;
+        }
+
+        card.IsShown = true;
+        return OpenSetUpAsync(card.Widget);
+    }
+
+    /// <summary>Back to the dashboard as it came: the default cards, and no Sensors or Graph cards.</summary>
     [RelayCommand]
     private void ResetToDefaults()
     {
-        var order = DashboardLayout.DefaultTypes.Concat(DashboardLayout.Kinds.Select(k => k.Type).Except(DashboardLayout.DefaultTypes)).ToList();
-        for (var i = 0; i < order.Count; i++)
+        Build(DashboardLayout.DefaultTypes.Select(DashboardLayout.New).ToList());
+        Save();
+    }
+
+    private async Task AddAsync(string type)
+    {
+        var widget = DashboardLayout.New(type);
+        var option = Watch(new DashboardCardOption(widget, isShown: true));
+
+        // A placeholder for the kind (none set up yet) makes way for the real one.
+        if (Cards.FirstOrDefault(c => !c.IsShown && c.Kind.Type == type) is { } placeholder)
         {
-            var card = Cards.First(c => c.Kind.Type == order[i]);
-            Cards.Move(Cards.IndexOf(card), i);
-            card.IsShown = DashboardLayout.DefaultTypes.Contains(card.Kind.Type);
+            Cards.Remove(placeholder);
         }
 
+        Cards.Insert(Cards.Count(c => c.IsShown), option);
         Save();
+        await OpenSetUpAsync(widget);
+    }
+
+    private Task OpenSetUpAsync(DashboardWidget widget) => _navigation.GoToAsync(
+        widget.WidgetType == DashboardLayout.Sensors ? Routes.PickSensors : Routes.PickGraph,
+        new Dictionary<string, object> { [Routes.WidgetIdParameter] = widget.Id });
+
+    /// <summary>
+    /// The cards showing, in their order; then each once-only kind that isn't,
+    /// and a Sensors or Graph placeholder when there's none of that kind.
+    /// </summary>
+    private void Build(IReadOnlyList<DashboardWidget> shown)
+    {
+        Cards.Clear();
+        foreach (var widget in shown)
+        {
+            Cards.Add(Watch(new DashboardCardOption(widget, isShown: true)));
+        }
+
+        foreach (var kind in DashboardLayout.Kinds.Where(k => shown.All(w => w.WidgetType != k.Type)))
+        {
+            Cards.Add(Watch(new DashboardCardOption(DashboardLayout.New(kind.Type), isShown: false)));
+        }
+    }
+
+    private DashboardCardOption Watch(DashboardCardOption option)
+    {
+        option.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DashboardCardOption.IsShown))
+            {
+                Save();
+            }
+        };
+        return option;
     }
 
     private void Move(DashboardCardOption? card, int by)
@@ -111,7 +171,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 
     private void Save()
     {
-        DashboardLayout.Save(_settings.Current, Cards.Where(c => c.IsShown).Select(c => c.Kind.Type));
+        DashboardLayout.Save(_settings.Current, Cards.Where(c => c.IsShown).Select(c => c.Widget));
         _settings.Save();
     }
 }

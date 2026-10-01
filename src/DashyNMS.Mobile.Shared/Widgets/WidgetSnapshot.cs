@@ -183,9 +183,15 @@ public sealed record WidgetSnapshot
         };
     }
 
-    /// <summary>The sensors the dashboard's Sensors card has picked, whether or not the card is showing.</summary>
-    public static IReadOnlyList<PinnedSensor> PickedSensors(AppSettings settings) =>
-        settings.DashboardWidgets.FirstOrDefault(w => w.WidgetType == DashboardLayout.Sensors)?.Sensors ?? [];
+    /// <summary>
+    /// The sensors the dashboard's Sensors cards have picked - every card's, in
+    /// the cards' order, each sensor once (#87) - whether or not they're showing.
+    /// </summary>
+    public static IReadOnlyList<PinnedSensor> PickedSensors(AppSettings settings) => settings.DashboardWidgets
+        .Where(w => w.WidgetType == DashboardLayout.Sensors)
+        .SelectMany(w => w.Sensors)
+        .DistinctBy(s => s.SensorId)
+        .ToList();
 
     private static WidgetDeviceCounts CountDevices(IReadOnlyList<Device> devices, IReadOnlyList<Alert> open)
     {

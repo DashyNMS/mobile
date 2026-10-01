@@ -8,14 +8,17 @@
     SafeAreaEdges="Container"
     Title="Dashboard sensors">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
-        <SearchBar Text="{Binding SearchText}" Placeholder="Sensor or device" />
-        <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding HintText}" Margin="4,6" />
-        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+        <!-- The card's own title (#87): "Core switch temps". -->
+        <Entry Text="{Binding CardTitle}" Placeholder="Card title (optional)" Margin="0,0,0,8" />
 
-        <CollectionView Grid.Row="3" ItemsSource="{Binding Sensors}" SelectionMode="None">
+        <SearchBar Grid.Row="1" Text="{Binding SearchText}" Placeholder="Sensor or device" />
+        <Label Grid.Row="2" Style="{StaticResource Caption}" Text="{Binding HintText}" Margin="4,6" />
+        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <ActivityIndicator Grid.Row="3" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Sensors}" SelectionMode="None">
             <CollectionView.ItemsLayout>
                 <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
             </CollectionView.ItemsLayout>

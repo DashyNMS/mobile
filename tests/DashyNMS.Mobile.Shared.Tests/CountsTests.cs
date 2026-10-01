@@ -50,7 +50,7 @@ public sealed class CountsTests
     [Fact]
     public async Task Maintenance_is_counted_on_its_own_and_not_as_up()
     {
-        DashboardLayout.Ensure(_appSettings, DashboardLayout.DeviceStatus);
+        DashboardLayout.Add(_appSettings, DashboardLayout.DeviceStatus);
         _client.Devices.IsUnderMaintenanceAsync(2, Arg.Any<CancellationToken>()).Returns(true);
         var vm = NewDashboard();
 

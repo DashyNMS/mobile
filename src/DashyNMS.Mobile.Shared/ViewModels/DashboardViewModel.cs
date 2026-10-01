@@ -10,8 +10,59 @@ using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-/// <summary>One card on the dashboard. Its template reads what it shows from <see cref="Dashboard"/>.</summary>
-public sealed record DashboardCard(string Type, string Title, DashboardViewModel Dashboard);
+/// <summary>
+/// One card on the dashboard. Most templates read what they show from
+/// <see cref="Dashboard"/>; a Sensors or Graph card has its own, since there
+/// can be several, each set up on its own (#87).
+/// </summary>
+public sealed partial class DashboardCard : ObservableObject
+{
+    public DashboardCard(DashboardWidget widget, DashboardViewModel dashboard)
+    {
+        Widget = widget;
+        Dashboard = dashboard;
+        _title = DashboardLayout.HasOwnTitle(widget) ? widget.Title : DashboardLayout.KindOf(widget.WidgetType).Title;
+    }
+
+    public DashboardWidget Widget { get; }
+
+    public DashboardViewModel Dashboard { get; }
+
+    public string Type => Widget.WidgetType;
+
+    /// <summary>Its own ("Core switch temps"), the graph and its device, or the kind's.</summary>
+    [ObservableProperty]
+    private string _title;
+
+    /// <summary>A Sensors card's sensors, coloured as on the Health tab.</summary>
+    public BulkObservableCollection<SectionRow> Sensors { get; } = new();
+
+    public bool HasNoSensors => Sensors.Count == 0;
+
+    /// <summary>A Graph card's page (see <see cref="GraphHtml"/>), or null until it has one.</summary>
+    [ObservableProperty]
+    private string? _graphPage;
+
+    public bool GraphNeedsSetUp => Widget is not { GraphDeviceId: not null, GraphName: not null };
+
+    // Set up since the card was made: the hint goes as the graph arrives.
+    partial void OnGraphPageChanged(string? value) => OnPropertyChanged(nameof(GraphNeedsSetUp));
+
+    /// <summary>Back from Customise or its set-up: a Sensors card's title may be new.</summary>
+    internal void RefreshTitle()
+    {
+        if (Type != DashboardLayout.Graph)
+        {
+            Title = DashboardLayout.HasOwnTitle(Widget) ? Widget.Title : DashboardLayout.KindOf(Widget.WidgetType).Title;
+        }
+    }
+
+    internal void ShowSensors(IEnumerable<SectionRow> rows)
+    {
+        Sensors.ReplaceAll(rows);
+        OnPropertyChanged(nameof(HasNoSensors));
+    }
+}
 
 /// <summary>
 /// Desktop's dashboard widgets, as a column of cards the user chooses and
@@ -79,13 +130,6 @@ public sealed partial class DashboardViewModel : ViewModelBase
     [ObservableProperty]
     private DateTime? _lastUpdated;
 
-    /// <summary>The Graph card's page (see <see cref="GraphHtml"/>), or null until it has one.</summary>
-    [ObservableProperty]
-    private string? _graphPage;
-
-    [ObservableProperty]
-    private string _graphTitle = "Graph";
-
     [ObservableProperty]
     private string _wirelessSummary = string.Empty;
 
@@ -147,24 +191,27 @@ public sealed partial class DashboardViewModel : ViewModelBase
 
     public bool HasNoAlerts => TopAlerts.Count == 0 && LastUpdated is not null;
 
-    /// <summary>The Sensors card's sensors, coloured as on the Health tab.</summary>
-    public BulkObservableCollection<SectionRow> PinnedSensors { get; } = new();
-
-    public bool HasNoPinnedSensors => PinnedSensors.Count == 0;
-
-    public bool GraphNeedsSetUp => GraphWidget is not { GraphDeviceId: not null, GraphName: not null };
-
     /// <summary>The Wireless card's controllers: down first, then worst state.</summary>
     public BulkObservableCollection<SectionRow> WirelessControllers { get; } = new();
 
     public bool HasNoWirelessControllers => WirelessControllers.Count == 0 && LastUpdated is not null;
 
-    private DashboardWidget? GraphWidget => Widget(DashboardLayout.Graph);
+    /// <summary>
+    /// Re-reads which cards show, e.g. after Customise. A card still there
+    /// keeps what it has loaded, so a graph doesn't blank while it reloads.
+    /// </summary>
+    public void ApplyLayout()
+    {
+        var existing = Cards.ToDictionary(c => c.Widget.Id);
+        Cards.ReplaceAll(DashboardLayout.Current(_settings.Current)
+            .Select(w => existing.TryGetValue(w.Id, out var card) && ReferenceEquals(card.Widget, w) ? card : new DashboardCard(w, this))
+            .ToList());
 
-    /// <summary>Re-reads which cards show, e.g. after Customise.</summary>
-    public void ApplyLayout() => Cards.ReplaceAll(DashboardLayout.Current(_settings.Current)
-        .Select(w => new DashboardCard(w.WidgetType, DashboardLayout.KindOf(w.WidgetType).Title, this))
-        .ToList());
+        foreach (var card in Cards)
+        {
+            card.RefreshTitle();
+        }
+    }
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -214,15 +261,13 @@ public sealed partial class DashboardViewModel : ViewModelBase
         // The extras, only for the cards that show them; one failing doesn't stop the rest.
         await Task.WhenAll(
             Shows(DashboardLayout.Sensors) ? LoadSensorsAsync(byId, style) : Task.CompletedTask,
-            Shows(DashboardLayout.Graph) ? LoadGraphAsync(byId, style) : Task.CompletedTask,
+            Shows(DashboardLayout.Graph) ? LoadGraphsAsync(byId, style) : Task.CompletedTask,
             Shows(DashboardLayout.Wireless) ? LoadWirelessAsync(devices, style) : Task.CompletedTask);
 
         LastUpdated = DateTime.Now;
         OnPropertyChanged(nameof(HasNoAlerts));
         OnPropertyChanged(nameof(HasPinnedDevices));
         OnPropertyChanged(nameof(HasRecentlyViewed));
-        OnPropertyChanged(nameof(HasNoPinnedSensors));
-        OnPropertyChanged(nameof(GraphNeedsSetUp));
         OnPropertyChanged(nameof(HasNoWirelessControllers));
     });
 
@@ -242,24 +287,35 @@ public sealed partial class DashboardViewModel : ViewModelBase
     [RelayCommand]
     private Task CustomiseAsync() => _navigation.GoToAsync(Routes.CustomiseDashboard);
 
+    /// <summary>That card's own set-up: its sensors and title.</summary>
     [RelayCommand]
-    private Task PickSensorsAsync() => _navigation.GoToAsync(Routes.PickSensors);
+    private Task PickSensorsAsync(DashboardCard? card) => _navigation.GoToAsync(
+        Routes.PickSensors, new Dictionary<string, object> { [Routes.WidgetIdParameter] = card?.Widget.Id ?? string.Empty });
 
     [RelayCommand]
-    private Task PickGraphAsync() => _navigation.GoToAsync(Routes.PickGraph);
+    private Task PickGraphAsync(DashboardCard? card) => _navigation.GoToAsync(
+        Routes.PickGraph, new Dictionary<string, object> { [Routes.WidgetIdParameter] = card?.Widget.Id ?? string.Empty });
 
-    /// <summary>The Graph card opens the device's graphs page.</summary>
+    /// <summary>A Graph card opens its device's graphs page - or, not set up yet, its set-up.</summary>
     [RelayCommand]
-    private Task OpenGraphAsync() => GraphWidget?.GraphDeviceId is { } id
+    private Task OpenGraphAsync(DashboardCard? card) => card?.Widget.GraphDeviceId is { } id
         ? _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
-        : PickGraphAsync();
+        : PickGraphAsync(card);
 
+    /// <summary>
+    /// Every Sensors card's sensors, from one list of the network's sensors -
+    /// so several cards cost no more than one (#87).
+    /// </summary>
     private async Task LoadSensorsAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style)
     {
-        var pinned = Widget(DashboardLayout.Sensors)?.Sensors ?? [];
-        if (pinned.Count == 0)
+        var cards = CardsOf(DashboardLayout.Sensors);
+        foreach (var card in cards.Where(c => c.Widget.Sensors.Count == 0))
         {
-            PinnedSensors.ReplaceAll([]);
+            card.ShowSensors([]);
+        }
+
+        if (cards.All(c => c.Widget.Sensors.Count == 0))
+        {
             return;
         }
 
@@ -269,21 +325,24 @@ public sealed partial class DashboardViewModel : ViewModelBase
             var settings = _settings.Current;
 
             // In the order they were added; one LibreNMS has since dropped just doesn't show.
-            PinnedSensors.ReplaceAll(pinned
-                .Where(p => all.ContainsKey(p.SensorId))
-                .Select(p =>
-                {
-                    var sensor = all[p.SensorId];
-                    var reading = DeviceSectionLoader.ReadSensor(sensor, settings);
-                    return new SectionRow(reading.Name)
+            foreach (var card in cards.Where(c => c.Widget.Sensors.Count > 0))
+            {
+                card.ShowSensors(card.Widget.Sensors
+                    .Where(p => all.ContainsKey(p.SensorId))
+                    .Select(p =>
                     {
-                        Value = reading.Value,
-                        Status = reading.Status,
-                        Subtitle = devices.TryGetValue(sensor.DeviceId, out var device) ? new DeviceItem(device, style).Name : p.DeviceName,
-                        LinkDeviceId = sensor.DeviceId,
-                    };
-                })
-                .ToList());
+                        var sensor = all[p.SensorId];
+                        var reading = DeviceSectionLoader.ReadSensor(sensor, settings);
+                        return new SectionRow(reading.Name)
+                        {
+                            Value = reading.Value,
+                            Status = reading.Status,
+                            Subtitle = devices.TryGetValue(sensor.DeviceId, out var device) ? new DeviceItem(device, style).Name : p.DeviceName,
+                            LinkDeviceId = sensor.DeviceId,
+                        };
+                    })
+                    .ToList());
+            }
         }
         catch (LibreNmsApiException)
         {
@@ -291,29 +350,31 @@ public sealed partial class DashboardViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadGraphAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style)
+    /// <summary>Every Graph card's graph, side by side; one that fails just shows none.</summary>
+    private Task LoadGraphsAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style) =>
+        Task.WhenAll(CardsOf(DashboardLayout.Graph).Select(card => LoadGraphAsync(card, devices, style)));
+
+    private async Task LoadGraphAsync(DashboardCard card, IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style)
     {
-        if (GraphWidget is not { GraphDeviceId: { } deviceId, GraphName: { } graph } widget)
+        if (card.Widget is not { GraphDeviceId: { } deviceId, GraphName: { } graph } widget)
         {
-            GraphPage = null;
-            GraphTitle = "Graph";
+            card.GraphPage = null;
+            card.Title = DashboardLayout.HasOwnTitle(card.Widget) ? card.Widget.Title : DashboardLayout.KindOf(DashboardLayout.Graph).Title;
             return;
         }
 
         var deviceName = devices.TryGetValue(deviceId, out var device) ? new DeviceItem(device, style).Name : $"Device {deviceId}";
-        GraphTitle = string.IsNullOrWhiteSpace(widget.Title) || widget.Title == DashboardLayout.KindOf(DashboardLayout.Graph).Title
-            ? $"{graph} · {deviceName}"
-            : widget.Title;
+        card.Title = DashboardLayout.HasOwnTitle(widget) ? widget.Title : $"{graph} · {deviceName}";
 
         try
         {
             var range = new GraphTimeRange(widget.GraphTimeRangePreset == GraphTimeRangePreset.Custom ? GraphTimeRangePreset.Day : widget.GraphTimeRangePreset);
             var svg = await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight);
-            GraphPage = GraphHtml.Build(svg, DarkTheme);
+            card.GraphPage = GraphHtml.Build(svg, DarkTheme);
         }
         catch (LibreNmsApiException)
         {
-            GraphPage = null;
+            card.GraphPage = null;
         }
     }
 
@@ -413,8 +474,7 @@ public sealed partial class DashboardViewModel : ViewModelBase
 
     private bool Shows(string type) => Cards.Any(c => c.Type == type);
 
-    private DashboardWidget? Widget(string type) =>
-        DashboardLayout.Current(_settings.Current).FirstOrDefault(w => w.WidgetType == type);
+    private List<DashboardCard> CardsOf(string type) => Cards.Where(c => c.Type == type).ToList();
 
     private Task OpenAsync(int deviceId) =>
         _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });

@@ -222,13 +222,13 @@
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="4">
                             <!-- Chosen in Customise (Set up), or from this hint - not a button on the card. -->
-                            <Label Style="{StaticResource CardTitle}" Text="Sensors" Margin="0,0,0,4" />
-                            <Label Style="{StaticResource Caption}" Text="Tap to choose sensors to keep an eye on here." IsVisible="{Binding Dashboard.HasNoPinnedSensors}">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" Margin="0,0,0,4" />
+                            <Label Style="{StaticResource Caption}" Text="Tap to choose sensors to keep an eye on here." IsVisible="{Binding HasNoSensors}">
                                 <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.PickSensorsCommand}" />
+                                    <TapGestureRecognizer Command="{Binding Dashboard.PickSensorsCommand}" CommandParameter="{Binding .}" />
                                 </Label.GestureRecognizers>
                             </Label>
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedSensors}">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sensors}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
@@ -258,18 +258,18 @@
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="8">
                             <!-- Changed in Customise (Set up), or from this hint - not a button on the card. -->
-                            <Label Style="{StaticResource CardTitle}" Text="{Binding Dashboard.GraphTitle}" LineBreakMode="TailTruncation" />
-                            <Label Style="{StaticResource Caption}" Text="Tap to choose a device and one of its graphs." IsVisible="{Binding Dashboard.GraphNeedsSetUp}">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <Label Style="{StaticResource Caption}" Text="Tap to choose a device and one of its graphs." IsVisible="{Binding GraphNeedsSetUp}">
                                 <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Dashboard.PickGraphCommand}" />
+                                    <TapGestureRecognizer Command="{Binding Dashboard.PickGraphCommand}" CommandParameter="{Binding .}" />
                                 </Label.GestureRecognizers>
                             </Label>
-                            <Grid IsVisible="{Binding Dashboard.GraphPage, Converter={StaticResource IsNotNull}}">
-                                <controls:GraphView Html="{Binding Dashboard.GraphPage}" />
+                            <Grid IsVisible="{Binding GraphPage, Converter={StaticResource IsNotNull}}">
+                                <controls:GraphView Html="{Binding GraphPage}" />
                                 <!-- The web view would swallow taps; this opens the device's graphs. -->
                                 <BoxView Color="Transparent">
                                     <BoxView.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Dashboard.OpenGraphCommand}" />
+                                        <TapGestureRecognizer Command="{Binding Dashboard.OpenGraphCommand}" CommandParameter="{Binding .}" />
                                     </BoxView.GestureRecognizers>
                                 </BoxView>
                             </Grid>

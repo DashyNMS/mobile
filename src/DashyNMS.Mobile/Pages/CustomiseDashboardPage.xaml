@@ -13,7 +13,7 @@
             <VerticalStackLayout Padding="16" Spacing="8">
 
                 <Label Style="{StaticResource Caption}"
-                       Text="Choose the cards to show, and their order. Changes save as you make them." />
+                       Text="Choose the cards to show, and their order. Add as many Sensors and Graph cards as you like. Changes save as you make them." />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}" Spacing="8">
                     <BindableLayout.ItemTemplate>
@@ -42,6 +42,12 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
+
+                <!-- As many Sensors and Graph cards as wanted, each with its own title and set-up (#87). -->
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,4,0,0">
+                    <Button Style="{StaticResource SecondaryButton}" Text="Add a Sensors card" Command="{Binding AddSensorsCommand}" />
+                    <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Text="Add a Graph card" Command="{Binding AddGraphCommand}" />
+                </Grid>
 
                 <Button Text="Back to the standard dashboard" Command="{Binding ResetToDefaultsCommand}" Margin="0,12,0,0" />
 
