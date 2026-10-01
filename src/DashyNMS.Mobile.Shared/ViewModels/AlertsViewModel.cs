@@ -442,6 +442,16 @@ public sealed partial class AlertsViewModel : ViewModelBase
         return _navigation.GoToAlertAsync(item.Alert);
     }
 
+    /// <summary>Press and hold on a row: start selecting with it ticked.</summary>
+    [RelayCommand]
+    private void Hold(AlertItem? item)
+    {
+        if (item is not null)
+        {
+            Selection.Hold(item.Id);
+        }
+    }
+
     [RelayCommand]
     private void StartSelecting() => Selection.Start();
 
