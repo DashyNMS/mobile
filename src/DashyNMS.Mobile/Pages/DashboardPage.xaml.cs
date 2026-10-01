@@ -12,7 +12,7 @@ public partial class DashboardPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 
 		// A pull starts the refresh (the view runs the command); its own
-		// spinner is put away at once, as the one under the logo shows the load.
+		// spinner is put away at once, as the logo's heartbeat shows the load.
 		Refresh.Refreshing += (_, _) => Dispatcher.Dispatch(() => Refresh.IsRefreshing = false);
 	}
 
