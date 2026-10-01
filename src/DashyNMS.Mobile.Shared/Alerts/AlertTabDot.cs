@@ -20,7 +20,7 @@ public enum AlertTabSeverity
 /// off. Fed by every alert check - in the app and in the background - as
 /// the badge is; the app shell draws it.
 /// </summary>
-public sealed class AlertTabDot
+public sealed class AlertTabDot(AlertCountThreshold? threshold = null)
 {
     public AlertTabSeverity Severity { get; private set; }
 
@@ -42,10 +42,8 @@ public sealed class AlertTabDot
 
     public void Update(IEnumerable<Alert> alerts, AppSettings settings)
     {
-        var counted = settings.ShowAlertTabBadge
-            ? alerts.Where(a => a.State == AlertState.Active
-                || (a.State == AlertState.Acknowledged && settings.AlertTabBadgeIncludesAcknowledged)).ToList()
-            : [];
+        // Only what the app icon counts, its severity threshold (#96) included.
+        var counted = AlertBadge.Counted(alerts, settings, threshold?.Minimum ?? AlertSeverity.Ok).ToList();
 
         var critical = counted.Count(a => a.Severity == AlertSeverity.Critical);
         var warning = counted.Count(a => a.Severity == AlertSeverity.Warning);

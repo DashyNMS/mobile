@@ -34,6 +34,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly IShareService _share;
     private readonly IAppBadge _badge;
     private readonly AlertTabDot? _tabDot;
+    private readonly AlertCountThreshold? _countThreshold;
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
 
@@ -77,8 +78,10 @@ public sealed partial class AlertsViewModel : ViewModelBase
         IShareService share,
         IAppBadge badge,
         TimeProvider time,
-        AlertTabDot? tabDot = null)
+        AlertTabDot? tabDot = null,
+        AlertCountThreshold? countThreshold = null)
     {
+        _countThreshold = countThreshold;
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
@@ -252,7 +255,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         ApplyFilter();
 
         // Straight away, rather than at the next check - after acknowledging, say.
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
         _tabDot?.Update(alerts, _settings.Current);
     });
 
@@ -400,7 +403,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         OnPropertyChanged(nameof(AcknowledgedCount));
 
         var alerts = _all.Select(a => a.Alert).ToList();
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
         _tabDot?.Update(alerts, _settings.Current);
     }
 
