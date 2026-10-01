@@ -8,14 +8,18 @@
     x:DataType="topo:NeighbourGroupEditorViewModel"
     Title="{Binding Heading}">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
-    </ContentPage.ToolbarItems>
-
     <!-- As desktop's view editor (#98): a name, all or any, and the rules. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16" Spacing="12">
+            <VerticalStackLayout Padding="16,4,16,16" Spacing="12">
+
+                <!-- "‹ Neighbourhoods" and Save, as the app's other pushed pages. -->
+                <controls:BackBar x:Name="TopBar">
+                    <controls:BackBar.Actions>
+                        <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
+                    </controls:BackBar.Actions>
+                </controls:BackBar>
+                <Label Style="{StaticResource PageTitle}" Text="{Binding Heading}" SemanticProperties.HeadingLevel="Level1" />
 
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
