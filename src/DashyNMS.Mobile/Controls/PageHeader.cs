@@ -17,6 +17,8 @@ public sealed class PageHeader : Grid
 
     private readonly Label _title = new() { Style = (Style)Application.Current!.Resources["PageTitle"] };
 
+    private EventHandler? _titleTapped;
+
     public PageHeader()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
@@ -30,6 +32,28 @@ public sealed class PageHeader : Grid
     {
         get => (string)GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
+    }
+
+    /// <summary>
+    /// A tap on the title itself - Settings counts them for its easter egg
+    /// (#99). The title only listens once something does, so other pages'
+    /// titles stay plain headings for VoiceOver.
+    /// </summary>
+    public event EventHandler? TitleTapped
+    {
+        add
+        {
+            if (_titleTapped is null)
+            {
+                var tap = new TapGestureRecognizer();
+                tap.Tapped += (_, _) => _titleTapped?.Invoke(this, EventArgs.Empty);
+                _title.GestureRecognizers.Add(tap);
+            }
+
+            _titleTapped += value;
+        }
+
+        remove => _titleTapped -= value;
     }
 
     /// <summary>The page's actions, at the title's right.</summary>
