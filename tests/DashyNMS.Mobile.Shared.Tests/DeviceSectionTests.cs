@@ -541,6 +541,27 @@ public sealed class DeviceDetailActionTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Last_polled_sent_with_its_own_zone_reads_right_whatever_the_UTC_setting(bool serverTimestampsAreUtc)
+    {
+        // LibreNMS sends last_polled as a zoned ISO string (a Laravel datetime
+        // cast), unlike its other times; read as unzoned it came out an hour
+        // ahead in BST, so every device said "just now" (DashyNMS/desktop#210).
+        var polled = DateTime.UtcNow.AddMinutes(-9).ToString("yyyy-MM-ddTHH:mm:ss.ffffff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        var device = System.Text.Json.JsonSerializer.Deserialize<Device>(
+            $$"""{ "device_id": 11, "hostname": "core-sw", "last_polled": "{{polled}}" }""",
+            DesktopNMS.Core.Json.LibreNmsJson.Options)!;
+        _client.Devices.GetAsync("11", Arg.Any<CancellationToken>()).Returns(device);
+        var settings = Fakes.Settings(new AppSettings { ServerTimestampsAreUtc = serverTimestampsAreUtc });
+        var vm = new DeviceDetailViewModel(_client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System), _dialogs, _navigation);
+
+        await vm.LoadAsync(11);
+
+        Assert.Equal("Last polled 9m ago", vm.FreshnessText);
+    }
+
+    [Theory]
     [InlineData(4.234, "took 4.2s")]
     [InlineData(61.8, "took 62s")]
     [InlineData(-1d, null)]
