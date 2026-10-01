@@ -84,6 +84,22 @@ public sealed class BulkAlertTests
     }
 
     [Fact]
+    public async Task Press_and_hold_starts_selecting_with_that_row_ticked()
+    {
+        var vm = await Loaded();
+
+        vm.HoldCommand.Execute(vm.Alerts.Single(a => a.Id == 1));
+
+        Assert.True(vm.Selection.IsSelecting);
+        Assert.Equal([1], vm.Alerts.Where(a => a.IsTicked).Select(a => a.Id));
+        Assert.Empty(_navigation.Visits);
+
+        // Already selecting: holding another ticks it, as a tap would.
+        vm.HoldCommand.Execute(vm.Alerts.Single(a => a.Id == 3));
+        Assert.Equal([1, 3], vm.Alerts.Where(a => a.IsTicked).Select(a => a.Id).Order());
+    }
+
+    [Fact]
     public async Task Select_all_ticks_what_the_filters_show_then_none()
     {
         var vm = await Loaded();

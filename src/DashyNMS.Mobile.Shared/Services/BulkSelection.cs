@@ -67,6 +67,23 @@ public sealed partial class BulkSelection(string noun) : ObservableObject
         Notify();
     }
 
+    /// <summary>
+    /// A row pressed and held: selecting starts with that row ticked - or,
+    /// already selecting, it's ticked or unticked as a tap would.
+    /// </summary>
+    public void Hold(int id)
+    {
+        if (!IsSelecting)
+        {
+            Start();
+            _ids.Add(id);
+            Notify();
+            return;
+        }
+
+        Toggle(id);
+    }
+
     public void Toggle(int id)
     {
         if (!_ids.Remove(id))

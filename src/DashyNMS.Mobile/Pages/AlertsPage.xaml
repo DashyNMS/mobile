@@ -13,7 +13,6 @@
 
     <!-- For when Alerts is pushed from More and has the navigation bar; as a tab, the header has these. -->
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Select" Command="{Binding StartSelectingCommand}" />
         <ToolbarItem Text="Logs" Command="{Binding OpenLogsCommand}" />
         <ToolbarItem Text="Export" IconImageSource="icon_export.png" Command="{Binding ExportCsvCommand}" />
     </ContentPage.ToolbarItems>
@@ -26,9 +25,6 @@
         <controls:PageHeader x:Name="Header" Title="Alerts">
             <controls:PageHeader.Actions>
                 <HorizontalStackLayout Spacing="4">
-                    <!-- Bulk actions (#85): tick several, then act on them together. -->
-                    <Button Style="{StaticResource LinkButton}" Text="Select" Command="{Binding StartSelectingCommand}"
-                            IsVisible="{Binding Selection.IsOff}" />
                     <Button Style="{StaticResource LinkButton}" Text="Logs" Command="{Binding OpenLogsCommand}" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Export}" Command="{Binding ExportCsvCommand}"
                                          SemanticProperties.Description="Export as CSV" />
@@ -145,7 +141,11 @@
                                     </SwipeItems>
                                 </SwipeView.RightItems>
 
-                                <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                                <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
+                                      controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
+                                      controls:LongPress.CommandParameter="{Binding .}"
+                                      SemanticProperties.Hint="Touch and hold to select several">
+                                    <!-- Press and hold starts selecting several, with this one ticked (#85). -->
                                     <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
                                     <Grid.Triggers>
                                         <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">

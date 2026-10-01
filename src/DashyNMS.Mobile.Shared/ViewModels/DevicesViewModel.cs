@@ -458,6 +458,16 @@ public sealed partial class DevicesViewModel : ViewModelBase
         return OpenAsync(item.DeviceId);
     }
 
+    /// <summary>Press and hold on a row: start selecting with it ticked.</summary>
+    [RelayCommand]
+    private void Hold(DeviceItem? item)
+    {
+        if (item is not null)
+        {
+            Selection.Hold(item.DeviceId);
+        }
+    }
+
     [RelayCommand]
     private void StartSelecting() => Selection.Start();
 
