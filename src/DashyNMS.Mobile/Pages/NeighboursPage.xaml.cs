@@ -21,6 +21,7 @@ public partial class NeighboursPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_viewModel.GroupsChanged();
 	}
 }

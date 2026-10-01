@@ -135,7 +135,7 @@ public sealed class NeighbourGroupsTests
     {
         var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs);
         editor.Load(null);
-        Assert.Equal("New group", editor.Heading);
+        Assert.Equal("New neighbourhood", editor.Heading);
         editor.Name = "  Phones ";
         editor.MatchIndex = 1;
         editor.Rules[0].FieldIndex = (int)NeighbourRuleField.SystemDescription;
@@ -161,7 +161,7 @@ public sealed class NeighbourGroupsTests
         var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs);
 
         editor.Load(group.Id);
-        Assert.Equal("Edit group", editor.Heading);
+        Assert.Equal("Edit neighbourhood", editor.Heading);
         Assert.True(editor.Rules[1].IsUnsupported);
         editor.Name = "Renamed";
         await editor.SaveCommand.ExecuteAsync(null);

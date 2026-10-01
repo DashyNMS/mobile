@@ -21,7 +21,7 @@
 
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="10">
-                        <Entry Text="{Binding Name}" Placeholder="Group name, e.g. Wireless APs" />
+                        <Entry Text="{Binding Name}" Placeholder="Name, e.g. Wireless APs" />
                         <Picker Title="Matching" ItemsSource="{Binding MatchChoices}" SelectedIndex="{Binding MatchIndex}" />
                     </VerticalStackLayout>
                 </Border>
@@ -51,7 +51,7 @@
 
                 <Button Style="{StaticResource SecondaryButton}" Text="Add a rule" Command="{Binding AddRuleCommand}" />
                 <Button Text="Save" Command="{Binding SaveCommand}" />
-                <Button Style="{StaticResource DangerButton}" Text="Delete group" Command="{Binding DeleteCommand}"
+                <Button Style="{StaticResource DangerButton}" Text="Delete neighbourhood" Command="{Binding DeleteCommand}"
                         IsVisible="{Binding IsExisting}" Margin="0,12,0,0" />
 
             </VerticalStackLayout>

@@ -9,31 +9,50 @@
     SafeAreaEdges="Container"
     Title="Neighbours">
 
-    <!-- Groups are desktop's neighbour views, shared through its settings (#98). -->
+    <!-- Neighbourhoods are desktop's neighbour views, shared through its settings (#98).
+         Pushed from More, the navigation bar has the button; as a tab, the header. -->
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Groups" Command="{Binding EditGroupsCommand}" />
+        <ToolbarItem Text="Neighbourhoods" Command="{Binding EditGroupsCommand}" />
     </ContentPage.ToolbarItems>
 
     <!-- Laid out as the Devices tab (#98): search, chips, a count, then the rows in one card. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+
+        <controls:PageHeader x:Name="Header" Title="Neighbours">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Neighbourhoods" Command="{Binding EditGroupsCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal. -->
-        <Grid x:Name="SearchSlot" IsClippedToBounds="True">
+        <Grid Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
             <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search names, ports, platforms" Margin="-6,2,-6,0" />
         </Grid>
 
-        <!-- Down only, then All and each group. -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
+        <!-- Up and Down (both on to start), a divider, then All and each neighbourhood. -->
+        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
-                <Button Style="{StaticResource Chip}" Text="{Binding ProblemCount, StringFormat='Down {0}'}" Command="{Binding ToggleProblemsOnlyCommand}">
+                <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ProblemsOnly}" Value="True">
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource OkStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Style="{StaticResource Chip}" Text="{Binding DownCount, StringFormat='Down {0}'}" Command="{Binding ToggleDownCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowDown}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
                             <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
                             <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
+                <!-- Between the state chips and the neighbourhoods. -->
+                <BoxView WidthRequest="1" HeightRequest="20" VerticalOptions="Center" Margin="2,0"
+                         Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
                 <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourGroupChip">
@@ -51,14 +70,13 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </HorizontalStackLayout>
-                <Button Style="{StaticResource LinkButton}" Text="Edit groups" Command="{Binding EditGroupsCommand}" />
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Label Grid.Row="2" Style="{StaticResource Faint}" Text="{Binding CountText}" Margin="4,6,0,4" />
-        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <Label Grid.Row="3" Style="{StaticResource Faint}" Text="{Binding CountText}" Margin="4,6,0,4" />
+        <Label Grid.Row="4" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-        <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+        <Border Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
                 <CollectionView x:Name="List" ItemsSource="{Binding Links}" SelectionMode="None">
                     <CollectionView.EmptyView>
