@@ -32,11 +32,16 @@
                                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
                                             Command="{Binding MoveDownCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
-                                    <Switch Grid.Column="3" IsToggled="{Binding IsShown}" VerticalOptions="Center" />
-                                    <Button Grid.Row="1" Grid.ColumnSpan="4" Text="Set up…" HorizontalOptions="Start" Margin="0,6,0,0"
-                                            IsVisible="{Binding CanSetUp}"
-                                            Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
-                                            CommandParameter="{Binding .}" />
+                                    <Switch Grid.Column="3" IsToggled="{Binding IsShown}" VerticalOptions="Center" IsVisible="{Binding CanSwitch}" />
+                                    <!-- Added Sensors and Graph cards (#87): set up, or take off the dashboard. -->
+                                    <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="4" Spacing="8" Margin="0,6,0,0" IsVisible="{Binding CanSetUp}">
+                                        <Button Text="Set up…"
+                                                Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Style="{StaticResource SecondaryButton}" Text="Remove" IsVisible="{Binding CanRemove}"
+                                                Command="{Binding RemoveCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                    </HorizontalStackLayout>
                                 </Grid>
                             </Border>
                         </DataTemplate>

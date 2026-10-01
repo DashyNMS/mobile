@@ -94,9 +94,11 @@ public sealed class CustomiseDashboardViewModelTests
     {
         var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
 
-        Assert.Equal(DashboardLayout.Kinds.Count, vm.Cards.Count);
+        // Sensors and Graph cards come from the Add buttons, so aren't listed until added.
+        Assert.Equal(DashboardLayout.Kinds.Count(k => !k.AllowsSeveral), vm.Cards.Count);
         Assert.Equal(DashboardLayout.DefaultTypes, vm.Cards.Take(5).Select(c => c.Kind.Type));
         Assert.All(vm.Cards.Skip(5), c => Assert.False(c.IsShown));
+        Assert.All(vm.Cards, c => Assert.True(c.CanSwitch));
     }
 
     [Fact]
@@ -117,32 +119,38 @@ public sealed class CustomiseDashboardViewModelTests
     [Fact]
     public void Reset_brings_back_the_standard_dashboard()
     {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
         var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
-        vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Graph).IsShown = true;
         vm.MoveDownCommand.Execute(vm.Cards[0]);
 
         vm.ResetToDefaultsCommand.Execute(null);
 
         Assert.Equal(DashboardLayout.DefaultTypes, Shown(_appSettings));
+        Assert.DoesNotContain(vm.Cards, c => c.Kind.Type == DashboardLayout.Graph);
     }
 
     [Fact]
-    public async Task Sensors_and_graph_cards_have_set_up()
+    public async Task An_added_card_is_set_up_or_removed_not_switched_off()
     {
+        var sensors = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         var navigation = new RecordingNavigation();
-        var vm = new CustomiseDashboardViewModel(_settings, navigation);
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        var vm = new CustomiseDashboardViewModel(_settings, navigation, dialogs);
+        var card = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors);
 
-        Assert.True(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Graph).CanSetUp);
-        Assert.False(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Alerts).CanSetUp);
-        var sensors = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors);
-        await vm.SetUpCommand.ExecuteAsync(sensors);
+        Assert.True(card.CanSetUp && card.CanRemove && !card.CanSwitch);
+        Assert.False(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Alerts).CanRemove);
 
-        // Shown first, so there's a card to set up, then its own set-up.
-        Assert.True(sensors.IsShown);
+        await vm.SetUpCommand.ExecuteAsync(card);
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.PickSensors, visit.Route);
-        Assert.Equal(sensors.Widget.Id, visit.Parameters![Routes.WidgetIdParameter]);
-        Assert.Contains(DashboardLayout.Sensors, Shown(_appSettings));
+        Assert.Equal(sensors.Id, visit.Parameters![Routes.WidgetIdParameter]);
+
+        await vm.RemoveCommand.ExecuteAsync(card);
+        await dialogs.Received(1).ConfirmAsync("Remove card", Arg.Any<string>(), "Remove", "Cancel");
+        Assert.DoesNotContain(vm.Cards, c => c.Kind.Type == DashboardLayout.Sensors);
+        Assert.DoesNotContain(DashboardLayout.Sensors, Shown(_appSettings));
     }
 
     [Fact]
