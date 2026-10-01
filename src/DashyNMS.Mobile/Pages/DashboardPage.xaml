@@ -327,8 +327,10 @@
              them, fading out as they pass under (Customise is the sliders
              button - #30, #41). -->
         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="16,16,16,8">
-            <Image Source="dashynms_logo.png" WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
-                   SemanticProperties.Description="DashyNMS logo" />
+            <!-- The logo is the refresh indicator: its heartbeat sweeps while the
+                 dashboard loads - every time, pulled or not - then rests. -->
+            <controls:HeartbeatLogo WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
+                                    IsBeating="{Binding IsBusy}" />
             <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
             <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
@@ -355,7 +357,6 @@
                     <VerticalStackLayout Padding="16,8,16,16" Spacing="4">
 
                         <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                        <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
 
                         <!-- One column on a phone; on an iPad or a Mac, as many as fit
                              side by side (#88), in the order they're customised. -->
@@ -381,13 +382,6 @@
                     </LinearGradientBrush>
                 </BoxView.Background>
             </BoxView>
-
-            <!-- Later loads, automatic or pulled: a small spinner just under the
-                 header, over the cards rather than pushing them down. -->
-            <ActivityIndicator IsRunning="{Binding IsRefreshingAgain}" IsVisible="{Binding IsRefreshingAgain}"
-                               HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" VerticalOptions="Start"
-                               Margin="0,4,0,0" InputTransparent="True"
-                               SemanticProperties.Description="Refreshing" />
         </Grid>
 
     </Grid>
