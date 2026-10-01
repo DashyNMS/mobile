@@ -30,6 +30,14 @@ public sealed partial class DashboardCardOption : ObservableObject
     /// <summary>Sensors and Graph have something to choose.</summary>
     public bool CanSetUp => Kind.AllowsSeveral;
 
+    /// <summary>
+    /// Sensors and Graph cards are added, so they're removed rather than
+    /// switched off; every other kind has its switch.
+    /// </summary>
+    public bool CanRemove => Kind.AllowsSeveral;
+
+    public bool CanSwitch => !CanRemove;
+
     [ObservableProperty]
     private bool _isShown;
 
@@ -47,11 +55,13 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 {
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
+    private readonly IDialogService? _dialogs;
 
-    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation)
+    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, IDialogService? dialogs = null)
     {
         _settings = settings;
         _navigation = navigation;
+        _dialogs = dialogs;
         Build(DashboardLayout.Current(settings.Current));
     }
 
@@ -93,6 +103,25 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         return OpenSetUpAsync(card.Widget);
     }
 
+    /// <summary>An added Sensors or Graph card taken off the dashboard, its set-up with it - after asking.</summary>
+    [RelayCommand]
+    private async Task RemoveAsync(DashboardCardOption? card)
+    {
+        if (card is null || !card.CanRemove)
+        {
+            return;
+        }
+
+        if (_dialogs is not null
+            && !await _dialogs.ConfirmAsync("Remove card", $"Remove \"{card.Title}\" from the dashboard? Its set-up goes with it.", "Remove", "Cancel"))
+        {
+            return;
+        }
+
+        Cards.Remove(card);
+        Save();
+    }
+
     /// <summary>Back to the dashboard as it came: the default cards, and no Sensors or Graph cards.</summary>
     [RelayCommand]
     private void ResetToDefaults()
@@ -105,13 +134,6 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     {
         var widget = DashboardLayout.New(type);
         var option = Watch(new DashboardCardOption(widget, isShown: true));
-
-        // A placeholder for the kind (none set up yet) makes way for the real one.
-        if (Cards.FirstOrDefault(c => !c.IsShown && c.Kind.Type == type) is { } placeholder)
-        {
-            Cards.Remove(placeholder);
-        }
-
         Cards.Insert(Cards.Count(c => c.IsShown), option);
         Save();
         await OpenSetUpAsync(widget);
@@ -122,8 +144,9 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         new Dictionary<string, object> { [Routes.WidgetIdParameter] = widget.Id });
 
     /// <summary>
-    /// The cards showing, in their order; then each once-only kind that isn't,
-    /// and a Sensors or Graph placeholder when there's none of that kind.
+    /// The cards showing, in their order; then each once-only kind that isn't.
+    /// Sensors and Graph cards come from the Add buttons, so they're only
+    /// listed once added.
     /// </summary>
     private void Build(IReadOnlyList<DashboardWidget> shown)
     {
@@ -133,7 +156,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
             Cards.Add(Watch(new DashboardCardOption(widget, isShown: true)));
         }
 
-        foreach (var kind in DashboardLayout.Kinds.Where(k => shown.All(w => w.WidgetType != k.Type)))
+        foreach (var kind in DashboardLayout.Kinds.Where(k => !k.AllowsSeveral && shown.All(w => w.WidgetType != k.Type)))
         {
             Cards.Add(Watch(new DashboardCardOption(DashboardLayout.New(kind.Type), isShown: false)));
         }
