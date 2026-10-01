@@ -52,15 +52,16 @@ public sealed class NeighboursViewModelTests
     {
         var vm = await Loaded();
 
-        Assert.Equal(["core-sw ↔ access-sw", "core-sw ↔ edge-rtr", "core-sw ↔ SEP001122"], vm.Links.Select(l => l.Row.Title));
+        // As Devices' rows (#98): the neighbour, then what it is and where it plugs in.
+        Assert.Equal(["access-sw", "edge-rtr", "SEP001122"], vm.Links.Select(l => l.Row.Title));
         var down = vm.Links[0];
         Assert.True(down.IsProblem);
         Assert.Equal(RowStatus.Critical, down.Row.Status);
         Assert.Equal("Down: access-sw, core-sw Gi0/2, access-sw Fa0/1", down.Row.Detail);
-        Assert.Equal("Gi0/1 ↔ Gi0/24", vm.Links[1].Row.Subtitle);
+        Assert.Equal("core-sw Gi0/1 ↔ Gi0/24", vm.Links[1].Row.Subtitle);
         Assert.Equal("LLDP", vm.Links[1].Row.Value);
-        Assert.Equal("Cisco IP Phone", vm.Links[2].Row.Detail);
-        Assert.Equal("3 links", vm.CountText);
+        Assert.Equal("Cisco IP Phone · core-sw Gi0/3 ↔ Port 1", vm.Links[2].Row.Subtitle);
+        Assert.Equal("3 neighbours", vm.CountText);
     }
 
     [Fact]
@@ -69,12 +70,15 @@ public sealed class NeighboursViewModelTests
         var vm = await Loaded();
 
         vm.ToggleProblemsOnlyCommand.Execute(null);
-        Assert.Equal(["core-sw ↔ access-sw"], vm.Links.Select(l => l.Row.Title));
-        Assert.Equal("1 of 3 links", vm.CountText);
+        Assert.Equal(["access-sw"], vm.Links.Select(l => l.Row.Title));
+        Assert.Equal("1 of 3 neighbours", vm.CountText);
 
         vm.ToggleProblemsOnlyCommand.Execute(null);
         vm.SearchText = "phone";
-        Assert.Equal(["core-sw ↔ SEP001122"], vm.Links.Select(l => l.Row.Title));
+        Assert.Equal(["SEP001122"], vm.Links.Select(l => l.Row.Title));
+
+        vm.SearchText = "port 1"; // an LLDP field the row doesn't show by itself
+        Assert.Equal(["SEP001122"], vm.Links.Select(l => l.Row.Title));
     }
 
     [Fact]

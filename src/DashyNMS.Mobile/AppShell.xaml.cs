@@ -27,6 +27,8 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.PickGraph, typeof(GraphPickerPage));
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
 		Routing.RegisterRoute(Routes.SettingsSection, typeof(SettingsSectionPage));
+		Routing.RegisterRoute(Routes.NeighbourGroups, typeof(NeighbourGroupsPage));
+		Routing.RegisterRoute(Routes.NeighbourGroupEditor, typeof(NeighbourGroupEditorPage));
 
 		// Every page More lists can also be pushed, for when it isn't pinned.
 		foreach (var page in AppPages.All)

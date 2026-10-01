@@ -57,6 +57,15 @@ public static class Routes
     /// <summary>Every CDP/LLDP link across the network.</summary>
     public const string Neighbours = "neighbours";
 
+    /// <summary>The Neighbours page's groups (#98): add, reorder, delete.</summary>
+    public const string NeighbourGroups = "neighbourgroups";
+
+    /// <summary>One neighbour group - with <see cref="GroupIdParameter"/>, or a new one without.</summary>
+    public const string NeighbourGroupEditor = "neighbourgroup";
+
+    /// <summary>Query attribute: which neighbour group <see cref="NeighbourGroupEditor"/> changes.</summary>
+    public const string GroupIdParameter = "group";
+
     /// <summary>The network-wide event and alert logs.</summary>
     public const string Logs = "logs";
 
