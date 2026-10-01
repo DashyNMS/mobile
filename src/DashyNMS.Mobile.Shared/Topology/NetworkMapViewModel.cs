@@ -111,6 +111,12 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     /// <summary>Guards against an older layout (a location since switched away from) landing after a newer one.</summary>
     private int _buildVersion;
 
+    /// <summary>
+    /// Set while a refresh puts back the chosen location or group, with its
+    /// new count: the choice hasn't changed, so the map isn't rebuilt.
+    /// </summary>
+    private bool _keepingChoice;
+
     [ObservableProperty]
     private FacetOption _selectedLocation = AllLocations;
 
@@ -235,6 +241,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     partial void OnSelectedLocationChanged(FacetOption value)
     {
+        if (_keepingChoice)
+        {
+            return;
+        }
+
         // A picker whose choices are being refilled briefly sends back null.
         if (value is null)
         {
@@ -248,6 +259,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     partial void OnSelectedGroupChanged(FacetOption value)
     {
+        if (_keepingChoice)
+        {
+            return;
+        }
+
         if (value is null)
         {
             SelectedGroup = AllGroups;
@@ -545,7 +561,20 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         var keep = counted.FirstOrDefault(o => string.Equals(o.Key, selected, StringComparison.OrdinalIgnoreCase)) ?? AllLocations;
         if (!ReferenceEquals(keep, SelectedLocation))
         {
-            SetProperty(ref _selectedLocation, keep, nameof(SelectedLocation));
+            KeepChoice(() => SelectedLocation = keep);
+        }
+    }
+
+    private void KeepChoice(Action set)
+    {
+        _keepingChoice = true;
+        try
+        {
+            set();
+        }
+        finally
+        {
+            _keepingChoice = false;
         }
     }
 
@@ -565,7 +594,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         var keep = counted.FirstOrDefault(o => string.Equals(o.Key, selected, StringComparison.OrdinalIgnoreCase)) ?? AllGroups;
         if (!ReferenceEquals(keep, SelectedGroup))
         {
-            SetProperty(ref _selectedGroup, keep, nameof(SelectedGroup));
+            KeepChoice(() => SelectedGroup = keep);
         }
     }
 

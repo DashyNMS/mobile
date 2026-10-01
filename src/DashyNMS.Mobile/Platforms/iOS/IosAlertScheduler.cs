@@ -28,12 +28,27 @@ public sealed class IosAlertScheduler : IBackgroundAlertScheduler
         };
 
         // Replaces any request already pending for this id. Fails on the
-        // simulator, which has no background app refresh.
-        if (!BGTaskScheduler.Shared.Submit(request, out var error))
+        // simulator, which has no background app refresh. iOS 27 replaced
+        // the synchronous call with one that reports every failure through
+        // a completion handler (#95); iOS 15 to 26 only have the old one.
+        if (OperatingSystem.IsIOSVersionAtLeast(27) || OperatingSystem.IsMacCatalystVersionAtLeast(27))
         {
-            _logger.LogWarning("Could not schedule background alert checks: {Error}", error?.LocalizedDescription);
+            BGTaskScheduler.Shared.Submit(request, error =>
+            {
+                if (error is not null)
+                {
+                    LogFailure(error);
+                }
+            });
+        }
+        else if (!BGTaskScheduler.Shared.Submit(request, out var error))
+        {
+            LogFailure(error);
         }
     }
+
+    private void LogFailure(NSError? error) =>
+        _logger.LogWarning("Could not schedule background alert checks: {Error}", error?.LocalizedDescription);
 
     public void Cancel() => BGTaskScheduler.Shared.Cancel(TaskId);
 }
