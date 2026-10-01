@@ -210,7 +210,23 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
 
         try
         {
-            var streams = await _tester.TestAsync(connection);
+            int streams;
+            try
+            {
+                streams = await _tester.TestAsync(connection);
+            }
+            catch (GraylogApiException ex) when (ex.UntrustedCertificate is not null)
+            {
+                if (!await TrustAsync(ex.UntrustedCertificate))
+                {
+                    throw;
+                }
+
+                // Trusted in the form, and saved with it (#189).
+                connection = BuildConnection(out _) ?? connection;
+                streams = await _tester.TestAsync(connection);
+            }
+
             TestSucceeded = true;
             TestResultText = streams == 1
                 ? "Connected to Graylog - 1 stream available."
@@ -275,6 +291,27 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
         PasswordInput = string.Empty;
         HasStoredPassword = false;
         TestResultText = null;
+    }
+
+    /// <summary>
+    /// Graylog's certificate, which this phone can't verify, shown as desktop
+    /// shows it (<see cref="CertificateTrust.DescribeForPrompt"/>); accepted,
+    /// that exact certificate joins the form's trusted ones (#189).
+    /// </summary>
+    private async Task<bool> TrustAsync(CertificateDetails certificate)
+    {
+        var (title, message) = CertificateTrust.DescribeForPrompt(certificate, "Graylog");
+        if (!await _dialogs.ConfirmAsync(title, message, "Trust", "Cancel"))
+        {
+            return false;
+        }
+
+        if (!_draft.TrustedCertificates.Any(f => CertificateTrust.SameFingerprint(f, certificate.Fingerprint)))
+        {
+            _draft.TrustedCertificates.Add(certificate.Fingerprint);
+        }
+
+        return true;
     }
 
     private GraylogConnection? BuildConnection(out string? error)

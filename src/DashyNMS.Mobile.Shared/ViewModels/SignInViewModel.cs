@@ -4,6 +4,7 @@ using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Security;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
@@ -94,6 +95,14 @@ public sealed partial class SignInViewModel : ViewModelBase
             // The saved token is only readable once secrets are loaded.
             await _secrets.EnsureLoadedAsync(ServiceCollectionExtensions.SecretKeys);
             var result = await _session.TryRestoreAsync();
+
+            // A certificate not yet trusted, or changed since it was (#189):
+            // show it, and only on your say-so trust it and try again.
+            if (result?.UntrustedCertificate is { } certificate && await TrustAsync(certificate))
+            {
+                result = await _session.TryRestoreAsync();
+            }
+
             restored = result?.Succeeded == true;
             if (result is { Succeeded: false })
             {
@@ -151,6 +160,11 @@ public sealed partial class SignInViewModel : ViewModelBase
                 RememberToken,
                 backupAddress: BackupAddress);
 
+            if (result.UntrustedCertificate is { } certificate && await TrustAsync(certificate))
+            {
+                result = await _session.SignInAsync(ServerUrl, ApiToken, AllowUntrustedCertificate, RememberToken, backupAddress: BackupAddress);
+            }
+
             succeeded = result.Succeeded;
             ErrorMessage = result.Succeeded ? null : result.ErrorMessage;
         });
@@ -161,6 +175,29 @@ public sealed partial class SignInViewModel : ViewModelBase
             ApiToken = string.Empty;
             await ShowMainAsync();
         }
+    }
+
+    /// <summary>
+    /// Shows a certificate LibreNMS presented that this phone can't verify -
+    /// what's wrong with it, who it names and its fingerprint, in Core's
+    /// words so desktop asks the same way - and trusts that exact
+    /// certificate only if you say so (#189).
+    /// </summary>
+    private async Task<bool> TrustAsync(CertificateDetails certificate)
+    {
+        if (_dialogs is null)
+        {
+            return false;
+        }
+
+        var (title, message) = CertificateTrust.DescribeForPrompt(certificate, "LibreNMS");
+        if (!await _dialogs.ConfirmAsync(title, message, "Trust", "Cancel"))
+        {
+            return false;
+        }
+
+        _session.TrustCertificate(certificate);
+        return true;
     }
 
     private async Task ShowMainAsync()

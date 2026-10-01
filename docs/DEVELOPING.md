@@ -187,14 +187,13 @@ tests/
   `SessionService` depends only on Core, so it's linked in the same way.
   To pick up desktop changes, bump the submodule:
   `git submodule update --remote external/desktop`.
-- **What's different on mobile.** Desktop keeps secrets with Windows DPAPI.
-  Mobile implements Core's `ITokenProtector` over MAUI `SecureStorage`
+- **What's different on mobile.** Core leaves secret storage to each app:
+  desktop uses Windows DPAPI. Mobile implements Core's `ITokenProtector` over MAUI `SecureStorage`
   instead (`SecureTokenProtector` + `SecretCache`), and registers its own
   services rather than calling `AddDesktopNmsCore()`.
 - **Portability check.** CI runs the desktop Core test suite on Linux against
   the portable build, so anything upstream that only works on Windows shows
-  up here. One test is filtered out today for a known upstream gap
-  (see `tests/DesktopNMS.Core.Tests/DesktopNMS.Core.Tests.csproj`).
+  up here. The whole suite runs; nothing is filtered out.
 - **Keep the head thin.** Anything that isn't a page or a platform API belongs
   in `DashyNMS.Mobile.Shared`, where it's plain .NET and unit tested. The
   head only supplies adapters for navigation, dialogs, the browser, secure
@@ -343,42 +342,17 @@ What's left is the less everyday:
 
 ## Upstream notes
 
-Things found while porting that would be better fixed in the desktop repo:
+Things found while porting that would be better fixed in the desktop repo.
+Everything raised up to v1.1.0 was fixed in DashyNMS/desktop#209, and mobile
+now uses Core's own code for it: settings saving with no listeners, the data
+folder off Windows, Windows-safe Unimus file names, Core on plain net9.0,
+every device's event and alert logs, a device's last poll, the alert
+notification rules, and certificate trust (DashyNMS/desktop#189).
 
-- `SettingsStore.Save()` is `Changed?.Invoke(this, Write())`. The
-  null-conditional skips `Write()` as well when nothing subscribes to
-  `Changed`, so settings are silently never saved. Desktop always has a
-  subscriber, so it doesn't notice. Mobile works around it with
-  `MobileSettingsStore`. The fix is to call `Write()` first, then raise the
-  event.
-- `AppPaths` uses `Environment.GetFolderPath(SpecialFolder.ApplicationData)`,
-  which returns an empty string off Windows when the folder doesn't exist
-  yet, which is always the case on a fresh phone install. Everything then
-  lands in a relative `DashyNMS` folder. Mobile creates the folder first
-  (`MobileStorage.EnsureDataFolder`). Passing `SpecialFolderOption.Create`
-  in `AppPaths` would fix it at the source.
-- `UnimusExport.FileNameFor` relies on `Path.GetInvalidFileNameChars()`,
-  which only contains `/` and `\0` off Windows. That means `:`, `*` and `?`
-  survive into file names exported from a phone. A fixed, Windows-safe set
-  would make the names portable.
-- Core targets `net9.0-windows` only because of its DPAPI secret stores.
-  Moving those (and `AddDesktopNmsCore`'s registration of them) into the WPF
-  project would let Core target plain `net9.0`/`net10.0`. Mobile could then
-  use a normal `ProjectReference` instead of compiling the sources.
-- `ILogsApi` only takes one device. LibreNMS's `logs/eventlog` and
-  `logs/alertlog` routes treat the device as optional and then list every
-  device's entries, which mobile's `NetworkLogs` uses through Core's transport.
-  An overload without the device in Core would let both apps share it.
-- `GraylogApi` (and `UnimusApi`) turn "Allow untrusted certificate" into a
-  callback that accepts every certificate, as `LibreNmsTransport` does (DashyNMS/desktop#189).
-  Their logins are safe from redirects, though: .NET drops the
-  `Authorization` header on any redirect it follows, which
-  `GraylogTransportTests` checks.
-- The rules for which alert changes deserve a notification (`ShouldNotify`,
-  the titles, and the summary cap in `AlertNotificationService`) live in the WPF
-  app, so mobile's `AlertNotificationPlanner` has to mirror them. Moving
-  them into Core would give both apps one copy.
-- Core's `Device` has `LastDiscovered` but no `LastPolled`, though LibreNMS
-  sends `last_polled` and `last_polled_timetaken` with every device. Mobile
-  reads them from `AdditionalData` (`LastPoll`, #97); properties on `Device`
-  would let desktop show them too.
+The app asks before trusting a certificate it can't verify, in Core's words
+(`CertificateTrust.DescribeForPrompt`), at sign-in, when the saved session
+is restored, and when testing Graylog. A background alert check can't ask,
+so it just fails until the app is opened.
+
+Nothing is outstanding. Add new findings here, and raise them on
+DashyNMS/desktop.

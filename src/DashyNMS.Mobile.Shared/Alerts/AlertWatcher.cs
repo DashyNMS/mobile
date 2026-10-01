@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
@@ -154,7 +155,8 @@ public sealed class AlertWatcher
                 settings.Notifications,
                 localNow,
                 _selfActions,
-                alert => nameStyle.Resolve(devicesById?.GetValueOrDefault(alert.DeviceId), alert.DisplayHostname));
+                alert => nameStyle.Resolve(devicesById?.GetValueOrDefault(alert.DeviceId), alert.DisplayHostname),
+                alert => devicesById?.GetValueOrDefault(alert.DeviceId)?.LocationName());
 
             foreach (var tag in plan.Remove)
             {
