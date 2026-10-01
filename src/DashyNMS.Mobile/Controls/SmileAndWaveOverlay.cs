@@ -129,7 +129,7 @@ public sealed class SmileAndWaveOverlay : AbsoluteLayout
         foreach (var scale in SmileAndWave.Scales)
         {
             var penguin = new Penguin(scale);
-            SetLayoutBounds(penguin.Root, new Rect(0, standTop, SmileAndWave.PenguinWidth, SmileAndWave.PenguinHeight));
+            SetLayoutBounds((IView)penguin.Root, new Rect(0, standTop, SmileAndWave.PenguinWidth, SmileAndWave.PenguinHeight));
             Children.Add(penguin.Root);
             _penguins.Add(penguin);
         }
@@ -145,8 +145,8 @@ public sealed class SmileAndWaveOverlay : AbsoluteLayout
         _caption.SetAppThemeColor(Border.BackgroundColorProperty, Colour("SurfaceAltLight"), Colour("SurfaceAltDark"));
         _caption.SetAppThemeColor(Border.StrokeProperty, Colour("StrokeLight"), Colour("StrokeDark"));
         ((Label)_caption.Content).SetAppThemeColor(Label.TextColorProperty, Colour("TextLight"), Colour("TextDark"));
-        SetLayoutBounds(_caption, new Rect(0.5, 4, AutoSize, AutoSize));
-        SetLayoutFlags(_caption, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.XProportional);
+        SetLayoutBounds((IView)_caption, new Rect(0.5, 4, AutoSize, AutoSize));
+        SetLayoutFlags((IView)_caption, Microsoft.Maui.Layouts.AbsoluteLayoutFlags.XProportional);
         Children.Add(_caption);
     }
 
@@ -194,7 +194,7 @@ public sealed class SmileAndWaveOverlay : AbsoluteLayout
         private static T Shape<T>(T view, double left, double top, double width, double height)
             where T : View
         {
-            SetLayoutBounds(view, new Rect(left, top, width, height));
+            SetLayoutBounds((IView)view, new Rect(left, top, width, height));
             return view;
         }
     }
