@@ -48,7 +48,7 @@ public sealed partial class NeighbourGroupChip(NeighbourViewDefinition? group, s
 /// <summary>
 /// Every CDP/LLDP link LibreNMS knows, across the network, laid out as the
 /// Devices tab is (#98): a search over every LLDP field, chips for the
-/// user's groups and for links that are down, a count, and device-style rows.
+/// user's neighbourhoods and for links that are up or down, a count, and device-style rows.
 /// </summary>
 /// <remarks>
 /// <para>A link both devices report (A sees B, B sees A) is one row. It's a
@@ -68,8 +68,13 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     private string? _selectedGroupId;
     private bool _loaded;
 
+    /// <summary>Links with both ends up - on, with <see cref="ShowDown"/>, until a chip is tapped.</summary>
     [ObservableProperty]
-    private bool _problemsOnly;
+    private bool _showUp = true;
+
+    /// <summary>Links with a device or port down at either end.</summary>
+    [ObservableProperty]
+    private bool _showDown = true;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -88,7 +93,9 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     /// <summary>"All", then each group, in the user's order.</summary>
     public ObservableCollection<NeighbourGroupChip> Groups { get; } = new();
 
-    public int ProblemCount => InGroup().Count(l => l.IsProblem);
+    public int UpCount => InGroup().Count(l => !l.IsProblem);
+
+    public int DownCount => InGroup().Count(l => l.IsProblem);
 
     /// <summary>"24 neighbours", or "3 of 24 neighbours" when filtered.</summary>
     public string CountText
@@ -105,12 +112,17 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
     public string EmptyText => _all.Count == 0 ? "LibreNMS has no CDP or LLDP neighbours." : "No neighbours match.";
 
-    partial void OnProblemsOnlyChanged(bool value) => ApplyFilter();
+    partial void OnShowUpChanged(bool value) => ApplyFilter();
+
+    partial void OnShowDownChanged(bool value) => ApplyFilter();
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
-    private void ToggleProblemsOnly() => ProblemsOnly = !ProblemsOnly;
+    private void ToggleUp() => ShowUp = !ShowUp;
+
+    [RelayCommand]
+    private void ToggleDown() => ShowDown = !ShowDown;
 
     /// <summary>A group chip: show just that group - or, tapped again, everything.</summary>
     [RelayCommand]
@@ -293,7 +305,7 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     {
         var term = SearchText.Trim();
         Links.ReplaceAll(InGroup()
-            .Where(l => !ProblemsOnly || l.IsProblem)
+            .Where(l => l.IsProblem ? ShowDown : ShowUp)
             .Where(l => term.Length == 0 || Matches(l, term))
             .ToList());
 
@@ -302,7 +314,8 @@ public sealed partial class NeighboursViewModel : ViewModelBase
             chip.Count = chip.Group is { } group ? _all.Count(l => InGroup(group, l)) : _all.Count;
         }
 
-        OnPropertyChanged(nameof(ProblemCount));
+        OnPropertyChanged(nameof(UpCount));
+        OnPropertyChanged(nameof(DownCount));
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));

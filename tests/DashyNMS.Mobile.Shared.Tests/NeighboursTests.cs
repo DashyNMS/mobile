@@ -69,11 +69,18 @@ public sealed class NeighboursViewModelTests
     {
         var vm = await Loaded();
 
-        vm.ToggleProblemsOnlyCommand.Execute(null);
+        // Up and Down both on to start; Up off leaves the down ones.
+        Assert.True(vm.ShowUp && vm.ShowDown);
+        Assert.Equal((2, 1), (vm.UpCount, vm.DownCount));
+        vm.ToggleUpCommand.Execute(null);
         Assert.Equal(["access-sw"], vm.Links.Select(l => l.Row.Title));
         Assert.Equal("1 of 3 neighbours", vm.CountText);
 
-        vm.ToggleProblemsOnlyCommand.Execute(null);
+        vm.ToggleUpCommand.Execute(null);
+        vm.ToggleDownCommand.Execute(null);
+        Assert.DoesNotContain(vm.Links, l => l.IsProblem);
+
+        vm.ToggleDownCommand.Execute(null);
         vm.SearchText = "phone";
         Assert.Equal(["SEP001122"], vm.Links.Select(l => l.Row.Title));
 

@@ -75,7 +75,7 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(NeighbourGroupRow? row)
     {
-        if (row is null || !await _dialogs.ConfirmAsync("Delete group", $"Delete \"{row.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
+        if (row is null || !await _dialogs.ConfirmAsync("Delete neighbourhood", $"Delete \"{row.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
         {
             return;
         }
@@ -209,7 +209,7 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
     /// <summary>Whether this is a group already saved (so it can be deleted), not a new one.</summary>
     public bool IsExisting { get; private set; }
 
-    public string Heading => IsExisting ? "Edit group" : "New group";
+    public string Heading => IsExisting ? "Edit neighbourhood" : "New neighbourhood";
 
     /// <summary>The group <paramref name="id"/>, or a new one.</summary>
     public void Load(string? id)
@@ -253,7 +253,7 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
         ErrorMessage = null;
         if (string.IsNullOrWhiteSpace(Name))
         {
-            ErrorMessage = "Give the group a name.";
+            ErrorMessage = "Give the neighbourhood a name.";
             return;
         }
 
@@ -285,7 +285,7 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        if (!IsExisting || !await _dialogs.ConfirmAsync("Delete group", $"Delete \"{_draft.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
+        if (!IsExisting || !await _dialogs.ConfirmAsync("Delete neighbourhood", $"Delete \"{_draft.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
         {
             return;
         }

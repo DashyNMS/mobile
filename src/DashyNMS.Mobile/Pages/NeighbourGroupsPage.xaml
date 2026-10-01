@@ -6,7 +6,7 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
     x:DataType="topo:NeighbourGroupsViewModel"
-    Title="Neighbour groups">
+    Title="Neighbourhoods">
 
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="Add" Command="{Binding AddCommand}" />
@@ -18,9 +18,9 @@
             <VerticalStackLayout Padding="16" Spacing="8">
 
                 <Label Style="{StaticResource Caption}"
-                       Text="Sort neighbours into groups of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. Groups are shared with DashyNMS on your computer." />
+                       Text="Sort neighbours into neighbourhoods of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. They're shared with DashyNMS on your computer, where they're called neighbour views." />
 
-                <Label Style="{StaticResource Caption}" Text="No groups yet." IsVisible="{Binding HasNone}" Margin="0,12" />
+                <Label Style="{StaticResource Caption}" Text="No neighbourhoods yet." IsVisible="{Binding HasNone}" Margin="0,12" />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
                     <BindableLayout.ItemTemplate>
@@ -50,7 +50,7 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
-                <Button Text="Add a group" Command="{Binding AddCommand}" Margin="0,8,0,0" />
+                <Button Text="Add a neighbourhood" Command="{Binding AddCommand}" Margin="0,8,0,0" />
 
             </VerticalStackLayout>
         </controls:ReadableColumn>
