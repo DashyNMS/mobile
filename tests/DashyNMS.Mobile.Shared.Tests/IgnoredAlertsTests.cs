@@ -106,7 +106,7 @@ public sealed class IgnoredAlertsTests
     {
         var client = Fakes.Client(devices: [Fakes.Device(7, "core-sw")]);
         client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(On(1, 7));
-        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "core-sw"));
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "core-sw", sysName: "core-sw"));
         var dialogs = Substitute.For<IDialogService>();
         dialogs.ChooseAsync("Stop notifications for", Arg.Any<IReadOnlyList<string>>()).Returns("Rule 1 on core-sw");
         dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);

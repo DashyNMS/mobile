@@ -517,9 +517,10 @@ public sealed class DeviceNameSettingTests
         var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator, new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets());
 
         Assert.Equal(["Hostname", "sysName", "LibreNMS display name"], vm.DeviceNameStyles);
-        vm.DeviceNameStyleIndex = 1;
+        Assert.Equal(1, vm.DeviceNameStyleIndex); // sysName, desktop's default since Core 802980c
+        vm.DeviceNameStyleIndex = 0;
 
-        Assert.Equal(DeviceNameStyle.SysName, appSettings.DeviceNameStyle);
+        Assert.Equal(DeviceNameStyle.Hostname, appSettings.DeviceNameStyle);
         settings.Received(1).Save();
     }
 }
