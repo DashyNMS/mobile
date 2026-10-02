@@ -54,6 +54,12 @@
                                 <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
                                 <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                             </Grid>
+                            <!-- Quiet this alert's rule, here or everywhere - notifications only (#102). -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanChangeNotifications}">
+                                <Label Style="{StaticResource Caption}" Text="{Binding NotificationsText}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding ChangeNotificationsCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
 

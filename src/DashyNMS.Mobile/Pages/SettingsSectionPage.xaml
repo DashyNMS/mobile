@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    xmlns:alerts="clr-namespace:DashyNMS.Mobile.Alerts;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SettingsViewModel"
     Title="Settings">
 
@@ -186,6 +187,29 @@
                                     <Switch Grid.Column="1" IsToggled="{Binding QuietHoursAllowCritical}" />
                                 </Grid>
                             </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Alerts that don't notify (#102), chosen from an alert or its rule; they still list and count. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="No notifications for" FontFamily="BodySemibold" />
+                            <Label Style="{StaticResource Caption}" IsVisible="{Binding HasIgnoredAlerts, Converter={StaticResource Invert}}"
+                                   Text="Nothing. To stop one alert rule notifying, choose Change under Notifications on an alert, or switch off Notify me on its rule." />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding IgnoredAlerts}" Spacing="6">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="alerts:IgnoredAlert">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <Label Text="{Binding Description}" VerticalOptions="Center" />
+                                            <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Notify again"
+                                                    Command="{Binding NotifyAgainCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}"
+                                                    CommandParameter="{Binding .}" HeightRequest="32" MinimumHeightRequest="32" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Style="{StaticResource Caption}" Text="They still show on the Alerts tab, and still count on the app icon and dashboard."
+                                   IsVisible="{Binding HasIgnoredAlerts}" />
                         </VerticalStackLayout>
                     </Border>
 

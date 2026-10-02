@@ -53,6 +53,7 @@ public sealed class AlertWatcher
     private readonly IAppBadge _badge;
     private readonly AlertTabDot? _tabDot;
     private readonly AlertCountThreshold? _countThreshold;
+    private readonly IgnoredAlerts? _ignored;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
@@ -75,9 +76,11 @@ public sealed class AlertWatcher
         TimeProvider time,
         ILogger<AlertWatcher> logger,
         AlertTabDot? tabDot = null,
-        AlertCountThreshold? countThreshold = null)
+        AlertCountThreshold? countThreshold = null,
+        IgnoredAlerts? ignored = null)
     {
         _countThreshold = countThreshold;
+        _ignored = ignored;
         _client = client;
         _session = session;
         _secrets = secrets;
@@ -150,8 +153,11 @@ public sealed class AlertWatcher
 
             var nameStyle = settings.DeviceNameStyle;
             var localNow = _time.GetLocalNow().DateTime;
+
+            // Alerts the user chose to ignore (#102) say nothing - only here:
+            // the badge, dot and widgets above still count them.
             var plan = AlertNotificationPlanner.Plan(
-                changes,
+                _ignored?.Filter(changes) ?? changes,
                 settings.Notifications,
                 localNow,
                 _selfActions,

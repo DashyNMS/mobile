@@ -53,6 +53,14 @@
                                 <Label Style="{StaticResource Caption}" Text="Acknowledgement alerts" />
                                 <Label Grid.Column="1" Text="{Binding AcknowledgementText}" />
                             </Grid>
+                            <!-- The phone's own choice (#102): its alerts still list and count, only quietly. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanChangeNotifications}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Notify me" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding NotificationsNote}" IsVisible="{Binding HasNotificationsNote}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding Notifies}" VerticalOptions="Center" />
+                            </Grid>
                             <Grid ColumnDefinitions="130,*,Auto" ColumnSpacing="12">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding OpenTemplateCommand}" />
