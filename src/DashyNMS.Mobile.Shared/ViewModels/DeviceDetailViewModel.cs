@@ -272,8 +272,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     /// <summary>
     /// Desktop's Device card: what the device is and where, each only when
-    /// LibreNMS knows it (a card full of dashes is noise). The three names
-    /// only when they differ, as desktop's.
+    /// LibreNMS knows it (a card full of dashes is noise). Its other names
+    /// in one "Also known as" row, only when there are any, as desktop's.
     /// </summary>
     public IReadOnlyList<DeviceProperty> Properties
     {
@@ -285,16 +285,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             }
 
             var utc = _settings.Current.ServerTimestampsAreUtc;
-            var names = new[] { d.Hostname, d.SysName, d.Display }
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
+
+            // Its other names in one row, as desktop's Overview (#116): Core's
+            // AlsoKnownAs leaves out the name in the title and any that are
+            // really the same ("core-sw-01" and "CORE-SW-01.example.net").
+            var alsoKnownAs = DeviceNameStyleExtensions.AlsoKnownAs(d, Title);
 
             return new (string Label, string? Value)[]
                 {
-                    ("Hostname", names > 1 ? d.Hostname : null),
-                    ("sysName", names > 1 ? d.SysName : null),
-                    ("Display name", names > 1 ? d.Display : null),
+                    ("Also known as", alsoKnownAs.Count > 0 ? string.Join(", ", alsoKnownAs) : null),
                     ("IP address", d.Ip),
                     ("Operating system", string.Join(" ", new[] { d.Os, d.Version }.Where(p => !string.IsNullOrWhiteSpace(p)))),
                     ("Hardware", d.Hardware),

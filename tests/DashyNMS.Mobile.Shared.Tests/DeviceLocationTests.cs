@@ -66,4 +66,30 @@ public sealed class DeviceLocationTests
         };
         Assert.Equal(expected, navigation.Visits.Select(v => (v.Route, v.Parameters!.Keys.Single(), v.Parameters.Values.Single())));
     }
+
+    [Fact]
+    public async Task The_device_card_gives_its_other_names_in_one_row()
+    {
+        var device = Fakes.Device(7, "10.0.0.7", sysName: "core-sw.example.net");
+        device.Display = "Core switch";
+        var client = Fakes.Client(devices: [device]);
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(device);
+        var settings = Fakes.Settings();
+        var vm = new DeviceDetailViewModel(
+            client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System),
+            Substitute.For<IDialogService>(), new RecordingNavigation(), sections: new DeviceSectionLoader(client, settings));
+
+        await vm.LoadAsync(7);
+
+        // Titled by sysName (the default); the others in one row (#116).
+        Assert.Equal("core-sw.example.net", vm.Title);
+        Assert.Equal("10.0.0.7, Core switch", Assert.Single(vm.Properties, p => p.Key == "Also known as").Value);
+        Assert.DoesNotContain(vm.Properties, p => p.Key is "Hostname" or "sysName" or "Display name");
+
+        // Nothing to add: no row.
+        device.Display = null;
+        device.Hostname = "CORE-SW";
+        await vm.LoadAsync(7);
+        Assert.DoesNotContain(vm.Properties, p => p.Key == "Also known as");
+    }
 }
