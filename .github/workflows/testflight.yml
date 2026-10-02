@@ -23,10 +23,10 @@ jobs:
   testflight:
     name: Build and upload
     # The signing certificate and App Store Connect key live in this
-    # environment's secrets, which only main can use and a maintainer has to
+    # environment's secrets, which only main and release/* can use and a maintainer has to
     # approve - so a workflow edited on another branch can't read them (#5).
     # See docs/DEVELOPING.md, "Releasing".
-    environment: testflight
+    environment: iOS-Build
     runs-on: macos-26
     timeout-minutes: 60
     env:

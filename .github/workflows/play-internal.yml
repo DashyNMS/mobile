@@ -1,0 +1,129 @@
+name: Play internal testing
+
+# Builds a signed Android App Bundle and uploads it to Google Play's internal
+# testing track - Android's TestFlight (#24). Run it by hand from the Actions
+# tab (or `gh workflow run play-internal.yml`).
+on:
+  workflow_dispatch:
+    inputs:
+      build_number:
+        description: "Version code (blank: run number + offset). Must be higher than any build already in Play Console."
+        required: false
+        type: string
+      upload:
+        description: "Upload to Play. Off just keeps the signed bundle as an artifact - for the first upload, which Play only takes by hand."
+        required: false
+        type: boolean
+        default: true
+      status:
+        description: "Release status. 'draft' while the app has never been released on any track; 'completed' after."
+        required: false
+        type: choice
+        options:
+          - completed
+          - draft
+        default: completed
+
+concurrency:
+  group: play-internal
+  cancel-in-progress: false
+
+# Read-only token: the upload uses the Play service account, not GitHub (#7).
+permissions:
+  contents: read
+
+jobs:
+  play:
+    name: Build and upload
+    # The upload keystore and service account key live in this environment's
+    # secrets, which only main and release/* can use and a maintainer has to
+    # approve - as iOS-Build (#5).
+    environment: Android-Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: true
+
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: microsoft
+          java-version: "21"
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Install upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+
+      # Play rejects a version code it has seen before for this app, so it's
+      # this run's number plus an offset: 0, or the ANDROID_VERSION_CODE_OFFSET
+      # repository variable. A number typed in when starting the run wins.
+      - name: Choose version code
+        env:
+          OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}
+          REQUESTED: ${{ inputs.build_number }}
+        run: |
+          BUILD_NUMBER="${REQUESTED:-$((GITHUB_RUN_NUMBER + OFFSET))}"
+          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
+            echo "::error::Version code must be a whole number, not '$BUILD_NUMBER'"
+            exit 1
+          fi
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "Version code: $BUILD_NUMBER"
+
+      # MobilePlatform=android so restore doesn't also want the iOS workload.
+      # The passwords are read from the environment (env:), so they never
+      # appear on the command line or in the log.
+      - name: Build AAB
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD || secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+        run: >
+          dotnet publish src/DashyNMS.Mobile
+          -p:MobilePlatform=android
+          -f net10.0-android
+          -c Release
+          -p:AndroidPackageFormat=aab
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore="$RUNNER_TEMP/upload.jks"
+          -p:AndroidSigningKeyAlias="$KEY_ALIAS"
+          -p:AndroidSigningStorePass=env:KEYSTORE_PASSWORD
+          -p:AndroidSigningKeyPass=env:KEY_PASSWORD
+          -p:ApplicationVersion=$BUILD_NUMBER
+          -o "$RUNNER_TEMP/aab"
+
+      - name: Find the bundle
+        run: |
+          AAB=$(ls "$RUNNER_TEMP"/aab/*-Signed.aab | head -1)
+          echo "AAB=$AAB" >> "$GITHUB_ENV"
+          echo "Bundle: $AAB"
+
+      - name: Upload to Play internal testing
+        if: inputs.upload
+        uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: net.pckp.DashyNMS
+          releaseFiles: ${{ env.AAB }}
+          track: internal
+          status: ${{ inputs.status }}
+
+      - name: Keep the bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashynms-android-${{ env.BUILD_NUMBER }}
+          path: ${{ env.AAB }}
+          retention-days: 14
+
+      - name: Clean up signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/upload.jks"
