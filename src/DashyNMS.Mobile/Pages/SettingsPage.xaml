@@ -150,6 +150,18 @@
                                 <Label Text="DashyNMS website" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
                                 <Label Grid.Column="1" Style="{StaticResource Chevron}" />
                             </Grid>
+                            <!-- What the app did lately, for a bug report (#107); only ever sent by the user. -->
+                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding CanShareDiagnostics}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanShareDiagnostics}">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ShareDiagnosticsCommand}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Share diagnostics" FontSize="15" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Caption}" Text="What the app did lately, for a bug report" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
 

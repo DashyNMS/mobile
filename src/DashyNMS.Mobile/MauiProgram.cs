@@ -27,6 +27,14 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
+		// The log Settings can share (#107): the app's own messages plus what
+		// it was doing, kept in a file so a restart doesn't lose it.
+		var diagnostics = new DiagnosticsLog(
+			Path.Combine(FileSystem.AppDataDirectory, "diagnostics.log"),
+			appVersion: $"{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString}) on {DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}");
+		builder.Logging.AddProvider(diagnostics);
+		builder.Services.AddSingleton(diagnostics);
+
 #if ANDROID || IOS
 		// Every text box and picker as a field well, not the platform's own
 		// border or underline - see Platforms/*/FieldWells.

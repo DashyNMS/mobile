@@ -78,6 +78,45 @@ public partial class AppShell : Shell
 	};
 
 	/// <summary>
+	/// Swaps the tab showing for a new one with a fresh page - the last
+	/// resort for a page left blank after the phone is unlocked (#107), which
+	/// otherwise stayed blank until the app was restarted. Same title, route
+	/// and icon, so nothing else notices. False if it isn't a tab of the main
+	/// tab bar made from a template.
+	/// </summary>
+	public bool RebuildCurrentTab()
+	{
+		if (CurrentItem != MainTabs || MainTabs.CurrentItem is not Tab tab
+			|| tab.CurrentItem is not { ContentTemplate: { } template })
+		{
+			return false;
+		}
+
+		var index = MainTabs.Items.IndexOf(tab);
+		var fresh = new Tab
+		{
+			Title = tab.Title,
+			Route = tab.Route,
+			Icon = tab.Icon,
+			Items = { new ShellContent { ContentTemplate = template } },
+		};
+
+		MainTabs.Items.RemoveAt(index);
+		MainTabs.Items.Insert(index, fresh);
+		foreach (var (page, pinned) in _pinnedTabs.ToList())
+		{
+			if (pinned == tab)
+			{
+				_pinnedTabs[page] = fresh;
+			}
+		}
+
+		MainTabs.CurrentItem = fresh;
+		Dispatcher.Dispatch(ShowAlertDot);
+		return true;
+	}
+
+	/// <summary>
 	/// Puts the pinned pages between Dashboard and More, in order. Tabs that
 	/// stay pinned are kept, not rebuilt, so their pages keep what they've loaded.
 	/// </summary>

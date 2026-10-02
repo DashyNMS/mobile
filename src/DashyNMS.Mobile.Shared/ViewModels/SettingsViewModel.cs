@@ -46,6 +46,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly ILauncherService? _launcher;
     private readonly AlertCountThreshold _countThreshold;
     private readonly IgnoredAlerts _ignored;
+    private readonly DiagnosticsLog? _diagnostics;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -66,10 +67,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
         INotificationPrivacy? privacy = null,
         ILauncherService? launcher = null,
         AlertCountThreshold? countThreshold = null,
-        IgnoredAlerts? ignored = null)
+        IgnoredAlerts? ignored = null,
+        DiagnosticsLog? diagnostics = null)
     {
         _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
         _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
+        _diagnostics = diagnostics;
         _ignored.Changed += (_, _) => ShowIgnored();
         ShowIgnored();
         _privacy = privacy ?? new SystemNotificationPrivacy();
@@ -402,6 +405,36 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>"Every 1 minute while open · icon badge on", with ", critical only" when it counts less (#96).</summary>
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
         + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" + (BadgeThresholdIndex > 0 ? ", " + BadgeThresholdLabels[BadgeThresholdIndex].ToLower(CultureInfo.CurrentCulture) : string.Empty) : " · icon badge off") : string.Empty);
+
+    /// <summary>The diagnostics log can be shared (#107) - the app keeps one, and the phone can share a file.</summary>
+    public bool CanShareDiagnostics => _diagnostics is not null && _share is not null;
+
+    /// <summary>
+    /// Shares the diagnostics log as a text file, after saying what's in it -
+    /// the server's address and device names can be, a token never is. It
+    /// goes wherever the user sends it; the app sends nothing itself.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShareDiagnosticsAsync()
+    {
+        if (_diagnostics is null || _share is null)
+        {
+            return;
+        }
+
+        if (!await _dialogs.ConfirmAsync(
+                "Share diagnostics",
+                "A log of what the app did recently: pages opened, coming back from the background, alert checks and any errors. It can include your server's address and device names, but never your API token.",
+                "Share",
+                "Cancel"))
+        {
+            return;
+        }
+
+        _diagnostics.Note("App", "Diagnostics shared");
+        var name = $"dashynms-diagnostics-{DateTime.Now.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture)}.txt";
+        await _share.ShareTextFileAsync(name, _diagnostics.Text, "text/plain", "DashyNMS diagnostics");
+    }
 
     /// <summary>Alert rules that don't notify, everywhere or on a device (#102) - chosen from an alert or a rule's page.</summary>
     public BulkObservableCollection<IgnoredAlert> IgnoredAlerts { get; } = new();
