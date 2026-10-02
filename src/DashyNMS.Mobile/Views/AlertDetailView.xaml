@@ -19,7 +19,7 @@
                     <controls:BackBar x:Name="TopBar" />
 
                     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" />
+                    <controls:BusyCard Text="Loading the alert…" IsVisible="{Binding IsLoadingFirstTime}" Margin="0,32" />
 
                     <!-- A recovery notification can point at an alert LibreNMS has since dropped. -->
                     <Border Style="{StaticResource Card}" IsVisible="{Binding IsGone}">

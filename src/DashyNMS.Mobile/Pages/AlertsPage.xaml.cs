@@ -19,6 +19,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading alerts…", "Refreshing alerts…");
 		SearchReveal.Attach(List, SearchSlot, Search);
 		Split.SplitChanged += (_, _) => _viewModel.Select(Split.IsSplit ? _shown : null);
 	}

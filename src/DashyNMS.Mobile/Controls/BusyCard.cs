@@ -5,6 +5,8 @@ namespace DashyNMS.Mobile.Controls;
 /// small card centred over whatever it covers - the network map's
 /// "Laying out the map…" (#109), which was the platform's plain spinner,
 /// off-centre above its caption. One unit, so the two always line up.
+/// Every page now loads with it, and lists show it after a pull too (#111;
+/// see <see cref="PullToRefresh"/>).
 /// </summary>
 public sealed class BusyCard : Border
 {

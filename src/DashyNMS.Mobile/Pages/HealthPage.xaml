@@ -83,9 +83,10 @@
 
         <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-        <controls:LoadingIndicator Grid.Row="6" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
+        <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
+        <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
