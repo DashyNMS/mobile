@@ -348,8 +348,8 @@
         </Grid>
 
         <Grid Grid.Row="1">
-            <!-- Pull to refresh; its own spinner is put away (see the
-                 code-behind) for the one below, so there's only ever one. -->
+            <!-- Pull to refresh, with no spinner of its own (see the
+                 code-behind): the logo's heartbeat shows the load. -->
             <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
                 <!-- No scroll bar: it sat beside the first cards, looking like one of
                      their own (#29). -->
