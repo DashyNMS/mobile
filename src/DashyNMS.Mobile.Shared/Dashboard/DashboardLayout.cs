@@ -3,7 +3,7 @@ using DesktopNMS.Core.Configuration;
 namespace DashyNMS.Mobile.Dashboard;
 
 /// <summary>A kind of dashboard card - one of desktop's widget types.</summary>
-/// <param name="AllowsSeveral">Sensors and Graph: as many as you like, each set up on its own (#87).</param>
+/// <param name="AllowsSeveral">Sensors, Graph and the Top cards: as many as you like, each set up on its own (#87, #103).</param>
 public sealed record DashboardCardKind(string Type, string Title, string Description, bool AllowsSeveral = false);
 
 /// <summary>
@@ -13,9 +13,9 @@ public sealed record DashboardCardKind(string Type, string Title, string Descrip
 /// <para>Desktop lays widgets out on a resizable grid; a phone has one column
 /// (or a few on a tablet), so here the list's order is the layout and the grid
 /// positions are left alone.</para>
-/// <para>Sensors and Graph cards can appear any number of times, each its own
-/// widget with its own id, title and set-up - as desktop already allows, so
-/// both apps show the same cards (#87). Every other kind shows once. A hidden
+/// <para>Sensors, Graph and Top cards can appear any number of times, each its
+/// own widget with its own id, title and set-up - as desktop already allows,
+/// so both apps show the same cards (#87, #103). Every other kind shows once. A hidden
 /// card is simply not in the list, so hiding one forgets its set-up.</para>
 /// <para>Widgets the phone doesn't show - a kind it doesn't know, or a second
 /// copy of a once-only kind made on desktop - are kept as they are when the
@@ -33,6 +33,9 @@ public static class DashboardLayout
     public const string Sensors = "Sensors";
     public const string Graph = "Graph";
     public const string Wireless = "Wireless";
+    public const string TopInterfaces = DashboardWidgetTypes.TopInterfaces;
+    public const string TopErrors = DashboardWidgetTypes.TopErrors;
+    public const string TopDevices = DashboardWidgetTypes.TopDevices;
 
     /// <summary>Every card the phone can show, in the order Customise lists them.</summary>
     public static IReadOnlyList<DashboardCardKind> Kinds { get; } =
@@ -45,6 +48,9 @@ public static class DashboardLayout
         new(Sensors, "Sensors", "Sensors you pick, coloured against their thresholds.", AllowsSeveral: true),
         new(Graph, "Graph", "A device graph you pick.", AllowsSeveral: true),
         new(Wireless, "Wireless", "Access points and clients on each wireless controller."),
+        new(TopInterfaces, "Top interfaces", "The busiest ports across the network.", AllowsSeveral: true),
+        new(TopErrors, "Top errors", "The ports with the most errors.", AllowsSeveral: true),
+        new(TopDevices, "Top devices", "The devices moving the most traffic.", AllowsSeveral: true),
     ];
 
     /// <summary>The dashboard as it was before cards could be chosen.</summary>

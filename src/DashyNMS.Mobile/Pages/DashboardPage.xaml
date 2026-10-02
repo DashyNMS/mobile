@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
@@ -310,6 +311,86 @@
                     </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Wireless>
+
+            <!-- Top interfaces, Top errors and Top devices (#103), as desktop's widgets:
+                 a row per port (or device) with its in and out, and a bar - how full
+                 the port is, or against the top row. The chips rank it, as desktop's
+                 In and Out headings; rows and title are in Customise (Set up). -->
+            <pages:DashboardCardTemplateSelector.Top>
+                <DataTemplate x:DataType="vm:DashboardCard">
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <HorizontalStackLayout Spacing="8" Margin="0,4,0,4">
+                                <Button Style="{StaticResource Chip}" Text="Total" Command="{Binding RankCommand}" CommandParameter="Total">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Style="{StaticResource Chip}" Text="In" Command="{Binding RankCommand}" CommandParameter="In">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByIn}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Style="{StaticResource Chip}" Text="Out" Command="{Binding RankCommand}" CommandParameter="Out">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByOut}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </HorizontalStackLayout>
+                            <Label Style="{StaticResource Caption}" Text="{Binding TopEmptyText}" IsVisible="{Binding HasNoTopRows}" />
+                            <Grid ColumnDefinitions="*,80,80" ColumnSpacing="8" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
+                                <Label Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" />
+                                <Label Grid.Column="1" Style="{StaticResource Faint}" Text="In" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="Out" HorizontalTextAlignment="End" />
+                            </Grid>
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="dash:TopRow">
+                                        <Grid ColumnDefinitions="10,*,80,80" RowDefinitions="Auto,Auto" ColumnSpacing="8" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenTopRowCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding DeviceState, Converter={StaticResource StatusColor}}" />
+                                            <VerticalStackLayout Grid.Column="1">
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Text="{Binding InText}" HorizontalTextAlignment="End" VerticalOptions="Start" FontFamily="BodySemibold"
+                                                   TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
+                                            <Label Grid.Column="3" Text="{Binding OutText}" HorizontalTextAlignment="End" VerticalOptions="Start" FontFamily="BodySemibold"
+                                                   TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
+                                            <ProgressBar Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,6,0,0" HeightRequest="4"
+                                                         Progress="{Binding Bar}" ProgressColor="{StaticResource PrimaryStroke}">
+                                                <ProgressBar.Triggers>
+                                                    <DataTrigger TargetType="ProgressBar" Binding="{Binding Severity}" Value="{x:Static sections:RowStatus.Warning}">
+                                                        <Setter Property="ProgressColor" Value="{StaticResource WarningColor}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="ProgressBar" Binding="{Binding Severity}" Value="{x:Static sections:RowStatus.Critical}">
+                                                        <Setter Property="ProgressColor" Value="{StaticResource CriticalColor}" />
+                                                    </DataTrigger>
+                                                </ProgressBar.Triggers>
+                                            </ProgressBar>
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Style="{StaticResource Faint}" Text="{Binding TopFootnote}" IsVisible="{Binding HasTopFootnote}" Margin="0,4,0,0" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </pages:DashboardCardTemplateSelector.Top>
 
             <pages:DashboardCardTemplateSelector.Empty>
                 <DataTemplate x:DataType="vm:DashboardCard">

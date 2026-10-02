@@ -62,6 +62,60 @@ public sealed partial class DashboardCard : ObservableObject
         Sensors.ReplaceAll(rows);
         OnPropertyChanged(nameof(HasNoSensors));
     }
+
+    // ------------------------------------------------------------ Top cards (#103)
+
+    /// <summary>A Top card's rows, ranked from the network's ports.</summary>
+    public BulkObservableCollection<TopRow> TopRows { get; } = new();
+
+    /// <summary>Loaded and nothing to list: "No interface errors.", say.</summary>
+    [ObservableProperty]
+    private bool _hasNoTopRows;
+
+    public string TopEmptyText => TopCards.EmptyText(Type);
+
+    public string? TopFootnote => TopCards.Footnote(Type);
+
+    public bool HasTopFootnote => TopFootnote is not null;
+
+    /// <summary>The first column's heading, as desktop's: just the device for Top devices.</summary>
+    public string TopNameHeading => Type == DashboardLayout.TopDevices ? "Device" : "Device · interface";
+
+    /// <summary>For the chips: what the card ranks by now.</summary>
+    public bool RanksByTotal => Widget.TopRankBy == RankBy.Total;
+
+    public bool RanksByIn => Widget.TopRankBy == RankBy.In;
+
+    public bool RanksByOut => Widget.TopRankBy == RankBy.Out;
+
+    /// <summary>
+    /// A ranking chip: "Total", "In" or "Out". Saved to the card, as
+    /// desktop's In and Out headings do, and re-ranked from the ports
+    /// already fetched rather than asking LibreNMS again.
+    /// </summary>
+    [RelayCommand]
+    private void Rank(string? by)
+    {
+        if (!Enum.TryParse<RankBy>(by, ignoreCase: true, out var rankBy) || rankBy == Widget.TopRankBy)
+        {
+            return;
+        }
+
+        Widget.TopRankBy = rankBy;
+        OnPropertyChanged(nameof(RanksByTotal));
+        OnPropertyChanged(nameof(RanksByIn));
+        OnPropertyChanged(nameof(RanksByOut));
+        Dashboard.TopOptionsChanged(this);
+    }
+
+    internal void ShowTop(IReadOnlyList<TopRow> rows)
+    {
+        TopRows.ReplaceAll(rows);
+        HasNoTopRows = rows.Count == 0;
+        OnPropertyChanged(nameof(RanksByTotal));
+        OnPropertyChanged(nameof(RanksByIn));
+        OnPropertyChanged(nameof(RanksByOut));
+    }
 }
 
 /// <summary>
@@ -262,7 +316,8 @@ public sealed partial class DashboardViewModel : ViewModelBase
         await Task.WhenAll(
             Shows(DashboardLayout.Sensors) ? LoadSensorsAsync(byId, style) : Task.CompletedTask,
             Shows(DashboardLayout.Graph) ? LoadGraphsAsync(byId, style) : Task.CompletedTask,
-            Shows(DashboardLayout.Wireless) ? LoadWirelessAsync(devices, style) : Task.CompletedTask);
+            Shows(DashboardLayout.Wireless) ? LoadWirelessAsync(devices, style) : Task.CompletedTask,
+            Cards.Any(c => TopCards.IsTop(c.Type)) ? LoadTopAsync(byId, style) : Task.CompletedTask);
 
         LastUpdated = DateTime.Now;
         OnPropertyChanged(nameof(HasNoAlerts));
@@ -349,6 +404,47 @@ public sealed partial class DashboardViewModel : ViewModelBase
             // Kept as they were; the rest of the dashboard still refreshes.
         }
     }
+
+    /// <summary>
+    /// Every Top card's rows, from one list of the network's ports - as
+    /// desktop shares one fetch between its Top widgets, since it's every
+    /// port there is (#103). If LibreNMS can't be reached, the rows stay.
+    /// </summary>
+    private async Task LoadTopAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style)
+    {
+        try
+        {
+            _ports = await _client.Ports.ListAllStatusAsync();
+        }
+        catch (LibreNmsApiException)
+        {
+            return;
+        }
+
+        _portDevices = devices;
+        _portNames = style;
+        foreach (var card in Cards.Where(c => TopCards.IsTop(c.Type)))
+        {
+            ShowTop(card);
+        }
+    }
+
+    /// <summary>A Top card's chip changed its ranking: saved, then re-ranked from the ports already in hand.</summary>
+    internal void TopOptionsChanged(DashboardCard card)
+    {
+        _settings.Save();
+        if (_ports is not null)
+        {
+            ShowTop(card);
+        }
+    }
+
+    private void ShowTop(DashboardCard card) =>
+        card.ShowTop(TopCards.Rows(card.Widget, _ports ?? [], _portDevices, d => new DeviceItem(d, _portNames).Name));
+
+    /// <summary>A Top card's row opens its device.</summary>
+    [RelayCommand]
+    private Task OpenTopRowAsync(TopRow? row) => row is null ? Task.CompletedTask : OpenAsync(row.DeviceId);
 
     /// <summary>Every Graph card's graph, side by side; one that fails just shows none.</summary>
     private Task LoadGraphsAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style) =>
@@ -459,6 +555,11 @@ public sealed partial class DashboardViewModel : ViewModelBase
     }
 
     private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
+
+    // The last list of the network's ports, and how to name their devices, for the Top cards.
+    private IReadOnlyList<Port>? _ports;
+    private IReadOnlyDictionary<int, Device> _portDevices = new Dictionary<int, Device>();
+    private DeviceNameStyle _portNames;
 
     private void CountUp(IReadOnlyList<Device> devices, IReadOnlySet<int> maintenance)
     {

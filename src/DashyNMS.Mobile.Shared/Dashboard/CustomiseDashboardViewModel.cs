@@ -90,6 +90,22 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     [RelayCommand]
     private Task AddGraphAsync() => AddAsync(DashboardLayout.Graph);
 
+    /// <summary>
+    /// Another card of a kind there can be several of - asked which. Sensors
+    /// and Graph go straight to their set-up, having nothing to show without
+    /// it; a Top card shows at once with desktop's defaults (#103).
+    /// </summary>
+    [RelayCommand]
+    private async Task AddCardAsync()
+    {
+        var kinds = DashboardLayout.Kinds.Where(k => k.AllowsSeveral).ToList();
+        var chosen = _dialogs is null ? null : await _dialogs.ChooseAsync("Add a card", kinds.Select(k => k.Title).ToList());
+        if (kinds.FirstOrDefault(k => k.Title == chosen) is { } kind)
+        {
+            await AddAsync(kind.Type);
+        }
+    }
+
     /// <summary>A card's own set-up: its sensors or graph, and its title. Shown first if it wasn't.</summary>
     [RelayCommand]
     private Task SetUpAsync(DashboardCardOption? card)
@@ -136,11 +152,19 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         var option = Watch(new DashboardCardOption(widget, isShown: true));
         Cards.Insert(Cards.Count(c => c.IsShown), option);
         Save();
-        await OpenSetUpAsync(widget);
+        if (!TopCards.IsTop(type))
+        {
+            await OpenSetUpAsync(widget);
+        }
     }
 
     private Task OpenSetUpAsync(DashboardWidget widget) => _navigation.GoToAsync(
-        widget.WidgetType == DashboardLayout.Sensors ? Routes.PickSensors : Routes.PickGraph,
+        widget.WidgetType switch
+        {
+            DashboardLayout.Sensors => Routes.PickSensors,
+            DashboardLayout.Graph => Routes.PickGraph,
+            _ => Routes.TopCardSetUp,
+        },
         new Dictionary<string, object> { [Routes.WidgetIdParameter] = widget.Id });
 
     /// <summary>
