@@ -13,13 +13,17 @@ namespace DashyNMS.Mobile.Adapters;
 /// to it.
 /// </summary>
 /// <remarks>
-/// The cause is likely inside Shell on iOS 26+, where the tab's page keeps
-/// its view but isn't laid out again. So shortly after the app comes back,
-/// the page showing is checked: no handler, no size, content without either,
-/// or (iOS) a view that isn't in the window or is hidden. If it looks blank
-/// it's laid out again; if it still does, its tab is rebuilt with a fresh
-/// page (<see cref="AppShell.RebuildCurrentTab"/>). Each step is logged, so
-/// diagnostics show which it was and whether it helped.
+/// <para>Diagnostics from a real case (2 October) showed the Alerts tab's page
+/// had lost its handler - its view - on an ordinary tab switch, a minute after
+/// a detail page pushed on that tab was closed: inside Shell on iOS 26+, not
+/// a layout glitch. A page with no view can't be laid out again, so its tab
+/// is rebuilt with a fresh page (<see cref="AppShell.RebuildCurrentTab"/>);
+/// in that case it came back straight away.</para>
+/// <para>So the page showing is checked half a second after any page
+/// appears, and after the app comes back: no handler, no size, content
+/// without either, or (iOS) a view out of the window or hidden. One that
+/// still has a view is laid out again first. Each step is logged, and so is
+/// the moment any page loses its handler, so diagnostics show what led to it.</para>
 /// </remarks>
 internal static class PageHealth
 {
@@ -28,9 +32,20 @@ internal static class PageHealth
 
     private static DateTime _lastCheck;
 
+    /// <summary>Pages whose handler is watched, so losing it is logged once each.</summary>
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Page, object> Watched = new();
+
     public static void Watch(Application app, Window window, DiagnosticsLog log)
     {
-        app.PageAppearing += (_, page) => log.Note("Page", $"{Name(page)} appeared");
+        app.PageAppearing += (_, page) =>
+        {
+            log.Note("Page", $"{Name(page)} appeared");
+            WatchHandler(page, log);
+
+            // A tab went blank on an ordinary tab switch, not only after
+            // unlocking (diagnostics, 2 Oct): check every page as it appears.
+            window.Dispatcher.DispatchDelayed(Settle, () => _ = CheckAsync(window, log, "after appearing", logFine: false));
+        };
         app.PageDisappearing += (_, page) => log.Note("Page", $"{Name(page)} disappeared");
         window.Stopped += (_, _) => log.Note("App", "Went to the background");
         window.Resumed += (_, _) =>
@@ -43,6 +58,23 @@ internal static class PageHealth
         window.Activated += (_, _) => Check(window, log);
     }
 
+    /// <summary>
+    /// The blank page had lost its handler - its view - while still in a tab.
+    /// Logged the moment it happens, so diagnostics show what came just before.
+    /// </summary>
+    private static void WatchHandler(Page page, DiagnosticsLog log)
+    {
+        if (Watched.TryGetValue(page, out _))
+        {
+            return;
+        }
+
+        Watched.Add(page, new object());
+        page.HandlerChanged += (_, _) => log.Note("Page", page.Handler is null
+            ? $"{Name(page)} lost its view (handler disconnected)"
+            : $"{Name(page)} has a view again");
+    }
+
     private static void Check(Window window, DiagnosticsLog log)
     {
         if (DateTime.UtcNow - _lastCheck < TimeSpan.FromSeconds(2))
@@ -51,10 +83,10 @@ internal static class PageHealth
         }
 
         _lastCheck = DateTime.UtcNow;
-        window.Dispatcher.DispatchDelayed(Settle, () => _ = CheckAsync(window, log));
+        window.Dispatcher.DispatchDelayed(Settle, () => _ = CheckAsync(window, log, "after coming back", logFine: true));
     }
 
-    private static async Task CheckAsync(Window window, DiagnosticsLog log)
+    private static async Task CheckAsync(Window window, DiagnosticsLog log, string when, bool logFine)
     {
         try
         {
@@ -65,28 +97,38 @@ internal static class PageHealth
 
             if (Problem(page) is not { } problem)
             {
-                log.Note("Page", $"{Name(page)} fine after coming back ({page.Width:0}x{page.Height:0})");
+                if (logFine)
+                {
+                    log.Note("Page", $"{Name(page)} fine {when} ({page.Width:0}x{page.Height:0})");
+                }
+
                 return;
             }
 
-            log.Note("Page", $"{Name(page)} looks blank after coming back: {problem}. Laying it out again");
-            LayOutAgain(page);
-            await Task.Delay(Settle);
-
-            if (Problem(page) is not { } still)
+            // With no view at all there's nothing to lay out: straight to a fresh page.
+            if (page.Handler is not null)
             {
-                log.Note("Page", $"{Name(page)} fine after laying out again");
-                return;
+                log.Note("Page", $"{Name(page)} looks blank {when}: {problem}. Laying it out again");
+                LayOutAgain(page);
+                await Task.Delay(Settle);
+
+                if (Problem(page) is not { } still)
+                {
+                    log.Note("Page", $"{Name(page)} fine after laying out again");
+                    return;
+                }
+
+                problem = still;
             }
 
-            log.Note("Page", $"{Name(page)} still blank: {still}. Rebuilding its tab");
+            log.Note("Page", $"{Name(page)} blank {when}: {problem}. Rebuilding its tab");
             var rebuilt = window.Page is AppShell shell && shell.RebuildCurrentTab();
             log.Note("Page", rebuilt ? "Tab rebuilt" : "Not a tab that can be rebuilt");
         }
         catch (Exception ex)
         {
             // Diagnosis must never take the app down with it.
-            log.Note("Page", $"Check after coming back failed: {ex.GetType().Name}: {ex.Message}");
+            log.Note("Page", $"Check {when} failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
