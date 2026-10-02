@@ -14,6 +14,25 @@ public partial class DashboardPage : ContentPage
 		// A pull starts the refresh (the view runs the command); its own
 		// spinner is put away at once, as the logo's heartbeat shows the load.
 		Refresh.Refreshing += (_, _) => Dispatcher.Dispatch(() => Refresh.IsRefreshing = false);
+
+		// Nor is it seen while pulling: the pull just sets the heartbeat going.
+		Refresh.RefreshColor = Colors.Transparent;
+		Refresh.HandlerChanged += (_, _) => HideSpinner();
+	}
+
+	/// <summary>
+	/// iOS's spinner goes with its colour, but Android's sits on a disc with a
+	/// shadow, so there it's parked above the top edge instead: the pull still
+	/// measures the same distance, the disc just never comes into view.
+	/// </summary>
+	private void HideSpinner()
+	{
+#if ANDROID
+		if (Refresh.Handler?.PlatformView is AndroidX.SwipeRefreshLayout.Widget.SwipeRefreshLayout layout)
+		{
+			layout.SetProgressViewOffset(false, -2000, -1000);
+		}
+#endif
 	}
 
 	protected override void OnAppearing()
