@@ -26,6 +26,8 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.PickSensors, typeof(SensorPickerPage));
 		Routing.RegisterRoute(Routes.PickGraph, typeof(GraphPickerPage));
 		Routing.RegisterRoute(Routes.TopCardSetUp, typeof(TopCardSetUpPage));
+		Routing.RegisterRoute(Routes.AlertRule, typeof(AlertRulePage));
+		Routing.RegisterRoute(Routes.AlertTemplate, typeof(AlertTemplatePage));
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
 		Routing.RegisterRoute(Routes.SettingsSection, typeof(SettingsSectionPage));
 		Routing.RegisterRoute(Routes.NeighbourGroups, typeof(NeighbourGroupsPage));
@@ -69,6 +71,7 @@ public partial class AppShell : Shell
 		AppPage.NetworkMap => typeof(NetworkMapPage),
 		AppPage.Neighbours => typeof(NeighboursPage),
 		AppPage.GroupsLocations => typeof(GroupsLocationsPage),
+		AppPage.AlertRules => typeof(AlertRulesPage),
 		AppPage.Logs => typeof(LogsPage),
 		AppPage.Graylog => typeof(GraylogPage),
 		_ => typeof(SettingsPage),
