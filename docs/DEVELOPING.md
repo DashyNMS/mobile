@@ -256,7 +256,7 @@ is done; the old step-by-step guide for it is in git history as
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit.
 
-**The workflow's secrets** live in the `testflight` environment (only `main`
+**The workflow's secrets** live in the `iOS-Build` environment (only `main`
 can use them, and a maintainer approves each run), not in repository secrets:
 
 | Secret | What it is |
