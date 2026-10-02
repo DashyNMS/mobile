@@ -128,6 +128,13 @@ public sealed partial class DevicesViewModel : ViewModelBase
             MarkSelected();
             OnPropertyChanged(nameof(SelectAllText));
         };
+        Selection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BulkSelection.IsSelecting))
+            {
+                OnPropertyChanged(nameof(ShowsPinGlyphs));
+            }
+        };
     }
 
     /// <summary>Ticking several devices to pin, rediscover or put in maintenance at once (#85).</summary>
@@ -191,6 +198,14 @@ public sealed partial class DevicesViewModel : ViewModelBase
     public bool ShowRecentlyViewed => RecentlyViewed.Count > 0 && string.IsNullOrWhiteSpace(SearchText);
 
     public bool PinningEnabled => _bookmarks.PinningEnabled;
+
+    /// <summary>
+    /// Each row's pin glyph, which pins or unpins it with a tap (#105) - in
+    /// place of swiping, which was easy to miss and fought with scrolling.
+    /// Not while selecting several: the tick circle and the bulk bar's Pin
+    /// and Unpin take over then.
+    /// </summary>
+    public bool ShowsPinGlyphs => PinningEnabled && Selection.IsOff;
 
     public string EmptyText => _all.Count == 0 ? "No devices." : "No devices match these filters.";
 
@@ -607,6 +622,8 @@ public sealed partial class DevicesViewModel : ViewModelBase
             device.IsPinned = pinned.Contains(device.DeviceId);
         }
 
+        OnPropertyChanged(nameof(PinningEnabled));
+        OnPropertyChanged(nameof(ShowsPinGlyphs));
         RebuildRecent();
         ApplyFilter();
     }
