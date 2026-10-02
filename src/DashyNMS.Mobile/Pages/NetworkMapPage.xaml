@@ -18,7 +18,10 @@
     <!-- As desktop's Network map (#86): LibreNMS's links drawn as a diagram.
          Drag to move around, pinch to zoom, tap a device for its connections
          then drag it to move it, double-tap to zoom in. -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <!-- Search, then a strip of chips, then the map with the rest of the
+         screen - Location and Group are chips, not pickers, and nothing sits
+         on top of the map but Fit (#110). -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
         <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0">
             <controls:PageHeader.Actions>
@@ -27,24 +30,36 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <VerticalStackLayout Grid.Row="1" Padding="16,0,16,6" Spacing="6">
+        <VerticalStackLayout Grid.Row="1" Padding="16,0,16,0">
             <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
-            <!-- Location, device group (desktop's own scope), or both. -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Picker Title="Location" ItemsSource="{Binding LocationOptions}" SelectedItem="{Binding SelectedLocation}" />
-                <Picker Grid.Column="1" Title="Group" ItemsSource="{Binding GroupOptions}" SelectedItem="{Binding SelectedGroup}" />
-            </Grid>
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         </VerticalStackLayout>
 
-        <!-- The map itself; see NetworkMapDrawable for how it's drawn. -->
-        <Grid Grid.Row="2">
-            <GraphicsView x:Name="MapCanvas" />
-
-            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
-                   HorizontalOptions="Start" VerticalOptions="End" />
-
-            <HorizontalStackLayout HorizontalOptions="End" VerticalOptions="Start" Margin="12,0" Spacing="6">
+        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,4,16,8">
+            <HorizontalStackLayout Spacing="8">
+                <!-- Location, device group (desktop's own scope), or both: tap to choose. -->
+                <Button Style="{StaticResource Chip}" Text="{Binding LocationChipText}" Command="{Binding ChooseLocationCommand}"
+                        SemanticProperties.Hint="Show only the devices at one location">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsLocationFiltered}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Style="{StaticResource Chip}" Text="{Binding GroupChipText}" Command="{Binding ChooseGroupCommand}"
+                        SemanticProperties.Hint="Show only the devices in one group">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsGroupFiltered}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <BoxView WidthRequest="1" HeightRequest="20" VerticalOptions="Center"
+                         Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
                 <!-- What switches see that LibreNMS doesn't monitor, drawn small and square - off by default. -->
                 <Button Style="{StaticResource Chip}" Text="Neighbours" Command="{Binding ToggleNeighboursCommand}"
                         SemanticProperties.Hint="Also show what switches see that LibreNMS doesn't monitor">
@@ -67,9 +82,24 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Text="Fit" Style="{StaticResource SecondaryButton}" Clicked="OnFitClicked" Padding="14,0"
-                        SemanticProperties.Hint="Show the whole map" />
             </HorizontalStackLayout>
+        </ScrollView>
+
+        <!-- The map itself; see NetworkMapDrawable for how it's drawn. -->
+        <Grid Grid.Row="3">
+            <GraphicsView x:Name="MapCanvas" />
+
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
+                   HorizontalOptions="Start" VerticalOptions="End" />
+
+            <!-- Fit floats in the corner, out of the map's way. -->
+            <Button Text="Fit" FontSize="13" FontFamily="BodySemibold" Clicked="OnFitClicked"
+                    WidthRequest="48" HeightRequest="48" CornerRadius="24" Padding="0" Margin="12"
+                    HorizontalOptions="End" VerticalOptions="End"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                    BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" BorderWidth="1"
+                    SemanticProperties.Description="Fit the whole map" />
 
             <!-- Centred over the map, the logo's heartbeat over what it's doing (#109). -->
             <controls:BusyCard Text="Loading the network…" IsVisible="{Binding IsFetching}" />
@@ -78,8 +108,10 @@
                    HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" Margin="32" />
         </Grid>
 
-        <!-- The tapped device: its state, what it's connected to (tap one to go there), and Open. -->
-        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+        <!-- The tapped device: a compact bar - name, state, Open - that opens to
+             what it's connected to (tap one to go there), so it doesn't cover
+             half the map (#110). -->
+        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">
@@ -92,11 +124,14 @@
                             IsVisible="{Binding HasSelectedDevice}" />
                     <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
                 </Grid>
-                <VerticalStackLayout Grid.Row="1" Spacing="2">
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="{Binding ConnectionsText}"
+                            Command="{Binding ToggleSelectionExpandedCommand}" HeightRequest="32" MinimumHeightRequest="32" />
+                </Grid>
+                <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsSelectionExpanded}" Spacing="4">
                     <Label Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
-                    <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." />
-                </VerticalStackLayout>
-                <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedConnections}" SelectionMode="None">
+                <CollectionView ItemsSource="{Binding SelectedConnections}" SelectionMode="None" MaximumHeightRequest="200">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NetworkConnection">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,7">
@@ -111,6 +146,7 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
+                </VerticalStackLayout>
             </Grid>
         </Border>
 

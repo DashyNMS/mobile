@@ -97,6 +97,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IMapLayoutStore? _layouts;
+    private readonly IDialogService? _dialogs;
     private readonly ISessionService? _session;
 
     private IReadOnlyList<Device> _devices = [];
@@ -150,7 +151,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         ISettingsStore settings,
         INavigationService navigation,
         IMapLayoutStore? layouts = null,
-        ISessionService? session = null)
+        ISessionService? session = null,
+        IDialogService? dialogs = null)
     {
         _client = client;
         _settings = settings;
@@ -164,6 +166,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
             }
         };
         _session = session;
+        _dialogs = dialogs;
     }
 
     /// <summary>
@@ -246,8 +249,70 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         : SelectedLocation.Key is null ? "No links between devices in this group."
         : "No links between devices in this group at this location.";
 
+    // ------------------------------------------------------------ chips (#110)
+
+    /// <summary>The Location chip: "Location", or the one chosen.</summary>
+    public string LocationChipText => (SelectedLocation?.Key ?? "Location") + " ▾";
+
+    public bool IsLocationFiltered => SelectedLocation?.Key is not null;
+
+    /// <summary>The Group chip: "Group", or the one chosen.</summary>
+    public string GroupChipText => (SelectedGroup?.Key ?? "Group") + " ▾";
+
+    public bool IsGroupFiltered => SelectedGroup?.Key is not null;
+
+    /// <summary>
+    /// The Location chip, in place of a picker above the map: the choices,
+    /// with how many devices each has, as the picker listed them.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChooseLocationAsync()
+    {
+        if (await ChooseAsync("Location", LocationOptions) is { } chosen)
+        {
+            SelectedLocation = chosen;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseGroupAsync()
+    {
+        if (await ChooseAsync("Group", GroupOptions) is { } chosen)
+        {
+            SelectedGroup = chosen;
+        }
+    }
+
+    private async Task<FacetOption?> ChooseAsync(string title, IReadOnlyList<FacetOption> options)
+    {
+        if (_dialogs is null)
+        {
+            return null;
+        }
+
+        var label = await _dialogs.ChooseAsync(title, options.Select(o => o.Label).ToList());
+        return options.FirstOrDefault(o => o.Label == label);
+    }
+
+    // ------------------------------------------------------------ the selected device's card (#110)
+
+    /// <summary>The card shows the device's connections - folded away at first, so it doesn't cover half the map.</summary>
+    [ObservableProperty]
+    private bool _isSelectionExpanded;
+
+    /// <summary>"3 connections ▾", or "▴" when open.</summary>
+    public string ConnectionsText => SelectedConnections.Count == 0 ? "No connections"
+        : $"{SelectedConnections.Count} {(SelectedConnections.Count == 1 ? "connection" : "connections")} {(IsSelectionExpanded ? "▴" : "▾")}";
+
+    partial void OnIsSelectionExpandedChanged(bool value) => OnPropertyChanged(nameof(ConnectionsText));
+
+    [RelayCommand]
+    private void ToggleSelectionExpanded() => IsSelectionExpanded = SelectedConnections.Count > 0 && !IsSelectionExpanded;
+
     partial void OnSelectedLocationChanged(FacetOption value)
     {
+        OnPropertyChanged(nameof(LocationChipText));
+        OnPropertyChanged(nameof(IsLocationFiltered));
         if (_keepingChoice)
         {
             return;
@@ -266,6 +331,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     partial void OnSelectedGroupChanged(FacetOption value)
     {
+        OnPropertyChanged(nameof(GroupChipText));
+        OnPropertyChanged(nameof(IsGroupFiltered));
         if (_keepingChoice)
         {
             return;
@@ -293,6 +360,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedDevice));
         OnPropertyChanged(nameof(SelectedNodeStateText));
         RebuildSelectedConnections();
+        IsSelectionExpanded = false;
+        OnPropertyChanged(nameof(ConnectionsText));
         RedrawRequested?.Invoke(this, EventArgs.Empty);
     }
 
@@ -328,12 +397,21 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     public void Dragging(NetworkNode node, double dx, double dy) =>
         Jiggle.Moved(node, dx, dy, Edges.Where(e => ReferenceEquals(e.A, node) || ReferenceEquals(e.B, node)).Select(e => ReferenceEquals(e.A, node) ? e.B : e.A));
 
-    /// <summary>Forgets where this map's devices were put and lays it out afresh.</summary>
+    /// <summary>
+    /// Forgets where this map's devices were put and lays it out afresh -
+    /// after asking, as it can't be undone (#110).
+    /// </summary>
     [RelayCommand]
-    private Task ResetLayoutAsync()
+    private async Task ResetLayoutAsync()
     {
+        if (_dialogs is not null
+            && !await _dialogs.ConfirmAsync("Reset layout", "Forget where you've moved devices on this map and lay it out again?", "Reset", "Cancel"))
+        {
+            return;
+        }
+
         _layouts?.Clear(ScopeKey);
-        return RebuildAsync();
+        await RebuildAsync();
     }
 
     /// <summary>The switch ports' states, for the neighbours' colours; not worth failing the map over.</summary>

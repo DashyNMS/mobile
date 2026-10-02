@@ -185,4 +185,63 @@ public sealed class NetworkMapViewModelTests
         Assert.Equal("tab_networkmap.png", AppPages.Icon(AppPage.NetworkMap));
         Assert.Equal(Routes.NetworkMap, AppPages.PushRoute(AppPage.NetworkMap));
     }
+
+    [Fact]
+    public async Task Location_and_group_are_chips_that_ask_which()
+    {
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync("Location", Arg.Any<IReadOnlyList<string>>()).Returns("Leeds (3)");
+        var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation, dialogs: dialogs);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("Location ▾", vm.LocationChipText);
+        Assert.False(vm.IsLocationFiltered);
+
+        await vm.ChooseLocationCommand.ExecuteAsync(null);
+
+        await dialogs.Received(1).ChooseAsync("Location", Arg.Is<IReadOnlyList<string>>(l => l.SequenceEqual(new[] { "All locations", "Leeds (3)", "London (1)" })));
+        Assert.Equal("Leeds", vm.SelectedLocation.Key);
+        Assert.Equal("Leeds ▾", vm.LocationChipText);
+        Assert.True(vm.IsLocationFiltered);
+
+        // Cancelled: nothing changes.
+        dialogs.ChooseAsync("Location", Arg.Any<IReadOnlyList<string>>()).Returns((string?)null);
+        await vm.ChooseLocationCommand.ExecuteAsync(null);
+        Assert.Equal("Leeds", vm.SelectedLocation.Key);
+    }
+
+    [Fact]
+    public async Task The_selected_devices_card_starts_folded_and_opens_to_its_connections()
+    {
+        var vm = await Loaded();
+
+        vm.Select(vm.Nodes.Single(n => n.Name == "dist-sw"));
+        Assert.False(vm.IsSelectionExpanded);
+        Assert.Equal("2 connections ▾", vm.ConnectionsText);
+
+        vm.ToggleSelectionExpandedCommand.Execute(null);
+        Assert.True(vm.IsSelectionExpanded);
+        Assert.Equal("2 connections ▴", vm.ConnectionsText);
+
+        // Another device starts folded again.
+        vm.Select(vm.Nodes.Single(n => n.Name == "core-sw"));
+        Assert.False(vm.IsSelectionExpanded);
+        Assert.Equal("1 connection ▾", vm.ConnectionsText);
+    }
+
+    [Fact]
+    public async Task Reset_layout_asks_first()
+    {
+        var dialogs = Substitute.For<IDialogService>();
+        var layouts = Substitute.For<DesktopNMS.Core.Topology.IMapLayoutStore>();
+        layouts.Get(Arg.Any<string>()).Returns(new Dictionary<int, DesktopNMS.Core.Topology.MapPoint>());
+        var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation, layouts, dialogs: dialogs);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        await vm.ResetLayoutCommand.ExecuteAsync(null); // declined
+        layouts.DidNotReceive().Clear(Arg.Any<string>());
+
+        dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        await vm.ResetLayoutCommand.ExecuteAsync(null);
+        layouts.Received(1).Clear(vm.ScopeKey);
+    }
 }
