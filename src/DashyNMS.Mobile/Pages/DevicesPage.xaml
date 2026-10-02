@@ -155,18 +155,7 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:DeviceItem">
-                        <SwipeView Threshold="96">
-                            <!-- Swipe right to show Pin (or Unpin), then tap it - never pinned by a stray swipe. -->
-                            <SwipeView.LeftItems>
-                                <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
-                                    <SwipeItem Text="{Binding PinText}"
-                                               BackgroundColor="{StaticResource ButtonPrimary}"
-                                               Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
-                                               CommandParameter="{Binding .}" />
-                                </SwipeItems>
-                            </SwipeView.LeftItems>
-
-                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
+                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
                                   controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                   controls:LongPress.CommandParameter="{Binding .}"
                                   SemanticProperties.Hint="Touch and hold to select several">
@@ -188,11 +177,7 @@
                                     <controls:TickCircle IsTicked="{Binding IsTicked}"
                                                          IsVisible="{Binding Selection.IsSelecting, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}" />
                                     <VerticalStackLayout Grid.Column="1">
-                                        <HorizontalStackLayout Spacing="6">
-                                            <Image Source="pin_marker.png" WidthRequest="14" HeightRequest="14"
-                                                   VerticalOptions="Center" IsVisible="{Binding IsPinned}" />
-                                            <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
-                                        </HorizontalStackLayout>
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
                                         <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
@@ -200,9 +185,22 @@
                                                TextColor="{Binding State, Converter={StaticResource StatusText}}" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>
-                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" Margin="0,11,0,0" />
+                                    <!-- The pin (#105): filled when pinned, outlined when not; a tap pins or unpins,
+                                         in place of swiping. A button, so the tap is its own and doesn't open the device. -->
+                                    <ImageButton Grid.Column="3" Source="pin_outline.png" BackgroundColor="Transparent"
+                                                 WidthRequest="44" HeightRequest="44" Padding="14" Margin="-8,0,-8,0" VerticalOptions="Center"
+                                                 Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                                 CommandParameter="{Binding .}"
+                                                 IsVisible="{Binding ShowsPinGlyphs, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                                 SemanticProperties.Description="{Binding PinDescription}">
+                                        <ImageButton.Triggers>
+                                            <DataTrigger TargetType="ImageButton" Binding="{Binding IsPinned}" Value="True">
+                                                <Setter Property="Source" Value="pin_marker.png" />
+                                            </DataTrigger>
+                                        </ImageButton.Triggers>
+                                    </ImageButton>
+                                <BoxView Grid.Row="1" Grid.ColumnSpan="4" Style="{StaticResource Divider}" Margin="0,11,0,0" />
                             </Grid>
-                        </SwipeView>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>

@@ -247,6 +247,28 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task Each_row_has_a_pin_glyph_except_while_selecting_several()
+    {
+        var vm = await Loaded();
+        var changes = new List<string?>();
+        vm.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        var row = vm.Devices.Single(d => d.Name == "core-sw");
+
+        Assert.True(vm.ShowsPinGlyphs);
+        Assert.Equal("Pin core-sw", row.PinDescription);
+
+        vm.HoldCommand.Execute(row); // press and hold starts selecting (#85)
+        Assert.False(vm.ShowsPinGlyphs);
+        Assert.Contains(nameof(DevicesViewModel.ShowsPinGlyphs), changes);
+
+        vm.StopSelectingCommand.Execute(null);
+        Assert.True(vm.ShowsPinGlyphs);
+
+        vm.TogglePinCommand.Execute(row);
+        Assert.Equal("Unpin core-sw", row.PinDescription);
+    }
+
+    [Fact]
     public async Task Pinned_devices_stay_on_top_whatever_the_sort()
     {
         var vm = await Loaded();

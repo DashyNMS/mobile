@@ -13,6 +13,7 @@ public sealed partial class DeviceItem : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinText))]
+    [NotifyPropertyChangedFor(nameof(PinDescription))]
     private bool _isPinned;
 
     /// <summary>Inside a maintenance window - a per-device lookup, filled in after the list loads.</summary>
@@ -38,6 +39,9 @@ public sealed partial class DeviceItem : ObservableObject
 
     /// <summary>The swipe action's label.</summary>
     public string PinText => IsPinned ? "Unpin" : "Pin";
+
+    /// <summary>What the row's pin glyph says to a screen reader (#105): "Pin core-sw", "Unpin core-sw".</summary>
+    public string PinDescription => $"{PinText} {Name}";
 
     public int DeviceId => Device.DeviceId;
 

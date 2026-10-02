@@ -47,6 +47,7 @@
 		<MauiImage Update="Resources\Images\tab_*.svg" BaseSize="24,24" />
 		<MauiImage Update="Resources\Images\icon_*.svg" BaseSize="24,24" />
 		<MauiImage Update="Resources\Images\pin_marker.svg" BaseSize="16,16" />
+		<MauiImage Update="Resources\Images\pin_outline.svg" BaseSize="16,16" />
 	</ItemGroup>
 
 	<!-- The logo's ring runs almost to the edge of its artwork. Android masks
