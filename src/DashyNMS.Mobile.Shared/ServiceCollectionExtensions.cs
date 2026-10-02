@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
         services.AddSingleton<AlertTabDot>();
         services.AddSingleton<AlertCountThreshold>();
+        services.AddSingleton<IgnoredAlerts>();
         services.AddSingleton<AlertWatcher>();
         services.AddSingleton<AlertWatchCoordinator>();
         services.AddSingleton<NotificationRouter>();

@@ -38,6 +38,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
+    private readonly DashyNMS.Mobile.Alerts.IgnoredAlerts? _ignored;
 
     /// <summary>
     /// Raised after you acknowledge or unacknowledge the alert here. Beside
@@ -51,6 +52,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CanAcknowledge))]
     [NotifyPropertyChangedFor(nameof(CanUnacknowledge))]
     [NotifyPropertyChangedFor(nameof(RaisedText))]
+    [NotifyPropertyChangedFor(nameof(NotificationsText))]
+    [NotifyPropertyChangedFor(nameof(CanChangeNotifications))]
     private AlertItem? _alert;
 
     [ObservableProperty]
@@ -65,13 +68,15 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         ISettingsStore settings,
         IDialogService dialogs,
         INavigationService navigation,
-        ISelfActionTracker selfActions)
+        ISelfActionTracker selfActions,
+        DashyNMS.Mobile.Alerts.IgnoredAlerts? ignored = null)
     {
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
         _navigation = navigation;
         _selfActions = selfActions;
+        _ignored = ignored;
     }
 
     public int AlertId { get; private set; }
@@ -209,6 +214,54 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     }
 
     internal const string RuleGroupName = "Rule";
+
+    // ------------------------------------------------------------ notifications (#102)
+
+    public bool CanChangeNotifications => _ignored is not null && Alert is not null;
+
+    /// <summary>"Notifications on", or what's keeping this alert quiet.</summary>
+    public string NotificationsText => Alert is not { } alert || _ignored is null ? string.Empty
+        : _ignored.All.FirstOrDefault(i => i.Covers(alert.Alert)) is { } entry ? $"No notifications: {entry.Description}"
+        : "Notifications on";
+
+    /// <summary>
+    /// Stops notifications from this alert's rule - on this device, or every
+    /// device - or, if they're stopped, starts them again. Only notifications:
+    /// the alert still lists and counts.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChangeNotificationsAsync()
+    {
+        if (Alert is not { } item || _ignored is null)
+        {
+            return;
+        }
+
+        var alert = item.Alert;
+        if (_ignored.IsIgnored(alert))
+        {
+            if (await _dialogs.ConfirmAsync("Notify again", $"Send notifications for {item.Rule} again?", "Notify again", "Cancel"))
+            {
+                _ignored.NotifyAgain(alert);
+            }
+        }
+        else
+        {
+            var onDevice = $"{item.Rule} on {item.Device}";
+            var everywhere = $"{item.Rule} on every device";
+            var choice = await _dialogs.ChooseAsync("Stop notifications for", [onDevice, everywhere]);
+            if (choice == onDevice)
+            {
+                _ignored.Ignore(alert.RuleId, item.Rule, alert.DeviceId, item.Device);
+            }
+            else if (choice == everywhere)
+            {
+                _ignored.Ignore(alert.RuleId, item.Rule);
+            }
+        }
+
+        OnPropertyChanged(nameof(NotificationsText));
+    }
 
     [RelayCommand]
     private Task OpenRuleAsync() => _rule is { } rule

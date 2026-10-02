@@ -45,6 +45,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly INotificationPrivacy _privacy;
     private readonly ILauncherService? _launcher;
     private readonly AlertCountThreshold _countThreshold;
+    private readonly IgnoredAlerts _ignored;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -64,9 +65,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Graylog.GraylogSetup? graylog = null,
         INotificationPrivacy? privacy = null,
         ILauncherService? launcher = null,
-        AlertCountThreshold? countThreshold = null)
+        AlertCountThreshold? countThreshold = null,
+        IgnoredAlerts? ignored = null)
     {
         _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
+        _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
+        _ignored.Changed += (_, _) => ShowIgnored();
+        ShowIgnored();
         _privacy = privacy ?? new SystemNotificationPrivacy();
         _launcher = launcher;
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
@@ -397,6 +402,27 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>"Every 1 minute while open · icon badge on", with ", critical only" when it counts less (#96).</summary>
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
         + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" + (BadgeThresholdIndex > 0 ? ", " + BadgeThresholdLabels[BadgeThresholdIndex].ToLower(CultureInfo.CurrentCulture) : string.Empty) : " · icon badge off") : string.Empty);
+
+    /// <summary>Alert rules that don't notify, everywhere or on a device (#102) - chosen from an alert or a rule's page.</summary>
+    public BulkObservableCollection<IgnoredAlert> IgnoredAlerts { get; } = new();
+
+    public bool HasIgnoredAlerts => IgnoredAlerts.Count > 0;
+
+    /// <summary>Notifications again from one of them.</summary>
+    [RelayCommand]
+    private void NotifyAgain(IgnoredAlert? entry)
+    {
+        if (entry is not null)
+        {
+            _ignored.NotifyAgain(entry);
+        }
+    }
+
+    private void ShowIgnored()
+    {
+        IgnoredAlerts.ReplaceAll(_ignored.All);
+        OnPropertyChanged(nameof(HasIgnoredAlerts));
+    }
 
     /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
     public string NotificationsSummary

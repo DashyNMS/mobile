@@ -25,6 +25,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private int? _templateId;
+    private readonly DashyNMS.Mobile.Alerts.IgnoredAlerts? _ignored;
 
     [ObservableProperty]
     private string _title = "Alert rule";
@@ -70,11 +71,12 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
     [ObservableProperty]
     private bool _hasLoaded;
 
-    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation)
+    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DashyNMS.Mobile.Alerts.IgnoredAlerts? ignored = null)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
+        _ignored = ignored;
     }
 
     public int? RuleId { get; set; }
@@ -131,6 +133,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
             .ToList());
 
         HasLoaded = true;
+        OnPropertyChanged(nameof(CanChangeNotifications));
         OnPropertyChanged(nameof(HasAlerts));
         OnPropertyChanged(nameof(HasNoAlerts));
     });
@@ -188,6 +191,63 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasNotes));
         OnPropertyChanged(nameof(HasProcedure));
         OnPropertyChanged(nameof(HasTemplate));
+        ShowNotifications(rule);
+    }
+
+    // ------------------------------------------------------------ notifications (#102)
+
+    private int _ruleId;
+    private string _ruleName = string.Empty;
+
+    public bool CanChangeNotifications => _ignored is not null && HasLoaded;
+
+    /// <summary>
+    /// The phone notifies about this rule's alerts. Off ignores it on every
+    /// device; on again clears that, and any single devices ignored for it.
+    /// Only notifications: its alerts still list and count.
+    /// </summary>
+    public bool Notifies
+    {
+        get => _ignored?.IsRuleIgnored(_ruleId) != true;
+        set
+        {
+            if (_ignored is null || value == Notifies)
+            {
+                return;
+            }
+
+            if (value)
+            {
+                _ignored.NotifyAgain(_ruleId);
+            }
+            else
+            {
+                _ignored.Ignore(_ruleId, _ruleName);
+            }
+
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(NotificationsNote));
+            OnPropertyChanged(nameof(HasNotificationsNote));
+        }
+    }
+
+    /// <summary>The devices it's quiet on, when only some are: "Not on core-sw, edge-rtr".</summary>
+    public string? NotificationsNote =>
+        _ignored is null || !Notifies ? null
+        : _ignored.All.Where(i => i.RuleId == _ruleId && i.DeviceId is not null).Select(i => i.DeviceName ?? $"device {i.DeviceId}").ToList() is { Count: > 0 } devices
+            ? $"Not on {string.Join(", ", devices)}"
+            : null;
+
+    public bool HasNotificationsNote => NotificationsNote is not null;
+
+    private void ShowNotifications(AlertRule rule)
+    {
+        _ruleId = rule.Id;
+        _ruleName = RuleText.Name(rule);
+        OnPropertyChanged(nameof(Notifies));
+        OnPropertyChanged(nameof(NotificationsNote));
+        OnPropertyChanged(nameof(HasNotificationsNote));
+        OnPropertyChanged(nameof(CanChangeNotifications));
     }
 
     /// <summary>"Devices: core-sw, edge-rtr", with an id for one that's gone.</summary>
