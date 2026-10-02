@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.AlertTemplatePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:rules="clr-namespace:DashyNMS.Mobile.Rules;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="rules:AlertTemplateViewModel"
+    SafeAreaEdges="Container"
+    Title="{Binding Title}">
+
+    <!-- One alert template, read-only (#22): the body monospaced, as written. -->
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16,8,16,16" Spacing="12">
+
+                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="10">
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12" IsVisible="{Binding HasAlertTitle}">
+                                <Label Style="{StaticResource Caption}" Text="Title" />
+                                <Label Grid.Column="1" Text="{Binding AlertTitle}" FontFamily="Mono" FontSize="12.5" />
+                            </Grid>
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12" IsVisible="{Binding HasRecoveryTitle}">
+                                <Label Style="{StaticResource Caption}" Text="Recovery title" />
+                                <Label Grid.Column="1" Text="{Binding RecoveryTitle}" FontFamily="Mono" FontSize="12.5" />
+                            </Grid>
+                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
+                                <Label Style="{StaticResource Caption}" Text="Used by" />
+                                <Label Grid.Column="1" Text="{Binding UsedBy}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Long lines scroll sideways rather than wrapping, so the layout reads as written. -->
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
+                        <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                            <Label Text="{Binding Body}" FontFamily="Mono" FontSize="12" LineHeight="1.3" LineBreakMode="NoWrap"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                        </ScrollView>
+                    </Border>
+
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
+    </RefreshView>
+
+</ContentPage>

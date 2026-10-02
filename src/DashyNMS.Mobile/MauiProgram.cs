@@ -88,6 +88,9 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertDetailPage>();
 		builder.Services.AddTransient<HealthPage>();
 		builder.Services.AddTransient<GroupsLocationsPage>();
+		builder.Services.AddTransient<AlertRulesPage>();
+		builder.Services.AddTransient<AlertRulePage>();
+		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<SensorPickerPage>();

@@ -196,9 +196,24 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             }
         }
 
+        // The rule card opens the whole rule: where it applies, its template,
+        // what else it has alerting (#22).
+        foreach (var group in groups.Where(g => g.Name == RuleGroupName))
+        {
+            group.FooterText = "Open rule";
+            group.FooterCommand = OpenRuleCommand;
+        }
+
         Groups.ReplaceAll(groups);
         OnPropertyChanged(nameof(CardGroups));
     }
+
+    internal const string RuleGroupName = "Rule";
+
+    [RelayCommand]
+    private Task OpenRuleAsync() => _rule is { } rule
+        ? _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = rule.Id })
+        : Task.CompletedTask;
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
     [RelayCommand]
@@ -296,7 +311,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
         if (rule is not null)
         {
-            yield return new SectionGroup("Rule", RuleRows(rule));
+            yield return new SectionGroup(RuleGroupName, RuleRows(rule));
         }
 
         var history = ruleLog.Take(HistoryRows).Select(e => new SectionRow(e.State.ToDisplayString())

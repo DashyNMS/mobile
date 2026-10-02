@@ -69,6 +69,9 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AlertDetailViewModel>();
         services.AddTransient<HealthViewModel>();
         services.AddTransient<GroupsLocationsViewModel>();
+        services.AddTransient<Rules.AlertRulesViewModel>();
+        services.AddTransient<Rules.AlertRuleViewModel>();
+        services.AddTransient<Rules.AlertTemplateViewModel>();
         services.AddTransient<ThresholdsViewModel>();
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();

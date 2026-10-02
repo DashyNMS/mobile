@@ -84,6 +84,21 @@ public static class Routes
     /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
     public const string GroupsLocations = "groupslocations";
 
+    /// <summary>LibreNMS's alert rules, read-only (#22).</summary>
+    public const string AlertRules = "alertrules";
+
+    /// <summary>One alert rule, with <see cref="RuleIdParameter"/> (#22).</summary>
+    public const string AlertRule = "alertrule";
+
+    /// <summary>One alert template, with <see cref="TemplateIdParameter"/> (#22).</summary>
+    public const string AlertTemplate = "alerttemplate";
+
+    /// <summary>Query attribute: an alert rule's id, for <see cref="AlertRule"/>.</summary>
+    public const string RuleIdParameter = "rule";
+
+    /// <summary>Query attribute: an alert template's id, for <see cref="AlertTemplate"/>.</summary>
+    public const string TemplateIdParameter = "template";
+
     /// <summary>Query attribute: a device group's name (or the "not in a group" key), for <see cref="Devices"/>.</summary>
     public const string GroupParameter = "group";
 

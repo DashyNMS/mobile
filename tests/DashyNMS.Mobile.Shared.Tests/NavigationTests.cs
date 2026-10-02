@@ -114,7 +114,7 @@ public sealed class NavigationTests
     public async Task Unpinning_makes_room_and_updates_the_count()
     {
         var vm = new MoreViewModel(_pins, new RecordingNavigation(), Substitute.For<IDialogService>());
-        var health = vm.Groups[0].Items[2];
+        var health = vm.Groups[0].Items.Single(i => i.Page == AppPage.Health);
 
         await vm.TogglePinCommand.ExecuteAsync(health);
 

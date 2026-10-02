@@ -5,6 +5,7 @@ public enum AppPage
 {
     Devices,
     Alerts,
+    AlertRules,
     Health,
     Map,
     NetworkMap,
@@ -123,6 +124,7 @@ public static class AppPages
     {
         AppPage.Devices => "Devices",
         AppPage.Alerts => "Alerts",
+        AppPage.AlertRules => "Alert rules",
         AppPage.Health => "Health",
         AppPage.Map => "Map",
         AppPage.NetworkMap => "Network map",
@@ -138,6 +140,7 @@ public static class AppPages
     public static string TabTitle(AppPage page) => page switch
     {
         AppPage.GroupsLocations => "Groups",
+        AppPage.AlertRules => "Rules",
         AppPage.NetworkMap => "Network",
         AppPage.Logs => "Logs",
         _ => Title(page),
@@ -147,6 +150,7 @@ public static class AppPages
     {
         AppPage.Devices => "Every device, with filters and pins",
         AppPage.Alerts => "Open alerts, most severe first",
+        AppPage.AlertRules => "What each rule matches, and what it's alerting",
         AppPage.Health => "Sensors across the network",
         AppPage.Map => "Devices by location",
         AppPage.NetworkMap => "What's connected to what, as a diagram",
@@ -161,7 +165,7 @@ public static class AppPages
     /// <summary>The More page's headings: Monitor, Network, Logs, App.</summary>
     public static string Group(AppPage page) => page switch
     {
-        AppPage.Devices or AppPage.Alerts or AppPage.Health => "Monitor",
+        AppPage.Devices or AppPage.Alerts or AppPage.AlertRules or AppPage.Health => "Monitor",
         AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.GroupsLocations => "Network",
         AppPage.Logs or AppPage.Graylog => "Logs",
         _ => "App",
@@ -196,6 +200,7 @@ public static class AppPages
         AppPage.NetworkMap => Routes.NetworkMap,
         AppPage.Neighbours => Routes.Neighbours,
         AppPage.GroupsLocations => Routes.GroupsLocations,
+        AppPage.AlertRules => Routes.AlertRules,
         AppPage.Logs => Routes.Logs,
         AppPage.Graylog => Routes.Graylog,
         _ => page.ToString().ToLowerInvariant() + "page",
