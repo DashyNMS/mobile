@@ -48,13 +48,24 @@
 
                 <!-- ==================== Appearance ==================== -->
                 <Border x:Name="Appearance" Style="{StaticResource Card}" IsVisible="False">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <Label Text="Light or dark" VerticalOptions="Center" />
-                        <Picker Grid.Column="1" Title="Appearance"
-                                ItemsSource="{Binding AppearanceLabels}"
-                                SelectedIndex="{Binding AppearanceIndex}"
-                                MinimumWidthRequest="160" />
-                    </Grid>
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Light or dark" VerticalOptions="Center" />
+                            <Picker Grid.Column="1" Title="Appearance"
+                                    ItemsSource="{Binding AppearanceLabels}"
+                                    SelectedIndex="{Binding AppearanceIndex}"
+                                    MinimumWidthRequest="160" />
+                        </Grid>
+                        <!-- Desktop's own setting, shared (#106). -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="Jiggle physics on the network map" />
+                                <Label Style="{StaticResource Caption}"
+                                       Text="Devices wobble like jelly when you drag them, and what they're linked to wobbles too. Just for fun: a device is always saved where you drop it. Nothing moves with Reduce Motion on." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding JigglePhysicsOnMaps}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
                 </Border>
 
                 <!-- ==================== Devices ==================== -->

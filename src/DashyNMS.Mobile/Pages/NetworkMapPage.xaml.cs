@@ -38,6 +38,8 @@ public partial class NetworkMapPage : ContentPage
 	private NetworkNode? _dragging;
 	private DateTime _lastTapAt;
 	private PointF _lastTapPoint;
+	private IDispatcherTimer? _jiggleTimer;
+	private DateTime _lastFrame;
 
 	public NetworkMapPage(NetworkMapViewModel viewModel)
 	{
@@ -75,10 +77,47 @@ public partial class NetworkMapPage : ContentPage
 		MapCanvas.GestureRecognizers.Add(pinch);
 	}
 
+	/// <summary>
+	/// Steps the wobble (#106) each frame while anything is settling, then
+	/// stops - an idle map runs no timer.
+	/// </summary>
+	private void StartJiggling()
+	{
+		if (!_viewModel.Jiggle.IsMoving || _jiggleTimer is { IsRunning: true })
+		{
+			return;
+		}
+
+		_jiggleTimer ??= CreateJiggleTimer();
+		_lastFrame = DateTime.UtcNow;
+		_jiggleTimer.Start();
+	}
+
+	private IDispatcherTimer CreateJiggleTimer()
+	{
+		var timer = Dispatcher.CreateTimer();
+		timer.Interval = TimeSpan.FromSeconds(1.0 / 60);
+		timer.Tick += (_, _) =>
+		{
+			var now = DateTime.UtcNow;
+			_viewModel.Jiggle.Step((now - _lastFrame).TotalSeconds);
+			_lastFrame = now;
+			MapCanvas.Invalidate();
+			if (!_viewModel.Jiggle.IsMoving)
+			{
+				timer.Stop();
+			}
+		};
+		return timer;
+	}
+
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
 		Header.Apply(this);
+
+		// Back from Settings, the jiggle may have been switched; never with Reduce Motion.
+		_viewModel.UpdateJiggle(!ReducedMotion.IsOn);
 		if (!_loaded)
 		{
 			_loaded = true;
@@ -90,6 +129,8 @@ public partial class NetworkMapPage : ContentPage
 	{
 		base.OnDisappearing();
 		SaveView();
+		_jiggleTimer?.Stop();
+		_viewModel.Jiggle.Clear();
 	}
 
 	/// <summary>
@@ -191,8 +232,10 @@ public partial class NetworkMapPage : ContentPage
 		if (_dragging is { } node)
 		{
 			var map = _drawable.ToMap(point);
+			_viewModel.Dragging(node, map.X - node.X, map.Y - node.Y);
 			node.X = map.X;
 			node.Y = map.Y;
+			StartJiggling();
 		}
 		else
 		{

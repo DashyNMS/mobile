@@ -209,6 +209,28 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Devices wobble like jelly when dragged on the network map (#106) -
+    /// desktop's own setting (jigglePhysicsOnMaps), so it's the same in both
+    /// apps. Just for fun; off by default.
+    /// </summary>
+    public bool JigglePhysicsOnMaps
+    {
+        get => _settings.Current.JigglePhysicsOnMaps;
+        set
+        {
+            if (value == _settings.Current.JigglePhysicsOnMaps)
+            {
+                return;
+            }
+
+            _settings.Current.JigglePhysicsOnMaps = value;
+            _settings.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AppearanceSummary));
+        }
+    }
+
     public IReadOnlyList<string> AppearanceLabels { get; } = ["Same as the phone", "Light", "Dark"];
 
     public int AppearanceIndex
@@ -395,7 +417,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>"LibreNMS 25.9.0 · https", with plain http called out (#3).</summary>
     public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
 
-    public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)];
+    public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)]
+        + (JigglePhysicsOnMaps ? " · jiggle physics" : string.Empty);
 
     /// <summary>"Hostname · 10 recently viewed".</summary>
     public string DevicesSummary => DeviceNameStyles[Math.Max(0, DeviceNameStyleIndex)] + " · " + (ShowRecentlyViewed

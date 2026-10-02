@@ -36,6 +36,14 @@ public sealed class NetworkMapDrawable : IDrawable
 
     public PointF ToScreen(NetworkNode node) => new((float)(node.X * Scale + Offset.X), (float)(node.Y * Scale + Offset.Y));
 
+    /// <summary>Where <paramref name="node"/> is drawn: where it is, plus any wobble while it settles (#106) - links follow, so they stretch with it.</summary>
+    private PointF Drawn(NetworkNode node)
+    {
+        var (dx, dy) = _map.Jiggle.Offset(node);
+        var at = ToScreen(node);
+        return new PointF((float)(at.X + dx * Scale), (float)(at.Y + dy * Scale));
+    }
+
     public PointF ToMap(PointF screen) => new((float)((screen.X - Offset.X) / Scale), (float)((screen.Y - Offset.Y) / Scale));
 
     /// <summary>The node under a tap, within a finger's reach of its centre, nearest first.</summary>
@@ -129,8 +137,8 @@ public sealed class NetworkMapDrawable : IDrawable
             canvas.StrokeSize = (float)((edge.LinkCount > 1 ? 2.5 : 1.2) * (highlighted ? 1.6 : 1));
             canvas.StrokeDashPattern = edge.IsToOfflineDevice ? [1f, 2.5f] : null;
             canvas.Alpha = highlighted ? 1 : dimOthers ? 0.15f : 0.5f;
-            var a = ToScreen(edge.A);
-            var b = ToScreen(edge.B);
+            var a = Drawn(edge.A);
+            var b = Drawn(edge.B);
             canvas.DrawLine(a, b);
         }
 
@@ -138,7 +146,7 @@ public sealed class NetworkMapDrawable : IDrawable
         var radius = NodeRadius;
         foreach (var node in nodes)
         {
-            var centre = ToScreen(node);
+            var centre = Drawn(node);
             var faded = dimOthers && !ReferenceEquals(node, selected) && !neighbours.Contains(node);
             canvas.Alpha = faded ? 0.3f : 1;
             canvas.FillColor = StateColour(node.State);
@@ -187,7 +195,7 @@ public sealed class NetworkMapDrawable : IDrawable
                 continue;
             }
 
-            var centre = ToScreen(node);
+            var centre = Drawn(node);
             var top = centre.Y + radius + 3;
             var measured = canvas.GetStringSize(node.Name, Microsoft.Maui.Graphics.Font.Default, 11).Width;
 
