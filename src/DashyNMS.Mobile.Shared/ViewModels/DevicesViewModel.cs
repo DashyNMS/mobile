@@ -630,7 +630,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
         if (!stateAllowed
             || (SelectedType.Key is { } type && !string.Equals(device.Device.Type ?? string.Empty, type, StringComparison.OrdinalIgnoreCase))
-            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.LocationName() ?? string.Empty, location, StringComparison.Ordinal))
+            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.LocationName() ?? string.Empty, location, StringComparison.OrdinalIgnoreCase))
             || (SelectedGroup.Key is { } group && !GroupsOrNone(device.DeviceId).Contains(group)))
         {
             return false;

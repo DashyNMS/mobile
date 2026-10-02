@@ -285,6 +285,26 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task A_location_spelt_in_another_case_is_the_same_place()
+    {
+        // The Location choices count "london" under London; the list has to agree (#101).
+        var client = Fakes.Client(devices:
+        [
+            Fakes.Device(1, "core-sw", location: "London"),
+            Fakes.Device(2, "spare-sw", location: "london"),
+            Fakes.Device(3, "access-sw", location: "Leeds"),
+        ]);
+        var vm = new DevicesViewModel(client, _navigation, _settings, _bookmarks, _time);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+
+        vm.ShowOnly(location: "london");
+
+        Assert.Equal(["core-sw", "spare-sw"], Names(vm));
+        Assert.Equal("London (2)", vm.SelectedLocation.Label);
+    }
+
+    [Fact]
     public async Task State_chips_are_remembered_and_shortcuts_dont_replace_them()
     {
         var preferences = new InMemoryPreferences();

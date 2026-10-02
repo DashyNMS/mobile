@@ -12,16 +12,48 @@ namespace DashyNMS.Mobile.Adapters;
 public sealed class ShellNavigationService(TabPins pins) : INavigationService
 {
     public Task GoToAsync(string route, IDictionary<string, object>? parameters = null) =>
-        MainThread.InvokeOnMainThreadAsync(() =>
+        MainThread.InvokeOnMainThreadAsync(async () =>
         {
             if (Shell.Current.CurrentPage is IDetailHost host && host.TryShowDetail(route, parameters))
             {
-                return Task.CompletedTask;
+                return;
             }
 
             var resolved = AppPages.Resolve(route, pins);
-            return parameters is null
+            if (parameters is not null && await TryBackToCurrentTabAsync(resolved, parameters))
+            {
+                return;
+            }
+
+            await (parameters is null
                 ? Shell.Current.GoToAsync(resolved)
-                : Shell.Current.GoToAsync(resolved, parameters);
+                : Shell.Current.GoToAsync(resolved, parameters));
         });
+
+    /// <summary>
+    /// The tab that's already showing, with a query - a device's Location
+    /// opened from the Devices tab's own list, say. Shell pops back to the
+    /// tab's page but never hands it the query, and with the device beside
+    /// the list (#88) doesn't move at all, so the list wasn't filtered (#101).
+    /// Here the pop is done and the query handed over directly.
+    /// </summary>
+    private static async Task<bool> TryBackToCurrentTabAsync(string resolved, IDictionary<string, object> parameters)
+    {
+        if (Shell.Current.CurrentItem?.CurrentItem is not { } tab
+            || resolved != $"{Routes.Main}/{tab.Route}"
+            || tab.CurrentItem is not IShellContentController content
+            || content.Page is not IQueryAttributable page)
+        {
+            return false;
+        }
+
+        if (tab.Navigation.NavigationStack.Count > 1)
+        {
+            await tab.Navigation.PopToRootAsync();
+        }
+
+        // A copy: the page clears the query once it's applied.
+        page.ApplyQueryAttributes(new Dictionary<string, object>(parameters));
+        return true;
+    }
 }
