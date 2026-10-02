@@ -44,7 +44,7 @@ public sealed class MoreSettingsTests
         _appSettings.Notifications.QuietHoursStartHour = 22;
         _appSettings.Notifications.QuietHoursEndHour = 7;
 
-        Assert.Equal("Same as the phone", _vm.AppearanceSummary);
+        Assert.Equal("Same as the phone · jiggle physics", _vm.AppearanceSummary); // jiggle on by default since Core 802980c
         Assert.Equal("Every 1 minute while open", _vm.AlertChecksSummary); // no badge on this platform
         Assert.Equal("Critical only · quiet 22:00–07:00", _vm.NotificationsSummary);
         Assert.EndsWith("recently viewed", _vm.DevicesSummary);
@@ -104,14 +104,15 @@ public sealed class MoreSettingsTests
     public void Appearance_follows_the_phone_until_chosen()
     {
         Assert.Equal(0, _vm.AppearanceIndex);
+        var desktopTheme = _appSettings.Theme;
 
         _vm.AppearanceIndex = 2;
 
         Assert.Equal(AppearanceChoice.Dark, _appearance.Current);
-        Assert.Equal(AppTheme.Dark, _appSettings.Theme); // desktop's own setting untouched (its default)
+        Assert.Equal(desktopTheme, _appSettings.Theme); // desktop's own setting untouched
         _vm.AppearanceIndex = 1;
         Assert.Equal(AppearanceChoice.Light, _appearance.Current);
-        Assert.Equal(AppTheme.Dark, _appSettings.Theme);
+        Assert.Equal(desktopTheme, _appSettings.Theme);
     }
 
     [Fact]

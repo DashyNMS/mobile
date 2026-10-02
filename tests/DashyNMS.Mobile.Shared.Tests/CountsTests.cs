@@ -168,7 +168,7 @@ public sealed class CountsTests
             new RecordingNotifier(), null!, new DashyNMS.Mobile.Alerts.NoAppBadge(), new InMemoryAppearance(),
             new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks);
 
-        Assert.Equal("10", vm.RecentlyViewedCountLabels[vm.RecentlyViewedCountIndex]); // desktop's default
+        Assert.Equal("5", vm.RecentlyViewedCountLabels[vm.RecentlyViewedCountIndex]); // desktop's default since Core 802980c
 
         vm.RecentlyViewedCountIndex = 1;
         vm.ShowRecentlyViewed = false;

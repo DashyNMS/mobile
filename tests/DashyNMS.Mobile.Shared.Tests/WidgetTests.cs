@@ -31,7 +31,7 @@ public sealed class WidgetSnapshotTests
             Fakes.Alert(4, 4, "critical", acknowledged: true),
             WithState(Fakes.Alert(5, 5, "critical"), 0), // recovered
             Fakes.Alert(6, 6, "warning", at: new DateTime(2026, 9, 28, 8, 0, 0)),
-        ], Now, new AppSettings());
+        ], Now, new AppSettings { ServerTimestampsAreUtc = false }); // the server's local time, as these times are
 
         Assert.True(snapshot.SignedIn);
         Assert.Equal((2, 2, 1), (snapshot.Critical, snapshot.Warning, snapshot.Acknowledged));
