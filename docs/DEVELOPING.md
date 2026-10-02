@@ -268,7 +268,7 @@ version is built on its own branch, `release/<version>` (for example
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit.
 
-**The workflow's secrets** live in the `testflight` environment (only `main`
+**The workflow's secrets** live in the `iOS-Build` environment (only `main`
 and `release/*` can use them, and a maintainer approves each run), not in
 repository secrets:
 
