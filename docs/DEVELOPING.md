@@ -293,7 +293,8 @@ version is built on its own branch, `release/<version>` (for example
    version page and submit.
 
 **The workflow's secrets** live in the `iOS-Build` environment (only `main`
-can use them, and a maintainer approves each run), not in repository secrets:
+and `release/*` can use them, and a maintainer approves each run), not in
+repository secrets:
 
 | Secret | What it is |
 | --- | --- |
