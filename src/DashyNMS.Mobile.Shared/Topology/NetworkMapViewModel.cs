@@ -156,6 +156,13 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         _settings = settings;
         _navigation = navigation;
         _layouts = layouts;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsLoadingFirstTime))
+            {
+                OnPropertyChanged(nameof(IsFetching));
+            }
+        };
         _session = session;
     }
 
@@ -289,7 +296,15 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         RedrawRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    partial void OnIsLayingOutChanged(bool value) => OnPropertyChanged(nameof(IsEmpty));
+    partial void OnIsLayingOutChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(IsFetching));
+    }
+
+    /// <summary>The first fetch, before there's a map to lay out - one busy card at a time (#109).</summary>
+    public bool IsFetching => IsLoadingFirstTime && !IsLayingOut;
+
 
     [RelayCommand]
     private void ToggleUnlinkedDevices() => ShowUnlinkedDevices = !ShowUnlinkedDevices;
@@ -299,6 +314,19 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
 
     /// <summary>A node was dragged and dropped (the page moved it): its place is remembered, as desktop's is.</summary>
     public void NodeMoved(NetworkNode node) => SaveLayout();
+
+    /// <summary>The wobble of devices being dragged (#106); on when desktop's shared setting is and the phone allows motion.</summary>
+    public MapJiggle Jiggle { get; } = new();
+
+    /// <summary>Checks the setting - on the page appearing, after a visit to Settings.</summary>
+    public void UpdateJiggle(bool motionAllowed) => Jiggle.IsEnabled = motionAllowed && _settings.Current.JigglePhysicsOnMaps;
+
+    /// <summary>
+    /// <paramref name="node"/> is being dragged by (<paramref name="dx"/>, <paramref name="dy"/>)
+    /// map units: it trails behind and what it's linked to wobbles.
+    /// </summary>
+    public void Dragging(NetworkNode node, double dx, double dy) =>
+        Jiggle.Moved(node, dx, dy, Edges.Where(e => ReferenceEquals(e.A, node) || ReferenceEquals(e.B, node)).Select(e => ReferenceEquals(e.A, node) ? e.B : e.A));
 
     /// <summary>Forgets where this map's devices were put and lays it out afresh.</summary>
     [RelayCommand]
@@ -470,6 +498,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
         }
 
         var selectedId = SelectedNode?.DeviceId;
+        Jiggle.Clear();
         Nodes = nodes.Values.ToList();
         Edges = allEdges.Select(e => new NetworkEdge(nodes[e.DeviceA], nodes[e.DeviceB], e)).ToList();
         IsLayingOut = false;

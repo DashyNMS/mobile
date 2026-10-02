@@ -71,11 +71,9 @@
                         SemanticProperties.Hint="Show the whole map" />
             </HorizontalStackLayout>
 
-            <controls:LoadingIndicator IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" />
-            <VerticalStackLayout IsVisible="{Binding IsLayingOut}" InputTransparent="True" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                <ActivityIndicator IsRunning="{Binding IsLayingOut}" />
-                <Label Style="{StaticResource Caption}" Text="Laying out the map…" />
-            </VerticalStackLayout>
+            <!-- Centred over the map, the logo's heartbeat over what it's doing (#109). -->
+            <controls:BusyCard Text="Loading the network…" IsVisible="{Binding IsFetching}" />
+            <controls:BusyCard Text="Laying out the map…" IsVisible="{Binding IsLayingOut}" />
             <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                    HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" Margin="32" />
         </Grid>
