@@ -73,6 +73,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
+        services.AddTransient<Dashboard.TopCardSetUpViewModel>();
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
         services.AddTransient<Topology.NeighbourGroupsViewModel>();

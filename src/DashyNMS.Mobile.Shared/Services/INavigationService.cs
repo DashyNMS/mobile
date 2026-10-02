@@ -45,6 +45,9 @@ public static class Routes
     /// <summary>Choosing the dashboard Sensors card's sensors.</summary>
     public const string PickSensors = "picksensors";
 
+    /// <summary>A dashboard Top card's rows, ranking and title (#103).</summary>
+    public const string TopCardSetUp = "topcard";
+
     /// <summary>Choosing the dashboard Graph card's device and graph.</summary>
     public const string PickGraph = "pickgraph";
 

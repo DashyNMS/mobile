@@ -92,6 +92,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<SensorPickerPage>();
 		builder.Services.AddTransient<GraphPickerPage>();
+		builder.Services.AddTransient<TopCardSetUpPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
 		builder.Services.AddTransient<NeighbourGroupsPage>();

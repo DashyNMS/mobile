@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.TopCardSetUpPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="dash:TopCardSetUpViewModel"
+    SafeAreaEdges="Container"
+    Title="{Binding KindTitle}">
+
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
+    </ContentPage.ToolbarItems>
+
+    <ScrollView>
+        <controls:ReadableColumn>
+            <VerticalStackLayout Padding="16,8,16,16" Spacing="12">
+
+                <!-- The card's own title (#103); blank, it's the kind's. -->
+                <Entry Text="{Binding CardTitle}" Placeholder="Card title (optional)" />
+
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Rows" VerticalOptions="Center" />
+                            <Picker Grid.Column="1" Title="Rows" ItemsSource="{Binding Counts}" SelectedItem="{Binding SelectedCount}"
+                                    MinimumWidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="Rank by" VerticalOptions="Center" />
+                            <Picker Grid.Column="1" Title="Rank by" ItemsSource="{Binding Ranks}" SelectedItem="{Binding SelectedRank}"
+                                    ItemDisplayBinding="{Binding Label, x:DataType=dash:RankChoice}"
+                                    MinimumWidthRequest="180" VerticalOptions="Center" />
+                        </Grid>
+                        <!-- Top errors only: a healthy network says so rather than listing zeros. -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsErrors}">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="Hide ports with no errors" />
+                                <Label Style="{StaticResource Caption}" Text="Off lists every port, errors or not." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding HideQuiet}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Style="{StaticResource Caption}"
+                       Text="The same options as the card on DashyNMS desktop, so it looks alike in both." />
+
+            </VerticalStackLayout>
+        </controls:ReadableColumn>
+    </ScrollView>
+
+</ContentPage>
