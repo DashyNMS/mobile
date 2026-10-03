@@ -357,20 +357,33 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }
     }
 
+    /// <summary>LibreNMS's ping graph, as desktop's Ping response card draws.</summary>
+    internal const string PingGraphName = "device_icmp_perf";
+
     /// <summary>LibreNMS's own 24h ping graph (<c>device_icmp_perf</c>), as desktop's Ping response card; null until it's in.</summary>
     [ObservableProperty]
     private string? _pingGraphPage;
 
-    /// <summary>The ping graph opens the device's graphs, as desktop's does.</summary>
+    /// <summary>
+    /// The ping graph opens the device's graphs, as desktop's does - on the
+    /// ping graph itself, over the day it showed, not the first graph (#119).
+    /// </summary>
     [RelayCommand]
-    private Task OpenGraphsAsync() => OpenSectionAsync(DeviceSectionInfo.For(DeviceSection.Graphs));
+    private Task OpenGraphsAsync() => _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object>
+    {
+        [Routes.DeviceIdParameter] = DeviceId,
+        [Routes.SectionParameter] = DeviceSection.Graphs,
+        [Routes.DeviceNameParameter] = Title,
+        [Routes.GraphParameter] = PingGraphName,
+        [Routes.GraphRangeParameter] = GraphTimeRangePreset.Day,
+    });
 
     /// <summary>Best effort: a device LibreNMS doesn't ping just has no card.</summary>
     private async Task LoadPingGraphAsync(int deviceId)
     {
         try
         {
-            var svg = await _client.Graphs.GetSvgAsync(deviceId, "device_icmp_perf", new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400);
+            var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400);
             PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
         }
         catch (Exception)

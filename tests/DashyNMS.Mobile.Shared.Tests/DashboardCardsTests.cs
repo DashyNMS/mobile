@@ -305,6 +305,25 @@ public sealed class DashboardCardsTests
     }
 
     [Fact]
+    public async Task A_graph_card_opens_its_own_graph_and_range()
+    {
+        var navigation = new RecordingNavigation();
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        card.GraphDeviceId = 3;
+        card.GraphName = "device_processor";
+        card.GraphTimeRangePreset = GraphTimeRangePreset.Week;
+        var vm = new DashboardViewModel(_client, _settings, navigation, new DeviceBookmarks(_settings, TimeProvider.System));
+
+        await vm.OpenGraphCommand.ExecuteAsync(vm.Cards.Single(c => c.Widget.Id == card.Id));
+
+        var visit = Assert.Single(navigation.Visits);
+        Assert.Equal(Routes.DeviceGraphs, visit.Route);
+        Assert.Equal(3, visit.Parameters![Routes.DeviceIdParameter]);
+        Assert.Equal("device_processor", visit.Parameters[Routes.GraphParameter]); // not the device's first graph (#119)
+        Assert.Equal(GraphTimeRangePreset.Week, visit.Parameters[Routes.GraphRangeParameter]);
+    }
+
+    [Fact]
     public async Task Wireless_asks_one_device_per_os_then_only_the_wireless_ones_down_first()
     {
         DashboardLayout.Add(_appSettings, DashboardLayout.Wireless);
