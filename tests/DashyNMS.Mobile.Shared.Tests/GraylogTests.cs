@@ -223,6 +223,7 @@ public sealed class GraylogViewModelTests
     private readonly AppSettings _appSettings = new();
     private readonly IGraylogApi _api = Substitute.For<IGraylogApi>();
     private readonly RecordingNavigation _navigation = new();
+    private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly ILibreNmsClient _client;
 
     public GraylogViewModelTests()
@@ -236,7 +237,7 @@ public sealed class GraylogViewModelTests
     private GraylogViewModel NewViewModel()
     {
         var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), Fakes.Settings(_appSettings), Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
-        return new GraylogViewModel(setup, _api, _client, Fakes.Settings(_appSettings), _navigation)
+        return new GraylogViewModel(setup, _api, _client, Fakes.Settings(_appSettings), _navigation, _dialogs)
         {
             ResolveHostname = (_, _) => Task.FromResult<string?>(null),
         };
@@ -322,46 +323,163 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
-    public async Task A_message_opens_to_every_field_and_leads_to_its_device()
+    public async Task A_message_opens_on_its_own_page_with_every_field()
     {
         var vm = NewViewModel();
         vm.Initialise(null, null);
         await vm.EnsureLoadedAsync();
         var message = vm.Messages[0];
 
-        vm.ToggleCommand.Execute(message);
-        await vm.OpenDeviceCommand.ExecuteAsync(message);
+        await vm.OpenMessageCommand.ExecuteAsync(message);
 
-        Assert.True(message.IsExpanded);
+        var visit = _navigation.Visits.Single();
+        Assert.Equal(Routes.GraylogMessage, visit.Route);
+        Assert.Same(message, visit.Parameters![Routes.GraylogMessageParameter]);
+        Assert.Same(vm, visit.Parameters[Routes.GraylogListParameter]);
         Assert.Contains(message.Fields, f => f.Key == "source" && f.Value == "10.0.0.2");
         Assert.Equal("line one\nline two 0", message.FullText);
+        Assert.Equal("(3) Error", message.MetaText);
+    }
+
+    [Fact]
+    public async Task A_messages_page_leads_to_its_device()
+    {
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        var page = new GraylogMessageViewModel(_navigation);
+
+        page.Load(vm.Messages[0], vm);
+        await page.OpenDeviceCommand.ExecuteAsync(null);
+
+        Assert.True(page.HasDevice);
         var visit = _navigation.Visits.Single();
         Assert.Equal(Routes.DeviceDetail, visit.Route);
         Assert.Equal(2, visit.Parameters![Routes.DeviceIdParameter]);
     }
 
     [Fact]
-    public async Task Opening_or_closing_a_message_has_the_list_measure_it_again()
+    public async Task Show_only_sets_the_Device_chip_to_a_known_device_and_searches_its_addresses()
     {
         var vm = NewViewModel();
         vm.Initialise(null, null);
         await vm.EnsureLoadedAsync();
-        var message = vm.Messages[1];
-        var replaced = new List<int>();
-        vm.Messages.CollectionChanged += (_, e) =>
-        {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace)
-            {
-                replaced.Add(e.NewStartingIndex);
-            }
-        };
+        var page = new GraylogMessageViewModel(_navigation);
+        page.Load(vm.Messages[0], vm);
 
-        vm.ToggleCommand.Execute(message);
-        vm.ToggleCommand.Execute(message);
+        Assert.True(page.CanShowOnly);
+        Assert.Equal("Show only edge-rtr's messages", page.ShowOnlyText);
+        await page.ShowOnlyCommand.ExecuteAsync(null);
 
-        Assert.False(message.IsExpanded);
-        Assert.Equal([1, 1], replaced);
-        Assert.Same(message, vm.Messages[1]);
+        Assert.Equal(GraylogDeviceFilter.ForDevice(2, "edge-rtr"), vm.Device);
+        Assert.Equal("edge-rtr", vm.DeviceChipText);
+        Assert.False(vm.ShowsSource);
+        Assert.True(vm.CanClearDevice);
+        Assert.True(vm.HasActiveFilters);
+        Assert.False(page.CanShowOnly);
+        await _api.Received(1).SearchAsync("source: (\"edge-rtr\" OR \"10.0.0.2\")", 0, GraylogViewModel.PageSize, 0, "timestamp:desc", null, Arg.Any<CancellationToken>());
+        Assert.Equal(Routes.Back, _navigation.Visits.Single().Route);
+    }
+
+    [Fact]
+    public async Task Show_only_a_sender_LibreNMS_doesnt_know_searches_its_one_address()
+    {
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        var page = new GraylogMessageViewModel(_navigation) { IsBesideList = true };
+        page.Load(vm.Messages[1], vm);
+
+        Assert.False(page.HasDevice);
+        await page.ShowOnlyCommand.ExecuteAsync(null);
+
+        Assert.Equal(GraylogDeviceFilter.ForAddress("10.9.9.9"), vm.Device);
+        await _api.Received(1).SearchAsync("source: (\"10.9.9.9\")", 0, GraylogViewModel.PageSize, 0, "timestamp:desc", null, Arg.Any<CancellationToken>());
+
+        // Beside the list, there's no page to go back from.
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task Clearing_the_device_chip_goes_back_to_every_devices_messages()
+    {
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(1, "core-sw-01"));
+
+        vm.ClearDeviceCommand.Execute(null);
+
+        Assert.Null(vm.Device);
+        Assert.Equal("Device", vm.DeviceChipText);
+        Assert.True(vm.ShowsSource);
+        await _api.Received(2).SearchAsync("*", 0, GraylogViewModel.PageSize, 0, "timestamp:desc", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_devices_own_Graylog_page_has_its_Device_chip_fixed()
+    {
+        _appSettings.Graylog.DeviceLogLevel = 4;
+        var vm = NewViewModel();
+        vm.Initialise(1, "core-sw-01");
+        await vm.EnsureLoadedAsync();
+
+        Assert.True(vm.IsDeviceFixed);
+        Assert.Equal("core-sw-01", vm.DeviceChipText);
+        Assert.False(vm.CanClearDevice);
+        Assert.False(vm.IsLevelSet);
+        Assert.False(vm.HasActiveFilters);
+        Assert.False(vm.CanShowOnly(vm.Messages[0]));
+
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(2, "edge-rtr"));
+        await vm.ChooseDeviceCommand.ExecuteAsync(null);
+        vm.LevelIndex = 0;
+        vm.ClearFiltersCommand.Execute(null);
+
+        Assert.Equal(1, vm.Device!.DeviceId);
+        Assert.Equal(5, vm.LevelIndex);
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task The_level_chip_chooses_a_level_and_everything_worse()
+    {
+        _dialogs.ChooseAsync("Level", Arg.Any<IReadOnlyList<string>>()).Returns("(4) Warning and worse");
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        Assert.Equal("Any level", vm.LevelChipText);
+
+        await vm.ChooseLevelCommand.ExecuteAsync(null);
+
+        Assert.Equal(5, vm.LevelIndex);
+        Assert.Equal("Warning and worse", vm.LevelChipText);
+        Assert.True(vm.IsLevelSet);
+        Assert.Equal("(0) Emergency", vm.LevelLabels[1]);
+        await _api.Received(1).SearchAsync("* AND level: <=4", 0, GraylogViewModel.PageSize, 0, "timestamp:desc", null, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task The_range_chip_chooses_LibreNMSs_ranges_and_Clear_puts_every_chip_back()
+    {
+        _dialogs.ChooseAsync("Time range", Arg.Any<IReadOnlyList<string>>()).Returns("Last 1 day");
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        Assert.Equal("All time", vm.RangeChipText);
+
+        await vm.ChooseRangeCommand.ExecuteAsync(null);
+        vm.ShowDevice(GraylogDeviceFilter.ForAddress("10.9.9.9"));
+        Assert.Equal("Last 1 day", vm.RangeChipText);
+        Assert.True(vm.HasActiveFilters);
+        _api.ClearReceivedCalls();
+
+        vm.ClearFiltersCommand.Execute(null);
+
+        Assert.False(vm.HasActiveFilters);
+        Assert.Null(vm.Device);
+        Assert.Equal(0, vm.RangeIndex);
+        await _api.Received(1).SearchAsync("*", 0, GraylogViewModel.PageSize, 0, "timestamp:desc", null, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -465,5 +583,109 @@ public sealed class GraylogTransportTests
         using var listener = new TcpListener(IPAddress.Loopback, 0);
         listener.Start();
         return ((IPEndPoint)listener.LocalEndpoint).Port;
+    }
+}
+
+public sealed class GraylogDevicePickerTests
+{
+    private readonly AppSettings _appSettings = new();
+    private readonly IGraylogApi _api = Substitute.For<IGraylogApi>();
+    private readonly RecordingNavigation _navigation = new();
+    private readonly ILibreNmsClient _client = Fakes.Client(devices:
+    [
+        Fakes.Device(1, "core-sw-01", ip: "10.0.0.1"),
+        Fakes.Device(2, "edge-rtr", ip: "10.0.0.2"),
+        Fakes.Device(3, "ap-floor3", ip: "10.0.0.3"),
+    ]);
+
+    public GraylogDevicePickerTests()
+    {
+        _api.IsConfigured.Returns(true);
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<GraylogStream>());
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(new GraylogSearchResult
+        {
+            TotalResults = 3,
+            Messages = new[] { "10.0.0.2", "10.9.9.9", "10.0.0.2" }.Select(source => new GraylogMessageEnvelope
+            {
+                Message = new GraylogMessage(new Dictionary<string, JsonElement> { ["source"] = JsonSerializer.SerializeToElement(source) }),
+            }).ToList(),
+        });
+    }
+
+    private async Task<(GraylogViewModel List, GraylogDevicePickerViewModel Picker)> OpenAsync()
+    {
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings, Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var list = new GraylogViewModel(setup, _api, _client, settings, new RecordingNavigation(), Substitute.For<IDialogService>())
+        {
+            ResolveHostname = (_, _) => Task.FromResult<string?>(null),
+        };
+        list.Initialise(null, null);
+        await list.EnsureLoadedAsync();
+
+        var picker = new GraylogDevicePickerViewModel(_client, settings, new DeviceBookmarks(settings, TimeProvider.System), _navigation)
+        {
+            SearchDelay = TimeSpan.Zero,
+        };
+        await picker.LoadAsync(list);
+        return (list, picker);
+    }
+
+    [Fact]
+    public async Task Suggests_the_senders_on_screen_busiest_first_then_pinned_and_recent_devices()
+    {
+        _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1, DisplayName = "core-sw-01" });
+        _appSettings.RecentlyViewedDevices.Add(new RecentlyViewedDevice { DeviceId = 3, DisplayName = "ap-floor3" });
+        _appSettings.RecentlyViewedDevices.Add(new RecentlyViewedDevice { DeviceId = 1, DisplayName = "core-sw-01" });
+
+        var (_, picker) = await OpenAsync();
+
+        Assert.Equal(["In these messages", "Pinned", "Recently viewed"], picker.Groups.Select(g => g.Name));
+        var senders = picker.Groups[0];
+        Assert.Equal(["edge-rtr", "10.9.9.9"], senders.Select(c => c.Name));
+        Assert.Equal(["2", "1"], senders.Select(c => c.CountText));
+        Assert.Equal("Not in LibreNMS", senders[1].Details);
+        Assert.Equal(["core-sw-01"], picker.Groups[1].Select(c => c.Name));
+
+        // Pinned already lists core-sw-01; recently viewed doesn't repeat it.
+        Assert.Equal(["ap-floor3"], picker.Groups[2].Select(c => c.Name));
+        Assert.False(picker.CanChooseAny);
+    }
+
+    [Fact]
+    public async Task Searching_finds_any_device_and_offers_an_address_no_device_has()
+    {
+        var (_, picker) = await OpenAsync();
+
+        picker.SearchText = "core";
+        Assert.Equal(["core-sw-01"], picker.Groups.Single().Select(c => c.Name));
+
+        picker.SearchText = "10.5.5.5";
+        var unknown = picker.Groups.Single();
+        Assert.Equal("Not in LibreNMS", unknown.Name);
+        Assert.Equal(GraylogDeviceFilter.ForAddress("10.5.5.5"), unknown.Single().Filter);
+
+        // An address a device has is that device, not a second row for it.
+        picker.SearchText = "10.0.0.1";
+        Assert.Equal(["Devices"], picker.Groups.Select(g => g.Name));
+
+        picker.SearchText = "nothing like it";
+        Assert.True(picker.IsEmpty);
+    }
+
+    [Fact]
+    public async Task Choosing_sets_the_lists_Device_chip_and_goes_back()
+    {
+        var (list, picker) = await OpenAsync();
+
+        await picker.ChooseCommand.ExecuteAsync(picker.Groups[0][0]);
+
+        Assert.Equal(GraylogDeviceFilter.ForDevice(2, "edge-rtr"), list.Device);
+        Assert.Equal(Routes.Back, _navigation.Visits.Single().Route);
+
+        await picker.LoadAsync(list);
+        Assert.True(picker.CanChooseAny);
+        await picker.ChooseAnyCommand.ExecuteAsync(null);
+        Assert.Null(list.Device);
     }
 }

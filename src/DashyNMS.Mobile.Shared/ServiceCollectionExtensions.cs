@@ -97,6 +97,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Graylog.IGraylogConnectionTester, Graylog.GraylogConnectionTester>();
         services.AddTransient<Graylog.GraylogViewModel>();
         services.AddTransient<Graylog.GraylogSettingsViewModel>();
+        services.AddTransient<Graylog.GraylogMessageViewModel>();
+        services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
 
         // Device View sections.
         services.AddSingleton<DeviceSectionLoader>();

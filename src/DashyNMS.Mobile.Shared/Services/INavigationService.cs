@@ -75,6 +75,18 @@ public static class Routes
     /// <summary>Graylog messages - every device's, or with <see cref="DeviceIdParameter"/> one device's.</summary>
     public const string Graylog = "graylog";
 
+    /// <summary>One Graylog message (#117) - with <see cref="GraylogMessageParameter"/> and <see cref="GraylogListParameter"/>.</summary>
+    public const string GraylogMessage = "graylogmessage";
+
+    /// <summary>The Graylog page's Device chip's chooser (#117) - with <see cref="GraylogListParameter"/>.</summary>
+    public const string GraylogDevice = "graylogdevice";
+
+    /// <summary>Query attribute: the <c>GraylogMessageItem</c> for <see cref="GraylogMessage"/>.</summary>
+    public const string GraylogMessageParameter = "graylogmessage";
+
+    /// <summary>Query attribute: the <c>GraylogViewModel</c> whose Device chip the message or chooser sets.</summary>
+    public const string GraylogListParameter = "grayloglist";
+
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
 
