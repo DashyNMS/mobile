@@ -73,6 +73,11 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
 
     public string Condition { get; } = RuleText.Condition(Rule);
 
+    /// <summary>"All devices · Device down alert" - the row's last line (#122): where it applies, its template, and Disabled.</summary>
+    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }
+        .Where(p => !string.IsNullOrWhiteSpace(p)));
+/// <summary>"All devices · Device down alert" - the row's last line: where it applies and its template.</summary>    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
     public bool IsAlerting => Alerting > 0;
 
     public string AlertingText => Alerting == 1 ? "1 alerting" : $"{Alerting} alerting";
@@ -97,12 +102,29 @@ public sealed partial class AlertRulesViewModel : ViewModelBase
     private IReadOnlyList<AlertRuleItem> _all = [];
     private bool _loaded;
 
+    /// <summary>Clearing every chip filters once, not once per chip.</summary>
+    private bool _clearing;
+
     [ObservableProperty]
     private string _searchText = string.Empty;
 
     /// <summary>Only the rules alerting now - the filter chip.</summary>
     [ObservableProperty]
     private bool _onlyAlerting;
+
+    /// <summary>
+    /// The severity and Disabled chips (#122): all on to start, as Neighbours'
+    /// Up and Down, so nothing's hidden until one is tapped off. Rules of any
+    /// other severity (ok) always show.
+    /// </summary>
+    [ObservableProperty]
+    private bool _showCritical = true;
+
+    [ObservableProperty]
+    private bool _showWarning = true;
+
+    [ObservableProperty]
+    private bool _showDisabled = true;
 
     public AlertRulesViewModel(ILibreNmsClient client, INavigationService navigation)
     {
@@ -116,13 +138,56 @@ public sealed partial class AlertRulesViewModel : ViewModelBase
     [ObservableProperty]
     private string _summary = string.Empty;
 
+    public int AlertingCount => _all.Count(r => r.IsAlerting);
+
+    public int CriticalCount => _all.Count(r => r.Severity == AlertSeverity.Critical);
+
+    public int WarningCount => _all.Count(r => r.Severity == AlertSeverity.Warning);
+
+    public int DisabledCount => _all.Count(r => r.IsDisabled);
+
     public bool IsEmpty => _loaded && Rules.Count == 0 && !IsBusy;
 
-    public string EmptyText => !string.IsNullOrWhiteSpace(SearchText) || OnlyAlerting ? "No rules match." : "LibreNMS has no alert rules.";
+    public bool HasLoaded => _loaded;
+
+    /// <summary>"No rules" when LibreNMS has none; "No matches" when the chips or search hide them.</summary>
+    public string EmptyTitle => _all.Count == 0 ? "No rules" : "No matches";
+
+    public string EmptyText => _all.Count == 0 ? "LibreNMS has no alert rules." : "None of the rules match the search and chips.";
+
+    /// <summary>Anything Clear filters would undo.</summary>
+    public bool HasActiveFilters => OnlyAlerting || !ShowCritical || !ShowWarning || !ShowDisabled || !string.IsNullOrWhiteSpace(SearchText);
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     partial void OnOnlyAlertingChanged(bool value) => ApplyFilter();
+
+    partial void OnShowCriticalChanged(bool value) => ApplyFilter();
+
+    partial void OnShowWarningChanged(bool value) => ApplyFilter();
+
+    partial void OnShowDisabledChanged(bool value) => ApplyFilter();
+
+    [RelayCommand]
+    private void ToggleCritical() => ShowCritical = !ShowCritical;
+
+    [RelayCommand]
+    private void ToggleWarning() => ShowWarning = !ShowWarning;
+
+    [RelayCommand]
+    private void ToggleDisabled() => ShowDisabled = !ShowDisabled;
+
+    /// <summary>Every chip back to its start, and no search.</summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        _clearing = true;
+        OnlyAlerting = false;
+        ShowCritical = ShowWarning = ShowDisabled = true;
+        SearchText = string.Empty;
+        _clearing = false;
+        ApplyFilter();
+    }
 
     [RelayCommand]
     private void ToggleAlerting() => OnlyAlerting = !OnlyAlerting;
@@ -166,10 +231,26 @@ public sealed partial class AlertRulesViewModel : ViewModelBase
 
     private void ApplyFilter()
     {
+        if (_clearing)
+        {
+            return;
+        }
+
         var term = SearchText.Trim();
-        Rules.ReplaceAll(_all.Where(r => (!OnlyAlerting || r.IsAlerting) && (term.Length == 0 || r.Matches(term))).ToList());
+        Rules.ReplaceAll(_all.Where(r => (!OnlyAlerting || r.IsAlerting)
+                && (ShowDisabled || !r.IsDisabled)
+                && r.Severity switch { AlertSeverity.Critical => ShowCritical, AlertSeverity.Warning => ShowWarning, _ => true }
+                && (term.Length == 0 || r.Matches(term)))
+            .ToList());
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(HasLoaded));
+        OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(AlertingCount));
+        OnPropertyChanged(nameof(CriticalCount));
+        OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(DisabledCount));
     }
 
     /// <summary>Templates are an extra: without them the rules still list.</summary>

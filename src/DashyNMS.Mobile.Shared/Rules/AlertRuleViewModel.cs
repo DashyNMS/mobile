@@ -88,6 +88,14 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
 
     public bool HasNoAlerts => _alertsLoaded && Alerts.Count == 0;
 
+    /// <summary>"All devices · 2 alerting" - under the rule's name in its header card (#122).</summary>
+    public string HeaderText => string.Join(" · ", new[]
+    {
+        TargetSummary,
+        IsDisabled ? "Disabled" : null,
+        Alerts.Count > 0 ? RuleText.Count(Alerts.Count, "alert") + " open" : null,
+    }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
     public bool HasConditionNote => ConditionNote is not null;
 
     public bool HasTargetNames => !string.IsNullOrWhiteSpace(TargetNames);
@@ -164,6 +172,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
         _alertsLoaded = true;
         OnPropertyChanged(nameof(HasAlerts));
         OnPropertyChanged(nameof(HasNoAlerts));
+        OnPropertyChanged(nameof(HeaderText));
     }
 
     private bool _alertsLoaded;
@@ -204,6 +213,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
         }.Where(n => n is not null)) is { Length: > 0 } note ? note : null;
 
         TargetSummary = RuleText.Targets(rule);
+        OnPropertyChanged(nameof(HeaderText));
 
         // LibreNMS treats a rule without these flags as having them on.
         RecoveryText = rule.Extra?.Recovery != false ? "On" : "Off";
@@ -327,6 +337,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
 public sealed partial class AlertTemplateViewModel : ViewModelBase
 {
     private readonly ILibreNmsClient _client;
+    private readonly INavigationService _navigation;
 
     [ObservableProperty]
     private string _title = "Alert template";
@@ -340,13 +351,23 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase
     [ObservableProperty]
     private string _body = string.Empty;
 
+    /// <summary>"Used by 3 rules", or that LibreNMS only uses it as the default.</summary>
     [ObservableProperty]
     private string _usedBy = string.Empty;
 
-    public AlertTemplateViewModel(ILibreNmsClient client)
+    [ObservableProperty]
+    private bool _hasLoaded;
+
+    public AlertTemplateViewModel(ILibreNmsClient client, INavigationService navigation)
     {
         _client = client;
+        _navigation = navigation;
     }
+
+    /// <summary>The rules using it, as the rules list shows them - each opens its rule (#122).</summary>
+    public BulkObservableCollection<AlertRuleItem> Rules { get; } = new();
+
+    public bool HasRules => Rules.Count > 0;
 
     public int? TemplateId { get; set; }
 
@@ -375,6 +396,11 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase
         Show(template, rulesTask.Result);
     });
 
+    [RelayCommand]
+    private Task OpenRuleAsync(AlertRuleItem? item) => item is null
+        ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = item.Id });
+
     internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules)
     {
         Title = string.IsNullOrWhiteSpace(template.Name) ? $"Template {template.Id}" : template.Name;
@@ -382,8 +408,15 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase
         RecoveryTitle = template.TitleRec?.Trim();
         Body = template.Template?.Replace("\r\n", "\n").TrimEnd() ?? string.Empty;
 
-        var names = rules.Where(r => template.AlertRules.Contains(r.Id)).Select(RuleText.Name).Order(StringComparer.OrdinalIgnoreCase).ToList();
-        UsedBy = names.Count == 0 ? "No rules - LibreNMS uses it only if it's the default." : string.Join(", ", names);
+        var name = Title;
+        Rules.ReplaceAll(rules
+            .Where(r => template.AlertRules.Contains(r.Id))
+            .Select(r => new AlertRuleItem(r, 0, name))
+            .OrderBy(r => r.IsDisabled)
+            .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase));
+        UsedBy = Rules.Count == 0 ? "Used by no rules - LibreNMS uses it only if it's the default." : "Used by " + RuleText.Count(Rules.Count, "rule");
+        HasLoaded = true;
+        OnPropertyChanged(nameof(HasRules));
 
         OnPropertyChanged(nameof(HasAlertTitle));
         OnPropertyChanged(nameof(HasRecoveryTitle));
