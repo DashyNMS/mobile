@@ -93,6 +93,12 @@ public static class Routes
     /// <summary>One alert template, with <see cref="TemplateIdParameter"/> (#22).</summary>
     public const string AlertTemplate = "alerttemplate";
 
+    /// <summary>Query attribute: which graph <see cref="DeviceGraphs"/> opens on - the one tapped (#119); else its first.</summary>
+    public const string GraphParameter = "graph";
+
+    /// <summary>Query attribute: the <see cref="DesktopNMS.Core.Models.GraphTimeRangePreset"/> that graph was shown over.</summary>
+    public const string GraphRangeParameter = "graphrange";
+
     /// <summary>Query attribute: an alert rule's id, for <see cref="AlertRule"/>.</summary>
     public const string RuleIdParameter = "rule";
 

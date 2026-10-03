@@ -95,10 +95,19 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         _ = LoadGraphAsync();
     }
 
-    public async Task LoadAsync(int deviceId, string? deviceName = null)
+    /// <param name="graph">
+    /// The graph to open on - the one tapped (a dashboard card, the ping
+    /// graph), else the first. Opening on the first whatever was tapped was #119.
+    /// </param>
+    /// <param name="range">The range that graph was shown over, if any.</param>
+    public async Task LoadAsync(int deviceId, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null)
     {
         DeviceId = deviceId;
         Title = deviceName is null ? "Graphs" : $"Graphs · {deviceName}";
+        if (range is { } preset && Ranges.FirstOrDefault(r => r.Range.Preset == preset) is { } shown)
+        {
+            SelectedRange = shown;
+        }
 
         _loadingList = true;
         try
@@ -122,7 +131,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasNoGraphs));
-        SelectedGraph = Graphs.FirstOrDefault();
+        SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs.FirstOrDefault();
         await LoadGraphAsync();
     }
 

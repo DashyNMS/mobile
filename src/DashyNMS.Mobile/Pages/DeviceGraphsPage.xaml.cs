@@ -52,7 +52,10 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 			}
 			else
 			{
-				_ = _viewModel.LoadAsync(deviceId, name as string);
+				// The graph that was tapped, and its range, if the caller knows (#119).
+				query.TryGetValue(Routes.GraphParameter, out var graph);
+				var range = query.TryGetValue(Routes.GraphRangeParameter, out var r) && r is DesktopNMS.Core.Models.GraphTimeRangePreset preset ? preset : (DesktopNMS.Core.Models.GraphTimeRangePreset?)null;
+				_ = _viewModel.LoadAsync(deviceId, name as string, graph as string, range);
 			}
 		}
 	}

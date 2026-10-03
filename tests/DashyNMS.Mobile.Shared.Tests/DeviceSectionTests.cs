@@ -393,6 +393,32 @@ public sealed class GraphTests
     }
 
     [Fact]
+    public async Task Graphs_open_on_the_graph_tapped_over_its_range_not_the_first()
+    {
+        var client = Fakes.Client();
+        client.Graphs.ListAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new GraphType { Name = "device_uptime", Description = "Uptime" },
+            new GraphType { Name = "device_icmp_perf", Description = "Ping response" },
+        ]);
+        client.Graphs.ListHealthAsync(7, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "device_temperature", Description = "Temperature" }]);
+        client.Graphs.ListWirelessAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<GraphType>());
+        client.Graphs.GetSvgAsync(7, Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(RrdSvg);
+        var vm = new DeviceGraphsViewModel(client);
+
+        await vm.LoadAsync(7, "edge-rtr", "device_icmp_perf", GraphTimeRangePreset.Week);
+
+        Assert.Equal("device_icmp_perf", vm.SelectedGraph!.Name); // not Ping response's alphabetical neighbour (#119)
+        Assert.Equal(GraphTimeRangePreset.Week, vm.SelectedRange.Range.Preset);
+        await client.Graphs.Received().GetSvgAsync(7, "device_icmp_perf", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+
+        // One the device no longer has: its first, as before.
+        var again = new DeviceGraphsViewModel(client);
+        await again.LoadAsync(7, "edge-rtr", "gone_graph");
+        Assert.Equal("device_icmp_perf", again.SelectedGraph!.Name); // "Ping response" sorts first
+    }
+
+    [Fact]
     public async Task Changing_the_range_redraws_and_going_back_uses_the_cache()
     {
         var client = Fakes.Client();

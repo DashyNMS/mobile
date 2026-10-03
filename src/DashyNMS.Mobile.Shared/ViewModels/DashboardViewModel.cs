@@ -353,8 +353,15 @@ public sealed partial class DashboardViewModel : ViewModelBase
 
     /// <summary>A Graph card opens its device's graphs page - or, not set up yet, its set-up.</summary>
     [RelayCommand]
-    private Task OpenGraphAsync(DashboardCard? card) => card?.Widget.GraphDeviceId is { } id
-        ? _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
+    private Task OpenGraphAsync(DashboardCard? card) => card?.Widget is { GraphDeviceId: { } id } widget
+        ? _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object>
+        {
+            [Routes.DeviceIdParameter] = id,
+
+            // On the card's own graph and range, not the device's first (#119).
+            [Routes.GraphParameter] = widget.GraphName ?? string.Empty,
+            [Routes.GraphRangeParameter] = widget.GraphTimeRangePreset,
+        })
         : PickGraphAsync(card);
 
     /// <summary>
