@@ -173,7 +173,8 @@ public sealed class AlertRulesTests
     [Fact]
     public async Task A_template_shows_its_titles_body_and_the_rules_using_it()
     {
-        var vm = new AlertTemplateViewModel(_client) { TemplateId = 7 };
+        var navigation = new RecordingNavigation();
+        var vm = new AlertTemplateViewModel(_client, navigation) { TemplateId = 7 };
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
@@ -181,7 +182,38 @@ public sealed class AlertRulesTests
         Assert.Equal("Port {{ $alert->title }}", vm.AlertTitle);
         Assert.False(vm.HasRecoveryTitle);
         Assert.Equal("Port down\n{{ $alert->hostname }}", vm.Body);
-        Assert.Equal("Port down", vm.UsedBy);
+        Assert.Equal("Used by 1 rule", vm.UsedBy);
+        var rule = Assert.Single(vm.Rules);
+        Assert.Equal(("Port down", "ports.ifOperStatus = \"down\""), (rule.Name, rule.Condition));
+
+        // Each rule using it opens its own page (#122).
+        await vm.OpenRuleCommand.ExecuteAsync(rule);
+        Assert.Equal(20, navigation.Visits.Single().Parameters![Routes.RuleIdParameter]);
+    }
+
+    [Fact]
+    public async Task The_severity_and_disabled_chips_hide_rules_and_Clear_brings_them_back()
+    {
+        var vm = new AlertRulesViewModel(_client, new RecordingNavigation());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal((3, 2, 1, 1), (vm.AlertingCount, vm.CriticalCount, vm.WarningCount, vm.DisabledCount));
+        Assert.False(vm.HasActiveFilters);
+
+        vm.ToggleCriticalCommand.Execute(null);
+        Assert.Equal(["Port down", "Another"], vm.Rules.Select(r => r.Name));
+
+        vm.ToggleWarningCommand.Execute(null);
+        Assert.Equal(["Another"], vm.Rules.Select(r => r.Name)); // ok severity: no chip, always shown
+
+        vm.ClearFiltersCommand.Execute(null);
+        vm.ToggleDisabledCommand.Execute(null);
+        Assert.DoesNotContain(vm.Rules, r => r.IsDisabled);
+        Assert.True(vm.HasActiveFilters);
+
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.Equal(4, vm.Rules.Count);
+        Assert.Equal("All devices · Disabled", vm.Rules.Single(r => r.Id == 30).DetailText);
+        Assert.Equal("2 devices, 1 group · Ports", vm.Rules.Single(r => r.Id == 20).DetailText);
     }
 
     [Fact]

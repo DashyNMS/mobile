@@ -5,45 +5,93 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:rules="clr-namespace:DashyNMS.Mobile.Rules;assembly=DashyNMS.Mobile.Shared"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="rules:AlertTemplateViewModel"
+    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="{Binding Title}">
 
-    <!-- One alert template, read-only (#22): the body monospaced, as written. -->
+    <!-- One alert template, read-only (#22), laid out as a rule's page (#122): a header card,
+         the titles and body as written, then the rules that use it. -->
     <!-- The busy card while it loads, or after a pull; no platform spinner (#111, #123). -->
     <Grid>
-    <controls:BusyCard x:Name="Busy" ZIndex="1" IsVisible="False" />
+    <controls:BusyCard x:Name="Busy" ZIndex="1" IsVisible="False" VerticalOptions="Start" Margin="16,64,16,0" />
     <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
         <ScrollView>
             <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,8,16,16" Spacing="12">
+                <VerticalStackLayout Padding="16,4,16,24" Spacing="12">
 
-                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                    <controls:BackBar x:Name="TopBar" />
 
-                    <Border Style="{StaticResource Card}">
-                        <VerticalStackLayout Spacing="10">
-                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12" IsVisible="{Binding HasAlertTitle}">
-                                <Label Style="{StaticResource Caption}" Text="Title" />
-                                <Label Grid.Column="1" Text="{Binding AlertTitle}" FontFamily="Mono" FontSize="12.5" />
-                            </Grid>
-                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12" IsVisible="{Binding HasRecoveryTitle}">
-                                <Label Style="{StaticResource Caption}" Text="Recovery title" />
-                                <Label Grid.Column="1" Text="{Binding RecoveryTitle}" FontFamily="Mono" FontSize="12.5" />
-                            </Grid>
-                            <Grid ColumnDefinitions="110,*" ColumnSpacing="12">
-                                <Label Style="{StaticResource Caption}" Text="Used by" />
-                                <Label Grid.Column="1" Text="{Binding UsedBy}" />
-                            </Grid>
+                    <Border Style="{StaticResource Card}" Padding="14,12" IsVisible="{Binding HasError}"
+                            BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
+                        <Label Text="{Binding ErrorMessage}" FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Padding="16" IsVisible="{Binding HasLoaded}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource Faint}" Text="Template" />
+                            <Label Text="{Binding Title}" FontSize="22" FontFamily="Display" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding UsedBy}" />
                         </VerticalStackLayout>
                     </Border>
 
+                    <Label Style="{StaticResource SectionHeader}" Text="Alert title" Margin="4,8,0,0" IsVisible="{Binding HasAlertTitle}" />
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10" IsVisible="{Binding HasAlertTitle}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
+                        <Label Text="{Binding AlertTitle}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                    </Border>
+
+                    <Label Style="{StaticResource SectionHeader}" Text="Recovery title" Margin="4,8,0,0" IsVisible="{Binding HasRecoveryTitle}" />
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10" IsVisible="{Binding HasRecoveryTitle}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
+                        <Label Text="{Binding RecoveryTitle}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap"
+                               TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                    </Border>
+
                     <!-- Long lines scroll sideways rather than wrapping, so the layout reads as written. -->
-                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10"
+                    <Label Style="{StaticResource SectionHeader}" Text="Body" Margin="4,8,0,0" IsVisible="{Binding HasLoaded}" />
+                    <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10" IsVisible="{Binding HasLoaded}"
                             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
                         <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                             <Label Text="{Binding Body}" FontFamily="Mono" FontSize="12" LineHeight="1.3" LineBreakMode="NoWrap"
                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
                         </ScrollView>
+                    </Border>
+
+                    <!-- The rules using it (#122), as the rules list shows them; each opens its rule. -->
+                    <Label Style="{StaticResource SectionHeader}" Text="Used by" Margin="4,8,0,0" IsVisible="{Binding HasRules}" />
+                    <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasRules}">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rules}" Margin="0,-1,0,0">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="rules:AlertRuleItem">
+                                    <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                                        <Grid.Triggers>
+                                            <DataTrigger TargetType="Grid" Binding="{Binding IsDisabled}" Value="True">
+                                                <Setter Property="Opacity" Value="0.55" />
+                                            </DataTrigger>
+                                        </Grid.Triggers>
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding OpenRuleCommand, Source={RelativeSource AncestorType={x:Type rules:AlertTemplateViewModel}}, x:DataType=rules:AlertTemplateViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+                                        <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}"
+                                                 VerticalOptions="Start" Margin="0,6,0,0" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                            <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                            <Label Text="{Binding Condition}" FontFamily="Mono" FontSize="12.5" LineBreakMode="TailTruncation" MaxLines="1"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2" Style="{StaticResource Chevron}" VerticalOptions="Center" />
+                                        <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                                        <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </Border>
 
                 </VerticalStackLayout>

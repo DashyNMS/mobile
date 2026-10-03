@@ -23,4 +23,11 @@ public partial class AlertTemplatePage : ContentPage, IQueryAttributable
 			_viewModel.RefreshCommand.Execute(null);
 		}
 	}
+
+	/// <summary>"‹ Device down" - back to the rule it was opened from.</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		TopBar.Apply(this);
+	}
 }
