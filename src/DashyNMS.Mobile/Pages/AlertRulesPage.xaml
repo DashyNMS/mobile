@@ -68,7 +68,8 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4" IsVisible="{Binding HasLoaded}">
+        <!-- Shown, blank, while loading: its height is the gap between the chips and the list (#143). -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
             <Label Style="{StaticResource Faint}" Text="{Binding Summary}" VerticalOptions="Center" />
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear"
                     Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"

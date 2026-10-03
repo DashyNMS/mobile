@@ -9,12 +9,6 @@
     SafeAreaEdges="Container"
     Title="Network map">
 
-    <!-- For when it's pushed from More and has the navigation bar; as a tab, the header has these. -->
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Reset layout" Command="{Binding ResetLayoutCommand}" />
-        <ToolbarItem Text="Refresh" Command="{Binding RefreshCommand}" />
-    </ContentPage.ToolbarItems>
-
     <!-- As desktop's Network map (#86): LibreNMS's links drawn as a diagram.
          Drag to move around, pinch to zoom, tap a device for its connections
          then drag it to move it, double-tap to zoom in. -->
@@ -25,8 +19,12 @@
 
         <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0">
             <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
+                <HorizontalStackLayout Spacing="4">
+                    <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
                         SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}"
+                                         SemanticProperties.Description="Refresh the map" />
+                </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 

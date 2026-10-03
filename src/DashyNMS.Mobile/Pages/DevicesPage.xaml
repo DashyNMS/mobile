@@ -69,7 +69,8 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4" Margin="4,6,0,2">
+        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4" Margin="4,6,0,2" MinimumHeightRequest="30">
             <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />
             <Button Grid.Column="1"
                     Text="Clear"

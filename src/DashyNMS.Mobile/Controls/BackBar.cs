@@ -58,15 +58,36 @@ public sealed class BackBar : Grid
     public void Apply(ContentPage page)
     {
         Shell.SetNavBarIsVisible(page, false);
+        _back.Text = PreviousTitle(page);
+        SemanticProperties.SetDescription(_back, "Back to " + _back.Text);
+    }
+
+    /// <summary>
+    /// The title of the page before <paramref name="page"/> - or its tab's,
+    /// when that was the tab's first page (Shell keeps that as null in the
+    /// stack). Found by where the page is in the stack, since the first time
+    /// it appears the stack may not hold it yet (#142).
+    /// </summary>
+    internal static string PreviousTitle(Page page)
+    {
         var stack = page.Navigation.NavigationStack;
-        var previous = stack.Count > 1 ? stack[^2] : null;
+        var index = -1;
+        for (var i = stack.Count - 1; i >= 0; i--)
+        {
+            if (ReferenceEquals(stack[i], page))
+            {
+                index = i;
+                break;
+            }
+        }
+
+        var previous = index > 0 ? stack[index - 1] : index < 0 && stack.Count > 0 ? stack[^1] : null;
         var title = previous?.Title;
         if (string.IsNullOrWhiteSpace(title))
         {
             title = Shell.Current?.CurrentItem?.CurrentItem?.Title;
         }
 
-        _back.Text = string.IsNullOrWhiteSpace(title) ? "Back" : title;
-        SemanticProperties.SetDescription(_back, "Back to " + _back.Text);
+        return string.IsNullOrWhiteSpace(title) ? "Back" : title;
     }
 }
