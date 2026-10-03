@@ -123,7 +123,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     private Task RefreshAsync() => RunAsync(async () =>
     {
         var utc = _settings.Current.ServerTimestampsAreUtc;
-        var alert = await _client.Alerts.GetAsync(AlertId);
+        var alert = await FindAlertAsync(AlertId);
         if (alert is null)
         {
             Alert = null;
@@ -214,6 +214,16 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     }
 
     internal const string RuleGroupName = "Rule";
+
+    /// <summary>
+    /// The alert, firing or acknowledged. LibreNMS's state=1 default applies
+    /// to GET alerts/{id} too, so an acknowledged alert came back empty and
+    /// the page said it had cleared, while the list still showed it (#113).
+    /// The open list - firing and acknowledged - finds it then.
+    /// </summary>
+    private async Task<Alert?> FindAlertAsync(int alertId) =>
+        await _client.Alerts.GetAsync(alertId)
+        ?? (await _client.Alerts.ListAsync(AlertQuery.Open)).FirstOrDefault(a => a.Id == alertId);
 
     // ------------------------------------------------------------ notifications (#102)
 

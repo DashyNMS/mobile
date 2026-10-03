@@ -119,6 +119,24 @@ public sealed class AlertDetailViewModelTests
     }
 
     [Fact]
+    public async Task An_acknowledged_alert_shows_its_details_not_cleared()
+    {
+        // LibreNMS's alerts/{id} only finds firing alerts (its state=1 default),
+        // so an acknowledged one comes back empty there (#113).
+        var acknowledged = Fakes.Alert(5, deviceId: 3, "critical", acknowledged: true);
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns((Alert?)null);
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns([Fakes.Alert(4, 3, "warning"), acknowledged]);
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        Assert.False(vm.IsGone);
+        Assert.True(vm.HasAlert);
+        Assert.True(vm.Alert!.IsAcknowledged);
+        Assert.True(vm.CanUnacknowledge);
+    }
+
+    [Fact]
     public async Task Acknowledging_records_it_as_your_own_and_reloads()
     {
         var alert = Fakes.Alert(5, deviceId: 3, "critical");
