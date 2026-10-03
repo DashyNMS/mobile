@@ -44,7 +44,7 @@ public sealed class PageHeader : Grid
 
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
         Add(_back);
-        SetRow(_title, 1);
+        SetRow((IView)_title, 1);
         Add(_title);
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level1);
     }
