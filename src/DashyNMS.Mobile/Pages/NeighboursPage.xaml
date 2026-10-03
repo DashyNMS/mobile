@@ -5,7 +5,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="topo:NeighboursViewModel"
+    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Neighbours">
 
@@ -15,7 +17,11 @@
         <ToolbarItem Text="Neighbourhoods" Command="{Binding EditGroupsCommand}" />
     </ContentPage.ToolbarItems>
 
-    <!-- Laid out as the Devices tab (#98): search, chips, a count, then the rows in one card. -->
+    <!-- On an iPad or a Mac, the link you tap shows beside the list (#88). -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose a neighbour to see the link here.">
+
+    <!-- Laid out as the Devices tab (#98) and brought up to date (#121): search, the chips as the
+         network map's, a count, then the rows in one card with the busy card over it. -->
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Neighbours">
@@ -52,7 +58,7 @@
                 </Button>
                 <!-- Between the state chips and the neighbourhoods. -->
                 <BoxView WidthRequest="1" HeightRequest="20" VerticalOptions="Center" Margin="2,0"
-                         Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                         Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
                 <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourGroupChip">
@@ -73,33 +79,52 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Label Grid.Row="3" Style="{StaticResource Faint}" Text="{Binding CountText}" Margin="4,6,0,4" />
-        <Label Grid.Row="4" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <Label Grid.Row="3" Style="{StaticResource Faint}" Text="{Binding CountText}" Margin="4,6,0,4" IsVisible="{Binding HasLoaded}" />
 
+        <!-- LibreNMS's reason when the fetch fails, in a card of its own. -->
+        <Border Grid.Row="4" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
+                BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
+            <Label Text="{Binding ErrorMessage}" FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+        </Border>
+
+        <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
+        <controls:BusyCard x:Name="Busy" Grid.Row="5" ZIndex="1" IsVisible="False" />
         <Border Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Links}" SelectionMode="None">
                     <CollectionView.EmptyView>
-                        <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
-                               HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="0,32" />
+                        <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
+                            <Label Text="{Binding EmptyTitle}" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" HorizontalTextAlignment="Center" />
+                            <Button Style="{StaticResource LinkButton}" Text="Clear filters" HorizontalOptions="Center"
+                                    Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}" />
+                        </VerticalStackLayout>
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourLink">
-                            <!-- As a device row: a status dot, the neighbour, what it is and where it plugs in, the protocol. -->
+                            <!-- A status dot, the neighbour, the two ports, then what it is - or why it's down - and the protocol. -->
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type topo:NeighboursViewModel}}, x:DataType=topo:NeighboursViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Row.Status, Converter={StaticResource StatusColor}}" />
-                                <VerticalStackLayout Grid.Column="1">
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Row.Status, Converter={StaticResource StatusColor}}"
+                                         VerticalOptions="Start" Margin="0,6,0,0" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
                                     <Label Style="{StaticResource RowTitle}" Text="{Binding Row.Title}" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Row.Subtitle}" LineBreakMode="TailTruncation" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Row.Detail}" IsVisible="{Binding Row.HasDetail}" FontSize="12"
-                                           TextColor="{Binding Row.Status, Converter={StaticResource StatusText}}" />
+                                    <Label Text="{Binding PortsText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="TailTruncation" MaxLines="1"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding NoteText}" IsVisible="{Binding HasNote}" LineBreakMode="TailTruncation">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsProblem}" Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                 </VerticalStackLayout>
-                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding Row.Value}" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding Row.Value}" VerticalOptions="Start" Margin="0,2,0,0" />
                                 <!-- The bottom padding; the line itself is at the top of the row (#120). -->
                                 <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
                                 <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
@@ -111,5 +136,7 @@
         </Border>
 
     </Grid>
+
+    </controls:ListDetail>
 
 </ContentPage>

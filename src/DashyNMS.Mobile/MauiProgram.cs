@@ -106,6 +106,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<TopCardSetUpPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<NeighbourLinkPage>();
 		builder.Services.AddTransient<NeighbourGroupsPage>();
 		builder.Services.AddTransient<NeighbourGroupEditorPage>();
 		builder.Services.AddTransient<NetworkMapPage>();

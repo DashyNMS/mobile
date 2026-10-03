@@ -14,10 +14,12 @@ public sealed class NeighbourGroupsTests
     private readonly ILibreNmsClient _client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr")]);
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly RecordingNavigation _navigation = new();
+    private readonly NeighbourDirectory _directory;
 
     public NeighbourGroupsTests()
     {
         _settings = Fakes.Settings(_appSettings);
+        _directory = new NeighbourDirectory(_client, _settings);
         _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(
         [
             new NetworkLink { Id = 1, LocalDeviceId = 1, LocalPortId = 11, RemoteHostname = "ap-lobby", RemoteVersion = "Aruba AP-515", RemotePort = "eth0", Protocol = "lldp" },
@@ -41,7 +43,7 @@ public sealed class NeighbourGroupsTests
 
     private async Task<NeighboursViewModel> Loaded()
     {
-        var vm = new NeighboursViewModel(_client, _settings, _navigation, _dialogs);
+        var vm = new NeighboursViewModel(_directory, _settings, _navigation);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
     }
@@ -112,7 +114,7 @@ public sealed class NeighbourGroupsTests
     [Fact]
     public async Task The_editor_checks_a_regex_as_its_typed_and_wont_save_a_broken_one()
     {
-        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs);
+        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs, _directory);
         editor.Load(null);
         editor.Name = "APs";
         var rule = editor.Rules.Single();
@@ -133,7 +135,7 @@ public sealed class NeighbourGroupsTests
     [Fact]
     public async Task The_editor_saves_a_new_group_into_desktops_settings()
     {
-        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs);
+        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs, _directory);
         editor.Load(null);
         Assert.Equal("New neighbourhood", editor.Heading);
         editor.Name = "  Phones ";
@@ -158,7 +160,7 @@ public sealed class NeighbourGroupsTests
         var group = Group("Mixed", true, (NeighbourRuleField.SystemName, NeighbourRuleOperator.Contains, "ap"));
         group.Rules.Add(new NeighbourRule { FieldName = "ChassisId", OperatorName = "Contains", Value = "00:11" });
         _appSettings.NeighbourViews = [group];
-        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs);
+        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs, _directory);
 
         editor.Load(group.Id);
         Assert.Equal("Edit neighbourhood", editor.Heading);
@@ -176,7 +178,7 @@ public sealed class NeighbourGroupsTests
     {
         _appSettings.NeighbourViews = [Group("A", true), Group("B", true), Group("C", true)];
         _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
-        var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs);
+        var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
 
         list.MoveUpCommand.Execute(list.Groups[2]);
         Assert.Equal(["A", "C", "B"], _appSettings.NeighbourViews.Select(v => v.Name));
@@ -187,5 +189,52 @@ public sealed class NeighbourGroupsTests
 
         await list.EditCommand.ExecuteAsync(list.Groups[1]);
         Assert.Equal(_appSettings.NeighbourViews[1].Id, _navigation.Visits.Last().Parameters![Routes.GroupIdParameter]);
+    }
+
+    [Fact]
+    public async Task The_list_says_what_each_group_asks_for_and_how_many_it_holds()
+    {
+        _appSettings.NeighbourViews =
+        [
+            Group("APs", true, (NeighbourRuleField.SystemName, NeighbourRuleOperator.StartsWith, "ap-")),
+            Group("Kit", false, (NeighbourRuleField.SystemDescription, NeighbourRuleOperator.Contains, "Aruba"), (NeighbourRuleField.SystemDescription, NeighbourRuleOperator.Contains, "Phone")),
+        ];
+        var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
+        Assert.Equal("System name starts with \"ap-\"", list.Groups[0].Summary);
+
+        await list.LoadCountsAsync();
+
+        Assert.Equal("System name starts with \"ap-\" · 2", list.Groups[0].Summary);
+        Assert.Equal("2 rules, any must match · 3", list.Groups[1].Summary);
+    }
+
+    [Fact]
+    public async Task The_editor_counts_each_rule_and_the_group_as_its_edited()
+    {
+        var editor = new NeighbourGroupEditorViewModel(_settings, _navigation, _dialogs, _directory);
+        editor.Load(null);
+        await editor.LoadNeighboursAsync();
+        var first = editor.Rules[0];
+        Assert.False(first.HasMatchText);
+
+        first.FieldIndex = (int)NeighbourRuleField.SystemDescription;
+        first.Value = "Aruba";
+        Assert.Equal("Matches 2", first.MatchText);
+
+        editor.AddRuleCommand.Execute(null);
+        var second = editor.Rules[1];
+        second.FieldIndex = (int)NeighbourRuleField.SystemName;
+        second.Value = "kitchen";
+        Assert.Equal("Matches 1", second.MatchText);
+        Assert.Equal("Matches 1 neighbour", editor.GroupMatchText);
+
+        editor.SetMatchAnyCommand.Execute(null);
+        Assert.True(editor.IsMatchAny);
+        Assert.Equal("Matches 2 neighbours", editor.GroupMatchText);
+
+        _dialogs.ChooseAsync("Test", Arg.Any<IReadOnlyList<string>>()).Returns("starts with");
+        await editor.ChooseOperatorCommand.ExecuteAsync(second);
+        Assert.Equal("starts with", second.OperatorText);
+        Assert.Equal("Matches 0", second.MatchText);
     }
 }

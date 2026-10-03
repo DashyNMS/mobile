@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Topology.NeighboursViewModel>();
         services.AddTransient<Topology.NeighbourGroupsViewModel>();
         services.AddTransient<Topology.NeighbourGroupEditorViewModel>();
+        services.AddTransient<Topology.NeighbourLinkViewModel>();
         services.AddTransient<Topology.NetworkMapViewModel>();
         services.AddTransient<Map.MapViewModel>();
         // One for Settings and its section pages (#67), which all show and change the same values.
@@ -95,6 +96,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGraylogPasswordProtector, SecureGraylogPasswordProtector>();
         services.AddSingleton<Graylog.GraylogSetup>();
         services.AddSingleton<Graylog.IGraylogConnectionTester, Graylog.GraylogConnectionTester>();
+        services.AddSingleton<Topology.NeighbourDirectory>();
         services.AddTransient<Graylog.GraylogViewModel>();
         services.AddTransient<Graylog.GraylogSettingsViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();

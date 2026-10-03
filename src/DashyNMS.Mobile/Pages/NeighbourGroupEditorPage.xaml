@@ -21,15 +21,43 @@
                 </controls:BackBar>
                 <Label Style="{StaticResource PageTitle}" Text="{Binding Heading}" SemanticProperties.HeadingLevel="Level1" />
 
+                <Label Style="{StaticResource Faint}" Text="{Binding GroupMatchText}" IsVisible="{Binding HasGroupMatchText}" Margin="4,-6,0,0" />
+
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
+                <!-- The name in the app's text well, then all or any as a two-way switch (#121). -->
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="10">
-                        <Entry Text="{Binding Name}" Placeholder="Name, e.g. Wireless APs" />
-                        <Picker Title="Matching" ItemsSource="{Binding MatchChoices}" SelectedIndex="{Binding MatchIndex}" />
+                        <Label Style="{StaticResource Faint}" Text="Name" />
+                        <Border Style="{StaticResource Field}">
+                            <Entry Text="{Binding Name}" Placeholder="Wireless APs" />
+                        </Border>
+                        <Border Style="{StaticResource SegmentBar}" Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="*,*">
+                                <Button Style="{StaticResource Segment}" Text="Match all rules" Command="{Binding SetMatchAllCommand}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsMatchAll}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                                <Button Grid.Column="1" Style="{StaticResource Segment}" Text="Match any rule" Command="{Binding SetMatchAnyCommand}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsMatchAny}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
+                <Label Style="{StaticResource SectionHeader}" Text="Rules" Margin="4,8,0,0" />
+
+                <!-- A card per rule: its field and test as chips, the value, and how many neighbours it matches alone. -->
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rules}" Spacing="8">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourRuleRow">
@@ -38,23 +66,34 @@
                                     <!-- A rule made by a newer version: shown, kept, and only removable. -->
                                     <Label Style="{StaticResource Caption}" Text="{Binding UnsupportedText}" IsVisible="{Binding IsUnsupported}" />
                                     <VerticalStackLayout Spacing="8" IsVisible="{Binding IsSupported}">
-                                        <Picker Title="Field" ItemsSource="{Binding Fields}" SelectedIndex="{Binding FieldIndex}" />
-                                        <Picker Title="Test" ItemsSource="{Binding Operators}" SelectedIndex="{Binding OperatorIndex}" />
-                                        <Entry Text="{Binding Value}" Placeholder="Value" />
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Button Style="{StaticResource Chip}" Text="{Binding FieldText, StringFormat='{0} ▾'}"
+                                                    Command="{Binding ChooseFieldCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupEditorViewModel}}, x:DataType=topo:NeighbourGroupEditorViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Style="{StaticResource Chip}" Text="{Binding OperatorText, StringFormat='{0} ▾'}"
+                                                    Command="{Binding ChooseOperatorCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupEditorViewModel}}, x:DataType=topo:NeighbourGroupEditorViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                        <Border Style="{StaticResource Field}">
+                                            <Entry Text="{Binding Value}" Placeholder="Value" />
+                                        </Border>
                                         <!-- Checked as it's typed, so a broken pattern is caught before Save. -->
                                         <Label Style="{StaticResource Error}" Text="{Binding Problem}" IsVisible="{Binding HasProblem}" />
                                     </VerticalStackLayout>
-                                    <Button Style="{StaticResource LinkButton}" Text="Remove rule" HorizontalOptions="Start"
-                                            Command="{Binding RemoveRuleCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupEditorViewModel}}, x:DataType=topo:NeighbourGroupEditorViewModel}"
-                                            CommandParameter="{Binding .}" />
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Style="{StaticResource Faint}" Text="{Binding MatchText}" IsVisible="{Binding HasMatchText}" VerticalOptions="Center" />
+                                        <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Remove" HeightRequest="32" MinimumHeightRequest="32"
+                                                Command="{Binding RemoveRuleCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupEditorViewModel}}, x:DataType=topo:NeighbourGroupEditorViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
-                <Button Style="{StaticResource SecondaryButton}" Text="Add a rule" Command="{Binding AddRuleCommand}" />
-                <Button Text="Save" Command="{Binding SaveCommand}" />
+                <Button Style="{StaticResource LinkButton}" Text="Add a rule" Command="{Binding AddRuleCommand}" HorizontalOptions="Center" />
+                <Button Text="Save" Command="{Binding SaveCommand}" Margin="0,8,0,0" />
                 <Button Style="{StaticResource DangerButton}" Text="Delete neighbourhood" Command="{Binding DeleteCommand}"
                         IsVisible="{Binding IsExisting}" Margin="0,12,0,0" />
 

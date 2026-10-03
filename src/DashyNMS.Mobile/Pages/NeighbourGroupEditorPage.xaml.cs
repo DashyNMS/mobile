@@ -31,5 +31,8 @@ public partial class NeighbourGroupEditorPage : ContentPage, IQueryAttributable
 			_loaded = true;
 			_viewModel.Load(null);
 		}
+
+		// Each rule's count as it's typed (#121) - fetched here if Neighbours hasn't.
+		_ = _viewModel.LoadNeighboursAsync();
 	}
 }
