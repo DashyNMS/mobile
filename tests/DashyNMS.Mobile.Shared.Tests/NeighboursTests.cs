@@ -42,7 +42,8 @@ public sealed class NeighboursViewModelTests
 
     private async Task<NeighboursViewModel> Loaded()
     {
-        var vm = new NeighboursViewModel(_client, Fakes.Settings(), _navigation, _dialogs);
+        var settings = Fakes.Settings();
+        var vm = new NeighboursViewModel(new NeighbourDirectory(_client, settings), settings, _navigation);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
     }
@@ -60,7 +61,9 @@ public sealed class NeighboursViewModelTests
         Assert.Equal("Down: access-sw, core-sw Gi0/2, access-sw Fa0/1", down.Row.Detail);
         Assert.Equal("core-sw Gi0/1 ↔ Gi0/24", vm.Links[1].Row.Subtitle);
         Assert.Equal("LLDP", vm.Links[1].Row.Value);
-        Assert.Equal("Cisco IP Phone · core-sw Gi0/3 ↔ Port 1", vm.Links[2].Row.Subtitle);
+        Assert.Equal("core-sw Gi0/3 ↔ Port 1", vm.Links[2].PortsText);
+        Assert.Equal("Cisco IP Phone · not in LibreNMS", vm.Links[2].NoteText);
+        Assert.Equal(down.Row.Detail, down.NoteText);
         Assert.Equal("3 neighbours", vm.CountText);
     }
 
@@ -89,15 +92,49 @@ public sealed class NeighboursViewModelTests
     }
 
     [Fact]
-    public async Task A_link_between_two_devices_asks_which_end_to_open()
+    public async Task A_link_opens_on_its_own_page()
     {
         var vm = await Loaded();
-        _dialogs.ChooseAsync("Open", Arg.Any<IReadOnlyList<string>>()).Returns("edge-rtr");
 
         await vm.OpenCommand.ExecuteAsync(vm.Links[1]);
-        await vm.OpenCommand.ExecuteAsync(vm.Links[2]); // the phone: just core-sw, no question
 
-        Assert.Equal([2, 1], _navigation.Visits.Select(v => (int)v.Parameters![Routes.DeviceIdParameter]));
-        await _dialogs.Received(1).ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>());
+        var visit = _navigation.Visits.Single();
+        Assert.Equal(Routes.NeighbourLink, visit.Route);
+        Assert.Same(vm.Links[1], visit.Parameters![Routes.NeighbourLinkParameter]);
+        await _dialogs.DidNotReceiveWithAnyArgs().ChooseAsync(default!, default!);
+    }
+
+    [Fact]
+    public async Task The_link_page_shows_both_ends_and_opens_either_device()
+    {
+        var vm = await Loaded();
+        var page = new NeighbourLinkViewModel(_navigation);
+
+        page.Load(vm.Links[0]);
+
+        Assert.Equal("Down", page.StatusText);
+        Assert.Equal(("core-sw", "Gi0/2", "port down"), (page.Link!.Local.Name, page.Link.Local.Port, page.Link.Local.StateText));
+        Assert.Equal(("access-sw", "Fa0/1", "device down"), (page.Link.Remote.Name, page.Link.Remote.Port, page.Link.Remote.StateText));
+        Assert.Equal("Open access-sw", page.Link.Remote.OpenText);
+
+        await page.OpenRemoteCommand.ExecuteAsync(null);
+        await page.OpenLocalCommand.ExecuteAsync(null);
+        Assert.Equal([3, 1], _navigation.Visits.Select(v => (int)v.Parameters![Routes.DeviceIdParameter]));
+    }
+
+    [Fact]
+    public async Task A_neighbour_LibreNMS_doesnt_poll_shows_what_it_announces()
+    {
+        var vm = await Loaded();
+        var page = new NeighbourLinkViewModel(_navigation);
+
+        page.Load(vm.Links[2]);
+
+        Assert.Equal("Up", page.StatusText);
+        Assert.False(page.Link!.Remote.CanOpen);
+        Assert.Equal("CDP · Cisco IP Phone", page.SubtitleText);
+        Assert.Contains(new KeyValuePair<string, string>("System name", "SEP001122"), page.Fields);
+        Assert.Contains(new KeyValuePair<string, string>("Port ID", "Port 1"), page.Fields);
+        Assert.DoesNotContain(page.Fields, f => f.Key == "MAC address");
     }
 }

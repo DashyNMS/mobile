@@ -20,5 +20,6 @@ public partial class NeighbourGroupsPage : ContentPage
 		base.OnAppearing();
 		TopBar.Apply(this);
 		_viewModel.Refresh();
+		_ = _viewModel.LoadCountsAsync();
 	}
 }

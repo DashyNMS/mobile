@@ -60,6 +60,12 @@ public static class Routes
     /// <summary>Every CDP/LLDP link across the network.</summary>
     public const string Neighbours = "neighbours";
 
+    /// <summary>One neighbour link (#121) - with <see cref="NeighbourLinkParameter"/>.</summary>
+    public const string NeighbourLink = "neighbourlink";
+
+    /// <summary>Query attribute: the <c>NeighbourLink</c> for <see cref="NeighbourLink"/>.</summary>
+    public const string NeighbourLinkParameter = "link";
+
     /// <summary>The Neighbours page's groups (#98): add, reorder, delete.</summary>
     public const string NeighbourGroups = "neighbourgroups";
 

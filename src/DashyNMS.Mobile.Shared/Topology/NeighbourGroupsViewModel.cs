@@ -9,18 +9,23 @@ using DesktopNMS.Core.Topology;
 
 namespace DashyNMS.Mobile.Topology;
 
-/// <summary>One group in the list: its name and what its rules ask for.</summary>
-public sealed record NeighbourGroupRow(NeighbourViewDefinition Group)
+/// <summary>One group in the list: its name, what its rules ask for, and how many neighbours it holds.</summary>
+/// <param name="Count">Null until the neighbours have been fetched.</param>
+public sealed record NeighbourGroupRow(NeighbourViewDefinition Group, int? Count = null)
 {
     public string Name => Group.Name;
 
-    /// <summary>"2 rules, all must match".</summary>
-    public string Summary => Group.Rules.Count switch
+    /// <summary>"System name starts with "SEP" · 30", or "2 rules, any must match · 30".</summary>
+    public string Summary => string.Join(" · ", new[]
     {
-        0 => "No rules yet",
-        1 => "1 rule",
-        var n => string.Create(CultureInfo.CurrentCulture, $"{n} rules, {(Group.MatchAll ? "all" : "any")} must match"),
-    };
+        Group.Rules.Count switch
+        {
+            0 => "No rules yet",
+            1 => NeighbourRuleRow.Describe(Group.Rules[0]),
+            var n => string.Create(CultureInfo.CurrentCulture, $"{n} rules, {(Group.MatchAll ? "all" : "any")} must match"),
+        },
+        Count?.ToString("N0", CultureInfo.CurrentCulture),
+    }.Where(s => s is not null));
 }
 
 /// <summary>
@@ -33,12 +38,14 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
+    private readonly NeighbourDirectory _neighbours;
 
-    public NeighbourGroupsViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs)
+    public NeighbourGroupsViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs, NeighbourDirectory neighbours)
     {
         _settings = settings;
         _navigation = navigation;
         _dialogs = dialogs;
+        _neighbours = neighbours;
         Refresh();
     }
 
@@ -46,16 +53,31 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
 
     public bool HasNone => Groups.Count == 0;
 
-    /// <summary>Back from the editor, or on opening.</summary>
+    /// <summary>Back from the editor, or on opening - with each group's count once the neighbours are known.</summary>
     public void Refresh()
     {
+        var links = _neighbours.Links;
         Groups.Clear();
         foreach (var group in _settings.Current.NeighbourViews)
         {
-            Groups.Add(new NeighbourGroupRow(group));
+            Groups.Add(new NeighbourGroupRow(group, links?.Count(l => NeighboursViewModel.InGroup(group, l))));
         }
 
         OnPropertyChanged(nameof(HasNone));
+    }
+
+    /// <summary>Fetches the neighbours if the Neighbours page hasn't, for the counts. Not fatal - the groups still show.</summary>
+    public async Task LoadCountsAsync()
+    {
+        if (_neighbours.Links is not null)
+        {
+            return;
+        }
+
+        if (await RunAsync(() => _neighbours.GetAsync()))
+        {
+            Refresh();
+        }
     }
 
     [RelayCommand]
@@ -118,11 +140,17 @@ public sealed partial class NeighbourRuleRow : ObservableObject
     private readonly NeighbourRule _original;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FieldText))]
     private int _fieldIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem))]
+    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem), nameof(OperatorText))]
     private int _operatorIndex;
+
+    /// <summary>How many neighbours this rule alone matches (#121); null until they're known, or with no value yet.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(MatchText), nameof(HasMatchText))]
+    private int? _matchCount;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem))]
@@ -139,6 +167,22 @@ public sealed partial class NeighbourRuleRow : ObservableObject
     public IReadOnlyList<string> Fields => FieldLabels;
 
     public IReadOnlyList<string> Operators => OperatorLabels;
+
+    /// <summary>The field chip: "System name".</summary>
+    public string FieldText => FieldLabels[Math.Clamp(FieldIndex, 0, FieldLabels.Count - 1)];
+
+    /// <summary>The test chip: "starts with".</summary>
+    public string OperatorText => OperatorLabels[Math.Clamp(OperatorIndex, 0, OperatorLabels.Count - 1)];
+
+    /// <summary>"Matches 28".</summary>
+    public string MatchText => MatchCount is { } count ? "Matches " + count.ToString("N0", CultureInfo.CurrentCulture) : string.Empty;
+
+    public bool HasMatchText => MatchCount is not null;
+
+    /// <summary>"System name starts with "SEP"" - a one-rule group's summary.</summary>
+    public static string Describe(NeighbourRule rule) => rule.IsSupported
+        ? $"{FieldLabels[Math.Clamp((int)rule.Field, 0, FieldLabels.Count - 1)]} {OperatorLabels[Math.Clamp((int)rule.Operator, 0, OperatorLabels.Count - 1)]} \"{rule.Value}\""
+        : $"{rule.FieldName} {rule.OperatorName} \"{rule.Value}\"";
 
     /// <summary>
     /// False for a rule made by a newer version (a field or test this one
@@ -186,23 +230,44 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
+    private readonly NeighbourDirectory _neighbours;
     private NeighbourViewDefinition _draft = new() { Name = string.Empty };
+    private IReadOnlyList<NeighbourLink>? _links;
 
     [ObservableProperty]
     private string _name = string.Empty;
 
     /// <summary>0: all rules must match; 1: any one.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMatchAll), nameof(IsMatchAny))]
     private int _matchIndex;
 
-    public NeighbourGroupEditorViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs)
+    /// <summary>How many neighbours the whole group matches, as it's edited; null until they're known.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(GroupMatchText), nameof(HasGroupMatchText))]
+    private int? _groupMatchCount;
+
+    public NeighbourGroupEditorViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs, NeighbourDirectory neighbours)
     {
         _settings = settings;
         _navigation = navigation;
         _dialogs = dialogs;
+        _neighbours = neighbours;
     }
 
     public IReadOnlyList<string> MatchChoices { get; } = ["All rules must match", "Any rule can match"];
+
+    /// <summary>The match switch's two sides.</summary>
+    public bool IsMatchAll => MatchIndex == 0;
+
+    public bool IsMatchAny => MatchIndex != 0;
+
+    /// <summary>"Matches 30 neighbours".</summary>
+    public string GroupMatchText => GroupMatchCount is { } count
+        ? string.Create(CultureInfo.CurrentCulture, $"Matches {count:N0} {(count == 1 ? "neighbour" : "neighbours")}")
+        : string.Empty;
+
+    public bool HasGroupMatchText => GroupMatchCount is not null;
 
     public ObservableCollection<NeighbourRuleRow> Rules { get; } = new();
 
@@ -223,7 +288,7 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
         Rules.Clear();
         foreach (var rule in _draft.Rules)
         {
-            Rules.Add(new NeighbourRuleRow(rule));
+            Rules.Add(Track(new NeighbourRuleRow(rule)));
         }
 
         if (Rules.Count == 0)
@@ -233,18 +298,119 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(IsExisting));
         OnPropertyChanged(nameof(Heading));
+
+        _links = _neighbours.Links;
+        Recount();
+    }
+
+    /// <summary>Fetches the neighbours if the Neighbours page hasn't, for the counts. Not fatal - the editor works without them.</summary>
+    public async Task LoadNeighboursAsync()
+    {
+        if (_links is not null)
+        {
+            return;
+        }
+
+        try
+        {
+            _links = await _neighbours.GetAsync();
+        }
+        catch (Exception ex) when (ex is DesktopNMS.Core.Api.LibreNmsApiException or HttpRequestException or TaskCanceledException)
+        {
+            return;
+        }
+
+        Recount();
+    }
+
+    partial void OnMatchIndexChanged(int value) => Recount();
+
+    [RelayCommand]
+    private void SetMatchAll() => MatchIndex = 0;
+
+    [RelayCommand]
+    private void SetMatchAny() => MatchIndex = 1;
+
+    /// <summary>A rule's field chip.</summary>
+    [RelayCommand]
+    private async Task ChooseFieldAsync(NeighbourRuleRow? rule)
+    {
+        if (rule is not null && await _dialogs.ChooseAsync("Field", NeighbourRuleRow.FieldLabels) is { } choice
+            && NeighbourRuleRow.FieldLabels.ToList().IndexOf(choice) is var index and >= 0)
+        {
+            rule.FieldIndex = index;
+        }
+    }
+
+    /// <summary>A rule's test chip.</summary>
+    [RelayCommand]
+    private async Task ChooseOperatorAsync(NeighbourRuleRow? rule)
+    {
+        if (rule is not null && await _dialogs.ChooseAsync("Test", NeighbourRuleRow.OperatorLabels) is { } choice
+            && NeighbourRuleRow.OperatorLabels.ToList().IndexOf(choice) is var index and >= 0)
+        {
+            rule.OperatorIndex = index;
+        }
     }
 
     [RelayCommand]
-    private void AddRule() => Rules.Add(new NeighbourRuleRow(new NeighbourRule()));
+    private void AddRule()
+    {
+        Rules.Add(Track(new NeighbourRuleRow(new NeighbourRule())));
+        Recount();
+    }
 
     [RelayCommand]
     private void RemoveRule(NeighbourRuleRow? rule)
     {
-        if (rule is not null)
+        if (rule is not null && Rules.Remove(rule))
         {
-            Rules.Remove(rule);
+            Recount();
         }
+    }
+
+    /// <summary>Counts again whenever a rule's field, test or value changes.</summary>
+    private NeighbourRuleRow Track(NeighbourRuleRow rule)
+    {
+        rule.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(NeighbourRuleRow.FieldIndex) or nameof(NeighbourRuleRow.OperatorIndex) or nameof(NeighbourRuleRow.Value))
+            {
+                Recount();
+            }
+        };
+        return rule;
+    }
+
+    /// <summary>
+    /// Each rule's count on its own, and the group's - by Core's own test, so
+    /// they're what the Neighbours page and desktop will list. A rule with no
+    /// value yet, or a broken pattern, has no count.
+    /// </summary>
+    private void Recount()
+    {
+        if (_links is not { } links)
+        {
+            return;
+        }
+
+        var ready = new List<NeighbourRule>();
+        foreach (var row in Rules)
+        {
+            if (row.IsUnsupported || row.HasProblem || string.IsNullOrWhiteSpace(row.Value))
+            {
+                row.MatchCount = null;
+                continue;
+            }
+
+            var rule = row.ToRule();
+            ready.Add(rule);
+            var alone = new NeighbourViewDefinition { MatchAll = true, Rules = [rule] };
+            row.MatchCount = links.Count(l => NeighboursViewModel.InGroup(alone, l));
+        }
+
+        var group = new NeighbourViewDefinition { MatchAll = MatchIndex == 0, Rules = ready };
+        GroupMatchCount = ready.Count == 0 ? null : links.Count(l => NeighboursViewModel.InGroup(group, l));
     }
 
     [RelayCommand]

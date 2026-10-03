@@ -25,7 +25,55 @@ public sealed record NeighbourLink(
     bool IsProblem,
     Neighbour Neighbour,
     string SwitchName,
-    string? SwitchPortDescription);
+    string? SwitchPortDescription)
+{
+    /// <summary>The switch's end: the device that reported the link, and its port.</summary>
+    public NeighbourEnd Local { get; init; } = new(LocalName, LocalDeviceId, "?", null, null);
+
+    /// <summary>The neighbour's end - a LibreNMS device, or something LibreNMS doesn't poll.</summary>
+    public NeighbourEnd Remote { get; init; } = new(RemoteName, RemoteDeviceId, "?", null, null);
+
+    /// <summary>What the neighbour says it is: "Cisco IP Phone 8845".</summary>
+    public string? Platform { get; init; }
+
+    /// <summary>"core-sw-01 Gi1/0/24 ↔ eth0" - the row's second line.</summary>
+    public string PortsText => Row.Subtitle ?? string.Empty;
+
+    /// <summary>
+    /// The row's last line: why it's down, in the critical colour - or what
+    /// the neighbour is, and whether LibreNMS polls it or the link's gone quiet.
+    /// </summary>
+    public string NoteText => Row.Detail ?? string.Join(" · ", new[]
+    {
+        Platform,
+        RemoteDeviceId is null ? "not in LibreNMS" : null,
+        Neighbour.Active ? null : "not active",
+    }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    public bool HasNote => NoteText.Length > 0;
+}
+
+/// <summary>One end of a neighbour link, for the link's page (#121).</summary>
+/// <param name="DeviceUp">Null when LibreNMS doesn't poll it.</param>
+/// <param name="PortUp">Null when the port isn't known.</param>
+public sealed record NeighbourEnd(string Name, int? DeviceId, string Port, bool? DeviceUp, bool? PortUp)
+{
+    public bool IsDown => DeviceUp == false || PortUp == false;
+
+    /// <summary>"device down", "port down", "up" - or blank, knowing neither.</summary>
+    public string StateText => DeviceUp == false ? "device down" : PortUp switch
+    {
+        false => "port down",
+        true => "up",
+        null => DeviceUp == true ? "device up" : string.Empty,
+    };
+
+    public RowStatus Status => IsDown ? RowStatus.Critical : PortUp == true || DeviceUp == true ? RowStatus.Ok : RowStatus.Inactive;
+
+    public bool CanOpen => DeviceId is not null;
+
+    public string OpenText => $"Open {Name}";
+}
 
 /// <summary>A group chip above the list: "All", or one of the user's groups, with how many it holds.</summary>
 public sealed partial class NeighbourGroupChip(NeighbourViewDefinition? group, string name) : ObservableObject
@@ -60,10 +108,9 @@ public sealed partial class NeighbourGroupChip(NeighbourViewDefinition? group, s
 /// </remarks>
 public sealed partial class NeighboursViewModel : ViewModelBase
 {
-    private readonly ILibreNmsClient _client;
+    private readonly NeighbourDirectory _directory;
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
-    private readonly IDialogService _dialogs;
     private IReadOnlyList<NeighbourLink> _all = [];
     private string? _selectedGroupId;
     private bool _loaded;
@@ -79,12 +126,11 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     [ObservableProperty]
     private string _searchText = string.Empty;
 
-    public NeighboursViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IDialogService dialogs)
+    public NeighboursViewModel(NeighbourDirectory directory, ISettingsStore settings, INavigationService navigation)
     {
-        _client = client;
+        _directory = directory;
         _settings = settings;
         _navigation = navigation;
-        _dialogs = dialogs;
         RebuildGroups();
     }
 
@@ -110,7 +156,18 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
     public bool IsEmpty => _loaded && Links.Count == 0 && !IsBusy;
 
-    public string EmptyText => _all.Count == 0 ? "LibreNMS has no CDP or LLDP neighbours." : "No neighbours match.";
+    public string EmptyText => _all.Count == 0
+        ? "LibreNMS has no CDP or LLDP neighbours."
+        : "None of the neighbours match the search and chips.";
+
+    /// <summary>"No neighbours" when there are none at all; "No matches" when the filters hide them.</summary>
+    public string EmptyTitle => _all.Count == 0 ? "No neighbours" : "No matches";
+
+    /// <summary>The first fetch is done - the count line waits for it.</summary>
+    public bool HasLoaded => _loaded;
+
+    /// <summary>Anything Clear filters would undo.</summary>
+    public bool HasActiveFilters => !ShowUp || !ShowDown || _selectedGroupId is not null || !string.IsNullOrWhiteSpace(SearchText);
 
     partial void OnShowUpChanged(bool value) => ApplyFilter();
 
@@ -120,6 +177,18 @@ public sealed partial class NeighboursViewModel : ViewModelBase
 
     [RelayCommand]
     private void ToggleUp() => ShowUp = !ShowUp;
+
+    /// <summary>Both state chips on, every neighbourhood, no search.</summary>
+    [RelayCommand]
+    private void ClearFilters()
+    {
+        _selectedGroupId = null;
+        MarkSelectedGroup();
+        ShowUp = true;
+        ShowDown = true;
+        SearchText = string.Empty;
+        ApplyFilter();
+    }
 
     [RelayCommand]
     private void ToggleDown() => ShowDown = !ShowDown;
@@ -140,12 +209,7 @@ public sealed partial class NeighboursViewModel : ViewModelBase
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        var linksTask = _client.Links.ListAllAsync();
-        var devicesTask = _client.Devices.ListAsync();
-        var portsTask = _client.Ports.ListAllStatusAsync();
-        await Task.WhenAll(linksTask, devicesTask, portsTask);
-
-        _all = Build(linksTask.Result, devicesTask.Result, portsTask.Result, _settings.Current.DeviceNameStyle);
+        _all = await _directory.LoadAsync();
         _loaded = true;
         ApplyFilter();
     });
@@ -157,29 +221,11 @@ public sealed partial class NeighboursViewModel : ViewModelBase
         ApplyFilter();
     }
 
-    /// <summary>A link to another LibreNMS device asks which end to open; otherwise it opens the one end there is.</summary>
+    /// <summary>The link's own page (#121): both ends, either device, and what the neighbour announces.</summary>
     [RelayCommand]
-    private async Task OpenAsync(NeighbourLink? link)
-    {
-        if (link is null)
-        {
-            return;
-        }
-
-        var deviceId = link.LocalDeviceId;
-        if (link.RemoteDeviceId is { } remote)
-        {
-            var choice = await _dialogs.ChooseAsync("Open", [link.LocalName, link.RemoteName]);
-            if (choice is null)
-            {
-                return;
-            }
-
-            deviceId = choice == link.RemoteName ? remote : link.LocalDeviceId;
-        }
-
-        await _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = deviceId });
-    }
+    private Task OpenAsync(NeighbourLink? link) => link is null
+        ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.NeighbourLink, new Dictionary<string, object> { [Routes.NeighbourLinkParameter] = link });
 
     /// <summary>Whether <paramref name="link"/> is in <paramref name="group"/> - Core's test, as desktop runs it.</summary>
     internal static bool InGroup(NeighbourViewDefinition group, NeighbourLink link) =>
@@ -229,12 +275,12 @@ public sealed partial class NeighboursViewModel : ViewModelBase
             }.Where(s => s is not null).ToList();
 
             // As Devices' rows: the name, then what it is and where it plugs in.
-            var platform = remote is null ? link.RemotePlatform : null;
+            var platform = string.IsNullOrWhiteSpace(link.RemotePlatform) ? remote?.Hardware : link.RemotePlatform.Trim();
             var problem = down.Count > 0;
             result.Add(new NeighbourLink(
                 new SectionRow(remoteName)
                 {
-                    Subtitle = string.Join(" · ", new[] { platform, $"{localName} {localPortName} ↔ {remotePortName}" }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                    Subtitle = $"{localName} {localPortName} ↔ {remotePortName}",
                     Value = link.Protocol?.ToUpperInvariant(),
                     Detail = problem ? "Down: " + string.Join(", ", down) : null,
                     Status = problem ? RowStatus.Critical : link.Active ? RowStatus.Ok : RowStatus.Inactive,
@@ -246,7 +292,12 @@ public sealed partial class NeighboursViewModel : ViewModelBase
                 problem,
                 Neighbours.FromLinks([link])[0],
                 local?.BestName ?? $"device {link.LocalDeviceId}", // as desktop names the switch for a Switch rule
-                localPort?.IfAlias));
+                localPort?.IfAlias)
+            {
+                Local = new NeighbourEnd(localName, local?.DeviceId, localPortName, local is null ? null : local.State != DeviceState.Down, localPort?.IsUp),
+                Remote = new NeighbourEnd(remoteName, remote?.DeviceId, remotePortName, remote is null ? null : remote.State != DeviceState.Down, remotePort?.IsUp),
+                Platform = platform,
+            });
         }
 
         return result
@@ -262,6 +313,7 @@ public sealed partial class NeighboursViewModel : ViewModelBase
         || new[]
         {
             link.Neighbour.AnnouncedName,
+            link.Platform,
             link.Neighbour.Description,
             link.Neighbour.RemotePort,
             link.Neighbour.Mac,
@@ -319,5 +371,8 @@ public sealed partial class NeighboursViewModel : ViewModelBase
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(HasLoaded));
+        OnPropertyChanged(nameof(HasActiveFilters));
     }
 }

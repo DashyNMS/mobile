@@ -25,37 +25,52 @@
                 <Label Style="{StaticResource Caption}"
                        Text="Sort neighbours into neighbourhoods of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. They're shared with DashyNMS on your computer, where they're called neighbour views." />
 
-                <Label Style="{StaticResource Caption}" Text="No neighbourhoods yet." IsVisible="{Binding HasNone}" Margin="0,12" />
+                <Border Style="{StaticResource Card}" Padding="20,24" IsVisible="{Binding HasNone}">
+                    <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center"
+                           Text="No neighbourhoods yet. Add one to group neighbours by what they announce, such as every access point or phone." />
+                </Border>
 
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="topo:NeighbourGroupRow">
-                            <Border Style="{StaticResource Card}">
-                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                    <VerticalStackLayout>
+                <!-- One card of rows (#121): each with its rules in a line and how many it holds,
+                     then ▲ ▼ to reorder - the order the chips show on Neighbours and desktop. -->
+                <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasNone, Converter={StaticResource Invert}}">
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Margin="0,-1,0,0">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="topo:NeighbourGroupRow">
+                                <Grid Style="{StaticResource ListRow}" ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="2"
+                                      Padding="14,11,6,0">
+                                    <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                         <VerticalStackLayout.GestureRecognizers>
                                             <TapGestureRecognizer
                                                 Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
                                                 CommandParameter="{Binding .}" />
                                         </VerticalStackLayout.GestureRecognizers>
-                                        <Label Text="{Binding Name}" FontFamily="BodySemibold" />
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Summary}" />
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding Summary}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
-                                    <Button Grid.Column="1" Text="▲" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
+                                    <Button Grid.Column="1" Text="▲" WidthRequest="36" Padding="0" BackgroundColor="Transparent" VerticalOptions="Center"
                                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
                                             Command="{Binding MoveUpCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
                                             CommandParameter="{Binding .}" SemanticProperties.Description="Move up" />
-                                    <Button Grid.Column="2" Text="▼" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
+                                    <Button Grid.Column="2" Text="▼" WidthRequest="36" Padding="0" BackgroundColor="Transparent" VerticalOptions="Center"
                                             TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
                                             Command="{Binding MoveDownCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
                                             CommandParameter="{Binding .}" SemanticProperties.Description="Move down" />
+                                    <Label Grid.Column="3" Style="{StaticResource Chevron}" VerticalOptions="Center" Margin="6,0,4,0">
+                                        <Label.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        </Label.GestureRecognizers>
+                                    </Label>
+                                    <BoxView Grid.Row="1" Grid.ColumnSpan="4" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                                    <BoxView Grid.ColumnSpan="4" Style="{StaticResource RowLine}" Margin="0,-11,-6,0" />
                                 </Grid>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
 
-                <Button Text="Add a neighbourhood" Command="{Binding AddCommand}" Margin="0,8,0,0" />
+                <Button Style="{StaticResource SecondaryButton}" Text="Add a neighbourhood" Command="{Binding AddCommand}" Margin="0,8,0,0" />
 
             </VerticalStackLayout>
         </controls:ReadableColumn>
