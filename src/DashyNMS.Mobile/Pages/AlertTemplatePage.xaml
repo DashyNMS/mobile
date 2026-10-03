@@ -10,7 +10,10 @@
     Title="{Binding Title}">
 
     <!-- One alert template, read-only (#22): the body monospaced, as written. -->
-    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+    <!-- The busy card while it loads, or after a pull; no platform spinner (#111, #123). -->
+    <Grid>
+    <controls:BusyCard x:Name="Busy" ZIndex="1" IsVisible="False" />
+    <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
         <ScrollView>
             <controls:ReadableColumn>
                 <VerticalStackLayout Padding="16,8,16,16" Spacing="12">
@@ -47,5 +50,6 @@
             </controls:ReadableColumn>
         </ScrollView>
     </RefreshView>
+    </Grid>
 
 </ContentPage>

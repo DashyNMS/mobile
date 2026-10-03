@@ -12,6 +12,7 @@ public partial class AlertRulePage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		Controls.PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading the rule…", "Refreshing the rule…");
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)

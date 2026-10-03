@@ -86,7 +86,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
 
     public bool HasAlerts => Alerts.Count > 0;
 
-    public bool HasNoAlerts => HasLoaded && Alerts.Count == 0;
+    public bool HasNoAlerts => _alertsLoaded && Alerts.Count == 0;
 
     public bool HasConditionNote => ConditionNote is not null;
 
@@ -107,36 +107,66 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
             return;
         }
 
-        var ruleTask = _client.Rules.GetAsync(id);
-        var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
-        var devicesTask = _client.Devices.ListAsync();
-        var groupsTask = BestEffort(() => _client.DeviceGroups.ListAsync());
-        var locationsTask = BestEffort(() => _client.Locations.ListAsync());
+        // Only the rule is waited for (#123): it used to wait on six requests -
+        // the whole device list among them - before showing anything. The
+        // rest fills in behind it; alerts and templates start now, alongside.
+        var alertsTask = BestEffort(() => _client.Alerts.ListAsync(AlertQuery.Open));
         var templatesTask = BestEffort(() => _client.AlertTemplates.ListAsync());
-        await Task.WhenAll(ruleTask, alertsTask, devicesTask, groupsTask, locationsTask, templatesTask);
-
-        if (ruleTask.Result is not { } rule)
+        if (await _client.Rules.GetAsync(id) is not { } rule)
         {
             ErrorMessage = "This rule is no longer in LibreNMS.";
             return;
         }
 
-        var settings = _settings.Current;
-        var devices = devicesTask.Result.ToDictionary(d => d.DeviceId);
-        Show(rule, devices, groupsTask.Result ?? [], locationsTask.Result ?? [], templatesTask.Result ?? [], settings);
-
-        Alerts.ReplaceAll(alertsTask.Result
-            .Where(a => a.RuleId == id)
-            .OrderByDescending(a => a.Severity.SortRank())
-            .ThenByDescending(a => a.Timestamp)
-            .Select(a => AlertItem.For(a, settings, devices))
-            .ToList());
-
+        ShowRule(rule);
         HasLoaded = true;
         OnPropertyChanged(nameof(CanChangeNotifications));
+        Extras = LoadExtrasAsync(rule, alertsTask, templatesTask);
+    });
+
+    /// <summary>The template, alerts and target names, filling in behind the rule; awaited by tests.</summary>
+    internal Task Extras { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// What fills in behind the rule. The device list - big on a large
+    /// server - only when there's something to name with it: devices the rule
+    /// targets, or alerts it has open; groups and locations only if it names any.
+    /// </summary>
+    private async Task LoadExtrasAsync(AlertRule rule, Task<IReadOnlyList<Alert>?> alertsTask, Task<IReadOnlyList<AlertTemplate>?> templatesTask)
+    {
+        var settings = _settings.Current;
+        var groupsTask = rule.Groups.Count > 0 ? BestEffort(() => _client.DeviceGroups.ListAsync()) : Task.FromResult<IReadOnlyList<DeviceGroup>?>([]);
+        var locationsTask = rule.Locations.Count > 0 ? BestEffort(() => _client.Locations.ListAsync()) : Task.FromResult<IReadOnlyList<Location>?>([]);
+
+        ShowTemplate(rule, await templatesTask ?? []);
+
+        var alerts = (await alertsTask ?? [])
+            .Where(a => a.RuleId == rule.Id)
+            .OrderByDescending(a => a.Severity.SortRank())
+            .ThenByDescending(a => a.Timestamp)
+            .ToList();
+        ShowAlerts(alerts, settings, devices: null);
+
+        var devices = rule.Devices.Count > 0 || alerts.Count > 0
+            ? (await BestEffort(() => _client.Devices.ListAsync()))?.ToDictionary(d => d.DeviceId)
+            : null;
+        if (devices is not null)
+        {
+            ShowAlerts(alerts, settings, devices); // named by the Device names setting now the list is in
+        }
+
+        ShowTargets(rule, devices ?? new Dictionary<int, Device>(), await groupsTask ?? [], await locationsTask ?? [], settings);
+    }
+
+    private void ShowAlerts(IReadOnlyList<Alert> alerts, AppSettings settings, IReadOnlyDictionary<int, Device>? devices)
+    {
+        Alerts.ReplaceAll(alerts.Select(a => AlertItem.For(a, settings, devices)).ToList());
+        _alertsLoaded = true;
         OnPropertyChanged(nameof(HasAlerts));
         OnPropertyChanged(nameof(HasNoAlerts));
-    });
+    }
+
+    private bool _alertsLoaded;
 
     [RelayCommand]
     private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
@@ -154,6 +184,14 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
         IReadOnlyList<AlertTemplate> templates,
         AppSettings settings)
     {
+        ShowRule(rule);
+        ShowTargets(rule, devices, groups, locations, settings);
+        ShowTemplate(rule, templates);
+    }
+
+    /// <summary>The rule itself: everything that needs nothing else from LibreNMS.</summary>
+    private void ShowRule(AlertRule rule)
+    {
         Title = RuleText.Name(rule);
         Severity = rule.Severity;
         SeverityText = rule.Severity.ToDisplayString();
@@ -166,6 +204,28 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
         }.Where(n => n is not null)) is { Length: > 0 } note ? note : null;
 
         TargetSummary = RuleText.Targets(rule);
+
+        // LibreNMS treats a rule without these flags as having them on.
+        RecoveryText = rule.Extra?.Recovery != false ? "On" : "Off";
+        AcknowledgementText = rule.Extra?.Acknowledgement != false ? "On" : "Off";
+        Notes = rule.Notes?.Trim();
+        Procedure = rule.Procedure?.Trim();
+        TemplateName = "…";
+
+        OnPropertyChanged(nameof(HasConditionNote));
+        OnPropertyChanged(nameof(HasNotes));
+        OnPropertyChanged(nameof(HasProcedure));
+        ShowNotifications(rule);
+    }
+
+    /// <summary>The devices, groups and locations it names, by name - once their lists are in.</summary>
+    private void ShowTargets(
+        AlertRule rule,
+        IReadOnlyDictionary<int, Device> devices,
+        IReadOnlyList<DeviceGroup> groups,
+        IReadOnlyList<Location> locations,
+        AppSettings settings)
+    {
         var style = settings.DeviceNameStyle;
         var groupNames = groups.ToDictionary(g => g.Id, g => g.Name);
         var locationNames = locations.ToDictionary(l => l.Id, l => l.Name);
@@ -175,23 +235,16 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
             Names("Groups", rule.Groups, id => groupNames.GetValueOrDefault(id)),
             Names("Locations", rule.Locations, id => DeviceLocation.Name(locationNames.GetValueOrDefault(id))),
         }.Where(n => n is not null));
+        OnPropertyChanged(nameof(HasTargetNames));
+    }
 
-        // LibreNMS treats a rule without these flags as having them on.
-        RecoveryText = rule.Extra?.Recovery != false ? "On" : "Off";
-        AcknowledgementText = rule.Extra?.Acknowledgement != false ? "On" : "Off";
-        Notes = rule.Notes?.Trim();
-        Procedure = rule.Procedure?.Trim();
-
+    /// <summary>Its template, once the list is in - LibreNMS's default when none is attached.</summary>
+    private void ShowTemplate(AlertRule rule, IReadOnlyList<AlertTemplate> templates)
+    {
         var template = AlertRulesViewModel.TemplateFor(rule.Id, templates);
         _templateId = template?.Id;
         TemplateName = template?.Name ?? "LibreNMS's default template";
-
-        OnPropertyChanged(nameof(HasConditionNote));
-        OnPropertyChanged(nameof(HasTargetNames));
-        OnPropertyChanged(nameof(HasNotes));
-        OnPropertyChanged(nameof(HasProcedure));
         OnPropertyChanged(nameof(HasTemplate));
-        ShowNotifications(rule);
     }
 
     // ------------------------------------------------------------ notifications (#102)

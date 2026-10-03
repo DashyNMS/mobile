@@ -101,6 +101,7 @@ public sealed class AlertRulesTests
         var vm = new AlertRuleViewModel(_client, Fakes.Settings(), navigation) { RuleId = 20 };
 
         await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
 
         Assert.Equal("Port down", vm.Title);
         Assert.Equal("Warning", vm.SeverityText);
@@ -115,6 +116,43 @@ public sealed class AlertRulesTests
 
         await vm.OpenTemplateCommand.ExecuteAsync(null);
         Assert.Equal(7, navigation.Visits.Single().Parameters![Routes.TemplateIdParameter]);
+    }
+
+    [Fact]
+    public async Task A_rule_shows_at_once_with_the_rest_filling_in_behind_it()
+    {
+        // The open alerts are slow to come: the rule mustn't wait for them (#123).
+        var alerts = new TaskCompletionSource<IReadOnlyList<Alert>>();
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns(alerts.Task);
+        _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(DeviceDown);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 10 };
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.True(vm.HasLoaded);
+        Assert.Equal("Device down", vm.Title);
+        Assert.False(vm.HasNoAlerts); // not "nothing alerting" before the alerts are in
+
+        alerts.SetResult([Fakes.Alert(1, 1, "critical")]); // rule 10
+        await vm.Extras;
+        Assert.Single(vm.Alerts);
+
+        // It names no groups or locations: neither list is asked for.
+        await _client.DeviceGroups.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+        await _client.Locations.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_rule_targeting_nothing_with_no_alerts_doesnt_fetch_the_device_list()
+    {
+        _client.Rules.GetAsync(40, Arg.Any<CancellationToken>()).Returns(Quiet);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 40 };
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+
+        Assert.True(vm.HasNoAlerts);
+        await _client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]
