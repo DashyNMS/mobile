@@ -29,6 +29,8 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.AlertRule, typeof(AlertRulePage));
 		Routing.RegisterRoute(Routes.AlertTemplate, typeof(AlertTemplatePage));
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
+		Routing.RegisterRoute(Routes.GraylogMessage, typeof(GraylogMessagePage));
+		Routing.RegisterRoute(Routes.GraylogDevice, typeof(GraylogDevicePickerPage));
 		Routing.RegisterRoute(Routes.SettingsSection, typeof(SettingsSectionPage));
 		Routing.RegisterRoute(Routes.NeighbourGroups, typeof(NeighbourGroupsPage));
 		Routing.RegisterRoute(Routes.NeighbourGroupEditor, typeof(NeighbourGroupEditorPage));
