@@ -11,11 +11,6 @@
     SafeAreaEdges="Container"
     Title="Alerts">
 
-    <!-- For when Alerts is pushed from More and has the navigation bar; as a tab, the header has these. -->
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Logs" Command="{Binding OpenLogsCommand}" />
-        <ToolbarItem Text="Export" IconImageSource="icon_export.png" Command="{Binding ExportCsvCommand}" />
-    </ContentPage.ToolbarItems>
 
     <!-- On an iPad or a Mac, the alert you tap shows beside the list (#88). -->
     <controls:ListDetail x:Name="Split" Placeholder="Choose an alert to see it here.">
@@ -89,7 +84,8 @@
         </HorizontalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4">
+        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
             <Label Style="{StaticResource Faint}" Text="{Binding CountText}" VerticalOptions="Center" />
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear"
                     Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"

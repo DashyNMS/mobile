@@ -11,12 +11,6 @@
     SafeAreaEdges="Container"
     Title="Neighbours">
 
-    <!-- Neighbourhoods are desktop's neighbour views, shared through its settings (#98).
-         Pushed from More, the navigation bar has the button; as a tab, the header. -->
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Neighbourhoods" Command="{Binding EditGroupsCommand}" />
-    </ContentPage.ToolbarItems>
-
     <!-- On an iPad or a Mac, the link you tap shows beside the list (#88). -->
     <controls:ListDetail x:Name="Split" Placeholder="Choose a neighbour to see the link here.">
 
@@ -79,7 +73,10 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Label Grid.Row="3" Style="{StaticResource Faint}" Text="{Binding CountText}" Margin="4,6,0,4" IsVisible="{Binding HasLoaded}" />
+        <!-- Shown, blank, while loading: its height is the gap between the chips and the list (#143). -->
+        <Grid Grid.Row="3" Margin="4,6,0,4" MinimumHeightRequest="30">
+            <Label Style="{StaticResource Faint}" Text="{Binding CountText}" VerticalOptions="Center" IsVisible="{Binding HasLoaded}" />
+        </Grid>
 
         <!-- LibreNMS's reason when the fetch fails, in a card of its own. -->
         <Border Grid.Row="4" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"

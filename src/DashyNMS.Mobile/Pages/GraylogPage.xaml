@@ -97,7 +97,8 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4" IsVisible="{Binding IsConfigured}">
+        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30" IsVisible="{Binding IsConfigured}">
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" VerticalOptions="Center" />
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear"
                     Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
