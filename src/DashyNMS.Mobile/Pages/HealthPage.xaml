@@ -87,7 +87,7 @@
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
+                <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />
@@ -112,7 +112,9 @@
                                     <Label Style="{StaticResource Faint}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
                                            HorizontalOptions="End" />
                                 </VerticalStackLayout>
-                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" Margin="0,11,0,0" />
+                                <!-- The bottom padding; the line itself is at the top of the row (#120). -->
+                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                                <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

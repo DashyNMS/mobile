@@ -187,6 +187,18 @@
                 <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
             </Style>
 
+            <!-- The line between rows in a ListCard, at the top of each row (out
+                 through its 11pt top padding) rather than the bottom (#120): rows
+                 rarely land on whole pixels, so each overlaps the one above by a
+                 fraction, and its opaque background hid part or all of the line
+                 above - every second or fourth row, as the fractions fell. A row
+                 draws over what's above it, so a line at its own top always shows.
+                 The first row's goes under the card's border (the list sits 1pt up). -->
+            <Style x:Key="RowLine" TargetType="BoxView" BasedOn="{StaticResource Divider}">
+                <Setter Property="VerticalOptions" Value="Start" />
+                <Setter Property="Margin" Value="0,-11,0,0" />
+            </Style>
+
             <!-- Beside a primary button: Open device, Rediscover. -->
             <Style x:Key="SecondaryButton" TargetType="Button">
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
