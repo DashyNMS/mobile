@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Upstream tests that only hold on Windows, left out here rather than edited
+  in the submodule (fixes go to the desktop repo):
+
+  - LocalDataResetTests.Carries_on_past_a_locked_file_and_reports_it opens a
+    file with FileShare.None and expects LocalDataReset.Wipe to fail on it.
+    Only Windows refuses to delete an open file; on Linux, macOS, iOS and
+    Android the delete succeeds, so Wipe rightly reports nothing. Core's
+    behaviour is fine off Windows - the test's expectation isn't.
+-->
+<RunSettings>
+  <RunConfiguration>
+    <TestCaseFilter>FullyQualifiedName!=DesktopNMS.Core.Tests.LocalDataResetTests.Carries_on_past_a_locked_file_and_reports_it</TestCaseFilter>
+  </RunConfiguration>
+</RunSettings>

@@ -12,6 +12,8 @@
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Upstream tests that only hold on Windows, and why. -->
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)/Windows-only.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>
