@@ -494,10 +494,10 @@
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
                 </Border.GestureRecognizers>
-                <!-- A pencil, from Lucide's "pencil" (ISC licence); drawn, not an image, so it follows the theme. -->
-                <Path Data="M21.17 6.81 A1 1 0 0 0 17.19 2.83 L3.84 16.17 A2 2 0 0 0 3.34 17 L2.02 21.35 A0.5 0.5 0 0 0 2.64 21.97 L7 20.66 A2 2 0 0 0 7.83 20.16 Z M15 5 L19 9"
+                <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
+                <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
                       Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                      StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round"
+                      StrokeThickness="1.8" StrokeLineCap="Round"
                       WidthRequest="24" HeightRequest="24" Aspect="None"
                       HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
