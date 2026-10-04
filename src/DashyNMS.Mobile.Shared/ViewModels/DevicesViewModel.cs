@@ -415,6 +415,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        OnPropertyChanged(nameof(MayScheduleMaintenance));
         var devices = await _client.Devices.ListAsync();
         var style = _settings.Current.DeviceNameStyle;
         var pinned = _bookmarks.PinnedIds;
@@ -540,6 +541,9 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
         await Selection.RunAsync(items, "Rediscovering", "Rediscovery requested for", d => d.DeviceId, d => d.Name, d => _client.Devices.DiscoverAsync(d.DeviceId));
     }
+
+    /// <summary>The token may schedule maintenance - until LibreNMS refuses it once (#144), when the bulk button goes.</summary>
+    public bool MayScheduleMaintenance => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
 
     /// <summary>One maintenance window for every ticked device: the form, with them all named.</summary>
     [RelayCommand]

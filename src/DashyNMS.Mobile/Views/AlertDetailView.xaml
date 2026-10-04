@@ -54,6 +54,9 @@
                                 <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
                                 <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                             </Grid>
+                            <!-- The token isn't allowed to acknowledge (#144): say why the button's gone. -->
+                            <Label Style="{StaticResource Caption}" Text="{Binding AcknowledgeRefusedText}"
+                                   IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" />
                             <!-- Quiet this alert's rule, here or everywhere - notifications only (#102). -->
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanChangeNotifications}">
                                 <Label Style="{StaticResource Caption}" Text="{Binding NotificationsText}" VerticalOptions="Center" />

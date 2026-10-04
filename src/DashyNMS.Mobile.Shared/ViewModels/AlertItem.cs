@@ -17,6 +17,14 @@ public sealed partial class AlertItem : ObservableObject
     [ObservableProperty]
     private bool _isTicked;
 
+    /// <summary>
+    /// The API token may acknowledge and unacknowledge alerts - false once
+    /// LibreNMS has refused it (#144), when the row's swipe actions go.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAcknowledge), nameof(ShowUnacknowledge))]
+    private bool _canChange = true;
+
     private readonly bool _serverTimestampsAreUtc;
     private readonly string? _deviceName;
 
@@ -61,6 +69,12 @@ public sealed partial class AlertItem : ObservableObject
     public bool IsAcknowledged => Alert.IsAcknowledged;
 
     public bool IsNotAcknowledged => !IsAcknowledged;
+
+    /// <summary>The swipe action to acknowledge: active, and the token may.</summary>
+    public bool ShowAcknowledge => IsNotAcknowledged && CanChange;
+
+    /// <summary>The swipe action to unacknowledge: acknowledged, and the token may.</summary>
+    public bool ShowUnacknowledge => IsAcknowledged && CanChange;
 
     public string? Note => string.IsNullOrWhiteSpace(Alert.Note) ? null : Alert.Note;
 

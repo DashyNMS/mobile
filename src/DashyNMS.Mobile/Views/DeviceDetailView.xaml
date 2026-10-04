@@ -177,6 +177,9 @@
                             <controls:IconButton Grid.Row="1" Icon="{x:Static controls:Icons.Ssh}" Text="SSH" Command="{Binding OpenSshCommand}" />
                             <controls:IconButton Grid.Row="1" Grid.Column="1" Icon="{x:Static controls:Icons.Telnet}" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
                         </Grid>
+                        <!-- Maintenance is dimmed when the token isn't allowed it (#144): say why. -->
+                        <Label Style="{StaticResource Caption}" Text="{Binding MaintenanceRefusedText}" Margin="0,6,0,0"
+                               IsVisible="{Binding MaintenanceRefusedText, Converter={StaticResource IsNotNull}}" />
                     </VerticalStackLayout>
                 </Border>
 
