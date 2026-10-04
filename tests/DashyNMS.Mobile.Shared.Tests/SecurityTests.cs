@@ -80,9 +80,15 @@ public sealed class SecurityTests
         await _dialogs.DidNotReceiveWithAnyArgs().ConfirmAsync(default!, default!, default!, default!);
     }
 
+    private readonly ILocalDataWipe _wipe = Substitute.For<ILocalDataWipe>();
+    private readonly InMemoryAppearance _appearance = new();
+
     private SettingsViewModel NewSettings(DeviceBookmarks bookmarks, IShareService share, GraylogSetup? graylog = null) => new(
-        _session, _settings, _dialogs, _navigation, new RecordingNotifier(), null!, new NoAppBadge(), new InMemoryAppearance(),
-        new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks, share, graylog);
+        _session, _settings, _dialogs, _navigation, new RecordingNotifier(), null!, new NoAppBadge(), _appearance,
+        new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks, share, graylog, wipe: _wipe);
+
+    private void Choose(string? choice) =>
+        _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(choice);
 
     [Fact]
     public async Task Sign_out_forgets_the_token_devices_and_exports_but_keeps_the_address()
@@ -92,9 +98,13 @@ public sealed class SecurityTests
         bookmarks.SetPinned(1, "core-sw", pinned: true);
         bookmarks.RecordViewed(2, "edge-rtr");
         var share = Substitute.For<IShareService>();
-        _dialogs.ChooseAsync(default!, default!).ReturnsForAnyArgs(SettingsViewModel.SignOutChoice);
+        Choose(SettingsViewModel.SignOutChoice);
 
         await NewSettings(bookmarks, share).SignOutCommand.ExecuteAsync(null);
+
+        // Plain sign out keeps the phone's own settings for whoever signs in next.
+        _wipe.DidNotReceive().Wipe();
+        _settings.DidNotReceiveWithAnyArgs().Replace(default!);
 
         _session.Received(1).SignOut(forgetToken: true);
         Assert.Empty(_appSettings.PinnedDevices);
@@ -105,7 +115,7 @@ public sealed class SecurityTests
     }
 
     [Fact]
-    public async Task Forget_everything_also_forgets_the_servers_and_the_Graylog_password()
+    public async Task Forget_everything_wipes_the_phone_and_starts_from_the_defaults()
     {
         _appSettings.ServerUrl = "https://nms.example.com";
         _appSettings.BackupServerAddress = "https://10.0.0.5";
@@ -114,15 +124,40 @@ public sealed class SecurityTests
         var passwords = new SecureGraylogPasswordProtector(secrets);
         passwords.Save("secret");
         var graylog = new GraylogSetup(Substitute.For<IGraylogApi>(), passwords, _settings, secrets, NullLogger<GraylogSetup>.Instance);
-        _dialogs.ChooseAsync(default!, default!).ReturnsForAnyArgs(SettingsViewModel.ForgetEverythingChoice);
+        Choose(SettingsViewModel.ForgetEverythingChoice);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        _appearance.Set(AppearanceChoice.Dark);
 
         await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>(), graylog)
             .SignOutCommand.ExecuteAsync(null);
+
+        // Red in the list, then asked again saying what goes (#139, #146).
+        await _dialogs.Received(1).ChooseAsync(Arg.Any<string>(), Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { SettingsViewModel.SignOutChoice })), SettingsViewModel.ForgetEverythingChoice);
+        await _dialogs.Received(1).ConfirmDestructiveAsync("Forget everything", SettingsViewModel.ForgetEverythingMessage, "Forget everything");
+        Assert.Contains(Confirmations.CannotBeUndone, SettingsViewModel.ForgetEverythingMessage);
 
         Assert.Null(_appSettings.ServerUrl);
         Assert.Null(_appSettings.BackupServerAddress);
         Assert.False(_appSettings.Graylog.Enabled);
         Assert.Null(passwords.Load());
+        _wipe.Received(1).Wipe();
+        _settings.Received(1).Replace(Arg.Is<AppSettings>(a => a.ServerUrl == null && a.PinnedDevices.Count == 0));
+        Assert.Equal(AppearanceChoice.System, _appearance.Current);
+        Assert.Equal(Routes.SignIn, _navigation.Visits.Single().Route);
+    }
+
+    [Fact]
+    public async Task Backing_out_of_forget_everything_changes_nothing()
+    {
+        _appSettings.ServerUrl = "https://nms.example.com";
+        Choose(SettingsViewModel.ForgetEverythingChoice);
+
+        await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>()).SignOutCommand.ExecuteAsync(null);
+
+        _session.DidNotReceiveWithAnyArgs().SignOut(default);
+        _wipe.DidNotReceive().Wipe();
+        Assert.Equal("https://nms.example.com", _appSettings.ServerUrl);
+        Assert.Empty(_navigation.Visits);
     }
 
     [Fact]
@@ -130,7 +165,7 @@ public sealed class SecurityTests
     {
         var bookmarks = new DeviceBookmarks(_settings, TimeProvider.System);
         bookmarks.SetPinned(1, "core-sw", pinned: true);
-        _dialogs.ChooseAsync(default!, default!).ReturnsForAnyArgs((string?)null);
+        Choose(null);
 
         await NewSettings(bookmarks, Substitute.For<IShareService>()).SignOutCommand.ExecuteAsync(null);
 
