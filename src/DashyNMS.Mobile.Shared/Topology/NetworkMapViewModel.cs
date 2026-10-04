@@ -91,7 +91,7 @@ public sealed record NetworkConnection(NetworkNode Neighbour, string LocalPort, 
 /// centre on it. Devices with no links at all are left out unless asked
 /// for, as on desktop - on a whole fleet they'd far outnumber the rest.
 /// </remarks>
-public sealed partial class NetworkMapViewModel : ViewModelBase
+public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;

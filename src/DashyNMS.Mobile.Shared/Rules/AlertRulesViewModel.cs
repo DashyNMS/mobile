@@ -95,7 +95,7 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
 /// phone it's for seeing which rules exist and what they match while
 /// looking into an alert. Rules alerting now come first, then by severity.
 /// </summary>
-public sealed partial class AlertRulesViewModel : ViewModelBase
+public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;

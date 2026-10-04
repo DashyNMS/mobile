@@ -19,7 +19,7 @@ namespace DashyNMS.Mobile.Rules;
 /// rule's delay and interval aren't in the API's rule (Core doesn't model
 /// them), so they aren't shown.
 /// </remarks>
-public sealed partial class AlertRuleViewModel : ViewModelBase
+public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
@@ -334,7 +334,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase
 /// One alert template, read-only (#22): its titles and body, monospaced as
 /// written, and which rules use it.
 /// </summary>
-public sealed partial class AlertTemplateViewModel : ViewModelBase
+public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;

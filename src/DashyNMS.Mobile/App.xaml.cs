@@ -9,7 +9,8 @@ public partial class App : Application
 	private readonly AlertWatchCoordinator _alerts;
 	private readonly Services.DiagnosticsLog _diagnostics;
 
-	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics)
+	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
+		Security.CertificatePrompt certificates)
 	{
 		InitializeComponent();
 		appearance.Apply();
@@ -17,6 +18,17 @@ public partial class App : Application
 		_alerts = alerts;
 		_diagnostics = diagnostics;
 		_alerts.Start();
+
+		// A certificate met while signed in - the backup address's, say - is
+		// asked about there and then (#141); once trusted, the page showing loads again.
+		certificates.Trusted += (_, _) => MainThread.BeginInvokeOnMainThread(() =>
+		{
+			if (Shell.Current?.CurrentPage?.BindingContext is ViewModels.IRefreshable page)
+			{
+				page.RefreshCommand.Execute(null);
+			}
+		});
+		certificates.Start();
 
 		// Exports left from last time, if the phone never got round to clearing its cache (#9).
 		share.ClearExports();

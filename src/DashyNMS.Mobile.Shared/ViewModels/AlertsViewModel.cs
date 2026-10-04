@@ -21,7 +21,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// acknowledged ones only with <see cref="ShowAcknowledged"/>, and alerts with
 /// no severity of their own always show, as desktop has no chip for them.
 /// </remarks>
-public sealed partial class AlertsViewModel : ViewModelBase
+public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>Desktop's CSV columns, so an export opens the same either way.</summary>
     internal static readonly string[] CsvHeaders = ["Severity", "Device", "Alert", "State", "Age", "Note"];

@@ -106,7 +106,7 @@ public sealed partial class NeighbourGroupChip(NeighbourViewDefinition? group, s
 /// <see cref="Neighbours.Matches"/>, so a group lists the same neighbours on
 /// both apps; they're made and changed in <see cref="NeighbourGroupsViewModel"/>.</para>
 /// </remarks>
-public sealed partial class NeighboursViewModel : ViewModelBase
+public sealed partial class NeighboursViewModel : ViewModelBase, IRefreshable
 {
     private readonly NeighbourDirectory _directory;
     private readonly ISettingsStore _settings;

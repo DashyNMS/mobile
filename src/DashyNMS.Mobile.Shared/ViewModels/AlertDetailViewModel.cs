@@ -25,7 +25,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// and the log are best effort - a read-only token may not see rules - so
 /// the alert itself still shows without them.
 /// </remarks>
-public sealed partial class AlertDetailViewModel : ViewModelBase
+public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>How far back to look for this rule's log entries - desktop's search depth.</summary>
     internal const int LogDepth = 50;

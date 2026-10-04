@@ -38,7 +38,7 @@ public sealed record FacetOption(string? Key, string Label)
 /// choice, which suits a phone. Maintenance is looked up after the list is
 /// already shown - see <see cref="MaintenanceScan"/>, shared with the dashboard.
 /// </remarks>
-public sealed partial class DevicesViewModel : ViewModelBase
+public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>The Group filter's "Not in a group" choice.</summary>
     internal const string NoGroupKey = "\0none";

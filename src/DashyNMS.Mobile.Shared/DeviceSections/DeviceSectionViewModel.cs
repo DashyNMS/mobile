@@ -7,7 +7,7 @@ using DashyNMS.Mobile.ViewModels;
 namespace DashyNMS.Mobile.DeviceSections;
 
 /// <summary>One Device View section (sensors, ports, ARP...): grouped rows with search.</summary>
-public sealed partial class DeviceSectionViewModel : ViewModelBase
+public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 {
     private readonly DeviceSectionLoader _loader;
     private readonly INavigationService _navigation;
