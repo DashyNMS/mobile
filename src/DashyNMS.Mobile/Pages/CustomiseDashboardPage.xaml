@@ -3,20 +3,27 @@
     x:Class="DashyNMS.Mobile.Pages.CustomiseDashboardPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     x:DataType="dash:CustomiseDashboardViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Edit dashboard">
 
     <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
          reorder, removed with Undo, set up; then Add card - desktop's picker. -->
-    <Grid>
+    <Grid RowDefinitions="Auto,Auto,*">
+        <controls:BackBar x:Name="TopBar" Margin="16,4,16,0" />
+        <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
+
         <!-- Not in a ReadableColumn: a CollectionView needs the page's height to scroll. -->
-        <CollectionView x:Name="List" ItemsSource="{Binding Cards}" SelectionMode="None"
+        <CollectionView Grid.Row="2" x:Name="List" ItemsSource="{Binding Cards}" SelectionMode="None"
                         CanReorderItems="True" ReorderCompleted="OnReorderCompleted" Margin="16,0"
                         MaximumWidthRequest="720">
                 <CollectionView.Header>
-                    <Label Style="{StaticResource Caption}" Margin="4,12,4,12"
+                    <Label Style="{StaticResource Caption}" Margin="4,4,4,12"
                            Text="Drag ≡ to reorder. Changes save as you make them. Remove every card to see the welcome card again." />
                 </CollectionView.Header>
                 <CollectionView.EmptyView>
@@ -79,7 +86,7 @@
             </CollectionView>
 
         <!-- What just changed, with Undo (#140). -->
-        <views:DashboardToastView BindingContext="{Binding Toast}" />
+        <views:DashboardToastView Grid.Row="2" BindingContext="{Binding Toast}" />
     </Grid>
 
 </ContentPage>

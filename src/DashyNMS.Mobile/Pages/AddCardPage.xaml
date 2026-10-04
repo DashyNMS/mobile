@@ -3,8 +3,12 @@
     x:Class="DashyNMS.Mobile.Pages.AddCardPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     x:DataType="dash:AddCardViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Add card">
 
     <ContentPage.Resources>
@@ -27,11 +31,14 @@
     <!-- As the Add card mock-up (#140), after desktop's widget picker: search,
          the categories as chips with counts, then every card with a hint of its
          shape. A card that can't be added is greyed out with the reason. -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
 
-        <SearchBar Text="{Binding SearchText}" Placeholder="Search cards" Margin="10,8,10,0" />
+        <controls:BackBar x:Name="TopBar" Margin="16,4,16,0" />
+        <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Add card" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
 
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="16,10,0,4">
+        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search cards" Margin="10,2,10,0" />
+
+        <ScrollView Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="16,10,0,4">
             <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Categories}" Padding="0,0,16,0">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="dash:CardCategory">
@@ -52,7 +59,7 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <CollectionView Grid.Row="2" ItemsSource="{Binding Cards}" SelectionMode="None" Margin="16,6,16,0">
+        <CollectionView Grid.Row="4" ItemsSource="{Binding Cards}" SelectionMode="None" Margin="16,6,16,0">
             <CollectionView.ItemsLayout>
                 <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="10" VerticalItemSpacing="10" />
             </CollectionView.ItemsLayout>
@@ -163,7 +170,7 @@
         </CollectionView>
 
         <!-- The button names what it adds. -->
-        <Border Grid.Row="3" StrokeThickness="0" Padding="16,12,16,16"
+        <Border Grid.Row="5" StrokeThickness="0" Padding="16,12,16,16"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
             <Button Text="{Binding AddText}" Command="{Binding AddCommand}" HeightRequest="50" />
         </Border>

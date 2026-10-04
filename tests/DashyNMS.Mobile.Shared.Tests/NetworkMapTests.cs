@@ -57,6 +57,22 @@ public sealed class NetworkMapViewModelTests
     }
 
     [Fact]
+    public async Task A_device_in_a_maintenance_window_shows_as_in_maintenance()
+    {
+        _client.Devices.IsUnderMaintenanceAsync(2, Arg.Any<CancellationToken>()).Returns(true);
+
+        var vm = await Loaded();
+        await vm.MaintenanceChecked;
+
+        var dist = vm.Nodes.Single(n => n.Name == "dist-sw");
+        Assert.Equal(DeviceState.Maintenance, dist.State);
+        Assert.Equal(DeviceState.Up, vm.Nodes.Single(n => n.Name == "core-sw").State);
+
+        vm.Select(dist);
+        Assert.Equal("In maintenance", vm.SelectedNodeStateText);
+    }
+
+    [Fact]
     public async Task Filtering_by_location_keeps_only_the_links_inside_it()
     {
         var vm = await Loaded();
