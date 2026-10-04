@@ -23,4 +23,11 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable
 
 		_viewModel.Load();
 	}
+
+	/// <summary>The app's own top bar, as the other pushed pages (#140).</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		TopBar.Apply(this);
+	}
 }

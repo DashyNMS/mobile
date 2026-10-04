@@ -18,6 +18,7 @@ public partial class CustomiseDashboardPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		TopBar.Apply(this);
 		_viewModel.Attach();
 	}
 

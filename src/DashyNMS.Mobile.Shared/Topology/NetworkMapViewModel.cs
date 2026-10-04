@@ -106,6 +106,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
 
     /// <summary>Every port's state, for the neighbours' colours - only fetched once they're asked for.</summary>
     private IReadOnlyDictionary<int, Port>? _portStates;
+    private readonly MaintenanceScan _maintenance;
+    private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private bool _loaded;
 
@@ -152,9 +154,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         INavigationService navigation,
         IMapLayoutStore? layouts = null,
         ISessionService? session = null,
-        IDialogService? dialogs = null)
+        IDialogService? dialogs = null,
+        MaintenanceScan? maintenance = null)
     {
         _client = client;
+        _maintenance = maintenance ?? new MaintenanceScan(client, TimeProvider.System);
         _settings = settings;
         _navigation = navigation;
         _layouts = layouts;
@@ -440,6 +444,37 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         await RebuildAsync();
     }
 
+    /// <summary>Awaited by tests: the maintenance windows, found after the map is drawn.</summary>
+    internal Task MaintenanceChecked { get; private set; } = Task.CompletedTask;
+
+    /// <summary>
+    /// Devices in a maintenance window show as in maintenance (blue), as on
+    /// the Devices tab, rather than up - the map's nodes recoloured once the
+    /// scan is back.
+    /// </summary>
+    private async Task MarkMaintenanceAsync(IReadOnlyList<Device> devices)
+    {
+        IReadOnlySet<int> ids;
+        try
+        {
+            ids = await _maintenance.ScanAsync(devices);
+        }
+        catch (LibreNmsApiException)
+        {
+            return;
+        }
+
+        _maintenanceIds = ids;
+        var byId = devices.ToDictionary(d => d.DeviceId);
+        foreach (var node in Nodes.Where(n => !n.IsNeighbour && byId.ContainsKey(n.DeviceId)))
+        {
+            node.State = ids.Contains(node.DeviceId) ? DeviceState.Maintenance : byId[node.DeviceId].State;
+        }
+
+        OnPropertyChanged(nameof(SelectedNodeStateText));
+        RedrawRequested?.Invoke(this, EventArgs.Empty);
+    }
+
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
@@ -451,6 +486,11 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
 
         _devices = devicesTask.Result;
         _links = linksTask.Result;
+
+        // Last, and without holding up the map: one request per device, as
+        // the Devices tab and dashboard find it - LibreNMS's device list
+        // doesn't say who's in a maintenance window.
+        MaintenanceChecked = MarkMaintenanceAsync(_devices);
         _portNames = portsTask.Result;
         _groups = groupsTask.Result;
         _loaded = true;
@@ -578,7 +618,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
             if (byId.TryGetValue(id, out var device))
             {
                 node.Name = new DeviceItem(device, style).Name;
-                node.State = device.State;
+                node.State = _maintenanceIds.Contains(id) ? DeviceState.Maintenance : device.State;
                 node.Detail = string.Join(" · ", new[] { device.Ip, device.Hardware }.Where(s => !string.IsNullOrWhiteSpace(s)));
             }
 

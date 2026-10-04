@@ -18,6 +18,7 @@ public partial class AddCardPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		TopBar.Apply(this);
 		_viewModel.Load();
 	}
 }
