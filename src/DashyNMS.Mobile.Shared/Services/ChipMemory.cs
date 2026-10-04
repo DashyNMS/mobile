@@ -23,5 +23,10 @@ public sealed class ChipMemory
 
     public void Set(string chip, bool on) => _preferences.Set(Key(chip), on ? "1" : "0");
 
+    /// <summary>A chip that holds a choice rather than on or off - Logs' Type (#125) - or null if none was left.</summary>
+    public string? GetChoice(string chip) => _preferences.Get(Key(chip)) is { Length: > 0 } value ? value : null;
+
+    public void SetChoice(string chip, string? choice) => _preferences.Set(Key(chip), choice);
+
     private string Key(string chip) => $"chips.{_page}.{chip}";
 }

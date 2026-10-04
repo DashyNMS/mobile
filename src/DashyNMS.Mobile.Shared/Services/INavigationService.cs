@@ -75,8 +75,17 @@ public static class Routes
     /// <summary>Query attribute: which neighbour group <see cref="NeighbourGroupEditor"/> changes.</summary>
     public const string GroupIdParameter = "group";
 
-    /// <summary>The network-wide event and alert logs.</summary>
+    /// <summary>The network-wide event and alert logs - or with <see cref="DeviceIdParameter"/> one device's event log (#118).</summary>
     public const string Logs = "logs";
+
+    /// <summary>One event or alert log entry (#118) - with <see cref="LogEntryParameter"/> and <see cref="LogsListParameter"/>.</summary>
+    public const string LogEntry = "logentry";
+
+    /// <summary>Query attribute: the <c>LogEntryItem</c> for <see cref="LogEntry"/>.</summary>
+    public const string LogEntryParameter = "logentry";
+
+    /// <summary>Query attribute: the <c>LogsViewModel</c> whose chips the entry's "Only" sets.</summary>
+    public const string LogsListParameter = "logslist";
 
     /// <summary>Graylog messages - every device's, or with <see cref="DeviceIdParameter"/> one device's.</summary>
     public const string Graylog = "graylog";
@@ -84,13 +93,13 @@ public static class Routes
     /// <summary>One Graylog message (#117) - with <see cref="GraylogMessageParameter"/> and <see cref="GraylogListParameter"/>.</summary>
     public const string GraylogMessage = "graylogmessage";
 
-    /// <summary>The Graylog page's Device chip's chooser (#117) - with <see cref="GraylogListParameter"/>.</summary>
+    /// <summary>A Device chip's chooser - Graylog's (#117) or Logs' (#118) - with <see cref="GraylogListParameter"/>.</summary>
     public const string GraylogDevice = "graylogdevice";
 
     /// <summary>Query attribute: the <c>GraylogMessageItem</c> for <see cref="GraylogMessage"/>.</summary>
     public const string GraylogMessageParameter = "graylogmessage";
 
-    /// <summary>Query attribute: the <c>GraylogViewModel</c> whose Device chip the message or chooser sets.</summary>
+    /// <summary>Query attribute: the <c>GraylogViewModel</c> whose Device chip the message sets, or the <c>IDeviceChipList</c> the chooser sets.</summary>
     public const string GraylogListParameter = "grayloglist";
 
     /// <summary>Settings, Graylog.</summary>

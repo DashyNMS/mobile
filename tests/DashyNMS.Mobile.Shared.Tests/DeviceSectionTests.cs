@@ -641,7 +641,11 @@ public sealed class DeviceDetailActionTests
         await _vm.OpenSectionCommand.ExecuteAsync(DeviceSectionInfo.For(DeviceSection.Graphs));
         await _vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
 
-        Assert.Equal([Routes.DeviceSection, Routes.DeviceGraphs, Routes.Maintenance], _navigation.Visits.Select(v => v.Route));
+        // The Event log is the Logs page with its Device chip fixed (#125).
+        await _vm.OpenSectionCommand.ExecuteAsync(DeviceSectionInfo.For(DeviceSection.EventLog));
+
+        Assert.Equal([Routes.DeviceSection, Routes.DeviceGraphs, Routes.Maintenance, Routes.Logs], _navigation.Visits.Select(v => v.Route));
+        Assert.Equal(7, _navigation.Visits[3].Parameters![Routes.DeviceIdParameter]);
         Assert.Equal(DeviceSection.Ports, _navigation.Visits[0].Parameters![Routes.SectionParameter]);
         Assert.Equal("edge-rtr", _navigation.Visits[2].Parameters![Routes.DeviceNameParameter]);
     }

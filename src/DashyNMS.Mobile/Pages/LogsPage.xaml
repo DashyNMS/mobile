@@ -5,21 +5,24 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
-    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="logs:LogsViewModel"
     ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
-    Title="Logs">
+    Title="{Binding Title}">
 
-    <!-- As the Logs mock-up (#69): Event log / Alert log as a segmented
-         control, and the entries in one card with the time at the right. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88). -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose an entry to see it here.">
+
+    <!-- As the Logs mock-up (#118): Event log / Alert log, search, the filter
+         chips, a summary, then the entries in one card - Graylog's layout. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
 
         <!-- Graylog has its own page in More, so it isn't repeated here. -->
-        <controls:PageHeader x:Name="Header" Title="Logs" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" />
 
-        <Border Grid.Row="1" Style="{StaticResource SegmentBar}">
+        <!-- A device's Event log is the event log only. -->
+        <Border Grid.Row="1" Style="{StaticResource SegmentBar}" IsVisible="{Binding ShowsLogSwitch}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
                 <Button Style="{StaticResource Segment}" Text="Event log" FontSize="14" Command="{Binding ShowEventLogCommand}">
                     <Button.Triggers>
@@ -43,50 +46,198 @@
         <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
              The gap below belongs to the list, so it's the same with the box away (#83). -->
         <Grid Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
-            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search the log" Margin="-6,6,-6,0" />
+            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="{Binding SearchPlaceholder}" Margin="-6,6,-6,0" />
         </Grid>
 
-        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <!-- The filters as chips: blue when set, × to clear (#118). -->
+        <ScrollView Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
+            <HorizontalStackLayout Spacing="8">
 
-        <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,10,0,12">
-            <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+                <!-- Device: its chooser, and × to go back to every device's. Fixed on a device's own Event log. -->
+                <Border StrokeShape="RoundRectangle 18" StrokeThickness="1" HeightRequest="36" Padding="14,0"
+                        BackgroundColor="Transparent"
+                        Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding HasDeviceFilter}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ChooseDeviceCommand}" />
+                    </Border.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="{Binding DeviceChipText}" FontSize="14" VerticalOptions="Center" MaximumWidthRequest="180"
+                               LineBreakMode="TailTruncation">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding HasDeviceFilter}" Value="True">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Text="▾" FontSize="12" VerticalOptions="Center" IsVisible="{Binding HasDeviceFilter, Converter={StaticResource Invert}}" />
+                        <Label Text="✕" FontSize="13" VerticalOptions="Center" Padding="2,8"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                               IsVisible="{Binding CanClearDevice}" SemanticProperties.Description="Show every device's entries">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ClearDeviceCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!-- Type, from the types in what's loaded (#125); the event log only. -->
+                <Border StrokeShape="RoundRectangle 18" StrokeThickness="1" HeightRequest="36" Padding="14,0"
+                        BackgroundColor="Transparent" IsVisible="{Binding ShowingEventLog}"
+                        Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding IsTypeSet}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ChooseTypeCommand}" />
+                    </Border.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="{Binding TypeChipText}" FontSize="14" VerticalOptions="Center" MaximumWidthRequest="160"
+                               LineBreakMode="TailTruncation">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsTypeSet}" Value="True">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Text="▾" FontSize="12" VerticalOptions="Center" IsVisible="{Binding IsTypeSet, Converter={StaticResource Invert}}" />
+                        <Label Text="✕" FontSize="13" VerticalOptions="Center" Padding="2,8"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                               IsVisible="{Binding IsTypeSet}" SemanticProperties.Description="Show every type">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ClearTypeCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!-- State; the alert log only. -->
+                <Border StrokeShape="RoundRectangle 18" StrokeThickness="1" HeightRequest="36" Padding="14,0"
+                        BackgroundColor="Transparent" IsVisible="{Binding ShowingAlertLog}"
+                        Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding IsStateSet}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding ChooseStateCommand}" />
+                    </Border.GestureRecognizers>
+                    <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                        <Label Text="{Binding StateChipText}" FontSize="14" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding IsStateSet}" Value="True">
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Text="▾" FontSize="12" VerticalOptions="Center" IsVisible="{Binding IsStateSet, Converter={StaticResource Invert}}" />
+                        <Label Text="✕" FontSize="13" VerticalOptions="Center" Padding="2,8"
+                               TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                               IsVisible="{Binding IsStateSet}" SemanticProperties.Description="Show every state">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ClearStateCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </HorizontalStackLayout>
+                </Border>
+
+                <Button Style="{StaticResource Chip}" Text="{Binding RangeChipText, StringFormat='{0} ▾'}" Command="{Binding ChooseRangeCommand}">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsRangeSet}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <!-- Its height kept while the summary is still blank, so the chips never touch the list (#143). -->
+        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear"
+                    Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
+                    HeightRequest="30" MinimumHeightRequest="30" />
+        </Grid>
+
+        <!-- LibreNMS's reason when a load fails, in a card of its own. -->
+        <Border Grid.Row="5" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
+                BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
+            <Label Text="{Binding ErrorMessage}" FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+        </Border>
+
+        <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
+        <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
+        <!-- The rows share one card, as the other lists do (#69). -->
+        <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
-                        <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
-                               HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />
+                        <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
+                            <Label Text="{Binding EmptyTitle}" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" HorizontalTextAlignment="Center" />
+                            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center" Margin="0,4,0,0">
+                                <Button Style="{StaticResource SecondaryButton}" Text="Look further back"
+                                        Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}" />
+                                <Button Style="{StaticResource LinkButton}" Text="Clear filters"
+                                        Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="sections:SectionRow">
-                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12">
+                        <DataTemplate x:DataType="logs:LogEntryItem">
+                            <!-- A severity or state dot, the device, the message on one line,
+                                 its type and user, and a short age at the right. -->
+                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" VerticalOptions="Center" />
-                                <!-- Device (and type, user), then the time at the right. -->
-                                <Label Grid.Column="1" Style="{StaticResource RowTitle}" Text="{Binding Subtitle}" />
-                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding Detail}" VerticalOptions="Center" />
-                                <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Title}" FontSize="14"
-                                       LineBreakMode="WordWrap" MaxLines="3"
-                                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
-                                <Label Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource PillText}" Text="{Binding Value}"
-                                       IsVisible="{Binding HasValue}" Margin="0,2,0,0"
-                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}"
+                                         VerticalOptions="Start" Margin="0,6,0,0" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <!-- Every row is the one device's once the Device chip is set. -->
+                                    <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}"
+                                           IsVisible="{Binding ShowsDevice, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}" />
+                                    <Label Text="{Binding Message}" FontSize="14" LineBreakMode="TailTruncation" MaxLines="1"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding MetaText}" IsVisible="{Binding HasMeta}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,2,0,0" />
                                 <!-- The bottom padding; the line itself is at the top of the row (#120). -->
-                                <BoxView Grid.Row="3" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
                                 <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
+                    <!-- Further back, as the card's last row. -->
                     <CollectionView.Footer>
-                        <Button Style="{StaticResource SecondaryButton}" Text="Load more" Command="{Binding LoadMoreCommand}"
-                                IsVisible="{Binding CanLoadMore}" Margin="14,12" />
+                        <Grid IsVisible="{Binding CanLoadMore}">
+                            <BoxView Style="{StaticResource Divider}" VerticalOptions="Start" />
+                            <Button Style="{StaticResource LinkButton}" Text="Load more" Command="{Binding LoadMoreCommand}"
+                                    HorizontalOptions="Fill" HeightRequest="48" />
+                        </Grid>
                     </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
         </Border>
 
     </Grid>
+
+    </controls:ListDetail>
 
 </ContentPage>

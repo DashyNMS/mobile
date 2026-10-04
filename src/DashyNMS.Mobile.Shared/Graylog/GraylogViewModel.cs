@@ -25,7 +25,7 @@ namespace DashyNMS.Mobile.Graylog;
 /// Pages are appended on "Load more" rather than numbered, as the other
 /// mobile lists do. Desktop's auto-update isn't here - pull to refresh.
 /// </remarks>
-public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable
+public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDeviceChipList
 {
     internal const int PageSize = 50;
 
@@ -238,6 +238,11 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable
         .OrderByDescending(s => s.Item2)
         .ThenBy(s => s.Item1.Name, StringComparer.CurrentCultureIgnoreCase)
         .ToList();
+
+    public string SendersHeading => "In these messages";
+
+    /// <summary>Graylog can search for a sender LibreNMS doesn't know, by its address.</summary>
+    public bool SearchesAddresses => true;
 
     /// <summary>Sets the Device chip, from its chooser or a message's "Show only" - null for every device.</summary>
     public void ShowDevice(GraylogDeviceFilter? device)

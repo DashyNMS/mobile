@@ -490,6 +490,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         {
             DeviceSection.Graphs => Routes.DeviceGraphs,
             DeviceSection.Graylog => Routes.Graylog,
+
+            // The Logs page with its Device chip fixed, for the type filter and search (#125).
+            DeviceSection.EventLog => Routes.Logs,
             _ => Routes.DeviceSection,
         }, new Dictionary<string, object>
         {

@@ -3,7 +3,7 @@ using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.GraylogDevice"/>, with the Graylog list whose Device chip it sets (#117).</summary>
+/// <summary>Shown via <see cref="Routes.GraylogDevice"/>, with the list whose Device chip it sets - Graylog's (#117) or Logs' (#118).</summary>
 public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable
 {
 	private readonly GraylogDevicePickerViewModel _viewModel;
@@ -16,9 +16,9 @@ public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
-		if (query.TryGetValue(Routes.GraylogListParameter, out var list) && list is GraylogViewModel graylog)
+		if (query.TryGetValue(Routes.GraylogListParameter, out var list) && list is IDeviceChipList chips)
 		{
-			_ = _viewModel.LoadAsync(graylog);
+			_ = _viewModel.LoadAsync(chips);
 		}
 	}
 
