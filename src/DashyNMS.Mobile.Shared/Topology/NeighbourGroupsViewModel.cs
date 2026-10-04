@@ -97,7 +97,7 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync(NeighbourGroupRow? row)
     {
-        if (row is null || !await _dialogs.ConfirmAsync("Delete neighbourhood", $"Delete \"{row.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
+        if (row is null || !await _dialogs.ConfirmDestructiveAsync("Delete neighbourhood", $"Delete the neighbourhood \"{row.Name}\"? It goes from desktop too; nothing changes in LibreNMS. {Confirmations.CannotBeUndone}", "Delete"))
         {
             return;
         }
@@ -451,7 +451,7 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
     [RelayCommand]
     private async Task DeleteAsync()
     {
-        if (!IsExisting || !await _dialogs.ConfirmAsync("Delete neighbourhood", $"Delete \"{_draft.Name}\"? It goes from desktop too.", "Delete", "Cancel"))
+        if (!IsExisting || !await _dialogs.ConfirmDestructiveAsync("Delete neighbourhood", $"Delete the neighbourhood \"{_draft.Name}\"? It goes from desktop too; nothing changes in LibreNMS. {Confirmations.CannotBeUndone}", "Delete"))
         {
             return;
         }

@@ -177,7 +177,7 @@ public sealed class NeighbourGroupsTests
     public async Task The_list_reorders_and_deletes_groups()
     {
         _appSettings.NeighbourViews = [Group("A", true), Group("B", true), Group("C", true)];
-        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
         var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
 
         list.MoveUpCommand.Execute(list.Groups[2]);

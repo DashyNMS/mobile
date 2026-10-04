@@ -130,12 +130,34 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Fact]
+    public async Task Reset_asks_first_and_says_what_goes()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        var dialogs = Substitute.For<IDialogService>();
+        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation(), dialogs);
+
+        await vm.ResetToDefaultsCommand.ExecuteAsync(null); // declined
+        Assert.Contains(vm.Cards, c => c.Kind.Type == DashboardLayout.Graph);
+        _settings.DidNotReceive().Save();
+
+        dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        await vm.ResetToDefaultsCommand.ExecuteAsync(null);
+
+        await dialogs.Received().ConfirmDestructiveAsync(
+            "Standard dashboard",
+            "Go back to the standard dashboard? Your 2 added cards and their set-up go, and the cards go back to how they came. This can't be undone.",
+            "Reset");
+        Assert.Equal(DashboardLayout.DefaultTypes, Shown(_appSettings));
+    }
+
+    [Fact]
     public async Task An_added_card_is_set_up_or_removed_not_switched_off()
     {
         var sensors = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         var navigation = new RecordingNavigation();
         var dialogs = Substitute.For<IDialogService>();
-        dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
         var vm = new CustomiseDashboardViewModel(_settings, navigation, dialogs);
         var card = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors);
 
@@ -148,7 +170,7 @@ public sealed class CustomiseDashboardViewModelTests
         Assert.Equal(sensors.Id, visit.Parameters![Routes.WidgetIdParameter]);
 
         await vm.RemoveCommand.ExecuteAsync(card);
-        await dialogs.Received(1).ConfirmAsync("Remove card", Arg.Any<string>(), "Remove", "Cancel");
+        await dialogs.Received(1).ConfirmDestructiveAsync("Remove card", Arg.Is<string>(m => m.EndsWith(Confirmations.CannotBeUndone)), "Remove");
         Assert.DoesNotContain(vm.Cards, c => c.Kind.Type == DashboardLayout.Sensors);
         Assert.DoesNotContain(DashboardLayout.Sensors, Shown(_appSettings));
     }

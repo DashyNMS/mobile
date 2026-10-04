@@ -250,10 +250,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         var alert = item.Alert;
         if (_ignored.IsIgnored(alert))
         {
-            if (await _dialogs.ConfirmAsync("Notify again", $"Send notifications for {item.Rule} again?", "Notify again", "Cancel"))
-            {
-                _ignored.NotifyAgain(alert);
-            }
+            // Only this phone's own notifications, and stopping them again is a tap away (#146).
+            _ignored.NotifyAgain(alert);
         }
         else
         {
@@ -314,16 +312,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Unacknowledge alert",
-            $"Put {item.Rule} on {item.Device} back to active?",
-            "Unacknowledge",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
+        // One alert, and acknowledging puts it back: no need to ask (#146).
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);

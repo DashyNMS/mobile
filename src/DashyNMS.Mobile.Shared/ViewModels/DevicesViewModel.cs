@@ -518,7 +518,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
             : new BulkResult<DeviceItem>(items, []).Describe(pinned ? "Pinned" : "Unpinned", "device"));
     }
 
-    /// <summary>Asks LibreNMS to rediscover every ticked device, after asking once.</summary>
+    /// <summary>Asks LibreNMS to rediscover every ticked device - asking first when it's more than a few (#146).</summary>
     [RelayCommand]
     private async Task RediscoverSelectedAsync()
     {
@@ -528,9 +528,9 @@ public sealed partial class DevicesViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = _dialogs is null || await _dialogs.ConfirmAsync(
+        var confirmed = _dialogs is null || !Confirmations.AsksForBulk(items.Count) || await _dialogs.ConfirmAsync(
             "Rediscover devices",
-            items.Count == 1 ? "Ask LibreNMS to rediscover 1 device?" : $"Ask LibreNMS to rediscover {items.Count} devices?",
+            $"Ask LibreNMS to rediscover all {items.Count} selected devices now?",
             "Rediscover",
             "Cancel");
         if (!confirmed)

@@ -172,16 +172,16 @@ public sealed class BulkAlertTests
     }
 
     [Fact]
-    public async Task Unacknowledges_the_acknowledged_ones_ticked_after_asking_once()
+    public async Task Unacknowledges_the_acknowledged_ones_ticked_without_asking_for_a_few()
     {
-        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
         var vm = await Loaded();
         vm.StartSelectingCommand.Execute(null);
         vm.SelectAllCommand.Execute(null);
 
         await vm.UnacknowledgeSelectedCommand.ExecuteAsync(null);
 
-        await _dialogs.Received(1).ConfirmAsync("Unacknowledge alerts", "Put 1 alert back to active?", "Unacknowledge", "Cancel");
+        // Five or fewer just happen, as on desktop (#146).
+        await _dialogs.DidNotReceiveWithAnyArgs().ConfirmAsync(default!, default!, default!, default!);
         await _client.Alerts.Received(1).UnmuteAsync(2, Arg.Any<string?>(), Arg.Any<CancellationToken>());
         Assert.False(vm.Alerts.Single(a => a.Id == 2).IsAcknowledged);
         Assert.Equal("Unacknowledged 1 alert.", vm.Selection.ResultText);
@@ -250,15 +250,15 @@ public sealed class BulkDeviceTests
     }
 
     [Fact]
-    public async Task Rediscovers_each_ticked_device_after_asking_once()
+    public async Task Rediscovers_each_ticked_device_without_asking_for_a_few()
     {
-        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
         var vm = await Loaded();
         await Tick(vm, 2, 3);
 
         await vm.RediscoverSelectedCommand.ExecuteAsync(null);
 
-        await _dialogs.Received(1).ConfirmAsync("Rediscover devices", "Ask LibreNMS to rediscover 2 devices?", "Rediscover", "Cancel");
+        // Five or fewer just happen, as on desktop (#146).
+        await _dialogs.DidNotReceiveWithAnyArgs().ConfirmAsync(default!, default!, default!, default!);
         await _client.Devices.Received(1).DiscoverAsync(2, Arg.Any<CancellationToken>());
         await _client.Devices.Received(1).DiscoverAsync(3, Arg.Any<CancellationToken>());
         Assert.Equal("Rediscovery requested for 2 devices.", vm.Selection.ResultText);

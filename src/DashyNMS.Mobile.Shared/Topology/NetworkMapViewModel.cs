@@ -177,6 +177,16 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     public string ScopeKey =>
         $"{_session?.Connection?.WebRoot.Host ?? "server"}|location:{SelectedLocation.Key}|group:{SelectedGroup.Key}";
 
+    /// <summary>This map in words, for confirmations (#146): "All devices", or its location and group.</summary>
+    internal string ScopeName =>
+        (SelectedLocation.Key, SelectedGroup.Key) switch
+        {
+            (null, null) => "All devices",
+            (_, null) => SelectedLocation.Label,
+            (null, _) => SelectedGroup.Label,
+            _ => $"{SelectedLocation.Label} · {SelectedGroup.Label}",
+        };
+
     /// <summary>A LibreNMS device is selected (not a neighbour), so Open can go to its Device View.</summary>
     public bool HasSelectedDevice => SelectedNode is { IsNeighbour: false };
 
@@ -405,7 +415,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase
     private async Task ResetLayoutAsync()
     {
         if (_dialogs is not null
-            && !await _dialogs.ConfirmAsync("Reset layout", "Forget where you've moved devices on this map and lay it out again?", "Reset", "Cancel"))
+            && !await _dialogs.ConfirmDestructiveAsync("Reset layout", $"Forget where you've moved devices on \"{ScopeName}\" and lay it out again? {Confirmations.CannotBeUndone}", "Reset layout"))
         {
             return;
         }
