@@ -40,6 +40,14 @@ public static class TopCards
     /// <summary>The widget's row count, if it's one desktop offers; else the default.</summary>
     public static int CountOf(DashboardWidget widget) => CountChoices.Contains(widget.TopCount) ? widget.TopCount : DefaultCount;
 
+    /// <summary>"Top 5, ranked by in" - a Top card on the Edit dashboard page.</summary>
+    public static string Summary(DashboardWidget widget) => widget.TopRankBy switch
+    {
+        RankBy.In => $"Top {CountOf(widget)}, ranked by in",
+        RankBy.Out => $"Top {CountOf(widget)}, ranked by out",
+        _ => $"Top {CountOf(widget)}, ranked by in and out",
+    };
+
     public static bool IsTop(string? type) =>
         type is DashboardWidgetTypes.TopInterfaces or DashboardWidgetTypes.TopErrors or DashboardWidgetTypes.TopDevices;
 

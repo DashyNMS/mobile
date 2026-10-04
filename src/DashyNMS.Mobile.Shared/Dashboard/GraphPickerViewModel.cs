@@ -56,7 +56,8 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
     /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
     public string? WidgetId { get; set; }
 
-    public IReadOnlyList<GraphRangeChoice> Ranges { get; } =
+    /// <summary>The ranges a Graph card can show - here, and from the card's own range chip (#140).</summary>
+    public static IReadOnlyList<GraphRangeChoice> RangeChoices { get; } =
     [
         new(GraphTimeRangePreset.Hour, "Hour"),
         new(GraphTimeRangePreset.Day, "Day"),
@@ -64,6 +65,8 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
         new(GraphTimeRangePreset.Month, "Month"),
         new(GraphTimeRangePreset.Year, "Year"),
     ];
+
+    public IReadOnlyList<GraphRangeChoice> Ranges => RangeChoices;
 
     public BulkObservableCollection<DeviceItem> Devices { get; } = new();
 

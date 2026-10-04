@@ -3,7 +3,7 @@ using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.CustomiseDashboard"/>, from the Dashboard.</summary>
+/// <summary>Shown via <see cref="Routes.CustomiseDashboard"/>, from the Dashboard's pencil.</summary>
 public partial class CustomiseDashboardPage : ContentPage
 {
 	private readonly CustomiseDashboardViewModel _viewModel;
@@ -14,10 +14,18 @@ public partial class CustomiseDashboardPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 	}
 
-	/// <summary>Back from a card's set-up: its title may be new (#87).</summary>
+	/// <summary>Back from a card's set-up or the card picker: the cards may have changed (#87, #140).</summary>
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		_viewModel.Refresh();
+		_viewModel.Attach();
 	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_viewModel.Detach();
+	}
+
+	private void OnReorderCompleted(object? sender, EventArgs e) => _viewModel.SaveOrderCommand.Execute(null);
 }

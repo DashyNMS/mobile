@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.AddCardPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="dash:AddCardViewModel"
+    Title="Add card">
+
+    <ContentPage.Resources>
+        <!-- A preview's bar: a hint of the card's shape, not a live rendering - as desktop's picker. -->
+        <Style x:Key="PreviewLine" TargetType="BoxView">
+            <Setter Property="HeightRequest" Value="5" />
+            <Setter Property="CornerRadius" Value="2.5" />
+            <Setter Property="HorizontalOptions" Value="Start" />
+            <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
+        </Style>
+        <Style x:Key="PreviewTile" TargetType="Border">
+            <Setter Property="HeightRequest" Value="17" />
+            <Setter Property="StrokeThickness" Value="0" />
+            <Setter Property="StrokeShape" Value="RoundRectangle 4" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray100}, Dark=#2A3240}" />
+        </Style>
+    </ContentPage.Resources>
+
+    <!-- As the Add card mock-up (#140), after desktop's widget picker: search,
+         the categories as chips with counts, then every card with a hint of its
+         shape. A card that can't be added is greyed out with the reason. -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <SearchBar Text="{Binding SearchText}" Placeholder="Search cards" Margin="10,8,10,0" />
+
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="16,10,0,4">
+            <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Categories}" Padding="0,0,16,0">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="dash:CardCategory">
+                        <Button Style="{StaticResource Chip}" Text="{Binding Label}"
+                                Command="{Binding ChooseCategoryCommand, Source={RelativeSource AncestorType={x:Type dash:AddCardViewModel}}, x:DataType=dash:AddCardViewModel}"
+                                CommandParameter="{Binding .}"
+                                SemanticProperties.Description="{Binding Name}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                    <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Cards}" SelectionMode="None" Margin="16,6,16,0">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="10" VerticalItemSpacing="10" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.EmptyView>
+                <Label Style="{StaticResource Caption}" Text="No cards match." HorizontalOptions="Center" Margin="0,40" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="dash:CardChoice">
+                    <Border Style="{StaticResource Card}" Padding="10">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding PickCommand, Source={RelativeSource AncestorType={x:Type dash:AddCardViewModel}}, x:DataType=dash:AddCardViewModel}"
+                                CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                                <Setter Property="StrokeThickness" Value="2" />
+                                <Setter Property="Padding" Value="9" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Border" Binding="{Binding IsAvailable}" Value="False">
+                                <Setter Property="Opacity" Value="0.5" />
+                            </DataTrigger>
+                        </Border.Triggers>
+                        <VerticalStackLayout Spacing="4">
+                            <Border StrokeThickness="0" StrokeShape="RoundRectangle 9" HeightRequest="58" Padding="10,9" Margin="0,0,0,4"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}">
+                                <Grid>
+                                    <!-- List: rows with a dot. -->
+                                    <VerticalStackLayout Spacing="6" VerticalOptions="Center" IsVisible="False">
+                                        <VerticalStackLayout.Triggers>
+                                            <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.List}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </VerticalStackLayout.Triggers>
+                                        <HorizontalStackLayout Spacing="6"><Ellipse WidthRequest="6" HeightRequest="6" Fill="{StaticResource CriticalColor}" VerticalOptions="Center" /><BoxView Style="{StaticResource PreviewLine}" WidthRequest="96" /></HorizontalStackLayout>
+                                        <HorizontalStackLayout Spacing="6"><Ellipse WidthRequest="6" HeightRequest="6" Fill="{StaticResource WarningColor}" VerticalOptions="Center" /><BoxView Style="{StaticResource PreviewLine}" WidthRequest="74" /></HorizontalStackLayout>
+                                        <HorizontalStackLayout Spacing="6"><Ellipse WidthRequest="6" HeightRequest="6" Fill="{StaticResource OkColor}" VerticalOptions="Center" /><BoxView Style="{StaticResource PreviewLine}" WidthRequest="86" /></HorizontalStackLayout>
+                                    </VerticalStackLayout>
+                                    <!-- Tiles: four counts. -->
+                                    <Grid ColumnDefinitions="*,*" RowDefinitions="*,*" ColumnSpacing="4" RowSpacing="4" IsVisible="False">
+                                        <Grid.Triggers>
+                                            <DataTrigger TargetType="Grid" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.Tiles}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </Grid.Triggers>
+                                        <Border Style="{StaticResource PreviewTile}"><BoxView WidthRequest="12" HeightRequest="5" CornerRadius="2.5" Color="{StaticResource CriticalColor}" HorizontalOptions="Start" /></Border>
+                                        <Border Grid.Column="1" Style="{StaticResource PreviewTile}"><BoxView WidthRequest="12" HeightRequest="5" CornerRadius="2.5" Color="{StaticResource WarningColor}" HorizontalOptions="Start" /></Border>
+                                        <Border Grid.Row="1" Style="{StaticResource PreviewTile}"><BoxView WidthRequest="12" HeightRequest="5" CornerRadius="2.5" Color="{StaticResource OkColor}" HorizontalOptions="Start" /></Border>
+                                        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource PreviewTile}"><BoxView WidthRequest="12" HeightRequest="5" CornerRadius="2.5" Color="{StaticResource InactiveColor}" HorizontalOptions="Start" /></Border>
+                                    </Grid>
+                                    <!-- Total: a big number over a line. -->
+                                    <VerticalStackLayout Spacing="6" VerticalOptions="Center" IsVisible="False">
+                                        <VerticalStackLayout.Triggers>
+                                            <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.Total}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </VerticalStackLayout.Triggers>
+                                        <Label Text="1,016" FontFamily="Display" FontSize="17" />
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="100" />
+                                    </VerticalStackLayout>
+                                    <!-- Ranked: bars of falling length, red and amber for errors. -->
+                                    <VerticalStackLayout Spacing="6" VerticalOptions="Center" IsVisible="False">
+                                        <VerticalStackLayout.Triggers>
+                                            <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.Ranked}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </VerticalStackLayout.Triggers>
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="120" Color="{StaticResource PrimaryStroke}" />
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="84" Color="{StaticResource PrimaryStroke}" Opacity="0.75" />
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="52" Color="{StaticResource PrimaryStroke}" Opacity="0.5" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Spacing="6" VerticalOptions="Center" IsVisible="False">
+                                        <VerticalStackLayout.Triggers>
+                                            <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.RankedWarning}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </VerticalStackLayout.Triggers>
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="120" Color="{StaticResource CriticalColor}" />
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="84" Color="{StaticResource WarningColor}" />
+                                        <BoxView Style="{StaticResource PreviewLine}" WidthRequest="52" Color="{StaticResource WarningColor}" Opacity="0.6" />
+                                    </VerticalStackLayout>
+                                    <!-- Graph: a line over a baseline. -->
+                                    <Grid IsVisible="False">
+                                        <Grid.Triggers>
+                                            <DataTrigger TargetType="Grid" Binding="{Binding Preview}" Value="{x:Static dash:CardPreview.Graph}">
+                                                <Setter Property="IsVisible" Value="True" />
+                                            </DataTrigger>
+                                        </Grid.Triggers>
+                                        <Polyline Points="0,30 16,25 30,28 46,15 62,20 78,8 94,17 110,12 136,19" Stroke="{StaticResource PrimaryStroke}"
+                                                  StrokeThickness="2" StrokeLineJoin="Round" />
+                                        <BoxView HeightRequest="1" VerticalOptions="End" Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
+                                    </Grid>
+                                </Grid>
+                            </Border>
+                            <Label Text="{Binding Name}" FontFamily="BodySemibold" FontSize="14.5" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" MaxLines="2">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding HasSome}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- The button names what it adds. -->
+        <Border Grid.Row="3" StrokeThickness="0" Padding="16,12,16,16"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
+            <Button Text="{Binding AddText}" Command="{Binding AddCommand}" HeightRequest="50" />
+        </Border>
+    </Grid>
+
+</ContentPage>

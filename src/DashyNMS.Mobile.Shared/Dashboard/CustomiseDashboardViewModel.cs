@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
@@ -7,14 +8,13 @@ using DesktopNMS.Core.Configuration;
 
 namespace DashyNMS.Mobile.Dashboard;
 
-/// <summary>One card on the Customise page: shown or not, and where.</summary>
+/// <summary>One card on the Edit dashboard page.</summary>
 public sealed partial class DashboardCardOption : ObservableObject
 {
-    public DashboardCardOption(DashboardWidget widget, bool isShown)
+    public DashboardCardOption(DashboardWidget widget)
     {
         Widget = widget;
         Kind = DashboardLayout.KindOf(widget.WidgetType);
-        _isShown = isShown;
     }
 
     /// <summary>The card itself - its own title and set-up go with it (#87).</summary>
@@ -23,224 +23,157 @@ public sealed partial class DashboardCardOption : ObservableObject
     public DashboardCardKind Kind { get; }
 
     /// <summary>Its own title once given one ("Core switch temps"), else the kind's.</summary>
-    public string Title => DashboardLayout.HasOwnTitle(Widget) ? Widget.Title : Kind.Title;
-
-    public string Description => Kind.Description;
-
-    /// <summary>Sensors and Graph have something to choose.</summary>
-    public bool CanSetUp => Kind.AllowsSeveral;
+    public string Title => DashboardLayout.TitleOf(Widget);
 
     /// <summary>
-    /// Sensors and Graph cards are added, so they're removed rather than
-    /// switched off; every other kind has its switch.
+    /// What it shows: "Sensors · 3 sensors", "Top 5, by traffic in" - or,
+    /// for a card with nothing to set up, what the kind is.
     /// </summary>
-    public bool CanRemove => Kind.AllowsSeveral;
+    public string Subtitle => Widget.WidgetType switch
+    {
+        DashboardLayout.Sensors => Widget.Sensors.Count switch
+        {
+            0 => "Sensors · none chosen yet",
+            1 => "Sensors · 1 sensor",
+            var n => string.Create(CultureInfo.CurrentCulture, $"Sensors · {n} sensors"),
+        },
+        DashboardLayout.Graph => Widget.GraphName is null ? "Graph · not chosen yet" : "Graph · " + Widget.GraphName,
+        _ when TopCards.IsTop(Widget.WidgetType) => TopCards.Summary(Widget),
+        _ => Kind.Description,
+    };
 
-    public bool CanSwitch => !CanRemove;
+    /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
+    public bool CanSetUp => Kind.AllowsSeveral;
 
+    /// <summary>Just added: outlined for a moment, as on the dashboard.</summary>
     [ObservableProperty]
-    private bool _isShown;
+    private bool _isHighlighted;
 
-    /// <summary>Its title may have changed in its set-up.</summary>
-    public void Refresh() => OnPropertyChanged(nameof(Title));
+    /// <summary>Back from its set-up: its title and what it shows may be new.</summary>
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Subtitle));
+    }
 }
 
 /// <summary>
-/// Which dashboard cards show, and in what order - the phone's version of
-/// desktop's dashboard edit mode, without the resizing a one-column screen
-/// doesn't need. Sensors and Graph cards can be added as often as wanted,
-/// each with its own title and set-up (#87). Changes save as they're made.
+/// Edit dashboard (#140): the cards on the dashboard, in order - dragged to
+/// reorder, removed with Undo, set up - and Add card, desktop's widget
+/// picker. The phone's version of desktop's edit mode, without the resizing
+/// a one-column screen doesn't need. Changes save as they're made.
 /// </summary>
+/// <remarks>
+/// Every card can be removed, not switched off as it used to be. Removing
+/// the last leaves an empty dashboard, which shows the welcome card - so
+/// there's no separate "start again".
+/// </remarks>
 public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 {
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
-    private readonly IDialogService? _dialogs;
+    private readonly DashboardToast _toast;
 
-    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, IDialogService? dialogs = null)
+    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast)
     {
         _settings = settings;
         _navigation = navigation;
-        _dialogs = dialogs;
-        Build(DashboardLayout.Current(settings.Current));
+        _toast = toast;
+        Refresh();
     }
 
     public ObservableCollection<DashboardCardOption> Cards { get; } = new();
 
-    /// <summary>Back from a card's set-up: its title may be new.</summary>
+    public DashboardToast Toast => _toast;
+
+    public bool IsEmpty => Cards.Count == 0;
+
+    /// <summary>
+    /// The page is showing: the cards as saved - back from a card's set-up or
+    /// the card picker, they may have changed - and Undo and the outline followed.
+    /// </summary>
+    public void Attach()
+    {
+        Detach();
+        _toast.LayoutRestored += OnLayoutRestored;
+        _toast.PropertyChanged += OnToastChanged;
+        Refresh();
+    }
+
+    /// <summary>The page has gone: the app-wide toast no longer needs it.</summary>
+    public void Detach()
+    {
+        _toast.LayoutRestored -= OnLayoutRestored;
+        _toast.PropertyChanged -= OnToastChanged;
+    }
+
+    /// <summary>The cards as saved.</summary>
     public void Refresh()
     {
-        foreach (var card in Cards)
+        Cards.Clear();
+        foreach (var widget in DashboardLayout.Current(_settings.Current))
         {
-            card.Refresh();
-        }
-    }
-
-    [RelayCommand]
-    private void MoveUp(DashboardCardOption? card) => Move(card, -1);
-
-    [RelayCommand]
-    private void MoveDown(DashboardCardOption? card) => Move(card, +1);
-
-    /// <summary>Another Sensors card, after the cards showing, then straight to choosing its sensors.</summary>
-    [RelayCommand]
-    private Task AddSensorsAsync() => AddAsync(DashboardLayout.Sensors);
-
-    /// <summary>Another Graph card, then straight to choosing its graph.</summary>
-    [RelayCommand]
-    private Task AddGraphAsync() => AddAsync(DashboardLayout.Graph);
-
-    /// <summary>
-    /// Another card of a kind there can be several of - asked which. Sensors
-    /// and Graph go straight to their set-up, having nothing to show without
-    /// it; a Top card shows at once with desktop's defaults (#103).
-    /// </summary>
-    [RelayCommand]
-    private async Task AddCardAsync()
-    {
-        var kinds = DashboardLayout.Kinds.Where(k => k.AllowsSeveral).ToList();
-        var chosen = _dialogs is null ? null : await _dialogs.ChooseAsync("Add a card", kinds.Select(k => k.Title).ToList());
-        if (kinds.FirstOrDefault(k => k.Title == chosen) is { } kind)
-        {
-            await AddAsync(kind.Type);
-        }
-    }
-
-    /// <summary>A card's own set-up: its sensors or graph, and its title. Shown first if it wasn't.</summary>
-    [RelayCommand]
-    private Task SetUpAsync(DashboardCardOption? card)
-    {
-        if (card is null || !card.CanSetUp)
-        {
-            return Task.CompletedTask;
+            Cards.Add(new DashboardCardOption(widget) { IsHighlighted = widget.Id == _toast.HighlightId });
         }
 
-        card.IsShown = true;
-        return OpenSetUpAsync(card.Widget);
+        OnPropertyChanged(nameof(IsEmpty));
     }
 
-    /// <summary>An added Sensors or Graph card taken off the dashboard, its set-up with it - after asking.</summary>
+    /// <summary>The card picker - desktop's "Add widget" (#140).</summary>
     [RelayCommand]
-    private async Task RemoveAsync(DashboardCardOption? card)
+    private Task AddCardAsync() => _navigation.GoToAsync(Routes.AddCard);
+
+    /// <summary>After the list was dragged into a new order.</summary>
+    [RelayCommand]
+    private void SaveOrder() => Save();
+
+    /// <summary>A card's own set-up: its sensors, graph or ranking, and its title.</summary>
+    [RelayCommand]
+    private Task SetUpAsync(DashboardCardOption? card) => card is { CanSetUp: true }
+        ? _navigation.GoToAsync(SetUpRoute(card.Widget.WidgetType), new Dictionary<string, object> { [Routes.WidgetIdParameter] = card.Widget.Id })
+        : Task.CompletedTask;
+
+    /// <summary>Off the dashboard straight away, its set-up with it - with Undo in the toast rather than asking first.</summary>
+    [RelayCommand]
+    private void Remove(DashboardCardOption? card)
     {
-        if (card is null || !card.CanRemove)
+        if (card is null || !Cards.Contains(card))
         {
             return;
         }
 
-        if (_dialogs is not null
-            && !await _dialogs.ConfirmDestructiveAsync("Remove card", $"Remove the card \"{card.Title}\" from the dashboard? Its set-up goes with it. {Confirmations.CannotBeUndone}", "Remove"))
-        {
-            return;
-        }
-
+        var before = _toast.Before();
         Cards.Remove(card);
         Save();
+        OnPropertyChanged(nameof(IsEmpty));
+        _toast.Show($"{card.Title} removed", before);
     }
 
-    /// <summary>
-    /// Back to the dashboard as it came: the default cards, and no Sensors or
-    /// Graph cards - after asking, and saying what goes (#146). It used to
-    /// happen at a tap, taking every added card's set-up with it.
-    /// </summary>
-    [RelayCommand]
-    private async Task ResetToDefaultsAsync()
+    /// <summary>Where a card of <paramref name="type"/> is set up.</summary>
+    internal static string SetUpRoute(string type) => type switch
     {
-        if (_dialogs is not null && !await _dialogs.ConfirmDestructiveAsync("Standard dashboard", ResetMessage(), "Reset"))
-        {
-            return;
-        }
-
-        Build(DashboardLayout.DefaultTypes.Select(DashboardLayout.New).ToList());
-        Save();
-    }
-
-    /// <summary>What resetting loses: the added cards by count, else just the order and which show.</summary>
-    internal string ResetMessage()
-    {
-        var added = Cards.Count(c => c.CanRemove);
-        var lost = added switch
-        {
-            0 => "Your card order and which cards show go back to how they came.",
-            1 => "Your added card and its set-up go, and the cards go back to how they came.",
-            _ => $"Your {added} added cards and their set-up go, and the cards go back to how they came.",
-        };
-        return $"Go back to the standard dashboard? {lost} {Confirmations.CannotBeUndone}";
-    }
-
-    private async Task AddAsync(string type)
-    {
-        var widget = DashboardLayout.New(type);
-        var option = Watch(new DashboardCardOption(widget, isShown: true));
-        Cards.Insert(Cards.Count(c => c.IsShown), option);
-        Save();
-        if (!TopCards.IsTop(type))
-        {
-            await OpenSetUpAsync(widget);
-        }
-    }
-
-    private Task OpenSetUpAsync(DashboardWidget widget) => _navigation.GoToAsync(
-        widget.WidgetType switch
-        {
-            DashboardLayout.Sensors => Routes.PickSensors,
-            DashboardLayout.Graph => Routes.PickGraph,
-            _ => Routes.TopCardSetUp,
-        },
-        new Dictionary<string, object> { [Routes.WidgetIdParameter] = widget.Id });
-
-    /// <summary>
-    /// The cards showing, in their order; then each once-only kind that isn't.
-    /// Sensors and Graph cards come from the Add buttons, so they're only
-    /// listed once added.
-    /// </summary>
-    private void Build(IReadOnlyList<DashboardWidget> shown)
-    {
-        Cards.Clear();
-        foreach (var widget in shown)
-        {
-            Cards.Add(Watch(new DashboardCardOption(widget, isShown: true)));
-        }
-
-        foreach (var kind in DashboardLayout.Kinds.Where(k => !k.AllowsSeveral && shown.All(w => w.WidgetType != k.Type)))
-        {
-            Cards.Add(Watch(new DashboardCardOption(DashboardLayout.New(kind.Type), isShown: false)));
-        }
-    }
-
-    private DashboardCardOption Watch(DashboardCardOption option)
-    {
-        option.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(DashboardCardOption.IsShown))
-            {
-                Save();
-            }
-        };
-        return option;
-    }
-
-    private void Move(DashboardCardOption? card, int by)
-    {
-        if (card is null)
-        {
-            return;
-        }
-
-        var from = Cards.IndexOf(card);
-        var to = from + by;
-        if (from < 0 || to < 0 || to >= Cards.Count)
-        {
-            return;
-        }
-
-        Cards.Move(from, to);
-        Save();
-    }
+        DashboardLayout.Sensors => Routes.PickSensors,
+        DashboardLayout.Graph => Routes.PickGraph,
+        _ => Routes.TopCardSetUp,
+    };
 
     private void Save()
     {
-        DashboardLayout.Save(_settings.Current, Cards.Where(c => c.IsShown).Select(c => c.Widget));
+        DashboardLayout.Save(_settings.Current, Cards.Select(c => c.Widget));
         _settings.Save();
+    }
+
+    private void OnLayoutRestored(object? sender, EventArgs e) => Refresh();
+
+    // The outline goes after a moment.
+    private void OnToastChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(DashboardToast.HighlightId))
+        {
+            foreach (var card in Cards)
+            {
+                card.IsHighlighted = card.Widget.Id == _toast.HighlightId;
+            }
+        }
     }
 }

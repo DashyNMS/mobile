@@ -39,8 +39,11 @@ public static class Routes
     /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
     public const string Devices = "//main/devices";
 
-    /// <summary>Choosing and ordering the dashboard's cards.</summary>
+    /// <summary>Edit dashboard: ordering, removing and setting up the dashboard's cards.</summary>
     public const string CustomiseDashboard = "customisedashboard";
+
+    /// <summary>The card picker - desktop's "Add widget" (#140).</summary>
+    public const string AddCard = "addcard";
 
     /// <summary>Choosing the dashboard Sensors card's sensors.</summary>
     public const string PickSensors = "picksensors";

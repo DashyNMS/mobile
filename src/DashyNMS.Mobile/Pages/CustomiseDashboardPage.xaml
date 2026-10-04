@@ -3,58 +3,83 @@
     x:Class="DashyNMS.Mobile.Pages.CustomiseDashboardPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     x:DataType="dash:CustomiseDashboardViewModel"
-    Title="Customise dashboard">
+    Title="Edit dashboard">
 
-    <ScrollView>
-        <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16" Spacing="8">
-
-                <Label Style="{StaticResource Caption}"
-                       Text="Choose the cards to show, and their order. Add as many Sensors, Graph and Top cards as you like. Changes save as you make them." />
-
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cards}" Spacing="8">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="dash:DashboardCardOption">
-                            <Border Style="{StaticResource Card}">
-                                <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6">
-                                    <VerticalStackLayout>
-                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" />
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Description}" />
+    <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
+         reorder, removed with Undo, set up; then Add card - desktop's picker. -->
+    <Grid>
+        <!-- Not in a ReadableColumn: a CollectionView needs the page's height to scroll. -->
+        <CollectionView x:Name="List" ItemsSource="{Binding Cards}" SelectionMode="None"
+                        CanReorderItems="True" ReorderCompleted="OnReorderCompleted" Margin="16,0"
+                        MaximumWidthRequest="720">
+                <CollectionView.Header>
+                    <Label Style="{StaticResource Caption}" Margin="4,12,4,12"
+                           Text="Drag ≡ to reorder. Changes save as you make them. Remove every card to see the welcome card again." />
+                </CollectionView.Header>
+                <CollectionView.EmptyView>
+                    <Border Style="{StaticResource Card}" Padding="20,28">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="No cards" FontFamily="BodySemibold" FontSize="16" HorizontalTextAlignment="Center" />
+                            <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center"
+                                   Text="The dashboard shows its welcome card. Add a card to start again." />
+                        </VerticalStackLayout>
+                    </Border>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dash:DashboardCardOption">
+                        <!-- Each card a row, spaced so a drag has room. -->
+                        <Grid Padding="0,0,0,8">
+                            <Border Style="{StaticResource Card}" Padding="4,0,6,0">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsHighlighted}" Value="True">
+                                        <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                                        <Setter Property="StrokeThickness" Value="2" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="40,*,Auto,Auto" ColumnSpacing="6" MinimumHeightRequest="64">
+                                    <Label Text="≡" FontSize="22" HorizontalOptions="Center" VerticalOptions="Center"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
+                                           SemanticProperties.Description="Drag to reorder" />
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1" Padding="0,10">
+                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="15" LineBreakMode="TailTruncation" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
-                                    <Button Grid.Column="1" Text="▲" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
-                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                                            Command="{Binding MoveUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
+                                    <!-- Sensors, Graph and Top cards: their own set-up. -->
+                                    <Button Grid.Column="2" Text="Set up" Style="{StaticResource LinkButton}" IsVisible="{Binding CanSetUp}"
+                                            VerticalOptions="Center"
+                                            Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
-                                    <Button Grid.Column="2" Text="▼" WidthRequest="40" Padding="0" BackgroundColor="Transparent"
-                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                                            Command="{Binding MoveDownCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
-                                            CommandParameter="{Binding .}" />
-                                    <Switch Grid.Column="3" IsToggled="{Binding IsShown}" VerticalOptions="Center" IsVisible="{Binding CanSwitch}" />
-                                    <!-- Added Sensors and Graph cards (#87): set up, or take off the dashboard. -->
-                                    <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="4" Spacing="8" Margin="0,6,0,0" IsVisible="{Binding CanSetUp}">
-                                        <Button Text="Set up…"
-                                                Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        <Button Style="{StaticResource SecondaryButton}" Text="Remove" IsVisible="{Binding CanRemove}"
+                                    <!-- Any card comes off; Undo is in the toast. -->
+                                    <Border Grid.Column="3" WidthRequest="44" HeightRequest="44" StrokeThickness="0" BackgroundColor="Transparent"
+                                            VerticalOptions="Center" SemanticProperties.Description="{Binding Title, StringFormat='Remove {0}'}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
                                                 Command="{Binding RemoveCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                                 CommandParameter="{Binding .}" />
-                                    </HorizontalStackLayout>
+                                        </Border.GestureRecognizers>
+                                        <Border WidthRequest="22" HeightRequest="22" StrokeThickness="0" StrokeShape="RoundRectangle 11"
+                                                BackgroundColor="{StaticResource CriticalColor}" HorizontalOptions="Center" VerticalOptions="Center">
+                                            <BoxView WidthRequest="10" HeightRequest="2" Color="White" CornerRadius="1"
+                                                     HorizontalOptions="Center" VerticalOptions="Center" />
+                                        </Border>
+                                    </Border>
                                 </Grid>
                             </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <VerticalStackLayout Padding="0,8,0,96">
+                        <Button Text="Add card" Command="{Binding AddCardCommand}" />
+                    </VerticalStackLayout>
+                </CollectionView.Footer>
+            </CollectionView>
 
-                <!-- As many Sensors, Graph and Top cards as wanted, each with its own title and set-up (#87, #103). -->
-                <Button Style="{StaticResource SecondaryButton}" Text="Add a card…" Command="{Binding AddCardCommand}" Margin="0,4,0,0" />
-
-                <Button Text="Back to the standard dashboard" Command="{Binding ResetToDefaultsCommand}" Margin="0,12,0,0" />
-
-            </VerticalStackLayout>
-        </controls:ReadableColumn>
-    </ScrollView>
+        <!-- What just changed, with Undo (#140). -->
+        <views:DashboardToastView BindingContext="{Binding Toast}" />
+    </Grid>
 
 </ContentPage>
