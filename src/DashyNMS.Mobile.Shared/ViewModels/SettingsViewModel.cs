@@ -47,6 +47,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly AlertCountThreshold _countThreshold;
     private readonly IgnoredAlerts _ignored;
     private readonly DiagnosticsLog? _diagnostics;
+    private readonly ILocalDataWipe? _wipe;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -68,8 +69,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         ILauncherService? launcher = null,
         AlertCountThreshold? countThreshold = null,
         IgnoredAlerts? ignored = null,
-        DiagnosticsLog? diagnostics = null)
+        DiagnosticsLog? diagnostics = null,
+        ILocalDataWipe? wipe = null)
     {
+        _wipe = wipe;
         _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
         _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
         _diagnostics = diagnostics;
@@ -522,10 +525,14 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignOutAsync()
     {
+        // Forgetting everything can't be undone (#146), so it's red, and asks
+        // again saying what goes (#139).
         var choice = await _dialogs.ChooseAsync(
             "Sign out? Alert notifications stop until you sign in again.",
-            [SignOutChoice, ForgetEverythingChoice]);
-        if (choice is null)
+            [SignOutChoice],
+            ForgetEverythingChoice);
+        if (choice is null
+            || (choice == ForgetEverythingChoice && !await _dialogs.ConfirmDestructiveAsync("Forget everything", ForgetEverythingMessage, "Forget everything")))
         {
             return;
         }
@@ -541,7 +548,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
         if (choice == ForgetEverythingChoice)
         {
-            ForgetServers();
+            ForgetEverything();
         }
 
         await _navigation.GoToAsync(Routes.SignIn);
@@ -550,6 +557,35 @@ public sealed partial class SettingsViewModel : ViewModelBase
     internal const string SignOutChoice = "Sign out";
 
     internal const string ForgetEverythingChoice = "Sign out and forget everything";
+
+    /// <summary>What goes, in plain words, as desktop's sign-out says it (desktop #231).</summary>
+    internal const string ForgetEverythingMessage =
+        "This removes everything DashyNMS has saved on this phone: your sign-in and servers, settings, dashboard, "
+        + "map layouts, ignored alerts and the Graylog connection. " + Confirmations.CannotBeUndone
+        + "\n\nThe diagnostics log is kept, for bug reports.";
+
+    /// <summary>
+    /// As a fresh install (#139): the servers and Graylog password forgotten,
+    /// then every file and stored preference wiped, and the settings back to
+    /// their defaults (#112) - in memory too, as the app keeps running.
+    /// Before #139 the settings, map layouts, ignored alerts, tab pins and
+    /// appearance stayed for whoever signed in next.
+    /// </summary>
+    private void ForgetEverything()
+    {
+        ForgetServers();
+        if (_wipe is not null)
+        {
+            foreach (var path in _wipe.Wipe())
+            {
+                _diagnostics?.Note("Sign out", "Could not delete " + path);
+            }
+        }
+
+        _settings.Replace(new AppSettings());
+        _appearance.Set(AppearanceChoice.System);
+        _diagnostics?.Note("Sign out", "Forgot everything on this phone");
+    }
 
     /// <summary>The LibreNMS addresses and the Graylog connection, password included.</summary>
     private void ForgetServers()

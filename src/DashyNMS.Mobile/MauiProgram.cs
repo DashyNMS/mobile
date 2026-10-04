@@ -113,9 +113,12 @@ public static class MauiProgram
 
 		// Where the network map's devices were dragged to, as desktop keeps
 		// them - in the app's own folder, one set per server and filter (#86).
-		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => new DesktopNMS.Core.Topology.MapLayoutStore(
+		// Resettable, so "Sign out and forget everything" can drop them all (#139).
+		builder.Services.AddSingleton(services => new Topology.ResettableMapLayoutStore(
 			Path.Combine(FileSystem.AppDataDirectory, "map-layouts.json"),
 			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()));
+		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => services.GetRequiredService<Topology.ResettableMapLayoutStore>());
+		builder.Services.AddSingleton<ILocalDataWipe, MauiLocalDataWipe>();
 		builder.Services.AddTransient<MapPage>();
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();
