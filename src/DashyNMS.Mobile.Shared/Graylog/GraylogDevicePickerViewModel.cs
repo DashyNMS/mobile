@@ -11,11 +11,11 @@ using DesktopNMS.Core.Models;
 namespace DashyNMS.Mobile.Graylog;
 
 /// <summary>
-/// The Graylog page's Device chip's chooser (#117). A network has too many
+/// The Device chip's chooser, for Graylog (#117) and Logs (#118). A network has too many
 /// devices to scroll through, so before anything's typed it suggests the
 /// likely ones - those sending the messages on screen, busiest first, then
 /// pinned and recently viewed devices. Typing searches every device, as the
-/// Devices tab does; an address no device has can still be searched for.
+/// Devices tab does; on Graylog, an address no device has can still be searched for.
 /// </summary>
 public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
 {
@@ -29,7 +29,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly DeviceBookmarks _bookmarks;
     private readonly INavigationService _navigation;
-    private GraylogViewModel? _list;
+    private IDeviceChipList? _list;
     private IReadOnlyList<DeviceItem> _devices = [];
 
     [ObservableProperty]
@@ -54,8 +54,8 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         ? "No devices to suggest yet. Search for one by name, hostname or IP."
         : "No device matches. Search by name, hostname or IP.";
 
-    /// <summary>The Graylog list whose Device chip this sets.</summary>
-    public async Task LoadAsync(GraylogViewModel list)
+    /// <summary>The list whose Device chip this sets.</summary>
+    public async Task LoadAsync(IDeviceChipList list)
     {
         _list = list;
         OnPropertyChanged(nameof(CanChooseAny));
@@ -107,7 +107,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
                 ? Choice(device, s.Count)
                 : new GraylogDeviceChoice(s.Filter, "Not in LibreNMS", RowStatus.Inactive, s.Count))
             .ToList();
-        Add(groups, "In these messages", senders);
+        Add(groups, _list?.SendersHeading ?? "On screen", senders);
 
         var pinned = _bookmarks.PinnedIds;
         Add(groups, "Pinned", _devices.Where(d => pinned.Contains(d.DeviceId)).Select(d => Choice(d)));
@@ -132,7 +132,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         Add(groups, "Devices", matches.Take(MaxShown).Select(d => Choice(d)));
 
         // Syslog from something LibreNMS doesn't poll - search its address as typed.
-        if (LooksLikeAddress(term) && !matches.Any(d => SameAddress(d.Device, term)))
+        if (_list?.SearchesAddresses == true && LooksLikeAddress(term) && !matches.Any(d => SameAddress(d.Device, term)))
         {
             Add(groups, "Not in LibreNMS", [new GraylogDeviceChoice(GraylogDeviceFilter.ForAddress(term), "Search Graylog for this address", RowStatus.Inactive)]);
         }
