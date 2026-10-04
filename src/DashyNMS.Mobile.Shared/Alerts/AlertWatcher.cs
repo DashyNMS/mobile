@@ -27,6 +27,9 @@ public enum AlertCheckOutcome
 
 public sealed record AlertCheckResult(AlertCheckOutcome Outcome, int Changes = 0, int Notified = 0, string? Error = null)
 {
+    /// <summary>Changes to alerts the user chose to ignore (#102) - not announced.</summary>
+    public int Ignored { get; init; }
+
     /// <summary>Worth the platform scheduling the next check as normal (as opposed to backing off).</summary>
     public bool Succeeded => Outcome is not AlertCheckOutcome.Failed;
 }
@@ -95,7 +98,57 @@ public sealed class AlertWatcher
         _tabDot = tabDot;
     }
 
-    public async Task<AlertCheckResult> CheckAsync(CancellationToken cancellationToken = default)
+    /// <param name="background">Run by iOS or Android while the app was closed, rather than by the in-app timer - for the diagnostics.</param>
+    public async Task<AlertCheckResult> CheckAsync(CancellationToken cancellationToken = default, bool background = false)
+    {
+        var started = _time.GetTimestamp();
+        var result = await CheckOnceAsync(cancellationToken).ConfigureAwait(false);
+        Describe(result, background, _time.GetElapsedTime(started));
+        return result;
+    }
+
+    /// <summary>
+    /// Each check in a line of the diagnostics (#126): where it ran, what
+    /// changed, what was ignored, announced or not, and how long it took. An
+    /// in-app check with nothing new reads the same each time, so a run of
+    /// them is one line ("× 12").
+    /// </summary>
+    private void Describe(AlertCheckResult result, bool background, TimeSpan took)
+    {
+        var where = background ? "Background alert check" : "Alert check";
+        var time = $"{took.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} s";
+        switch (result.Outcome)
+        {
+            case AlertCheckOutcome.Skipped when background:
+                _logger.LogInformation("{Where}: skipped, another check was running", where);
+                break;
+            case AlertCheckOutcome.NotSignedIn:
+                _logger.LogInformation("{Where}: not signed in", where);
+                break;
+            case AlertCheckOutcome.Checked when result.Changes == 0:
+                if (background)
+                {
+                    _logger.LogInformation("{Where}: no changes · {Time}", where, time);
+                }
+                else
+                {
+                    _logger.LogInformation("{Where}: no changes", where);
+                }
+
+                break;
+            case AlertCheckOutcome.Checked:
+                var quiet = result.Changes - result.Ignored - result.Notified;
+                _logger.LogInformation(
+                    "{Where}: {Changes} change(s) · {Ignored} ignored · {Notified} notified · {Quiet} not announced (severity settings, quiet hours or grouped) · {Time}",
+                    where, result.Changes, result.Ignored, result.Notified, Math.Max(quiet, 0), time);
+                break;
+            case AlertCheckOutcome.Failed:
+                _logger.LogWarning("{Where} failed after {Time}: {Error}", where, time, result.Error);
+                break;
+        }
+    }
+
+    private async Task<AlertCheckResult> CheckOnceAsync(CancellationToken cancellationToken)
     {
         // The in-app timer and a background wake can land together; one
         // check at a time, or both would announce the same change.
@@ -156,8 +209,9 @@ public sealed class AlertWatcher
 
             // Alerts the user chose to ignore (#102) say nothing - only here:
             // the badge, dot and widgets above still count them.
+            var announced = _ignored?.Filter(changes) ?? changes;
             var plan = AlertNotificationPlanner.Plan(
-                _ignored?.Filter(changes) ?? changes,
+                announced,
                 settings.Notifications,
                 localNow,
                 _selfActions,
@@ -174,12 +228,7 @@ public sealed class AlertWatcher
                 await _notifier.ShowAsync(notification).ConfigureAwait(false);
             }
 
-            if (changes.Count > 0)
-            {
-                _logger.LogInformation("Alert check: {Changes} change(s), {Notified} notified", changes.Count, plan.Show.Count);
-            }
-
-            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count);
+            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count) { Ignored = changes.Count - announced.Count };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -188,8 +237,8 @@ public sealed class AlertWatcher
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Alert check failed");
-            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: ex.Message);
+            // Said once, with the time, by Describe.
+            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: $"{ex.GetType().Name}: {ex.Message}");
         }
         finally
         {

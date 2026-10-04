@@ -10,9 +10,13 @@ public partial class App : Application
 	private readonly Services.DiagnosticsLog _diagnostics;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
-		Security.CertificatePrompt certificates)
+		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics)
 	{
 		InitializeComponent();
+
+		// Errors, memory, the network and the theme; settings changes and slow pages (#126).
+		SystemWatch.Start(this, diagnostics);
+		appDiagnostics.Start();
 		appearance.Apply();
 		_shell = shell;
 		_alerts = alerts;

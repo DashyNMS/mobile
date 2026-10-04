@@ -277,9 +277,18 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         DashboardToast? toast = null,
         DashboardWelcome? welcome = null,
         IAppPreferences? preferences = null,
-        IDialogService? dialogs = null)
+        IDialogService? dialogs = null,
+        BackupAddressStatus? backup = null)
     {
         _dialogs = dialogs;
+        Backup = backup;
+
+        // Back on the server address (#114): everything again from there.
+        if (backup is not null)
+        {
+            backup.SwitchedBack += (_, _) => _ = RefreshCommand.ExecuteAsync(null);
+        }
+
         _client = client;
         _settings = settings;
         _navigation = navigation;
@@ -302,6 +311,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
 
         ApplyLayout();
     }
+
+    /// <summary>On the server's backup address (#114): the amber pill under the header, and the way back.</summary>
+    public BackupAddressStatus? Backup { get; }
 
     /// <summary>The empty dashboard's welcome card (#140).</summary>
     public DashboardWelcome Welcome { get; }

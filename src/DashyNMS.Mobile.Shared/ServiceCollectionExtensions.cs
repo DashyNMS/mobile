@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DeviceBookmarks>();
         services.AddSingleton<MaintenanceScan>();
 
+        // On the backup address, and the way back (#114) - the dashboard's pill and Settings' Server card.
+        services.AddSingleton<BackupAddressStatus>();
+
         // A certificate met while signed in - the backup address's, say (#141).
         services.AddSingleton<CertificatePrompt>();
 
