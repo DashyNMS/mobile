@@ -51,6 +51,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(HasAlert))]
     [NotifyPropertyChangedFor(nameof(CanAcknowledge))]
     [NotifyPropertyChangedFor(nameof(CanUnacknowledge))]
+    [NotifyPropertyChangedFor(nameof(AcknowledgeRefusedText))]
     [NotifyPropertyChangedFor(nameof(RaisedText))]
     [NotifyPropertyChangedFor(nameof(NotificationsText))]
     [NotifyPropertyChangedFor(nameof(CanChangeNotifications))]
@@ -86,9 +87,25 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
     public bool HasAlert => Alert is not null;
 
-    public bool CanAcknowledge => Alert is { IsAcknowledged: false, State: not AlertState.Recovered };
+    public bool CanAcknowledge => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && MayAcknowledge;
 
-    public bool CanUnacknowledge => Alert is { IsAcknowledged: true };
+    public bool CanUnacknowledge => Alert is { IsAcknowledged: true } && MayAcknowledge;
+
+    /// <summary>
+    /// Why the buttons to acknowledge and unacknowledge are gone (#144): the
+    /// API token was refused it this session, as Core remembers. Null while it's allowed.
+    /// </summary>
+    public string? AcknowledgeRefusedText => MayAcknowledge ? null : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
+
+    private bool MayAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true;
+
+    /// <summary>Catches up with a refusal - learned here, or on another page before this one opened.</summary>
+    private void ShowPermissions()
+    {
+        OnPropertyChanged(nameof(CanAcknowledge));
+        OnPropertyChanged(nameof(CanUnacknowledge));
+        OnPropertyChanged(nameof(AcknowledgeRefusedText));
+    }
 
     public bool HasDevice => DeviceId is not null;
 
@@ -302,6 +319,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
             await RefreshAsync();
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]
@@ -319,6 +338,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
             await RefreshAsync();
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]

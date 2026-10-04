@@ -7,11 +7,16 @@ namespace DashyNMS.Mobile.Services;
 public sealed record BulkFailure(string Name, string Reason);
 
 /// <summary>How a bulk action went: how many it tried, which worked, and which didn't.</summary>
-public sealed record BulkResult<T>(IReadOnlyList<T> Succeeded, IReadOnlyList<BulkFailure> Failures)
+/// <param name="Refusal">
+/// LibreNMS refused the action outright - the API token isn't allowed it
+/// (#144) - so the rest weren't tried: the reason, in Core's words.
+/// </param>
+/// <param name="NotTried">How many were left untried after <paramref name="Refusal"/>.</param>
+public sealed record BulkResult<T>(IReadOnlyList<T> Succeeded, IReadOnlyList<BulkFailure> Failures, string? Refusal = null, int NotTried = 0)
 {
     public int Attempted => Succeeded.Count + Failures.Count;
 
-    public bool AllSucceeded => Failures.Count == 0;
+    public bool AllSucceeded => Failures.Count == 0 && Refusal is null;
 
     /// <summary>
     /// "Acknowledged 14 alerts." - or, when some failed, "Acknowledged 12 of
@@ -21,6 +26,15 @@ public sealed record BulkResult<T>(IReadOnlyList<T> Succeeded, IReadOnlyList<Bul
     /// <param name="noun">One item: "alert" (an "s" is added for more).</param>
     public string Describe(string done, string noun)
     {
+        if (Refusal is not null)
+        {
+            // One refusal stands for them all: the same token, the same answer.
+            var total = Attempted + NotTried;
+            return Succeeded.Count == 0
+                ? Refusal
+                : string.Create(CultureInfo.CurrentCulture, $"{done} {Succeeded.Count} of {total} {(total == 1 ? noun : noun + "s")}, then LibreNMS refused the rest. {Refusal}");
+        }
+
         var nouns = Attempted == 1 ? noun : noun + "s";
         if (AllSucceeded)
         {
@@ -39,7 +53,8 @@ public sealed record BulkResult<T>(IReadOnlyList<T> Succeeded, IReadOnlyList<Bul
 /// Runs one action over several items (#85) - acknowledging alerts,
 /// rediscovering devices - one at a time, so LibreNMS isn't asked for them
 /// all at once, reporting progress, and carrying on past a failure so one
-/// bad item doesn't stop the rest.
+/// bad item doesn't stop the rest. A refusal does stop it (#144): the API
+/// token isn't allowed the action, so every other item would be refused too.
 /// </summary>
 public static class BulkRun
 {
@@ -55,6 +70,7 @@ public static class BulkRun
         var succeeded = new List<T>();
         var failures = new List<BulkFailure>();
         var done = 0;
+        string? refusal = null;
 
         foreach (var item in items)
         {
@@ -68,15 +84,25 @@ public static class BulkRun
             {
                 throw;
             }
+            catch (DesktopNMS.Core.Api.LibreNmsApiException ex) when (ex.IsPermissionDenied)
+            {
+                failures.Add(new BulkFailure(name(item), Reason(ex)));
+                refusal = ex.ToUserMessage();
+                done++;
+                progress?.Invoke(done);
+                break;
+            }
             catch (Exception ex)
             {
                 failures.Add(new BulkFailure(name(item), Reason(ex)));
             }
 
-            progress?.Invoke(++done);
+            // Counted apart from reporting: a null progress would skip ++done.
+            done++;
+            progress?.Invoke(done);
         }
 
-        return new BulkResult<T>(succeeded, failures);
+        return new BulkResult<T>(succeeded, failures, refusal, items.Count - done);
     }
 
     /// <summary>Short enough to list several: the status code, or the first sentence of the reason.</summary>

@@ -68,7 +68,10 @@
 
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-                <Button Text="Schedule" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" Margin="0,12,0,0" />
+                <!-- The token isn't allowed to schedule maintenance (#144): no Schedule, and why. -->
+                <Label Style="{StaticResource Caption}" Text="{Binding RefusedText}"
+                       IsVisible="{Binding RefusedText, Converter={StaticResource IsNotNull}}" />
+                <Button Text="Schedule" Command="{Binding SaveCommand}" IsEnabled="{Binding IsNotBusy}" IsVisible="{Binding MaySchedule}" Margin="0,12,0,0" />
                 <Button Text="Cancel" Command="{Binding CancelCommand}" BackgroundColor="Transparent"
                         TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
 

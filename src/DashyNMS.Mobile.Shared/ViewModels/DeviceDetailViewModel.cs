@@ -427,6 +427,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
         await Task.WhenAll(deviceTask, alertsTask, graylogTask);
         Device = deviceTask.Result;
+        OnPropertyChanged(nameof(MaintenanceRefusedText));
         if (Device is null)
         {
             ErrorMessage = "LibreNMS no longer has this device.";
@@ -513,7 +514,18 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasDevice))]
+    /// <summary>
+    /// A device and a token allowed to schedule its maintenance - off once
+    /// LibreNMS has refused it this session (#144), with <see cref="MaintenanceRefusedText"/> saying why.
+    /// </summary>
+    private bool CanScheduleMaintenance() => HasDevice() && MaySchedule;
+
+    private bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+
+    /// <summary>Why Maintenance is off, in desktop's words; null while it's allowed.</summary>
+    public string? MaintenanceRefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+
+    [RelayCommand(CanExecute = nameof(CanScheduleMaintenance))]
     private Task ScheduleMaintenanceAsync() => _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>
     {
         [Routes.DeviceIdParameter] = DeviceId,

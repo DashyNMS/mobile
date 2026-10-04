@@ -28,6 +28,30 @@ public sealed class BulkRunTests
     }
 
     [Fact]
+    public async Task Stops_at_a_refusal_as_the_rest_would_be_refused_too()
+    {
+        var tried = new List<int>();
+
+        var result = await BulkRun.RunAsync(
+            [1, 2, 3, 4],
+            n => $"item {n}",
+            n =>
+            {
+                tried.Add(n);
+                return n == 2 ? Task.FromException(new LibreNmsApiException("Forbidden", System.Net.HttpStatusCode.Forbidden)) : Task.CompletedTask;
+            });
+
+        // #144: one refusal answers for the token, so 3 and 4 aren't tried.
+        Assert.Equal([1, 2], tried);
+        Assert.Equal([1], result.Succeeded);
+        Assert.Equal(2, result.NotTried);
+        Assert.False(result.AllSucceeded);
+        Assert.Equal(
+            "Acknowledged 1 of 4 alerts, then LibreNMS refused the rest. " + LibreNmsApiException.PermissionDeniedMessage,
+            result.Describe("Acknowledged", "alert"));
+    }
+
+    [Fact]
     public void All_done_reads_simply_and_one_is_singular()
     {
         Assert.Equal("Pinned 5 devices.", new BulkResult<int>([1, 2, 3, 4, 5], []).Describe("Pinned", "device"));
@@ -188,6 +212,36 @@ public sealed class BulkAlertTests
     }
 
     [Fact]
+    public async Task A_refused_acknowledge_stops_the_rest_and_turns_acknowledging_off()
+    {
+        // As the transport does (#144): a 403 on a write is remembered, then thrown.
+        var permissions = new ApiPermissions();
+        _client.Permissions.Returns(permissions);
+        _client.Alerts.AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(call =>
+            {
+                var refused = new LibreNmsApiException(LibreNmsApiException.PermissionDeniedMessage, System.Net.HttpStatusCode.Forbidden);
+                permissions.Learn(HttpMethod.Put, $"alerts/{call.ArgAt<int>(0)}", refused);
+                throw refused;
+            });
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(string.Empty);
+        var vm = await Loaded();
+        Assert.True(vm.CanAcknowledge);
+        Assert.True(vm.Alerts.Single(a => a.Id == 1).ShowAcknowledge);
+
+        vm.StartSelectingCommand.Execute(null);
+        vm.SelectAllCommand.Execute(null);
+        await vm.AcknowledgeSelectedCommand.ExecuteAsync(null);
+
+        // Two active alerts ticked, but one refusal answers for both.
+        await _client.Alerts.ReceivedWithAnyArgs(1).AcknowledgeAsync(default, default, default, default);
+        Assert.Equal(LibreNmsApiException.PermissionDeniedMessage, vm.Selection.ResultText);
+        Assert.False(vm.CanAcknowledge);
+        Assert.Equal("Your API token isn't allowed to acknowledge alerts in LibreNMS.", vm.AcknowledgeRefusedText);
+        Assert.All(vm.Alerts, a => Assert.False(a.ShowAcknowledge || a.ShowUnacknowledge));
+    }
+
+    [Fact]
     public async Task Nothing_to_acknowledge_says_so()
     {
         var vm = await Loaded();
@@ -286,12 +340,38 @@ public sealed class BulkMaintenanceTests
     private readonly RecordingNavigation _navigation = new();
 
     [Fact]
+    public async Task A_refusal_takes_Schedule_away_and_says_why()
+    {
+        var permissions = new ApiPermissions();
+        _client.Permissions.Returns(permissions);
+        _client.Devices.ScheduleMaintenanceAsync(Arg.Any<int>(), Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>())
+            .Returns<string>(call =>
+            {
+                var refused = new LibreNmsApiException(LibreNmsApiException.PermissionDeniedMessage, System.Net.HttpStatusCode.Forbidden);
+                permissions.Learn(HttpMethod.Post, $"devices/{call.ArgAt<int>(0)}/maintenance", refused);
+                throw refused;
+            });
+        var vm = new MaintenanceViewModel(_client, _dialogs, _navigation, TimeProvider.System);
+        vm.Initialize([(1, "core-sw"), (2, "access-sw")]);
+        Assert.True(vm.MaySchedule);
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        // #144: the first refusal stops the run, and Schedule goes with the reason.
+        await _client.Devices.ReceivedWithAnyArgs(1).ScheduleMaintenanceAsync(default, default!, default);
+        Assert.Equal(LibreNmsApiException.PermissionDeniedMessage, vm.ErrorMessage);
+        Assert.False(vm.MaySchedule);
+        Assert.Equal("Your API token isn't allowed to edit devices in LibreNMS.", vm.RefusedText);
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
     public async Task One_window_goes_to_every_device_with_one_summary()
     {
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 10, 1, 9, 0, 0, TimeSpan.Zero));
         time.SetLocalTimeZone(TimeZoneInfo.Utc);
         _client.Devices.ScheduleMaintenanceAsync(2, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>())
-            .Returns<string>(_ => throw new LibreNmsApiException("Forbidden", System.Net.HttpStatusCode.Forbidden));
+            .Returns<string>(_ => throw new LibreNmsApiException("Server Error", System.Net.HttpStatusCode.InternalServerError));
         var vm = new MaintenanceViewModel(_client, _dialogs, _navigation, time);
         vm.Initialize([(1, "core-sw"), (2, "access-sw"), (3, "edge-rtr")]);
 
@@ -301,7 +381,7 @@ public sealed class BulkMaintenanceTests
 
         await _client.Devices.Received(1).ScheduleMaintenanceAsync(1, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>());
         await _client.Devices.Received(1).ScheduleMaintenanceAsync(3, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>());
-        await _dialogs.Received(1).AlertAsync("Maintenance scheduled", "Scheduled maintenance for 2 of 3 devices. 1 failed: access-sw (HTTP 403).");
+        await _dialogs.Received(1).AlertAsync("Maintenance scheduled", "Scheduled maintenance for 2 of 3 devices. 1 failed: access-sw (HTTP 500).");
         Assert.Equal(Routes.Back, _navigation.Visits.Single().Route);
     }
 }

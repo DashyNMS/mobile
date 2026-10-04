@@ -263,7 +263,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
             .ThenByDescending(a => a.Timestamp)
             .Select(a => AlertItem.For(a, _settings.Current, devicesTask.Result))
             .ToList();
-        MarkSelected(_all);
+        ShowPermissions();
         ApplyFilter();
 
         // Straight away, rather than at the next check - after acknowledging, say.
@@ -310,6 +310,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
             UpdateInPlace(item, AcknowledgedState, string.IsNullOrWhiteSpace(note) ? null : note.Trim());
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]
@@ -326,6 +328,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
             UpdateInPlace(item, ActiveState, note: null);
         }
+
+        ShowPermissions();
     }
 
     /// <summary>
@@ -340,11 +344,32 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     private void MarkSelected(IEnumerable<AlertItem> items)
     {
+        var canChange = CanAcknowledge;
         foreach (var item in items)
         {
             item.IsSelected = item.Id == _selectedId;
             item.IsTicked = Selection.Contains(item.Id);
+            item.CanChange = canChange;
         }
+    }
+
+    /// <summary>
+    /// The API token may acknowledge and unacknowledge - until LibreNMS
+    /// refuses it once (#144), which Core remembers for the session. Then the
+    /// swipe actions and the bulk buttons go, and <see cref="AcknowledgeRefusedText"/>
+    /// says why, rather than letting each try fail in turn.
+    /// </summary>
+    public bool CanAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true;
+
+    /// <summary>Why acknowledging is off, in desktop's words; null while it's on.</summary>
+    public string? AcknowledgeRefusedText => CanAcknowledge ? null : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
+
+    /// <summary>Catches up with what LibreNMS has refused - after loading, and after every acknowledge or unacknowledge.</summary>
+    private void ShowPermissions()
+    {
+        OnPropertyChanged(nameof(CanAcknowledge));
+        OnPropertyChanged(nameof(AcknowledgeRefusedText));
+        MarkSelected(_all);
     }
 
     /// <summary>
@@ -483,6 +508,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
             UpdateInPlace(item, AcknowledgedState, text.Length == 0 ? null : text);
         }
+
+        ShowPermissions();
     }
 
     /// <summary>Puts every ticked acknowledged alert back to active - asking first when it's more than a few (#146).</summary>
@@ -512,6 +539,8 @@ public sealed partial class AlertsViewModel : ViewModelBase
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
             UpdateInPlace(item, ActiveState, note: null);
         }
+
+        ShowPermissions();
     }
 
     /// <summary>The ticked alerts still listed, in the list's order.</summary>

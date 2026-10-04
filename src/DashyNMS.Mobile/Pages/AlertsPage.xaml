@@ -97,6 +97,9 @@
             <!-- How the last bulk action went: "Acknowledged 12 of 14 alerts. 2 failed: …" -->
             <Label Style="{StaticResource Caption}" Text="{Binding Selection.ResultText}" IsVisible="{Binding Selection.HasResult}"
                    Margin="4,0,4,6" />
+            <!-- The token isn't allowed to acknowledge (#144): the swipe actions are gone, so say why. -->
+            <Label Style="{StaticResource Caption}" Text="{Binding AcknowledgeRefusedText}"
+                   IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" Margin="4,0,4,6" />
         </VerticalStackLayout>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
@@ -117,7 +120,7 @@
                                      a tick to acknowledge, an undo arrow to unacknowledge, named for VoiceOver. -->
                                 <SwipeView.RightItems>
                                     <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
-                                        <SwipeItemView IsVisible="{Binding IsNotAcknowledged}"
+                                        <SwipeItemView IsVisible="{Binding ShowAcknowledge}"
                                                        Command="{Binding AcknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
                                                        CommandParameter="{Binding .}"
                                                        SemanticProperties.Description="Acknowledge">
@@ -126,7 +129,7 @@
                                                        HorizontalOptions="Center" VerticalOptions="Center" />
                                             </Grid>
                                         </SwipeItemView>
-                                        <SwipeItemView IsVisible="{Binding IsAcknowledged}"
+                                        <SwipeItemView IsVisible="{Binding ShowUnacknowledge}"
                                                        Command="{Binding UnacknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
                                                        CommandParameter="{Binding .}"
                                                        SemanticProperties.Description="Unacknowledge">
@@ -187,9 +190,13 @@
                           SelectAllText="{Binding SelectAllText}" SelectAllCommand="{Binding SelectAllCommand}"
                           DoneCommand="{Binding StopSelectingCommand}" IsVisible="{Binding Selection.IsSelecting}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                <Button Text="Acknowledge" Command="{Binding AcknowledgeSelectedCommand}" IsEnabled="{Binding Selection.CanAct}" />
+                <Button Text="Acknowledge" Command="{Binding AcknowledgeSelectedCommand}" IsEnabled="{Binding Selection.CanAct}"
+                        IsVisible="{Binding CanAcknowledge}" />
                 <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Text="Unacknowledge"
-                        Command="{Binding UnacknowledgeSelectedCommand}" IsEnabled="{Binding Selection.CanAct}" />
+                        Command="{Binding UnacknowledgeSelectedCommand}" IsEnabled="{Binding Selection.CanAct}"
+                        IsVisible="{Binding CanAcknowledge}" />
+                <Label Grid.ColumnSpan="2" Style="{StaticResource Caption}" Text="{Binding AcknowledgeRefusedText}"
+                       IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" VerticalOptions="Center" />
             </Grid>
         </controls:BulkBar>
 

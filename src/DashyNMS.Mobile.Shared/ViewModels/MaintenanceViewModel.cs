@@ -129,8 +129,30 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         DurationMinutes = preset.Minutes;
     }
 
+    /// <summary>
+    /// The token may schedule maintenance - until LibreNMS refuses it once
+    /// (#144). Then Schedule goes and <see cref="RefusedText"/> says why.
+    /// </summary>
+    public bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+
+    /// <summary>Why Schedule is off, in desktop's words; null while it's allowed.</summary>
+    public string? RefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+
     [RelayCommand]
     private async Task SaveAsync()
+    {
+        try
+        {
+            await ScheduleAsync();
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(MaySchedule));
+            OnPropertyChanged(nameof(RefusedText));
+        }
+    }
+
+    private async Task ScheduleAsync()
     {
         ErrorMessage = null;
 
