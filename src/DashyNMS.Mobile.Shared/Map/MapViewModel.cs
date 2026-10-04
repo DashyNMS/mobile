@@ -25,7 +25,7 @@ public interface IMapAssets
 /// with no location, or a location without real coordinates, are counted
 /// rather than dropped silently.
 /// </remarks>
-public sealed partial class MapViewModel : ViewModelBase
+public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;

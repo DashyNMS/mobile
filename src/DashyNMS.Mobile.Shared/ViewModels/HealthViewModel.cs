@@ -35,7 +35,7 @@ public sealed partial class HealthCategoryOption : ObservableObject
 /// Sensors with no severity (no data) always show, as unknown-severity alerts
 /// do on the Alerts tab.
 /// </remarks>
-public sealed partial class HealthViewModel : ViewModelBase
+public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;

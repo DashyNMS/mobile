@@ -21,7 +21,7 @@ namespace DashyNMS.Mobile.Logs;
 /// list, best effort - a token that can't read rules gets "Rule 12".
 /// Search covers what's loaded.
 /// </remarks>
-public sealed partial class LogsViewModel : ViewModelBase
+public sealed partial class LogsViewModel : ViewModelBase, IRefreshable
 {
     internal const int PageSize = 100;
 

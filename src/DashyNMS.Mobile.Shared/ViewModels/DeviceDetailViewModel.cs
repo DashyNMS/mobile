@@ -15,7 +15,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// alerts, the way into each section (sensors, ports, graphs...), and the
 /// actions - pin, rediscover, schedule maintenance, SSH and Telnet.
 /// </summary>
-public sealed partial class DeviceDetailViewModel : ViewModelBase
+public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;

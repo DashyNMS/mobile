@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DeviceBookmarks>();
         services.AddSingleton<MaintenanceScan>();
 
+        // A certificate met while signed in - the backup address's, say (#141).
+        services.AddSingleton<CertificatePrompt>();
+
         // Alert notifications. The app head supplies IAlertNotifier and
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
         // platform can set a number on the icon (registered later, it wins).

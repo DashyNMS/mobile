@@ -25,7 +25,7 @@ namespace DashyNMS.Mobile.Graylog;
 /// Pages are appended on "Load more" rather than numbered, as the other
 /// mobile lists do. Desktop's auto-update isn't here - pull to refresh.
 /// </remarks>
-public sealed partial class GraylogViewModel : ViewModelBase
+public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable
 {
     internal const int PageSize = 50;
 

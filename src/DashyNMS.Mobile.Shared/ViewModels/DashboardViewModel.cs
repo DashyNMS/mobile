@@ -131,7 +131,7 @@ public sealed partial class DashboardCard : ObservableObject
 /// only for a Wireless card - found the way desktop's widget finds them, by
 /// asking one device of each OS first rather than every device.
 /// </remarks>
-public sealed partial class DashboardViewModel : ViewModelBase
+public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>How many alerts the dashboard lists before "see all".</summary>
     public const int TopAlertCount = 5;

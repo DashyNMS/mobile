@@ -20,7 +20,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// location, with LibreNMS's location list adding coordinates and any that
 /// have no devices yet.
 /// </remarks>
-public sealed partial class GroupsLocationsViewModel : ViewModelBase
+public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;
