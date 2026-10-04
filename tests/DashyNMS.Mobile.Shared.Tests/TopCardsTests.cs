@@ -169,22 +169,36 @@ public sealed class TopCardsTests
     }
 
     [Fact]
-    public async Task Added_from_customise_a_top_card_shows_at_once_and_sets_up_in_its_own_page()
+    public async Task A_heading_ranks_by_it_and_again_by_both()
     {
-        var navigation = new RecordingNavigation();
+        DashboardLayout.Add(_appSettings, DashboardLayout.TopInterfaces);
+        var vm = new DashboardViewModel(_client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var card = vm.Cards.Single();
+
+        card.RankHeadingCommand.Execute("In");
+        Assert.True(card.RanksByIn);
+
+        card.RankHeadingCommand.Execute("In");
+        Assert.True(card.RanksByTotal);
+    }
+
+    [Fact]
+    public async Task The_top_chip_chooses_how_many_rows()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.TopInterfaces);
         var dialogs = Substitute.For<IDialogService>();
-        dialogs.ChooseAsync("Add a card", Arg.Any<IReadOnlyList<string>>()).Returns("Top errors");
-        var vm = new CustomiseDashboardViewModel(_settings, navigation, dialogs);
+        dialogs.ChooseAsync("Rows", Arg.Any<IReadOnlyList<string>>()).Returns("Top 10");
+        var vm = new DashboardViewModel(_client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System), dialogs: dialogs);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var card = vm.Cards.Single();
+        Assert.Equal("Top 3", card.TopCountText);
 
-        await vm.AddCardCommand.ExecuteAsync(null);
+        await card.ChooseTopCountCommand.ExecuteAsync(null);
 
-        var card = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopErrors);
-        Assert.True(card.IsShown && card.CanSetUp && card.CanRemove);
-        Assert.Empty(navigation.Visits);
-        Assert.Contains(DashboardLayout.Current(_appSettings), w => w.WidgetType == DashboardLayout.TopErrors);
-
-        await vm.SetUpCommand.ExecuteAsync(card);
-        Assert.Equal(Routes.TopCardSetUp, Assert.Single(navigation.Visits).Route);
+        Assert.Equal("Top 10", card.TopCountText);
+        Assert.Equal(10, _appSettings.DashboardWidgets.Single().TopCount);
+        _settings.Received().Save();
     }
 
     [Fact]

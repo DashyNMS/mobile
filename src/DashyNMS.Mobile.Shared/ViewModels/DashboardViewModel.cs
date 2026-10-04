@@ -34,6 +34,10 @@ public sealed partial class DashboardCard : ObservableObject
     [ObservableProperty]
     private string _title;
 
+    /// <summary>Just added from the card picker: outlined for a moment where it lands (#140).</summary>
+    [ObservableProperty]
+    private bool _isHighlighted;
+
     /// <summary>A Sensors card's sensors, coloured as on the Health tab.</summary>
     public BulkObservableCollection<SectionRow> Sensors { get; } = new();
 
@@ -108,6 +112,68 @@ public sealed partial class DashboardCard : ObservableObject
         Dashboard.TopOptionsChanged(this);
     }
 
+    // ------------------------------------------------- Needs attention's chips (#140)
+
+    /// <summary>Desktop's Alerts widget's title chips: which severities show, and acknowledged ones too.</summary>
+    public bool ShowsCritical => Widget.AlertsShowCritical;
+
+    public bool ShowsWarning => Widget.AlertsShowWarning;
+
+    public bool IncludesAcknowledged => Widget.AlertsIncludeAcknowledged;
+
+    [RelayCommand]
+    private void ToggleCritical() => ChangeAlerts(() => Widget.AlertsShowCritical = !Widget.AlertsShowCritical);
+
+    [RelayCommand]
+    private void ToggleWarning() => ChangeAlerts(() => Widget.AlertsShowWarning = !Widget.AlertsShowWarning);
+
+    [RelayCommand]
+    private void ToggleAcknowledged() => ChangeAlerts(() => Widget.AlertsIncludeAcknowledged = !Widget.AlertsIncludeAcknowledged);
+
+    private void ChangeAlerts(Action change)
+    {
+        change();
+        OnPropertyChanged(nameof(ShowsCritical));
+        OnPropertyChanged(nameof(ShowsWarning));
+        OnPropertyChanged(nameof(IncludesAcknowledged));
+        Dashboard.AlertFiltersChanged();
+    }
+
+    // ------------------------------------------------- Top cards' title and headings (#140)
+
+    /// <summary>"Top 5" - the title's chip, as desktop's "Top 5 ▾".</summary>
+    public string TopCountText => $"Top {TopCards.CountOf(Widget)}";
+
+    /// <summary>
+    /// A heading tapped, as desktop's: In or Out ranks by it; tapped again,
+    /// by the two together.
+    /// </summary>
+    [RelayCommand]
+    private void RankHeading(string? heading)
+    {
+        if (Enum.TryParse<RankBy>(heading, ignoreCase: true, out var by))
+        {
+            Rank((Widget.TopRankBy == by ? RankBy.Total : by).ToString());
+        }
+    }
+
+    [RelayCommand]
+    private Task ChooseTopCountAsync() => Dashboard.ChooseTopCountAsync(this);
+
+    // ------------------------------------------------- Graph card's range (#140)
+
+    /// <summary>"Day ▾" - the title's chip, as desktop's graph widget shows its range.</summary>
+    public string GraphRangeText => (GraphPickerViewModel.RangeChoices.FirstOrDefault(r => r.Preset == Widget.GraphTimeRangePreset)?.Label ?? "Day") + " ▾";
+
+    [RelayCommand]
+    private Task ChooseGraphRangeAsync() => Dashboard.ChooseGraphRangeAsync(this);
+
+    internal void RefreshOptions()
+    {
+        OnPropertyChanged(nameof(TopCountText));
+        OnPropertyChanged(nameof(GraphRangeText));
+    }
+
     internal void ShowTop(IReadOnlyList<TopRow> rows)
     {
         TopRows.ReplaceAll(rows);
@@ -147,6 +213,13 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private readonly DeviceBookmarks _bookmarks;
     private readonly MaintenanceScan _maintenance;
+    /// <summary>Set once the first run of the welcome card's version has checked for an old dashboard to keep (#140).</summary>
+    private const string PreviousDefaultsCheckedKey = "dashboard.previousDefaultsChecked";
+
+    private readonly DashboardToast _toast;
+    private readonly IDialogService? _dialogs;
+    private IReadOnlyList<Alert> _openAlerts = [];
+    private IReadOnlyDictionary<int, Device> _devicesById = new Dictionary<int, Device>();
     private readonly HashSet<string> _probedOses = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _wirelessOses = new(StringComparer.OrdinalIgnoreCase);
 
@@ -187,19 +260,111 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _wirelessSummary = string.Empty;
 
+    /// <summary>"1,016" - the Wireless card's headline, the fleet's clients first, as desktop's.</summary>
+    [ObservableProperty]
+    private string _wirelessClientsText = string.Empty;
+
+    /// <summary>"clients on 84 access points".</summary>
+    [ObservableProperty]
+    private string _wirelessClientsNote = string.Empty;
+
     public DashboardViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
         INavigationService navigation,
         DeviceBookmarks bookmarks,
-        MaintenanceScan? maintenance = null)
+        MaintenanceScan? maintenance = null,
+        DashboardToast? toast = null,
+        DashboardWelcome? welcome = null,
+        IAppPreferences? preferences = null,
+        IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _client = client;
         _settings = settings;
         _navigation = navigation;
         _bookmarks = bookmarks;
         _maintenance = maintenance ?? new MaintenanceScan(client, TimeProvider.System);
+        preferences ??= new InMemoryPreferences();
+        _toast = toast ?? new DashboardToast(settings);
+        Welcome = welcome ?? new DashboardWelcome(settings, navigation, preferences);
+
+        KeepPreviousDefaultsOnce(preferences);
+
+        _toast.LayoutRestored += (_, _) => _ = RefreshCommand.ExecuteAsync(null);
+        _toast.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(DashboardToast.HighlightId))
+            {
+                Highlight();
+            }
+        };
+
         ApplyLayout();
+    }
+
+    /// <summary>The empty dashboard's welcome card (#140).</summary>
+    public DashboardWelcome Welcome { get; }
+
+    /// <summary>"Wireless removed · Undo", "Top errors added" - shared with Edit dashboard and the card picker.</summary>
+    public DashboardToast Toast => _toast;
+
+    /// <summary>No cards, and the welcome card wasn't turned off: show it.</summary>
+    public bool ShowWelcome => Cards.Count == 0 && !_settings.Current.WelcomeDismissed;
+
+    /// <summary>No cards, and no welcome card either: just say how to add one.</summary>
+    public bool ShowEmpty => Cards.Count == 0 && _settings.Current.WelcomeDismissed;
+
+    /// <summary>
+    /// An install from before the welcome card that never changed its cards
+    /// keeps the dashboard it had - checked once (see <see cref="DashboardLayout.KeepPreviousDefaults"/>).
+    /// </summary>
+    private void KeepPreviousDefaultsOnce(IAppPreferences preferences)
+    {
+        if (preferences.Get(PreviousDefaultsCheckedKey) is not null)
+        {
+            return;
+        }
+
+        if (DashboardLayout.KeepPreviousDefaults(_settings.Current))
+        {
+            _settings.Save();
+        }
+
+        preferences.Set(PreviousDefaultsCheckedKey, "1");
+    }
+
+    /// <summary>"Use the starter dashboard": desktop's set, laid out as desktop lays it out (#140).</summary>
+    [RelayCommand]
+    private async Task UseStarterAsync()
+    {
+        var before = _toast.Before();
+        DashboardLayout.UseStarter(_settings.Current);
+        _settings.Save();
+        _toast.Show("Starter dashboard added", before);
+        await RefreshCommand.ExecuteAsync(null);
+    }
+
+    /// <summary>"Choose cards…" and the empty dashboard's Add card: the card picker.</summary>
+    [RelayCommand]
+    private Task ChooseCardsAsync() => _navigation.GoToAsync(Routes.AddCard);
+
+    /// <summary>"Don't show again" - desktop's own setting, so it stays off there too.</summary>
+    [RelayCommand]
+    private void DismissWelcome()
+    {
+        _settings.Current.WelcomeDismissed = true;
+        _settings.Save();
+        OnPropertyChanged(nameof(ShowWelcome));
+        OnPropertyChanged(nameof(ShowEmpty));
+    }
+
+    private void Highlight()
+    {
+        foreach (var card in Cards)
+        {
+            card.IsHighlighted = card.Widget.Id == _toast.HighlightId;
+        }
     }
 
     /// <summary>Awaited by tests: the maintenance count, filled in after the rest of the dashboard.</summary>
@@ -233,8 +398,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     /// <summary>Pinned devices with their live state, as desktop's Pinned devices widget.</summary>
     public BulkObservableCollection<DeviceItem> PinnedDevices { get; } = new();
 
-    /// <summary>As desktop's Recently viewed widget, newest first.</summary>
-    public BulkObservableCollection<RecentlyViewedDevice> RecentlyViewed { get; } = new();
+    /// <summary>As desktop's Recently viewed widget, newest first: each device's state, hardware and location, and when it was opened.</summary>
+    public BulkObservableCollection<RecentDeviceRow> RecentlyViewed { get; } = new();
 
     public bool HasPinnedDevices => PinnedDevices.Count > 0;
 
@@ -265,6 +430,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         {
             card.RefreshTitle();
         }
+
+        Highlight();
+        Welcome.RebuildSteps();
+        OnPropertyChanged(nameof(ShowWelcome));
+        OnPropertyChanged(nameof(ShowEmpty));
     }
 
     [RelayCommand]
@@ -282,6 +452,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         CountUp(devices, _maintenanceIds);
 
         var byId = devices.ToDictionary(d => d.DeviceId);
+        _devicesById = byId;
 
         var alerts = alertsTask.Result;
         var active = alerts.Where(a => !a.IsAcknowledged).ToList();
@@ -290,6 +461,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         AcknowledgedAlerts = alerts.Count - active.Count;
 
         OkAlerts = active.Count(a => a.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning));
+        Welcome.ShowCounts(devices.Count, active.Count);
 
         // Last, and without holding up the rest: one request per device.
         if (Shows(DashboardLayout.DeviceStatus))
@@ -297,11 +469,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             MaintenanceCounted = CountMaintenanceAsync(devices);
         }
 
-        TopAlerts.ReplaceAll(active
-            .OrderByDescending(a => a.Severity.SortRank())
-            .ThenByDescending(a => a.Timestamp)
-            .Take(TopAlertCount)
-            .Select(alert => AlertItem.For(alert, _settings.Current, byId)));
+        _openAlerts = alerts;
+        ShowTopAlerts();
 
         // Pinned in the order they were pinned, as desktop; a pin whose device
         // has since gone from LibreNMS just doesn't show.
@@ -310,7 +479,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             .Where(pin => byId.ContainsKey(pin.DeviceId))
             .Select(pin => new DeviceItem(byId[pin.DeviceId], style) { IsPinned = true }));
 
-        RecentlyViewed.ReplaceAll(_bookmarks.RecentlyViewed);
+        var now = DateTimeOffset.Now;
+        RecentlyViewed.ReplaceAll(_bookmarks.RecentlyViewed
+            .Select(r => new RecentDeviceRow(r, byId.TryGetValue(r.DeviceId, out var device) ? new DeviceItem(device, style) : null, now))
+            .ToList());
 
         // The extras, only for the cards that show them; one failing doesn't stop the rest.
         await Task.WhenAll(
@@ -333,7 +505,68 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private Task OpenPinnedAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
 
     [RelayCommand]
-    private Task OpenRecentAsync(RecentlyViewedDevice? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
+    private Task OpenRecentAsync(RecentDeviceRow? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
+
+    /// <summary>
+    /// The alerts that most need looking at, through the Needs attention
+    /// card's chips - desktop's Alerts widget's: critical, warning, and
+    /// whether acknowledged ones count.
+    /// </summary>
+    private void ShowTopAlerts()
+    {
+        var widget = CardsOf(DashboardLayout.Alerts).FirstOrDefault()?.Widget ?? new DashboardWidget();
+        TopAlerts.ReplaceAll(_openAlerts
+            .Where(a => widget.AlertsIncludeAcknowledged || !a.IsAcknowledged)
+            .Where(a => (widget.AlertsShowCritical && a.Severity == AlertSeverity.Critical)
+                        || (widget.AlertsShowWarning && a.Severity == AlertSeverity.Warning))
+            .OrderByDescending(a => a.Severity.SortRank())
+            .ThenByDescending(a => a.Timestamp)
+            .Take(TopAlertCount)
+            .Select(alert => AlertItem.For(alert, _settings.Current, _devicesById))
+            .ToList());
+        OnPropertyChanged(nameof(HasNoAlerts));
+    }
+
+    /// <summary>A Needs attention chip changed: saved, and the list narrowed without asking LibreNMS again.</summary>
+    internal void AlertFiltersChanged()
+    {
+        _settings.Save();
+        ShowTopAlerts();
+    }
+
+    /// <summary>A Top card's "Top 5" chip: how many rows, from desktop's choices.</summary>
+    internal async Task ChooseTopCountAsync(DashboardCard card)
+    {
+        var labels = TopCards.CountChoices.Select(c => $"Top {c}").ToList();
+        int? chosen = _dialogs is null
+            ? TopCards.CountChoices[(TopCards.CountChoices.ToList().IndexOf(TopCards.CountOf(card.Widget)) + 1) % TopCards.CountChoices.Count]
+            : await _dialogs.ChooseAsync("Rows", labels) is { } label && labels.IndexOf(label) is var index and >= 0 ? TopCards.CountChoices[index] : null;
+
+        if (chosen is { } count && count != card.Widget.TopCount)
+        {
+            card.Widget.TopCount = count;
+            card.RefreshOptions();
+            TopOptionsChanged(card);
+        }
+    }
+
+    /// <summary>A Graph card's range chip: saved, and that graph drawn again.</summary>
+    internal async Task ChooseGraphRangeAsync(DashboardCard card)
+    {
+        if (_dialogs is null || card.Widget.GraphDeviceId is null)
+        {
+            return;
+        }
+
+        var labels = GraphPickerViewModel.RangeChoices.Select(r => r.Label).ToList();
+        if (await _dialogs.ChooseAsync("Time range", labels) is { } label && labels.IndexOf(label) is var index and >= 0)
+        {
+            card.Widget.GraphTimeRangePreset = GraphPickerViewModel.RangeChoices[index].Preset;
+            _settings.Save();
+            card.RefreshOptions();
+            await LoadGraphAsync(card, _devicesById, _settings.Current.DeviceNameStyle);
+        }
+    }
 
     /// <summary>A sensor or wireless controller opens its device.</summary>
     [RelayCommand]
@@ -528,7 +761,13 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             .Where(d => readings.ContainsKey(d.DeviceId))
             .Sum(d => WirelessFleet.Summarise(d.DeviceId, readings[d.DeviceId]).Clients ?? 0);
         WirelessSummary = rows.Count == 0 ? string.Empty
-            : $"{rows.Count} {(rows.Count == 1 ? "controller" : "controllers")} · {totalClients:N0} clients";
+            : $"{rows.Count} {(rows.Count == 1 ? "controller" : "controllers")}";
+        var totalAps = rows.Count == 0 ? 0 : controllers
+            .Where(d => readings.ContainsKey(d.DeviceId))
+            .Sum(d => WirelessFleet.Summarise(d.DeviceId, readings[d.DeviceId]).ApCount ?? 0);
+        WirelessClientsText = rows.Count == 0 ? string.Empty : totalClients.ToString("N0", System.Globalization.CultureInfo.CurrentCulture);
+        WirelessClientsNote = rows.Count == 0 ? string.Empty
+            : totalAps > 0 ? $"clients on {totalAps:N0} access points" : "clients";
     }
 
     /// <summary>Each device's wireless readings, a few at a time; one that fails is left out.</summary>

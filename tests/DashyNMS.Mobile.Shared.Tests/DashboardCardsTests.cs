@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Services;
@@ -11,11 +12,9 @@ namespace DashyNMS.Mobile.Tests;
 public sealed class DashboardLayoutTests
 {
     [Fact]
-    public void An_empty_list_is_the_dashboard_as_it_always_was()
+    public void An_empty_list_is_an_empty_dashboard()
     {
-        Assert.Equal(
-            [DashboardLayout.AlertsGauge, DashboardLayout.DeviceStatus, DashboardLayout.Alerts, DashboardLayout.PinnedDevices, DashboardLayout.RecentlyViewed],
-            DashboardLayout.Current(new AppSettings()).Select(w => w.WidgetType));
+        Assert.Empty(DashboardLayout.Current(new AppSettings()));
     }
 
     [Fact]
@@ -40,9 +39,9 @@ public sealed class DashboardLayoutTests
     public void Saving_an_order_keeps_each_cards_own_set_up()
     {
         var settings = new AppSettings();
+        var alerts = DashboardLayout.Add(settings, DashboardLayout.Alerts);
         var graph = DashboardLayout.Add(settings, DashboardLayout.Graph);
         graph.GraphDeviceId = 7;
-        var alerts = DashboardLayout.Current(settings).Single(w => w.WidgetType == DashboardLayout.Alerts);
 
         DashboardLayout.Save(settings, [graph, alerts]);
 
@@ -59,7 +58,7 @@ public sealed class DashboardLayoutTests
         var graph = new DashboardWidget { WidgetType = "Graph" };
         var settings = new AppSettings { DashboardWidgets = [alerts, unknown, graph, secondAlerts] };
 
-        DashboardLayout.Save(settings, [graph]); // Alerts hidden on the phone
+        DashboardLayout.Save(settings, [graph]); // Alerts removed on the phone
 
         Assert.Equal([graph, unknown, secondAlerts], settings.DashboardWidgets);
     }
@@ -75,8 +74,58 @@ public sealed class DashboardLayoutTests
 
         Assert.NotEqual(first.Id, second.Id);
         Assert.Same(wireless, DashboardLayout.Add(settings, DashboardLayout.Wireless));
-        Assert.Equal(2, DashboardLayout.Current(settings).Count(w => w.WidgetType == DashboardLayout.Graph));
+        Assert.Equal(2, DashboardLayout.CountOf(settings, DashboardLayout.Graph));
         Assert.Same(second, DashboardLayout.Find(settings, second.Id));
+    }
+
+    [Fact]
+    public void The_starter_is_desktops_with_its_places_on_desktops_grid_and_the_phones_names()
+    {
+        var unknown = new DashboardWidget { WidgetType = "EventLog" };
+        var settings = new AppSettings { DashboardWidgets = [unknown] };
+
+        DashboardLayout.UseStarter(settings);
+
+        var starter = StarterDashboard.Create();
+        Assert.Equal(starter.Select(w => w.WidgetType), DashboardLayout.Current(settings).Select(w => w.WidgetType));
+        Assert.Equal(starter.Select(w => (w.Column, w.Row, w.ColumnSpan, w.RowSpan)),
+            DashboardLayout.Current(settings).Select(w => (w.Column, w.Row, w.ColumnSpan, w.RowSpan)));
+        Assert.Contains(unknown, settings.DashboardWidgets); // desktop's log widget kept
+
+        // Desktop's titles ("Alerts gauge") aren't titles of its own: the phone's names show.
+        Assert.Equal(["Alerts", "Devices", "Needs attention", "Top interfaces", "Recently viewed"],
+            DashboardLayout.Current(settings).Select(DashboardLayout.TitleOf));
+        Assert.Equal("Alerts, Devices, Needs attention, Top interfaces and Recently viewed", DashboardLayout.StarterContents);
+    }
+
+    [Fact]
+    public void A_new_card_is_named_as_desktop_names_it()
+    {
+        Assert.Equal("Alerts gauge", DashboardLayout.New(DashboardLayout.AlertsGauge).Title);
+        Assert.Equal("Wireless", DashboardLayout.New(DashboardLayout.Wireless).Title);
+        Assert.False(DashboardLayout.HasOwnTitle(DashboardLayout.New(DashboardLayout.AlertsGauge)));
+    }
+
+    [Fact]
+    public void An_install_in_use_keeps_the_dashboard_it_had_a_new_one_starts_empty()
+    {
+        var fresh = new AppSettings();
+        Assert.False(DashboardLayout.KeepPreviousDefaults(fresh));
+        Assert.Empty(fresh.DashboardWidgets);
+
+        var used = new AppSettings { RecentlyViewedDevices = [new RecentlyViewedDevice { DeviceId = 1 }] };
+        Assert.True(DashboardLayout.KeepPreviousDefaults(used));
+        Assert.Equal(DashboardLayout.PreviousDefaultTypes, DashboardLayout.Current(used).Select(w => w.WidgetType));
+
+        // Cards already chosen are never touched.
+        Assert.False(DashboardLayout.KeepPreviousDefaults(used));
+    }
+
+    [Fact]
+    public void Card_kinds_are_filed_in_desktops_categories_without_logs()
+    {
+        Assert.All(DashboardLayout.Kinds, k => Assert.Contains(k.Category, DashboardLayout.Categories));
+        Assert.DoesNotContain(DashboardLayout.Kinds, k => k.Type is DashboardWidgetTypes.EventLog or DashboardWidgetTypes.Graylog);
     }
 }
 
@@ -84,113 +133,96 @@ public sealed class CustomiseDashboardViewModelTests
 {
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
+    private readonly DashboardToast _toast;
 
-    public CustomiseDashboardViewModelTests() => _settings = Fakes.Settings(_appSettings);
+    public CustomiseDashboardViewModelTests()
+    {
+        _settings = Fakes.Settings(_appSettings);
+        _toast = new DashboardToast(_settings) { ShowFor = TimeSpan.Zero, HighlightFor = TimeSpan.Zero };
+    }
 
     private static string[] Shown(AppSettings settings) => DashboardLayout.Current(settings).Select(w => w.WidgetType).ToArray();
 
-    [Fact]
-    public void Lists_the_showing_cards_first_then_the_rest()
+    private CustomiseDashboardViewModel NewViewModel(RecordingNavigation? navigation = null)
     {
-        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
-
-        // Sensors and Graph cards come from the Add buttons, so aren't listed until added.
-        Assert.Equal(DashboardLayout.Kinds.Count(k => !k.AllowsSeveral), vm.Cards.Count);
-        Assert.Equal(DashboardLayout.DefaultTypes, vm.Cards.Take(5).Select(c => c.Kind.Type));
-        Assert.All(vm.Cards.Skip(5), c => Assert.False(c.IsShown));
-        Assert.All(vm.Cards, c => Assert.True(c.CanSwitch));
+        var vm = new CustomiseDashboardViewModel(_settings, navigation ?? new RecordingNavigation(), _toast);
+        vm.Attach();
+        return vm;
     }
 
     [Fact]
-    public void Showing_hiding_and_moving_save_straight_away()
+    public void Lists_the_cards_on_the_dashboard_only()
     {
-        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
+        DashboardLayout.UseStarter(_appSettings);
 
-        vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Wireless).IsShown = true;
-        vm.Cards.Single(c => c.Kind.Type == DashboardLayout.RecentlyViewed).IsShown = false;
-        vm.MoveUpCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Alerts));
+        var vm = NewViewModel();
 
-        Assert.Equal(
-            [DashboardLayout.AlertsGauge, DashboardLayout.Alerts, DashboardLayout.DeviceStatus, DashboardLayout.PinnedDevices, DashboardLayout.Wireless],
-            Shown(_appSettings));
-        _settings.Received(3).Save();
+        Assert.Equal(Shown(_appSettings), vm.Cards.Select(c => c.Kind.Type));
+        Assert.Equal("Alerts", vm.Cards[0].Title);
+        Assert.Equal("Top 3, ranked by in and out", vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopInterfaces).Subtitle);
     }
 
     [Fact]
-    public void Reset_brings_back_the_standard_dashboard()
+    public void Any_card_is_removed_at_once_and_Undo_puts_it_back()
     {
-        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
-        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
-        vm.MoveDownCommand.Execute(vm.Cards[0]);
+        DashboardLayout.UseStarter(_appSettings);
+        var vm = NewViewModel();
+        var devices = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.DeviceStatus);
 
-        vm.ResetToDefaultsCommand.Execute(null);
+        vm.RemoveCommand.Execute(devices);
 
-        Assert.Equal(DashboardLayout.DefaultTypes, Shown(_appSettings));
-        Assert.DoesNotContain(vm.Cards, c => c.Kind.Type == DashboardLayout.Graph);
+        Assert.DoesNotContain(DashboardLayout.DeviceStatus, Shown(_appSettings));
+        Assert.Equal("Devices removed", _toast.Message);
+        _settings.Received().Save();
+
+        _toast.UndoCommand.Execute(null);
+
+        Assert.Equal(DashboardLayout.DeviceStatus, Shown(_appSettings)[1]);
+        Assert.Contains(vm.Cards, c => c.Kind.Type == DashboardLayout.DeviceStatus); // the page read them again
+        Assert.False(_toast.IsShowing);
     }
 
     [Fact]
-    public async Task Reset_asks_first_and_says_what_goes()
+    public void Removing_every_card_leaves_an_empty_dashboard()
     {
-        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
-        DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
-        var dialogs = Substitute.For<IDialogService>();
-        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation(), dialogs);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Wireless);
+        var vm = NewViewModel();
 
-        await vm.ResetToDefaultsCommand.ExecuteAsync(null); // declined
-        Assert.Contains(vm.Cards, c => c.Kind.Type == DashboardLayout.Graph);
-        _settings.DidNotReceive().Save();
+        vm.RemoveCommand.Execute(vm.Cards[0]);
 
-        dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
-        await vm.ResetToDefaultsCommand.ExecuteAsync(null);
-
-        await dialogs.Received().ConfirmDestructiveAsync(
-            "Standard dashboard",
-            "Go back to the standard dashboard? Your 2 added cards and their set-up go, and the cards go back to how they came. This can't be undone.",
-            "Reset");
-        Assert.Equal(DashboardLayout.DefaultTypes, Shown(_appSettings));
+        Assert.True(vm.IsEmpty);
+        Assert.Empty(Shown(_appSettings));
     }
 
     [Fact]
-    public async Task An_added_card_is_set_up_or_removed_not_switched_off()
+    public void A_new_order_is_saved()
+    {
+        DashboardLayout.UseStarter(_appSettings);
+        var vm = NewViewModel();
+
+        vm.Cards.Move(4, 0);
+        vm.SaveOrderCommand.Execute(null);
+
+        Assert.Equal(DashboardLayout.RecentlyViewed, Shown(_appSettings)[0]);
+    }
+
+    [Fact]
+    public async Task Sensors_graph_and_top_cards_have_a_set_up_others_dont()
     {
         var sensors = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
         var navigation = new RecordingNavigation();
-        var dialogs = Substitute.For<IDialogService>();
-        dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
-        var vm = new CustomiseDashboardViewModel(_settings, navigation, dialogs);
-        var card = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors);
+        var vm = NewViewModel(navigation);
 
-        Assert.True(card.CanSetUp && card.CanRemove && !card.CanSwitch);
-        Assert.False(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Alerts).CanRemove);
+        Assert.True(vm.Cards[0].CanSetUp);
+        Assert.False(vm.Cards[1].CanSetUp);
 
-        await vm.SetUpCommand.ExecuteAsync(card);
+        await vm.SetUpCommand.ExecuteAsync(vm.Cards[0]);
+        await vm.SetUpCommand.ExecuteAsync(vm.Cards[1]);
+
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.PickSensors, visit.Route);
         Assert.Equal(sensors.Id, visit.Parameters![Routes.WidgetIdParameter]);
-
-        await vm.RemoveCommand.ExecuteAsync(card);
-        await dialogs.Received(1).ConfirmDestructiveAsync("Remove card", Arg.Is<string>(m => m.EndsWith(Confirmations.CannotBeUndone)), "Remove");
-        Assert.DoesNotContain(vm.Cards, c => c.Kind.Type == DashboardLayout.Sensors);
-        Assert.DoesNotContain(DashboardLayout.Sensors, Shown(_appSettings));
-    }
-
-    [Fact]
-    public async Task Adding_graph_cards_makes_one_each_time_and_opens_its_set_up()
-    {
-        var navigation = new RecordingNavigation();
-        var vm = new CustomiseDashboardViewModel(_settings, navigation);
-
-        await vm.AddGraphCommand.ExecuteAsync(null);
-        await vm.AddGraphCommand.ExecuteAsync(null);
-
-        var graphs = vm.Cards.Where(c => c.Kind.Type == DashboardLayout.Graph).ToList();
-        Assert.Equal(2, graphs.Count); // the placeholder made way
-        Assert.All(graphs, g => Assert.True(g.IsShown));
-        Assert.Equal(
-            [.. DashboardLayout.DefaultTypes, DashboardLayout.Graph, DashboardLayout.Graph],
-            Shown(_appSettings));
-        Assert.Equal(graphs.Select(g => (object)g.Widget.Id), navigation.Visits.Select(v => v.Parameters![Routes.WidgetIdParameter]));
     }
 
     [Fact]
@@ -199,9 +231,210 @@ public sealed class CustomiseDashboardViewModelTests
         var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         card.Title = "Core switch temps";
 
-        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation());
+        var vm = NewViewModel();
 
-        Assert.Equal("Core switch temps", vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Sensors).Title);
+        Assert.Equal("Core switch temps", vm.Cards.Single().Title);
+        Assert.Equal("Sensors · none chosen yet", vm.Cards.Single().Subtitle);
+    }
+
+    [Fact]
+    public async Task Add_card_opens_the_card_picker()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = NewViewModel(navigation);
+
+        await vm.AddCardCommand.ExecuteAsync(null);
+
+        Assert.Equal(Routes.AddCard, Assert.Single(navigation.Visits).Route);
+    }
+}
+
+public sealed class AddCardViewModelTests
+{
+    private readonly AppSettings _appSettings = new();
+    private readonly ISettingsStore _settings;
+    private readonly DashboardToast _toast;
+    private readonly RecordingNavigation _navigation = new();
+
+    public AddCardViewModelTests()
+    {
+        _settings = Fakes.Settings(_appSettings);
+        _toast = new DashboardToast(_settings) { ShowFor = TimeSpan.Zero, HighlightFor = TimeSpan.Zero };
+    }
+
+    private AddCardViewModel NewViewModel() =>
+        new(_settings, _navigation, _toast, new DeviceBookmarks(_settings, TimeProvider.System));
+
+    [Fact]
+    public void Every_card_filed_by_category_with_counts()
+    {
+        var vm = NewViewModel();
+
+        Assert.Equal(["All 11", "Alerts 2", "Devices 4", "Traffic 3", "Sensors and graphs 2"], vm.Categories.Select(c => c.Label));
+        Assert.Equal(11, vm.Cards.Count);
+        Assert.Same(vm.Cards[0], vm.Selected); // the first that can be added, as desktop's
+
+        vm.ChooseCategoryCommand.Execute(vm.Categories.Single(c => c.Name == "Traffic"));
+        Assert.Equal(["Top interfaces", "Top errors", "Top devices"], vm.Cards.Select(c => c.Name));
+        Assert.True(vm.Categories.Single(c => c.Name == "Traffic").IsSelected);
+
+        vm.SearchText = "gauge"; // desktop's name finds the phone's card
+        Assert.Empty(vm.Cards);
+        vm.ChooseCategoryCommand.Execute(vm.Categories[0]);
+        Assert.Equal(["Alerts"], vm.Cards.Select(c => c.Name));
+    }
+
+    [Fact]
+    public void A_card_on_the_dashboard_is_greyed_out_unless_there_can_be_several()
+    {
+        DashboardLayout.UseStarter(_appSettings);
+        var vm = NewViewModel();
+
+        var alerts = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.AlertsGauge);
+        Assert.False(alerts.IsAvailable);
+        Assert.Equal("On your dashboard", alerts.Subtitle);
+
+        vm.PickCommand.Execute(alerts);
+        Assert.NotSame(alerts, vm.Selected);
+
+        var top = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopInterfaces);
+        Assert.True(top.IsAvailable && top.HasSome);
+        Assert.Equal("1 on your dashboard · add another", top.Subtitle);
+    }
+
+    [Fact]
+    public void Pinned_devices_needs_pinning_on()
+    {
+        _appSettings.EnablePinnedDevices = false;
+
+        var pinned = NewViewModel().Cards.Single(c => c.Kind.Type == DashboardLayout.PinnedDevices);
+
+        Assert.Equal("Turn on pinned devices in Settings, Devices first", pinned.UnavailableReason);
+    }
+
+    [Fact]
+    public async Task Adding_puts_it_at_the_bottom_says_so_outlines_it_and_goes_back()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var vm = NewViewModel();
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopErrors));
+        Assert.Equal("Add Top errors", vm.AddText);
+
+        await vm.AddCommand.ExecuteAsync(null);
+
+        var added = DashboardLayout.Current(_appSettings)[^1];
+        Assert.Equal(DashboardLayout.TopErrors, added.WidgetType);
+        Assert.Equal("Top errors added at the bottom", _toast.Message);
+        Assert.Equal(added.Id, _toast.HighlightId);
+        Assert.Equal([Routes.Back], _navigation.Visits.Select(v => v.Route)); // a Top card shows at once
+
+        _toast.UndoCommand.Execute(null);
+        Assert.Equal([DashboardLayout.Alerts], DashboardLayout.Current(_appSettings).Select(w => w.WidgetType));
+    }
+
+    [Fact]
+    public async Task A_sensors_or_graph_card_goes_on_to_its_set_up()
+    {
+        var vm = NewViewModel();
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Graph));
+
+        await vm.AddCommand.ExecuteAsync(null);
+
+        Assert.Equal([Routes.Back, Routes.PickGraph], _navigation.Visits.Select(v => v.Route));
+        Assert.Equal(DashboardLayout.Current(_appSettings)[0].Id, _navigation.Visits[1].Parameters![Routes.WidgetIdParameter]);
+    }
+}
+
+public sealed class DashboardWelcomeTests
+{
+    private readonly AppSettings _appSettings = new() { ServerUrl = "https://nms.example.net/" };
+    private readonly ISettingsStore _settings;
+    private readonly RecordingNavigation _navigation = new();
+    private readonly InMemoryPreferences _preferences = new();
+
+    public DashboardWelcomeTests() => _settings = Fakes.Settings(_appSettings);
+
+    private DashboardViewModel NewDashboard(DashboardWelcome? welcome = null)
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr")], alerts: [Fakes.Alert(1, 1, "critical")]);
+        var toast = new DashboardToast(_settings) { ShowFor = TimeSpan.Zero, HighlightFor = TimeSpan.Zero };
+        return new DashboardViewModel(client, _settings, _navigation, new DeviceBookmarks(_settings, TimeProvider.System),
+            toast: toast, welcome: welcome, preferences: _preferences);
+    }
+
+    [Fact]
+    public async Task An_empty_dashboard_welcomes_with_the_server_and_its_counts()
+    {
+        var vm = NewDashboard();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Empty(vm.Cards);
+        Assert.True(vm.ShowWelcome);
+        Assert.False(vm.ShowEmpty);
+        Assert.Equal("Connected to nms.example.net · 2 devices · 1 active alert", vm.Welcome.ServerSummary);
+        Assert.Equal("Starter: Alerts, Devices, Needs attention, Top interfaces and Recently viewed", vm.Welcome.StarterText);
+    }
+
+    [Fact]
+    public async Task The_starter_dashboard_fills_it_with_Undo()
+    {
+        var vm = NewDashboard();
+
+        await vm.UseStarterCommand.ExecuteAsync(null);
+
+        Assert.Equal(StarterDashboard.Create().Select(w => w.WidgetType), vm.Cards.Select(c => c.Type));
+        Assert.False(vm.ShowWelcome);
+        Assert.Equal("Starter dashboard added", vm.Toast.Message);
+
+        vm.Toast.UndoCommand.Execute(null);
+        Assert.Empty(DashboardLayout.Current(_appSettings));
+    }
+
+    [Fact]
+    public async Task Choose_cards_opens_the_card_picker_and_dont_show_again_is_desktops_setting()
+    {
+        var vm = NewDashboard();
+
+        await vm.ChooseCardsCommand.ExecuteAsync(null);
+        vm.DismissWelcomeCommand.Execute(null);
+
+        Assert.Equal(Routes.AddCard, Assert.Single(_navigation.Visits).Route);
+        Assert.True(_appSettings.WelcomeDismissed);
+        Assert.False(vm.ShowWelcome);
+        Assert.True(vm.ShowEmpty);
+    }
+
+    [Fact]
+    public async Task The_checklist_ticks_itself_off()
+    {
+        var notifier = Substitute.For<IAlertNotifier>();
+        notifier.RequestPermissionAsync().Returns(true);
+        var widgets = Substitute.For<DashyNMS.Mobile.Widgets.IHomeWidgets>();
+        var welcome = new DashboardWelcome(_settings, _navigation, _preferences, notifier, widgets);
+        Assert.Equal("1 of 5", welcome.StepsText);
+
+        await welcome.Steps.Single(s => s.Text == "Allow notifications").Action!.ExecuteAsync(null);
+        _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1 });
+        _appSettings.Graylog = new GraylogSettings { Enabled = true, Server = "graylog.example.net" };
+        widgets.IsInUse.Returns(true);
+        welcome.RebuildSteps();
+
+        Assert.Equal("5 of 5", welcome.StepsText);
+        Assert.All(welcome.Steps, s => Assert.False(s.ShowAction));
+    }
+
+    [Fact]
+    public void An_install_in_use_keeps_its_dashboard_once()
+    {
+        _appSettings.RecentlyViewedDevices.Add(new RecentlyViewedDevice { DeviceId = 1 });
+
+        var vm = NewDashboard();
+        Assert.Equal(DashboardLayout.PreviousDefaultTypes, vm.Cards.Select(c => c.Type));
+
+        // Removed on purpose later: not put back.
+        _appSettings.DashboardWidgets.Clear();
+        Assert.Empty(NewDashboard().Cards);
     }
 }
 
@@ -223,17 +456,49 @@ public sealed class DashboardCardsTests
     private DashboardViewModel NewViewModel() => new(_client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
 
     [Fact]
-    public async Task The_standard_cards_dont_fetch_sensors_graphs_or_wireless()
+    public async Task The_starter_cards_dont_fetch_sensors_graphs_or_wireless()
     {
+        DashboardLayout.UseStarter(_appSettings);
         var vm = NewViewModel();
 
         await vm.RefreshCommand.ExecuteAsync(null);
 
-        Assert.Equal(DashboardLayout.DefaultTypes, vm.Cards.Select(c => c.Type));
         Assert.Same(vm, vm.Cards[0].Dashboard);
         await _client.Sensors.DidNotReceiveWithAnyArgs().ListAsync(default);
         await _client.Graphs.DidNotReceiveWithAnyArgs().GetSvgAsync(default, default!, default!, default, default, default);
         await _client.Devices.DidNotReceiveWithAnyArgs().GetWirelessSensorsAsync(default, default);
+    }
+
+    [Fact]
+    public async Task Needs_attentions_chips_narrow_it_as_desktops_alerts_widget()
+    {
+        var widget = DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var vm = NewViewModel();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var card = vm.Cards.Single();
+        Assert.Equal([1, 4, 2], vm.TopAlerts.Select(a => a.Id)); // critical first, acknowledged left out
+
+        card.ToggleCriticalCommand.Execute(null);
+        Assert.Equal([2], vm.TopAlerts.Select(a => a.Id));
+
+        card.ToggleAcknowledgedCommand.Execute(null);
+        Assert.Equal([2, 3], vm.TopAlerts.Select(a => a.Id).Order());
+        Assert.False(widget.AlertsShowCritical);
+        Assert.True(widget.AlertsIncludeAcknowledged);
+        _settings.Received().Save();
+    }
+
+    [Fact]
+    public async Task Recently_viewed_rows_show_each_devices_state_and_when()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.RecentlyViewed);
+        _appSettings.RecentlyViewedDevices.Add(new RecentlyViewedDevice { DeviceId = 3, DisplayName = "wlc-2", ViewedAt = DateTimeOffset.Now.AddMinutes(-5) });
+        var vm = NewViewModel();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        var row = Assert.Single(vm.RecentlyViewed);
+        Assert.Equal(("wlc-2", DeviceState.Down, "5m ago"), (row.Name, row.Status, row.ViewedText));
     }
 
     [Fact]
@@ -363,7 +628,8 @@ public sealed class DashboardCardsTests
         Assert.Equal(RowStatus.Critical, vm.WirelessControllers[0].Status);
         Assert.Equal("40 clients", vm.WirelessControllers[1].Value);
         Assert.Equal("12 access points", vm.WirelessControllers[1].Subtitle);
-        Assert.Equal("2 controllers · 45 clients", vm.WirelessSummary);
+        Assert.Equal("2 controllers", vm.WirelessSummary);
+        Assert.Equal(("45", "clients on 12 access points"), (vm.WirelessClientsText, vm.WirelessClientsNote));
 
         // Probing is done once: a second refresh only asks the controllers.
         _client.Devices.ClearReceivedCalls();

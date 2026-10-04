@@ -6,9 +6,9 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
-    xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:DashboardViewModel"
     Shell.NavBarIsVisible="False"
@@ -18,13 +18,23 @@
     <!-- Each widget is one card, its title inside, as in the design
          mock-ups: counts as tiles, lists as rows with a status dot. -->
     <ContentPage.Resources>
+        <!-- A card just added from the card picker is outlined for a moment where it lands (#140). -->
+        <Style x:Key="DashCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Style.Triggers>
+                <DataTrigger TargetType="Border" Binding="{Binding IsHighlighted, x:DataType=vm:DashboardCard}" Value="True">
+                    <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                    <Setter Property="StrokeThickness" Value="2" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- One template per card kind (DashboardLayout); each reads from the card's Dashboard. -->
         <pages:DashboardCardTemplateSelector x:Key="CardTemplates">
 
             <!-- Each count opens its tab filtered to it (#32, #34, #64). -->
             <pages:DashboardCardTemplateSelector.AlertsGauge>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="10">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Style="{StaticResource CardTitle}" Text="Alerts" />
@@ -80,7 +90,7 @@
 
             <pages:DashboardCardTemplateSelector.DeviceStatus>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="10">
                             <Label Style="{StaticResource CardTitle}" Text="Devices" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
@@ -132,13 +142,47 @@
 
             <pages:DashboardCardTemplateSelector.Alerts>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
+                            <!-- Desktop's Alerts widget's title chips (#140): critical, warning,
+                                 and whether acknowledged ones count. See all is at the foot. -->
                             <Grid ColumnDefinitions="*,Auto">
-                                <Label Style="{StaticResource CardTitle}" Text="Needs attention" />
-                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="See all"
-                                        Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="all"
-                                        HeightRequest="32" MinimumHeightRequest="32" />
+                                <Label Style="{StaticResource CardTitle}" Text="Needs attention" VerticalOptions="Center" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="4">
+                                    <Button Style="{StaticResource Chip}" Text="{Binding Dashboard.CriticalAlerts, StringFormat='● {0}'}"
+                                            HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" Command="{Binding ToggleCriticalCommand}"
+                                            SemanticProperties.Description="Show critical alerts">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding ShowsCritical}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button Style="{StaticResource Chip}" Text="{Binding Dashboard.WarningAlerts, StringFormat='● {0}'}"
+                                            HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" Command="{Binding ToggleWarningCommand}"
+                                            SemanticProperties.Description="Show warning alerts">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding ShowsWarning}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource WarningStroke}" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                    <Button Style="{StaticResource Chip}" Text="{Binding Dashboard.AcknowledgedAlerts, StringFormat='✓ {0}'}"
+                                            HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" Command="{Binding ToggleAcknowledgedCommand}"
+                                            SemanticProperties.Description="Include acknowledged alerts">
+                                        <Button.Triggers>
+                                            <DataTrigger TargetType="Button" Binding="{Binding IncludesAcknowledged}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                                <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                            </DataTrigger>
+                                        </Button.Triggers>
+                                    </Button>
+                                </HorizontalStackLayout>
                             </Grid>
                             <Label Style="{StaticResource Caption}" Text="Nothing needs attention." IsVisible="{Binding Dashboard.HasNoAlerts}" />
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
@@ -161,6 +205,9 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
+                            <Button Style="{StaticResource LinkButton}" Text="See all alerts" HorizontalOptions="Start"
+                                    Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="all"
+                                    HeightRequest="36" MinimumHeightRequest="36" />
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -168,7 +215,7 @@
 
             <pages:DashboardCardTemplateSelector.PinnedDevices>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="Pinned" />
                             <Label Style="{StaticResource Caption}" Text="Pin a device from Devices or its Device View to see it here."
@@ -199,20 +246,31 @@
 
             <pages:DashboardCardTemplateSelector.RecentlyViewed>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
-                        <VerticalStackLayout Spacing="10">
+                    <!-- As desktop's widget (#140): the state, name, hardware and location, and when it was opened. -->
+                    <Border Style="{StaticResource DashCard}">
+                        <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="Recently viewed" />
                             <Label Style="{StaticResource Caption}" Text="Devices you open show here."
                                    IsVisible="{Binding Dashboard.HasRecentlyViewed, Converter={StaticResource Invert}}" />
-                            <FlexLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}" Wrap="Wrap">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}">
                                 <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="cfg:RecentlyViewedDevice">
-                                        <Button Style="{StaticResource Chip}" Text="{Binding DisplayName}" Margin="0,0,8,8"
-                                                Command="{Binding OpenRecentCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
-                                                CommandParameter="{Binding .}" />
+                                    <DataTemplate x:DataType="vm:RecentDeviceRow">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenRecentCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                            <VerticalStackLayout Grid.Column="1">
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Details}" IsVisible="{Binding HasDetails}" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ViewedText}" VerticalOptions="Center" />
+                                        </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
-                            </FlexLayout>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
                 </DataTemplate>
@@ -220,7 +278,7 @@
 
             <pages:DashboardCardTemplateSelector.Sensors>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <!-- Chosen in Customise (Set up), or from this hint - not a button on the card. -->
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" Margin="0,0,0,4" />
@@ -240,8 +298,9 @@
                                             </Grid.GestureRecognizers>
                                             <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" />
-                                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
+                                                <!-- The device, then the sensor under it, as desktop's rows (#140). -->
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="BodySemibold"
                                                    TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
@@ -256,10 +315,15 @@
 
             <pages:DashboardCardTemplateSelector.Graph>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="8">
-                            <!-- Changed in Customise (Set up), or from this hint - not a button on the card. -->
-                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <!-- Its range in the title, as desktop's graph widget (#140); the graph itself in Edit dashboard's Set up. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Style="{StaticResource Chip}" Text="{Binding GraphRangeText}" Command="{Binding ChooseGraphRangeCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0"
+                                        IsVisible="{Binding GraphNeedsSetUp, Converter={StaticResource Invert}}" />
+                            </Grid>
                             <Label Style="{StaticResource Caption}" Text="Tap to choose a device and one of its graphs." IsVisible="{Binding GraphNeedsSetUp}">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding Dashboard.PickGraphCommand}" CommandParameter="{Binding .}" />
@@ -281,13 +345,18 @@
 
             <pages:DashboardCardTemplateSelector.Wireless>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Style="{StaticResource CardTitle}" Text="Wireless" />
                                 <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="{Binding Dashboard.WirelessSummary}" />
                             </Grid>
                             <Label Style="{StaticResource Caption}" Text="No wireless controllers found." IsVisible="{Binding Dashboard.HasNoWirelessControllers}" />
+                            <!-- The fleet's clients first, as desktop's widget (#140). -->
+                            <HorizontalStackLayout Spacing="8" IsVisible="{Binding Dashboard.HasNoWirelessControllers, Converter={StaticResource Invert}}">
+                                <Label Text="{Binding Dashboard.WirelessClientsText}" FontFamily="Display" FontSize="26" VerticalOptions="End" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding Dashboard.WirelessClientsNote}" VerticalOptions="End" Margin="0,0,0,4" />
+                            </HorizontalStackLayout>
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.WirelessControllers}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
@@ -314,44 +383,50 @@
 
             <!-- Top interfaces, Top errors and Top devices (#103), as desktop's widgets:
                  a row per port (or device) with its in and out, and a bar - how full
-                 the port is, or against the top row. The chips rank it, as desktop's
-                 In and Out headings; rows and title are in Customise (Set up). -->
+                 the port is, or against the top row. "Top 5" and the In and Out
+                 headings are desktop's controls (#140); the title is in Set up. -->
             <pages:DashboardCardTemplateSelector.Top>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource Card}">
+                    <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
-                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
-                            <HorizontalStackLayout Spacing="8" Margin="0,4,0,4">
-                                <Button Style="{StaticResource Chip}" Text="Total" Command="{Binding RankCommand}" CommandParameter="Total">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button Style="{StaticResource Chip}" Text="In" Command="{Binding RankCommand}" CommandParameter="In">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Style="{StaticResource Chip}" Text="{Binding TopCountText, StringFormat='{0} ▾'}"
+                                        Command="{Binding ChooseTopCountCommand}" HeightRequest="32" MinimumHeightRequest="32" Padding="10,0"
+                                        SemanticProperties.Description="How many to show" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="{Binding TopEmptyText}" IsVisible="{Binding HasNoTopRows}" />
+                            <!-- In and Out rank by themselves; tapped again, by both - desktop's headings (#140). -->
+                            <Grid ColumnDefinitions="*,80,80" ColumnSpacing="8" Margin="0,4,0,0" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
+                                <Label Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="IN" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="32" MinimumHeightRequest="32"
+                                        HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="In"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
+                                        SemanticProperties.Description="Rank by traffic in">
                                     <Button.Triggers>
                                         <DataTrigger TargetType="Button" Binding="{Binding RanksByIn}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                            <Setter Property="Text" Value="IN ▾" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                         </DataTrigger>
                                     </Button.Triggers>
                                 </Button>
-                                <Button Style="{StaticResource Chip}" Text="Out" Command="{Binding RankCommand}" CommandParameter="Out">
+                                <Button Grid.Column="2" Text="OUT" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="32" MinimumHeightRequest="32"
+                                        HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="Out"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
+                                        SemanticProperties.Description="Rank by traffic out">
                                     <Button.Triggers>
                                         <DataTrigger TargetType="Button" Binding="{Binding RanksByOut}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                            <Setter Property="Text" Value="OUT ▾" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                         </DataTrigger>
                                     </Button.Triggers>
                                 </Button>
-                            </HorizontalStackLayout>
-                            <Label Style="{StaticResource Caption}" Text="{Binding TopEmptyText}" IsVisible="{Binding HasNoTopRows}" />
-                            <Grid ColumnDefinitions="*,80,80" ColumnSpacing="8" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
-                                <Label Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" />
-                                <Label Grid.Column="1" Style="{StaticResource Faint}" Text="In" HorizontalTextAlignment="End" />
-                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="Out" HorizontalTextAlignment="End" />
                             </Grid>
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRows}">
                                 <BindableLayout.ItemTemplate>
@@ -415,14 +490,14 @@
             <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
             <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
-                    SemanticProperties.Description="Customise the dashboard" SemanticProperties.Hint="Choose and order the cards">
+                    SemanticProperties.Description="Edit dashboard" SemanticProperties.Hint="Order, remove and add cards">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding CustomiseCommand}" />
                 </Border.GestureRecognizers>
-                <!-- Sliders, from Lucide's "sliders-horizontal" (ISC licence); drawn, not an image, so it follows the theme. -->
-                <Path Data="M21 4H14 M10 4H3 M21 12H12 M8 12H3 M21 20H16 M12 20H3 M14 2V6 M8 10V14 M16 18V22"
+                <!-- A pencil, from Lucide's "pencil" (ISC licence); drawn, not an image, so it follows the theme. -->
+                <Path Data="M21.17 6.81 A1 1 0 0 0 17.19 2.83 L3.84 16.17 A2 2 0 0 0 3.34 17 L2.02 21.35 A0.5 0.5 0 0 0 2.64 21.97 L7 20.66 A2 2 0 0 0 7.83 20.16 Z M15 5 L19 9"
                       Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}"
-                      StrokeThickness="1.8" StrokeLineCap="Round"
+                      StrokeThickness="1.8" StrokeLineCap="Round" StrokeLineJoin="Round"
                       WidthRequest="24" HeightRequest="24" Aspect="None"
                       HorizontalOptions="Center" VerticalOptions="Center" />
             </Border>
@@ -434,14 +509,87 @@
             <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
                 <!-- No scroll bar: it sat beside the first cards, looking like one of
                      their own (#29). -->
-                <ScrollView VerticalScrollBarVisibility="Never">
+                <ScrollView x:Name="Scroller" VerticalScrollBarVisibility="Never">
                     <VerticalStackLayout Padding="16,8,16,16" Spacing="4">
 
                         <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
+                        <!-- An empty dashboard (#140): desktop's welcome card - the starter
+                             dashboard or the card picker, and a checklist that ticks itself off. -->
+                        <Border Style="{StaticResource Card}" Padding="18,20" Margin="0,4,0,0" IsVisible="{Binding ShowWelcome}">
+                            <VerticalStackLayout Spacing="14">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                                    <controls:HeartbeatLogo WidthRequest="52" HeightRequest="52" VerticalOptions="Center" IsBeating="{Binding IsBusy}" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                        <Label Text="Welcome to DashyNMS" FontFamily="Display" FontSize="21" SemanticProperties.HeadingLevel="Level1" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Welcome.ServerSummary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                                <Label Text="Your dashboard is empty. Start with a ready-made one, or pick the cards you want." FontSize="15" />
+                                <VerticalStackLayout Spacing="8">
+                                    <Button Text="Use the starter dashboard" Command="{Binding UseStarterCommand}" />
+                                    <Button Style="{StaticResource SecondaryButton}" Text="Choose cards…" Command="{Binding ChooseCardsCommand}" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding Welcome.StarterText}" />
+                                </VerticalStackLayout>
+                                <BoxView Style="{StaticResource Divider}" />
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Style="{StaticResource SectionHeader}" Text="Get set up" />
+                                    <Label Grid.Column="1" Style="{StaticResource Faint}" Text="{Binding Welcome.StepsText}" VerticalOptions="Center" />
+                                </Grid>
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Welcome.Steps}" Margin="0,-8,0,0">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="dash:WelcomeStep">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="0,6" MinimumHeightRequest="48">
+                                                <Border WidthRequest="20" HeightRequest="20" StrokeShape="RoundRectangle 10" StrokeThickness="1.5"
+                                                        VerticalOptions="Center" BackgroundColor="Transparent"
+                                                        Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}">
+                                                    <Border.Triggers>
+                                                        <DataTrigger TargetType="Border" Binding="{Binding IsDone}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{StaticResource OkColor}" />
+                                                            <Setter Property="Stroke" Value="{StaticResource OkColor}" />
+                                                        </DataTrigger>
+                                                    </Border.Triggers>
+                                                    <Label Text="✓" FontSize="12" FontFamily="BodySemibold" TextColor="White"
+                                                           HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding IsDone}" />
+                                                </Border>
+                                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+                                                    <Label Text="{Binding Text}" FontSize="14.5">
+                                                        <Label.Triggers>
+                                                            <DataTrigger TargetType="Label" Binding="{Binding IsDone}" Value="True">
+                                                                <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                                                            </DataTrigger>
+                                                        </Label.Triggers>
+                                                    </Label>
+                                                    <Label Style="{StaticResource Faint}" Text="{Binding Tip}" IsVisible="{Binding ShowTip}" />
+                                                </VerticalStackLayout>
+                                                <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="{Binding ActionText}"
+                                                        Command="{Binding Action}" IsVisible="{Binding ShowAction}" VerticalOptions="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Button Style="{StaticResource LinkButton}" Text="Don't show again" Command="{Binding DismissWelcomeCommand}"
+                                        HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Empty, with the welcome card turned off: just how to start. -->
+                        <Border Style="{StaticResource Card}" Padding="20,28" Margin="0,4,0,0" IsVisible="{Binding ShowEmpty}">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="No cards" FontFamily="BodySemibold" FontSize="16" HorizontalTextAlignment="Center" />
+                                <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center"
+                                       Text="Add the cards you want, or start with the starter dashboard." />
+                                <HorizontalStackLayout Spacing="8" HorizontalOptions="Center" Margin="0,8,0,0">
+                                    <Button Text="Add card" Command="{Binding ChooseCardsCommand}" />
+                                    <Button Style="{StaticResource SecondaryButton}" Text="Use the starter" Command="{Binding UseStarterCommand}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
                         <!-- One column on a phone; on an iPad or a Mac, as many as fit
                              side by side (#88), in the order they're customised. -->
-                        <controls:CardGrid BindableLayout.ItemsSource="{Binding Cards}"
+                        <controls:CardGrid x:Name="CardList" BindableLayout.ItemsSource="{Binding Cards}"
                                            BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
                                            MinColumnWidth="340" MaxColumns="3" Gap="12" />
 
@@ -453,6 +601,9 @@
                     </VerticalStackLayout>
                 </ScrollView>
             </RefreshView>
+
+            <!-- What just changed, with Undo (#140). -->
+            <views:DashboardToastView BindingContext="{Binding Toast}" ZIndex="2" />
 
             <!-- The cards fade out as they scroll up under the header. -->
             <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">

@@ -78,6 +78,11 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Rules.AlertTemplateViewModel>();
         services.AddTransient<ThresholdsViewModel>();
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
+
+        // One for the app, so a card added in the card picker is announced back on the page it returns to (#140).
+        services.AddSingleton<Dashboard.DashboardToast>();
+        services.AddTransient<Dashboard.DashboardWelcome>();
+        services.AddTransient<Dashboard.AddCardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
         services.AddTransient<Dashboard.TopCardSetUpViewModel>();

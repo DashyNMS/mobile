@@ -19,8 +19,19 @@ public partial class DashboardPage : ContentPage
 	{
 		base.OnAppearing();
 
-		// Also picks up Customise's changes, and the phone's theme for the graph.
+		// Also picks up Edit dashboard's changes, and the phone's theme for the graph.
 		_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
 		_viewModel.RefreshCommand.Execute(null);
+
+		// A card just added lands at the bottom: brought into view, outlined (#140).
+		Dispatcher.Dispatch(() => _ = ShowHighlightedAsync());
+	}
+
+	private async Task ShowHighlightedAsync()
+	{
+		if (CardList.Children.OfType<View>().FirstOrDefault(v => v.BindingContext is DashboardCard { IsHighlighted: true }) is { } card)
+		{
+			await Scroller.ScrollToAsync(card, ScrollToPosition.Center, animated: true);
+		}
 	}
 }

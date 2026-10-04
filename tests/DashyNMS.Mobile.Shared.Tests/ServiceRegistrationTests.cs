@@ -30,6 +30,8 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(GroupsLocationsViewModel))]
     [InlineData(typeof(ThresholdsViewModel))]
     [InlineData(typeof(Dashboard.CustomiseDashboardViewModel))]
+    [InlineData(typeof(Dashboard.AddCardViewModel))]
+    [InlineData(typeof(Dashboard.DashboardWelcome))]
     [InlineData(typeof(Dashboard.SensorPickerViewModel))]
     [InlineData(typeof(Dashboard.GraphPickerViewModel))]
     [InlineData(typeof(Logs.LogsViewModel))]
