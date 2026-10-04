@@ -33,6 +33,12 @@ public abstract partial class ViewModelBase : ObservableObject
     public bool IsNotBusy => !IsBusy;
 
     /// <summary>
+    /// A page's first load, and how long it took - so the diagnostics can
+    /// say which pages are slow, and why (#126).
+    /// </summary>
+    public static event EventHandler<TimeSpan>? FirstLoadTook;
+
+    /// <summary>
     /// Runs <paramref name="apply"/> once typing pauses, on the thread that
     /// typed. Filtering (and reloading the list) on every keystroke made
     /// searching a few hundred devices lag behind the keyboard.
@@ -68,6 +74,8 @@ public abstract partial class ViewModelBase : ObservableObject
     /// </summary>
     protected async Task<bool> RunAsync(Func<Task> work)
     {
+        var firstLoad = !_hasLoaded;
+        var started = System.Diagnostics.Stopwatch.GetTimestamp();
         IsBusy = true;
         ErrorMessage = null;
         try
@@ -89,6 +97,11 @@ public abstract partial class ViewModelBase : ObservableObject
             // Set before IsBusy so its change notification sees it.
             _hasLoaded = true;
             IsBusy = false;
+
+            if (firstLoad)
+            {
+                FirstLoadTook?.Invoke(this, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+            }
         }
     }
 

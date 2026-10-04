@@ -32,7 +32,7 @@ public sealed class AlertCheckWorker : Worker
             return Result.InvokeRetry()!;
         }
 
-        var result = watcher.CheckAsync().GetAwaiter().GetResult();
+        var result = watcher.CheckAsync(background: true).GetAwaiter().GetResult();
         return (result.Succeeded ? Result.InvokeSuccess() : Result.InvokeRetry())!;
     }
 }

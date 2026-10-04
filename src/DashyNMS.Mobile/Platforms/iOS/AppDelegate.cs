@@ -113,7 +113,7 @@ public class AppDelegate : MauiUIApplicationDelegate
 
 		_ = Task.Run(async () =>
 		{
-			var result = await watcher.CheckAsync(cancellation.Token);
+			var result = await watcher.CheckAsync(cancellation.Token, background: true);
 
 			// iOS runs a refresh task once; ask for the next unless there's
 			// nothing to check for any more.

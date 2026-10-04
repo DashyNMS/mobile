@@ -31,6 +31,13 @@
                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
                                 <Label Style="{StaticResource RowTitle}" Text="{Binding ServerHost}" />
                                 <Label Style="{StaticResource Faint}" Text="{Binding ServerSummary}" />
+                                <!-- On the backup address (#114): said here as on the dashboard; tapped, the way back. -->
+                                <Label Text="{Binding Backup.ServerRowText}" FontSize="13" Margin="0,2,0,0" IsVisible="{Binding Backup.IsOnBackup}"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding Backup.ExplainCommand}" />
+                                    </Label.GestureRecognizers>
+                                </Label>
                             </VerticalStackLayout>
                             <Label Grid.Column="2" Style="{StaticResource Chevron}" />
                         </Grid>
@@ -161,6 +168,15 @@
                                     <Label Style="{StaticResource Caption}" Text="What the app did lately, for a bug report" />
                                 </VerticalStackLayout>
                                 <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                            </Grid>
+                            <!-- Names and addresses as placeholders in what's shared (#126). -->
+                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding CanHideNamesInDiagnostics}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanHideNamesInDiagnostics}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Hide names" FontSize="15" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Caption}" Text="Server and device names and IP addresses as placeholders in diagnostics" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding HideNamesInDiagnostics}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>

@@ -39,14 +39,14 @@ internal static class PageHealth
     {
         app.PageAppearing += (_, page) =>
         {
-            log.Note("Page", $"{Name(page)} appeared");
+            // One trail of pages rather than a line each (#126): "Pages: Alerts → Devices".
+            log.NotePage(Name(page));
             WatchHandler(page, log);
 
             // A tab went blank on an ordinary tab switch, not only after
             // unlocking (diagnostics, 2 Oct): check every page as it appears.
             window.Dispatcher.DispatchDelayed(Settle, () => _ = CheckAsync(window, log, "after appearing", logFine: false));
         };
-        app.PageDisappearing += (_, page) => log.Note("Page", $"{Name(page)} disappeared");
         window.Stopped += (_, _) => log.Note("App", "Went to the background");
         window.Resumed += (_, _) =>
         {
@@ -70,7 +70,7 @@ internal static class PageHealth
         }
 
         Watched.Add(page, new object());
-        page.HandlerChanged += (_, _) => log.Note("Page", page.Handler is null
+        page.HandlerChanged += (_, _) => log.NoteImportant("Page", page.Handler is null
             ? $"{Name(page)} lost its view (handler disconnected)"
             : $"{Name(page)} has a view again");
     }
@@ -108,7 +108,7 @@ internal static class PageHealth
             // With no view at all there's nothing to lay out: straight to a fresh page.
             if (page.Handler is not null)
             {
-                log.Note("Page", $"{Name(page)} looks blank {when}: {problem}. Laying it out again");
+                log.NoteImportant("Page", $"{Name(page)} looks blank {when}: {problem}. Laying it out again");
                 LayOutAgain(page);
                 await Task.Delay(Settle);
 
@@ -121,14 +121,14 @@ internal static class PageHealth
                 problem = still;
             }
 
-            log.Note("Page", $"{Name(page)} blank {when}: {problem}. Rebuilding its tab");
+            log.NoteImportant("Page", $"{Name(page)} blank {when}: {problem}. Rebuilding its tab");
             var rebuilt = window.Page is AppShell shell && shell.RebuildCurrentTab();
             log.Note("Page", rebuilt ? "Tab rebuilt" : "Not a tab that can be rebuilt");
         }
         catch (Exception ex)
         {
             // Diagnosis must never take the app down with it.
-            log.Note("Page", $"Check {when} failed: {ex.GetType().Name}: {ex.Message}");
+            log.NoteImportant("Page", $"Check {when} failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
 

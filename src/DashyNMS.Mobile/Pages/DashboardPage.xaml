@@ -512,6 +512,24 @@
                 <ScrollView x:Name="Scroller" VerticalScrollBarVisibility="Never">
                     <VerticalStackLayout Padding="16,8,16,16" Spacing="4">
 
+                        <!-- On the server's backup address (#114), as desktop's title-bar warning:
+                             an amber pill, tapped for what happened and the way back. -->
+                        <Border HorizontalOptions="Start" StrokeShape="RoundRectangle 15" StrokeThickness="1" Padding="12,6" Margin="0,0,0,6"
+                                BackgroundColor="{StaticResource WarningTint}" Stroke="{StaticResource WarningStroke}"
+                                IsVisible="{Binding Backup.IsOnBackup}"
+                                SemanticProperties.Description="On backup address" SemanticProperties.Hint="What happened, and switch back to the server address">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Backup.ExplainCommand}" />
+                            </Border.GestureRecognizers>
+                            <HorizontalStackLayout Spacing="8">
+                                <Ellipse WidthRequest="8" HeightRequest="8" Fill="{StaticResource WarningColor}" VerticalOptions="Center" />
+                                <Label Text="On backup address" FontSize="13" FontFamily="BodySemibold" VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                <Label Text="›" FontSize="15" VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                            </HorizontalStackLayout>
+                        </Border>
+
                         <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
                         <!-- An empty dashboard (#140): desktop's welcome card - the starter

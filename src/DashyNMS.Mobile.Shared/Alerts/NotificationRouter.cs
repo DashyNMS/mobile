@@ -1,5 +1,7 @@
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Services;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DashyNMS.Mobile.Alerts;
 
@@ -18,14 +20,16 @@ public sealed class NotificationRouter
 {
     private readonly ISessionService _session;
     private readonly INavigationService _navigation;
+    private readonly ILogger _logger;
     private readonly object _gate = new();
     private NotificationTarget? _pending;
     private bool _mainShown;
 
-    public NotificationRouter(ISessionService session, INavigationService navigation)
+    public NotificationRouter(ISessionService session, INavigationService navigation, ILogger<NotificationRouter>? logger = null)
     {
         _session = session;
         _navigation = navigation;
+        _logger = logger ?? NullLogger<NotificationRouter>.Instance;
         _session.StateChanged += (_, _) =>
         {
             if (!_session.IsConnected)
@@ -45,6 +49,7 @@ public sealed class NotificationRouter
             if (!_mainShown || !_session.IsConnected)
             {
                 _pending = target;
+                _logger.LogInformation("Notification tapped: {Target}, once signed in", Describe(target));
                 return Task.CompletedTask;
             }
         }
@@ -66,8 +71,18 @@ public sealed class NotificationRouter
         return pending is null ? Task.CompletedTask : NavigateAsync(pending);
     }
 
+    /// <summary>"alert #4821 on device 7" - ids only, for the diagnostics (#126).</summary>
+    private static string Describe(NotificationTarget target) => target switch
+    {
+        { AlertId: { } alert, DeviceId: { } device } => $"alert #{alert} on device {device}",
+        { AlertId: { } alert } => $"alert #{alert}",
+        { DeviceId: { } device } => $"device {device}",
+        _ => "the alert list",
+    };
+
     private Task NavigateAsync(NotificationTarget target)
     {
+        _logger.LogInformation("Notification tapped: opening {Target}", Describe(target));
         if (target.AlertId is { } alertId)
         {
             var parameters = new Dictionary<string, object> { [Routes.AlertIdParameter] = alertId };

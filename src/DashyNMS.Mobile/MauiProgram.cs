@@ -31,9 +31,16 @@ public static class MauiProgram
 		// it was doing, kept in a file so a restart doesn't lose it.
 		var diagnostics = new DiagnosticsLog(
 			Path.Combine(FileSystem.AppDataDirectory, "diagnostics.log"),
-			appVersion: $"{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString}) on {DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}");
+			appVersion: $"{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})",
+			device: $"{DeviceInfo.Current.Manufacturer} {DeviceInfo.Current.Model} · {DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}");
 		builder.Logging.AddProvider(diagnostics);
 		builder.Services.AddSingleton(diagnostics);
+
+		// What the diagnostics follow beyond log messages (#126): every request,
+		// settings as they change, slow pages - and the file's header and "hide names".
+		builder.Services.AddSingleton(sp => new HttpRequestLog(diagnostics, () => sp.GetRequiredService<DesktopNMS.Services.ISessionService>().Connection?.WebRoot.Host));
+		builder.Services.AddSingleton(sp => new AppDiagnostics(diagnostics, sp.GetRequiredService<DesktopNMS.Core.Configuration.ISettingsStore>(), sp.GetRequiredService<HttpRequestLog>()));
+		builder.Services.AddSingleton<DiagnosticsReport>();
 
 #if ANDROID || IOS
 		// Every text box and picker as a field well, not the platform's own

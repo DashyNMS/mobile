@@ -8,12 +8,19 @@ namespace DashyNMS.Mobile.Adapters;
 /// pushed onto More instead (#68) - see <see cref="AppPages.Resolve"/>. On a
 /// larger screen, a list showing its detail beside itself takes that route
 /// into its pane rather than opening a page (#88) - see <see cref="IDetailHost"/>.
+/// Each is noted in the diagnostics with what it opened and from where (#126).
 /// </summary>
-public sealed class ShellNavigationService(TabPins pins) : INavigationService
+public sealed class ShellNavigationService(TabPins pins, DiagnosticsLog? diagnostics = null) : INavigationService
 {
     public Task GoToAsync(string route, IDictionary<string, object>? parameters = null) =>
         MainThread.InvokeOnMainThreadAsync(async () =>
         {
+            if (route != Routes.Back)
+            {
+                var from = Shell.Current.CurrentPage?.GetType().Name.Replace("Page", string.Empty, StringComparison.Ordinal) ?? "start";
+                diagnostics?.Note("Open", $"{NavigationDescription.Describe(route, parameters)} from {from}");
+            }
+
             if (Shell.Current.CurrentPage is IDetailHost host && host.TryShowDetail(route, parameters))
             {
                 return;

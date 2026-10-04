@@ -47,6 +47,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly AlertCountThreshold _countThreshold;
     private readonly IgnoredAlerts _ignored;
     private readonly DiagnosticsLog? _diagnostics;
+    private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
 
     [ObservableProperty]
@@ -70,9 +71,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
         AlertCountThreshold? countThreshold = null,
         IgnoredAlerts? ignored = null,
         DiagnosticsLog? diagnostics = null,
-        ILocalDataWipe? wipe = null)
+        ILocalDataWipe? wipe = null,
+        BackupAddressStatus? backup = null,
+        DiagnosticsReport? report = null)
     {
         _wipe = wipe;
+        Backup = backup;
+        _report = report;
         _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
         _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
         _diagnostics = diagnostics;
@@ -432,6 +437,28 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
         + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" + (BadgeThresholdIndex > 0 ? ", " + BadgeThresholdLabels[BadgeThresholdIndex].ToLower(CultureInfo.CurrentCulture) : string.Empty) : " · icon badge off") : string.Empty);
 
+    /// <summary>The backup address, when the app has moved to it (#114) - the Server card says so, and taps through to switch back.</summary>
+    public BackupAddressStatus? Backup { get; }
+
+    /// <summary>
+    /// "Hide names" (#126): the shared diagnostics with the server's and
+    /// devices' names and IP addresses as placeholders. Remembered.
+    /// </summary>
+    public bool HideNamesInDiagnostics
+    {
+        get => _report?.HideNames ?? false;
+        set
+        {
+            if (_report is not null && _report.HideNames != value)
+            {
+                _report.HideNames = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool CanHideNamesInDiagnostics => _report is not null && CanShareDiagnostics;
+
     /// <summary>The diagnostics log can be shared (#107) - the app keeps one, and the phone can share a file.</summary>
     public bool CanShareDiagnostics => _diagnostics is not null && _share is not null;
 
@@ -448,18 +475,25 @@ public sealed partial class SettingsViewModel : ViewModelBase
             return;
         }
 
-        if (!await _dialogs.ConfirmAsync(
-                "Share diagnostics",
-                "A log of what the app did recently: pages opened, coming back from the background, alert checks and any errors. It can include your server's address and device names, but never your API token.",
-                "Share",
-                "Cancel"))
+        if (!await _dialogs.ConfirmAsync("Share diagnostics", DiagnosticsMessage, "Share", "Cancel"))
         {
             return;
         }
 
-        _diagnostics.Note("App", "Diagnostics shared");
+        _diagnostics.Note("App", "Diagnostics shared" + (HideNamesInDiagnostics ? " with names hidden" : string.Empty));
+        var text = _report is null ? _diagnostics.Text : await _report.BuildAsync();
         var name = $"dashynms-diagnostics-{DateTime.Now.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture)}.txt";
-        await _share.ShareTextFileAsync(name, _diagnostics.Text, "text/plain", "DashyNMS diagnostics");
+        await _share.ShareTextFileAsync(name, text, "text/plain", "DashyNMS diagnostics");
+    }
+
+    /// <summary>What's in the file, said before it goes (#126) - and whether names are in it.</summary>
+    internal string DiagnosticsMessage =>
+        "A log of what the app did recently: the app and phone versions and the settings that matter, pages opened, "
+        + "requests to LibreNMS and Graylog, alert checks, notifications, slow pages and any errors. "
+        + "Never your API token or passwords. "
+        + (HideNamesInDiagnostics
+            ? "Server and device names and IP addresses are replaced with placeholders."
+            : "It names your server and devices - turn on Hide names to leave them out.");
     }
 
     /// <summary>Alert rules that don't notify, everywhere or on a device (#102) - chosen from an alert or a rule's page.</summary>
