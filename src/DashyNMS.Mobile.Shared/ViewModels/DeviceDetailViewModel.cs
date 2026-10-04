@@ -499,20 +499,13 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     private bool HasDevice() => Device is not null;
 
-    /// <summary>Asks LibreNMS to rediscover the device now, as desktop's Rediscover.</summary>
+    /// <summary>
+    /// Asks LibreNMS to rediscover the device now, as desktop's Rediscover -
+    /// straight away, as one device's rediscovery is harmless (#146).
+    /// </summary>
     [RelayCommand(CanExecute = nameof(HasDevice))]
     private async Task RediscoverAsync()
     {
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Rediscover",
-            $"Ask LibreNMS to rediscover {Title} now? It runs on the server's next discovery pass.",
-            "Rediscover",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
         string? message = null;
         if (await RunAsync(async () => message = await _client.Devices.DiscoverAsync(DeviceId)))
         {

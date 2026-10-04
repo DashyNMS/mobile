@@ -240,8 +240,9 @@ public sealed class NetworkMapViewModelTests
         await vm.ResetLayoutCommand.ExecuteAsync(null); // declined
         layouts.DidNotReceive().Clear(Arg.Any<string>());
 
-        dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
         await vm.ResetLayoutCommand.ExecuteAsync(null);
         layouts.Received(1).Clear(vm.ScopeKey);
+        await dialogs.Received().ConfirmDestructiveAsync("Reset layout", Arg.Is<string>(m => m.Contains("\"All devices\"") && m.EndsWith(Confirmations.CannotBeUndone)), "Reset layout");
     }
 }

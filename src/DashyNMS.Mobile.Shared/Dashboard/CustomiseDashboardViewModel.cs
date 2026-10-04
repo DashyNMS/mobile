@@ -129,7 +129,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         }
 
         if (_dialogs is not null
-            && !await _dialogs.ConfirmAsync("Remove card", $"Remove \"{card.Title}\" from the dashboard? Its set-up goes with it.", "Remove", "Cancel"))
+            && !await _dialogs.ConfirmDestructiveAsync("Remove card", $"Remove the card \"{card.Title}\" from the dashboard? Its set-up goes with it. {Confirmations.CannotBeUndone}", "Remove"))
         {
             return;
         }
@@ -138,12 +138,34 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         Save();
     }
 
-    /// <summary>Back to the dashboard as it came: the default cards, and no Sensors or Graph cards.</summary>
+    /// <summary>
+    /// Back to the dashboard as it came: the default cards, and no Sensors or
+    /// Graph cards - after asking, and saying what goes (#146). It used to
+    /// happen at a tap, taking every added card's set-up with it.
+    /// </summary>
     [RelayCommand]
-    private void ResetToDefaults()
+    private async Task ResetToDefaultsAsync()
     {
+        if (_dialogs is not null && !await _dialogs.ConfirmDestructiveAsync("Standard dashboard", ResetMessage(), "Reset"))
+        {
+            return;
+        }
+
         Build(DashboardLayout.DefaultTypes.Select(DashboardLayout.New).ToList());
         Save();
+    }
+
+    /// <summary>What resetting loses: the added cards by count, else just the order and which show.</summary>
+    internal string ResetMessage()
+    {
+        var added = Cards.Count(c => c.CanRemove);
+        var lost = added switch
+        {
+            0 => "Your card order and which cards show go back to how they came.",
+            1 => "Your added card and its set-up go, and the cards go back to how they came.",
+            _ => $"Your {added} added cards and their set-up go, and the cards go back to how they came.",
+        };
+        return $"Go back to the standard dashboard? {lost} {Confirmations.CannotBeUndone}";
     }
 
     private async Task AddAsync(string type)

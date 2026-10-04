@@ -320,16 +320,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Unacknowledge alert",
-            $"Put {item.Rule} on {item.Device} back to active?",
-            "Unacknowledge",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
+        // One alert, and acknowledging puts it back: no need to ask (#146).
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
@@ -494,7 +485,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Puts every ticked acknowledged alert back to active, after asking once.</summary>
+    /// <summary>Puts every ticked acknowledged alert back to active - asking first when it's more than a few (#146).</summary>
     [RelayCommand]
     private async Task UnacknowledgeSelectedAsync()
     {
@@ -505,9 +496,9 @@ public sealed partial class AlertsViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _dialogs.ConfirmAsync(
+        var confirmed = !Confirmations.AsksForBulk(items.Count) || await _dialogs.ConfirmAsync(
             "Unacknowledge alerts",
-            items.Count == 1 ? "Put 1 alert back to active?" : $"Put {items.Count} alerts back to active?",
+            $"Put all {items.Count} selected alerts back to active?",
             "Unacknowledge",
             "Cancel");
         if (!confirmed)

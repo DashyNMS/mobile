@@ -621,14 +621,15 @@ public sealed class DeviceDetailActionTests
     }
 
     [Fact]
-    public async Task Declining_rediscover_does_nothing()
+    public async Task Rediscover_goes_ahead_without_asking()
     {
         await _vm.LoadAsync(7);
-        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(false);
 
         await _vm.RediscoverCommand.ExecuteAsync(null);
 
-        await _client.Devices.DidNotReceiveWithAnyArgs().DiscoverAsync(default, default);
+        // One device, and harmless: it just happens (#146).
+        await _dialogs.DidNotReceiveWithAnyArgs().ConfirmAsync(default!, default!, default!, default!);
+        await _client.Devices.Received(1).DiscoverAsync(7, Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -277,11 +277,10 @@ public sealed partial class GraylogSettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task ForgetPasswordAsync()
     {
-        var confirmed = await _dialogs.ConfirmAsync(
+        var confirmed = await _dialogs.ConfirmDestructiveAsync(
             "Forget password",
-            "Remove the saved Graylog password from this phone? Graylog stays off until you enter it again.",
-            "Forget",
-            "Cancel");
+            $"Remove the saved Graylog password from this phone? {Confirmations.CannotBeUndone} Graylog stays off until you enter it again.",
+            "Forget");
         if (!confirmed)
         {
             return;
