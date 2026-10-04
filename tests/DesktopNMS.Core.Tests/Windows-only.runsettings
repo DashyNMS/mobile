@@ -8,6 +8,7 @@
     Only Windows refuses to delete an open file; on Linux, macOS, iOS and
     Android the delete succeeds, so Wipe rightly reports nothing. Core's
     behaviour is fine off Windows - the test's expectation isn't.
+    Upstream: DashyNMS/desktop#247 - drop this once it lands.
 -->
 <RunSettings>
   <RunConfiguration>
