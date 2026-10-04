@@ -494,7 +494,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         + (HideNamesInDiagnostics
             ? "Server and device names and IP addresses are replaced with placeholders."
             : "It names your server and devices - turn on Hide names to leave them out.");
-    }
 
     /// <summary>Alert rules that don't notify, everywhere or on a device (#102) - chosen from an alert or a rule's page.</summary>
     public BulkObservableCollection<IgnoredAlert> IgnoredAlerts { get; } = new();
