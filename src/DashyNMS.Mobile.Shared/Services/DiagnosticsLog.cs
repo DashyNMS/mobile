@@ -96,7 +96,7 @@ public sealed class DiagnosticsLog : ILoggerProvider
             {
                 if (!last.Text.EndsWith("→ " + page, StringComparison.Ordinal) && !last.Text.EndsWith(": " + page, StringComparison.Ordinal))
                 {
-                    node.Value = last with { Text = last.Text + " → " + page, At = now };
+                    node.Value = last with { Text = last.Text + " → " + page, Message = last.Message + " → " + page, At = now };
                     RewriteFile();
                 }
 
@@ -123,8 +123,10 @@ public sealed class DiagnosticsLog : ILoggerProvider
 
         lock (_gate)
         {
-            // The same again: the last line counts it rather than repeating it.
-            if (_lines.Last is { Value: { } last } lastNode && last.Category == category && last.Message == message)
+            // The same again: the last line counts it rather than repeating it -
+            // except a new trail of pages, which is a trail, not a repeat.
+            if (category != PagesCategory
+                && _lines.Last is { Value: { } last } lastNode && last.Category == category && last.Message == message)
             {
                 var count = last.Count + 1;
                 lastNode.Value = last with { Count = count, At = now, Text = $"{Stamp(last.Started)} {category}: {message} × {count}" };
