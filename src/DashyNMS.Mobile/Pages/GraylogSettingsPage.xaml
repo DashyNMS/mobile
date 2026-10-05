@@ -3,14 +3,23 @@
     x:Class="DashyNMS.Mobile.Pages.GraylogSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:graylog="clr-namespace:DashyNMS.Mobile.Graylog;assembly=DashyNMS.Mobile.Shared"
     x:DataType="graylog:GraylogSettingsViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Graylog">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Graylog" Margin="16,8,16,0">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+        <Grid Grid.Row="1">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Save" Command="{Binding SaveCommand}" />
-    </ContentPage.ToolbarItems>
+
 
     <ScrollView>
         <controls:ReadableColumn>
@@ -115,5 +124,7 @@
             </VerticalStackLayout>
         </controls:ReadableColumn>
     </ScrollView>
+        </Grid>
+    </Grid>
 
 </ContentPage>

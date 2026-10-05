@@ -20,7 +20,7 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable
 	{
 		if (query.TryGetValue(Routes.SettingsSectionParameter, out var value) && value is SettingsSection section)
 		{
-			Title = SettingsViewModel.Title(section);
+			Title = Header.Title = SettingsViewModel.Title(section);
 			Server.IsVisible = section == SettingsSection.Server;
 			Appearance.IsVisible = section == SettingsSection.Appearance;
 			Devices.IsVisible = section == SettingsSection.Devices;
@@ -28,5 +28,12 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable
 			Notifications.IsVisible = section == SettingsSection.Notifications;
 			LockScreen.IsVisible = section == SettingsSection.LockScreen;
 		}
+	}
+
+	/// <summary>The app's own header, as every page (#142).</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		Header.Apply(this);
 	}
 }

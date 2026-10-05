@@ -35,6 +35,7 @@ public partial class MapPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		if (!_loaded)
 		{
 			_loaded = true;

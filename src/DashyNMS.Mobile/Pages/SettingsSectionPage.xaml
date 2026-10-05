@@ -3,11 +3,19 @@
     x:Class="DashyNMS.Mobile.Pages.SettingsSectionPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:alerts="clr-namespace:DashyNMS.Mobile.Alerts;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SettingsViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Settings">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Settings" Margin="16,8,16,0" />
+        <Grid Grid.Row="1">
+
 
     <!-- One Settings section (#67); the page shows whichever it was opened
          for. Each section is the card it was on the single Settings page. -->
@@ -256,5 +264,7 @@
             </VerticalStackLayout>
         </controls:ReadableColumn>
     </ScrollView>
+        </Grid>
+    </Grid>
 
 </ContentPage>
