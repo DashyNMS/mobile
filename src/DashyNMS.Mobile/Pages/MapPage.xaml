@@ -3,15 +3,24 @@
     x:Class="DashyNMS.Mobile.Pages.MapPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:map="clr-namespace:DashyNMS.Mobile.Map;assembly=DashyNMS.Mobile.Shared"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="map:MapViewModel"
+    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Map">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Map" Margin="16,8,16,0">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Refresh" Command="{Binding RefreshCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+        <Grid Grid.Row="1">
 
-    <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Refresh" Command="{Binding RefreshCommand}" />
-    </ContentPage.ToolbarItems>
+
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
@@ -56,6 +65,8 @@
             </Grid>
         </Border>
 
+    </Grid>
+        </Grid>
     </Grid>
 
 </ContentPage>

@@ -3,10 +3,18 @@
     x:Class="DashyNMS.Mobile.Pages.MaintenancePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:MaintenanceViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="Schedule maintenance">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Schedule maintenance" Margin="16,8,16,0" />
+        <Grid Grid.Row="1">
+
 
     <ScrollView>
         <controls:ReadableColumn>
@@ -78,5 +86,7 @@
             </VerticalStackLayout>
         </controls:ReadableColumn>
     </ScrollView>
+        </Grid>
+    </Grid>
 
 </ContentPage>

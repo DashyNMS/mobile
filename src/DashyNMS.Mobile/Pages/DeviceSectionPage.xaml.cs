@@ -23,4 +23,11 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 			_ = _viewModel.LoadAsync(deviceId, section, name as string);
 		}
 	}
+
+	/// <summary>The app's own header, as every page (#142).</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		Header.Apply(this);
+	}
 }

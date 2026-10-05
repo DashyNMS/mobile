@@ -18,6 +18,7 @@ public partial class GroupsLocationsPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		if (!_loaded)
 		{
 			_loaded = true;

@@ -3,10 +3,19 @@
     x:Class="DashyNMS.Mobile.Pages.DeviceGraphsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:models="clr-namespace:DesktopNMS.Core.Models;assembly=DesktopNMS.Core"
     x:DataType="sections:DeviceGraphsViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
     Title="{Binding Title}">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,8,16,0" />
+        <Grid Grid.Row="1">
+
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0" RowSpacing="6">
 
@@ -29,6 +38,8 @@
         <!-- LibreNMS draws the graph as SVG; a web view shows it, scaled to fit. -->
         <WebView Grid.Row="4" x:Name="GraphView" VerticalOptions="Start" BackgroundColor="Transparent" />
 
+    </Grid>
+        </Grid>
     </Grid>
 
 </ContentPage>
