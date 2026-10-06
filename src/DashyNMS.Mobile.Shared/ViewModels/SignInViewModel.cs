@@ -3,13 +3,20 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.SignIn;
+using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
 
-/// <summary>Server address and API token, the same fields as desktop's connection window.</summary>
+/// <summary>
+/// Server address and API token, the same fields as desktop's connection
+/// window - and first, "Sign in with LibreNMS" (#162): sign in on the
+/// server's own website and let the app create its token, with typing a
+/// token in kept as the way back when that can't work.
+/// </summary>
 public sealed partial class SignInViewModel : ViewModelBase
 {
     private readonly ISessionService _session;
@@ -19,6 +26,8 @@ public sealed partial class SignInViewModel : ViewModelBase
     private readonly IAlertNotifier _notifier;
     private readonly NotificationRouter _router;
     private readonly IDialogService? _dialogs;
+    private readonly IWebSignIn? _webSignIn;
+    private readonly ICertificateProbe _probe;
     private bool _restoreAttempted;
 
     [ObservableProperty]
@@ -47,6 +56,23 @@ public sealed partial class SignInViewModel : ViewModelBase
 
     public bool ShowForm => !IsRestoring;
 
+    /// <summary>
+    /// True once the user has chosen to type an API token in, or "Sign in
+    /// with LibreNMS" couldn't work for this server - the form then asks for
+    /// the token as it always did.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsWebSignIn), nameof(ShowsTokenEntry), nameof(ShowsLibreNmsLink))]
+    private bool _usesToken;
+
+    /// <summary>"Sign in with LibreNMS" is the way in, unless the platform has no web view for it.</summary>
+    public bool ShowsWebSignIn => _webSignIn is not null && !UsesToken;
+
+    public bool ShowsTokenEntry => !ShowsWebSignIn;
+
+    /// <summary>"Sign in with LibreNMS instead", under the token form - only where it exists.</summary>
+    public bool ShowsLibreNmsLink => _webSignIn is not null && UsesToken;
+
     public SignInViewModel(
         ISessionService session,
         ISettingsStore settings,
@@ -54,9 +80,13 @@ public sealed partial class SignInViewModel : ViewModelBase
         SecretCache secrets,
         IAlertNotifier notifier,
         NotificationRouter router,
-        IDialogService? dialogs = null)
+        IDialogService? dialogs = null,
+        IWebSignIn? webSignIn = null,
+        ICertificateProbe? probe = null)
     {
         _dialogs = dialogs;
+        _webSignIn = webSignIn;
+        _probe = probe ?? new CertificateProbe();
         _secrets = secrets;
         _notifier = notifier;
         _router = router;
@@ -148,6 +178,110 @@ public sealed partial class SignInViewModel : ViewModelBase
             }
         }
 
+        await CompleteSignInAsync();
+    }
+
+    [RelayCommand]
+    private void UseToken()
+    {
+        ErrorMessage = null;
+        UsesToken = true;
+    }
+
+    [RelayCommand]
+    private void UseLibreNms()
+    {
+        ErrorMessage = null;
+        UsesToken = false;
+    }
+
+    /// <summary>
+    /// "Sign in with LibreNMS" (#162): checks the server answers and its
+    /// certificate is trusted, then shows its website for the user to sign in
+    /// on, and signs in with the token the app creates there - named after the
+    /// phone and the day. When it can't work - plain http, an account without
+    /// API access, LibreNMS before 26.4 - it says why and goes back to asking
+    /// for a token.
+    /// </summary>
+    [RelayCommand]
+    private async Task SignInWithLibreNmsAsync()
+    {
+        if (_webSignIn is null)
+        {
+            return;
+        }
+
+        if (!LibreNmsConnection.TryParseWebRoot(ServerUrl, out var webRoot, out var error))
+        {
+            ErrorMessage = error;
+            return;
+        }
+
+        // The user types their password into this page, so never over plain
+        // http - and iOS and Android's web views wouldn't load it anyway.
+        if (!string.Equals(webRoot!.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            FallBack("Signing in with LibreNMS needs an https:// address. Use an API token for this server instead.");
+            return;
+        }
+
+        var reached = false;
+        await RunAsync(async () =>
+        {
+            var probe = await _probe.ProbeAsync(webRoot, AllowUntrustedCertificate, TrustedCertificates());
+            if (probe.UntrustedCertificate is { } certificate)
+            {
+                probe = await TrustAsync(certificate)
+                    ? await _probe.ProbeAsync(webRoot, AllowUntrustedCertificate, TrustedCertificates())
+                    : new ProbeResult(false, ErrorMessage: "The certificate wasn't trusted, so DashyNMS can't sign in to this server.");
+            }
+
+            reached = probe.Reached;
+            ErrorMessage = probe.Reached ? null : probe.ErrorMessage;
+        });
+
+        if (!reached)
+        {
+            return;
+        }
+
+        var flow = new WebTokenSignIn(webRoot, WebTokenSignIn.NameFor(_webSignIn.DeviceName, DateTime.Now));
+        var result = await _webSignIn.SignInAsync(new WebSignInRequest(flow, AllowUntrustedCertificate, TrustedCertificates()));
+
+        switch (result.Outcome)
+        {
+            case WebSignInOutcome.Token:
+                ApiToken = result.Token!;
+                if (!await CompleteSignInAsync())
+                {
+                    // The token's made: keep it in the box (hidden) to try again.
+                    UsesToken = true;
+                }
+
+                break;
+
+            case WebSignInOutcome.NotAllowed:
+                FallBack("Your LibreNMS account can't create API tokens here. It needs API access from a LibreNMS admin, and LibreNMS 26.4 or later. You can paste an API token instead.");
+                break;
+
+            case WebSignInOutcome.Failed:
+                FallBack("LibreNMS didn't create a token. Try again, or paste an API token instead.");
+                break;
+        }
+    }
+
+    private void FallBack(string message)
+    {
+        UsesToken = true;
+        ErrorMessage = message;
+    }
+
+    private IReadOnlyCollection<string> TrustedCertificates() =>
+        _settings.Current.TrustedCertificates.ToArray();
+
+    /// <summary>Signs in with <see cref="ApiToken"/> - typed in, or created by "Sign in with LibreNMS".</summary>
+    private async Task<bool> CompleteSignInAsync()
+    {
         var succeeded = false;
         await RunAsync(async () =>
         {
@@ -175,6 +309,8 @@ public sealed partial class SignInViewModel : ViewModelBase
             ApiToken = string.Empty;
             await ShowMainAsync();
         }
+
+        return succeeded;
     }
 
     /// <summary>

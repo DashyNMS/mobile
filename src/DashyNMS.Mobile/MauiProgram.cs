@@ -70,6 +70,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
 		builder.Services.AddSingleton<IShareService, ShareService>();
+		builder.Services.AddSingleton<SignIn.IWebSignIn, WebSignIn>();
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
