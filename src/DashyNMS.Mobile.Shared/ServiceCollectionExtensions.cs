@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ISettingsStore, SettingsStore>();
         services.AddSingleton<SecretCache>();
+        services.AddSingleton<SignIn.ICertificateProbe, SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<DeviceBookmarks>();
