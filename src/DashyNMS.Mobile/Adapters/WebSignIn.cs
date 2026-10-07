@@ -1,5 +1,5 @@
 using DashyNMS.Mobile.Pages;
-using DashyNMS.Mobile.SignIn;
+using DesktopNMS.Core.SignIn;
 
 namespace DashyNMS.Mobile.Adapters;
 

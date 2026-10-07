@@ -1,5 +1,5 @@
-using DashyNMS.Mobile.SignIn;
 using DesktopNMS.Core.Security;
+using DesktopNMS.Core.SignIn;
 
 namespace DashyNMS.Mobile.Pages;
 
@@ -211,18 +211,6 @@ public sealed class LibreNmsSignInPage : ContentPage
 #endif
     }
 
-    private static bool IsTrusted(WebSignInRequest request, byte[]? certificate)
-    {
-        if (certificate is null || certificate.Length == 0)
-        {
-            return false;
-        }
-
-        using var x509 = System.Security.Cryptography.X509Certificates.X509CertificateLoader.LoadCertificate(certificate);
-        var fingerprint = CertificateTrust.Fingerprint(x509);
-        return request.TrustedCertificates.Any(t => CertificateTrust.SameFingerprint(t, fingerprint));
-    }
-
 #if IOS
     /// <summary>MAUI's own navigation delegate, plus the certificate check it leaves to the system.</summary>
     private sealed class TrustingNavigationDelegate : Microsoft.Maui.Platform.MauiWebViewNavigationDelegate
@@ -246,7 +234,7 @@ public sealed class LibreNmsSignInPage : ContentPage
                 && space.ServerSecTrust is { } trust
                 && _request.Flow.IsServerHost(space.Host)
                 && !trust.Evaluate(out _)
-                && IsTrusted(_request, Leaf(trust)))
+                && CertificateTrust.IsTrusted(_request.TrustedCertificates, Leaf(trust)))
             {
                 completionHandler(Foundation.NSUrlSessionAuthChallengeDisposition.UseCredential, new Foundation.NSUrlCredential(trust));
                 return;
@@ -278,7 +266,7 @@ public sealed class LibreNmsSignInPage : ContentPage
             if (error?.Certificate is { } certificate
                 && Uri.TryCreate(error.Url, UriKind.Absolute, out var url)
                 && _request.Flow.IsServerHost(url.Host)
-                && IsTrusted(_request, Encoded(certificate)))
+                && CertificateTrust.IsTrusted(_request.TrustedCertificates, Encoded(certificate)))
             {
                 handler?.Proceed();
                 return;

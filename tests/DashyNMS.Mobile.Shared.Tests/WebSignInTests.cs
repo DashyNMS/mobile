@@ -1,134 +1,13 @@
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
-using DashyNMS.Mobile.SignIn;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.SignIn;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Tests;
-
-public sealed class WebTokenSignInTests
-{
-    private static readonly Uri Root = new("https://nms.example.com/");
-    private const string SanctumToken = "12|AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd";
-
-    private static WebTokenSignIn NewFlow() => new(Root, "DashyNMS · iPhone · 7 Oct 2026");
-
-    private static Uri At(string path) => new(Root, path);
-
-    [Fact]
-    public void Starts_on_the_API_Tokens_page() =>
-        Assert.Equal("https://nms.example.com/api-access", NewFlow().TokensPage.AbsoluteUri);
-
-    [Fact]
-    public void Starts_under_an_install_in_a_sub_path() =>
-        Assert.Equal("https://example.com/librenms/api-access", new WebTokenSignIn(new Uri("https://example.com/librenms/"), "x").TokensPage.AbsoluteUri);
-
-    [Fact]
-    public void Leaves_the_login_page_to_the_user() =>
-        Assert.Equal(WebSignInAction.Wait, NewFlow().Next(At("login"), "login").Action);
-
-    [Fact]
-    public void Submits_the_form_once_then_reads_the_token()
-    {
-        var flow = NewFlow();
-
-        Assert.Equal(WebSignInAction.Submit, flow.Next(At("api-access"), "form").Action);
-
-        var done = flow.Next(At("api-access"), "token:" + SanctumToken);
-        Assert.Equal(WebSignInAction.Done, done.Action);
-        Assert.Equal(SanctumToken, done.Token);
-    }
-
-    [Fact]
-    public void Fails_when_the_form_comes_back_without_a_token()
-    {
-        var flow = NewFlow();
-        flow.Next(At("api-access"), "form");
-
-        Assert.Equal(WebSignInAction.Failed, flow.Next(At("api-access"), "form").Action);
-    }
-
-    [Fact]
-    public void Goes_to_the_tokens_page_when_signing_in_lands_on_the_dashboard() =>
-        Assert.Equal(WebSignInAction.GoToTokensPage, NewFlow().Next(At("overview"), "signed-in").Action);
-
-    [Fact]
-    public void Stops_sending_the_page_back_after_a_few_tries()
-    {
-        var flow = NewFlow();
-        for (var i = 0; i < 3; i++)
-        {
-            Assert.Equal(WebSignInAction.GoToTokensPage, flow.Next(At("overview"), "signed-in").Action);
-        }
-
-        Assert.Equal(WebSignInAction.Wait, flow.Next(At("overview"), "signed-in").Action);
-    }
-
-    [Theory]
-    [InlineData("signed-in")]
-    [InlineData("other")]
-    public void A_tokens_page_without_the_form_means_no_API_access(string probe) =>
-        Assert.Equal(WebSignInAction.NotAllowed, NewFlow().Next(At("api-access"), probe).Action);
-
-    [Fact]
-    public void Two_factor_is_left_to_the_user() =>
-        Assert.Equal(WebSignInAction.Wait, NewFlow().Next(At("2fa"), "other").Action);
-
-    [Fact]
-    public void Another_site_is_never_driven()
-    {
-        // A sign-on provider's page, even one that looks like the form.
-        Assert.Equal(WebSignInAction.Wait, NewFlow().Next(new Uri("https://sso.example.com/api-access"), "form").Action);
-        Assert.Equal(WebSignInAction.Wait, NewFlow().Next(new Uri("http://nms.example.com/api-access"), "form").Action);
-        Assert.Equal(WebSignInAction.Wait, NewFlow().Next(new Uri("https://nms.example.com:8443/api-access"), "form").Action);
-    }
-
-    [Fact]
-    public void Something_that_isnt_a_token_is_a_failure() =>
-        Assert.Equal(WebSignInAction.Failed, NewFlow().Next(At("api-access"), "token:<b>oops</b>").Action);
-
-    [Theory]
-    [InlineData(SanctumToken, true)]
-    [InlineData("3|librenms_AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd1a2b3c4d", true)]
-    [InlineData("0123456789abcdef0123456789abcdef", true)]
-    [InlineData("0123456789abcdef", false)]
-    [InlineData("12|short", false)]
-    [InlineData("12|has space in it and is long enough", false)]
-    [InlineData("", false)]
-    public void Recognises_tokens(string text, bool expected) =>
-        Assert.Equal(expected, WebTokenSignIn.LooksLikeToken(text));
-
-    [Theory]
-    [InlineData("\"form\"", "form")]
-    [InlineData("form", "form")]
-    [InlineData("\"token:12|abc\"", "token:12|abc")]
-    [InlineData("null", "")]
-    [InlineData(null, "")]
-    public void Reads_script_results_from_either_platform(string? raw, string expected) =>
-        Assert.Equal(expected, WebTokenSignIn.Unwrap(raw));
-
-    [Fact]
-    public void Names_the_token_after_the_phone_and_the_day() =>
-        Assert.Equal("DashyNMS · Tom's iPhone · 7 Oct 2026", WebTokenSignIn.NameFor("Tom's iPhone", new DateTime(2026, 10, 7)));
-
-    [Fact]
-    public void Names_a_nameless_phone_and_keeps_within_LibreNMS_limit()
-    {
-        Assert.Equal("DashyNMS · phone · 7 Oct 2026", WebTokenSignIn.NameFor(" ", new DateTime(2026, 10, 7)));
-        Assert.Equal(255, WebTokenSignIn.NameFor(new string('x', 400), new DateTime(2026, 10, 7)).Length);
-    }
-
-    [Fact]
-    public void The_submit_script_quotes_the_name_safely()
-    {
-        var script = new WebTokenSignIn(Root, "Tom's \"phone\"</script>").SubmitScript;
-
-        Assert.Contains("d.value=\"Tom\\u0027s \\u0022phone\\u0022\\u003C/script\\u003E\"", script);
-    }
-}
 
 public sealed class SignInWithLibreNmsTests
 {
