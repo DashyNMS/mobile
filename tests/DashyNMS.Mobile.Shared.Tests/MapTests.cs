@@ -22,7 +22,9 @@ public sealed class MapHtmlTests
         var nonce = System.Text.RegularExpressions.Regex.Match(csp, "nonce-([^']+)").Groups[1].Value;
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, $"<script nonce=\"{System.Text.RegularExpressions.Regex.Escape(nonce)}\">").Count);
         Assert.NotEqual(nonce, System.Text.RegularExpressions.Regex.Match(Page(), "nonce-([^']+)").Groups[1].Value); // one-off
-        Assert.Contains("OpenStreetMap contributors", page);
+        Assert.Contains("OpenStreetMap\\u003C/a\\u003E contributors", page); // the credit, linked (#164)
+        Assert.Contains("https://www.openstreetmap.org/copyright", page);
+        Assert.Contains("<meta name=\"referrer\" content=\"strict-origin-when-cross-origin\">", page);
     }
 
     [Fact]
@@ -122,7 +124,7 @@ public sealed class MapViewModelTests
         var vm = await Loaded(new AppSettings { MapTileUrl = "https://tiles.example.net/{z}/{x}/{y}.png" });
 
         Assert.Contains("tiles.example.net", vm.MapPage);
-        Assert.DoesNotContain("OpenStreetMap contributors", vm.MapPage);
+        Assert.DoesNotContain("openstreetmap.org/copyright", vm.MapPage);
     }
 
     [Fact]

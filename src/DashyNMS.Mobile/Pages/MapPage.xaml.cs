@@ -16,8 +16,12 @@ public partial class MapPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 		_viewModel.PropertyChanged += OnViewModelChanged;
 
-		// A pin tap arrives as a dashynms-map:// navigation; nothing else may
-		// take the page anywhere - tiles are images, not navigations.
+		// OpenStreetMap's tile policy asks apps to name themselves (#164).
+		MapView.UserAgent = MapHtml.UserAgent(AppInfo.Current.VersionString);
+
+		// A pin tap arrives as a dashynms-map:// navigation, and the
+		// attribution's links open in the browser; nothing else may take the
+		// page anywhere - tiles are images, not navigations.
 		MapView.Navigating += (_, e) =>
 		{
 			if (MapHtml.PinsFrom(e.Url) is { } pins)
@@ -25,7 +29,16 @@ public partial class MapPage : ContentPage
 				e.Cancel = true;
 				MainThread.BeginInvokeOnMainThread(() => _viewModel.SelectPins(pins));
 			}
-			else if (!IsOwnPage(e.Url))
+			else if (IsOwnPage(e.Url))
+			{
+				return;
+			}
+			else if (MapHtml.ExternalLink(e.Url) is { } link)
+			{
+				e.Cancel = true;
+				MainThread.BeginInvokeOnMainThread(async () => await Browser.Default.OpenAsync(link, BrowserLaunchMode.SystemPreferred));
+			}
+			else
 			{
 				e.Cancel = true;
 			}
@@ -48,14 +61,20 @@ public partial class MapPage : ContentPage
 	{
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{
-			MapView.Source = _viewModel.MapPage is { } html ? new HtmlWebViewSource { Html = html } : null;
+			// Loaded as the website's address, so tile requests carry a Referer (#164).
+			MapView.Source = _viewModel.MapPage is { } html ? new HtmlWebViewSource { Html = html, BaseUrl = MapHtml.BaseUrl.AbsoluteUri } : null;
 		}
 	}
 
-	/// <summary>Loading the page itself can raise Navigating, with a blank, data: or local file: address.</summary>
+	/// <summary>
+	/// Loading the page itself can raise Navigating, with a blank, data: or
+	/// local file: address - or its base address.
+	/// </summary>
 	private static bool IsOwnPage(string? url) =>
 		string.IsNullOrEmpty(url)
 		|| url.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
 		|| url.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
-		|| url.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+		|| url.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+		|| (Uri.TryCreate(url, UriKind.Absolute, out var uri)
+			&& Uri.Compare(uri, MapHtml.BaseUrl, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0);
 }

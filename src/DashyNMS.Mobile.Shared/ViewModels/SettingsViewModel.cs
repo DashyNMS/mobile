@@ -259,6 +259,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenThresholdsAsync() => _navigation.GoToAsync(Routes.Thresholds);
 
+    /// <summary>About › Open-source licences (#164).</summary>
+    [RelayCommand]
+    private Task OpenLicencesAsync() => _navigation.GoToAsync(Routes.Licences);
+
+    /// <summary>About's trademark line - see <see cref="OpenSourceNotices.Trademarks"/>.</summary>
+    public string Trademarks => OpenSourceNotices.Trademarks;
+
     /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
     public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
         ? "On · " + server.Trim()

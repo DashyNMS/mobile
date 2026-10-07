@@ -157,6 +157,15 @@
                                 <Label Text="DashyNMS website" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
                                 <Label Grid.Column="1" Style="{StaticResource Chevron}" />
                             </Grid>
+                            <!-- What the app is built with, and each licence (#164). -->
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenLicencesCommand}" />
+                                </Grid.GestureRecognizers>
+                                <Label Text="Open-source licences" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                            </Grid>
                             <!-- What the app did lately, for a bug report (#107); only ever sent by the user. -->
                             <BoxView Style="{StaticResource Divider}" IsVisible="{Binding CanShareDiagnostics}" />
                             <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanShareDiagnostics}">
@@ -191,6 +200,8 @@
                             <TapGestureRecognizer Tapped="OnSecretTap" />
                         </Label.GestureRecognizers>
                     </Label>
+                    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}"
+                           HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,0" />
 
                 </VerticalStackLayout>
             </controls:ReadableColumn>

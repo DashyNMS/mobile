@@ -111,6 +111,9 @@ public static class Routes
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 
+    /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
+    public const string Licences = "licences";
+
     /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
     public const string GroupsLocations = "groupslocations";
 

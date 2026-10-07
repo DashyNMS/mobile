@@ -70,6 +70,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<NotificationRouter>();
 
         services.AddTransient<SignInViewModel>();
+        services.AddTransient<LicencesViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<DevicesViewModel>();
         services.AddTransient<DeviceDetailViewModel>();

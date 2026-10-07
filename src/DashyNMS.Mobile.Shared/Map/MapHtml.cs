@@ -29,7 +29,8 @@ public sealed record MapPinData(
 /// LibreNMS reach the page only as JSON (whose encoder escapes &lt;, &gt;
 /// and &amp;, so a name can't close the script) and are drawn with
 /// textContent, never as markup. A pin tap navigates to
-/// <see cref="PinScheme"/>, which the page catches; the web view refuses
+/// <see cref="PinScheme"/>, which the page catches; a tapped http(s) link
+/// (the attribution) opens in the browser instead, and the web view refuses
 /// every other navigation.
 /// <para>Pins that land within <see cref="ClusterRadius"/> of each other on
 /// screen merge into one, as desktop's map does (Core's PinClustering, the
@@ -47,8 +48,49 @@ public static class MapHtml
     /// <summary>Desktop's merge distance, in screen points.</summary>
     internal const int ClusterRadius = 26;
 
-    /// <summary>The credit OpenStreetMap's tile policy asks for.</summary>
-    internal const string OpenStreetMapCredit = "© OpenStreetMap contributors";
+    /// <summary>The page OpenStreetMap's credit links to - its copyright and licence page.</summary>
+    public const string OpenStreetMapCopyright = "https://www.openstreetmap.org/copyright";
+
+    /// <summary>
+    /// The credit OpenStreetMap's tile policy asks for, linked to its
+    /// copyright page (#164). Leaflet's attribution is markup; this is the
+    /// only markup the page puts there, and it's ours.
+    /// </summary>
+    internal const string OpenStreetMapCredit = "© <a href=\"" + OpenStreetMapCopyright + "\">OpenStreetMap</a> contributors";
+
+    /// <summary>
+    /// The address the page is loaded as, rather than none (#164). With no
+    /// base address the tile requests went out without a Referer, which
+    /// OpenStreetMap's tile policy asks for and its servers may refuse
+    /// without; with the app's website as the base, they say where they're
+    /// from. Nothing on the page is fetched from it.
+    /// </summary>
+    public static Uri BaseUrl => Services.AppLinks.Website;
+
+    /// <summary>
+    /// The web view's User-Agent on the map (#164): OpenStreetMap's tile
+    /// policy asks apps to identify themselves rather than send a stock
+    /// browser's.
+    /// </summary>
+    public static string UserAgent(string? version) =>
+        "DashyNMS-Mobile/" + (string.IsNullOrWhiteSpace(version) ? "1" : version) + " (+" + Services.AppLinks.Website + ")";
+
+    /// <summary>
+    /// A tapped link on the map - its attribution: OpenStreetMap's copyright
+    /// page, or Leaflet's - to open in the browser, or null for anything
+    /// that isn't an http(s) link away from the page itself.
+    /// </summary>
+    public static Uri? ExternalLink(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)
+            || (uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeHttp)
+            || Uri.Compare(uri, BaseUrl, UriComponents.HttpRequestUrl, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase) == 0)
+        {
+            return null;
+        }
+
+        return uri;
+    }
 
     public static string Build(
         IReadOnlyList<MapPinData> pins,
@@ -77,6 +119,7 @@ public static class MapHtml
             <html><head>
             <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-{{nonce}}'; style-src 'unsafe-inline'; img-src {{tileScheme}} data:">
             <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+            <meta name="referrer" content="strict-origin-when-cross-origin">
             <style>
             {{leafletCss}}
               html, body, #map { margin: 0; padding: 0; height: 100%; background: {{background}}; }
@@ -93,7 +136,7 @@ public static class MapHtml
             (function () {
               var data = {{data}};
               var map = L.map('map', { worldCopyJump: true });
-              L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution }).addTo(map);
+              L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
               var layer = L.layerGroup().addTo(map);
               var bounds = data.pins.map(function (p) { return [p.lat, p.lng]; });
               var radius = {{ClusterRadius}};
