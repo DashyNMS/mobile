@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.LicencesPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:LicencesViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Open-source licences">
+
+    <!-- Everything third-party this build ships (#164): each component's
+         copyright and licence, with the licence's full text a tap away. -->
+    <Grid RowDefinitions="Auto,*">
+        <controls:PageHeader x:Name="Header" Title="Open-source licences" Margin="16,8,16,0" />
+
+        <ScrollView Grid.Row="1">
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16,4,16,24" Spacing="12">
+
+                    <Label Style="{StaticResource Caption}"
+                           Text="DashyNMS is built with these open-source components and uses OpenStreetMap's map data. Thank you to everyone who makes them." />
+
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" Spacing="12">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:LicenceItem">
+                                <Border Style="{StaticResource Card}" Padding="16,14">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Use}" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding Copyright}" Margin="0,4,0,0" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding LicenceLine}" TextColor="{StaticResource ButtonPrimary}">
+                                            <Label.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:LicencesViewModel}}, x:DataType=vm:LicencesViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Label.GestureRecognizers>
+                                        </Label>
+                                        <Button Style="{StaticResource LinkButton}" Text="{Binding ToggleText}" HorizontalOptions="Start" Padding="0"
+                                                Command="{Binding ToggleCommand}" IsVisible="{Binding HasLicenceText}" />
+                                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 10" Padding="12,10" IsVisible="{Binding IsExpanded}"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
+                                            <Label Text="{Binding LicenceText}" FontFamily="Mono" FontSize="11.5" LineHeight="1.3"
+                                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                        </Border>
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}" HorizontalTextAlignment="Center" Margin="8,4,8,0" />
+
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
+    </Grid>
+
+</ContentPage>

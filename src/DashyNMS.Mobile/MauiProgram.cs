@@ -70,6 +70,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
 		builder.Services.AddSingleton<IShareService, ShareService>();
+		builder.Services.AddSingleton<ILicenceTexts, LicenceTexts>();
 		builder.Services.AddSingleton<DesktopNMS.Core.SignIn.IWebSignIn, WebSignIn>();
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
@@ -108,6 +109,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertRulePage>();
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
+		builder.Services.AddTransient<LicencesPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<AddCardPage>();
 		builder.Services.AddTransient<SensorPickerPage>();
