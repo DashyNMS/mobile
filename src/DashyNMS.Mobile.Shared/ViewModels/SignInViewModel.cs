@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
-using DashyNMS.Mobile.SignIn;
+using DesktopNMS.Core.SignIn;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
@@ -221,7 +221,7 @@ public sealed partial class SignInViewModel : ViewModelBase
         // http - and iOS and Android's web views wouldn't load it anyway.
         if (!string.Equals(webRoot!.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
         {
-            FallBack("Signing in with LibreNMS needs an https:// address. Use an API token for this server instead.");
+            FallBack(WebSignInMessages.NeedsHttps);
             return;
         }
 
@@ -233,7 +233,7 @@ public sealed partial class SignInViewModel : ViewModelBase
             {
                 probe = await TrustAsync(certificate)
                     ? await _probe.ProbeAsync(webRoot, AllowUntrustedCertificate, TrustedCertificates())
-                    : new ProbeResult(false, ErrorMessage: "The certificate wasn't trusted, so DashyNMS can't sign in to this server.");
+                    : new ProbeResult(false, ErrorMessage: WebSignInMessages.CertificateDeclined);
             }
 
             reached = probe.Reached;
@@ -261,11 +261,11 @@ public sealed partial class SignInViewModel : ViewModelBase
                 break;
 
             case WebSignInOutcome.NotAllowed:
-                FallBack("Your LibreNMS account can't create API tokens here. It needs API access from a LibreNMS admin, and LibreNMS 26.4 or later. You can paste an API token instead.");
+                FallBack(WebSignInMessages.NotAllowed);
                 break;
 
             case WebSignInOutcome.Failed:
-                FallBack("LibreNMS didn't create a token. Try again, or paste an API token instead.");
+                FallBack(WebSignInMessages.Failed);
                 break;
         }
     }
