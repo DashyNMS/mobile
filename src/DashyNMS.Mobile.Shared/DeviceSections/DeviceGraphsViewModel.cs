@@ -135,10 +135,18 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         await LoadGraphAsync();
     }
 
-    /// <summary>One port's graphs, opened from Device View's ports.</summary>
-    public async Task LoadPortAsync(int deviceId, string ifName, string? portName = null, string? deviceName = null)
+    /// <summary>
+    /// One port's graphs, opened from Device View's ports - or from a
+    /// dashboard port graph (#172), on its graph and range.
+    /// </summary>
+    public async Task LoadPortAsync(int deviceId, string ifName, string? portName = null, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null)
     {
         DeviceId = deviceId;
+        if (range is { } preset && Ranges.FirstOrDefault(r => r.Range.Preset == preset) is { } shown)
+        {
+            SelectedRange = shown;
+        }
+
         PortIfName = ifName;
         var port = string.IsNullOrWhiteSpace(portName) ? ifName : portName;
         Title = string.IsNullOrWhiteSpace(deviceName) ? port : $"{port} · {deviceName}";
@@ -154,7 +162,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(HasNoGraphs));
-        SelectedGraph = Graphs[0];
+        SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs[0];
         await LoadGraphAsync();
     }
 

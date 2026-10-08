@@ -48,7 +48,10 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 			if (query.TryGetValue(Routes.PortParameter, out var port) && port is string ifName)
 			{
 				query.TryGetValue(Routes.PortNameParameter, out var portName);
-				_ = _viewModel.LoadPortAsync(deviceId, ifName, portName as string, name as string);
+				// A dashboard port graph (#172) opens on its graph and range.
+				query.TryGetValue(Routes.GraphParameter, out var portGraph);
+				var portRange = query.TryGetValue(Routes.GraphRangeParameter, out var pr) && pr is DesktopNMS.Core.Models.GraphTimeRangePreset portPreset ? portPreset : (DesktopNMS.Core.Models.GraphTimeRangePreset?)null;
+				_ = _viewModel.LoadPortAsync(deviceId, ifName, portName as string, name as string, portGraph as string, portRange);
 			}
 			else
 			{

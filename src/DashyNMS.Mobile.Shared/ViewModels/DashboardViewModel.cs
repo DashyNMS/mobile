@@ -596,18 +596,35 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private Task PickGraphAsync(DashboardCard? card) => _navigation.GoToAsync(
         Routes.PickGraph, new Dictionary<string, object> { [Routes.WidgetIdParameter] = card?.Widget.Id ?? string.Empty });
 
-    /// <summary>A Graph card opens its device's graphs page - or, not set up yet, its set-up.</summary>
+    /// <summary>
+    /// A Graph card opens its device's graphs page - or a port graph, that
+    /// port's (#172) - or, not set up yet, its set-up.
+    /// </summary>
     [RelayCommand]
-    private Task OpenGraphAsync(DashboardCard? card) => card?.Widget is { GraphDeviceId: { } id } widget
-        ? _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object>
+    private Task OpenGraphAsync(DashboardCard? card)
+    {
+        if (card?.Widget is not { GraphDeviceId: { } id } widget)
+        {
+            return PickGraphAsync(card);
+        }
+
+        var parameters = new Dictionary<string, object>
         {
             [Routes.DeviceIdParameter] = id,
 
             // On the card's own graph and range, not the device's first (#119).
             [Routes.GraphParameter] = widget.GraphName ?? string.Empty,
             [Routes.GraphRangeParameter] = widget.GraphTimeRangePreset,
-        })
-        : PickGraphAsync(card);
+        };
+
+        if (widget.GraphPortIfName is { } port)
+        {
+            parameters[Routes.PortParameter] = port;
+            parameters[Routes.PortNameParameter] = port;
+        }
+
+        return _navigation.GoToAsync(Routes.DeviceGraphs, parameters);
+    }
 
     /// <summary>
     /// Every Sensors card's sensors, from one list of the network's sensors -
@@ -712,12 +729,27 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         }
 
         var deviceName = devices.TryGetValue(deviceId, out var device) ? new DeviceItem(device, style).Name : $"Device {deviceId}";
-        card.Title = DashboardLayout.HasOwnTitle(widget) ? widget.Title : $"{graph} · {deviceName}";
+
+        // A port's graph (#172) - desktop's Graph widget can show one, and the
+        // layout is shared: "port_bits" isn't one of the device's own graphs,
+        // so it's fetched as the port's.
+        var port = widget.GraphPortIfName;
+        if (!DashboardLayout.HasOwnTitle(widget))
+        {
+            var name = port is null ? graph : DeviceGraphsViewModel.PortGraphs.FirstOrDefault(g => g.Name == graph)?.Description ?? graph;
+            card.Title = port is null ? $"{name} · {deviceName}" : $"{name} · {port} · {deviceName}";
+        }
+        else
+        {
+            card.Title = widget.Title;
+        }
 
         try
         {
             var range = new GraphTimeRange(widget.GraphTimeRangePreset == GraphTimeRangePreset.Custom ? GraphTimeRangePreset.Day : widget.GraphTimeRangePreset);
-            var svg = await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight);
+            var svg = port is not null
+                ? await _client.Graphs.GetPortSvgAsync(deviceId, port, graph, range, GraphWidth, GraphHeight)
+                : await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight);
             card.GraphPage = GraphHtml.Build(svg, DarkTheme);
         }
         catch (LibreNmsApiException)
