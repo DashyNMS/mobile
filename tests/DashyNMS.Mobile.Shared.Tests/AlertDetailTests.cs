@@ -70,8 +70,9 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal("Port errors", ruleRow.Title);
         Assert.Contains("ifInErrors_delta", ruleRow.Subtitle);
 
-        Assert.Equal(2, vm.Groups[3].Count); // only this rule's entries
-        Assert.Equal(RowStatus.Ok, vm.Groups[3][1].Status);
+        Assert.Equal(3, vm.Groups[3].Count); // the summary (#169), then only this rule's entries
+        Assert.Equal("No earlier alerts in the last 30 days", vm.Groups[3][0].Title);
+        Assert.Equal(RowStatus.Ok, vm.Groups[3][2].Status);
         Assert.True(vm.CanAcknowledge);
         Assert.False(vm.CanUnacknowledge);
 
@@ -82,6 +83,41 @@ public sealed class AlertDetailViewModelTests
         Assert.Contains(full.Fields, f => f.Name == "ifSpeed" && f.IsSecondary);
         Assert.Equal("Show only what the rule tests", vm.Groups[1].FooterText);
         Assert.Equal("Show only what the rule tests", vm.AllFieldsText);
+    }
+
+    [Fact]
+    public async Task History_opens_with_how_often_the_alert_has_fired_as_desktop_says()
+    {
+        var alert = Fakes.Alert(5, deviceId: 3, "critical");
+        var now = DateTime.UtcNow; // LibreNMS logs in UTC, as Fakes.Settings() says
+        GivenAlert(alert, null,
+            LogEntry(alert.RuleId, 1, now.AddHours(-1)),   // this alert itself: not counted
+            LogEntry(alert.RuleId, 0, now.AddDays(-3).AddHours(1)),
+            LogEntry(alert.RuleId, 1, now.AddDays(-3).AddHours(-6)),
+            LogEntry(alert.RuleId, 2, now.AddDays(-4)),    // an acknowledgement: not a firing
+            LogEntry(alert.RuleId, 1, now.AddDays(-5)),
+            LogEntry(alert.RuleId, 1, now.AddDays(-40)));  // outside the 30 days
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        var history = vm.Groups.Single(g => g.Name == "History");
+        Assert.Equal("Fired 2 times in the last 30 days · last 3 days ago", history[0].Title);
+        Assert.Equal(RowStatus.None, history[0].Status);
+    }
+
+    [Fact]
+    public async Task No_summary_when_the_log_couldnt_be_read()
+    {
+        var alert = Fakes.Alert(5, deviceId: 3, "critical");
+        _client.Alerts.GetAsync(alert.Id, Arg.Any<CancellationToken>()).Returns(alert);
+        _client.Logs.ListAlertLogAsync(alert.DeviceId, AlertDetailViewModel.LogDepth, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertLogEntry>>(_ => throw new LibreNmsApiException("Forbidden", System.Net.HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        Assert.DoesNotContain(vm.Groups, g => g.Name == "History");
     }
 
     [Fact]
