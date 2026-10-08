@@ -43,7 +43,7 @@ public sealed class PortGraphCardTests
     public async Task A_port_graph_from_desktop_is_fetched_as_the_ports()
     {
         PortCard();
-        _client.Graphs.GetPortSvgAsync(2, "Gi0/1", "port_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _client.Graphs.GetPortSvgAsync(2, "Gi0/1", "port_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false)
             .Returns(Svg);
         var vm = new DashboardViewModel(_client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
 
@@ -52,8 +52,8 @@ public sealed class PortGraphCardTests
         var card = vm.Cards.Single(c => c.Type == DashboardLayout.Graph);
         Assert.Contains("data:image/svg+xml", card.GraphPage);
         Assert.Equal("Traffic · Gi0/1 · edge-rtr", card.Title);
-        await _client.Graphs.Received(1).GetPortSvgAsync(2, "Gi0/1", "port_bits", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _client.Graphs.DidNotReceive().GetSvgAsync(2, "port_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _client.Graphs.Received(1).GetPortSvgAsync(2, "Gi0/1", "port_bits", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+        await _client.Graphs.DidNotReceive().GetSvgAsync(2, "port_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), Arg.Any<bool>());
     }
 
     [Fact]

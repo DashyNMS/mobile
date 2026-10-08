@@ -1,12 +1,13 @@
 using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
+using DesktopNMS.Core.Graphs;
 
 namespace DashyNMS.Mobile.DeviceSections;
 
 /// <summary>
 /// Wraps a LibreNMS (rrdtool) SVG graph in a page a web view can show,
-/// fitted to the screen's width and readable in dark mode.
+/// fitted to the screen's width and in the app's colours (#158).
 /// </summary>
 /// <remarks>
 /// The SVG is whatever the server sent, so it's treated as untrusted: it's
@@ -18,23 +19,47 @@ namespace DashyNMS.Mobile.DeviceSections;
 /// </remarks>
 public static partial class GraphHtml
 {
-    /// <summary>rrdtool's black text and axes - what desktop's GraphSvgTheming recolours.</summary>
-    private const string BlackFill = "fill=\"rgb(0%, 0%, 0%)\"";
-
-    /// <summary>Desktop's dark-palette text colour, #E6EAF0, as rrdtool writes colours.</summary>
-    private const string DarkText = "fill=\"rgb(90.2%, 91.8%, 94.1%)\"";
-
     private const string SvgNamespace = "http://www.w3.org/2000/svg";
 
     /// <summary>Nothing but data: images and the page's own style - no script, no network.</summary>
     internal const string ContentSecurityPolicy = "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
 
+    /// <summary>The dark theme's graph colours - Core's, as desktop's and the mock-ups'.</summary>
+    public static GraphPalette DarkPalette => GraphPalette.Dark;
+
+    /// <summary>The light theme's: the app's secondary text, dividers, accent and status colours.</summary>
+    public static GraphPalette LightPalette { get; } = new(
+        Text: "#4B5563",
+        Grid: "#DDE2EA",
+        Accent: "#2563EB",
+        Ok: "#1F8A3B",
+        Warning: "#A56A00",
+        Critical: "#B42318",
+        Purple: "#7C3AED",
+        Teal: "#0F8F88",
+        Pink: "#C2367E",
+        Orange: "#C2570C");
+
+    public static GraphPalette PaletteFor(bool dark) => dark ? DarkPalette : LightPalette;
+
+    /// <summary>
+    /// A small graph - a dashboard card, the ping graph - in the app's colours
+    /// (#158): restyled by Core's <see cref="GraphSvgStyle"/>, as desktop's
+    /// are. Callers ask LibreNMS for no legend; anything that isn't an
+    /// rrdtool SVG comes back as it was.
+    /// </summary>
     public static string Build(string svg, bool dark)
     {
         ArgumentNullException.ThrowIfNull(svg);
+        return Page(GraphSvgStyle.Restyle(svg, PaletteFor(dark)).Svg, dark);
+    }
 
-        var themed = dark ? svg.Replace(BlackFill, DarkText, StringComparison.Ordinal) : svg;
-        var image = Convert.ToBase64String(Encoding.UTF8.GetBytes(WithNamespace(MakeScalable(themed))));
+    /// <summary>A graph already restyled (the Graphs page's, its series chosen), as a page.</summary>
+    public static string Page(string svg, bool dark)
+    {
+        ArgumentNullException.ThrowIfNull(svg);
+
+        var image = Convert.ToBase64String(Encoding.UTF8.GetBytes(WithNamespace(MakeScalable(svg))));
         var background = dark ? "#11141A" : "#FFFFFF";
 
         return $$"""
@@ -48,6 +73,23 @@ public static partial class GraphHtml
             </style>
             </head><body><img alt="" src="data:image/svg+xml;base64,{{image}}"></body></html>
             """;
+    }
+
+    /// <summary>
+    /// Height over width of an SVG, from its root's size - for fitting the
+    /// web view to the graph, which is shorter once its legend is cropped.
+    /// </summary>
+    public static double? AspectOf(string svg)
+    {
+        var root = RootTag().Match(svg);
+        if (!root.Success)
+        {
+            return null;
+        }
+
+        var width = Dimension(root.Value, "width");
+        var height = Dimension(root.Value, "height");
+        return width is > 0 && height is > 0 ? height / width : null;
     }
 
     /// <summary>The SVG inside a page from <see cref="Build"/> - for tests.</summary>

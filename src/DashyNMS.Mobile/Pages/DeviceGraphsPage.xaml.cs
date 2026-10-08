@@ -7,9 +7,6 @@ namespace DashyNMS.Mobile.Pages;
 /// <summary>Shown via <see cref="Routes.DeviceGraphs"/>, with the device id and name.</summary>
 public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 {
-	/// <summary>LibreNMS's graphs are drawn at 800x400, so half as tall as wide, plus the legend.</summary>
-	private const double AspectRatio = 0.62;
-
 	private readonly DeviceGraphsViewModel _viewModel;
 
 	public DeviceGraphsPage(DeviceGraphsViewModel viewModel)
@@ -65,7 +62,11 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphPage))
+		if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphAspect))
+		{
+			FitHeight();
+		}
+		else if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphPage))
 		{
 			GraphView.Source = _viewModel.GraphPage is { } html ? new HtmlWebViewSource { Html = html } : null;
 		}
@@ -87,7 +88,8 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 	{
 		if (GraphView.Width > 0)
 		{
-			GraphView.HeightRequest = GraphView.Width * AspectRatio;
+			// The graph's own shape: shorter once its legend is cropped for ours (#158).
+			GraphView.HeightRequest = GraphView.Width * _viewModel.GraphAspect;
 		}
 	}
 

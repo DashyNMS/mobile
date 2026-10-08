@@ -333,14 +333,24 @@ public sealed class GraphTests
     }
 
     [Fact]
-    public void Dark_mode_recolours_rrdtools_black_text_as_desktop_does()
+    public void Small_graphs_are_restyled_into_the_apps_colours_in_either_theme()
     {
-        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(GraphHtml.Build(RrdSvg, dark: false)));
-
+        // Core's GraphSvgStyle recolours rrdtool's black text, as desktop's graphs (#158).
+        var light = GraphHtml.Build(RrdSvg, dark: false);
         var dark = GraphHtml.Build(RrdSvg, dark: true);
+
+        Assert.DoesNotContain("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(light));
         Assert.DoesNotContain("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(dark));
+        Assert.Contains("#FFFFFF", light);
         Assert.Contains("#11141A", dark);
+
+        // The Graphs page restyles first, choosing its series: Page only wraps.
+        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(GraphHtml.Page(RrdSvg, dark: true)));
     }
+
+    [Fact]
+    public void The_graph_fits_its_own_shape() =>
+        Assert.Equal(0.5, GraphHtml.AspectOf(RrdSvg));
 
     [Fact]
     public void A_hostile_graph_is_shown_as_an_image_never_as_markup()

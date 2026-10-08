@@ -16,6 +16,7 @@
             <converters:StatusColorConverter x:Key="StatusTint" Shade="Tint" />
             <converters:IsNotNullConverter x:Key="IsNotNull" />
             <converters:StarConverter x:Key="Star" />
+            <converters:HexColourConverter x:Key="HexColour" />
             <converters:InvertConverter x:Key="Invert" />
 
             <!-- The styles below follow the design mock-ups ("DashyNMS Mobile

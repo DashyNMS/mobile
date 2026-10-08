@@ -559,7 +559,7 @@ public sealed class DashboardCardsTests
         traffic.GraphDeviceId = 1;
         traffic.GraphName = "device_bits";
         traffic.Title = "WAN traffic";
-        _client.Graphs.GetSvgAsync(1, Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+        _client.Graphs.GetSvgAsync(1, Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false) // small graphs: no legend (#158)
             .Returns("<svg width=\"1\" height=\"1\" xmlns=\"http://www.w3.org/2000/svg\"></svg>");
         var vm = NewViewModel();
 
@@ -571,8 +571,8 @@ public sealed class DashboardCardsTests
         Assert.False(cards[1].GraphNeedsSetUp);
         Assert.Contains("data:image/svg+xml", cards[1].GraphPage);
         Assert.Equal(["Graph", "device_processor · core-sw", "WAN traffic"], cards.Select(c => c.Title));
-        await _client.Graphs.Received(1).GetSvgAsync(1, "device_processor", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
-        await _client.Graphs.Received(1).GetSvgAsync(1, "device_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _client.Graphs.Received(1).GetSvgAsync(1, "device_processor", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+        await _client.Graphs.Received(1).GetSvgAsync(1, "device_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
     }
 
     [Fact]

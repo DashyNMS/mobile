@@ -748,8 +748,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         {
             var range = new GraphTimeRange(widget.GraphTimeRangePreset == GraphTimeRangePreset.Custom ? GraphTimeRangePreset.Day : widget.GraphTimeRangePreset);
             var svg = port is not null
-                ? await _client.Graphs.GetPortSvgAsync(deviceId, port, graph, range, GraphWidth, GraphHeight)
-                : await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight);
+                ? await _client.Graphs.GetPortSvgAsync(deviceId, port, graph, range, GraphWidth, GraphHeight, legend: false)
+                : await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight, legend: false);
             card.GraphPage = GraphHtml.Build(svg, DarkTheme);
         }
         catch (LibreNmsApiException)
