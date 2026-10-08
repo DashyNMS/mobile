@@ -27,8 +27,13 @@ namespace DashyNMS.Mobile.ViewModels;
 /// </remarks>
 public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 {
-    /// <summary>How far back to look for this rule's log entries - desktop's search depth.</summary>
-    internal const int LogDepth = 50;
+    /// <summary>
+    /// How far back to look in the device's alert log - desktop's depth (#169).
+    /// The log is per device, not per rule, so "fired n times in the last 30
+    /// days" needs a deep look on a busy device; History still shows only
+    /// <see cref="HistoryRows"/>.
+    /// </summary>
+    internal const int LogDepth = 500;
 
     /// <summary>History rows shown.</summary>
     internal const int HistoryRows = 10;
@@ -170,11 +175,15 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
         _rule = rule;
         _ruleLog = log;
+        _logRead = logTask.Result is not null;
         ShowGroups();
     });
 
     private AlertRule? _rule;
     private IReadOnlyList<AlertLogEntry> _ruleLog = [];
+
+    /// <summary>Whether the alert log could be read - without it, "no earlier alerts" would be a guess.</summary>
+    private bool _logRead;
 
     /// <summary>
     /// "Why it fired" shows the columns the rule tests by default (#46) -
@@ -205,7 +214,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
         var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
         HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
-        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields).ToList();
+        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields, _logRead ? DateTime.Now : null).ToList();
         if (HasMoreFields || ShowAllFields)
         {
             // The link on Why it fired's card. On the group rather than bound
@@ -347,7 +356,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
         : Task.CompletedTask;
 
-    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false)
+    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false, DateTime? now = null)
     {
         var status = StatusFor(alert.Severity);
 
@@ -397,6 +406,17 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
                 _ => status,
             },
         }).ToList();
+
+        // "Fired 6 times in the last 30 days · last 2 days ago" first (#169),
+        // counted by Core as desktop's alert details count it - only when the
+        // log could be read (now is null otherwise), or "no earlier alerts"
+        // would be a guess.
+        if (now is { } localNow)
+        {
+            var summary = AlertHistory.Summarise(ruleLog, alert.Alert.RuleId, alert.Alert.DeviceId, localNow, utc);
+            history.Insert(0, new SectionRow(summary.Describe(localNow)) { Status = RowStatus.None });
+        }
+
         if (history.Count > 0)
         {
             yield return new SectionGroup("History", history);
