@@ -16,13 +16,14 @@ public sealed class MoreSettingsTests
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
     private readonly InMemoryAppearance _appearance = new();
-    private readonly AlertCountThreshold _threshold = new(new InMemoryPreferences());
+    private readonly AlertCountThreshold _threshold;
     private readonly RecordingNavigation _navigation = new();
     private readonly SettingsViewModel _vm;
 
     public MoreSettingsTests()
     {
         _settings = Fakes.Settings(_appSettings);
+        _threshold = new AlertCountThreshold(_settings, new InMemoryPreferences());
         var session = Substitute.For<ISessionService>();
         var store = new InMemoryWatchStore();
         var watcher = new AlertWatcher(
@@ -88,7 +89,7 @@ public sealed class MoreSettingsTests
     [Fact]
     public void The_badge_threshold_is_chosen_from_three_and_kept_on_the_phone()
     {
-        Assert.Equal(["OK and above", "Warning and above", "Critical only"], _vm.BadgeThresholdLabels);
+        Assert.Equal(["Every alert", "Critical and warning", "Critical only"], _vm.BadgeThresholdLabels); // Core's words, as desktop's (#168)
         Assert.Equal(0, _vm.BadgeThresholdIndex);
 
         _vm.BadgeThresholdIndex = 2;

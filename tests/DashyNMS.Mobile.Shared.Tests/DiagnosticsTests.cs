@@ -237,7 +237,7 @@ public sealed class DiagnosticsReportTests
 
     private DiagnosticsReport NewReport(DiagnosticsLog log) => new(
         log, _session, Fakes.Settings(_appSettings), _failover, new TabPins(_preferences),
-        new AlertCountThreshold(_preferences), new IgnoredAlerts(_preferences), _preferences, _client, _time);
+        new AlertCountThreshold(Fakes.Settings(_appSettings), _preferences), new IgnoredAlerts(_preferences), _preferences, _client, _time);
 
     [Fact]
     public void The_header_names_the_app_phone_server_address_and_settings_but_no_secrets()
@@ -271,6 +271,6 @@ public sealed class DiagnosticsReportTests
         Assert.DoesNotContain("nms.example.net", text);
         Assert.Contains("device-1 at ip-1 on host-1", text);
         Assert.True(new DiagnosticsReport(log, _session, Fakes.Settings(_appSettings), _failover, new TabPins(_preferences),
-            new AlertCountThreshold(_preferences), new IgnoredAlerts(_preferences), _preferences).HideNames); // remembered
+            new AlertCountThreshold(Fakes.Settings(_appSettings), _preferences), new IgnoredAlerts(_preferences), _preferences).HideNames); // remembered
     }
 }
