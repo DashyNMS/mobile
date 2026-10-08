@@ -38,7 +38,7 @@ public sealed class AlertCountThresholdTests
     [Fact]
     public void The_tab_dot_goes_by_the_same_threshold()
     {
-        var threshold = new AlertCountThreshold(new InMemoryPreferences()) { Minimum = AlertSeverity.Critical };
+        var threshold = new AlertCountThreshold(Fakes.Settings(), new InMemoryPreferences()) { Minimum = AlertSeverity.Critical };
         var dot = new AlertTabDot(threshold);
         var settings = new AppSettings { ShowAlertTabBadge = true, AlertTabBadgeIncludesAcknowledged = false };
 
@@ -51,23 +51,50 @@ public sealed class AlertCountThresholdTests
     }
 
     [Fact]
-    public void Defaults_to_everything_and_remembers_the_choice()
+    public void Defaults_to_everything_and_keeps_the_choice_in_desktops_settings()
     {
+        var appSettings = new AppSettings();
+        var store = Fakes.Settings(appSettings);
+        var threshold = new AlertCountThreshold(store, new InMemoryPreferences());
+
+        Assert.Equal(AlertSeverity.Ok, threshold.Minimum);
+
+        threshold.Minimum = AlertSeverity.Warning;
+
+        Assert.Equal(AlertSeverity.Warning, appSettings.Notifications.CountFrom); // shared with desktop (#168)
+        store.Received(1).Save();
+        Assert.Equal(AlertSeverity.Warning, new AlertCountThreshold(store, new InMemoryPreferences()).Minimum);
+    }
+
+    [Fact]
+    public void A_choice_saved_on_the_phone_before_moves_into_the_settings_once()
+    {
+        var appSettings = new AppSettings();
         var preferences = new InMemoryPreferences();
+        preferences.Set(AlertCountThreshold.OldKey, nameof(AlertSeverity.Critical));
 
-        Assert.Equal(AlertSeverity.Ok, new AlertCountThreshold(preferences).Minimum);
+        var threshold = new AlertCountThreshold(Fakes.Settings(appSettings), preferences);
 
-        new AlertCountThreshold(preferences).Minimum = AlertSeverity.Warning;
-        Assert.Equal(AlertSeverity.Warning, new AlertCountThreshold(preferences).Minimum);
+        Assert.Equal(AlertSeverity.Critical, threshold.Minimum);
+        Assert.Equal(AlertSeverity.Critical, appSettings.Notifications.CountFrom);
+        Assert.Null(preferences.Get(AlertCountThreshold.OldKey));
+    }
 
-        preferences.Set(AlertCountThreshold.Key, "Nonsense");
-        Assert.Equal(AlertSeverity.Ok, new AlertCountThreshold(preferences).Minimum);
+    [Fact]
+    public void An_unreadable_old_choice_is_dropped()
+    {
+        var appSettings = new AppSettings();
+        var preferences = new InMemoryPreferences();
+        preferences.Set(AlertCountThreshold.OldKey, "Nonsense");
+
+        Assert.Equal(AlertSeverity.Ok, new AlertCountThreshold(Fakes.Settings(appSettings), preferences).Minimum);
+        Assert.Null(preferences.Get(AlertCountThreshold.OldKey));
     }
 
     [Theory]
-    [InlineData(AlertSeverity.Ok, "OK and above")]
-    [InlineData(AlertSeverity.Warning, "Warning and above")]
+    [InlineData(AlertSeverity.Ok, "Every alert")]
+    [InlineData(AlertSeverity.Warning, "Critical and warning")]
     [InlineData(AlertSeverity.Critical, "Critical only")]
-    public void Each_choice_reads_plainly(AlertSeverity minimum, string label) =>
+    public void Each_choice_reads_as_on_desktop(AlertSeverity minimum, string label) =>
         Assert.Equal(label, AlertCountThreshold.Describe(minimum));
 }

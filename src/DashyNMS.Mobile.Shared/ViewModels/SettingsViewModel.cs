@@ -78,7 +78,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _wipe = wipe;
         Backup = backup;
         _report = report;
-        _countThreshold = countThreshold ?? new AlertCountThreshold(new InMemoryPreferences());
+        _countThreshold = countThreshold ?? new AlertCountThreshold(settings, new InMemoryPreferences());
         _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
         _diagnostics = diagnostics;
         _ignored.Changed += (_, _) => ShowIgnored();
@@ -293,7 +293,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         set => SetNotification(_settings.Current.AlertTabBadgeIncludesAcknowledged, value, v => _settings.Current.AlertTabBadgeIncludesAcknowledged = v);
     }
 
-    /// <summary>The badge threshold's choices (#96): "OK and above", "Warning and above", "Critical only".</summary>
+    /// <summary>The badge threshold's choices (#96), in Core's words as desktop's (#168): "Every alert", "Critical and warning", "Critical only".</summary>
     public IReadOnlyList<string> BadgeThresholdLabels { get; } = AlertCountThreshold.Choices.Select(AlertCountThreshold.Describe).ToList();
 
     /// <summary>
