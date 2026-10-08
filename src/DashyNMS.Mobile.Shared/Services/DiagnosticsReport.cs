@@ -22,7 +22,7 @@ public sealed class DiagnosticsReport
     private readonly ServerFailover _failover;
     private readonly TabPins _pins;
     private readonly AlertCountThreshold _threshold;
-    private readonly IgnoredAlerts _ignored;
+    private readonly NotifyRules _notifyRules;
     private readonly IAppPreferences _preferences;
     private readonly ILibreNmsClient? _client;
     private readonly TimeProvider _time;
@@ -34,7 +34,7 @@ public sealed class DiagnosticsReport
         ServerFailover failover,
         TabPins pins,
         AlertCountThreshold threshold,
-        IgnoredAlerts ignored,
+        NotifyRules notifyRules,
         IAppPreferences preferences,
         ILibreNmsClient? client = null,
         TimeProvider? time = null)
@@ -45,7 +45,7 @@ public sealed class DiagnosticsReport
         _failover = failover;
         _pins = pins;
         _threshold = threshold;
-        _ignored = ignored;
+        _notifyRules = notifyRules;
         _preferences = preferences;
         _client = client;
         _time = time ?? TimeProvider.System;
@@ -84,7 +84,7 @@ public sealed class DiagnosticsReport
                 + $" · notifications {(settings.Notifications.Enabled ? "on" : "off")}"
                 + $" · badge counts {AlertCountThreshold.Describe(_threshold.Minimum).ToLower(CultureInfo.InvariantCulture)}"
                 + $" · tabs {(pinned.Count == 0 ? "none pinned" : string.Join(", ", pinned))}"
-                + $" · {_ignored.All.Count.ToString(CultureInfo.InvariantCulture)} ignored alert{(_ignored.All.Count == 1 ? string.Empty : "s")}"
+                + $" · notify {NotifyModeText()}"
                 + $" · {settings.DashboardWidgets.Count.ToString(CultureInfo.InvariantCulture)} dashboard cards",
             new string('-', 40),
         ];
@@ -100,6 +100,19 @@ public sealed class DiagnosticsReport
         }
 
         return _log.Report(header, await RedactionAsync(cancellationToken));
+    }
+
+    /// <summary>"every alert", "every alert except 3 rules", "only 2 rules" (#167) - counts, never the rules' names.</summary>
+    private string NotifyModeText()
+    {
+        var count = _notifyRules.Listed.Count;
+        var rules = count == 1 ? "1 rule" : $"{count.ToString(CultureInfo.InvariantCulture)} rules";
+        return _notifyRules.Mode switch
+        {
+            DesktopNMS.Core.Alerting.NotificationRuleMode.AllExcept => $"every alert except {rules}",
+            DesktopNMS.Core.Alerting.NotificationRuleMode.Only => $"only {rules}",
+            _ => "every alert",
+        };
     }
 
     private async Task<DiagnosticsRedaction> RedactionAsync(CancellationToken cancellationToken)

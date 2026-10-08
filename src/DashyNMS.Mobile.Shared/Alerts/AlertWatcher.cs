@@ -27,7 +27,7 @@ public enum AlertCheckOutcome
 
 public sealed record AlertCheckResult(AlertCheckOutcome Outcome, int Changes = 0, int Notified = 0, string? Error = null)
 {
-    /// <summary>Changes to alerts the user chose to ignore (#102) - not announced.</summary>
+    /// <summary>Changes to alerts the notification rules leave out (#167) - not announced.</summary>
     public int Ignored { get; init; }
 
     /// <summary>Worth the platform scheduling the next check as normal (as opposed to backing off).</summary>
@@ -56,7 +56,6 @@ public sealed class AlertWatcher
     private readonly IAppBadge _badge;
     private readonly AlertTabDot? _tabDot;
     private readonly AlertCountThreshold? _countThreshold;
-    private readonly IgnoredAlerts? _ignored;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
@@ -80,10 +79,12 @@ public sealed class AlertWatcher
         ILogger<AlertWatcher> logger,
         AlertTabDot? tabDot = null,
         AlertCountThreshold? countThreshold = null,
-        IgnoredAlerts? ignored = null)
+        NotifyRules? rules = null)
     {
+        // Asked for only so a phone's pre-1.1.0 ignored list has moved into
+        // the settings (#167) before the first check: the planner reads them.
+        _ = rules;
         _countThreshold = countThreshold;
-        _ignored = ignored;
         _client = client;
         _session = session;
         _secrets = secrets;
@@ -207,11 +208,11 @@ public sealed class AlertWatcher
             var nameStyle = settings.DeviceNameStyle;
             var localNow = _time.GetLocalNow().DateTime;
 
-            // Alerts the user chose to ignore (#102) say nothing - only here:
-            // the badge, dot and widgets above still count them.
-            var announced = _ignored?.Filter(changes) ?? changes;
+            // Which alerts notify (#167) is Core's planner's to decide, from the
+            // settings - only here: the badge, dot and widgets above still
+            // count a left-out alert.
             var plan = AlertNotificationPlanner.Plan(
-                announced,
+                changes,
                 settings.Notifications,
                 localNow,
                 _selfActions,
@@ -228,7 +229,12 @@ public sealed class AlertWatcher
                 await _notifier.ShowAsync(notification).ConfigureAwait(false);
             }
 
-            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count) { Ignored = changes.Count - announced.Count };
+            if (plan.SuppressionReason is { } why)
+            {
+                _logger.LogInformation("Not announced: {Why}", why);
+            }
+
+            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count) { Ignored = plan.LeftOutByRuleCount };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

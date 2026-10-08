@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NotifyRulePickerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:alerts="clr-namespace:DashyNMS.Mobile.Alerts;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="alerts:NotifyRulePickerViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Add a rule">
+
+    <!-- Settings › Notifications › Add a rule (#167): one of LibreNMS's rules, on every device,
+         for the chosen mode's list. A rule already on it, everywhere, can't be added again. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0" RowSpacing="10">
+        <controls:PageHeader x:Name="Header" Title="Add a rule" />
+        <Label Grid.Row="1" Style="{StaticResource Caption}" FontSize="14" Text="{Binding Intro}" />
+        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search alert rules" />
+        <Grid Grid.Row="3">
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" VerticalOptions="Start" />
+            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Start" />
+            <CollectionView ItemsSource="{Binding Rules}" SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="alerts:NotifyRuleChoice">
+                        <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*" RowDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid.Triggers>
+                                <DataTrigger TargetType="Grid" Binding="{Binding CanAdd}" Value="False">
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </DataTrigger>
+                            </Grid.Triggers>
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding ChooseCommand, Source={RelativeSource AncestorType={x:Type alerts:NotifyRulePickerViewModel}}, x:DataType=alerts:NotifyRulePickerViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}"
+                                     VerticalOptions="Start" Margin="0,6,0,0" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" />
+                            </VerticalStackLayout>
+                            <BoxView Grid.Row="1" Grid.ColumnSpan="2" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                            <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+    </Grid>
+
+</ContentPage>

@@ -67,4 +67,10 @@ public sealed class SystemNotificationPrivacy : INotificationPrivacy
 public sealed record AlertNotificationPlan(IReadOnlyList<AlertNotification> Show, IReadOnlyList<string> Remove)
 {
     public static AlertNotificationPlan Empty { get; } = new([], []);
+
+    /// <summary>Changes the notification rules left out (#167) - Core's planner decides, before severity and quiet hours.</summary>
+    public int LeftOutByRuleCount { get; init; }
+
+    /// <summary>Core's reason nothing (or less) was announced, for diagnostics.</summary>
+    public string? SuppressionReason { get; init; }
 }

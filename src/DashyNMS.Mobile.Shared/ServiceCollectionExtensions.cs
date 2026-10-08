@@ -64,13 +64,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
         services.AddSingleton<AlertTabDot>();
         services.AddSingleton<AlertCountThreshold>();
-        services.AddSingleton<IgnoredAlerts>();
+        services.AddSingleton<NotifyRules>();
         services.AddSingleton<AlertWatcher>();
         services.AddSingleton<AlertWatchCoordinator>();
         services.AddSingleton<NotificationRouter>();
 
         services.AddTransient<SignInViewModel>();
         services.AddTransient<LicencesViewModel>();
+        services.AddTransient<NotifyRulePickerViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<DevicesViewModel>();
         services.AddTransient<DeviceDetailViewModel>();

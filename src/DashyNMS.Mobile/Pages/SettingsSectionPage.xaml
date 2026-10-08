@@ -5,8 +5,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:alerts="clr-namespace:DashyNMS.Mobile.Alerts;assembly=DashyNMS.Mobile.Shared"
+    xmlns:alerting="clr-namespace:DesktopNMS.Core.Alerting;assembly=DesktopNMS.Core"
     x:DataType="vm:SettingsViewModel"
     ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
@@ -209,28 +211,82 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Alerts that don't notify (#102), chosen from an alert or its rule; they still list and count. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
-                        <VerticalStackLayout Spacing="10">
-                            <Label Text="No notifications for" FontFamily="BodySemibold" />
-                            <Label Style="{StaticResource Caption}" IsVisible="{Binding HasIgnoredAlerts, Converter={StaticResource Invert}}"
-                                   Text="Nothing. To stop one alert rule notifying, choose Change under Notifications on an alert, or switch off Notify me on its rule." />
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding IgnoredAlerts}" Spacing="6">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="alerts:IgnoredAlert">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                            <Label Text="{Binding Description}" VerticalOptions="Center" />
-                                            <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Notify again"
-                                                    Command="{Binding NotifyAgainCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}"
-                                                    CommandParameter="{Binding .}" HeightRequest="32" MinimumHeightRequest="32" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                            <Label Style="{StaticResource Caption}" Text="They still show on the Alerts tab, and still count on the app icon and dashboard."
-                                   IsVisible="{Binding HasIgnoredAlerts}" />
+                    <!-- Which alerts notify (#167): Core's three modes, as desktop's Settings. Each keeps its own
+                         list. Only notifications change: alerts still show and count everywhere. -->
+                    <Label Style="{StaticResource SectionHeader}" Text="Which alerts notify you" Margin="4,4,0,-4" IsVisible="{Binding NotificationsEnabled}" />
+                    <Border Style="{StaticResource Card}" Padding="14,0" IsVisible="{Binding NotificationsEnabled}">
+                        <VerticalStackLayout>
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,6">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SetNotifyModeCommand}" CommandParameter="{x:Static alerting:NotificationRuleMode.All}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Every alert" />
+                                    <Label Style="{StaticResource Caption}" Text="All alert rules notify" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="✓" FontFamily="BodySemibold" FontSize="18" VerticalOptions="Center"
+                                       TextColor="{StaticResource ButtonPrimary}" IsVisible="{Binding IsEveryAlert}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,6">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SetNotifyModeCommand}" CommandParameter="{x:Static alerting:NotificationRuleMode.AllExcept}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Every alert except…" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding AllExceptDetail}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="✓" FontFamily="BodySemibold" FontSize="18" VerticalOptions="Center"
+                                       TextColor="{StaticResource ButtonPrimary}" IsVisible="{Binding IsAllExcept}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,6">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SetNotifyModeCommand}" CommandParameter="{x:Static alerting:NotificationRuleMode.Only}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Only these rules" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding OnlyRulesDetail}" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Text="✓" FontFamily="BodySemibold" FontSize="18" VerticalOptions="Center"
+                                       TextColor="{StaticResource ButtonPrimary}" IsVisible="{Binding IsOnlyRules}" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
+
+                    <!-- The chosen mode's list, with Add a rule (on every device) and Remove, with Undo. -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding NotificationsEnabled}">
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding HasNotifyRuleList}">
+                            <Label Style="{StaticResource SectionHeader}" Text="{Binding NotifyListTitle}" Margin="4,4,0,0" />
+                            <Border Style="{StaticResource Card}" Padding="14,10" IsVisible="{Binding IsOnlyEmpty}">
+                                <Label Text="Nothing will notify you. Add a rule below, or choose Every alert." FontSize="14" FontFamily="BodySemibold" />
+                            </Border>
+                            <Border Style="{StaticResource Card}" Padding="14,0">
+                                <VerticalStackLayout>
+                                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding NotifyRuleList}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="alerting:NotificationRuleEntry">
+                                                <VerticalStackLayout>
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="52">
+                                                        <Label Text="{Binding Description}" VerticalOptions="Center" />
+                                                        <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Remove"
+                                                                Command="{Binding RemoveNotifyRuleCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}"
+                                                                CommandParameter="{Binding .}" VerticalOptions="Center" />
+                                                    </Grid>
+                                                    <BoxView Style="{StaticResource Divider}" />
+                                                </VerticalStackLayout>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                    <Button Style="{StaticResource LinkButton}" Text="+ Add a rule" HorizontalOptions="Start"
+                                            Command="{Binding AddNotifyRuleCommand}" MinimumHeightRequest="52" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <Label Style="{StaticResource Caption}" Text="{Binding NotifyListHint}" Margin="4,0" />
+                        </VerticalStackLayout>
+                        <Label Style="{StaticResource Caption}" Margin="4,0" IsVisible="{Binding IsEveryAlert}"
+                               Text="Every alert rule notifies you, at the severities above. To leave one out, choose Every alert except…, or Change on one of its alerts." />
+                    </VerticalStackLayout>
 
                     <Border Style="{StaticResource Card}" IsVisible="{Binding NotificationsEnabled}">
                         <VerticalStackLayout Spacing="10">
@@ -264,6 +320,8 @@
             </VerticalStackLayout>
         </controls:ReadableColumn>
     </ScrollView>
+    <!-- A rule just removed from Which alerts, with Undo (#167). -->
+    <views:UndoToastView BindingContext="{Binding Toast}" ZIndex="2" />
         </Grid>
     </Grid>
 

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Widgets;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
@@ -45,7 +46,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly INotificationPrivacy _privacy;
     private readonly ILauncherService? _launcher;
     private readonly AlertCountThreshold _countThreshold;
-    private readonly IgnoredAlerts _ignored;
+    private readonly NotifyRules _notifyRules;
     private readonly DiagnosticsLog? _diagnostics;
     private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
@@ -69,7 +70,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         INotificationPrivacy? privacy = null,
         ILauncherService? launcher = null,
         AlertCountThreshold? countThreshold = null,
-        IgnoredAlerts? ignored = null,
+        NotifyRules? notifyRules = null,
         DiagnosticsLog? diagnostics = null,
         ILocalDataWipe? wipe = null,
         BackupAddressStatus? backup = null,
@@ -79,10 +80,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         Backup = backup;
         _report = report;
         _countThreshold = countThreshold ?? new AlertCountThreshold(settings, new InMemoryPreferences());
-        _ignored = ignored ?? new IgnoredAlerts(new InMemoryPreferences());
+        _notifyRules = notifyRules ?? new NotifyRules(settings, new InMemoryPreferences());
         _diagnostics = diagnostics;
-        _ignored.Changed += (_, _) => ShowIgnored();
-        ShowIgnored();
+        _notifyRules.Changed += (_, _) => ShowNotifyRules();
+        ShowNotifyRules();
         _privacy = privacy ?? new SystemNotificationPrivacy();
         _launcher = launcher;
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
@@ -502,26 +503,83 @@ public sealed partial class SettingsViewModel : ViewModelBase
             ? "Server and device names and IP addresses are replaced with placeholders."
             : "It names your server and devices - turn on Hide names to leave them out.");
 
-    /// <summary>Alert rules that don't notify, everywhere or on a device (#102) - chosen from an alert or a rule's page.</summary>
-    public BulkObservableCollection<IgnoredAlert> IgnoredAlerts { get; } = new();
+    // ------------------------------------------------------------ which alerts notify (#167)
 
-    public bool HasIgnoredAlerts => IgnoredAlerts.Count > 0;
+    /// <summary>
+    /// Which alerts notify: every alert, every alert except some rules, or
+    /// only some rules - Core's modes, as desktop's Settings. Each mode keeps
+    /// its own list, so switching and back loses nothing.
+    /// </summary>
+    public NotificationRuleMode NotifyMode => _notifyRules.Mode;
 
-    /// <summary>Notifications again from one of them.</summary>
+    public bool IsEveryAlert => NotifyMode == NotificationRuleMode.All;
+
+    public bool IsAllExcept => NotifyMode == NotificationRuleMode.AllExcept;
+
+    public bool IsOnlyRules => NotifyMode == NotificationRuleMode.Only;
+
+    /// <summary>"3 rules left out" - under Every alert except….</summary>
+    public string AllExceptDetail => Count(Notifications.ExceptRules.Count) + " left out";
+
+    /// <summary>"2 rules", or "None chosen yet" - under Only these rules.</summary>
+    public string OnlyRulesDetail => Notifications.OnlyRules.Count == 0 ? "None chosen yet" : Count(Notifications.OnlyRules.Count);
+
     [RelayCommand]
-    private void NotifyAgain(IgnoredAlert? entry)
+    private void SetNotifyMode(NotificationRuleMode mode) => _notifyRules.Mode = mode;
+
+    /// <summary>The chosen mode's list: the rules left out, or the only ones that notify.</summary>
+    public BulkObservableCollection<NotificationRuleEntry> NotifyRuleList { get; } = new();
+
+    public bool HasNotifyRuleList => !IsEveryAlert;
+
+    /// <summary>"NOT NOTIFIED (3)" or "NOTIFIED (2)".</summary>
+    public string NotifyListTitle => IsOnlyRules
+        ? $"NOTIFIED ({NotifyRuleList.Count.ToString(CultureInfo.InvariantCulture)})"
+        : $"NOT NOTIFIED ({NotifyRuleList.Count.ToString(CultureInfo.InvariantCulture)})";
+
+    /// <summary>"Only these rules" with none chosen: nothing will notify.</summary>
+    public bool IsOnlyEmpty => IsOnlyRules && NotifyRuleList.Count == 0;
+
+    public string NotifyListHint => IsOnlyRules
+        ? "Only these rules notify you, at the severities above."
+        : "Each list is kept: switching to Only these rules and back loses nothing.";
+
+    /// <summary>What a removal just did, with Undo (#167).</summary>
+    public UndoToast Toast { get; } = new();
+
+    /// <summary>Takes a rule off the list, with Undo.</summary>
+    [RelayCommand]
+    private void RemoveNotifyRule(NotificationRuleEntry? entry)
     {
-        if (entry is not null)
+        if (entry is null)
         {
-            _ignored.NotifyAgain(entry);
+            return;
         }
+
+        var before = _notifyRules.Remove(entry);
+        Toast.Show($"{entry.Description} removed", () => _notifyRules.Restore(before));
     }
 
-    private void ShowIgnored()
+    /// <summary>Add a rule: on every device, from LibreNMS's alert rules.</summary>
+    [RelayCommand]
+    private Task AddNotifyRuleAsync() => _navigation.GoToAsync(Routes.AddNotifyRule);
+
+    private void ShowNotifyRules()
     {
-        IgnoredAlerts.ReplaceAll(_ignored.All);
-        OnPropertyChanged(nameof(HasIgnoredAlerts));
+        NotifyRuleList.ReplaceAll(_notifyRules.Listed);
+        OnPropertyChanged(nameof(NotifyMode));
+        OnPropertyChanged(nameof(IsEveryAlert));
+        OnPropertyChanged(nameof(IsAllExcept));
+        OnPropertyChanged(nameof(IsOnlyRules));
+        OnPropertyChanged(nameof(AllExceptDetail));
+        OnPropertyChanged(nameof(OnlyRulesDetail));
+        OnPropertyChanged(nameof(HasNotifyRuleList));
+        OnPropertyChanged(nameof(NotifyListTitle));
+        OnPropertyChanged(nameof(IsOnlyEmpty));
+        OnPropertyChanged(nameof(NotifyListHint));
     }
+
+    private static string Count(int rules) => rules == 1 ? "1 rule" : $"{rules.ToString(CultureInfo.InvariantCulture)} rules";
 
     /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
     public string NotificationsSummary
@@ -601,7 +659,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>What goes, in plain words, as desktop's sign-out says it (desktop #231).</summary>
     internal const string ForgetEverythingMessage =
         "This removes everything DashyNMS has saved on this phone: your sign-in and servers, settings, dashboard, "
-        + "map layouts, ignored alerts and the Graylog connection. " + Confirmations.CannotBeUndone
+        + "map layouts, which alerts notify you and the Graylog connection. " + Confirmations.CannotBeUndone
         + "\n\nThe diagnostics log is kept, for bug reports.";
 
     /// <summary>

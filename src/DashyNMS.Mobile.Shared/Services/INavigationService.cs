@@ -114,6 +114,9 @@ public static class Routes
     /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
     public const string Licences = "licences";
 
+    /// <summary>Settings › Notifications › Add a rule (#167): a rule on every device for the chosen mode's list.</summary>
+    public const string AddNotifyRule = "addnotifyrule";
+
     /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
     public const string GroupsLocations = "groupslocations";
 
