@@ -383,7 +383,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     {
         try
         {
-            var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400);
+            var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400, legend: false);
             PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
         }
         catch (Exception)

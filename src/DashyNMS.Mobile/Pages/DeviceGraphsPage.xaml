@@ -14,32 +14,102 @@
     <Grid RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,8,16,0" />
-        <Grid Grid.Row="1">
 
+        <!-- As desktop's Graphs in cards (#158): the graph and range on top, the graph in the
+             app's colours, and our own legend under it - a row per series, tap to turn it off
+             or on, press and hold for only that one. -->
+        <ScrollView Grid.Row="1">
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16,8,16,24" Spacing="12">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,8,16,0" RowSpacing="6">
+                    <Picker Title="Graph"
+                            ItemsSource="{Binding Graphs}"
+                            SelectedItem="{Binding SelectedGraph}"
+                            ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
 
-        <Picker Title="Graph"
-                ItemsSource="{Binding Graphs}"
-                SelectedItem="{Binding SelectedGraph}"
-                ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
+                    <FlexLayout Direction="Row" JustifyContent="SpaceBetween" BindableLayout.ItemsSource="{Binding RangeChips}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sections:GraphRangeChip">
+                                <Button Style="{StaticResource Chip}" Text="{Binding Label}" Padding="0" Margin="0,0,6,0"
+                                        FlexLayout.Grow="1" FlexLayout.Basis="0"
+                                        Command="{Binding SelectRangeCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceGraphsViewModel}}, x:DataType=sections:DeviceGraphsViewModel}"
+                                        CommandParameter="{Binding Option}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
 
-        <Picker Grid.Row="1" Title="Time range"
-                ItemsSource="{Binding Ranges}"
-                SelectedItem="{Binding SelectedRange}"
-                ItemDisplayBinding="{Binding Label, x:DataType=sections:GraphRangeOption}" />
+                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                    <Label Style="{StaticResource Caption}" Text="LibreNMS has no graphs for this device."
+                           IsVisible="{Binding HasNoGraphs}" HorizontalOptions="Center" Margin="0,24" />
 
-        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-        <Label Grid.Row="2" Style="{StaticResource Caption}" Text="LibreNMS has no graphs for this device."
-               IsVisible="{Binding HasNoGraphs}" HorizontalOptions="Center" Margin="0,24" />
+                    <!-- LibreNMS draws the graph as SVG, restyled by Core; a web view shows it, scaled to fit. -->
+                    <Border Style="{StaticResource Card}" Padding="8">
+                        <Grid>
+                            <WebView x:Name="GraphView" VerticalOptions="Start" BackgroundColor="Transparent" />
+                            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
 
-        <ActivityIndicator Grid.Row="3" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                    <!-- Our own legend; a graph Core can't name keeps LibreNMS's, so there's none of ours. -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding HasSeries}">
+                        <Grid ColumnDefinitions="*,Auto" Padding="4,0">
+                            <Label Style="{StaticResource SectionHeader}" Text="{Binding ShownCount, StringFormat='SERIES · {0}'}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show all" Command="{Binding ShowAllCommand}"
+                                    IsVisible="{Binding SomeHidden}" />
+                        </Grid>
+                        <Border Style="{StaticResource Card}" Padding="14,0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Series}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="sections:GraphSeriesItem">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12" MinimumHeightRequest="52"
+                                              controls:LongPress.Command="{Binding OnlyCommand}"
+                                              SemanticProperties.Hint="Turns this series off or on. Press and hold to show only this one.">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer Command="{Binding ToggleCommand}" />
+                                            </Grid.GestureRecognizers>
+                                            <Grid.Triggers>
+                                                <DataTrigger TargetType="Grid" Binding="{Binding IsShown}" Value="False">
+                                                    <Setter Property="Opacity" Value="0.45" />
+                                                </DataTrigger>
+                                            </Grid.Triggers>
+                                            <Border WidthRequest="14" HeightRequest="14" StrokeThickness="2" StrokeShape="RoundRectangle 4"
+                                                    Stroke="{Binding Colour, Converter={StaticResource HexColour}}" BackgroundColor="{Binding Colour, Converter={StaticResource HexColour}}" VerticalOptions="Center">
+                                                <Border.Triggers>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding IsShown}" Value="False">
+                                                        <Setter Property="BackgroundColor" Value="Transparent" />
+                                                    </DataTrigger>
+                                                </Border.Triggers>
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
+                                                <Label Text="{Binding Name}" FontSize="15">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding IsShown}" Value="False">
+                                                            <Setter Property="TextDecorations" Value="Strikethrough" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Text="{Binding Value}" FontFamily="Mono" FontSize="14" VerticalOptions="Center" />
+                                            <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
 
-        <!-- LibreNMS draws the graph as SVG; a web view shows it, scaled to fit. -->
-        <WebView Grid.Row="4" x:Name="GraphView" VerticalOptions="Start" BackgroundColor="Transparent" />
-
-    </Grid>
-        </Grid>
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
     </Grid>
 
 </ContentPage>
