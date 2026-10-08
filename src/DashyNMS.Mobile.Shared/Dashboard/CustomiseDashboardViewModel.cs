@@ -37,7 +37,9 @@ public sealed partial class DashboardCardOption : ObservableObject
             1 => "Sensors · 1 sensor",
             var n => string.Create(CultureInfo.CurrentCulture, $"Sensors · {n} sensors"),
         },
-        DashboardLayout.Graph => Widget.GraphName is null ? "Graph · not chosen yet" : "Graph · " + Widget.GraphName,
+        DashboardLayout.Graph => Widget.GraphName is null ? "Graph · not chosen yet"
+            : Widget.GraphPortIfName is { } port ? $"Graph · {Widget.GraphName} · {port}" // a port's (#172)
+            : "Graph · " + Widget.GraphName,
         _ when TopCards.IsTop(Widget.WidgetType) => TopCards.Summary(Widget),
         _ => Kind.Description,
     };

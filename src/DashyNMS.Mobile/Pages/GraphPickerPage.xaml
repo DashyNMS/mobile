@@ -60,6 +60,9 @@
                 <Button Grid.Column="1" Text="Change device" Command="{Binding ChangeDeviceCommand}" BackgroundColor="Transparent"
                         TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
             </Grid>
+            <!-- Show: the device's own graphs or one of its ports (#172), as desktop's Graph widget. -->
+            <Picker Title="Show" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}"
+                    ItemDisplayBinding="{Binding Label, x:DataType=dash:GraphSource}" />
             <Picker Title="Graph" ItemsSource="{Binding Graphs}" SelectedItem="{Binding SelectedGraph}"
                     ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
             <Picker Title="Time range" ItemsSource="{Binding Ranges}" SelectedItem="{Binding SelectedRange}"
