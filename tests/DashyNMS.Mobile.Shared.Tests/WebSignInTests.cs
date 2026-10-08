@@ -151,3 +151,96 @@ public sealed class SignInWithLibreNmsTests
         _session.DidNotReceiveWithAnyArgs().TrustCertificate(default!);
     }
 }
+
+public sealed class EasierTokenTests
+{
+    private const string Token = "12|AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd";
+
+    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly RecordingNavigation _navigation = new();
+    private readonly ILauncherService _launcher = Substitute.For<ILauncherService>();
+    private readonly IClipboardText _clipboard = Substitute.For<IClipboardText>();
+
+    private SignInViewModel NewViewModel(string server = "nms.example.com") => new(
+        _session, Fakes.Settings(), _navigation, Fakes.Secrets(), new RecordingNotifier(), new NotificationRouter(_session, _navigation),
+        launcher: _launcher, clipboard: _clipboard)
+    {
+        ServerUrl = server,
+    };
+
+    [Fact]
+    public void The_hint_is_Cores_as_desktop_says_it() =>
+        Assert.Equal(SignInHelp.TokenHint, NewViewModel().TokenHint);
+
+    [Fact]
+    public async Task An_empty_token_says_where_to_get_one()
+    {
+        var vm = NewViewModel();
+
+        await vm.SignInCommand.ExecuteAsync(null);
+
+        Assert.Equal(SignInHelp.MissingToken, vm.ErrorMessage);
+        await _session.DidNotReceiveWithAnyArgs().SignInAsync(default!, default!, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task Opens_the_servers_API_Tokens_page()
+    {
+        var vm = NewViewModel("https://example.com:8443/librenms");
+
+        Assert.True(vm.CanOpenTokensPage);
+        await vm.OpenTokensPageCommand.ExecuteAsync(null);
+
+        await _launcher.Received(1).OpenAsync(new Uri("https://example.com:8443/librenms/api-access"));
+    }
+
+    [Fact]
+    public void No_tokens_page_until_there_is_an_address()
+    {
+        var vm = NewViewModel(string.Empty);
+
+        Assert.False(vm.CanOpenTokensPage);
+        Assert.False(vm.OpenTokensPageCommand.CanExecute(null));
+
+        vm.ServerUrl = "nms.example.com";
+        Assert.True(vm.CanOpenTokensPage);
+    }
+
+    [Fact]
+    public void Offers_copied_text_without_reading_it()
+    {
+        _clipboard.HasText.Returns(true);
+        var vm = NewViewModel();
+
+        vm.CheckClipboard();
+
+        Assert.True(vm.CanPasteToken);
+        _ = _clipboard.DidNotReceive().GetTextAsync();
+    }
+
+    [Theory]
+    [InlineData(Token)]
+    [InlineData("  Bearer " + Token + "\n")]
+    public async Task Uses_a_copied_token(string copied)
+    {
+        _clipboard.GetTextAsync().Returns(copied);
+        var vm = NewViewModel();
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Equal(Token, vm.ApiToken);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task Copied_text_that_isnt_a_token_isnt_used()
+    {
+        _clipboard.GetTextAsync().Returns("https://nms.example.com/api-access");
+        var vm = NewViewModel();
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Empty(vm.ApiToken);
+        Assert.Contains("isn't an API token", vm.ErrorMessage);
+    }
+}
