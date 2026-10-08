@@ -3,10 +3,10 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
-using DesktopNMS.Core.SignIn;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
+using DesktopNMS.Core.SignIn;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
@@ -30,11 +30,34 @@ public sealed partial class SignInViewModel : ViewModelBase
     private readonly ICertificateProbe _probe;
     private bool _restoreAttempted;
 
+    private readonly ILauncherService? _launcher;
+    private readonly IClipboardText? _clipboard;
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanOpenTokensPage))]
+    [NotifyCanExecuteChangedFor(nameof(OpenTokensPageCommand))]
     private string _serverUrl = string.Empty;
 
     [ObservableProperty]
     private string _apiToken = string.Empty;
+
+    /// <summary>
+    /// Where to get a token, in Core's words so desktop says the same (#161):
+    /// the settings menu, then API, then API Tokens - and that a LibreNMS admin
+    /// can give an account API access.
+    /// </summary>
+    public string TokenHint => SignInHelp.TokenHint;
+
+    /// <summary>"Open the API Tokens page" - once the address can be read (#161).</summary>
+    public bool CanOpenTokensPage => _launcher is not null && LibreNmsConnection.ApiTokensPageUrl(ServerUrl) is not null;
+
+    /// <summary>
+    /// "Use the token you copied" - shown while the clipboard holds text, in
+    /// token mode (#161). Whether it's a token is only known once read, which
+    /// waits for the tap.
+    /// </summary>
+    [ObservableProperty]
+    private bool _canPasteToken;
 
     [ObservableProperty]
     private string _backupAddress = string.Empty;
@@ -82,8 +105,12 @@ public sealed partial class SignInViewModel : ViewModelBase
         NotificationRouter router,
         IDialogService? dialogs = null,
         IWebSignIn? webSignIn = null,
-        ICertificateProbe? probe = null)
+        ICertificateProbe? probe = null,
+        ILauncherService? launcher = null,
+        IClipboardText? clipboard = null)
     {
+        _launcher = launcher;
+        _clipboard = clipboard;
         _dialogs = dialogs;
         _webSignIn = webSignIn;
         _probe = probe ?? new CertificateProbe();
@@ -103,6 +130,55 @@ public sealed partial class SignInViewModel : ViewModelBase
         // Whether there's a token isn't known until the keychain has been
         // read, but a remembered server is a good guess that there is.
         _isRestoring = current.RememberToken && !string.IsNullOrEmpty(current.ServerUrl);
+    }
+
+    /// <summary>The server's API Tokens page, in the browser (#161), to create a token and copy it.</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenTokensPage))]
+    private Task OpenTokensPageAsync() =>
+        LibreNmsConnection.ApiTokensPageUrl(ServerUrl) is { } page && _launcher is not null
+            ? _launcher.OpenAsync(page)
+            : Task.CompletedTask;
+
+    /// <summary>
+    /// Looks whether there's copied text to offer - on showing, coming back
+    /// to the app (from copying a token in the browser) and focusing the
+    /// token box. Only asks whether there's text; nothing is read yet.
+    /// </summary>
+    public void CheckClipboard() => CanPasteToken = _clipboard?.HasText == true;
+
+    /// <summary>
+    /// "Use the token you copied" (#161): reads the clipboard now the user has
+    /// asked, and fills in the token if it is one - trimmed, a leading
+    /// "Bearer " dropped, as Core's ApiTokenText reads it.
+    /// </summary>
+    [RelayCommand]
+    private async Task PasteTokenAsync()
+    {
+        if (_clipboard is null)
+        {
+            return;
+        }
+
+        string? text;
+        try
+        {
+            text = await _clipboard.GetTextAsync();
+        }
+        catch (Exception)
+        {
+            // The user said no to pasting, or the platform wouldn't.
+            return;
+        }
+
+        if (ApiTokenText.TryExtract(text, out var token))
+        {
+            ApiToken = token;
+            ErrorMessage = null;
+        }
+        else
+        {
+            ErrorMessage = "What you copied isn't an API token. In LibreNMS, copy the token shown once after you create it.";
+        }
     }
 
     /// <summary>
@@ -161,6 +237,13 @@ public sealed partial class SignInViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignInAsync()
     {
+        // Nothing to sign in with: say where a token comes from, in Core's words (#161).
+        if (string.IsNullOrWhiteSpace(ApiToken))
+        {
+            ErrorMessage = SignInHelp.MissingToken;
+            return;
+        }
+
         // Core's HTTP client goes round Android's cleartext policy and iOS's
         // App Transport Security, so neither would stop the token going out
         // unencrypted; say so first (#3). Some LAN-only installs have no TLS,

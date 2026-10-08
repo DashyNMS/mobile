@@ -47,7 +47,7 @@
                            Text="Sign in with your LibreNMS account. DashyNMS creates its own API token for this phone." />
                     <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
                            IsVisible="{Binding ShowsTokenEntry}"
-                           Text="Sign in with an API token. In LibreNMS, open your user menu, then API → API Tokens." />
+                           Text="Sign in with an API token." />
                 </VerticalStackLayout>
 
                 <Border Style="{StaticResource Card}" Padding="16">
@@ -63,13 +63,23 @@
                         </VerticalStackLayout>
                         <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowsTokenEntry}">
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
-                            <Entry Text="{Binding ApiToken}"
+                            <Entry x:Name="TokenEntry"
+                                   Text="{Binding ApiToken}"
                                    Placeholder="Paste your API token"
                                    IsPassword="True"
                                    IsSpellCheckEnabled="False"
                                    IsTextPredictionEnabled="False"
                                    ReturnCommand="{Binding SignInCommand}"
                                    AutomationId="ApiToken" />
+                            <!-- Where a token comes from, in Core's words (#161), and the two ways to it:
+                                 the server's API Tokens page, and the token just copied there. -->
+                            <Label Style="{StaticResource Faint}" Text="{Binding TokenHint}" />
+                            <HorizontalStackLayout Spacing="16">
+                                <Button Style="{StaticResource LinkButton}" Text="Open the API Tokens page" Padding="0"
+                                        Command="{Binding OpenTokensPageCommand}" IsVisible="{Binding CanOpenTokensPage}" />
+                                <Button Style="{StaticResource LinkButton}" Text="Use the token you copied" Padding="0"
+                                        Command="{Binding PasteTokenCommand}" IsVisible="{Binding CanPasteToken}" />
+                            </HorizontalStackLayout>
                         </VerticalStackLayout>
                         <VerticalStackLayout Spacing="6">
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
