@@ -54,7 +54,7 @@ public sealed class ServiceRegistrationTests
             .AddSingleton(Substitute.For<IDialogService>())
             .AddSingleton(Substitute.For<ILauncherService>())
             .AddSingleton(Substitute.For<IShareService>())
-            .AddSingleton(Substitute.For<ILicenceTexts>())
+            .AddSingleton(Substitute.For<INoticePlatform>())
             .AddSingleton(Substitute.For<Map.IMapAssets>())
             .AddSingleton(Substitute.For<IAlertNotifier>())
             .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());
