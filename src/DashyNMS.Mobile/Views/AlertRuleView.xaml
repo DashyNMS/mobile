@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:rules="clr-namespace:DashyNMS.Mobile.Rules;assembly=DashyNMS.Mobile.Shared"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="rules:AlertRuleViewModel">
@@ -62,14 +63,14 @@
                                 <Label Style="{StaticResource Caption}" Text="Acknowledgement alerts" VerticalOptions="Center" />
                                 <Label Grid.Column="1" Text="{Binding AcknowledgementText}" VerticalOptions="Center" />
                             </Grid>
-                            <!-- The phone's own choice (#102): its alerts still list and count, only quietly. -->
-                            <Grid ColumnDefinitions="*,Auto" Padding="14,8" MinimumHeightRequest="48" IsVisible="{Binding CanChangeNotifications}">
+                            <!-- Which alerts notify (#167): Core's choices for this rule, with Undo. Its alerts still list and count. -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="14,8" MinimumHeightRequest="48" IsVisible="{Binding CanChangeNotifications}">
                                 <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="Start" Margin="-14,-8,-14,0" />
                                 <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Notify me" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding NotificationsNote}" IsVisible="{Binding HasNotificationsNote}" />
+                                    <Label Style="{StaticResource Caption}" Text="Notifications" />
+                                    <Label Text="{Binding NotificationsText}" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding Notifies}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding ChangeNotificationsCommand}" VerticalOptions="Center" />
                             </Grid>
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,0" MinimumHeightRequest="48">
                                 <Grid.GestureRecognizers>
@@ -134,6 +135,7 @@
             </controls:ReadableColumn>
         </ScrollView>
     </RefreshView>
+    <views:UndoToastView BindingContext="{Binding Toast}" ZIndex="2" />
     </Grid>
 
 </ContentView>

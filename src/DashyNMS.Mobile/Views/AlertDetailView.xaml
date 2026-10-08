@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:AlertDetailViewModel">
@@ -11,6 +12,7 @@
     <!-- As the Alert detail mock-up: "‹ Alerts", a header card with the
          severity, rule, device and the actions, then a card per section -
          why it fired, the rule, and its history on the device. -->
+    <Grid>
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <ScrollView>
             <controls:ReadableColumn>
@@ -57,7 +59,7 @@
                             <!-- The token isn't allowed to acknowledge (#144): say why the button's gone. -->
                             <Label Style="{StaticResource Caption}" Text="{Binding AcknowledgeRefusedText}"
                                    IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" />
-                            <!-- Quiet this alert's rule, here or everywhere - notifications only (#102). -->
+                            <!-- Which alerts notify (#167): Core's choices for this alert's rule, with Undo - notifications only. -->
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding CanChangeNotifications}">
                                 <Label Style="{StaticResource Caption}" Text="{Binding NotificationsText}" VerticalOptions="Center" />
                                 <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding ChangeNotificationsCommand}"
@@ -135,5 +137,8 @@
             </controls:ReadableColumn>
         </ScrollView>
     </RefreshView>
+    <!-- A notification change just made, with Undo (#167). -->
+    <views:UndoToastView BindingContext="{Binding Toast}" ZIndex="2" />
+    </Grid>
 
 </ContentView>

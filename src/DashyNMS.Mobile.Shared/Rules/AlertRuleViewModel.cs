@@ -25,7 +25,8 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private int? _templateId;
-    private readonly DashyNMS.Mobile.Alerts.IgnoredAlerts? _ignored;
+    private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
+    private readonly IDialogService? _dialogs;
 
     [ObservableProperty]
     private string _title = "Alert rule";
@@ -71,12 +72,13 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private bool _hasLoaded;
 
-    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DashyNMS.Mobile.Alerts.IgnoredAlerts? ignored = null)
+    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DashyNMS.Mobile.Alerts.NotifyRules? rules = null, IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _client = client;
         _settings = settings;
         _navigation = navigation;
-        _ignored = ignored;
+        _rules = rules;
     }
 
     public int? RuleId { get; set; }
@@ -262,54 +264,55 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     private int _ruleId;
     private string _ruleName = string.Empty;
 
-    public bool CanChangeNotifications => _ignored is not null && HasLoaded;
+    public bool CanChangeNotifications => _rules is not null && _dialogs is not null && HasLoaded;
+
+    /// <summary>"Notifies you", "Notifies you, except on core-sw", and so on - from the notification rules (#167).</summary>
+    public string NotificationsText => _rules?.StatusForRule(_ruleId) ?? string.Empty;
+
+    /// <summary>What a change just did, with Undo (#167), rather than asking first.</summary>
+    public UndoToast Toast { get; } = new();
 
     /// <summary>
-    /// The phone notifies about this rule's alerts. Off ignores it on every
-    /// device; on again clears that, and any single devices ignored for it.
-    /// Only notifications: its alerts still list and count.
+    /// Core's choices for this rule on every device, in Core's words for a
+    /// rule ("Don't notify me about this rule") - as desktop's right-click on
+    /// a rule (#167). Only notifications: its alerts still list and count.
     /// </summary>
-    public bool Notifies
+    [RelayCommand]
+    private async Task ChangeNotificationsAsync()
     {
-        get => _ignored?.IsRuleIgnored(_ruleId) != true;
-        set
+        if (_rules is null || _dialogs is null)
         {
-            if (_ignored is null || value == Notifies)
-            {
-                return;
-            }
-
-            if (value)
-            {
-                _ignored.NotifyAgain(_ruleId);
-            }
-            else
-            {
-                _ignored.Ignore(_ruleId, _ruleName);
-            }
-
-            OnPropertyChanged();
-            OnPropertyChanged(nameof(NotificationsNote));
-            OnPropertyChanged(nameof(HasNotificationsNote));
+            return;
         }
+
+        var choices = _rules.ChoicesFor(_ruleId, deviceId: null);
+        if (choices.Count == 0)
+        {
+            return;
+        }
+
+        var labels = choices.Select(c => DesktopNMS.Core.Alerting.NotificationRuleChoices.Describe(c, forRule: true)).ToList();
+        var picked = await _dialogs.ChooseAsync($"Notifications for {_ruleName}", labels);
+        var index = picked is null ? -1 : labels.IndexOf(picked);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var before = _rules.Apply(choices[index], _ruleId, _ruleName);
+        OnPropertyChanged(nameof(NotificationsText));
+        Toast.Show(NotificationsText, () =>
+        {
+            _rules.Restore(before);
+            OnPropertyChanged(nameof(NotificationsText));
+        });
     }
-
-    /// <summary>The devices it's quiet on, when only some are: "Not on core-sw, edge-rtr".</summary>
-    public string? NotificationsNote =>
-        _ignored is null || !Notifies ? null
-        : _ignored.All.Where(i => i.RuleId == _ruleId && i.DeviceId is not null).Select(i => i.DeviceName ?? $"device {i.DeviceId}").ToList() is { Count: > 0 } devices
-            ? $"Not on {string.Join(", ", devices)}"
-            : null;
-
-    public bool HasNotificationsNote => NotificationsNote is not null;
 
     private void ShowNotifications(AlertRule rule)
     {
         _ruleId = rule.Id;
         _ruleName = RuleText.Name(rule);
-        OnPropertyChanged(nameof(Notifies));
-        OnPropertyChanged(nameof(NotificationsNote));
-        OnPropertyChanged(nameof(HasNotificationsNote));
+        OnPropertyChanged(nameof(NotificationsText));
         OnPropertyChanged(nameof(CanChangeNotifications));
     }
 

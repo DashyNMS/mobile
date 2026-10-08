@@ -43,7 +43,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
-    private readonly DashyNMS.Mobile.Alerts.IgnoredAlerts? _ignored;
+    private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
 
     /// <summary>
     /// Raised after you acknowledge or unacknowledge the alert here. Beside
@@ -75,14 +75,14 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         IDialogService dialogs,
         INavigationService navigation,
         ISelfActionTracker selfActions,
-        DashyNMS.Mobile.Alerts.IgnoredAlerts? ignored = null)
+        DashyNMS.Mobile.Alerts.NotifyRules? rules = null)
     {
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
         _navigation = navigation;
         _selfActions = selfActions;
-        _ignored = ignored;
+        _rules = rules;
     }
 
     public int AlertId { get; private set; }
@@ -253,48 +253,50 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
     // ------------------------------------------------------------ notifications (#102)
 
-    public bool CanChangeNotifications => _ignored is not null && Alert is not null;
+    public bool CanChangeNotifications => _rules is not null && Alert is not null;
 
-    /// <summary>"Notifications on", or what's keeping this alert quiet.</summary>
-    public string NotificationsText => Alert is not { } alert || _ignored is null ? string.Empty
-        : _ignored.All.FirstOrDefault(i => i.Covers(alert.Alert)) is { } entry ? $"No notifications: {entry.Description}"
-        : "Notifications on";
+    /// <summary>"Notifies you", or why not - from the notification rules (#167).</summary>
+    public string NotificationsText => Alert is not { } alert || _rules is null ? string.Empty : _rules.StatusFor(alert.Alert);
+
+    /// <summary>What a change just did, with Undo (#167), rather than asking first.</summary>
+    public UndoToast Toast { get; } = new();
 
     /// <summary>
-    /// Stops notifications from this alert's rule - on this device, or every
-    /// device - or, if they're stopped, starts them again. Only notifications:
-    /// the alert still lists and counts.
+    /// Core's choices for this alert's rule on its device, in Core's words -
+    /// the same as desktop's right-click (#167): leave it out, notify again,
+    /// or in "Only…" add it or stop. Only notifications: the alert still
+    /// lists and counts. Undo puts the rules back.
     /// </summary>
     [RelayCommand]
     private async Task ChangeNotificationsAsync()
     {
-        if (Alert is not { } item || _ignored is null)
+        if (Alert is not { } item || _rules is null)
         {
             return;
         }
 
         var alert = item.Alert;
-        if (_ignored.IsIgnored(alert))
+        var choices = _rules.ChoicesFor(alert.RuleId, alert.DeviceId);
+        if (choices.Count == 0)
         {
-            // Only this phone's own notifications, and stopping them again is a tap away (#146).
-            _ignored.NotifyAgain(alert);
-        }
-        else
-        {
-            var onDevice = $"{item.Rule} on {item.Device}";
-            var everywhere = $"{item.Rule} on every device";
-            var choice = await _dialogs.ChooseAsync("Stop notifications for", [onDevice, everywhere]);
-            if (choice == onDevice)
-            {
-                _ignored.Ignore(alert.RuleId, item.Rule, alert.DeviceId, item.Device);
-            }
-            else if (choice == everywhere)
-            {
-                _ignored.Ignore(alert.RuleId, item.Rule);
-            }
+            return;
         }
 
+        var labels = choices.Select(c => NotificationRuleChoices.Describe(c)).ToList();
+        var picked = await _dialogs.ChooseAsync($"Notifications for {item.Rule} on {item.Device}", labels);
+        var index = picked is null ? -1 : labels.IndexOf(picked);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var before = _rules.Apply(choices[index], alert.RuleId, item.Rule, alert.DeviceId, item.Device);
         OnPropertyChanged(nameof(NotificationsText));
+        Toast.Show(NotificationsText, () =>
+        {
+            _rules.Restore(before);
+            OnPropertyChanged(nameof(NotificationsText));
+        });
     }
 
     [RelayCommand]

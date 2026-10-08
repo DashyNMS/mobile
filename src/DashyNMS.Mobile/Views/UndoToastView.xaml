@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="DashyNMS.Mobile.Views.UndoToastView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:services="clr-namespace:DashyNMS.Mobile.Services;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="services:UndoToast"
+    VerticalOptions="End"
+    Margin="12,0,12,16"
+    IsVisible="{Binding IsShowing}">
+
+    <!-- What a change just did, with Undo (#167) - floating over the page, as the dashboard's (#140). -->
+    <Border StrokeShape="RoundRectangle 14" StrokeThickness="1" Padding="16,0,8,0" MinimumHeightRequest="52"
+            BackgroundColor="{AppThemeBinding Light={StaticResource TextLight}, Dark=#2A3240}"
+            Stroke="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource ChipStrokeDark}}">
+        <Border.Shadow>
+            <Shadow Brush="Black" Offset="0,8" Radius="24" Opacity="0.4" />
+        </Border.Shadow>
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <Label Text="{Binding Message}" FontSize="14" VerticalOptions="Center"
+                   TextColor="{StaticResource TextDark}" LineBreakMode="WordWrap"
+                   SemanticProperties.Description="{Binding Message}" />
+            <Button Grid.Column="1" Text="Undo" Command="{Binding UndoCommand}" BackgroundColor="Transparent"
+                    TextColor="{StaticResource PrimaryTextDark}" FontFamily="BodySemibold" FontSize="15"
+                    Padding="12,0" HeightRequest="44" MinimumHeightRequest="44" />
+        </Grid>
+    </Border>
+
+</ContentView>

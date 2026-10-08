@@ -12,8 +12,8 @@ namespace DashyNMS.Mobile.Alerts;
 /// phone.
 /// </summary>
 /// <remarks>
-/// Core's <see cref="CorePlanner"/> covers the per-severity switches, quiet
-/// hours, "notify on recovery/acknowledge", the cap above which one summary
+/// Core's <see cref="CorePlanner"/> covers which alert rules notify (#167),
+/// the per-severity switches, quiet hours, "notify on recovery/acknowledge", the cap above which one summary
 /// replaces many, and not telling you about your own acknowledgements. On
 /// top of that each notification gets a tag (so an alert's "Recovered"
 /// replaces its "Critical") and where a tap goes, and notifications made out
@@ -63,6 +63,7 @@ public static class AlertNotificationPlanner
                 : new AlertNotification(AlertNotification.SummaryTag, planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, DeviceId: null))
             .ToList();
 
-        return new AlertNotificationPlan(show, remove);
+        // Core leaves out what the notification rules don't allow (#167) and says how many.
+        return new AlertNotificationPlan(show, remove) { LeftOutByRuleCount = plan.LeftOutByRuleCount, SuppressionReason = plan.SuppressionReason };
     }
 }
