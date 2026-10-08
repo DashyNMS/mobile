@@ -1,23 +1,18 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
+using DesktopNMS.Core.Licences;
 
 namespace DashyNMS.Mobile.ViewModels;
 
 /// <summary>
 /// One component on the licences page: its notice, and its licence text
-/// once opened - read only then, so the page opens without loading every
-/// licence.
+/// once opened - read from Core only then, so the page opens without
+/// loading every licence.
 /// </summary>
 public sealed partial class LicenceItem : ObservableObject
 {
-    private readonly ILicenceTexts _texts;
-
-    public LicenceItem(OpenSourceNotice notice, ILicenceTexts texts)
-    {
-        Notice = notice;
-        _texts = texts;
-    }
+    public LicenceItem(OpenSourceNotice notice) => Notice = notice;
 
     public OpenSourceNotice Notice { get; }
 
@@ -42,18 +37,12 @@ public sealed partial class LicenceItem : ObservableObject
     public string ToggleText => IsExpanded ? "Hide licence" : "Show licence";
 
     [RelayCommand]
-    private async Task ToggleAsync()
+    private void Toggle()
     {
         if (!IsExpanded && LicenceText is null && Notice.LicenceFile is { } file)
         {
-            try
-            {
-                LicenceText = await _texts.ReadAsync(file);
-            }
-            catch (Exception)
-            {
-                LicenceText = "The licence text couldn't be read. It's at " + Notice.Link + ".";
-            }
+            LicenceText = OpenSourceNotices.ReadLicence(file)
+                ?? "The licence text couldn't be read. It's at " + Notice.Link + ".";
         }
 
         IsExpanded = !IsExpanded;
@@ -62,17 +51,17 @@ public sealed partial class LicenceItem : ObservableObject
 
 /// <summary>
 /// Settings › About › Open-source licences (#164): everything third-party
-/// this build ships, each with its copyright and licence, and the trademark
-/// line.
+/// this build ships - Core's shared entries and the phone's own (#165) -
+/// each with its copyright and licence, and the trademark line.
 /// </summary>
 public sealed partial class LicencesViewModel : ObservableObject
 {
     private readonly ILauncherService? _launcher;
 
-    public LicencesViewModel(ILicenceTexts texts, ILauncherService? launcher = null)
+    public LicencesViewModel(INoticePlatform platform, ILauncherService? launcher = null)
     {
         _launcher = launcher;
-        Items = OpenSourceNotices.For(texts.IsAndroid).Select(n => new LicenceItem(n, texts)).ToList();
+        Items = PhoneNotices.For(platform.Platform).Select(n => new LicenceItem(n)).ToList();
     }
 
     public IReadOnlyList<LicenceItem> Items { get; }

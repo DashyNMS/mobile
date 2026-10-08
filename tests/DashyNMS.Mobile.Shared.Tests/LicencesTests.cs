@@ -1,50 +1,33 @@
 using DashyNMS.Mobile.Map;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
+using DesktopNMS.Core.Licences;
 
 namespace DashyNMS.Mobile.Tests;
 
 public sealed class LicencesTests
 {
-    private sealed class FakeTexts(bool android) : ILicenceTexts
+    private sealed class FakePlatform(NoticePlatforms platform) : INoticePlatform
     {
-        public bool IsAndroid { get; } = android;
-
-        public List<string> Read { get; } = [];
-
-        public Task<string> ReadAsync(string licenceFile)
-        {
-            Read.Add(licenceFile);
-            return Task.FromResult("text of " + licenceFile);
-        }
+        public NoticePlatforms Platform { get; } = platform;
     }
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "global.json")))
-        {
-            dir = dir.Parent;
-        }
-
-        return dir?.FullName ?? throw new InvalidOperationException("Couldn't find the repository root.");
-    }
+    private static LicencesViewModel Page(NoticePlatforms platform = NoticePlatforms.iOS) => new(new FakePlatform(platform));
 
     [Fact]
-    public void Every_licence_file_ships_with_the_app()
+    public void Every_licence_text_the_phone_names_is_in_Core()
     {
-        var folder = Path.Combine(RepoRoot(), "src", "DashyNMS.Mobile", "Resources", "Raw", OpenSourceNotices.LicencesFolder);
-
-        foreach (var file in OpenSourceNotices.All.Select(n => n.LicenceFile).OfType<string>().Distinct())
+        foreach (var file in PhoneNotices.Own.Select(n => n.LicenceFile).OfType<string>().Distinct())
         {
-            Assert.True(File.Exists(Path.Combine(folder, file)), file + " is missing from Resources/Raw/licences");
+            Assert.Contains(file, OpenSourceNotices.LicenceFiles);
+            Assert.False(string.IsNullOrWhiteSpace(OpenSourceNotices.ReadLicence(file)), file + " is empty");
         }
     }
 
     [Fact]
     public void Every_notice_has_a_copyright_a_licence_and_an_https_link()
     {
-        Assert.All(OpenSourceNotices.All, n =>
+        Assert.All(PhoneNotices.Own.Concat(OpenSourceNotices.Shared), n =>
         {
             Assert.False(string.IsNullOrWhiteSpace(n.Copyright));
             Assert.False(string.IsNullOrWhiteSpace(n.Licence));
@@ -53,52 +36,56 @@ public sealed class LicencesTests
     }
 
     [Fact]
+    public void The_page_lists_Cores_shared_entries_and_the_phones_own()
+    {
+        var names = Page().Items.Select(i => i.Name).ToList();
+
+        Assert.Contains(".NET", names);          // Core's
+        Assert.Contains("OpenStreetMap", names); // Core's
+        Assert.Contains(".NET MAUI", names);     // the phone's
+        Assert.Contains("Leaflet", names);       // the phone's
+        Assert.DoesNotContain("WebView2", names, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void AndroidX_and_Kotlin_are_listed_only_on_Android()
     {
-        var ios = OpenSourceNotices.For(android: false).Select(n => n.Name).ToList();
-        var android = OpenSourceNotices.For(android: true).Select(n => n.Name).ToList();
+        var ios = Page(NoticePlatforms.iOS).Items.Select(i => i.Name).ToList();
+        var android = Page(NoticePlatforms.Android).Items.Select(i => i.Name).ToList();
 
         Assert.DoesNotContain("AndroidX", ios);
         Assert.DoesNotContain("Kotlin standard library", ios);
         Assert.Contains("AndroidX", android);
-        Assert.Contains("Leaflet", ios);
-        Assert.Contains("OpenStreetMap", ios);
+        Assert.Contains("Leaflet", android);
     }
 
     [Fact]
-    public async Task A_licence_is_read_when_first_shown_and_only_then()
+    public void A_licence_is_read_from_Core_when_shown()
     {
-        var texts = new FakeTexts(android: false);
-        var vm = new LicencesViewModel(texts);
-        var leaflet = vm.Items.Single(i => i.Name == "Leaflet");
+        var leaflet = Page().Items.Single(i => i.Name == "Leaflet");
 
-        Assert.Empty(texts.Read);
+        Assert.Null(leaflet.LicenceText);
         Assert.Equal("Show licence", leaflet.ToggleText);
 
-        await leaflet.ToggleCommand.ExecuteAsync(null);
-        Assert.True(leaflet.IsExpanded);
-        Assert.Equal("text of bsd-2-clause-leaflet.txt", leaflet.LicenceText);
-        Assert.Equal("Hide licence", leaflet.ToggleText);
+        leaflet.ToggleCommand.Execute(null);
 
-        await leaflet.ToggleCommand.ExecuteAsync(null);
-        await leaflet.ToggleCommand.ExecuteAsync(null);
-        Assert.Single(texts.Read);
+        Assert.True(leaflet.IsExpanded);
+        Assert.Contains("Volodymyr Agafonkin", leaflet.LicenceText);
+        Assert.Equal("Hide licence", leaflet.ToggleText);
     }
 
     [Fact]
     public void Map_data_has_its_attribution_rather_than_a_licence_text()
     {
-        var osm = new LicencesViewModel(new FakeTexts(false)).Items.Single(i => i.Name == "OpenStreetMap");
+        var osm = Page().Items.Single(i => i.Name == "OpenStreetMap");
 
         Assert.False(osm.HasLicenceText);
         Assert.Equal("Open Database License (ODbL) · www.openstreetmap.org/copyright", osm.LicenceLine);
     }
 
     [Fact]
-    public void The_trademark_line_names_LibreNMS_and_Graylog() =>
-        Assert.Equal(
-            "DashyNMS isn't affiliated with LibreNMS or Graylog. LibreNMS and Graylog are trademarks of their respective owners.",
-            new LicencesViewModel(new FakeTexts(false)).Trademarks);
+    public void The_trademark_line_is_Cores() =>
+        Assert.Equal(OpenSourceNotices.Trademarks, Page().Trademarks);
 
     [Theory]
     [InlineData("https://www.openstreetmap.org/copyright", true)]

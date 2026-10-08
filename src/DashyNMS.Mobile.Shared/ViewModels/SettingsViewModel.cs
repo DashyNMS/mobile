@@ -263,8 +263,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenLicencesAsync() => _navigation.GoToAsync(Routes.Licences);
 
-    /// <summary>About's trademark line - see <see cref="OpenSourceNotices.Trademarks"/>.</summary>
-    public string Trademarks => OpenSourceNotices.Trademarks;
+    /// <summary>About's trademark line - see <see cref="DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks"/>.</summary>
+    public string Trademarks => DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks;
 
     /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
     public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
