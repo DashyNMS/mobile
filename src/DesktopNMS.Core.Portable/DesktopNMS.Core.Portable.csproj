@@ -31,6 +31,15 @@
              LinkBase="DesktopNMS.Core" />
   </ItemGroup>
 
+  <!-- Core's open-source licence texts (DashyNMS/desktop#266), embedded under
+       the same names Core's own csproj gives them, so OpenSourceNotices.ReadLicence
+       finds them here too (#166). -->
+  <ItemGroup>
+    <EmbeddedResource Include="$(DesktopRoot)src/DesktopNMS.Core/Licences/Texts/*.txt"
+                      LogicalName="DesktopNMS.Core.Licences.%(Filename)%(Extension)"
+                      LinkBase="DesktopNMS.Core/Licences/Texts" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.12" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
