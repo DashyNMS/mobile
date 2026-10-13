@@ -1,5 +1,6 @@
 using DashyNMS.Mobile.Pages;
 using DesktopNMS.Core.SignIn;
+using Microsoft.Extensions.Logging;
 
 namespace DashyNMS.Mobile.Adapters;
 
@@ -10,6 +11,13 @@ namespace DashyNMS.Mobile.Adapters;
 /// </summary>
 public sealed class WebSignIn : IWebSignIn
 {
+    private readonly ILogger<WebSignIn> _logger;
+
+    public WebSignIn(ILogger<WebSignIn> logger)
+    {
+        _logger = logger;
+    }
+
     /// <summary>
     /// The phone's name for the token's description. iOS 16 and later give
     /// apps the model ("iPhone") rather than the name the owner chose, unless
@@ -25,7 +33,7 @@ public sealed class WebSignIn : IWebSignIn
             return new WebSignInResult(WebSignInOutcome.Failed);
         }
 
-        var page = new LibreNmsSignInPage(request);
+        var page = new LibreNmsSignInPage(request, _logger);
         await MainThread.InvokeOnMainThreadAsync(() => navigation.PushModalAsync(page));
         try
         {
