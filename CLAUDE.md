@@ -7,3 +7,6 @@
 - Tests need no MAUI workloads: `dotnet test tests/DashyNMS.Mobile.Shared.Tests` and `dotnet test tests/DesktopNMS.Core.Tests`.
 - Building the head needs the `maui-android` / `maui-ios` workloads plus the Android SDK or Xcode; CI covers both.
 - Match desktop's style: British spelling in user-facing text, XML doc comments explaining *why*, sealed classes.
+- PR titles, commits and issue titles: `type(scope): what changes, in plain words`. One issue per PR, squash-merged, `Closes #NN` in the description, issue titles worded as the result the fix delivers. Full standard and scopes: docs/DEVELOPING.md, "Commits, pull requests and issues".
+- Commits, PRs and release notes carry no AI attribution or Co-Authored-By lines.
+- Never put real device names, hostnames, addresses or other identifiable network data in issues, PRs, commits, screenshots or test fixtures.
