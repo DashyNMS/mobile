@@ -239,6 +239,30 @@ To ship an iOS build, see [Releasing](#releasing) below. The manually
 triggered **TestFlight** workflow signs the app and uploads it to App Store
 Connect, with no Mac needed.
 
+## Commits, pull requests and issues
+
+Every change goes through a branch and a pull request into `main`, one issue per PR, and is squash-merged, so the PR title becomes the commit on `main`. PR titles, commit messages and issue titles follow [Conventional Commits](https://www.conventionalcommits.org/) in plain words, the same standard as every DashyNMS repository:
+
+```
+type(scope): what changes, as the user would notice it
+```
+
+- **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `sign-in`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
+- **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
+- **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
+- **Issue titles:** the same form, worded as the result the fixing PR will deliver, so the PR can reuse the title. An epic ends with `(epic)`. Labels carry the rest.
+- **Attribution:** commits, PRs and release notes carry no AI attribution or `Co-Authored-By` lines.
+
+Examples:
+
+```
+fix(alerts): acknowledging no longer jumps back to the top
+feat(widgets): an alert count widget for the lock screen
+build(ios): build number from the run number + 100
+docs: release steps for TestFlight
+```
 ## Releasing
 
 The one-time Apple setup (App IDs, the App Group, certificates and profiles)
