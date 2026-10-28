@@ -50,7 +50,7 @@ public sealed class CountsTests
     [Fact]
     public async Task Maintenance_is_counted_on_its_own_and_not_as_up()
     {
-        DashboardLayout.Ensure(_appSettings, DashboardLayout.DeviceStatus);
+        DashboardLayout.Add(_appSettings, DashboardLayout.DeviceStatus);
         _client.Devices.IsUnderMaintenanceAsync(2, Arg.Any<CancellationToken>()).Returns(true);
         var vm = NewDashboard();
 
@@ -114,8 +114,9 @@ public sealed class CountsTests
         vm.ShowOnly("ok");
         Assert.Equal([4], vm.Alerts.Select(a => a.Id));
         Assert.Equal(1, vm.OkCount);
-        Assert.False(_appSettings.Filter.ShowCritical);
-        Assert.True(_appSettings.Filter.ShowUnknownSeverity); // desktop's filter for the rest
+        // Shown, not saved over the user's own filter (#81).
+        Assert.True(_appSettings.Filter.ShowCritical);
+        Assert.True(_appSettings.Filter.ShowUnknownSeverity);
 
         vm.ShowOnly("acknowledged");
         Assert.Equal([3], vm.Alerts.Select(a => a.Id));
@@ -167,7 +168,7 @@ public sealed class CountsTests
             new RecordingNotifier(), null!, new DashyNMS.Mobile.Alerts.NoAppBadge(), new InMemoryAppearance(),
             new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks);
 
-        Assert.Equal("10", vm.RecentlyViewedCountLabels[vm.RecentlyViewedCountIndex]); // desktop's default
+        Assert.Equal("5", vm.RecentlyViewedCountLabels[vm.RecentlyViewedCountIndex]); // desktop's default since Core 802980c
 
         vm.RecentlyViewedCountIndex = 1;
         vm.ShowRecentlyViewed = false;

@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Widgets;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
@@ -44,6 +45,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly Graylog.GraylogSetup? _graylog;
     private readonly INotificationPrivacy _privacy;
     private readonly ILauncherService? _launcher;
+    private readonly AlertCountThreshold _countThreshold;
+    private readonly NotifyRules _notifyRules;
+    private readonly DiagnosticsLog? _diagnostics;
+    private readonly DiagnosticsReport? _report;
+    private readonly ILocalDataWipe? _wipe;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -62,8 +68,22 @@ public sealed partial class SettingsViewModel : ViewModelBase
         IShareService? share = null,
         Graylog.GraylogSetup? graylog = null,
         INotificationPrivacy? privacy = null,
-        ILauncherService? launcher = null)
+        ILauncherService? launcher = null,
+        AlertCountThreshold? countThreshold = null,
+        NotifyRules? notifyRules = null,
+        DiagnosticsLog? diagnostics = null,
+        ILocalDataWipe? wipe = null,
+        BackupAddressStatus? backup = null,
+        DiagnosticsReport? report = null)
     {
+        _wipe = wipe;
+        Backup = backup;
+        _report = report;
+        _countThreshold = countThreshold ?? new AlertCountThreshold(settings, new InMemoryPreferences());
+        _notifyRules = notifyRules ?? new NotifyRules(settings, new InMemoryPreferences());
+        _diagnostics = diagnostics;
+        _notifyRules.Changed += (_, _) => ShowNotifyRules();
+        ShowNotifyRules();
         _privacy = privacy ?? new SystemNotificationPrivacy();
         _launcher = launcher;
         _bookmarks = bookmarks ?? new DeviceBookmarks(settings, TimeProvider.System);
@@ -198,6 +218,28 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Devices wobble like jelly when dragged on the network map (#106) -
+    /// desktop's own setting (jigglePhysicsOnMaps), so it's the same in both
+    /// apps. Just for fun; off by default.
+    /// </summary>
+    public bool JigglePhysicsOnMaps
+    {
+        get => _settings.Current.JigglePhysicsOnMaps;
+        set
+        {
+            if (value == _settings.Current.JigglePhysicsOnMaps)
+            {
+                return;
+            }
+
+            _settings.Current.JigglePhysicsOnMaps = value;
+            _settings.Save();
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AppearanceSummary));
+        }
+    }
+
     public IReadOnlyList<string> AppearanceLabels { get; } = ["Same as the phone", "Light", "Dark"];
 
     public int AppearanceIndex
@@ -217,6 +259,13 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private Task OpenThresholdsAsync() => _navigation.GoToAsync(Routes.Thresholds);
+
+    /// <summary>About › Open-source licences (#164).</summary>
+    [RelayCommand]
+    private Task OpenLicencesAsync() => _navigation.GoToAsync(Routes.Licences);
+
+    /// <summary>About's trademark line - see <see cref="DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks"/>.</summary>
+    public string Trademarks => DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks;
 
     /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
     public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
@@ -243,6 +292,31 @@ public sealed partial class SettingsViewModel : ViewModelBase
     {
         get => _settings.Current.AlertTabBadgeIncludesAcknowledged;
         set => SetNotification(_settings.Current.AlertTabBadgeIncludesAcknowledged, value, v => _settings.Current.AlertTabBadgeIncludesAcknowledged = v);
+    }
+
+    /// <summary>The badge threshold's choices (#96), in Core's words as desktop's (#168): "Every alert", "Critical and warning", "Critical only".</summary>
+    public IReadOnlyList<string> BadgeThresholdLabels { get; } = AlertCountThreshold.Choices.Select(AlertCountThreshold.Describe).ToList();
+
+    /// <summary>
+    /// Which alerts the app icon's count and the Alerts tab's dot notice:
+    /// a phone preference. Takes effect at the next alert check, as the
+    /// acknowledged switch beside it does.
+    /// </summary>
+    public int BadgeThresholdIndex
+    {
+        get => Math.Max(0, AlertCountThreshold.Choices.ToList().IndexOf(_countThreshold.Minimum));
+        set
+        {
+            if (value < 0 || value >= AlertCountThreshold.Choices.Count || value == BadgeThresholdIndex)
+            {
+                return;
+            }
+
+            _countThreshold.Minimum = AlertCountThreshold.Choices[value];
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(AlertChecksSummary));
+            _coordinator.SettingsChanged();
+        }
     }
 
     /// <summary>Only where there are lock-screen widgets (iPhone).</summary>
@@ -359,16 +433,153 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>"LibreNMS 25.9.0 · https", with plain http called out (#3).</summary>
     public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
 
-    public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)];
+    public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)]
+        + (JigglePhysicsOnMaps ? " · jiggle physics" : string.Empty);
 
     /// <summary>"Hostname · 10 recently viewed".</summary>
     public string DevicesSummary => DeviceNameStyles[Math.Max(0, DeviceNameStyleIndex)] + " · " + (ShowRecentlyViewed
         ? _bookmarks.RecentlyViewedCount.ToString(CultureInfo.CurrentCulture) + " recently viewed"
         : "recently viewed off");
 
-    /// <summary>"Every 1 minute while open · icon badge on".</summary>
+    /// <summary>"Every 1 minute while open · icon badge on", with ", critical only" when it counts less (#96).</summary>
     public string AlertChecksSummary => "Every " + PollIntervalLabels[PollIntervalIndex] + " while open"
-        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" : " · icon badge off") : string.Empty);
+        + (CanShowAppBadge ? (ShowAppBadge ? " · icon badge on" + (BadgeThresholdIndex > 0 ? ", " + BadgeThresholdLabels[BadgeThresholdIndex].ToLower(CultureInfo.CurrentCulture) : string.Empty) : " · icon badge off") : string.Empty);
+
+    /// <summary>The backup address, when the app has moved to it (#114) - the Server card says so, and taps through to switch back.</summary>
+    public BackupAddressStatus? Backup { get; }
+
+    /// <summary>
+    /// "Hide names" (#126): the shared diagnostics with the server's and
+    /// devices' names and IP addresses as placeholders. Remembered.
+    /// </summary>
+    public bool HideNamesInDiagnostics
+    {
+        get => _report?.HideNames ?? false;
+        set
+        {
+            if (_report is not null && _report.HideNames != value)
+            {
+                _report.HideNames = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    public bool CanHideNamesInDiagnostics => _report is not null && CanShareDiagnostics;
+
+    /// <summary>The diagnostics log can be shared (#107) - the app keeps one, and the phone can share a file.</summary>
+    public bool CanShareDiagnostics => _diagnostics is not null && _share is not null;
+
+    /// <summary>
+    /// Shares the diagnostics log as a text file, after saying what's in it -
+    /// the server's address and device names can be, a token never is. It
+    /// goes wherever the user sends it; the app sends nothing itself.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShareDiagnosticsAsync()
+    {
+        if (_diagnostics is null || _share is null)
+        {
+            return;
+        }
+
+        if (!await _dialogs.ConfirmAsync("Share diagnostics", DiagnosticsMessage, "Share", "Cancel"))
+        {
+            return;
+        }
+
+        _diagnostics.Note("App", "Diagnostics shared" + (HideNamesInDiagnostics ? " with names hidden" : string.Empty));
+        var text = _report is null ? _diagnostics.Text : await _report.BuildAsync();
+        var name = $"dashynms-diagnostics-{DateTime.Now.ToString("yyyyMMdd-HHmm", CultureInfo.InvariantCulture)}.txt";
+        await _share.ShareTextFileAsync(name, text, "text/plain", "DashyNMS diagnostics");
+    }
+
+    /// <summary>What's in the file, said before it goes (#126) - and whether names are in it.</summary>
+    internal string DiagnosticsMessage =>
+        "A log of what the app did recently: the app and phone versions and the settings that matter, pages opened, "
+        + "requests to LibreNMS and Graylog, alert checks, notifications, slow pages and any errors. "
+        + "Never your API token or passwords. "
+        + (HideNamesInDiagnostics
+            ? "Server and device names and IP addresses are replaced with placeholders."
+            : "It names your server and devices - turn on Hide names to leave them out.");
+
+    // ------------------------------------------------------------ which alerts notify (#167)
+
+    /// <summary>
+    /// Which alerts notify: every alert, every alert except some rules, or
+    /// only some rules - Core's modes, as desktop's Settings. Each mode keeps
+    /// its own list, so switching and back loses nothing.
+    /// </summary>
+    public NotificationRuleMode NotifyMode => _notifyRules.Mode;
+
+    public bool IsEveryAlert => NotifyMode == NotificationRuleMode.All;
+
+    public bool IsAllExcept => NotifyMode == NotificationRuleMode.AllExcept;
+
+    public bool IsOnlyRules => NotifyMode == NotificationRuleMode.Only;
+
+    /// <summary>"3 rules left out" - under Every alert except….</summary>
+    public string AllExceptDetail => Count(Notifications.ExceptRules.Count) + " left out";
+
+    /// <summary>"2 rules", or "None chosen yet" - under Only these rules.</summary>
+    public string OnlyRulesDetail => Notifications.OnlyRules.Count == 0 ? "None chosen yet" : Count(Notifications.OnlyRules.Count);
+
+    [RelayCommand]
+    private void SetNotifyMode(NotificationRuleMode mode) => _notifyRules.Mode = mode;
+
+    /// <summary>The chosen mode's list: the rules left out, or the only ones that notify.</summary>
+    public BulkObservableCollection<NotificationRuleEntry> NotifyRuleList { get; } = new();
+
+    public bool HasNotifyRuleList => !IsEveryAlert;
+
+    /// <summary>"NOT NOTIFIED (3)" or "NOTIFIED (2)".</summary>
+    public string NotifyListTitle => IsOnlyRules
+        ? $"NOTIFIED ({NotifyRuleList.Count.ToString(CultureInfo.InvariantCulture)})"
+        : $"NOT NOTIFIED ({NotifyRuleList.Count.ToString(CultureInfo.InvariantCulture)})";
+
+    /// <summary>"Only these rules" with none chosen: nothing will notify.</summary>
+    public bool IsOnlyEmpty => IsOnlyRules && NotifyRuleList.Count == 0;
+
+    public string NotifyListHint => IsOnlyRules
+        ? "Only these rules notify you, at the severities above."
+        : "Each list is kept: switching to Only these rules and back loses nothing.";
+
+    /// <summary>What a removal just did, with Undo (#167).</summary>
+    public UndoToast Toast { get; } = new();
+
+    /// <summary>Takes a rule off the list, with Undo.</summary>
+    [RelayCommand]
+    private void RemoveNotifyRule(NotificationRuleEntry? entry)
+    {
+        if (entry is null)
+        {
+            return;
+        }
+
+        var before = _notifyRules.Remove(entry);
+        Toast.Show($"{entry.Description} removed", () => _notifyRules.Restore(before));
+    }
+
+    /// <summary>Add a rule: on every device, from LibreNMS's alert rules.</summary>
+    [RelayCommand]
+    private Task AddNotifyRuleAsync() => _navigation.GoToAsync(Routes.AddNotifyRule);
+
+    private void ShowNotifyRules()
+    {
+        NotifyRuleList.ReplaceAll(_notifyRules.Listed);
+        OnPropertyChanged(nameof(NotifyMode));
+        OnPropertyChanged(nameof(IsEveryAlert));
+        OnPropertyChanged(nameof(IsAllExcept));
+        OnPropertyChanged(nameof(IsOnlyRules));
+        OnPropertyChanged(nameof(AllExceptDetail));
+        OnPropertyChanged(nameof(OnlyRulesDetail));
+        OnPropertyChanged(nameof(HasNotifyRuleList));
+        OnPropertyChanged(nameof(NotifyListTitle));
+        OnPropertyChanged(nameof(IsOnlyEmpty));
+        OnPropertyChanged(nameof(NotifyListHint));
+    }
+
+    private static string Count(int rules) => rules == 1 ? "1 rule" : $"{rules.ToString(CultureInfo.InvariantCulture)} rules";
 
     /// <summary>"Critical and warnings · quiet 22:00-07:00", or "Off".</summary>
     public string NotificationsSummary
@@ -412,10 +623,14 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignOutAsync()
     {
+        // Forgetting everything can't be undone (#146), so it's red, and asks
+        // again saying what goes (#139).
         var choice = await _dialogs.ChooseAsync(
             "Sign out? Alert notifications stop until you sign in again.",
-            [SignOutChoice, ForgetEverythingChoice]);
-        if (choice is null)
+            [SignOutChoice],
+            ForgetEverythingChoice);
+        if (choice is null
+            || (choice == ForgetEverythingChoice && !await _dialogs.ConfirmDestructiveAsync("Forget everything", ForgetEverythingMessage, "Forget everything")))
         {
             return;
         }
@@ -431,7 +646,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
         if (choice == ForgetEverythingChoice)
         {
-            ForgetServers();
+            ForgetEverything();
         }
 
         await _navigation.GoToAsync(Routes.SignIn);
@@ -441,6 +656,35 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     internal const string ForgetEverythingChoice = "Sign out and forget everything";
 
+    /// <summary>What goes, in plain words, as desktop's sign-out says it (desktop #231).</summary>
+    internal const string ForgetEverythingMessage =
+        "This removes everything DashyNMS has saved on this phone: your sign-in and servers, settings, dashboard, "
+        + "map layouts, which alerts notify you and the Graylog connection. " + Confirmations.CannotBeUndone
+        + "\n\nThe diagnostics log is kept, for bug reports.";
+
+    /// <summary>
+    /// As a fresh install (#139): the servers and Graylog password forgotten,
+    /// then every file and stored preference wiped, and the settings back to
+    /// their defaults (#112) - in memory too, as the app keeps running.
+    /// Before #139 the settings, map layouts, ignored alerts, tab pins and
+    /// appearance stayed for whoever signed in next.
+    /// </summary>
+    private void ForgetEverything()
+    {
+        ForgetServers();
+        if (_wipe is not null)
+        {
+            foreach (var path in _wipe.Wipe())
+            {
+                _diagnostics?.Note("Sign out", "Could not delete " + path);
+            }
+        }
+
+        _settings.Replace(new AppSettings());
+        _appearance.Set(AppearanceChoice.System);
+        _diagnostics?.Note("Sign out", "Forgot everything on this phone");
+    }
+
     /// <summary>The LibreNMS addresses and the Graylog connection, password included.</summary>
     private void ForgetServers()
     {
@@ -448,6 +692,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         current.ServerUrl = null;
         current.BackupServerAddress = null;
         current.AllowUntrustedCertificate = false;
+        current.TrustedCertificates.Clear();
         current.Graylog = new GraylogSettings();
         _settings.Save();
         _graylog?.ForgetPassword();

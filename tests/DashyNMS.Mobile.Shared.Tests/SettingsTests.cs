@@ -16,12 +16,14 @@ public sealed class MoreSettingsTests
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
     private readonly InMemoryAppearance _appearance = new();
+    private readonly AlertCountThreshold _threshold;
     private readonly RecordingNavigation _navigation = new();
     private readonly SettingsViewModel _vm;
 
     public MoreSettingsTests()
     {
         _settings = Fakes.Settings(_appSettings);
+        _threshold = new AlertCountThreshold(_settings, new InMemoryPreferences());
         var session = Substitute.For<ISessionService>();
         var store = new InMemoryWatchStore();
         var watcher = new AlertWatcher(
@@ -30,7 +32,7 @@ public sealed class MoreSettingsTests
         var coordinator = new AlertWatchCoordinator(
             session, _settings, watcher, Substitute.For<IBackgroundAlertScheduler>(), store, new NoAppBadge(),
             new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System, NullLogger<AlertWatchCoordinator>.Instance);
-        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance, new DashyNMS.Mobile.Widgets.NoHomeWidgets());
+        _vm = new SettingsViewModel(session, _settings, Substitute.For<IDialogService>(), _navigation, new RecordingNotifier(), coordinator, new NoAppBadge(), _appearance, new DashyNMS.Mobile.Widgets.NoHomeWidgets(), countThreshold: _threshold);
     }
 
     [Fact]
@@ -43,7 +45,7 @@ public sealed class MoreSettingsTests
         _appSettings.Notifications.QuietHoursStartHour = 22;
         _appSettings.Notifications.QuietHoursEndHour = 7;
 
-        Assert.Equal("Same as the phone", _vm.AppearanceSummary);
+        Assert.Equal("Same as the phone · jiggle physics", _vm.AppearanceSummary); // jiggle on by default since Core 802980c
         Assert.Equal("Every 1 minute while open", _vm.AlertChecksSummary); // no badge on this platform
         Assert.Equal("Critical only · quiet 22:00–07:00", _vm.NotificationsSummary);
         Assert.EndsWith("recently viewed", _vm.DevicesSummary);
@@ -85,17 +87,33 @@ public sealed class MoreSettingsTests
     }
 
     [Fact]
+    public void The_badge_threshold_is_chosen_from_three_and_kept_on_the_phone()
+    {
+        Assert.Equal(["Every alert", "Critical and warning", "Critical only"], _vm.BadgeThresholdLabels); // Core's words, as desktop's (#168)
+        Assert.Equal(0, _vm.BadgeThresholdIndex);
+
+        _vm.BadgeThresholdIndex = 2;
+
+        Assert.Equal(AlertSeverity.Critical, _threshold.Minimum);
+        Assert.Equal(2, _vm.BadgeThresholdIndex);
+
+        _vm.BadgeThresholdIndex = 7; // out of range: ignored
+        Assert.Equal(AlertSeverity.Critical, _threshold.Minimum);
+    }
+
+    [Fact]
     public void Appearance_follows_the_phone_until_chosen()
     {
         Assert.Equal(0, _vm.AppearanceIndex);
+        var desktopTheme = _appSettings.Theme;
 
         _vm.AppearanceIndex = 2;
 
         Assert.Equal(AppearanceChoice.Dark, _appearance.Current);
-        Assert.Equal(AppTheme.Dark, _appSettings.Theme); // desktop's own setting untouched (its default)
+        Assert.Equal(desktopTheme, _appSettings.Theme); // desktop's own setting untouched
         _vm.AppearanceIndex = 1;
         Assert.Equal(AppearanceChoice.Light, _appearance.Current);
-        Assert.Equal(AppTheme.Dark, _appSettings.Theme);
+        Assert.Equal(desktopTheme, _appSettings.Theme);
     }
 
     [Fact]

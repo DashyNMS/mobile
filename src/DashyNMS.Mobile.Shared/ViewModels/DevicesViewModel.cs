@@ -38,20 +38,33 @@ public sealed record FacetOption(string? Key, string Label)
 /// choice, which suits a phone. Maintenance is looked up after the list is
 /// already shown - see <see cref="MaintenanceScan"/>, shared with the dashboard.
 /// </remarks>
-public sealed partial class DevicesViewModel : ViewModelBase
+public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>The Group filter's "Not in a group" choice.</summary>
     internal const string NoGroupKey = "\0none";
 
     private readonly ILibreNmsClient _client;
     private readonly INavigationService _navigation;
+    private readonly IDialogService? _dialogs;
     private readonly ISettingsStore _settings;
     private readonly DeviceBookmarks _bookmarks;
     private readonly MaintenanceScan _maintenance;
     private List<DeviceItem> _all = [];
+
+    private int? _selectedId;
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private bool _resetting;
+
+    /// <summary>The state chips as the user last left them (#81).</summary>
+    private readonly ChipMemory _chips;
+
+    /// <summary>
+    /// Showing a shortcut - a dashboard count, or a group or location - not
+    /// the user's own chips: not saved, and <see cref="ShowSavedFilter"/> puts
+    /// theirs back.
+    /// </summary>
+    private bool _shortcut;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -91,17 +104,44 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ISettingsStore settings,
         DeviceBookmarks bookmarks,
         TimeProvider time,
-        MaintenanceScan? maintenance = null)
+        MaintenanceScan? maintenance = null,
+        IAppPreferences? preferences = null,
+        IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _client = client;
         _navigation = navigation;
         _settings = settings;
         _bookmarks = bookmarks;
         _maintenance = maintenance ?? new MaintenanceScan(client, time);
+        _chips = new ChipMemory(preferences ?? new InMemoryPreferences(), "devices");
+        _showUp = _chips.Get("up");
+        _showDown = _chips.Get("down");
+        _showMaintenance = _chips.Get("maintenance");
+        _showDisabled = _chips.Get("disabled");
         _selectedSort = SortOptions[0];
         _bookmarks.Changed += (_, _) => OnBookmarksChanged();
         RebuildRecent();
+
+        Selection.Changed += (_, _) =>
+        {
+            MarkSelected();
+            OnPropertyChanged(nameof(SelectAllText));
+        };
+        Selection.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(BulkSelection.IsSelecting))
+            {
+                OnPropertyChanged(nameof(ShowsPinGlyphs));
+            }
+        };
     }
+
+    /// <summary>Ticking several devices to pin, rediscover or put in maintenance at once (#85).</summary>
+    public BulkSelection Selection { get; } = new("device");
+
+    /// <summary>"Select all" for what the filters show now, or "Select none".</summary>
+    public string SelectAllText => Selection.ToggleAllText(ShownIds());
 
     private static FacetOption AllTypes { get; } = new(null, "All types");
 
@@ -159,6 +199,14 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
     public bool PinningEnabled => _bookmarks.PinningEnabled;
 
+    /// <summary>
+    /// Each row's pin glyph, which pins or unpins it with a tap (#105) - in
+    /// place of swiping, which was easy to miss and fought with scrolling.
+    /// Not while selecting several: the tick circle and the bulk bar's Pin
+    /// and Unpin take over then.
+    /// </summary>
+    public bool ShowsPinGlyphs => PinningEnabled && Selection.IsOff;
+
     public string EmptyText => _all.Count == 0 ? "No devices." : "No devices match these filters.";
 
     /// <summary>Group membership and maintenance, loaded after the list itself - awaited by tests.</summary>
@@ -170,13 +218,62 @@ public sealed partial class DevicesViewModel : ViewModelBase
         WhenTypingPauses(ApplyFilter);
     }
 
-    partial void OnShowUpChanged(bool value) => ApplyFilter();
+    partial void OnShowUpChanged(bool value) => OnChipChanged();
 
-    partial void OnShowDownChanged(bool value) => ApplyFilter();
+    partial void OnShowDownChanged(bool value) => OnChipChanged();
 
-    partial void OnShowMaintenanceChanged(bool value) => ApplyFilter();
+    partial void OnShowMaintenanceChanged(bool value) => OnChipChanged();
 
-    partial void OnShowDisabledChanged(bool value) => ApplyFilter();
+    partial void OnShowDisabledChanged(bool value) => OnChipChanged();
+
+    private void OnChipChanged()
+    {
+        if (!_resetting)
+        {
+            SaveChips();
+        }
+
+        ApplyFilter();
+    }
+
+    private void SaveChips()
+    {
+        if (_shortcut)
+        {
+            return;
+        }
+
+        _chips.Set("up", ShowUp);
+        _chips.Set("down", ShowDown);
+        _chips.Set("maintenance", ShowMaintenance);
+        _chips.Set("disabled", ShowDisabled);
+    }
+
+    /// <summary>
+    /// Back to the user's own chips after a shortcut, with the other filters
+    /// cleared - the page calls this when the tab is opened without one.
+    /// Nothing to do otherwise.
+    /// </summary>
+    public void ShowSavedFilter()
+    {
+        if (!_shortcut)
+        {
+            return;
+        }
+
+        _shortcut = false;
+        _resetting = true;
+        ShowUp = _chips.Get("up");
+        ShowDown = _chips.Get("down");
+        ShowMaintenance = _chips.Get("maintenance");
+        ShowDisabled = _chips.Get("disabled");
+        SelectedType = AllTypes;
+        SelectedLocation = AllLocations;
+        SelectedGroup = AllGroups;
+        SearchText = string.Empty;
+        _resetting = false;
+        ApplyFilter();
+    }
 
     // A picker whose choices are being refilled briefly sends back null;
     // treat that as "all" (or the default sort) rather than as a choice.
@@ -224,17 +321,34 @@ public sealed partial class DevicesViewModel : ViewModelBase
         ApplyFilter();
     }
 
+    // A chip tapped on a shortcut makes what's showing the user's own.
     [RelayCommand]
-    private void ToggleUp() => ShowUp = !ShowUp;
+    private void ToggleUp()
+    {
+        _shortcut = false;
+        ShowUp = !ShowUp;
+    }
 
     [RelayCommand]
-    private void ToggleDown() => ShowDown = !ShowDown;
+    private void ToggleDown()
+    {
+        _shortcut = false;
+        ShowDown = !ShowDown;
+    }
 
     [RelayCommand]
-    private void ToggleMaintenance() => ShowMaintenance = !ShowMaintenance;
+    private void ToggleMaintenance()
+    {
+        _shortcut = false;
+        ShowMaintenance = !ShowMaintenance;
+    }
 
     [RelayCommand]
-    private void ToggleDisabled() => ShowDisabled = !ShowDisabled;
+    private void ToggleDisabled()
+    {
+        _shortcut = false;
+        ShowDisabled = !ShowDisabled;
+    }
 
     [RelayCommand]
     private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
@@ -243,6 +357,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     [RelayCommand]
     private void ClearFilters()
     {
+        _shortcut = false;
         _resetting = true;
         ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
         SelectedType = AllTypes;
@@ -250,6 +365,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         SelectedGroup = AllGroups;
         SearchText = string.Empty;
         _resetting = false;
+        SaveChips();
         ApplyFilter();
     }
 
@@ -261,6 +377,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     /// </summary>
     public void ShowOnly(string? group = null, string? location = null)
     {
+        _shortcut = true;
         _resetting = true;
         ShowUp = ShowDown = ShowMaintenance = ShowDisabled = true;
         SelectedType = AllTypes;
@@ -281,6 +398,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     /// </summary>
     public void ShowOnlyState(DeviceState state)
     {
+        _shortcut = true;
         _resetting = true;
         ShowUp = state == DeviceState.Up;
         ShowDown = state == DeviceState.Down;
@@ -297,6 +415,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        OnPropertyChanged(nameof(MayScheduleMaintenance));
         var devices = await _client.Devices.ListAsync();
         var style = _settings.Current.DeviceNameStyle;
         var pinned = _bookmarks.PinnedIds;
@@ -308,6 +427,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
                 IsUnderMaintenance = _maintenanceIds.Contains(d.DeviceId),
             })
             .ToList();
+        MarkSelected();
 
         RebuildFacet(TypeOptions, AllTypes, _all.Select(d => d.Device.Type), TypeLabel, v => SelectedType = v, SelectedType);
         RebuildFacet(LocationOptions, AllLocations, _all.Select(d => d.Device.LocationName()), v => Blank(v), v => SelectedLocation = v, SelectedLocation);
@@ -317,8 +437,132 @@ public sealed partial class DevicesViewModel : ViewModelBase
         Extras = LoadExtrasAsync();
     });
 
+    /// <summary>
+    /// Highlights the device whose detail is showing beside the list (#88),
+    /// or none. Kept across refreshes, which make new rows.
+    /// </summary>
+    public void Select(int? deviceId)
+    {
+        _selectedId = deviceId;
+        MarkSelected();
+    }
+
+    private void MarkSelected()
+    {
+        foreach (var item in _all)
+        {
+            item.IsSelected = item.DeviceId == _selectedId;
+            item.IsTicked = Selection.Contains(item.DeviceId);
+        }
+    }
+
     [RelayCommand]
-    private Task OpenDeviceAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);
+    private Task OpenDeviceAsync(DeviceItem? item)
+    {
+        if (item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Selecting: a tap ticks rather than opens.
+        if (Selection.IsSelecting)
+        {
+            Selection.Toggle(item.DeviceId);
+            return Task.CompletedTask;
+        }
+
+        return OpenAsync(item.DeviceId);
+    }
+
+    /// <summary>Press and hold on a row: start selecting with it ticked.</summary>
+    [RelayCommand]
+    private void Hold(DeviceItem? item)
+    {
+        if (item is not null)
+        {
+            Selection.Hold(item.DeviceId);
+        }
+    }
+
+    [RelayCommand]
+    private void StartSelecting() => Selection.Start();
+
+    [RelayCommand]
+    private void StopSelecting() => Selection.Stop();
+
+    [RelayCommand]
+    private void SelectAll() => Selection.ToggleAll(ShownIds());
+
+    /// <summary>Pins every ticked device - on this phone only, as one pin is.</summary>
+    [RelayCommand]
+    private void PinSelected() => SetPinnedSelected(pinned: true);
+
+    [RelayCommand]
+    private void UnpinSelected() => SetPinnedSelected(pinned: false);
+
+    private void SetPinnedSelected(bool pinned)
+    {
+        if (!PinningEnabled)
+        {
+            return;
+        }
+
+        var items = Ticked().Where(d => d.IsPinned != pinned).ToList();
+        foreach (var item in items)
+        {
+            _bookmarks.SetPinned(item.DeviceId, item.Name, pinned);
+        }
+
+        Selection.Stop();
+        Selection.Report(items.Count == 0
+            ? (pinned ? "They're all pinned already." : "None of them are pinned.")
+            : new BulkResult<DeviceItem>(items, []).Describe(pinned ? "Pinned" : "Unpinned", "device"));
+    }
+
+    /// <summary>Asks LibreNMS to rediscover every ticked device - asking first when it's more than a few (#146).</summary>
+    [RelayCommand]
+    private async Task RediscoverSelectedAsync()
+    {
+        var items = Ticked();
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var confirmed = _dialogs is null || !Confirmations.AsksForBulk(items.Count) || await _dialogs.ConfirmAsync(
+            "Rediscover devices",
+            $"Ask LibreNMS to rediscover all {items.Count} selected devices now?",
+            "Rediscover",
+            "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        await Selection.RunAsync(items, "Rediscovering", "Rediscovery requested for", d => d.DeviceId, d => d.Name, d => _client.Devices.DiscoverAsync(d.DeviceId));
+    }
+
+    /// <summary>The token may schedule maintenance - until LibreNMS refuses it once (#144), when the bulk button goes.</summary>
+    public bool MayScheduleMaintenance => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+
+    /// <summary>One maintenance window for every ticked device: the form, with them all named.</summary>
+    [RelayCommand]
+    private async Task ScheduleMaintenanceSelectedAsync()
+    {
+        var devices = Ticked().Select(d => (d.DeviceId, d.Name)).ToList();
+        if (devices.Count == 0)
+        {
+            return;
+        }
+
+        Selection.Stop();
+        await _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object> { [Routes.DevicesParameter] = devices });
+    }
+
+    /// <summary>The ticked devices still listed.</summary>
+    private List<DeviceItem> Ticked() => _all.Where(d => Selection.Contains(d.DeviceId)).ToList();
+
+    private List<int> ShownIds() => Devices.Select(d => d.DeviceId).ToList();
 
     [RelayCommand]
     private Task OpenRecentAsync(RecentlyViewedDevice? recent) => recent is null ? Task.CompletedTask : OpenAsync(recent.DeviceId);
@@ -382,6 +626,8 @@ public sealed partial class DevicesViewModel : ViewModelBase
             device.IsPinned = pinned.Contains(device.DeviceId);
         }
 
+        OnPropertyChanged(nameof(PinningEnabled));
+        OnPropertyChanged(nameof(ShowsPinGlyphs));
         RebuildRecent();
         ApplyFilter();
     }
@@ -405,7 +651,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
 
         if (!stateAllowed
             || (SelectedType.Key is { } type && !string.Equals(device.Device.Type ?? string.Empty, type, StringComparison.OrdinalIgnoreCase))
-            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.LocationName() ?? string.Empty, location, StringComparison.Ordinal))
+            || (SelectedLocation.Key is { } location && !string.Equals(device.Device.LocationName() ?? string.Empty, location, StringComparison.OrdinalIgnoreCase))
             || (SelectedGroup.Key is { } group && !GroupsOrNone(device.DeviceId).Contains(group)))
         {
             return false;
@@ -423,6 +669,7 @@ public sealed partial class DevicesViewModel : ViewModelBase
         }
 
         Devices.ReplaceAll(_all.Where(Allows).OrderByDescending(d => d.IsPinned).ThenBy(d => d, Comparer));
+        OnPropertyChanged(nameof(SelectAllText));
 
         UpdateCounts();
     }

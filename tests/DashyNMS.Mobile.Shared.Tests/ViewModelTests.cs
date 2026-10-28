@@ -203,6 +203,28 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
+    public async Task A_dashboard_shortcut_doesnt_replace_the_users_own_filter()
+    {
+        var vm = await LoadedViewModel();
+        vm.ToggleAcknowledgedCommand.Execute(null); // the user turns Acknowledged off
+
+        vm.ShowOnly("all"); // then the dashboard's See all
+        Assert.True(vm.ShowAcknowledged);
+        Assert.False(_appSettings.Filter.ShowAcknowledged); // still theirs (#81)
+
+        vm.ShowSavedFilter(); // the tab opened normally again
+        Assert.False(vm.ShowAcknowledged);
+        Assert.False(NewViewModel().ShowAcknowledged);
+
+        // A chip tapped on a shortcut makes that the user's filter.
+        vm.ShowOnly("critical");
+        vm.ToggleWarningCommand.Execute(null);
+        Assert.True(_appSettings.Filter.ShowCritical);
+        Assert.True(_appSettings.Filter.ShowWarning);
+        Assert.False(_appSettings.Filter.ShowUnknownSeverity);
+    }
+
+    [Fact]
     public async Task Clear_brings_everything_back()
     {
         var vm = await LoadedViewModel();
@@ -253,16 +275,81 @@ public sealed class AlertsViewModelTests
     }
 
     [Fact]
-    public async Task Acknowledge_sends_the_trimmed_note_and_reloads()
+    public async Task Acknowledge_sends_the_trimmed_note_and_updates_its_row_in_place()
     {
         _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs("  on it  ");
         var vm = await LoadedViewModel();
+        var before = vm.Alerts.Select(a => a.Id).ToList();
+        var resets = 0;
+        vm.Alerts.CollectionChanged += (_, e) => resets += e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset ? 1 : 0;
 
         await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
 
         await _client.Alerts.Received(1).AcknowledgeAsync(3, "on it", true, Arg.Any<CancellationToken>());
         _selfActions.Received(1).Record(3, AlertChangeKind.Acknowledged);
-        await _client.Alerts.Received(2).ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+
+        // No reload - that reset the list to the top (#93): the row changes where it is.
+        await _client.Alerts.Received(1).ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+        Assert.Equal(0, resets);
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+        var row = vm.Alerts.Single(a => a.Id == 3);
+        Assert.True(row.IsAcknowledged);
+        Assert.Equal("on it", row.Note);
+    }
+
+    [Fact]
+    public async Task A_change_made_in_the_detail_pane_beside_the_list_updates_its_row_in_place()
+    {
+        var vm = await LoadedViewModel();
+        var before = vm.Alerts.Select(a => a.Id).ToList();
+        var acknowledged = vm.AcknowledgedCount;
+        var resets = 0;
+        vm.Alerts.CollectionChanged += (_, e) => resets += e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset ? 1 : 0;
+
+        vm.ShowChange(new AlertStateChange(3, Acknowledged: true, "on it"));
+
+        Assert.Equal(0, resets);
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+        var row = vm.Alerts.Single(a => a.Id == 3);
+        Assert.True(row.IsAcknowledged);
+        Assert.Equal("on it", row.Note);
+        Assert.Equal(acknowledged + 1, vm.AcknowledgedCount);
+
+        vm.ShowChange(new AlertStateChange(99, Acknowledged: true, null)); // not in the list: nothing to do
+        Assert.Equal(before, vm.Alerts.Select(a => a.Id));
+    }
+
+    [Fact]
+    public async Task The_alert_showing_beside_the_list_stays_highlighted_through_refreshes_and_changes()
+    {
+        var vm = await LoadedViewModel();
+
+        vm.Select(3);
+        Assert.Equal([3], vm.Alerts.Where(a => a.IsSelected).Select(a => a.Id));
+
+        await vm.RefreshCommand.ExecuteAsync(null); // new rows
+        Assert.Equal([3], vm.Alerts.Where(a => a.IsSelected).Select(a => a.Id));
+
+        vm.ShowChange(new AlertStateChange(3, Acknowledged: true, null)); // its row replaced
+        Assert.True(vm.Alerts.Single(a => a.Id == 3).IsSelected);
+
+        vm.Select(null); // the pane went away
+        Assert.DoesNotContain(vm.Alerts, a => a.IsSelected);
+    }
+
+    [Fact]
+    public async Task Acknowledging_with_acknowledged_hidden_takes_just_that_row_out()
+    {
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(string.Empty);
+        var vm = await LoadedViewModel();
+        vm.ShowAcknowledged = false;
+        var others = vm.Alerts.Where(a => a.Id != 3).Select(a => a.Id).ToList();
+        var acknowledged = vm.AcknowledgedCount;
+
+        await vm.AcknowledgeCommand.ExecuteAsync(vm.Alerts.Single(a => a.Id == 3));
+
+        Assert.Equal(others, vm.Alerts.Select(a => a.Id));
+        Assert.Equal(acknowledged + 1, vm.AcknowledgedCount); // the chip's count follows, without a reload
     }
 
     [Fact]

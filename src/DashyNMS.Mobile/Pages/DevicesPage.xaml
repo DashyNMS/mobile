@@ -12,17 +12,23 @@
     SafeAreaEdges="Container"
     Title="Devices">
 
+    <!-- On an iPad or a Mac, the device you tap shows beside the list (#88). -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose a device to see it here.">
+
     <Grid RowDefinitions="Auto,*" Padding="16,8,16,0">
 
     <controls:PageHeader x:Name="Header" Title="Devices" />
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*">
+    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 
-        <!-- Out of sight until the list is scrolled or pulled down - see SearchReveal. -->
-        <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search devices" Margin="-6,2,-6,0" />
+        <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
+             The gap below belongs to the chips, so it's the same with the box away (#83). -->
+        <Grid x:Name="SearchSlot" IsClippedToBounds="True">
+            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search devices" Margin="-6,2,-6,0" />
+        </Grid>
 
         <!-- Desktop's state chips. Counts are of every device, whatever's filtered. -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,6,0,0">
+        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
                 <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
@@ -63,7 +69,8 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4" Margin="4,6,0,2">
+        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4" Margin="4,6,0,2" MinimumHeightRequest="30">
             <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />
             <Button Grid.Column="1"
                     Text="Clear"
@@ -132,42 +139,47 @@
             </CollectionView>
         </VerticalStackLayout>
 
-        <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <VerticalStackLayout Grid.Row="5">
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+            <!-- How the last bulk action went: "Rediscovery requested for 5 devices." -->
+            <Label Style="{StaticResource Caption}" Text="{Binding Selection.ResultText}" IsVisible="{Binding Selection.HasResult}"
+                   Margin="4,0,4,6" />
+        </VerticalStackLayout>
 
-        <controls:LoadingIndicator Grid.Row="6" IsVisible="{Binding IsLoadingFirstTime}" InputTransparent="True" ZIndex="1" />
+        <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
+        <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <!-- The rows share one card, as the mock-ups group them (#69). -->
         <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-        <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Devices}" SelectionMode="None" x:Name="List">
+        <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+            <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Devices}" SelectionMode="None" x:Name="List">
                 <CollectionView.EmptyView>
                     <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsNotBusy}" HorizontalOptions="Center" Margin="0,32" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:DeviceItem">
-                        <SwipeView Threshold="96">
-                            <!-- Swipe right to show Pin (or Unpin), then tap it - never pinned by a stray swipe. -->
-                            <SwipeView.LeftItems>
-                                <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
-                                    <SwipeItem Text="{Binding PinText}"
-                                               BackgroundColor="{StaticResource ButtonPrimary}"
-                                               Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
-                                               CommandParameter="{Binding .}" />
-                                </SwipeItems>
-                            </SwipeView.LeftItems>
-
-                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
+                                  controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                  controls:LongPress.CommandParameter="{Binding .}"
+                                  SemanticProperties.Hint="Touch and hold to select several">
+                                <!-- Press and hold starts selecting several, with this one ticked (#85). -->
+                                <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
-                                    <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}" />
+                                    <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}"
+                                             IsVisible="{Binding Selection.IsOff, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}" />
+                                    <!-- Selecting (#85): a tick circle where the dot was. -->
+                                    <controls:TickCircle IsTicked="{Binding IsTicked}"
+                                                         IsVisible="{Binding Selection.IsSelecting, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}" />
                                     <VerticalStackLayout Grid.Column="1">
-                                        <HorizontalStackLayout Spacing="6">
-                                            <Image Source="pin_marker.png" WidthRequest="14" HeightRequest="14"
-                                                   VerticalOptions="Center" IsVisible="{Binding IsPinned}" />
-                                            <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
-                                        </HorizontalStackLayout>
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
                                         <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
@@ -175,16 +187,49 @@
                                                TextColor="{Binding State, Converter={StaticResource StatusText}}" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>
-                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" Margin="0,11,0,0" />
+                                    <!-- The pin (#105): filled when pinned, outlined when not; a tap pins or unpins,
+                                         in place of swiping. A button, so the tap is its own and doesn't open the device. -->
+                                    <ImageButton Grid.Column="3" Source="pin_outline.png" BackgroundColor="Transparent"
+                                                 WidthRequest="44" HeightRequest="44" Padding="14" Margin="-8,0,-8,0" VerticalOptions="Center"
+                                                 Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                                 CommandParameter="{Binding .}"
+                                                 IsVisible="{Binding ShowsPinGlyphs, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
+                                                 SemanticProperties.Description="{Binding PinDescription}">
+                                        <ImageButton.Triggers>
+                                            <DataTrigger TargetType="ImageButton" Binding="{Binding IsPinned}" Value="True">
+                                                <Setter Property="Source" Value="pin_marker.png" />
+                                            </DataTrigger>
+                                        </ImageButton.Triggers>
+                                    </ImageButton>
+                                <!-- The bottom padding; the line itself is at the top of the row (#120). -->
+                                <BoxView Grid.Row="1" Grid.ColumnSpan="4" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                                <BoxView Grid.ColumnSpan="4" Style="{StaticResource RowLine}" />
                             </Grid>
-                        </SwipeView>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>
         </Border>
 
+        <!-- Selecting (#85): how many, select all, and what to do with them. -->
+        <controls:BulkBar Grid.Row="7" Summary="{Binding Selection.Summary}" Progress="{Binding Selection.ProgressText}"
+                          SelectAllText="{Binding SelectAllText}" SelectAllCommand="{Binding SelectAllCommand}"
+                          DoneCommand="{Binding StopSelectingCommand}" IsVisible="{Binding Selection.IsSelecting}">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                <!-- Gone once the token is refused maintenance (#144); the device page says why. -->
+                <Button Text="Maintenance" Command="{Binding ScheduleMaintenanceSelectedCommand}" IsEnabled="{Binding Selection.CanAct}"
+                        IsVisible="{Binding MayScheduleMaintenance}" />
+                <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Text="Rediscover"
+                        Command="{Binding RediscoverSelectedCommand}" IsEnabled="{Binding Selection.CanAct}" />
+                <Button Grid.Row="1" Style="{StaticResource SecondaryButton}" Text="Pin"
+                        Command="{Binding PinSelectedCommand}" IsEnabled="{Binding Selection.CanAct}" IsVisible="{Binding PinningEnabled}" />
+                <Button Grid.Row="1" Grid.Column="1" Style="{StaticResource SecondaryButton}" Text="Unpin"
+                        Command="{Binding UnpinSelectedCommand}" IsEnabled="{Binding Selection.CanAct}" IsVisible="{Binding PinningEnabled}" />
+            </Grid>
+        </controls:BulkBar>
+
     </Grid>
     </Grid>
+    </controls:ListDetail>
 
 </ContentPage>

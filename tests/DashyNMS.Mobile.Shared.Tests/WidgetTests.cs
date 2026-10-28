@@ -31,7 +31,7 @@ public sealed class WidgetSnapshotTests
             Fakes.Alert(4, 4, "critical", acknowledged: true),
             WithState(Fakes.Alert(5, 5, "critical"), 0), // recovered
             Fakes.Alert(6, 6, "warning", at: new DateTime(2026, 9, 28, 8, 0, 0)),
-        ], Now, new AppSettings());
+        ], Now, new AppSettings { ServerTimestampsAreUtc = false }); // the server's local time, as these times are
 
         Assert.True(snapshot.SignedIn);
         Assert.Equal((2, 2, 1), (snapshot.Critical, snapshot.Warning, snapshot.Acknowledged));
@@ -90,7 +90,7 @@ public sealed class WidgetSnapshotTests
     {
         var settings = new AppSettings();
         settings.PinnedDevices.Add(new PinnedDevice { DeviceId = 7 });
-        DashyNMS.Mobile.Dashboard.DashboardLayout.Ensure(settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors)
+        DashyNMS.Mobile.Dashboard.DashboardLayout.Add(settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors)
             .Sensors.Add(new PinnedSensor { SensorId = 1, DeviceId = 7, Description = "Chassis" });
         return settings;
     }
@@ -153,7 +153,7 @@ public sealed class WidgetSnapshotTests
     public void Sensors_are_the_dashboard_cards_read_against_the_thresholds()
     {
         var settings = new AppSettings();
-        var card = DashyNMS.Mobile.Dashboard.DashboardLayout.Ensure(settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors);
+        var card = DashyNMS.Mobile.Dashboard.DashboardLayout.Add(settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors);
         card.Sensors.Add(new PinnedSensor { SensorId = 2, DeviceId = 1, Description = "Fan" });
         card.Sensors.Add(new PinnedSensor { SensorId = 1, DeviceId = 1, Description = "Chassis" });
         card.Sensors.Add(new PinnedSensor { SensorId = 3, DeviceId = 1, DeviceName = "saved", Description = "Gone" });
@@ -245,7 +245,7 @@ public sealed class WidgetUpdateTests
         await _watcher.CheckAsync();
         await _client.Sensors.DidNotReceiveWithAnyArgs().ListAsync(default);
 
-        DashyNMS.Mobile.Dashboard.DashboardLayout.Ensure(_settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors)
+        DashyNMS.Mobile.Dashboard.DashboardLayout.Add(_settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors)
             .Sensors.Add(new PinnedSensor { SensorId = 1, DeviceId = 1 });
         await _watcher.CheckAsync();
         _time.Advance(TimeSpan.FromMinutes(10));

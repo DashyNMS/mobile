@@ -11,7 +11,8 @@ public partial class HealthPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		SearchReveal.Attach(List, Search);
+		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading sensors…", "Refreshing sensors…");
+		SearchReveal.Attach(List, SearchSlot, Search);
 	}
 
 	protected override void OnAppearing()

@@ -39,11 +39,17 @@ public static class Routes
     /// <summary>The Devices tab - with <see cref="GroupParameter"/> or <see cref="LocationParameter"/>, filtered to it.</summary>
     public const string Devices = "//main/devices";
 
-    /// <summary>Choosing and ordering the dashboard's cards.</summary>
+    /// <summary>Edit dashboard: ordering, removing and setting up the dashboard's cards.</summary>
     public const string CustomiseDashboard = "customisedashboard";
+
+    /// <summary>The card picker - desktop's "Add widget" (#140).</summary>
+    public const string AddCard = "addcard";
 
     /// <summary>Choosing the dashboard Sensors card's sensors.</summary>
     public const string PickSensors = "picksensors";
+
+    /// <summary>A dashboard Top card's rows, ranking and title (#103).</summary>
+    public const string TopCardSetUp = "topcard";
 
     /// <summary>Choosing the dashboard Graph card's device and graph.</summary>
     public const string PickGraph = "pickgraph";
@@ -51,14 +57,53 @@ public static class Routes
     /// <summary>The geographical map of locations and their devices.</summary>
     public const string Map = "map";
 
+    /// <summary>The network map: devices and the links between them, as a diagram (#86).</summary>
+    public const string NetworkMap = "networkmap";
+
     /// <summary>Every CDP/LLDP link across the network.</summary>
     public const string Neighbours = "neighbours";
 
-    /// <summary>The network-wide event and alert logs.</summary>
+    /// <summary>One neighbour link (#121) - with <see cref="NeighbourLinkParameter"/>.</summary>
+    public const string NeighbourLink = "neighbourlink";
+
+    /// <summary>Query attribute: the <c>NeighbourLink</c> for <see cref="NeighbourLink"/>.</summary>
+    public const string NeighbourLinkParameter = "link";
+
+    /// <summary>The Neighbours page's groups (#98): add, reorder, delete.</summary>
+    public const string NeighbourGroups = "neighbourgroups";
+
+    /// <summary>One neighbour group - with <see cref="GroupIdParameter"/>, or a new one without.</summary>
+    public const string NeighbourGroupEditor = "neighbourgroup";
+
+    /// <summary>Query attribute: which neighbour group <see cref="NeighbourGroupEditor"/> changes.</summary>
+    public const string GroupIdParameter = "group";
+
+    /// <summary>The network-wide event and alert logs - or with <see cref="DeviceIdParameter"/> one device's event log (#118).</summary>
     public const string Logs = "logs";
+
+    /// <summary>One event or alert log entry (#118) - with <see cref="LogEntryParameter"/> and <see cref="LogsListParameter"/>.</summary>
+    public const string LogEntry = "logentry";
+
+    /// <summary>Query attribute: the <c>LogEntryItem</c> for <see cref="LogEntry"/>.</summary>
+    public const string LogEntryParameter = "logentry";
+
+    /// <summary>Query attribute: the <c>LogsViewModel</c> whose chips the entry's "Only" sets.</summary>
+    public const string LogsListParameter = "logslist";
 
     /// <summary>Graylog messages - every device's, or with <see cref="DeviceIdParameter"/> one device's.</summary>
     public const string Graylog = "graylog";
+
+    /// <summary>One Graylog message (#117) - with <see cref="GraylogMessageParameter"/> and <see cref="GraylogListParameter"/>.</summary>
+    public const string GraylogMessage = "graylogmessage";
+
+    /// <summary>A Device chip's chooser - Graylog's (#117) or Logs' (#118) - with <see cref="GraylogListParameter"/>.</summary>
+    public const string GraylogDevice = "graylogdevice";
+
+    /// <summary>Query attribute: the <c>GraylogMessageItem</c> for <see cref="GraylogMessage"/>.</summary>
+    public const string GraylogMessageParameter = "graylogmessage";
+
+    /// <summary>Query attribute: the <c>GraylogViewModel</c> whose Device chip the message sets, or the <c>IDeviceChipList</c> the chooser sets.</summary>
+    public const string GraylogListParameter = "grayloglist";
 
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
@@ -66,8 +111,35 @@ public static class Routes
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 
+    /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
+    public const string Licences = "licences";
+
+    /// <summary>Settings › Notifications › Add a rule (#167): a rule on every device for the chosen mode's list.</summary>
+    public const string AddNotifyRule = "addnotifyrule";
+
     /// <summary>Groups &amp; locations, pushed from the Devices tab.</summary>
     public const string GroupsLocations = "groupslocations";
+
+    /// <summary>LibreNMS's alert rules, read-only (#22).</summary>
+    public const string AlertRules = "alertrules";
+
+    /// <summary>One alert rule, with <see cref="RuleIdParameter"/> (#22).</summary>
+    public const string AlertRule = "alertrule";
+
+    /// <summary>One alert template, with <see cref="TemplateIdParameter"/> (#22).</summary>
+    public const string AlertTemplate = "alerttemplate";
+
+    /// <summary>Query attribute: which graph <see cref="DeviceGraphs"/> opens on - the one tapped (#119); else its first.</summary>
+    public const string GraphParameter = "graph";
+
+    /// <summary>Query attribute: the <see cref="DesktopNMS.Core.Models.GraphTimeRangePreset"/> that graph was shown over.</summary>
+    public const string GraphRangeParameter = "graphrange";
+
+    /// <summary>Query attribute: an alert rule's id, for <see cref="AlertRule"/>.</summary>
+    public const string RuleIdParameter = "rule";
+
+    /// <summary>Query attribute: an alert template's id, for <see cref="AlertTemplate"/>.</summary>
+    public const string TemplateIdParameter = "template";
 
     /// <summary>Query attribute: a device group's name (or the "not in a group" key), for <see cref="Devices"/>.</summary>
     public const string GroupParameter = "group";
@@ -105,6 +177,15 @@ public static class Routes
 
     /// <summary>Query attribute: the device's name, for titles.</summary>
     public const string DeviceNameParameter = "name";
+
+    /// <summary>
+    /// Query attribute: several devices for <see cref="Maintenance"/> at once (#85) -
+    /// a list of <c>(int Id, string Name)</c>.
+    /// </summary>
+    public const string DevicesParameter = "devices";
+
+    /// <summary>Query attribute: which dashboard card <see cref="PickSensors"/> or <see cref="PickGraph"/> sets up (#87).</summary>
+    public const string WidgetIdParameter = "widget";
 
     /// <summary>Query attribute: a port's ifName, for <see cref="DeviceGraphs"/>.</summary>
     public const string PortParameter = "port";

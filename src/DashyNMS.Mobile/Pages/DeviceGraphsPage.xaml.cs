@@ -7,9 +7,6 @@ namespace DashyNMS.Mobile.Pages;
 /// <summary>Shown via <see cref="Routes.DeviceGraphs"/>, with the device id and name.</summary>
 public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 {
-	/// <summary>LibreNMS's graphs are drawn at 800x400, so half as tall as wide, plus the legend.</summary>
-	private const double AspectRatio = 0.62;
-
 	private readonly DeviceGraphsViewModel _viewModel;
 
 	public DeviceGraphsPage(DeviceGraphsViewModel viewModel)
@@ -48,18 +45,28 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 			if (query.TryGetValue(Routes.PortParameter, out var port) && port is string ifName)
 			{
 				query.TryGetValue(Routes.PortNameParameter, out var portName);
-				_ = _viewModel.LoadPortAsync(deviceId, ifName, portName as string, name as string);
+				// A dashboard port graph (#172) opens on its graph and range.
+				query.TryGetValue(Routes.GraphParameter, out var portGraph);
+				var portRange = query.TryGetValue(Routes.GraphRangeParameter, out var pr) && pr is DesktopNMS.Core.Models.GraphTimeRangePreset portPreset ? portPreset : (DesktopNMS.Core.Models.GraphTimeRangePreset?)null;
+				_ = _viewModel.LoadPortAsync(deviceId, ifName, portName as string, name as string, portGraph as string, portRange);
 			}
 			else
 			{
-				_ = _viewModel.LoadAsync(deviceId, name as string);
+				// The graph that was tapped, and its range, if the caller knows (#119).
+				query.TryGetValue(Routes.GraphParameter, out var graph);
+				var range = query.TryGetValue(Routes.GraphRangeParameter, out var r) && r is DesktopNMS.Core.Models.GraphTimeRangePreset preset ? preset : (DesktopNMS.Core.Models.GraphTimeRangePreset?)null;
+				_ = _viewModel.LoadAsync(deviceId, name as string, graph as string, range);
 			}
 		}
 	}
 
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
-		if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphPage))
+		if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphAspect))
+		{
+			FitHeight();
+		}
+		else if (e.PropertyName == nameof(DeviceGraphsViewModel.GraphPage))
 		{
 			GraphView.Source = _viewModel.GraphPage is { } html ? new HtmlWebViewSource { Html = html } : null;
 		}
@@ -81,7 +88,15 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 	{
 		if (GraphView.Width > 0)
 		{
-			GraphView.HeightRequest = GraphView.Width * AspectRatio;
+			// The graph's own shape: shorter once its legend is cropped for ours (#158).
+			GraphView.HeightRequest = GraphView.Width * _viewModel.GraphAspect;
 		}
+	}
+
+	/// <summary>The app's own header, as every page (#142).</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		Header.Apply(this);
 	}
 }

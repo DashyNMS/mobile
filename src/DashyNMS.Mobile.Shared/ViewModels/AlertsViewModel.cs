@@ -21,7 +21,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// acknowledged ones only with <see cref="ShowAcknowledged"/>, and alerts with
 /// no severity of their own always show, as desktop has no chip for them.
 /// </remarks>
-public sealed partial class AlertsViewModel : ViewModelBase
+public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 {
     /// <summary>Desktop's CSV columns, so an export opens the same either way.</summary>
     internal static readonly string[] CsvHeaders = ["Severity", "Device", "Alert", "State", "Age", "Note"];
@@ -33,9 +33,21 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private readonly ISelfActionTracker _selfActions;
     private readonly IShareService _share;
     private readonly IAppBadge _badge;
+    private readonly AlertTabDot? _tabDot;
+    private readonly AlertCountThreshold? _countThreshold;
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
+
+    private int? _selectedId;
     private bool _loading;
+
+    /// <summary>
+    /// Showing one of the dashboard's shortcuts (<see cref="ShowOnly"/>), not
+    /// the user's own filter: it isn't saved, and <see cref="ShowSavedFilter"/>
+    /// puts theirs back. Before #81 a shortcut was saved over it, so a chip
+    /// turned off never seemed to stay off.
+    /// </summary>
+    private bool _shortcut;
 
     [ObservableProperty]
     private bool _showCritical;
@@ -65,8 +77,11 @@ public sealed partial class AlertsViewModel : ViewModelBase
         ISelfActionTracker selfActions,
         IShareService share,
         IAppBadge badge,
-        TimeProvider time)
+        TimeProvider time,
+        AlertTabDot? tabDot = null,
+        AlertCountThreshold? countThreshold = null)
     {
+        _countThreshold = countThreshold;
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
@@ -75,6 +90,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _share = share;
         _badge = badge;
         _time = time;
+        _tabDot = tabDot;
 
         // Carry on where the last session left off, as desktop does.
         var filter = settings.Current.Filter;
@@ -83,7 +99,19 @@ public sealed partial class AlertsViewModel : ViewModelBase
         _showOk = filter.ShowUnknownSeverity;
         _showAcknowledged = filter.ShowAcknowledged;
         _searchText = filter.SearchText ?? string.Empty;
+
+        Selection.Changed += (_, _) =>
+        {
+            MarkSelected(_all);
+            OnPropertyChanged(nameof(SelectAllText));
+        };
     }
+
+    /// <summary>Ticking several alerts to acknowledge or unacknowledge at once (#85).</summary>
+    public BulkSelection Selection { get; } = new("alert");
+
+    /// <summary>"Select all" for what the filters show now, or "Select none".</summary>
+    public string SelectAllText => Selection.ToggleAllText(ShownIds());
 
     public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
@@ -120,17 +148,58 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
 
+    // A chip tapped on a shortcut makes what's showing the user's own filter.
     [RelayCommand]
-    private void ToggleCritical() => ShowCritical = !ShowCritical;
+    private void ToggleCritical()
+    {
+        _shortcut = false;
+        ShowCritical = !ShowCritical;
+    }
 
     [RelayCommand]
-    private void ToggleWarning() => ShowWarning = !ShowWarning;
+    private void ToggleWarning()
+    {
+        _shortcut = false;
+        ShowWarning = !ShowWarning;
+    }
 
     [RelayCommand]
-    private void ToggleOk() => ShowOk = !ShowOk;
+    private void ToggleOk()
+    {
+        _shortcut = false;
+        ShowOk = !ShowOk;
+    }
 
     [RelayCommand]
-    private void ToggleAcknowledged() => ShowAcknowledged = !ShowAcknowledged;
+    private void ToggleAcknowledged()
+    {
+        _shortcut = false;
+        ShowAcknowledged = !ShowAcknowledged;
+    }
+
+    /// <summary>
+    /// Back to the user's own filter after a shortcut - the page calls this
+    /// when the tab is opened without one, so the dashboard's "Critical"
+    /// doesn't stay on for good. Nothing to do otherwise.
+    /// </summary>
+    public void ShowSavedFilter()
+    {
+        if (!_shortcut)
+        {
+            return;
+        }
+
+        _shortcut = false;
+        var filter = _settings.Current.Filter;
+        _loading = true;
+        ShowCritical = filter.ShowCritical;
+        ShowWarning = filter.ShowWarning;
+        ShowOk = filter.ShowUnknownSeverity;
+        ShowAcknowledged = filter.ShowAcknowledged;
+        SearchText = filter.SearchText ?? string.Empty;
+        _loading = false;
+        ApplyFilter();
+    }
 
     /// <summary>
     /// Only one kind of alert, for the dashboard's counts (#32): "critical"
@@ -141,9 +210,11 @@ public sealed partial class AlertsViewModel : ViewModelBase
     /// </summary>
     public void ShowOnly(string kind)
     {
+        // Shown, not saved: the user's own filter comes back afterwards (#81).
+        _shortcut = true;
         if (string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase))
         {
-            ClearFilters();
+            ResetFilters();
             return;
         }
 
@@ -158,9 +229,15 @@ public sealed partial class AlertsViewModel : ViewModelBase
         OnFilterChanged();
     }
 
-    /// <summary>Back to everything, as desktop's clear (✕) button.</summary>
+    /// <summary>Back to everything, as desktop's clear (✕) button - the user's choice, so it's saved.</summary>
     [RelayCommand]
     private void ClearFilters()
+    {
+        _shortcut = false;
+        ResetFilters();
+    }
+
+    private void ResetFilters()
     {
         _loading = true;
         ShowCritical = true;
@@ -186,10 +263,12 @@ public sealed partial class AlertsViewModel : ViewModelBase
             .ThenByDescending(a => a.Timestamp)
             .Select(a => AlertItem.For(a, _settings.Current, devicesTask.Result))
             .ToList();
+        ShowPermissions();
         ApplyFilter();
 
         // Straight away, rather than at the next check - after acknowledging, say.
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _tabDot?.Update(alerts, _settings.Current);
     });
 
     /// <summary>The list as it's filtered now, as a CSV file, through the share sheet.</summary>
@@ -229,8 +308,10 @@ public sealed partial class AlertsViewModel : ViewModelBase
         {
             // So the next alert check doesn't notify you about your own acknowledgement.
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
-            await RefreshAsync();
+            UpdateInPlace(item, AcknowledgedState, string.IsNullOrWhiteSpace(note) ? null : note.Trim());
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]
@@ -241,21 +322,118 @@ public sealed partial class AlertsViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Unacknowledge alert",
-            $"Put {item.Rule} on {item.Device} back to active?",
-            "Unacknowledge",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
+        // One alert, and acknowledging puts it back: no need to ask (#146).
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
-            await RefreshAsync();
+            UpdateInPlace(item, ActiveState, note: null);
         }
+
+        ShowPermissions();
+    }
+
+    /// <summary>
+    /// Highlights the alert whose detail is showing beside the list (#88), or
+    /// none. Kept across refreshes, which make new rows.
+    /// </summary>
+    public void Select(int? alertId)
+    {
+        _selectedId = alertId;
+        MarkSelected(_all);
+    }
+
+    private void MarkSelected(IEnumerable<AlertItem> items)
+    {
+        var canChange = CanAcknowledge;
+        foreach (var item in items)
+        {
+            item.IsSelected = item.Id == _selectedId;
+            item.IsTicked = Selection.Contains(item.Id);
+            item.CanChange = canChange;
+        }
+    }
+
+    /// <summary>
+    /// The API token may acknowledge and unacknowledge - until LibreNMS
+    /// refuses it once (#144), which Core remembers for the session. Then the
+    /// swipe actions and the bulk buttons go, and <see cref="AcknowledgeRefusedText"/>
+    /// says why, rather than letting each try fail in turn.
+    /// </summary>
+    public bool CanAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true;
+
+    /// <summary>Why acknowledging is off, in desktop's words; null while it's on.</summary>
+    public string? AcknowledgeRefusedText => CanAcknowledge ? null : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
+
+    /// <summary>Catches up with what LibreNMS has refused - after loading, and after every acknowledge or unacknowledge.</summary>
+    private void ShowPermissions()
+    {
+        OnPropertyChanged(nameof(CanAcknowledge));
+        OnPropertyChanged(nameof(AcknowledgeRefusedText));
+        MarkSelected(_all);
+    }
+
+    /// <summary>
+    /// A change made in Alert detail beside the list (#88), onto its row as
+    /// if it were made here.
+    /// </summary>
+    public void ShowChange(AlertStateChange change)
+    {
+        if (_all.FirstOrDefault(a => a.Id == change.AlertId) is { } item)
+        {
+            UpdateInPlace(item, change.Acknowledged ? AcknowledgedState : ActiveState, change.Note);
+        }
+    }
+
+    /// <summary>LibreNMS's alert state numbers (see AlertStateExtensions.FromValue).</summary>
+    private const int ActiveState = 1;
+
+    private const int AcknowledgedState = 2;
+
+    /// <summary>
+    /// The alert's new state straight onto its own row - replaced, or taken
+    /// out if the filters no longer show it - rather than reloading the whole
+    /// list, which on iOS reset it to the top: with 100 alerts, acknowledging
+    /// one lost your place (#93). The counts, the icon badge and the tab dot
+    /// follow from the same change; the next refresh or check picks up
+    /// anything else.
+    /// </summary>
+    private void UpdateInPlace(AlertItem item, int state, string? note)
+    {
+        var alert = item.Alert;
+        alert.StateValue = state;
+        if (note is not null)
+        {
+            alert.Note = note;
+        }
+
+        var changed = new AlertItem(alert, _settings.Current.ServerTimestampsAreUtc, item.Device);
+        MarkSelected([changed]);
+        _all = _all.Select(a => a.Id == item.Id ? changed : a).ToList();
+
+        var index = Alerts.IndexOf(item);
+        if (index >= 0)
+        {
+            if (Allows(changed))
+            {
+                Alerts[index] = changed;
+            }
+            else
+            {
+                Alerts.RemoveAt(index);
+            }
+        }
+
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(CountText));
+        OnPropertyChanged(nameof(CriticalCount));
+        OnPropertyChanged(nameof(WarningCount));
+        OnPropertyChanged(nameof(OkCount));
+        OnPropertyChanged(nameof(AcknowledgedCount));
+
+        var alerts = _all.Select(a => a.Alert).ToList();
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _tabDot?.Update(alerts, _settings.Current);
     }
 
     /// <summary>The network-wide alert and event logs.</summary>
@@ -263,7 +441,115 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private Task OpenLogsAsync() => _navigation.GoToAsync(Routes.Logs);
 
     [RelayCommand]
-    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
+    private Task OpenAlertAsync(AlertItem? item)
+    {
+        if (item is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // Selecting: a tap ticks rather than opens.
+        if (Selection.IsSelecting)
+        {
+            Selection.Toggle(item.Id);
+            return Task.CompletedTask;
+        }
+
+        return _navigation.GoToAlertAsync(item.Alert);
+    }
+
+    /// <summary>Press and hold on a row: start selecting with it ticked.</summary>
+    [RelayCommand]
+    private void Hold(AlertItem? item)
+    {
+        if (item is not null)
+        {
+            Selection.Hold(item.Id);
+        }
+    }
+
+    [RelayCommand]
+    private void StartSelecting() => Selection.Start();
+
+    [RelayCommand]
+    private void StopSelecting() => Selection.Stop();
+
+    [RelayCommand]
+    private void SelectAll() => Selection.ToggleAll(ShownIds());
+
+    /// <summary>
+    /// Acknowledges every ticked alert that's active, with one note for all,
+    /// each row changing where it is as the single acknowledge does (#93).
+    /// </summary>
+    [RelayCommand]
+    private async Task AcknowledgeSelectedAsync()
+    {
+        var items = Ticked().Where(a => !a.IsAcknowledged).ToList();
+        if (items.Count == 0)
+        {
+            Selection.Report("None of the selected alerts are active, so there's nothing to acknowledge.");
+            return;
+        }
+
+        var note = await _dialogs.PromptAsync(
+            "Acknowledge alerts",
+            items.Count == 1 ? "1 alert. Add a note (optional):" : $"{items.Count} alerts. Add a note (optional):",
+            "Acknowledge",
+            "Note");
+        if (note is null)
+        {
+            return;
+        }
+
+        var text = note.Trim();
+        var result = await Selection.RunAsync(items, "Acknowledging", "Acknowledged", a => a.Id, BulkName, a => _client.Alerts.AcknowledgeAsync(a.Id, text));
+        foreach (var item in result.Succeeded)
+        {
+            _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+            UpdateInPlace(item, AcknowledgedState, text.Length == 0 ? null : text);
+        }
+
+        ShowPermissions();
+    }
+
+    /// <summary>Puts every ticked acknowledged alert back to active - asking first when it's more than a few (#146).</summary>
+    [RelayCommand]
+    private async Task UnacknowledgeSelectedAsync()
+    {
+        var items = Ticked().Where(a => a.IsAcknowledged).ToList();
+        if (items.Count == 0)
+        {
+            Selection.Report("None of the selected alerts are acknowledged.");
+            return;
+        }
+
+        var confirmed = !Confirmations.AsksForBulk(items.Count) || await _dialogs.ConfirmAsync(
+            "Unacknowledge alerts",
+            $"Put all {items.Count} selected alerts back to active?",
+            "Unacknowledge",
+            "Cancel");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var result = await Selection.RunAsync(items, "Unacknowledging", "Unacknowledged", a => a.Id, BulkName, a => _client.Alerts.UnmuteAsync(a.Id));
+        foreach (var item in result.Succeeded)
+        {
+            _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+            UpdateInPlace(item, ActiveState, note: null);
+        }
+
+        ShowPermissions();
+    }
+
+    /// <summary>The ticked alerts still listed, in the list's order.</summary>
+    private List<AlertItem> Ticked() => _all.Where(a => Selection.Contains(a.Id)).ToList();
+
+    private List<int> ShownIds() => Alerts.Select(a => a.Id).ToList();
+
+    /// <summary>"Port down on core-sw-01", naming an alert in the summary of what failed.</summary>
+    private static string BulkName(AlertItem alert) => $"{alert.Rule} on {alert.Device}";
 
     internal string BuildCsv() => CsvWriter.ToCsv(
         CsvHeaders,
@@ -316,6 +602,7 @@ public sealed partial class AlertsViewModel : ViewModelBase
     private void ApplyFilter()
     {
         Alerts.ReplaceAll(_all.Where(Allows));
+        OnPropertyChanged(nameof(SelectAllText));
 
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
@@ -329,6 +616,11 @@ public sealed partial class AlertsViewModel : ViewModelBase
 
     private void SaveFilter()
     {
+        if (_shortcut)
+        {
+            return;
+        }
+
         var filter = _settings.Current.Filter;
         filter.ShowCritical = ShowCritical;
         filter.ShowWarning = ShowWarning;

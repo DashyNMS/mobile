@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.SignInPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SignInViewModel"
     Title="Sign in">
@@ -32,83 +33,107 @@
     <!-- As the Sign in mock-up (#69): the logo as on the splash, the
          fields in one card, the switches in another, then Sign in. -->
     <ScrollView IsVisible="{Binding ShowForm}">
-        <VerticalStackLayout Padding="16,48,16,24" Spacing="14" MaximumWidthRequest="520">
+        <controls:ReadableColumn MaxContentWidth="520">
+            <VerticalStackLayout Padding="16,48,16,24" Spacing="14">
 
-            <VerticalStackLayout Spacing="12" Padding="0,0,0,6">
-                <Image Source="dashynms_logo.png" WidthRequest="72" HeightRequest="72" HorizontalOptions="Center"
-                       SemanticProperties.Description="DashyNMS logo" />
-                <Label Text="DashyNMS" FontSize="28" FontFamily="Display" HorizontalOptions="Center"
-                       SemanticProperties.HeadingLevel="Level1" />
-                <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
-                       Text="Sign in to your LibreNMS server with an API token (LibreNMS: Settings → API → API Access)." />
-            </VerticalStackLayout>
+                <VerticalStackLayout Spacing="12" Padding="0,0,0,6">
+                    <Image Source="dashynms_logo.png" WidthRequest="72" HeightRequest="72" HorizontalOptions="Center"
+                           SemanticProperties.Description="DashyNMS logo" />
+                    <Label Text="DashyNMS" FontSize="28" FontFamily="Display" HorizontalOptions="Center"
+                           SemanticProperties.HeadingLevel="Level1" />
+                    <!-- "Sign in with LibreNMS" first (#162); an API token is the fallback. -->
+                    <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
+                           IsVisible="{Binding ShowsWebSignIn}"
+                           Text="Sign in with your LibreNMS account. DashyNMS creates its own API token for this phone." />
+                    <Label Style="{StaticResource Caption}" FontSize="14" HorizontalTextAlignment="Center" MaximumWidthRequest="320"
+                           IsVisible="{Binding ShowsTokenEntry}"
+                           Text="Sign in with an API token." />
+                </VerticalStackLayout>
 
-            <Border Style="{StaticResource Card}" Padding="16">
-                <VerticalStackLayout Spacing="14">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Server address" />
-                        <Border Style="{StaticResource Field}">
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <VerticalStackLayout Spacing="14">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Server address" />
                             <Entry Text="{Binding ServerUrl}"
                                    Placeholder="nms.example.com"
                                    Keyboard="Url"
                                    IsSpellCheckEnabled="False"
                                    IsTextPredictionEnabled="False"
                                    AutomationId="ServerUrl" />
-                        </Border>
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
-                        <Border Style="{StaticResource Field}">
-                            <Entry Text="{Binding ApiToken}"
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowsTokenEntry}">
+                            <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
+                            <Entry x:Name="TokenEntry"
+                                   Text="{Binding ApiToken}"
                                    Placeholder="Paste your API token"
                                    IsPassword="True"
                                    IsSpellCheckEnabled="False"
                                    IsTextPredictionEnabled="False"
                                    ReturnCommand="{Binding SignInCommand}"
                                    AutomationId="ApiToken" />
-                        </Border>
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="6">
-                        <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
-                        <Border Style="{StaticResource Field}">
+                            <!-- Where a token comes from, in Core's words (#161), and the two ways to it:
+                                 the server's API Tokens page, and the token just copied there. -->
+                            <Label Style="{StaticResource Faint}" Text="{Binding TokenHint}" />
+                            <HorizontalStackLayout Spacing="16">
+                                <Button Style="{StaticResource LinkButton}" Text="Open the API Tokens page" Padding="0"
+                                        Command="{Binding OpenTokensPageCommand}" IsVisible="{Binding CanOpenTokensPage}" />
+                                <Button Style="{StaticResource LinkButton}" Text="Use the token you copied" Padding="0"
+                                        Command="{Binding PasteTokenCommand}" IsVisible="{Binding CanPasteToken}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="6">
+                            <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
                             <Entry Text="{Binding BackupAddress}"
                                    Placeholder="Used when the server address doesn't answer"
                                    Keyboard="Url"
                                    IsSpellCheckEnabled="False"
                                    IsTextPredictionEnabled="False" />
-                        </Border>
-                    </VerticalStackLayout>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Style="{StaticResource Card}" Padding="14,0">
-                <VerticalStackLayout>
-                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="56">
-                        <Label Text="Remember token on this device" VerticalOptions="Center" />
-                        <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" VerticalOptions="Center" />
-                    </Grid>
-                    <BoxView Style="{StaticResource Divider}" />
-                    <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="64" Padding="0,8">
-                        <VerticalStackLayout VerticalOptions="Center">
-                            <Label Text="Allow untrusted certificate" />
-                            <Label Style="{StaticResource Faint}" Text="Only for a self-signed server you trust." />
                         </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" VerticalOptions="Center" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
+                    </VerticalStackLayout>
+                </Border>
 
-            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <Border Style="{StaticResource Card}" Padding="14,0">
+                    <VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="56">
+                            <Label Text="Remember token on this device" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" VerticalOptions="Center" />
+                        </Grid>
+                        <BoxView Style="{StaticResource Divider}" />
+                        <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="64" Padding="0,8">
+                            <VerticalStackLayout VerticalOptions="Center">
+                                <Label Text="Allow untrusted certificate" />
+                                <Label Style="{StaticResource Faint}" Text="Only for a self-signed server you trust." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
 
-            <Button Text="Sign in"
-                    Command="{Binding SignInCommand}"
-                    IsEnabled="{Binding IsNotBusy}"
-                    HeightRequest="50"
-                    FontSize="16"
-                    AutomationId="SignIn" />
-            <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-        </VerticalStackLayout>
+                <Button Text="Sign in with LibreNMS"
+                        Command="{Binding SignInWithLibreNmsCommand}"
+                        IsVisible="{Binding ShowsWebSignIn}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        HeightRequest="50"
+                        FontSize="16"
+                        AutomationId="SignInWithLibreNms" />
+                <Button Text="Sign in"
+                        Command="{Binding SignInCommand}"
+                        IsVisible="{Binding ShowsTokenEntry}"
+                        IsEnabled="{Binding IsNotBusy}"
+                        HeightRequest="50"
+                        FontSize="16"
+                        AutomationId="SignIn" />
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+
+                <Button Style="{StaticResource LinkButton}" Text="Use an API token instead" HorizontalOptions="Center"
+                        Command="{Binding UseTokenCommand}" IsVisible="{Binding ShowsWebSignIn}" />
+                <Button Style="{StaticResource LinkButton}" Text="Sign in with LibreNMS instead" HorizontalOptions="Center"
+                        Command="{Binding UseLibreNmsCommand}" IsVisible="{Binding ShowsLibreNmsLink}" />
+
+            </VerticalStackLayout>
+        </controls:ReadableColumn>
     </ScrollView>
 
     </Grid>

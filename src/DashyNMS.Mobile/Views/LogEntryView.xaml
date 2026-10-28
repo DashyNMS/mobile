@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    x:Class="DashyNMS.Mobile.Views.LogEntryView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
+    xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
+    x:DataType="logs:LogEntryViewModel">
+
+    <!-- As the log entry mock-up (#118): "‹ Logs", a header card with the severity
+         or state, the whole message and its device, its details, then the ways to
+         narrow the list to entries like it. -->
+    <ScrollView>
+        <controls:ReadableColumn>
+            <VerticalStackLayout Padding="16,4,16,24" Spacing="12" IsVisible="{Binding HasEntry}">
+
+                <controls:BackBar x:Name="TopBar" />
+
+                <Border Style="{StaticResource Card}" Padding="16">
+                    <VerticalStackLayout Spacing="10">
+                        <Border Style="{StaticResource Pill}" HorizontalOptions="Start"
+                                BackgroundColor="{Binding Entry.Status, Converter={StaticResource StatusTint}}">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                         Fill="{Binding Entry.Status, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource PillText}" Text="{Binding Entry.StatusText}"
+                                       TextColor="{Binding Entry.Status, Converter={StaticResource StatusText}}" />
+                            </HorizontalStackLayout>
+                        </Border>
+                        <Label Text="{Binding Entry.FullText}" FontFamily="Display" FontSize="20" LineHeight="1.2"
+                               SemanticProperties.HeadingLevel="Level1" />
+                        <Label Text="{Binding Entry.DeviceName}" FontFamily="BodySemibold" FontSize="15" />
+                        <Label Style="{StaticResource Faint}" Text="{Binding Entry.WhenText}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,6,0,0" IsVisible="{Binding HasDevice}">
+                            <Button Text="Open device" Command="{Binding OpenDeviceCommand}" />
+                            <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Text="Open rule"
+                                    Command="{Binding OpenRuleCommand}" IsVisible="{Binding HasRule}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Style="{StaticResource SectionHeader}" Text="Details" Margin="4,8,0,0" />
+                <Border Style="{StaticResource ListCard}">
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entry.Fields}" Margin="0,-1,0,0">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="sys:KeyValuePair(x:String,x:String)">
+                                <Grid ColumnDefinitions="2*,5*" RowDefinitions="Auto,Auto" ColumnSpacing="12" Padding="14,0,14,10">
+                                    <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" Margin="-14,0,-14,10" />
+                                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding Key}" />
+                                    <Label Grid.Row="1" Grid.Column="1" Text="{Binding Value}" LineBreakMode="WordWrap" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Narrow the list to this device, or to entries of this type or state. -->
+                <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasNarrowing}" Margin="0,8,0,0">
+                    <VerticalStackLayout>
+                        <Grid Style="{StaticResource ListRow}" ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48"
+                              IsVisible="{Binding CanShowOnlyDevice}">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ShowOnlyDeviceCommand}" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="{Binding ShowOnlyDeviceText}" VerticalOptions="Center" LineBreakMode="TailTruncation"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </Grid>
+                        <Grid Style="{StaticResource ListRow}" ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48"
+                              IsVisible="{Binding CanShowOnlyKind}">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding ShowOnlyKindCommand}" />
+                            </Grid.GestureRecognizers>
+                            <Label Text="{Binding ShowOnlyKindText}" VerticalOptions="Center" LineBreakMode="TailTruncation"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                            <!-- Under the device's, when both show. -->
+                            <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="Start"
+                                     IsVisible="{Binding CanShowOnlyDevice}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </controls:ReadableColumn>
+    </ScrollView>
+
+</ContentView>

@@ -15,7 +15,7 @@ namespace DashyNMS.Mobile.ViewModels;
 /// alerts, the way into each section (sensors, ports, graphs...), and the
 /// actions - pin, rediscover, schedule maintenance, SSH and Telnet.
 /// </summary>
-public sealed partial class DeviceDetailViewModel : ViewModelBase
+public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 {
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
@@ -26,7 +26,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
     private readonly Graylog.GraylogSetup? _graylog;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(LastDiscoveredText), nameof(Subtitle), nameof(TypeText))]
+    [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(FreshnessText), nameof(Subtitle), nameof(TypeText))]
     [NotifyCanExecuteChangedFor(nameof(TogglePinCommand), nameof(RediscoverCommand), nameof(ScheduleMaintenanceCommand), nameof(OpenSshCommand), nameof(OpenTelnetCommand))]
     private Device? _device;
 
@@ -227,10 +227,23 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }));
     }
 
-    /// <summary>"Last discovered 3h ago", when LibreNMS says.</summary>
-    public string? LastDiscoveredText => Device?.LastDiscovered is { } at
-        ? "Last discovered " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, _settings.Current.ServerTimestampsAreUtc))
+    /// <summary>"took 4.2s": how long LibreNMS's last poll of the device ran.</summary>
+    internal static string? TookText(double? seconds) => seconds is { } s && s >= 0
+        ? "took " + s.ToString(s < 10 ? "0.#" : "0", CultureInfo.CurrentCulture) + "s"
         : null;
+
+    /// <summary>
+    /// The foot of the page: "Last polled 3m ago" (#97) - polls run every few
+    /// minutes, so it says whether what's shown is current. A server that
+    /// doesn't send the poll time gets "Last discovered 3h ago", as before.
+    /// </summary>
+    public string? FreshnessText => Device switch
+    {
+        null => null,
+        { LastPolled: { } polled } => "Last polled " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, _settings.Current.ServerTimestampsAreUtc)),
+        { LastDiscovered: { } discovered } => "Last discovered " + Formatting.Age(DesktopNMS.Core.ServerTime.Age(discovered, _settings.Current.ServerTimestampsAreUtc)),
+        _ => null,
+    };
 
     public int DeviceId { get; private set; }
 
@@ -259,8 +272,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     /// <summary>
     /// Desktop's Device card: what the device is and where, each only when
-    /// LibreNMS knows it (a card full of dashes is noise). The three names
-    /// only when they differ, as desktop's.
+    /// LibreNMS knows it (a card full of dashes is noise). Its other names
+    /// in one "Also known as" row, only when there are any, as desktop's.
     /// </summary>
     public IReadOnlyList<DeviceProperty> Properties
     {
@@ -272,16 +285,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
             }
 
             var utc = _settings.Current.ServerTimestampsAreUtc;
-            var names = new[] { d.Hostname, d.SysName, d.Display }
-                .Where(n => !string.IsNullOrWhiteSpace(n))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Count();
+
+            // Its other names in one row, as desktop's Overview (#116): Core's
+            // AlsoKnownAs leaves out the name in the title and any that are
+            // really the same ("core-sw-01" and "CORE-SW-01.example.net").
+            var alsoKnownAs = DeviceNameStyleExtensions.AlsoKnownAs(d, Title);
 
             return new (string Label, string? Value)[]
                 {
-                    ("Hostname", names > 1 ? d.Hostname : null),
-                    ("sysName", names > 1 ? d.SysName : null),
-                    ("Display name", names > 1 ? d.Display : null),
+                    ("Also known as", alsoKnownAs.Count > 0 ? string.Join(", ", alsoKnownAs) : null),
                     ("IP address", d.Ip),
                     ("Operating system", string.Join(" ", new[] { d.Os, d.Version }.Where(p => !string.IsNullOrWhiteSpace(p)))),
                     ("Hardware", d.Hardware),
@@ -294,6 +306,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
                     ("Depends on", d.DependencyParentHostname),
                     ("Added", d.Inserted is { } added ? DesktopNMS.Core.ServerTime.ToLocal(added, utc).ToString("d MMM yyyy", CultureInfo.CurrentCulture) : null),
                     ("Last discovered", d.LastDiscovered is { } at ? Formatting.Age(DesktopNMS.Core.ServerTime.Age(at, utc)) : null),
+                    ("Last polled", d.LastPolled is { } polled
+                        ? string.Join(", ", new[] { Formatting.Age(DesktopNMS.Core.ServerTime.Age(polled, utc)), TookText(d.LastPolledTimeTaken) }.Where(p => p is not null))
+                        : null),
                     ("Object ID", d.SysObjectId),
                     ("Description", d.SysDescr),
                 }
@@ -342,20 +357,33 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }
     }
 
+    /// <summary>LibreNMS's ping graph, as desktop's Ping response card draws.</summary>
+    internal const string PingGraphName = "device_icmp_perf";
+
     /// <summary>LibreNMS's own 24h ping graph (<c>device_icmp_perf</c>), as desktop's Ping response card; null until it's in.</summary>
     [ObservableProperty]
     private string? _pingGraphPage;
 
-    /// <summary>The ping graph opens the device's graphs, as desktop's does.</summary>
+    /// <summary>
+    /// The ping graph opens the device's graphs, as desktop's does - on the
+    /// ping graph itself, over the day it showed, not the first graph (#119).
+    /// </summary>
     [RelayCommand]
-    private Task OpenGraphsAsync() => OpenSectionAsync(DeviceSectionInfo.For(DeviceSection.Graphs));
+    private Task OpenGraphsAsync() => _navigation.GoToAsync(Routes.DeviceGraphs, new Dictionary<string, object>
+    {
+        [Routes.DeviceIdParameter] = DeviceId,
+        [Routes.SectionParameter] = DeviceSection.Graphs,
+        [Routes.DeviceNameParameter] = Title,
+        [Routes.GraphParameter] = PingGraphName,
+        [Routes.GraphRangeParameter] = GraphTimeRangePreset.Day,
+    });
 
     /// <summary>Best effort: a device LibreNMS doesn't ping just has no card.</summary>
     private async Task LoadPingGraphAsync(int deviceId)
     {
         try
         {
-            var svg = await _client.Graphs.GetSvgAsync(deviceId, "device_icmp_perf", new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400);
+            var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400, legend: false);
             PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
         }
         catch (Exception)
@@ -399,6 +427,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
         await Task.WhenAll(deviceTask, alertsTask, graylogTask);
         Device = deviceTask.Result;
+        OnPropertyChanged(nameof(MaintenanceRefusedText));
         if (Device is null)
         {
             ErrorMessage = "LibreNMS no longer has this device.";
@@ -461,6 +490,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         {
             DeviceSection.Graphs => Routes.DeviceGraphs,
             DeviceSection.Graylog => Routes.Graylog,
+
+            // The Logs page with its Device chip fixed, for the type filter and search (#125).
+            DeviceSection.EventLog => Routes.Logs,
             _ => Routes.DeviceSection,
         }, new Dictionary<string, object>
         {
@@ -471,20 +503,13 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
 
     private bool HasDevice() => Device is not null;
 
-    /// <summary>Asks LibreNMS to rediscover the device now, as desktop's Rediscover.</summary>
+    /// <summary>
+    /// Asks LibreNMS to rediscover the device now, as desktop's Rediscover -
+    /// straight away, as one device's rediscovery is harmless (#146).
+    /// </summary>
     [RelayCommand(CanExecute = nameof(HasDevice))]
     private async Task RediscoverAsync()
     {
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Rediscover",
-            $"Ask LibreNMS to rediscover {Title} now? It runs on the server's next discovery pass.",
-            "Rediscover",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
         string? message = null;
         if (await RunAsync(async () => message = await _client.Devices.DiscoverAsync(DeviceId)))
         {
@@ -492,7 +517,18 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase
         }
     }
 
-    [RelayCommand(CanExecute = nameof(HasDevice))]
+    /// <summary>
+    /// A device and a token allowed to schedule its maintenance - off once
+    /// LibreNMS has refused it this session (#144), with <see cref="MaintenanceRefusedText"/> saying why.
+    /// </summary>
+    private bool CanScheduleMaintenance() => HasDevice() && MaySchedule;
+
+    private bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+
+    /// <summary>Why Maintenance is off, in desktop's words; null while it's allowed.</summary>
+    public string? MaintenanceRefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+
+    [RelayCommand(CanExecute = nameof(CanScheduleMaintenance))]
     private Task ScheduleMaintenanceAsync() => _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>
     {
         [Routes.DeviceIdParameter] = DeviceId,

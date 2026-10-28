@@ -72,9 +72,14 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         _startTime = next.TimeOfDay;
     }
 
-    public int DeviceId { get; private set; }
+    /// <summary>The device, or the first of several.</summary>
+    public int DeviceId => Devices.Count > 0 ? Devices[0].Id : 0;
 
+    /// <summary>Who the window is for: the device's name, or "5 devices" (#85).</summary>
     public string DeviceName { get; private set; } = string.Empty;
+
+    /// <summary>Every device the window is for - one from Device View, several ticked in Devices (#85).</summary>
+    public IReadOnlyList<(int Id, string Name)> Devices { get; private set; } = [];
 
     public bool IsScheduledForLater => !StartNow;
 
@@ -102,11 +107,14 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         : DurationMinutes == 0 ? $"{DurationHours} h"
         : $"{DurationHours} h {DurationMinutes} min";
 
-    public void Initialize(int deviceId, string deviceName)
+    public void Initialize(int deviceId, string deviceName) => Initialize([(deviceId, deviceName)]);
+
+    public void Initialize(IReadOnlyList<(int Id, string Name)> devices)
     {
-        DeviceId = deviceId;
-        DeviceName = deviceName;
+        Devices = devices;
+        DeviceName = devices.Count == 1 ? devices[0].Name : string.Create(CultureInfo.CurrentCulture, $"{devices.Count} devices");
         OnPropertyChanged(nameof(DeviceName));
+        OnPropertyChanged(nameof(DeviceId));
     }
 
     [RelayCommand]
@@ -121,8 +129,30 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         DurationMinutes = preset.Minutes;
     }
 
+    /// <summary>
+    /// The token may schedule maintenance - until LibreNMS refuses it once
+    /// (#144). Then Schedule goes and <see cref="RefusedText"/> says why.
+    /// </summary>
+    public bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+
+    /// <summary>Why Schedule is off, in desktop's words; null while it's allowed.</summary>
+    public string? RefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+
     [RelayCommand]
     private async Task SaveAsync()
+    {
+        try
+        {
+            await ScheduleAsync();
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(MaySchedule));
+            OnPropertyChanged(nameof(RefusedText));
+        }
+    }
+
+    private async Task ScheduleAsync()
     {
         ErrorMessage = null;
 
@@ -154,6 +184,12 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
             Behavior = (int)SelectedBehavior.Value,
         };
 
+        if (Devices.Count > 1)
+        {
+            await SaveForSeveralAsync(request);
+            return;
+        }
+
         string? message = null;
         if (await RunAsync(async () => message = await _client.Devices.ScheduleMaintenanceAsync(DeviceId, request)))
         {
@@ -161,6 +197,33 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
             await _dialogs.AlertAsync("Maintenance scheduled", string.IsNullOrWhiteSpace(message) ? $"Maintenance scheduled for {DeviceName}." : message);
             await _navigation.GoToAsync(Routes.Back);
         }
+    }
+
+    /// <summary>
+    /// The same window for each device in turn, then one summary - "Scheduled
+    /// maintenance for 5 devices." or which failed. Stays open if none worked.
+    /// </summary>
+    private async Task SaveForSeveralAsync(DeviceMaintenanceRequest request)
+    {
+        BulkResult<(int Id, string Name)>? result = null;
+        await RunAsync(async () => result = await BulkRun.RunAsync(
+            Devices,
+            d => d.Name,
+            d => _client.Devices.ScheduleMaintenanceAsync(d.Id, request)));
+        if (result is null)
+        {
+            return;
+        }
+
+        var summary = result.Describe("Scheduled maintenance for", "device");
+        if (result.Succeeded.Count == 0)
+        {
+            ErrorMessage = summary;
+            return;
+        }
+
+        await _dialogs.AlertAsync("Maintenance scheduled", summary);
+        await _navigation.GoToAsync(Routes.Back);
     }
 
     [RelayCommand]

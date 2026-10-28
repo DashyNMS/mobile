@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
@@ -26,6 +27,9 @@ public enum AlertCheckOutcome
 
 public sealed record AlertCheckResult(AlertCheckOutcome Outcome, int Changes = 0, int Notified = 0, string? Error = null)
 {
+    /// <summary>Changes to alerts the notification rules leave out (#167) - not announced.</summary>
+    public int Ignored { get; init; }
+
     /// <summary>Worth the platform scheduling the next check as normal (as opposed to backing off).</summary>
     public bool Succeeded => Outcome is not AlertCheckOutcome.Failed;
 }
@@ -50,6 +54,8 @@ public sealed class AlertWatcher
     private readonly ISelfActionTracker _selfActions;
     private readonly IAlertNotifier _notifier;
     private readonly IAppBadge _badge;
+    private readonly AlertTabDot? _tabDot;
+    private readonly AlertCountThreshold? _countThreshold;
     private readonly IHomeWidgets _widgets;
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
@@ -70,8 +76,15 @@ public sealed class AlertWatcher
         IAppBadge badge,
         IHomeWidgets widgets,
         TimeProvider time,
-        ILogger<AlertWatcher> logger)
+        ILogger<AlertWatcher> logger,
+        AlertTabDot? tabDot = null,
+        AlertCountThreshold? countThreshold = null,
+        NotifyRules? rules = null)
     {
+        // Asked for only so a phone's pre-1.1.0 ignored list has moved into
+        // the settings (#167) before the first check: the planner reads them.
+        _ = rules;
+        _countThreshold = countThreshold;
         _client = client;
         _session = session;
         _secrets = secrets;
@@ -83,9 +96,60 @@ public sealed class AlertWatcher
         _widgets = widgets;
         _time = time;
         _logger = logger;
+        _tabDot = tabDot;
     }
 
-    public async Task<AlertCheckResult> CheckAsync(CancellationToken cancellationToken = default)
+    /// <param name="background">Run by iOS or Android while the app was closed, rather than by the in-app timer - for the diagnostics.</param>
+    public async Task<AlertCheckResult> CheckAsync(CancellationToken cancellationToken = default, bool background = false)
+    {
+        var started = _time.GetTimestamp();
+        var result = await CheckOnceAsync(cancellationToken).ConfigureAwait(false);
+        Describe(result, background, _time.GetElapsedTime(started));
+        return result;
+    }
+
+    /// <summary>
+    /// Each check in a line of the diagnostics (#126): where it ran, what
+    /// changed, what was ignored, announced or not, and how long it took. An
+    /// in-app check with nothing new reads the same each time, so a run of
+    /// them is one line ("× 12").
+    /// </summary>
+    private void Describe(AlertCheckResult result, bool background, TimeSpan took)
+    {
+        var where = background ? "Background alert check" : "Alert check";
+        var time = $"{took.TotalSeconds.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)} s";
+        switch (result.Outcome)
+        {
+            case AlertCheckOutcome.Skipped when background:
+                _logger.LogInformation("{Where}: skipped, another check was running", where);
+                break;
+            case AlertCheckOutcome.NotSignedIn:
+                _logger.LogInformation("{Where}: not signed in", where);
+                break;
+            case AlertCheckOutcome.Checked when result.Changes == 0:
+                if (background)
+                {
+                    _logger.LogInformation("{Where}: no changes · {Time}", where, time);
+                }
+                else
+                {
+                    _logger.LogInformation("{Where}: no changes", where);
+                }
+
+                break;
+            case AlertCheckOutcome.Checked:
+                var quiet = result.Changes - result.Ignored - result.Notified;
+                _logger.LogInformation(
+                    "{Where}: {Changes} change(s) · {Ignored} ignored · {Notified} notified · {Quiet} not announced (severity settings, quiet hours or grouped) · {Time}",
+                    where, result.Changes, result.Ignored, result.Notified, Math.Max(quiet, 0), time);
+                break;
+            case AlertCheckOutcome.Failed:
+                _logger.LogWarning("{Where} failed after {Time}: {Error}", where, time, result.Error);
+                break;
+        }
+    }
+
+    private async Task<AlertCheckResult> CheckOnceAsync(CancellationToken cancellationToken)
     {
         // The in-app timer and a background wake can land together; one
         // check at a time, or both would announce the same change.
@@ -115,7 +179,8 @@ public sealed class AlertWatcher
             var hasBaseline = saved is not null && saved.Server == server;
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
             _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
-            _badge.SetCount(AlertBadge.Count(alerts, settings));
+            _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? DesktopNMS.Core.Models.AlertSeverity.Ok));
+            _tabDot?.Update(alerts, settings);
 
             if (_widgets.IsInUse)
             {
@@ -130,8 +195,29 @@ public sealed class AlertWatcher
                 return new AlertCheckResult(AlertCheckOutcome.Baseline, changes.Count);
             }
 
+            // Devices named as the user chose to see them (#80), not by the
+            // alert's own hostname - often an IP. The device list (cached, as
+            // the widgets use it) is only read when there's something to say.
+            IReadOnlyDictionary<int, DesktopNMS.Core.Models.Device>? devicesById = null;
+            if (changes.Count > 0 && settings.Notifications.Enabled
+                && await DevicesAsync(cancellationToken).ConfigureAwait(false) is { } known)
+            {
+                devicesById = known.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First());
+            }
+
+            var nameStyle = settings.DeviceNameStyle;
             var localNow = _time.GetLocalNow().DateTime;
-            var plan = AlertNotificationPlanner.Plan(changes, settings.Notifications, localNow, _selfActions);
+
+            // Which alerts notify (#167) is Core's planner's to decide, from the
+            // settings - only here: the badge, dot and widgets above still
+            // count a left-out alert.
+            var plan = AlertNotificationPlanner.Plan(
+                changes,
+                settings.Notifications,
+                localNow,
+                _selfActions,
+                alert => nameStyle.Resolve(devicesById?.GetValueOrDefault(alert.DeviceId), alert.DisplayHostname),
+                alert => devicesById?.GetValueOrDefault(alert.DeviceId)?.LocationName());
 
             foreach (var tag in plan.Remove)
             {
@@ -143,12 +229,12 @@ public sealed class AlertWatcher
                 await _notifier.ShowAsync(notification).ConfigureAwait(false);
             }
 
-            if (changes.Count > 0)
+            if (plan.SuppressionReason is { } why)
             {
-                _logger.LogInformation("Alert check: {Changes} change(s), {Notified} notified", changes.Count, plan.Show.Count);
+                _logger.LogInformation("Not announced: {Why}", why);
             }
 
-            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count);
+            return new AlertCheckResult(AlertCheckOutcome.Checked, changes.Count, plan.Show.Count) { Ignored = plan.LeftOutByRuleCount };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -157,8 +243,8 @@ public sealed class AlertWatcher
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Alert check failed");
-            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: ex.Message);
+            // Said once, with the time, by Describe.
+            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: $"{ex.GetType().Name}: {ex.Message}");
         }
         finally
         {
@@ -193,7 +279,7 @@ public sealed class AlertWatcher
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogDebug(ex, "Could not read devices for the widgets");
+            _logger.LogDebug(ex, "Could not read devices for names and the widgets");
         }
 
         return _devices;

@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    A device, laid out as desktop's Device View overview (#65): the header,
+    stat tiles, the Device card, then the overview cards and every other
+    section as cards - one column on a phone, a grid when there's room.
+-->
+<ContentView
+    x:Class="DashyNMS.Mobile.Views.DeviceDetailView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
+    x:DataType="vm:DeviceDetailViewModel">
+
+    <!-- The card grid's templates: ping and active alerts draw from the
+         page's view model, the sections from their own card - one grid, so
+         a three-column tablet has no gap after the first two (#69).
+         Each binding finds the view model itself: a BindingContext bound to
+         it with RelativeSource found nothing here, so the Ping response card
+         never showed (Batch 11). -->
+    <ContentView.Resources>
+        <pages:DeviceCardTemplateSelector x:Key="GridCardTemplates">
+            <pages:DeviceCardTemplateSelector.Ping>
+                <DataTemplate x:DataType="sections:DeviceOverviewCard">
+                    <ContentView IsVisible="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource IsNotNull}}">
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Style="{StaticResource CardTitle}" Text="Ping response" />
+                                    <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="24h" />
+                                </Grid>
+                                <Grid>
+                                    <controls:GraphView Html="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
+                                    <!-- The web view would swallow taps. -->
+                                    <BoxView Color="Transparent">
+                                        <BoxView.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding OpenGraphsCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
+                                        </BoxView.GestureRecognizers>
+                                    </BoxView>
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </ContentView>
+                </DataTemplate>
+            </pages:DeviceCardTemplateSelector.Ping>
+            <pages:DeviceCardTemplateSelector.Alerts>
+                <DataTemplate x:DataType="sections:DeviceOverviewCard">
+                    <ContentView>
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="8">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Style="{StaticResource CardTitle}" Text="Active alerts" />
+                                    <Label Grid.Column="1" Style="{StaticResource CardNote}"
+                                           Text="{Binding ActiveAlertsNote, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
+                                </Grid>
+                                <Label Style="{StaticResource Caption}" Text="No active alerts."
+                                       IsVisible="{Binding HasAlerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource Invert}}" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" Spacing="6">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:AlertItem">
+                                            <Grid ColumnDefinitions="10,*" ColumnSpacing="10">
+                                                <Grid.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Grid.GestureRecognizers>
+                                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" />
+                                                <VerticalStackLayout Grid.Column="1">
+                                                    <Label Text="{Binding Rule}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
+                                                    <Label Style="{StaticResource Caption}" Text="{Binding Summary}" FontSize="12" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </ContentView>
+                </DataTemplate>
+            </pages:DeviceCardTemplateSelector.Alerts>
+            <pages:DeviceCardTemplateSelector.Section>
+                <DataTemplate x:DataType="sections:DeviceSectionCard">
+                    <Border Style="{StaticResource Card}">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding OpenSectionCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                CommandParameter="{Binding Info}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="6">
+                            <!-- A dot in the section's colour when something in it needs attention. -->
+                            <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" IsVisible="{Binding NeedsAttention}"
+                                         Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" />
+                            </HorizontalStackLayout>
+                            <Grid Grid.Column="1" VerticalOptions="Center">
+                                <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                                   WidthRequest="16" HeightRequest="16" />
+                                <Label Style="{StaticResource Chevron}"
+                                       IsVisible="{Binding IsLoading, Converter={StaticResource Invert}}" />
+                            </Grid>
+
+                            <!-- The section's description until its summary is in. -->
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Caption}" Text="{Binding Description}"
+                                   IsVisible="{Binding ShowSummary, Converter={StaticResource Invert}}" />
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource Caption}" Text="{Binding SummaryText}"
+                                   IsVisible="{Binding ShowSummary}" />
+
+                            <!-- What desktop's card shows: resources as bars, the rest a line each. -->
+                            <VerticalStackLayout Grid.Row="2" Grid.ColumnSpan="2" BindableLayout.ItemsSource="{Binding Highlights}"
+                                                 IsVisible="{Binding HasHighlights}" Spacing="6">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="sections:SectionRow">
+                                        <VerticalStackLayout Spacing="3">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Label Text="{Binding Title}" FontSize="13" LineBreakMode="TailTruncation" />
+                                                <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
+                                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                            </Grid>
+                                            <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
+                                                         ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </pages:DeviceCardTemplateSelector.Section>
+        </pages:DeviceCardTemplateSelector>
+    </ContentView.Resources>
+
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16,4,16,16" Spacing="8">
+
+                <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device. -->
+                <controls:BackBar x:Name="TopBar">
+                    <controls:BackBar.Actions>
+                        <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Pin}" IsOn="{Binding IsPinned}"
+                                             Command="{Binding TogglePinCommand}" SemanticProperties.Description="{Binding PinText}" />
+                    </controls:BackBar.Actions>
+                </controls:BackBar>
+
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <controls:BusyCard Text="Loading the device…" IsVisible="{Binding IsLoadingFirstTime}" Margin="0,32" />
+
+                <!-- ==================== Header ==================== -->
+                <!-- What the device is and its state, as desktop's header. -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="4">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
+                            <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
+                                   LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
+                            <!-- State pill: tinted, with a dot and the state in its readable colour. -->
+                            <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="0,4,0,0"
+                                    BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                             Fill="{Binding State, Converter={StaticResource StatusText}}" />
+                                    <Label Style="{StaticResource PillText}" Text="{Binding StateText}"
+                                           TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                </HorizontalStackLayout>
+                            </Border>
+                        </Grid>
+                        <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
+                        <Label Style="{StaticResource Caption}" Text="{Binding TypeText}" FontSize="12"
+                               IsVisible="{Binding TypeText, Converter={StaticResource IsNotNull}}" />
+
+                        <!-- Desktop's actions, and "Open in" SSH / Telnet in whichever app handles the link. -->
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" Margin="0,10,0,0">
+                            <controls:IconButton Icon="{x:Static controls:Icons.Rediscover}" Text="Rediscover" Command="{Binding RediscoverCommand}" />
+                            <controls:IconButton Grid.Column="1" Icon="{x:Static controls:Icons.Maintenance}" Text="Maintenance" Command="{Binding ScheduleMaintenanceCommand}" />
+                            <controls:IconButton Grid.Row="1" Icon="{x:Static controls:Icons.Ssh}" Text="SSH" Command="{Binding OpenSshCommand}" />
+                            <controls:IconButton Grid.Row="1" Grid.Column="1" Icon="{x:Static controls:Icons.Telnet}" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
+                        </Grid>
+                        <!-- Maintenance is dimmed when the token isn't allowed it (#144): say why. -->
+                        <Label Style="{StaticResource Caption}" Text="{Binding MaintenanceRefusedText}" Margin="0,6,0,0"
+                               IsVisible="{Binding MaintenanceRefusedText, Converter={StaticResource IsNotNull}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ==================== Stat tiles ==================== -->
+                <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room. -->
+                <controls:CardGrid MinColumnWidth="150" MaxColumns="4">
+                    <Border Style="{StaticResource Card}" Padding="0">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Availability" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Availability · 30 days" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding AvailabilityTileText}" FontSize="24" FontFamily="BodySemibold" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="0">
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{StaticResource Primary}" />
+                                <Label Style="{StaticResource Faint}" Text="Uptime" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding UptimeText}" FontSize="24" FontFamily="BodySemibold" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="0">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Ports" />
+                        </Border.GestureRecognizers>
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Ports up" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding PortsTileText}" FontSize="24" FontFamily="BodySemibold" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource Card}" Padding="0">
+                        <VerticalStackLayout Padding="14,12" Spacing="4">
+                            <HorizontalStackLayout Spacing="6">
+                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
+                                <Label Style="{StaticResource Faint}" Text="Active alerts" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding Alerts.Count}" FontSize="24" FontFamily="BodySemibold" />
+                        </VerticalStackLayout>
+                    </Border>
+                </controls:CardGrid>
+
+                <!-- ==================== Device ==================== -->
+                <!-- The details first and full width, as desktop's Device card. -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Style="{StaticResource CardTitle}" Text="Device" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Properties}" Spacing="8">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DeviceProperty">
+                                    <!-- Location and Groups tap through to the devices there, as desktop's Groups &amp; locations. -->
+                                    <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding OpenPropertyCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        </Grid.GestureRecognizers>
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Key}" />
+                                        <Label Grid.Column="1" Text="{Binding Value}" LineBreakMode="WordWrap">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ==================== Ping, alerts and sections ==================== -->
+                <!-- Ping and active alerts, then desktop's overview cards and its
+                     other sections: each loads behind the page, opens in full, and
+                     drops out if the device has nothing in it (#43, #44, #65, #69). -->
+                <controls:CardGrid BindableLayout.ItemsSource="{Binding GridCards}"
+                                   BindableLayout.ItemTemplateSelector="{StaticResource GridCardTemplates}" />
+
+                <Label Style="{StaticResource Caption}" Text="{Binding FreshnessText}" HorizontalOptions="Center" Margin="0,8,0,0"
+                       IsVisible="{Binding FreshnessText, Converter={StaticResource IsNotNull}}" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+
+</ContentView>

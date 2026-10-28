@@ -25,10 +25,15 @@ namespace DashyNMS.Mobile.ViewModels;
 /// and the log are best effort - a read-only token may not see rules - so
 /// the alert itself still shows without them.
 /// </remarks>
-public sealed partial class AlertDetailViewModel : ViewModelBase
+public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 {
-    /// <summary>How far back to look for this rule's log entries - desktop's search depth.</summary>
-    internal const int LogDepth = 50;
+    /// <summary>
+    /// How far back to look in the device's alert log - desktop's depth (#169).
+    /// The log is per device, not per rule, so "fired n times in the last 30
+    /// days" needs a deep look on a busy device; History still shows only
+    /// <see cref="HistoryRows"/>.
+    /// </summary>
+    internal const int LogDepth = 500;
 
     /// <summary>History rows shown.</summary>
     internal const int HistoryRows = 10;
@@ -38,12 +43,23 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
+    private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
+
+    /// <summary>
+    /// Raised after you acknowledge or unacknowledge the alert here. Beside
+    /// the Alerts list on a larger screen (#88) the list stays on screen, so
+    /// it changes that row itself rather than waiting to reappear.
+    /// </summary>
+    public event EventHandler<AlertStateChange>? AlertChanged;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasAlert))]
     [NotifyPropertyChangedFor(nameof(CanAcknowledge))]
     [NotifyPropertyChangedFor(nameof(CanUnacknowledge))]
+    [NotifyPropertyChangedFor(nameof(AcknowledgeRefusedText))]
     [NotifyPropertyChangedFor(nameof(RaisedText))]
+    [NotifyPropertyChangedFor(nameof(NotificationsText))]
+    [NotifyPropertyChangedFor(nameof(CanChangeNotifications))]
     private AlertItem? _alert;
 
     [ObservableProperty]
@@ -58,13 +74,15 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         ISettingsStore settings,
         IDialogService dialogs,
         INavigationService navigation,
-        ISelfActionTracker selfActions)
+        ISelfActionTracker selfActions,
+        DashyNMS.Mobile.Alerts.NotifyRules? rules = null)
     {
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
         _navigation = navigation;
         _selfActions = selfActions;
+        _rules = rules;
     }
 
     public int AlertId { get; private set; }
@@ -74,9 +92,25 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
     public bool HasAlert => Alert is not null;
 
-    public bool CanAcknowledge => Alert is { IsAcknowledged: false, State: not AlertState.Recovered };
+    public bool CanAcknowledge => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && MayAcknowledge;
 
-    public bool CanUnacknowledge => Alert is { IsAcknowledged: true };
+    public bool CanUnacknowledge => Alert is { IsAcknowledged: true } && MayAcknowledge;
+
+    /// <summary>
+    /// Why the buttons to acknowledge and unacknowledge are gone (#144): the
+    /// API token was refused it this session, as Core remembers. Null while it's allowed.
+    /// </summary>
+    public string? AcknowledgeRefusedText => MayAcknowledge ? null : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
+
+    private bool MayAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true;
+
+    /// <summary>Catches up with a refusal - learned here, or on another page before this one opened.</summary>
+    private void ShowPermissions()
+    {
+        OnPropertyChanged(nameof(CanAcknowledge));
+        OnPropertyChanged(nameof(CanUnacknowledge));
+        OnPropertyChanged(nameof(AcknowledgeRefusedText));
+    }
 
     public bool HasDevice => DeviceId is not null;
 
@@ -111,7 +145,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
     private Task RefreshAsync() => RunAsync(async () =>
     {
         var utc = _settings.Current.ServerTimestampsAreUtc;
-        var alert = await _client.Alerts.GetAsync(AlertId);
+        var alert = await FindAlertAsync(AlertId);
         if (alert is null)
         {
             Alert = null;
@@ -141,11 +175,15 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
         _rule = rule;
         _ruleLog = log;
+        _logRead = logTask.Result is not null;
         ShowGroups();
     });
 
     private AlertRule? _rule;
     private IReadOnlyList<AlertLogEntry> _ruleLog = [];
+
+    /// <summary>Whether the alert log could be read - without it, "no earlier alerts" would be a guess.</summary>
+    private bool _logRead;
 
     /// <summary>
     /// "Why it fired" shows the columns the rule tests by default (#46) -
@@ -176,7 +214,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
         var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
         HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
-        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields).ToList();
+        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields, _logRead ? DateTime.Now : null).ToList();
         if (HasMoreFields || ShowAllFields)
         {
             // The link on Why it fired's card. On the group rather than bound
@@ -189,9 +227,82 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             }
         }
 
+        // The rule card opens the whole rule: where it applies, its template,
+        // what else it has alerting (#22).
+        foreach (var group in groups.Where(g => g.Name == RuleGroupName))
+        {
+            group.FooterText = "Open rule";
+            group.FooterCommand = OpenRuleCommand;
+        }
+
         Groups.ReplaceAll(groups);
         OnPropertyChanged(nameof(CardGroups));
     }
+
+    internal const string RuleGroupName = "Rule";
+
+    /// <summary>
+    /// The alert, firing or acknowledged. LibreNMS's state=1 default applies
+    /// to GET alerts/{id} too, so an acknowledged alert came back empty and
+    /// the page said it had cleared, while the list still showed it (#113).
+    /// The open list - firing and acknowledged - finds it then.
+    /// </summary>
+    private async Task<Alert?> FindAlertAsync(int alertId) =>
+        await _client.Alerts.GetAsync(alertId)
+        ?? (await _client.Alerts.ListAsync(AlertQuery.Open)).FirstOrDefault(a => a.Id == alertId);
+
+    // ------------------------------------------------------------ notifications (#102)
+
+    public bool CanChangeNotifications => _rules is not null && Alert is not null;
+
+    /// <summary>"Notifies you", or why not - from the notification rules (#167).</summary>
+    public string NotificationsText => Alert is not { } alert || _rules is null ? string.Empty : _rules.StatusFor(alert.Alert);
+
+    /// <summary>What a change just did, with Undo (#167), rather than asking first.</summary>
+    public UndoToast Toast { get; } = new();
+
+    /// <summary>
+    /// Core's choices for this alert's rule on its device, in Core's words -
+    /// the same as desktop's right-click (#167): leave it out, notify again,
+    /// or in "Only…" add it or stop. Only notifications: the alert still
+    /// lists and counts. Undo puts the rules back.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChangeNotificationsAsync()
+    {
+        if (Alert is not { } item || _rules is null)
+        {
+            return;
+        }
+
+        var alert = item.Alert;
+        var choices = _rules.ChoicesFor(alert.RuleId, alert.DeviceId);
+        if (choices.Count == 0)
+        {
+            return;
+        }
+
+        var labels = choices.Select(c => NotificationRuleChoices.Describe(c)).ToList();
+        var picked = await _dialogs.ChooseAsync($"Notifications for {item.Rule} on {item.Device}", labels);
+        var index = picked is null ? -1 : labels.IndexOf(picked);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var before = _rules.Apply(choices[index], alert.RuleId, item.Rule, alert.DeviceId, item.Device);
+        OnPropertyChanged(nameof(NotificationsText));
+        Toast.Show(NotificationsText, () =>
+        {
+            _rules.Restore(before);
+            OnPropertyChanged(nameof(NotificationsText));
+        });
+    }
+
+    [RelayCommand]
+    private Task OpenRuleAsync() => _rule is { } rule
+        ? _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = rule.Id })
+        : Task.CompletedTask;
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
     [RelayCommand]
@@ -216,8 +327,11 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         {
             // So the next alert check doesn't notify you about your own acknowledgement.
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
             await RefreshAsync();
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]
@@ -228,21 +342,15 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
             return;
         }
 
-        var confirmed = await _dialogs.ConfirmAsync(
-            "Unacknowledge alert",
-            $"Put {item.Rule} on {item.Device} back to active?",
-            "Unacknowledge",
-            "Cancel");
-        if (!confirmed)
-        {
-            return;
-        }
-
+        // One alert, and acknowledging puts it back: no need to ask (#146).
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
             await RefreshAsync();
         }
+
+        ShowPermissions();
     }
 
     [RelayCommand]
@@ -250,7 +358,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
         : Task.CompletedTask;
 
-    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false)
+    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false, DateTime? now = null)
     {
         var status = StatusFor(alert.Severity);
 
@@ -287,7 +395,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
 
         if (rule is not null)
         {
-            yield return new SectionGroup("Rule", RuleRows(rule));
+            yield return new SectionGroup(RuleGroupName, RuleRows(rule));
         }
 
         var history = ruleLog.Take(HistoryRows).Select(e => new SectionRow(e.State.ToDisplayString())
@@ -300,6 +408,17 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
                 _ => status,
             },
         }).ToList();
+
+        // "Fired 6 times in the last 30 days · last 2 days ago" first (#169),
+        // counted by Core as desktop's alert details count it - only when the
+        // log could be read (now is null otherwise), or "no earlier alerts"
+        // would be a guess.
+        if (now is { } localNow)
+        {
+            var summary = AlertHistory.Summarise(ruleLog, alert.Alert.RuleId, alert.Alert.DeviceId, localNow, utc);
+            history.Insert(0, new SectionRow(summary.Describe(localNow)) { Status = RowStatus.None });
+        }
+
         if (history.Count > 0)
         {
             yield return new SectionGroup("History", history);
@@ -450,3 +569,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase
         }
     }
 }
+
+/// <summary>An alert acknowledged or unacknowledged on its own page - see <see cref="AlertDetailViewModel.AlertChanged"/>.</summary>
+/// <param name="Note">The acknowledgement's note, if one was given.</param>
+public sealed record AlertStateChange(int AlertId, bool Acknowledged, string? Note);

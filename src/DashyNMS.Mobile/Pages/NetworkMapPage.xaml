@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NetworkMapPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="topo:NetworkMapViewModel"
+    SafeAreaEdges="Container"
+    Title="Network map">
+
+    <!-- As desktop's Network map (#86): LibreNMS's links drawn as a diagram.
+         Drag to move around, pinch to zoom, tap a device for its connections
+         then drag it to move it, double-tap to zoom in. -->
+    <!-- Search, then a strip of chips, then the map with the rest of the
+         screen - Location and Group are chips, not pickers, and nothing sits
+         on top of the map but Fit (#110). -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+
+        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0">
+            <controls:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="4">
+                    <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
+                        SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}"
+                                         SemanticProperties.Description="Refresh the map" />
+                </HorizontalStackLayout>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <VerticalStackLayout Grid.Row="1" Padding="16,0,16,0">
+            <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,4,16,8">
+            <HorizontalStackLayout Spacing="8">
+                <!-- Location, device group (desktop's own scope), or both: tap to choose. -->
+                <Button Style="{StaticResource Chip}" Text="{Binding LocationChipText}" Command="{Binding ChooseLocationCommand}"
+                        SemanticProperties.Hint="Show only the devices at one location">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsLocationFiltered}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Style="{StaticResource Chip}" Text="{Binding GroupChipText}" Command="{Binding ChooseGroupCommand}"
+                        SemanticProperties.Hint="Show only the devices in one group">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsGroupFiltered}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <BoxView WidthRequest="1" HeightRequest="20" VerticalOptions="Center"
+                         Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
+                <!-- What switches see that LibreNMS doesn't monitor, drawn small and square - off by default. -->
+                <Button Style="{StaticResource Chip}" Text="Neighbours" Command="{Binding ToggleNeighboursCommand}"
+                        SemanticProperties.Hint="Also show what switches see that LibreNMS doesn't monitor">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowNeighbours}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <!-- Devices with no links at all, in a grid below the rest - off by default, as desktop. -->
+                <Button Style="{StaticResource Chip}" Text="Unlinked" Command="{Binding ToggleUnlinkedDevicesCommand}"
+                        SemanticProperties.Hint="Also show devices with no links">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowUnlinkedDevices}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <!-- The map itself; see NetworkMapDrawable for how it's drawn. -->
+        <Grid Grid.Row="3">
+            <GraphicsView x:Name="MapCanvas" />
+
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
+                   HorizontalOptions="Start" VerticalOptions="End" />
+
+            <!-- Fit floats in the corner, out of the map's way. -->
+            <Button Text="Fit" FontSize="13" FontFamily="BodySemibold" Clicked="OnFitClicked"
+                    WidthRequest="48" HeightRequest="48" CornerRadius="24" Padding="0" Margin="12"
+                    HorizontalOptions="End" VerticalOptions="End"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}"
+                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                    BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" BorderWidth="1"
+                    SemanticProperties.Description="Fit the whole map" />
+
+            <!-- Centred over the map, the logo's heartbeat over what it's doing (#109). -->
+            <controls:BusyCard Text="Loading the network…" IsVisible="{Binding IsFetching}" />
+            <controls:BusyCard Text="Laying out the map…" IsVisible="{Binding IsLayingOut}" />
+            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                   HorizontalOptions="Center" VerticalOptions="Center" HorizontalTextAlignment="Center" Margin="32" />
+        </Grid>
+
+        <!-- The tapped device: a compact bar - name, state, Open - that opens to
+             what it's connected to (tap one to go there), so it doesn't cover
+             half the map (#110). -->
+        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+            <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+                    <VerticalStackLayout VerticalOptions="Center">
+                        <!-- Long device names wrap rather than lose their end beside Open and Close. -->
+                        <Label Text="{Binding SelectedNode.Name}" FontFamily="BodySemibold" FontSize="16" LineBreakMode="WordWrap" MaxLines="3" />
+                        <Label Style="{StaticResource Faint}" Text="{Binding SelectedNodeStateText}" />
+                    </VerticalStackLayout>
+                    <!-- A neighbour isn't a LibreNMS device: nothing to open. -->
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}"
+                            IsVisible="{Binding HasSelectedDevice}" />
+                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
+                </Grid>
+                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="{Binding ConnectionsText}"
+                            Command="{Binding ToggleSelectionExpandedCommand}" HeightRequest="32" MinimumHeightRequest="32" />
+                </Grid>
+                <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsSelectionExpanded}" Spacing="4">
+                    <Label Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
+                <CollectionView ItemsSource="{Binding SelectedConnections}" SelectionMode="None" MaximumHeightRequest="200">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="topo:NetworkConnection">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,7">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding SelectNeighbourCommand, Source={RelativeSource AncestorType={x:Type topo:NetworkMapViewModel}}, x:DataType=topo:NetworkMapViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Label Text="{Binding NeighbourName}" LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Style="{StaticResource Faint}" Text="{Binding Ports}" FontFamily="Mono" FontSize="12" />
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+                </VerticalStackLayout>
+            </Grid>
+        </Border>
+
+    </Grid>
+
+</ContentPage>

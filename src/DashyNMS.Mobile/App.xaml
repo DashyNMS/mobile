@@ -16,6 +16,7 @@
             <converters:StatusColorConverter x:Key="StatusTint" Shade="Tint" />
             <converters:IsNotNullConverter x:Key="IsNotNull" />
             <converters:StarConverter x:Key="Star" />
+            <converters:HexColourConverter x:Key="HexColour" />
             <converters:InvertConverter x:Key="Invert" />
 
             <!-- The styles below follow the design mock-ups ("DashyNMS Mobile
@@ -92,7 +93,9 @@
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
             </Style>
 
-            <!-- A row in a ListCard. -->
+            <!-- A row in a ListCard. No PointerOver highlight: on iOS the state
+                 stuck on after a tap, so rows stayed lit as if several were
+                 selected (#88). -->
             <Style x:Key="ListRow" TargetType="Grid">
                 <Setter Property="Padding" Value="14,11,14,0" />
                 <Setter Property="MinimumHeightRequest" Value="56" />
@@ -183,6 +186,18 @@
             <Style x:Key="Divider" TargetType="BoxView">
                 <Setter Property="HeightRequest" Value="1" />
                 <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+            </Style>
+
+            <!-- The line between rows in a ListCard, at the top of each row (out
+                 through its 11pt top padding) rather than the bottom (#120): rows
+                 rarely land on whole pixels, so each overlaps the one above by a
+                 fraction, and its opaque background hid part or all of the line
+                 above - every second or fourth row, as the fractions fell. A row
+                 draws over what's above it, so a line at its own top always shows.
+                 The first row's goes under the card's border (the list sits 1pt up). -->
+            <Style x:Key="RowLine" TargetType="BoxView" BasedOn="{StaticResource Divider}">
+                <Setter Property="VerticalOptions" Value="Start" />
+                <Setter Property="Margin" Value="0,-11,0,0" />
             </Style>
 
             <!-- Beside a primary button: Open device, Rediscover. -->

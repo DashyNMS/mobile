@@ -3,7 +3,7 @@ using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.Maintenance"/>, with the device id and name.</summary>
+/// <summary>Shown via <see cref="Routes.Maintenance"/>, with the device id and name - or several devices (#85).</summary>
 public partial class MaintenancePage : ContentPage, IQueryAttributable
 {
 	private readonly MaintenanceViewModel _viewModel;
@@ -16,10 +16,24 @@ public partial class MaintenancePage : ContentPage, IQueryAttributable
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
+		// Several ticked in Devices (#85).
+		if (query.TryGetValue(Routes.DevicesParameter, out var several) && several is IReadOnlyList<(int Id, string Name)> devices)
+		{
+			_viewModel.Initialize(devices);
+			return;
+		}
+
 		if (query.TryGetValue(Routes.DeviceIdParameter, out var id) && id is int deviceId)
 		{
 			query.TryGetValue(Routes.DeviceNameParameter, out var name);
 			_viewModel.Initialize(deviceId, name as string ?? $"device {deviceId}");
 		}
+	}
+
+	/// <summary>The app's own header, as every page (#142).</summary>
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		Header.Apply(this);
 	}
 }

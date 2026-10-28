@@ -27,17 +27,25 @@ public static class MauiProgram
 		builder.Logging.AddDebug();
 #endif
 
-#if ANDROID
-		// An entry in a Field well (Sign in) has the well as its outline, so
-		// Android's underline would draw a second one.
-		Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("FieldWell", (handler, entry) =>
-		{
-			if (entry is Entry { Parent: Border })
-			{
-				handler.PlatformView.BackgroundTintList =
-					Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Transparent);
-			}
-		});
+		// The log Settings can share (#107): the app's own messages plus what
+		// it was doing, kept in a file so a restart doesn't lose it.
+		var diagnostics = new DiagnosticsLog(
+			Path.Combine(FileSystem.AppDataDirectory, "diagnostics.log"),
+			appVersion: $"{AppInfo.Current.VersionString} ({AppInfo.Current.BuildString})",
+			device: $"{DeviceInfo.Current.Manufacturer} {DeviceInfo.Current.Model} · {DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}");
+		builder.Logging.AddProvider(diagnostics);
+		builder.Services.AddSingleton(diagnostics);
+
+		// What the diagnostics follow beyond log messages (#126): every request,
+		// settings as they change, slow pages - and the file's header and "hide names".
+		builder.Services.AddSingleton(sp => new HttpRequestLog(diagnostics, () => sp.GetRequiredService<DesktopNMS.Services.ISessionService>().Connection?.WebRoot.Host));
+		builder.Services.AddSingleton(sp => new AppDiagnostics(diagnostics, sp.GetRequiredService<DesktopNMS.Core.Configuration.ISettingsStore>(), sp.GetRequiredService<HttpRequestLog>()));
+		builder.Services.AddSingleton<DiagnosticsReport>();
+
+#if ANDROID || IOS
+		// Every text box and picker as a field well, not the platform's own
+		// border or underline - see Platforms/*/FieldWells.
+		FieldWells.Register();
 #endif
 
 #if IOS
@@ -62,6 +70,9 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IDialogService, DialogService>();
 		builder.Services.AddSingleton<ILauncherService, LauncherService>();
 		builder.Services.AddSingleton<IShareService, ShareService>();
+		builder.Services.AddSingleton<INoticePlatform, NoticePlatform>();
+		builder.Services.AddSingleton<IClipboardText, MauiClipboard>();
+		builder.Services.AddSingleton<DesktopNMS.Core.SignIn.IWebSignIn, WebSignIn>();
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
@@ -95,15 +106,38 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertDetailPage>();
 		builder.Services.AddTransient<HealthPage>();
 		builder.Services.AddTransient<GroupsLocationsPage>();
+		builder.Services.AddTransient<AlertRulesPage>();
+		builder.Services.AddTransient<AlertRulePage>();
+		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
+		builder.Services.AddTransient<LicencesPage>();
+		builder.Services.AddTransient<NotifyRulePickerPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
+		builder.Services.AddTransient<AddCardPage>();
 		builder.Services.AddTransient<SensorPickerPage>();
 		builder.Services.AddTransient<GraphPickerPage>();
+		builder.Services.AddTransient<TopCardSetUpPage>();
 		builder.Services.AddTransient<LogsPage>();
+		builder.Services.AddTransient<LogEntryPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<NeighbourLinkPage>();
+		builder.Services.AddTransient<NeighbourGroupsPage>();
+		builder.Services.AddTransient<NeighbourGroupEditorPage>();
+		builder.Services.AddTransient<NetworkMapPage>();
+
+		// Where the network map's devices were dragged to, as desktop keeps
+		// them - in the app's own folder, one set per server and filter (#86).
+		// Resettable, so "Sign out and forget everything" can drop them all (#139).
+		builder.Services.AddSingleton(services => new Topology.ResettableMapLayoutStore(
+			Path.Combine(FileSystem.AppDataDirectory, "map-layouts.json"),
+			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()));
+		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => services.GetRequiredService<Topology.ResettableMapLayoutStore>());
+		builder.Services.AddSingleton<ILocalDataWipe, MauiLocalDataWipe>();
 		builder.Services.AddTransient<MapPage>();
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();
+		builder.Services.AddTransient<GraylogMessagePage>();
+		builder.Services.AddTransient<GraylogDevicePickerPage>();
 
 		return builder.Build();
 	}

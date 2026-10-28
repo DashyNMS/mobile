@@ -70,8 +70,9 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal("Port errors", ruleRow.Title);
         Assert.Contains("ifInErrors_delta", ruleRow.Subtitle);
 
-        Assert.Equal(2, vm.Groups[3].Count); // only this rule's entries
-        Assert.Equal(RowStatus.Ok, vm.Groups[3][1].Status);
+        Assert.Equal(3, vm.Groups[3].Count); // the summary (#169), then only this rule's entries
+        Assert.Equal("No earlier alerts in the last 30 days", vm.Groups[3][0].Title);
+        Assert.Equal(RowStatus.Ok, vm.Groups[3][2].Status);
         Assert.True(vm.CanAcknowledge);
         Assert.False(vm.CanUnacknowledge);
 
@@ -82,6 +83,41 @@ public sealed class AlertDetailViewModelTests
         Assert.Contains(full.Fields, f => f.Name == "ifSpeed" && f.IsSecondary);
         Assert.Equal("Show only what the rule tests", vm.Groups[1].FooterText);
         Assert.Equal("Show only what the rule tests", vm.AllFieldsText);
+    }
+
+    [Fact]
+    public async Task History_opens_with_how_often_the_alert_has_fired_as_desktop_says()
+    {
+        var alert = Fakes.Alert(5, deviceId: 3, "critical");
+        var now = DateTime.UtcNow; // LibreNMS logs in UTC, as Fakes.Settings() says
+        GivenAlert(alert, null,
+            LogEntry(alert.RuleId, 1, now.AddHours(-1)),   // this alert itself: not counted
+            LogEntry(alert.RuleId, 0, now.AddDays(-3).AddHours(1)),
+            LogEntry(alert.RuleId, 1, now.AddDays(-3).AddHours(-6)),
+            LogEntry(alert.RuleId, 2, now.AddDays(-4)),    // an acknowledgement: not a firing
+            LogEntry(alert.RuleId, 1, now.AddDays(-5)),
+            LogEntry(alert.RuleId, 1, now.AddDays(-40)));  // outside the 30 days
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        var history = vm.Groups.Single(g => g.Name == "History");
+        Assert.Equal("Fired 2 times in the last 30 days · last 3 days ago", history[0].Title);
+        Assert.Equal(RowStatus.None, history[0].Status);
+    }
+
+    [Fact]
+    public async Task No_summary_when_the_log_couldnt_be_read()
+    {
+        var alert = Fakes.Alert(5, deviceId: 3, "critical");
+        _client.Alerts.GetAsync(alert.Id, Arg.Any<CancellationToken>()).Returns(alert);
+        _client.Logs.ListAlertLogAsync(alert.DeviceId, AlertDetailViewModel.LogDepth, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertLogEntry>>(_ => throw new LibreNmsApiException("Forbidden", System.Net.HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        Assert.DoesNotContain(vm.Groups, g => g.Name == "History");
     }
 
     [Fact]
@@ -119,6 +155,24 @@ public sealed class AlertDetailViewModelTests
     }
 
     [Fact]
+    public async Task An_acknowledged_alert_shows_its_details_not_cleared()
+    {
+        // LibreNMS's alerts/{id} only finds firing alerts (its state=1 default),
+        // so an acknowledged one comes back empty there (#113).
+        var acknowledged = Fakes.Alert(5, deviceId: 3, "critical", acknowledged: true);
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns((Alert?)null);
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns([Fakes.Alert(4, 3, "warning"), acknowledged]);
+        var vm = NewViewModel();
+
+        await vm.LoadAsync(5);
+
+        Assert.False(vm.IsGone);
+        Assert.True(vm.HasAlert);
+        Assert.True(vm.Alert!.IsAcknowledged);
+        Assert.True(vm.CanUnacknowledge);
+    }
+
+    [Fact]
     public async Task Acknowledging_records_it_as_your_own_and_reloads()
     {
         var alert = Fakes.Alert(5, deviceId: 3, "critical");
@@ -126,12 +180,17 @@ public sealed class AlertDetailViewModelTests
         _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(" on it ");
         var vm = NewViewModel();
         await vm.LoadAsync(5);
+        var changes = new List<AlertStateChange>();
+        vm.AlertChanged += (_, change) => changes.Add(change);
 
         await vm.AcknowledgeCommand.ExecuteAsync(null);
 
         await _client.Alerts.Received(1).AcknowledgeAsync(5, "on it", true, Arg.Any<CancellationToken>());
         _selfActions.Received(1).Record(5, AlertChangeKind.Acknowledged);
         await _client.Alerts.Received(2).GetAsync(5, Arg.Any<CancellationToken>());
+
+        // For the list beside it on a larger screen (#88).
+        Assert.Equal(new AlertStateChange(5, Acknowledged: true, "on it"), Assert.Single(changes));
     }
 
     [Fact]

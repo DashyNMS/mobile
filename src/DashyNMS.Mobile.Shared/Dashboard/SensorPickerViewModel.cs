@@ -30,7 +30,7 @@ public sealed partial class PickableSensor : ObservableObject
 }
 
 /// <summary>
-/// Chooses the dashboard Sensors card's sensors, as desktop's widget picker:
+/// Chooses a dashboard Sensors card's sensors and title, as desktop's widget picker:
 /// search every sensor by name or device, tap to add or remove. Kept in the
 /// card's own <see cref="DashboardWidget.Sensors"/>, and saved as it's tapped.
 /// </summary>
@@ -42,9 +42,17 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private IReadOnlyList<PickableSensor> _all = [];
+    private bool _showingTitle;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
+
+    /// <summary>The card's own title ("Core switch temps"); blank for the kind's, "Sensors" (#87).</summary>
+    [ObservableProperty]
+    private string _cardTitle = string.Empty;
+
+    /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
+    public string? WidgetId { get; set; }
 
     public SensorPickerViewModel(ILibreNmsClient client, ISettingsStore settings)
     {
@@ -66,13 +74,19 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     [RelayCommand]
     private Task LoadAsync() => RunAsync(async () =>
     {
+        // The card's own title, shown without saving it straight back.
+        var card = Widget();
+        _showingTitle = true;
+        CardTitle = DashboardLayout.HasOwnTitle(card) ? card.Title : string.Empty;
+        _showingTitle = false;
+
         var sensorsTask = _client.Sensors.ListAsync();
         var devicesTask = _client.Devices.ListAsync();
         await Task.WhenAll(sensorsTask, devicesTask);
 
         var style = _settings.Current.DeviceNameStyle;
         var names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
-        var picked = Widget().Sensors.Select(p => p.SensorId).ToHashSet();
+        var picked = card.Sensors.Select(p => p.SensorId).ToHashSet();
         var settings = _settings.Current;
 
         _all = sensorsTask.Result
@@ -134,5 +148,28 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         OnPropertyChanged(nameof(HintText));
     }
 
-    private DashboardWidget Widget() => DashboardLayout.Ensure(_settings.Current, DashboardLayout.Sensors);
+    partial void OnCardTitleChanged(string value)
+    {
+        if (_showingTitle)
+        {
+            return;
+        }
+
+        var widget = Widget();
+        widget.Title = string.IsNullOrWhiteSpace(value) ? DashboardLayout.KindOf(DashboardLayout.Sensors).Title : value.Trim();
+        _settings.Save();
+    }
+
+    /// <summary>The card being set up - a new one if it has gone (or none was named).</summary>
+    private DashboardWidget Widget()
+    {
+        if (DashboardLayout.Find(_settings.Current, WidgetId) is { WidgetType: DashboardLayout.Sensors } widget)
+        {
+            return widget;
+        }
+
+        widget = DashboardLayout.Add(_settings.Current, DashboardLayout.Sensors);
+        WidgetId = widget.Id;
+        return widget;
+    }
 }

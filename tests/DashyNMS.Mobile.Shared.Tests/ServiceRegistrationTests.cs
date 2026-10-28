@@ -30,9 +30,12 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(GroupsLocationsViewModel))]
     [InlineData(typeof(ThresholdsViewModel))]
     [InlineData(typeof(Dashboard.CustomiseDashboardViewModel))]
+    [InlineData(typeof(Dashboard.AddCardViewModel))]
+    [InlineData(typeof(Dashboard.DashboardWelcome))]
     [InlineData(typeof(Dashboard.SensorPickerViewModel))]
     [InlineData(typeof(Dashboard.GraphPickerViewModel))]
     [InlineData(typeof(Logs.LogsViewModel))]
+    [InlineData(typeof(Logs.LogEntryViewModel))]
     [InlineData(typeof(Topology.NeighboursViewModel))]
     [InlineData(typeof(Map.MapViewModel))]
     [InlineData(typeof(Graylog.GraylogViewModel))]
@@ -40,6 +43,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(AlertWatcher))]
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]
+    [InlineData(typeof(CertificatePrompt))]
     public void Every_view_model_and_alert_service_resolves(Type viewModel)
     {
         var services = new ServiceCollection()
@@ -50,6 +54,7 @@ public sealed class ServiceRegistrationTests
             .AddSingleton(Substitute.For<IDialogService>())
             .AddSingleton(Substitute.For<ILauncherService>())
             .AddSingleton(Substitute.For<IShareService>())
+            .AddSingleton(Substitute.For<INoticePlatform>())
             .AddSingleton(Substitute.For<Map.IMapAssets>())
             .AddSingleton(Substitute.For<IAlertNotifier>())
             .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());

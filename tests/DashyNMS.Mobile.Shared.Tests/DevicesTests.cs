@@ -48,6 +48,22 @@ public sealed class DevicesViewModelTests
         return vm;
     }
 
+    [Fact]
+    public async Task The_device_showing_beside_the_list_stays_highlighted_through_refreshes()
+    {
+        var vm = await Loaded();
+        var id = vm.Devices[0].DeviceId;
+
+        vm.Select(id);
+        Assert.Equal([id], vm.Devices.Where(d => d.IsSelected).Select(d => d.DeviceId));
+
+        await vm.RefreshCommand.ExecuteAsync(null); // new rows
+        Assert.Equal([id], vm.Devices.Where(d => d.IsSelected).Select(d => d.DeviceId));
+
+        vm.Select(null);
+        Assert.DoesNotContain(vm.Devices, d => d.IsSelected);
+    }
+
     private static string[] Names(DevicesViewModel vm) => vm.Devices.Select(d => d.Name).ToArray();
 
     [Fact]
@@ -231,6 +247,28 @@ public sealed class DevicesViewModelTests
     }
 
     [Fact]
+    public async Task Each_row_has_a_pin_glyph_except_while_selecting_several()
+    {
+        var vm = await Loaded();
+        var changes = new List<string?>();
+        vm.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        var row = vm.Devices.Single(d => d.Name == "core-sw");
+
+        Assert.True(vm.ShowsPinGlyphs);
+        Assert.Equal("Pin core-sw", row.PinDescription);
+
+        vm.HoldCommand.Execute(row); // press and hold starts selecting (#85)
+        Assert.False(vm.ShowsPinGlyphs);
+        Assert.Contains(nameof(DevicesViewModel.ShowsPinGlyphs), changes);
+
+        vm.StopSelectingCommand.Execute(null);
+        Assert.True(vm.ShowsPinGlyphs);
+
+        vm.TogglePinCommand.Execute(row);
+        Assert.Equal("Unpin core-sw", row.PinDescription);
+    }
+
+    [Fact]
     public async Task Pinned_devices_stay_on_top_whatever_the_sort()
     {
         var vm = await Loaded();
@@ -266,6 +304,47 @@ public sealed class DevicesViewModelTests
         vm.ShowOnly(location: "Leeds");
         Assert.Equal(["access-sw"], Names(vm));
         Assert.Null(vm.SelectedGroup.Key);
+    }
+
+    [Fact]
+    public async Task A_location_spelt_in_another_case_is_the_same_place()
+    {
+        // The Location choices count "london" under London; the list has to agree (#101).
+        var client = Fakes.Client(devices:
+        [
+            Fakes.Device(1, "core-sw", location: "London"),
+            Fakes.Device(2, "spare-sw", location: "london"),
+            Fakes.Device(3, "access-sw", location: "Leeds"),
+        ]);
+        var vm = new DevicesViewModel(client, _navigation, _settings, _bookmarks, _time);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+
+        vm.ShowOnly(location: "london");
+
+        Assert.Equal(["core-sw", "spare-sw"], Names(vm));
+        Assert.Equal("London (2)", vm.SelectedLocation.Label);
+    }
+
+    [Fact]
+    public async Task State_chips_are_remembered_and_shortcuts_dont_replace_them()
+    {
+        var preferences = new InMemoryPreferences();
+        var vm = new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        vm.ToggleDisabledCommand.Execute(null); // the user hides disabled devices
+        Assert.False(new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences).ShowDisabled);
+
+        // A shortcut (the dashboard's Down count) shows, but isn't saved (#81)...
+        vm.ShowOnlyState(DeviceState.Down);
+        Assert.False(vm.ShowUp);
+        Assert.True(new DevicesViewModel(_client, _navigation, _settings, _bookmarks, _time, preferences: preferences).ShowUp);
+
+        // ...and opening the tab normally puts the user's chips back.
+        vm.ShowSavedFilter();
+        Assert.True(vm.ShowUp);
+        Assert.False(vm.ShowDisabled);
     }
 
     [Fact]
@@ -438,9 +517,10 @@ public sealed class DeviceNameSettingTests
         var vm = new SettingsViewModel(session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator, new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets());
 
         Assert.Equal(["Hostname", "sysName", "LibreNMS display name"], vm.DeviceNameStyles);
-        vm.DeviceNameStyleIndex = 1;
+        Assert.Equal(1, vm.DeviceNameStyleIndex); // sysName, desktop's default since Core 802980c
+        vm.DeviceNameStyleIndex = 0;
 
-        Assert.Equal(DeviceNameStyle.SysName, appSettings.DeviceNameStyle);
+        Assert.Equal(DeviceNameStyle.Hostname, appSettings.DeviceNameStyle);
         settings.Received(1).Save();
     }
 }

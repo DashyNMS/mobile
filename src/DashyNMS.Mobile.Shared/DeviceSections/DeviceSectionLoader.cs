@@ -29,7 +29,26 @@ public sealed class DeviceSectionLoader
 
     private bool ServerUtc => _settings.Current.ServerTimestampsAreUtc;
 
-    public Task<IReadOnlyList<SectionGroup>> LoadAsync(DeviceSection section, int deviceId, CancellationToken cancellationToken = default) => section switch
+    /// <summary>
+    /// The section's rows. An endpoint LibreNMS doesn't have for this device
+    /// (404 - no VLANs, no wireless, an older LibreNMS without it) is a
+    /// section with nothing in it, not a failure: the card drops out as an
+    /// empty one does, rather than sitting there saying it couldn't load
+    /// (#91). Anything else - a timeout, a 500, an expired token - still throws.
+    /// </summary>
+    public async Task<IReadOnlyList<SectionGroup>> LoadAsync(DeviceSection section, int deviceId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return await Load(section, deviceId, cancellationToken);
+        }
+        catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return [];
+        }
+    }
+
+    private Task<IReadOnlyList<SectionGroup>> Load(DeviceSection section, int deviceId, CancellationToken cancellationToken) => section switch
     {
         DeviceSection.Availability => AvailabilityAsync(deviceId, cancellationToken),
         DeviceSection.Sensors => SensorsAsync(deviceId, cancellationToken),
@@ -223,8 +242,10 @@ public sealed class DeviceSectionLoader
     internal static SectionRow PortRow(Port port)
     {
         var errors = (port.IfInErrorsRate ?? 0) + (port.IfOutErrorsRate ?? 0);
+        var (rank, state) = port.IsUp ? (1, "Up") : IsAdminDown(port) ? (2, "Shut down") : (0, "Down");
         return new SectionRow(port.DisplayName)
         {
+            Port = PortFacts.From(port, rank, state),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
             SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,

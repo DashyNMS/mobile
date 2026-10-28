@@ -1,27 +1,39 @@
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using CorePlanner = DesktopNMS.Core.Alerting.AlertNotificationPlanner;
 
 namespace DashyNMS.Mobile.Alerts;
 
 /// <summary>
-/// Decides which alert changes become notifications, and what they say.
+/// Turns a check's alert changes into the phone's notifications: Core
+/// decides which deserve one and what each says, the same rules desktop's
+/// toasts follow (DashyNMS/desktop#195); this adds what's particular to a
+/// phone.
 /// </summary>
 /// <remarks>
-/// The same rules as desktop's AlertNotificationService (which lives in the
-/// WPF app, so can't be shared as-is): the per-severity switches, quiet hours,
-/// "notify on recovery/acknowledge", the cap above which one summary replaces
-/// many notifications, and not telling you about your own acknowledgements.
-/// If desktop's rules change, change these to match - or better, move them
-/// into Core so both apps share one copy.
+/// Core's <see cref="CorePlanner"/> covers which alert rules notify (#167),
+/// the per-severity switches, quiet hours, "notify on recovery/acknowledge", the cap above which one summary
+/// replaces many, and not telling you about your own acknowledgements. On
+/// top of that each notification gets a tag (so an alert's "Recovered"
+/// replaces its "Critical") and where a tap goes, and notifications made out
+/// of date by an acknowledgement or recovery are taken away.
 /// </remarks>
 public static class AlertNotificationPlanner
 {
+    /// <param name="deviceName">
+    /// The device's name as the user chose to see names (Settings → Devices:
+    /// hostname, sysName or LibreNMS's display name) - the alert's own
+    /// hostname otherwise, which is often an IP (#80).
+    /// </param>
+    /// <param name="deviceLocation">The device's location, for a summary's "+2 more in Rack 3".</param>
     public static AlertNotificationPlan Plan(
         IReadOnlyList<AlertChange> changes,
         NotificationSettings settings,
         DateTime localNow,
-        ISelfActionTracker selfActions)
+        ISelfActionTracker selfActions,
+        Func<Alert, string>? deviceName = null,
+        Func<Alert, string?>? deviceLocation = null)
     {
         ArgumentNullException.ThrowIfNull(changes);
         ArgumentNullException.ThrowIfNull(settings);
@@ -34,96 +46,24 @@ public static class AlertNotificationPlanner
             .Select(c => AlertNotification.TagFor(c.Alert.Id))
             .ToList();
 
-        if (!settings.Enabled || changes.Count == 0)
-        {
-            return new AlertNotificationPlan([], remove);
-        }
+        // Not the first check's quiet: the watcher already takes its first
+        // look as the baseline, without notifying.
+        var plan = CorePlanner.Plan(
+            changes,
+            isFirstPoll: false,
+            settings,
+            localNow,
+            deviceName ?? (alert => alert.DisplayHostname),
+            deviceLocation,
+            change => selfActions.WasSelfInitiated(change.Alert.Id, change.Kind));
 
-        var notifiable = changes.Where(c => ShouldNotify(c, settings, localNow, selfActions)).ToList();
-        if (notifiable.Count == 0)
-        {
-            return new AlertNotificationPlan([], remove);
-        }
+        var show = plan.Notifications
+            .Select(planned => planned.Change is { Alert: var alert }
+                ? new AlertNotification(AlertNotification.TagFor(alert.Id), planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, alert.DeviceId, alert.Id)
+                : new AlertNotification(AlertNotification.SummaryTag, planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, DeviceId: null))
+            .ToList();
 
-        if (notifiable.Count > settings.MaxToastsPerPoll)
-        {
-            return new AlertNotificationPlan([Summary(notifiable)], remove);
-        }
-
-        return new AlertNotificationPlan(notifiable.Select(ForChange).ToList(), remove);
-    }
-
-    private static bool ShouldNotify(AlertChange change, NotificationSettings settings, DateTime localNow, ISelfActionTracker selfActions)
-    {
-        if (change.Kind is AlertChangeKind.Acknowledged or AlertChangeKind.Unacknowledged
-            && selfActions.WasSelfInitiated(change.Alert.Id, change.Kind))
-        {
-            return false;
-        }
-
-        var severity = change.Alert.Severity;
-        if (settings.IsInQuietHours(localNow, severity))
-        {
-            return false;
-        }
-
-        return change.Kind switch
-        {
-            AlertChangeKind.New or AlertChangeKind.Reopened or AlertChangeKind.Unacknowledged
-                => settings.ForSeverity(severity).Enabled,
-            AlertChangeKind.Recovered => settings.NotifyOnRecovery,
-            AlertChangeKind.Acknowledged => settings.NotifyOnAcknowledge,
-            _ => false,
-        };
-    }
-
-    private static AlertNotification ForChange(AlertChange change)
-    {
-        var alert = change.Alert;
-        var device = alert.DisplayHostname;
-
-        var title = change.Kind switch
-        {
-            AlertChangeKind.Recovered => $"Recovered: {device}",
-            AlertChangeKind.Acknowledged => $"Acknowledged: {device}",
-            AlertChangeKind.Unacknowledged => $"Unacknowledged: {device}",
-            AlertChangeKind.Reopened => $"{alert.Severity.ToDisplayString()} again: {device}",
-            _ => $"{alert.Severity.ToDisplayString()}: {device}",
-        };
-
-        var detail = string.IsNullOrWhiteSpace(alert.Note) ? null : FirstLine(alert.Note!);
-
-        return new AlertNotification(
-            AlertNotification.TagFor(alert.Id),
-            title,
-            alert.DisplayRuleName,
-            detail,
-            alert.Severity,
-            change.IsProblem,
-            alert.DeviceId,
-            alert.Id);
-    }
-
-    private static AlertNotification Summary(IReadOnlyList<AlertChange> changes)
-    {
-        var problems = changes.Where(c => c.IsProblem).ToList();
-
-        // "3 new critical alerts" / "core-sw-02 — High temperature" / "+2 more".
-        var (title, body, detail) = problems.Count > 0
-            ? AlertSummaryText.Build(problems
-                .Select(c => new AlertSummaryItem(c.Alert.Severity, c.Alert.DisplayHostname, c.Alert.DisplayRuleName, Location: null))
-                .ToList())
-            : ($"{changes.Count} alert updates", "See DashyNMS for details.", null);
-
-        var worst = changes.Max(c => c.Alert.Severity);
-
-        return new AlertNotification(AlertNotification.SummaryTag, title, body, detail, worst, problems.Count > 0, DeviceId: null);
-    }
-
-    private static string FirstLine(string text)
-    {
-        var index = text.IndexOfAny(['\r', '\n']);
-        var line = index >= 0 ? text[..index] : text;
-        return line.Length <= 120 ? line : line[..117] + "...";
+        // Core leaves out what the notification rules don't allow (#167) and says how many.
+        return new AlertNotificationPlan(show, remove) { LeftOutByRuleCount = plan.LeftOutByRuleCount, SuppressionReason = plan.SuppressionReason };
     }
 }

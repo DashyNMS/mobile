@@ -22,7 +22,9 @@ public sealed class MapHtmlTests
         var nonce = System.Text.RegularExpressions.Regex.Match(csp, "nonce-([^']+)").Groups[1].Value;
         Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, $"<script nonce=\"{System.Text.RegularExpressions.Regex.Escape(nonce)}\">").Count);
         Assert.NotEqual(nonce, System.Text.RegularExpressions.Regex.Match(Page(), "nonce-([^']+)").Groups[1].Value); // one-off
-        Assert.Contains("OpenStreetMap contributors", page);
+        Assert.Contains("OpenStreetMap\\u003C/a\\u003E contributors", page); // the credit, linked (#164)
+        Assert.Contains("https://www.openstreetmap.org/copyright", page);
+        Assert.Contains("<meta name=\"referrer\" content=\"strict-origin-when-cross-origin\">", page);
     }
 
     [Fact]
@@ -33,7 +35,9 @@ public sealed class MapHtmlTests
         Assert.DoesNotContain("</script><script>alert", page);
         Assert.DoesNotContain("<img src=x", page);
         Assert.Contains("\\u003C/script\\u003E", page); // still there, as data
-        Assert.Contains("el.textContent", page);         // and drawn as text
+        Assert.Contains("hole.textContent", page);       // counts drawn as text
+        Assert.Contains("title: title", page);           // names only as the marker's title attribute
+        Assert.DoesNotContain("innerHTML", page);
     }
 
     [Fact]
@@ -41,13 +45,27 @@ public sealed class MapHtmlTests
         Assert.EndsWith("img-src http: data:\">", Page(tiles: "http://tiles.lan/{z}/{x}/{y}.png").Split('\n').First(l => l.Contains("Content-Security-Policy")).Trim());
 
     [Theory]
-    [InlineData("dashynms-map://pin/3", 3)]
-    [InlineData("DASHYNMS-MAP://pin/0", 0)]
-    [InlineData("dashynms-map://pin/x", null)]
+    [InlineData("dashynms-map://pins/3", "3")]
+    [InlineData("DASHYNMS-MAP://pins/0", "0")]
+    [InlineData("dashynms-map://pins/2,5,9", "2,5,9")] // a merged pin (#84)
+    [InlineData("dashynms-map://pins/2,x", null)]
+    [InlineData("dashynms-map://pins/", null)]
     [InlineData("dashynms-map://device/3", null)]
-    [InlineData("https://evil.example/pin/3", null)]
+    [InlineData("https://evil.example/pins/3", null)]
     [InlineData(null, null)]
-    public void Only_a_pin_tap_is_read_from_a_navigation(string? url, int? pin) => Assert.Equal(pin, MapHtml.PinFrom(url));
+    public void Only_a_pin_tap_is_read_from_a_navigation(string? url, string? pins) =>
+        Assert.Equal(pins, MapHtml.PinsFrom(url) is { } ids ? string.Join(",", ids) : null);
+
+    [Fact]
+    public void Pins_that_land_together_merge_as_on_desktop()
+    {
+        var page = Page();
+
+        // Core's PinClustering, in the page: nearby pins merge and regroup on zoom (#84).
+        Assert.Contains($"var radius = {MapHtml.ClusterRadius};", page);
+        Assert.Contains("map.on('zoomend', draw)", page);
+        Assert.Contains("' locations'", page);
+    }
 }
 
 public sealed class MapViewModelTests
@@ -106,7 +124,7 @@ public sealed class MapViewModelTests
         var vm = await Loaded(new AppSettings { MapTileUrl = "https://tiles.example.net/{z}/{x}/{y}.png" });
 
         Assert.Contains("tiles.example.net", vm.MapPage);
-        Assert.DoesNotContain("OpenStreetMap contributors", vm.MapPage);
+        Assert.DoesNotContain("openstreetmap.org/copyright", vm.MapPage);
     }
 
     [Fact]
@@ -125,5 +143,60 @@ public sealed class MapViewModelTests
         vm.ClearSelectionCommand.Execute(null);
         Assert.False(vm.HasSelection);
         Assert.Empty(vm.Devices);
+    }
+
+    [Fact]
+    public async Task A_merged_pin_lists_every_locations_devices_together()
+    {
+        var vm = await Loaded();
+        var ids = System.Text.RegularExpressions.Regex.Matches(vm.MapPage!, "\"id\":(\\d+),\"name\":\"(London|Leeds)\"")
+            .Select(m => int.Parse(m.Groups[1].Value))
+            .ToList();
+
+        vm.SelectPins(ids);
+
+        Assert.Equal("2 locations", vm.SelectedLocation);
+        Assert.Equal(["access-sw", "core-sw", "leeds-rtr"], vm.Devices.Select(d => d.Name)); // down first
+        Assert.False(vm.HasSingleLocation); // no one location for Show in Devices
+
+        await vm.ShowInDevicesCommand.ExecuteAsync(null);
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task A_pin_leads_to_its_location_on_the_devices_tab()
+    {
+        var vm = await Loaded();
+        var leeds = System.Text.RegularExpressions.Regex.Match(vm.MapPage!, "\"id\":(\\d+),\"name\":\"Leeds\"").Groups[1].Value;
+        vm.SelectPin(int.Parse(leeds));
+
+        await vm.ShowInDevicesCommand.ExecuteAsync(null);
+
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Services.Routes.Devices, visit.Route);
+        Assert.Equal("Leeds", visit.Parameters![Services.Routes.LocationParameter]); // #84
+    }
+
+    [Fact]
+    public void A_geocoded_location_object_places_a_device_the_row_alone_wouldnt()
+    {
+        var device = Fakes.Device(9, "kl-sw");
+        device.Location = """{"id": 7, "location": "Kuala Lumpur DC", "lat": "3.139", "lng": 101.6869}""";
+
+        DashyNMS.Mobile.Services.DeviceLocation.CompleteFromLocationObject(device);
+
+        Assert.Equal(7, device.LocationId); // #84
+        Assert.Equal(3.139, device.Latitude);
+        Assert.Equal(101.6869, device.Longitude);
+    }
+
+    [Fact]
+    public async Task The_map_refits_once_it_has_its_real_size()
+    {
+        var vm = await Loaded();
+
+        // Leaflet drew only part of the map when the page loaded before its final size (#84).
+        Assert.Contains("map.invalidateSize()", vm.MapPage);
+        Assert.Contains("addEventListener('resize'", vm.MapPage);
     }
 }

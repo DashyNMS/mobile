@@ -13,12 +13,21 @@ public sealed partial class DeviceItem : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinText))]
+    [NotifyPropertyChangedFor(nameof(PinDescription))]
     private bool _isPinned;
 
     /// <summary>Inside a maintenance window - a per-device lookup, filled in after the list loads.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(State), nameof(StateText))]
     private bool _isUnderMaintenance;
+
+    /// <summary>Its detail is showing beside the list, on a larger screen (#88).</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
+    /// <summary>Ticked for a bulk action (#85).</summary>
+    [ObservableProperty]
+    private bool _isTicked;
 
     public DeviceItem(Device device, DeviceNameStyle nameStyle = DeviceNameStyle.Hostname)
     {
@@ -30,6 +39,9 @@ public sealed partial class DeviceItem : ObservableObject
 
     /// <summary>The swipe action's label.</summary>
     public string PinText => IsPinned ? "Unpin" : "Pin";
+
+    /// <summary>What the row's pin glyph says to a screen reader (#105): "Pin core-sw", "Unpin core-sw".</summary>
+    public string PinDescription => $"{PinText} {Name}";
 
     public int DeviceId => Device.DeviceId;
 

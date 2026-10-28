@@ -24,6 +24,29 @@ public sealed class DeviceSectionLoaderTests
         new() { PortId = id, DeviceId = DeviceId, IfIndex = id, IfName = name, IfDescr = name, IfOperStatus = oper, IfAdminStatus = admin, IfInOctetsRate = inRate, IfOutOctetsRate = outRate, IfSpeed = 1_000_000_000 };
 
     [Fact]
+    public async Task An_endpoint_librenms_doesnt_have_for_the_device_is_an_empty_section_not_a_failure()
+    {
+        // As device 444's VLANs (#91): LibreNMS answers 404.
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Vlan>>(_ => throw new LibreNmsApiException("No VLANs found", System.Net.HttpStatusCode.NotFound));
+
+        Assert.Empty(await Load(DeviceSection.Vlans));
+
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Vlans));
+        card.Show(await Load(DeviceSection.Vlans));
+        Assert.False(card.IsVisible); // drops out, as an empty section does
+    }
+
+    [Fact]
+    public async Task A_real_failure_still_fails_so_the_card_can_say_so()
+    {
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Vlan>>(_ => throw new LibreNmsApiException("Server error", System.Net.HttpStatusCode.InternalServerError));
+
+        await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Vlans));
+    }
+
+    [Fact]
     public async Task Sensors_are_this_devices_only_grouped_by_kind_with_desktops_thresholds()
     {
         _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
@@ -310,14 +333,24 @@ public sealed class GraphTests
     }
 
     [Fact]
-    public void Dark_mode_recolours_rrdtools_black_text_as_desktop_does()
+    public void Small_graphs_are_restyled_into_the_apps_colours_in_either_theme()
     {
-        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(GraphHtml.Build(RrdSvg, dark: false)));
-
+        // Core's GraphSvgStyle recolours rrdtool's black text, as desktop's graphs (#158).
+        var light = GraphHtml.Build(RrdSvg, dark: false);
         var dark = GraphHtml.Build(RrdSvg, dark: true);
+
+        Assert.DoesNotContain("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(light));
         Assert.DoesNotContain("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(dark));
+        Assert.Contains("#FFFFFF", light);
         Assert.Contains("#11141A", dark);
+
+        // The Graphs page restyles first, choosing its series: Page only wraps.
+        Assert.Contains("rgb(0%, 0%, 0%)", GraphHtml.ImageOf(GraphHtml.Page(RrdSvg, dark: true)));
     }
+
+    [Fact]
+    public void The_graph_fits_its_own_shape() =>
+        Assert.Equal(0.5, GraphHtml.AspectOf(RrdSvg));
 
     [Fact]
     public void A_hostile_graph_is_shown_as_an_image_never_as_markup()
@@ -367,6 +400,32 @@ public sealed class GraphTests
         Assert.Equal("device_temperature", vm.SelectedGraph!.Name);
         Assert.Contains("viewBox", GraphHtml.ImageOf(vm.GraphPage!));
         await client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Graphs_open_on_the_graph_tapped_over_its_range_not_the_first()
+    {
+        var client = Fakes.Client();
+        client.Graphs.ListAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new GraphType { Name = "device_uptime", Description = "Uptime" },
+            new GraphType { Name = "device_icmp_perf", Description = "Ping response" },
+        ]);
+        client.Graphs.ListHealthAsync(7, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "device_temperature", Description = "Temperature" }]);
+        client.Graphs.ListWirelessAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<GraphType>());
+        client.Graphs.GetSvgAsync(7, Arg.Any<string>(), Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(RrdSvg);
+        var vm = new DeviceGraphsViewModel(client);
+
+        await vm.LoadAsync(7, "edge-rtr", "device_icmp_perf", GraphTimeRangePreset.Week);
+
+        Assert.Equal("device_icmp_perf", vm.SelectedGraph!.Name); // not Ping response's alphabetical neighbour (#119)
+        Assert.Equal(GraphTimeRangePreset.Week, vm.SelectedRange.Range.Preset);
+        await client.Graphs.Received().GetSvgAsync(7, "device_icmp_perf", GraphTimeRange.LastWeek, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+
+        // One the device no longer has: its first, as before.
+        var again = new DeviceGraphsViewModel(client);
+        await again.LoadAsync(7, "edge-rtr", "gone_graph");
+        Assert.Equal("device_icmp_perf", again.SelectedGraph!.Name); // "Ping response" sorts first
     }
 
     [Fact]
@@ -501,6 +560,65 @@ public sealed class DeviceDetailActionTests
     }
 
     [Fact]
+    public async Task The_foot_of_the_page_says_when_it_was_last_polled()
+    {
+        var device = Fakes.Device(8, "core-sw");
+        device.LastDiscovered = DateTime.Now.AddHours(-3);
+        device.LastPolled = new DateTime(2026, 10, 1, 9, 41, 7);
+        device.LastPolledTimeTaken = 4.2;
+        _client.Devices.GetAsync("8", Arg.Any<CancellationToken>()).Returns(device);
+
+        await _vm.LoadAsync(8);
+
+        Assert.StartsWith("Last polled ", _vm.FreshnessText);
+        var polled = Assert.Single(_vm.Properties, p => p.Key == "Last polled");
+        Assert.EndsWith(", took 4.2s", polled.Value);
+        Assert.Contains(_vm.Properties, p => p.Key == "Last discovered"); // still listed (#97)
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Last_polled_sent_with_its_own_zone_reads_right_whatever_the_UTC_setting(bool serverTimestampsAreUtc)
+    {
+        // LibreNMS sends last_polled as a zoned ISO string (a Laravel datetime
+        // cast), unlike its other times; read as unzoned it came out an hour
+        // ahead in BST, so every device said "just now" (DashyNMS/desktop#210).
+        var polled = DateTime.UtcNow.AddMinutes(-9).ToString("yyyy-MM-ddTHH:mm:ss.ffffff'Z'", System.Globalization.CultureInfo.InvariantCulture);
+        var device = System.Text.Json.JsonSerializer.Deserialize<Device>(
+            $$"""{ "device_id": 11, "hostname": "core-sw", "last_polled": "{{polled}}" }""",
+            DesktopNMS.Core.Json.LibreNmsJson.Options)!;
+        _client.Devices.GetAsync("11", Arg.Any<CancellationToken>()).Returns(device);
+        var settings = Fakes.Settings(new AppSettings { ServerTimestampsAreUtc = serverTimestampsAreUtc });
+        var vm = new DeviceDetailViewModel(_client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System), _dialogs, _navigation);
+
+        await vm.LoadAsync(11);
+
+        Assert.Equal("Last polled 9m ago", vm.FreshnessText);
+    }
+
+    [Theory]
+    [InlineData(4.234, "took 4.2s")]
+    [InlineData(61.8, "took 62s")]
+    [InlineData(-1d, null)]
+    [InlineData(null, null)]
+    public void A_polls_length_reads_plainly(double? seconds, string? expected) =>
+        Assert.Equal(expected, DeviceDetailViewModel.TookText(seconds));
+
+    [Fact]
+    public async Task Without_a_poll_time_the_foot_falls_back_to_last_discovered()
+    {
+        var device = Fakes.Device(9, "old-server");
+        device.LastDiscovered = DateTime.Now.AddHours(-3);
+        _client.Devices.GetAsync("9", Arg.Any<CancellationToken>()).Returns(device);
+
+        await _vm.LoadAsync(9);
+
+        Assert.StartsWith("Last discovered ", _vm.FreshnessText);
+        Assert.DoesNotContain(_vm.Properties, p => p.Key == "Last polled");
+    }
+
+    [Fact]
     public async Task Rediscover_asks_first_then_shows_librenms_reply()
     {
         await _vm.LoadAsync(7);
@@ -513,14 +631,15 @@ public sealed class DeviceDetailActionTests
     }
 
     [Fact]
-    public async Task Declining_rediscover_does_nothing()
+    public async Task Rediscover_goes_ahead_without_asking()
     {
         await _vm.LoadAsync(7);
-        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(false);
 
         await _vm.RediscoverCommand.ExecuteAsync(null);
 
-        await _client.Devices.DidNotReceiveWithAnyArgs().DiscoverAsync(default, default);
+        // One device, and harmless: it just happens (#146).
+        await _dialogs.DidNotReceiveWithAnyArgs().ConfirmAsync(default!, default!, default!, default!);
+        await _client.Devices.Received(1).DiscoverAsync(7, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -532,7 +651,11 @@ public sealed class DeviceDetailActionTests
         await _vm.OpenSectionCommand.ExecuteAsync(DeviceSectionInfo.For(DeviceSection.Graphs));
         await _vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
 
-        Assert.Equal([Routes.DeviceSection, Routes.DeviceGraphs, Routes.Maintenance], _navigation.Visits.Select(v => v.Route));
+        // The Event log is the Logs page with its Device chip fixed (#125).
+        await _vm.OpenSectionCommand.ExecuteAsync(DeviceSectionInfo.For(DeviceSection.EventLog));
+
+        Assert.Equal([Routes.DeviceSection, Routes.DeviceGraphs, Routes.Maintenance, Routes.Logs], _navigation.Visits.Select(v => v.Route));
+        Assert.Equal(7, _navigation.Visits[3].Parameters![Routes.DeviceIdParameter]);
         Assert.Equal(DeviceSection.Ports, _navigation.Visits[0].Parameters![Routes.SectionParameter]);
         Assert.Equal("edge-rtr", _navigation.Visits[2].Parameters![Routes.DeviceNameParameter]);
     }

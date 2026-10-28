@@ -2,7 +2,6 @@ using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
-using DashyNMS.Mobile.Storage;
 using DashyNMS.Mobile.ViewModels;
 using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
@@ -25,29 +24,31 @@ public static class ServiceCollectionExtensions
     /// launcher and the platform's notifications and background scheduling on top.
     /// </summary>
     /// <remarks>
-    /// Mirrors desktop's <c>AddDesktopNmsCore</c>, minus its DPAPI secret
-    /// stores (Windows-only, replaced by keychain-backed ones) and the
-    /// integrations mobile doesn't have screens for yet (Unimus, update checks).
+    /// Mirrors desktop's <c>AddDesktopNmsCore</c>, plus keychain-backed secret
+    /// stores (Core leaves those to each app), minus the integrations mobile
+    /// doesn't have screens for yet (Unimus, update checks).
     /// </remarks>
     public static IServiceCollection AddDashyNmsMobile(this IServiceCollection services)
     {
-        // Before anything touches desktop's AppPaths - see MobileStorage.
-        MobileStorage.EnsureDataFolder();
-
         services.AddSingleton<ServerFailover>();
         services.AddSingleton<LibreNmsTransport>();
         services.AddSingleton<ILibreNmsTransport>(sp => sp.GetRequiredService<LibreNmsTransport>());
         services.AddSingleton<LibreNmsClient>();
         services.AddSingleton<ILibreNmsClient>(sp => sp.GetRequiredService<LibreNmsClient>());
 
-        // Desktop's store, wrapped so Save() writes - see MobileSettingsStore.
-        services.AddSingleton<SettingsStore>();
-        services.AddSingleton<ISettingsStore>(sp => new MobileSettingsStore(sp.GetRequiredService<SettingsStore>()));
+        services.AddSingleton<ISettingsStore, SettingsStore>();
         services.AddSingleton<SecretCache>();
+        services.AddSingleton<DesktopNMS.Core.SignIn.ICertificateProbe, DesktopNMS.Core.SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<DeviceBookmarks>();
         services.AddSingleton<MaintenanceScan>();
+
+        // On the backup address, and the way back (#114) - the dashboard's pill and Settings' Server card.
+        services.AddSingleton<BackupAddressStatus>();
+
+        // A certificate met while signed in - the backup address's, say (#141).
+        services.AddSingleton<CertificatePrompt>();
 
         // Alert notifications. The app head supplies IAlertNotifier and
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
@@ -61,11 +62,16 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<ISelfActionTracker, SelfActionTracker>();
         services.AddSingleton<IAlertWatchStore, AlertWatchStore>();
+        services.AddSingleton<AlertTabDot>();
+        services.AddSingleton<AlertCountThreshold>();
+        services.AddSingleton<NotifyRules>();
         services.AddSingleton<AlertWatcher>();
         services.AddSingleton<AlertWatchCoordinator>();
         services.AddSingleton<NotificationRouter>();
 
         services.AddTransient<SignInViewModel>();
+        services.AddTransient<LicencesViewModel>();
+        services.AddTransient<NotifyRulePickerViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<DevicesViewModel>();
         services.AddTransient<DeviceDetailViewModel>();
@@ -73,13 +79,26 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AlertDetailViewModel>();
         services.AddTransient<HealthViewModel>();
         services.AddTransient<GroupsLocationsViewModel>();
+        services.AddTransient<Rules.AlertRulesViewModel>();
+        services.AddTransient<Rules.AlertRuleViewModel>();
+        services.AddTransient<Rules.AlertTemplateViewModel>();
         services.AddTransient<ThresholdsViewModel>();
         services.AddTransient<Dashboard.CustomiseDashboardViewModel>();
+
+        // One for the app, so a card added in the card picker is announced back on the page it returns to (#140).
+        services.AddSingleton<Dashboard.DashboardToast>();
+        services.AddTransient<Dashboard.DashboardWelcome>();
+        services.AddTransient<Dashboard.AddCardViewModel>();
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
-        services.AddSingleton<Logs.INetworkLogs, Logs.NetworkLogs>();
+        services.AddTransient<Dashboard.TopCardSetUpViewModel>();
         services.AddTransient<Logs.LogsViewModel>();
+        services.AddTransient<Logs.LogEntryViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
+        services.AddTransient<Topology.NeighbourGroupsViewModel>();
+        services.AddTransient<Topology.NeighbourGroupEditorViewModel>();
+        services.AddTransient<Topology.NeighbourLinkViewModel>();
+        services.AddTransient<Topology.NetworkMapViewModel>();
         services.AddTransient<Map.MapViewModel>();
         // One for Settings and its section pages (#67), which all show and change the same values.
         services.AddSingleton<SettingsViewModel>();
@@ -92,8 +111,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IGraylogPasswordProtector, SecureGraylogPasswordProtector>();
         services.AddSingleton<Graylog.GraylogSetup>();
         services.AddSingleton<Graylog.IGraylogConnectionTester, Graylog.GraylogConnectionTester>();
+        services.AddSingleton<Topology.NeighbourDirectory>();
         services.AddTransient<Graylog.GraylogViewModel>();
         services.AddTransient<Graylog.GraylogSettingsViewModel>();
+        services.AddTransient<Graylog.GraylogMessageViewModel>();
+        services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
 
         // Device View sections.
         services.AddSingleton<DeviceSectionLoader>();

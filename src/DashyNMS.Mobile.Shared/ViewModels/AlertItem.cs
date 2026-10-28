@@ -1,4 +1,5 @@
 using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
@@ -6,8 +7,24 @@ using DesktopNMS.Core.Models;
 namespace DashyNMS.Mobile.ViewModels;
 
 /// <summary>One row of the alert list.</summary>
-public sealed class AlertItem
+public sealed partial class AlertItem : ObservableObject
 {
+    /// <summary>Its detail is showing beside the list, on a larger screen (#88).</summary>
+    [ObservableProperty]
+    private bool _isSelected;
+
+    /// <summary>Ticked for a bulk action (#85).</summary>
+    [ObservableProperty]
+    private bool _isTicked;
+
+    /// <summary>
+    /// The API token may acknowledge and unacknowledge alerts - false once
+    /// LibreNMS has refused it (#144), when the row's swipe actions go.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowAcknowledge), nameof(ShowUnacknowledge))]
+    private bool _canChange = true;
+
     private readonly bool _serverTimestampsAreUtc;
     private readonly string? _deviceName;
 
@@ -52,6 +69,12 @@ public sealed class AlertItem
     public bool IsAcknowledged => Alert.IsAcknowledged;
 
     public bool IsNotAcknowledged => !IsAcknowledged;
+
+    /// <summary>The swipe action to acknowledge: active, and the token may.</summary>
+    public bool ShowAcknowledge => IsNotAcknowledged && CanChange;
+
+    /// <summary>The swipe action to unacknowledge: acknowledged, and the token may.</summary>
+    public bool ShowUnacknowledge => IsAcknowledged && CanChange;
 
     public string? Note => string.IsNullOrWhiteSpace(Alert.Note) ? null : Alert.Note;
 
