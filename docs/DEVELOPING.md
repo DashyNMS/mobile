@@ -201,7 +201,7 @@ tests/
 
 ## Building
 
-You need the .NET 10 SDK (see `global.json`) and a clone that includes the
+You need the .NET 10.0.402 SDK or later (see `global.json`) and a clone that includes the
 submodule:
 
 ```sh
@@ -225,11 +225,25 @@ dotnet workload install maui-android
 dotnet build src/DashyNMS.Mobile -f net10.0-android -t:Run
 
 # iOS (macOS with a matching Xcode)
-dotnet workload install maui-ios
-dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -t:Run
+dotnet workload install maui-ios --version 10.0.402.1
+DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -t:Run
 ```
 
 Or open `DashyNMS.Mobile.slnx` in Visual Studio or Rider.
+
+iOS builds use Xcode 27.1 and workload set `10.0.402.1`, matching the
+[.NET for iOS 27.1 release](https://github.com/dotnet/macios/releases/tag/dotnet-10.0.1xx-xcode27.1-10018). Both CI and TestFlight
+select this toolchain explicitly. The iOS 27.1 SDK enables the Duo's full
+display and vertical system bars; changing page padding cannot remove the
+compatibility strip produced by older SDKs. The minimum supported iOS
+version remains 15.0.
+
+Before shipping, check a Duo on both displays: launch closed and open,
+fold and unfold while on Dashboard and a list/detail page, rotate, and
+check the header, system tab bar, alert dot, scrolling and keyboard insets.
+Confirm the same pinned tabs and devices remain selected after resizing.
+Also check a conventional iPhone and iPad. A successful simulator build
+alone does not verify these layouts.
 
 CI (`.github/workflows/ci.yml`) runs both test suites, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
