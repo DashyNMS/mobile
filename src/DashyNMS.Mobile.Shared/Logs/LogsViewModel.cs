@@ -8,6 +8,7 @@ using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Logs;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Services;
 
 namespace DashyNMS.Mobile.Logs;
 
@@ -111,15 +112,32 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         ISettingsStore settings,
         INavigationService navigation,
         IDialogService dialogs,
-        IAppPreferences? preferences = null)
+        IAppPreferences? preferences = null,
+        TimeProvider? time = null,
+        IAppActivity? activity = null)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
         _dialogs = dialogs;
-        _chips = new ChipMemory(preferences ?? new InMemoryPreferences(), "logs");
+        preferences ??= new InMemoryPreferences();
+        _chips = new ChipMemory(preferences, "logs");
         _eventType = _chips.GetChoice(TypeChip);
+        AutoRefresh = new AutoRefresh(AutoRefreshAsync, preferences, "logs", time, activity);
     }
+
+    /// <summary>The Auto-refresh switch and interval (#214), shared by the Event and Alert logs as on desktop.</summary>
+    public AutoRefresh AutoRefresh { get; }
+
+    /// <summary>"Couldn't refresh at 14:05" - quiet, over rows and filters that stay as they were.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRefreshProblem))]
+    private string? _refreshProblem;
+
+    public bool HasRefreshProblem => RefreshProblem is not null;
+
+    /// <summary>Loads started, so an auto-refresh still on its way can tell it's been overtaken.</summary>
+    private int _loads;
 
     /// <summary>The phone's clock, for ages and the time range - swapped in tests.</summary>
     internal Func<DateTime> Now { get; set; } = () => DateTime.Now;
@@ -401,6 +419,69 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
     [RelayCommand]
     private void ShowAlertLog() => ShowingEventLog = IsDeviceFixed;
 
+    [RelayCommand]
+    private void ToggleAutoRefresh() => AutoRefresh.IsOn = !AutoRefresh.IsOn;
+
+    [RelayCommand]
+    private async Task ChooseAutoRefreshIntervalAsync()
+    {
+        var labels = AutoRefresh.Intervals.Select(i => i.Label).ToList();
+        if (await _dialogs.ChooseAsync("Refresh", labels) is { } choice && labels.IndexOf(choice) is var index and >= 0)
+        {
+            AutoRefresh.Seconds = AutoRefresh.Intervals[index].Seconds;
+        }
+    }
+
+    /// <summary>
+    /// An Auto-refresh tick (#214): the log as deep as it's loaded, merged in
+    /// so newer entries arrive at the top without moving a list scrolled down.
+    /// Nothing while a load is on its way; a failure keeps the rows and filters.
+    /// </summary>
+    internal async Task AutoRefreshAsync()
+    {
+        var eventLog = ShowingEventLog;
+        if (IsBusy || !(eventLog ? _eventsLoaded : _alertsLoaded))
+        {
+            return;
+        }
+
+        var loads = _loads;
+        var deviceId = Device?.DeviceId;
+        try
+        {
+            if (eventLog)
+            {
+                var entries = await _client.Logs.ListEventLogAsync(deviceId, Math.Max(_eventsFetched, PageSize));
+                if (loads != _loads || eventLog != ShowingEventLog)
+                {
+                    return;
+                }
+
+                _events = entries;
+            }
+            else
+            {
+                var entries = await _client.Logs.ListAlertLogAsync(deviceId, _alertLimit);
+                if (loads != _loads || eventLog != ShowingEventLog)
+                {
+                    return;
+                }
+
+                _alerts = entries;
+            }
+
+            RefreshProblem = null;
+            ApplyFilter(merge: true);
+        }
+        catch (Exception ex) when (ex is LibreNmsApiException or HttpRequestException or TimeoutException)
+        {
+            if (loads == _loads)
+            {
+                RefreshProblem = $"Couldn't refresh at {Now().ToString("HH:mm", CultureInfo.CurrentCulture)}";
+            }
+        }
+    }
+
     /// <summary>The newest page again, and the device names with it.</summary>
     [RelayCommand]
     private Task RefreshAsync()
@@ -545,6 +626,9 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
 
     private async Task LoadAsync()
     {
+        _loads++;
+        RefreshProblem = null;
+
         // A newer load always wins over one still on its way.
         _loadCts?.Cancel();
         using var cts = new CancellationTokenSource();
@@ -593,7 +677,7 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         ApplyFilter();
     }
 
-    private void ApplyFilter()
+    private void ApplyFilter(bool merge = false)
     {
         var now = Now();
         var since = Ranges[Math.Clamp(RangeIndex, 0, Ranges.Count - 1)].Span is { } span ? now - span : (DateTime?)null;
@@ -619,7 +703,15 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
                 .Where(i => term.Length == 0 || i.Matches(term));
         }
 
-        Entries.ReplaceAll(items.Where(i => since is null || i.LocalTime >= since).ToList());
+        var shown = items.Where(i => since is null || i.LocalTime >= since).ToList();
+        if (merge)
+        {
+            Entries.Merge(shown, e => (e.IsAlert, e.Id), (a, b) => a.ShortAge == b.ShortAge && a.Message == b.Message && a.DeviceName == b.DeviceName);
+        }
+        else
+        {
+            Entries.ReplaceAll(shown);
+        }
 
         OnPropertyChanged(nameof(CanLoadMore));
         OnPropertyChanged(nameof(IsEmpty));

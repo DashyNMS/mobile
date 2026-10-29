@@ -57,5 +57,13 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost
 		base.OnAppearing();
 		Header.Apply(this);
 		_ = _viewModel.EnsureLoadedAsync();
+		_viewModel.AutoRefresh.SetShowing(true);
+	}
+
+	/// <summary>Auto-refresh only ticks while the page is showing (#214).</summary>
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_viewModel.AutoRefresh.SetShowing(false);
 	}
 }

@@ -161,12 +161,30 @@
                     </Button.Triggers>
                 </Button>
 
+                <!-- Auto-refresh (#214), as desktop's logs: off until switched on; its interval beside it. -->
+                <Button Style="{StaticResource Chip}" Text="Auto-refresh" Command="{Binding ToggleAutoRefreshCommand}"
+                        SemanticProperties.Description="Refresh on its own while this page is open">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding AutoRefresh.IsOn}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Style="{StaticResource Chip}" Text="{Binding AutoRefresh.IntervalText, StringFormat='{0} ▾'}"
+                        Command="{Binding ChooseAutoRefreshIntervalCommand}" IsVisible="{Binding AutoRefresh.IsOn}" />
+
             </HorizontalStackLayout>
         </ScrollView>
 
         <!-- Its height kept while the summary is still blank, so the chips never touch the list (#143). -->
         <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
-            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" VerticalOptions="Center" />
+            <VerticalStackLayout VerticalOptions="Center">
+                <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" />
+                <!-- A failed auto-refresh: quiet, with the rows and filters left as they were. -->
+                <Label Style="{StaticResource Faint}" Text="{Binding RefreshProblem}" IsVisible="{Binding HasRefreshProblem}" />
+            </VerticalStackLayout>
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear"
                     Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
                     HeightRequest="30" MinimumHeightRequest="30" />

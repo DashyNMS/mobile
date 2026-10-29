@@ -10,6 +10,7 @@ using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Devices;
 using DesktopNMS.Core.Graylog;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Services;
 
 namespace DashyNMS.Mobile.Graylog;
 
@@ -86,8 +87,13 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         ILibreNmsClient client,
         ISettingsStore settings,
         INavigationService navigation,
-        IDialogService dialogs)
+        IDialogService dialogs,
+        IAppPreferences? preferences = null,
+        TimeProvider? time = null,
+        IAppActivity? activity = null)
     {
+        _time = time ?? TimeProvider.System;
+        AutoRefresh = new AutoRefresh(AutoRefreshAsync, preferences ?? new InMemoryPreferences(), "graylog", _time, activity);
         _setup = setup;
         _graylog = graylog;
         _client = client;
@@ -98,6 +104,24 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         // LibreNMS's fleet page has no level filter until one is picked.
         _levelIndex = 0;
     }
+
+    /// <summary>The Auto-refresh switch and interval (#214), as desktop's Graylog view has.</summary>
+    public AutoRefresh AutoRefresh { get; }
+
+    /// <summary>"Couldn't refresh at 14:05" - quiet, over messages and filters that stay as they were.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRefreshProblem))]
+    private string? _refreshProblem;
+
+    public bool HasRefreshProblem => RefreshProblem is not null;
+
+    private readonly TimeProvider _time;
+
+    /// <summary>Searches started, so an auto-refresh still on its way can tell it's been overtaken.</summary>
+    private int _loads;
+
+    /// <summary>The search behind the messages shown, which an auto-refresh repeats for its first page.</summary>
+    private (string Query, int Range, string? Filter)? _lastSearch;
 
     /// <summary>The device this page is fixed to (a device's Graylog section), or null.</summary>
     public int? DeviceId { get; private set; }
@@ -388,6 +412,9 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
     private async Task LoadAsync(bool append)
     {
+        _loads++;
+        RefreshProblem = null;
+
         // A newer search always wins over one still on its way.
         _loadCts?.Cancel();
         using var cts = new CancellationTokenSource();
@@ -456,6 +483,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 token);
 
             token.ThrowIfCancellationRequested();
+            _lastSearch = (query, range, GraylogQuery.StreamFilter(stream));
 
             var zone = GraylogQuery.FindTimeZone(options.Timezone);
             var items = result.Messages
@@ -473,6 +501,71 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
         RaiseListChanged();
     }
+
+    [RelayCommand]
+    private void ToggleAutoRefresh() => AutoRefresh.IsOn = !AutoRefresh.IsOn;
+
+    [RelayCommand]
+    private async Task ChooseAutoRefreshIntervalAsync()
+    {
+        var labels = AutoRefresh.Intervals.Select(i => i.Label).ToList();
+        if (await _dialogs.ChooseAsync("Refresh", labels) is { } choice && labels.IndexOf(choice) is var index and >= 0)
+        {
+            AutoRefresh.Seconds = AutoRefresh.Intervals[index].Seconds;
+        }
+    }
+
+    /// <summary>
+    /// An Auto-refresh tick (#214): the first page of the same search, its
+    /// newer messages in above those shown - and any further pages loaded -
+    /// without moving a list scrolled down. Nothing while a search is on its
+    /// way; a failure keeps the messages and filters.
+    /// </summary>
+    internal async Task AutoRefreshAsync()
+    {
+        if (IsBusy || !IsConfigured || _lastSearch is not { } search)
+        {
+            return;
+        }
+
+        var loads = _loads;
+        try
+        {
+            var result = await _graylog.SearchAsync(search.Query, search.Range, PageSize, 0, NewestFirst, search.Filter);
+            if (loads != _loads)
+            {
+                return;
+            }
+
+            var zone = GraylogQuery.FindTimeZone(_settings.Current.Graylog.Timezone);
+            var items = result.Messages.Select(m => new GraylogMessageItem(m.Message, zone, DeviceFor)).ToList();
+            var newer = _loaded.Count == 0 ? -1 : items.FindIndex(i => Equals(Key(i), Key(_loaded[0])));
+            if (newer < 0)
+            {
+                // More new than a page, or what was first has gone: the first page afresh.
+                _loaded.Clear();
+                _loaded.AddRange(items);
+            }
+            else
+            {
+                _loaded.InsertRange(0, items.Take(newer));
+            }
+
+            _totalResults = Math.Max(result.TotalResults, _loaded.Count);
+            RefreshProblem = null;
+            Messages.Merge(_loaded.ToList(), Key, (a, b) => ReferenceEquals(a, b));
+            RaiseListChanged();
+        }
+        catch (GraylogApiException)
+        {
+            if (loads == _loads)
+            {
+                RefreshProblem = $"Couldn't refresh at {_time.GetLocalNow().ToString("HH:mm", CultureInfo.CurrentCulture)}";
+            }
+        }
+    }
+
+    private static object Key(GraylogMessageItem message) => message.Id ?? (object)(message.TimeText + message.FullText);
 
     private void Show(IReadOnlyList<GraylogMessageItem> items, long total, bool append)
     {
