@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -54,10 +55,27 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
     public string? WidgetId { get; set; }
 
-    public SensorPickerViewModel(ILibreNmsClient client, ISettingsStore settings)
+    public SensorPickerViewModel(ILibreNmsClient client, ISettingsStore settings, CorePolling? polling = null)
     {
         _client = client;
         _settings = settings;
+        _polling = polling;
+    }
+
+    private readonly CorePolling? _polling;
+
+    /// <summary>The shared fleet list, its state sensors named (#210); LibreNMS's own if there's none.</summary>
+    private async Task<IReadOnlyList<Sensor>> SensorListAsync()
+    {
+        if (_polling is null)
+        {
+            return await _client.Sensors.ListAsync();
+        }
+
+        var result = await _polling.SensorsAsync();
+        return SensorRefreshStatus.HasNothingToShow(result)
+            ? throw new InvalidOperationException(SensorRefreshStatus.Describe(result))
+            : result.Sensors;
     }
 
     /// <summary>What's on the card now, then search results.</summary>
@@ -80,7 +98,7 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         CardTitle = DashboardLayout.HasOwnTitle(card) ? card.Title : string.Empty;
         _showingTitle = false;
 
-        var sensorsTask = _client.Sensors.ListAsync();
+        var sensorsTask = SensorListAsync();
         var devicesTask = _client.Devices.ListAsync();
         await Task.WhenAll(sensorsTask, devicesTask);
 

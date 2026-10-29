@@ -190,9 +190,24 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
         SearchText = string.Empty;
     }
 
-    public Task RefreshIfStaleAsync() => _loaded && DateTimeOffset.UtcNow - _loadedAt < StaleAfter
-        ? Task.CompletedTask
-        : RefreshAsync();
+    public async Task RefreshIfStaleAsync()
+    {
+        if (!_loaded || DateTimeOffset.UtcNow - _loadedAt >= StaleAfter)
+        {
+            await RefreshAsync();
+            return;
+        }
+
+        // The sensor definitions changed since (#210): the same readings, named afresh.
+        if (_polling is { } polling && polling.DefinitionsVersion != _definitionsVersion)
+        {
+            _definitionsVersion = polling.DefinitionsVersion;
+            await polling.ApplyDefinitionsAsync(_sensors);
+            Rebuild();
+        }
+    }
+
+    private int _definitionsVersion;
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -209,6 +224,7 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
         }
 
         // LibreNMS lists every sensor in one call; the device list gives them names.
+        _definitionsVersion = _polling?.DefinitionsVersion ?? 0;
         var sensorsTask = _polling?.SensorsAsync() ?? ListSensorsAsync();
         var devicesTask = _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
         await Task.WhenAll(sensorsTask, devicesTask);
