@@ -133,6 +133,10 @@ rather than rewritten.
   severity, recovery, acknowledgement, quiet hours), desktop's Health
   thresholds, lock screen widgets and Graylog - then sign-out.
 
+Read-only alert rule details show per-entity notification settings and the maximum
+entity limit (including inherited limits). Conditions using device columns removed
+in LibreNMS 26.10 include compatibility advice, including before a server upgrade.
+
 ## Alert notifications
 
 The app checks LibreNMS for alert changes and notifies you the same way

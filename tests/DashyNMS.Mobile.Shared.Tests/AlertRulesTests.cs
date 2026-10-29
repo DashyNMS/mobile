@@ -47,6 +47,35 @@ public sealed class AlertRulesTests
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
     }
 
+    [Theory]
+    [InlineData(true, 8, "On", "8")]
+    [InlineData(false, null, "Off", "Inherited (server default)")]
+    [InlineData(null, null, "Not reported by this server", "Inherited (server default)")]
+    public async Task Per_entity_settings_preserve_unknown_and_inherited_values(bool? enabled, int? maximum, string expectedEnabled, string expectedMaximum)
+    {
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, NotifyPerEntity = enabled, MaxEntities = maximum });
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Equal(expectedEnabled, vm.PerEntityText);
+        Assert.Equal(expectedMaximum, vm.MaxEntitiesText);
+    }
+
+    [Theory]
+    [InlineData("last_ping")]
+    [InlineData("last_ping_timetaken")]
+    [InlineData("last_poll_attempted")]
+    [InlineData("agent_uptime")]
+    public async Task Removed_device_columns_are_flagged(string column)
+    {
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, Query = $"SELECT * FROM devices WHERE devices.{column} > 0" });
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.True(vm.HasCompatibilityWarning);
+        Assert.Contains("26.10", vm.CompatibilityWarning);
+    }
+
     [Fact]
     public async Task Rules_alerting_come_first_then_by_severity_with_disabled_ones_last()
     {
