@@ -74,9 +74,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DiagnosticsLog? diagnostics = null,
         ILocalDataWipe? wipe = null,
         BackupAddressStatus? backup = null,
-        DiagnosticsReport? report = null)
+        DiagnosticsReport? report = null,
+        SensorDefinitions? definitions = null)
     {
         _wipe = wipe;
+        _definitions = definitions;
         Backup = backup;
         _report = report;
         _countThreshold = countThreshold ?? new AlertCountThreshold(settings, new InMemoryPreferences());
@@ -274,6 +276,17 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
+
+    private readonly SensorDefinitions? _definitions;
+
+    /// <summary>"On · 2026.10.1", "On · not downloaded yet" or "Off" (#209).</summary>
+    public string SensorDefinitionsSummary => _definitions?.Store is not { } store ? "Not available"
+        : !store.Options.Enabled ? "Off"
+        : store.Version is { } version ? "On · " + version
+        : "On · not downloaded yet";
+
+    [RelayCommand]
+    private Task OpenSensorDefinitionsAsync() => _navigation.GoToAsync(Routes.SensorDefinitionsSettings);
 
     /// <summary>
     /// Only where the phone lets an app set the number (iPhone). Android
@@ -618,6 +631,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(ServerVersion));
         OnPropertyChanged(nameof(IsServerInsecure));
         OnPropertyChanged(nameof(GraylogStatusText));
+        OnPropertyChanged(nameof(SensorDefinitionsSummary));
     }
 
     [RelayCommand]
@@ -678,6 +692,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
             {
                 _diagnostics?.Note("Sign out", "Could not delete " + path);
             }
+        }
+
+        // Their files went with the data folder; this stops any more being fetched (#209).
+        if (_definitions is not null)
+        {
+            _ = _definitions.ForgetAsync();
         }
 
         _settings.Replace(new AppSettings());

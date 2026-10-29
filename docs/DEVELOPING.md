@@ -157,7 +157,16 @@ rather than rewritten.
   alert checks (how often while the app is open - desktop's poll interval,
   30 seconds to 15 minutes - and the app icon badge), notifications (per
   severity, recovery, acknowledgement, quiet hours), desktop's Health
-  thresholds, lock screen widgets and Graylog - then sign-out.
+  thresholds, lock screen widgets, Graylog and sensor definitions - then
+  sign-out.
+- **Sensor definitions** (Settings): the DashyNMS/sensor-definitions
+  catalogue that names state sensors, on by default as desktop's. You can
+  use your own public GitHub repository instead. Core's
+  `SensorDefinitionStore` keeps it in Core's data folder: sign-out keeps it,
+  "Sign out and forget everything" deletes it, and so does turning it off.
+  The app asks for a newer catalogue at launch and when it comes back to the
+  foreground. Core fetches at most daily and works offline from the cached
+  copy. Nothing is fetched from a background alert check.
 
 Read-only alert rule details show per-entity notification settings and the maximum
 entity limit (including inherited limits). Conditions using device columns removed
