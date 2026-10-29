@@ -94,7 +94,7 @@ public sealed class PageHeader : Grid
 
             if (value is not null)
             {
-                SetRow((IView)value, GetRow(_title));
+                SetRow((IView)value, GetRow((IView)_title));
                 SetColumn((IView)value, 1);
                 value.VerticalOptions = LayoutOptions.Center;
                 Add(value);
