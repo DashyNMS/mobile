@@ -51,12 +51,16 @@
                             <Label Style="{StaticResource Faint}" Text="{Binding RaisedText}" />
                             <Label Style="{StaticResource Caption}" Text="{Binding Alert.Note}" FontAttributes="Italic" IsVisible="{Binding Alert.HasNote}" />
 
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Margin="0,8,0,0">
-                                <Button Text="Acknowledge" Command="{Binding AcknowledgeCommand}" IsVisible="{Binding CanAcknowledge}" />
-                                <Button Text="Unacknowledge" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
-                                <Button Grid.Column="1" Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
-                            </Grid>
+                            <VerticalStackLayout Spacing="6" Margin="0,8,0,0">
+                                <Button Text="{Binding AcknowledgeLabel}" Command="{Binding AcknowledgeCommand}" IsVisible="{Binding CanAcknowledge}" />
+                                <Button Text="{Binding UnacknowledgeLabel}" Style="{StaticResource SecondaryButton}" Command="{Binding UnacknowledgeCommand}" IsVisible="{Binding CanUnacknowledge}" />
+                                <Button Text="Open device" Style="{StaticResource SecondaryButton}" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
+                            </VerticalStackLayout>
                             <!-- The token isn't allowed to acknowledge (#144): say why the button's gone. -->
+                            <Label Style="{StaticResource Caption}" Text="{Binding ActionResult}" IsVisible="{Binding ActionResult, Converter={StaticResource IsNotNull}}" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding FaultScopeText}" IsVisible="{Binding FaultScopeText, Converter={StaticResource IsNotNull}}" />
+                            <Button Style="{StaticResource LinkButton}" Text="Acknowledge fault" Command="{Binding AcknowledgeFaultCommand}" IsVisible="{Binding CanAcknowledgeFault}" />
+                            <Button Style="{StaticResource LinkButton}" Text="Unacknowledge fault" Command="{Binding UnacknowledgeFaultCommand}" IsVisible="{Binding CanUnacknowledgeFault}" />
                             <Label Style="{StaticResource Caption}" Text="{Binding AcknowledgeRefusedText}"
                                    IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" />
                             <!-- Which alerts notify (#167): Core's choices for this alert's rule, with Undo - notifications only. -->

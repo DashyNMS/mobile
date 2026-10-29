@@ -300,8 +300,14 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private async Task AcknowledgeAsync(AlertItem? item)
     {
-        if (item is null || item.Alert.Source == AlertSource.Fault || item.IsAcknowledged)
+        if (item is null || item.IsAcknowledged)
         {
+            return;
+        }
+
+        if (item.Alert.Source == AlertSource.Fault)
+        {
+            await ChangeFaultGroupAsync(item, acknowledge: true);
             return;
         }
 
@@ -328,8 +334,14 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private async Task UnacknowledgeAsync(AlertItem? item)
     {
-        if (item is null || item.Alert.Source == AlertSource.Fault || !item.IsAcknowledged)
+        if (item is null || (!item.IsAcknowledged && item.Group is not { AcknowledgedCount: > 0 }))
         {
+            return;
+        }
+
+        if (item.Alert.Source == AlertSource.Fault)
+        {
+            await ChangeFaultGroupAsync(item, acknowledge: false);
             return;
         }
 
@@ -341,6 +353,48 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         }
 
         ShowPermissions();
+    }
+
+    private bool MayChange(AlertItem item) => CanAcknowledge && (item.Group is { } group
+        ? group.Faults.All(f => _client.Permissions?.IsAcknowledgeRefused(f.Identity) != true)
+        : _client.Permissions?.IsAcknowledgeRefused(item.Alert.Identity) != true);
+
+    private async Task ChangeFaultGroupAsync(AlertItem item, bool acknowledge)
+    {
+        if (item.Group is not { } group || !MayChange(item)) return;
+        string? note = null;
+        if (acknowledge)
+        {
+            note = await _dialogs.PromptAsync("Acknowledge group", $"Every open fault for {item.Rule} on {item.Device}. Add a note (optional):", "Acknowledge group", "Note");
+            if (note is null) return;
+        }
+        else if (!await _dialogs.ConfirmAsync("Unacknowledge group", $"Return every acknowledged fault for {item.Rule} on {item.Device} to active?", "Unacknowledge group", "Cancel")) return;
+
+        await RunAsync(async () =>
+        {
+            var actions = new AlertActions(_client.Alerts, _client.Rules);
+            var result = acknowledge
+                ? await actions.AcknowledgeGroupAsync(group.Key, note?.Trim())
+                : await actions.UnacknowledgeGroupAsync(group.Key, null);
+            foreach (var changed in result.Changed)
+                _selfActions.Record(changed.Id, acknowledge ? AlertChangeKind.Acknowledged : AlertChangeKind.Unacknowledged);
+            Selection.Report(result.Summary);
+            await RefreshFaultGroupAsync(group.Key);
+        });
+        ShowPermissions();
+    }
+
+    private async Task RefreshFaultGroupAsync(AlertGroupKey key)
+    {
+        var rows = (await _client.Alerts.ListAsync(new AlertQuery { RuleId = key.RuleId, States = [AlertState.Active, AlertState.Acknowledged] }))
+            .Where(a => a.DeviceId == key.DeviceId).ToList();
+        var name = _all.FirstOrDefault(a => a.Alert.DeviceId == key.DeviceId)?.Device;
+        _all = _all.Where(a => a.Alert.DeviceId != key.DeviceId || a.Alert.RuleId != key.RuleId)
+            .Concat(rows.Select(a => new AlertItem(a, _settings.Current.ServerTimestampsAreUtc, name))).ToList();
+        ApplyFilter();
+        var alerts = _all.Select(a => a.Alert).ToList();
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _tabDot?.Update(alerts, _settings.Current);
     }
 
     /// <summary>
@@ -361,7 +415,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         {
             item.IsSelected = item.Group is { } group ? group.Faults.Any(f => f.Id == _selectedId) : item.Id == _selectedId;
             item.IsTicked = Selection.Contains(item.Id);
-            item.CanChange = canChange && item.Alert.Source == AlertSource.Alert;
+            item.CanChange = canChange && !item.IsFaultChild && MayChange(item);
         }
     }
 
@@ -382,6 +436,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CanAcknowledge));
         OnPropertyChanged(nameof(AcknowledgeRefusedText));
         MarkSelected(_all);
+        MarkSelected(DisplayRows);
     }
 
     /// <summary>
@@ -390,6 +445,11 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public void ShowChange(AlertStateChange change)
     {
+        if (change.Group is { } group)
+        {
+            _ = RunAsync(() => RefreshFaultGroupAsync(group));
+            return;
+        }
         if (_all.FirstOrDefault(a => a.Id == change.AlertId) is { } item)
         {
             UpdateInPlace(item, change.Acknowledged ? AcknowledgedState : ActiveState, change.Note);
@@ -655,7 +715,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             var expanded = _expandedGroups.Contains(group.Key);
             var primary = items[group.Primary.Identity];
             rows.Add(new AlertItem(group.Primary, _settings.Current.ServerTimestampsAreUtc, primary.Device)
-                { Group = group, IsExpanded = expanded, CanChange = false });
+                { Group = group, IsExpanded = expanded, CanChange = false, ActionRefusedText = group.Faults.Any(f => _client.Permissions?.IsAcknowledgeRefused(f.Identity) == true) ? "This account cannot acknowledge this alert group." : null });
             if (expanded)
                 rows.AddRange(group.Faults.Select(fault => new AlertItem(fault, _settings.Current.ServerTimestampsAreUtc, items[fault.Identity].Device)
                     { IsFaultChild = true, CanChange = false }));

@@ -95,17 +95,30 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
     public bool HasAlert => Alert is not null;
 
-    public bool CanAcknowledge => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && MayAcknowledge;
+    [ObservableProperty]
+    private string? _actionResult;
 
-    public bool CanUnacknowledge => Alert is { IsAcknowledged: true } && MayAcknowledge;
+    private AlertGroup? _faultGroup;
+    private AlertFaultScope? _faultScope;
+    public string AcknowledgeLabel => Alert?.Alert.Source == AlertSource.Fault ? "Acknowledge group" : "Acknowledge";
+    public string UnacknowledgeLabel => Alert?.Alert.Source == AlertSource.Fault ? "Unacknowledge group" : "Unacknowledge";
+    public string? FaultScopeText => Alert?.Alert.Source == AlertSource.Fault ? _faultScope?.Explanation : null;
+    public bool CanAcknowledgeFault => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
+    public bool CanUnacknowledgeFault => Alert is { IsAcknowledged: true } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
+    public bool CanAcknowledge => (_faultGroup is { } group ? group.UnacknowledgedCount > 0 : Alert is { IsAcknowledged: false, State: not AlertState.Recovered }) && MayAcknowledge;
+
+    public bool CanUnacknowledge => (_faultGroup is { } group ? group.AcknowledgedCount > 0 : Alert is { IsAcknowledged: true }) && MayAcknowledge;
 
     /// <summary>
     /// Why the buttons to acknowledge and unacknowledge are gone (#144): the
     /// API token was refused it this session, as Core remembers. Null while it's allowed.
     /// </summary>
-    public string? AcknowledgeRefusedText => MayAcknowledge ? null : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
+    public string? AcknowledgeRefusedText => MayAcknowledge ? null : _client.Permissions?.HasPerResourceChecks == true ? "This account cannot acknowledge this alert group." : ApiPermissions.Describe(ApiPermission.AcknowledgeAlerts);
 
-    private bool MayAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true;
+    private bool MayAcknowledgeSelected => Alert is { } item && _client.Permissions?.IsAcknowledgeRefused(item.Alert.Identity) != true;
+
+    private bool MayAcknowledge => _client.Permissions?.IsRefused(ApiPermission.AcknowledgeAlerts) != true
+        && (Alert is null || (_faultGroup?.Faults ?? [Alert.Alert]).All(f => _client.Permissions?.IsAcknowledgeRefused(f.Identity) != true));
 
     /// <summary>Catches up with a refusal - learned here, or on another page before this one opened.</summary>
     private void ShowPermissions()
@@ -113,6 +126,11 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CanAcknowledge));
         OnPropertyChanged(nameof(CanUnacknowledge));
         OnPropertyChanged(nameof(AcknowledgeRefusedText));
+        OnPropertyChanged(nameof(AcknowledgeLabel));
+        OnPropertyChanged(nameof(UnacknowledgeLabel));
+        OnPropertyChanged(nameof(CanAcknowledgeFault));
+        OnPropertyChanged(nameof(CanUnacknowledgeFault));
+        OnPropertyChanged(nameof(FaultScopeText));
     }
 
     public bool HasDevice => DeviceId is not null;
@@ -147,6 +165,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        _faultGroup = null;
+        _faultScope = null;
         var utc = _settings.Current.ServerTimestampsAreUtc;
         var alert = await FindAlertAsync(AlertId);
         if (alert is null)
@@ -176,6 +196,14 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         var rule = ruleTask.Result;
         var log = (logTask.Result ?? []).Where(e => e.RuleId == alert.RuleId).ToList();
 
+        if (alert.Source == AlertSource.Fault)
+        {
+            var siblings = await BestEffort(() => _client.Alerts.ListAsync(new AlertQuery { RuleId = alert.RuleId, States = [AlertState.Active, AlertState.Acknowledged] }));
+            _faultGroup = AlertGrouping.ByDeviceAndRule((siblings ?? []).Where(a => a.DeviceId == alert.DeviceId)).FirstOrDefault();
+            // A failed or incomplete read cannot establish per-entity scope.
+            _faultScope = _faultGroup is null ? new AlertFaultScope(false, "The action scope can't be confirmed because the group is no longer open.") : AlertFaultScope.For(rule, _faultGroup.FaultCount);
+        }
+        ShowPermissions();
         _rule = rule;
         _ruleLog = log;
         _logRead = logTask.Result is not null;
@@ -316,6 +344,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        if (item.Alert.Source == AlertSource.Fault)
+        {
+            await ChangeFaultAsync(acknowledge: true, single: false);
+            return;
+        }
+
         var note = await _dialogs.PromptAsync(
             "Acknowledge alert",
             $"{item.Rule} on {item.Device}. Add a note (optional):",
@@ -345,6 +379,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        if (item.Alert.Source == AlertSource.Fault)
+        {
+            await ChangeFaultAsync(acknowledge: false, single: false);
+            return;
+        }
+
         // One alert, and acknowledging puts it back: no need to ask (#146).
         if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
         {
@@ -353,6 +393,40 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             await RefreshAsync();
         }
 
+        ShowPermissions();
+    }
+
+    [RelayCommand]
+    private Task AcknowledgeFaultAsync() => CanAcknowledgeFault ? ChangeFaultAsync(true, true) : Task.CompletedTask;
+
+    [RelayCommand]
+    private Task UnacknowledgeFaultAsync() => CanUnacknowledgeFault ? ChangeFaultAsync(false, true) : Task.CompletedTask;
+
+    private async Task ChangeFaultAsync(bool acknowledge, bool single)
+    {
+        if (Alert is not { } item || (single ? !MayAcknowledgeSelected : !MayAcknowledge)) return;
+        var scope = single ? "fault" : "group";
+        string? note = null;
+        if (acknowledge)
+        {
+            note = await _dialogs.PromptAsync($"Acknowledge {scope}", single ? "Only this fault. Add a note (optional):" : $"Every open fault for {item.Rule} on {item.Device}. Add a note (optional):", $"Acknowledge {scope}", "Note");
+            if (note is null) return;
+        }
+        else if (!await _dialogs.ConfirmAsync($"Unacknowledge {scope}", single ? "Return only this fault to active?" : $"Return every acknowledged fault for {item.Rule} on {item.Device} to active?", $"Unacknowledge {scope}", "Cancel")) return;
+
+        var key = new AlertGroupKey(item.Alert.DeviceId, item.Alert.RuleId);
+        var completed = await RunAsync(async () =>
+        {
+            var actions = new AlertActions(_client.Alerts, _client.Rules);
+            var result = single
+                ? acknowledge ? await actions.AcknowledgeFaultAsync(item.Alert, note?.Trim()) : await actions.UnacknowledgeFaultAsync(item.Alert, null)
+                : acknowledge ? await actions.AcknowledgeGroupAsync(key, note?.Trim()) : await actions.UnacknowledgeGroupAsync(key, null);
+            foreach (var changed in result.Changed)
+                _selfActions.Record(changed.Id, acknowledge ? AlertChangeKind.Acknowledged : AlertChangeKind.Unacknowledged);
+            ActionResult = result.Summary;
+            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, acknowledge, note?.Trim()) { Group = key });
+        });
+        if (completed) await RefreshAsync();
         ShowPermissions();
     }
 
@@ -575,4 +649,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
 /// <summary>An alert acknowledged or unacknowledged on its own page - see <see cref="AlertDetailViewModel.AlertChanged"/>.</summary>
 /// <param name="Note">The acknowledgement's note, if one was given.</param>
-public sealed record AlertStateChange(int AlertId, bool Acknowledged, string? Note);
+public sealed record AlertStateChange(int AlertId, bool Acknowledged, string? Note)
+{
+    public AlertGroupKey? Group { get; init; }
+}

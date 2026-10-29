@@ -63,7 +63,12 @@ rather than rewritten.
   Open alerts are most severe first, with desktop's Critical /
   Warning / OK / Acknowledged filter chips (with counts) and search across device,
   rule, note and alert id. Filters are remembered between launches. Swipe to
-  acknowledge (with an optional note) or unacknowledge. **Export** shares the
+  acknowledge (with an optional note) or unacknowledge. On 26.10 these actions
+  explicitly apply to the device/rule group. Core reads the group back after a
+  write; the result reports verified changes, partial failures and missing faults.
+  Detail offers a single-fault action only when the current rule and open count
+  confirm per-entity scope, and Core checks that scope again before writing.
+  A refusal on one resource leaves other groups available. **Export** shares the
   filtered list as CSV, in desktop's columns.
 - **Logs** (More, or Alerts → Logs): LibreNMS's event log and alert log for the whole
   network, newest first, with each entry's device and a tap through to it.
