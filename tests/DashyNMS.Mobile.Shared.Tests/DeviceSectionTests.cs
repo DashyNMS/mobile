@@ -175,6 +175,81 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal(3, row.LinkDeviceId);
     }
 
+    private static LibreNmsApiException NoPortsFound() =>
+        new("No ports found", System.Net.HttpStatusCode.NotFound, "No ports found");
+
+    [Fact]
+    public async Task A_ping_only_device_lists_the_switch_that_sees_it_by_name()
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 5, LocalDeviceId = 3, LocalPortId = 48, RemoteDeviceId = DeviceId, RemotePort = "eth0", Protocol = "lldp", Active = true }]);
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw NoPortsFound());
+        _client.Devices.GetAsync("3", Arg.Any<CancellationToken>()).Returns(Fakes.Device(3, "access-sw"));
+
+        var groups = await Load(DeviceSection.Neighbours);
+
+        var row = Assert.Single(Assert.Single(groups));
+        Assert.Equal("access-sw", row.Title);
+        Assert.Equal("eth0 → Unknown port", row.Subtitle);
+        Assert.Equal(3, row.LinkDeviceId);
+
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Neighbours));
+        card.Show(groups);
+        Assert.Equal("1 neighbour · 1 in LibreNMS", card.SummaryText);
+    }
+
+    [Fact]
+    public async Task A_failed_ports_lookup_falls_back_to_the_links_own_port_text()
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 1, LocalDeviceId = DeviceId, LocalPortId = 1, RemoteHostname = "core-sw", RemoteDeviceId = 3, RemotePort = "Gi1/0/48", Protocol = "lldp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Port>>(_ => throw new LibreNmsApiException("Server error", System.Net.HttpStatusCode.InternalServerError));
+
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+
+        Assert.Equal("core-sw", row.Title);
+        Assert.Equal("Unknown port → Gi1/0/48", row.Subtitle);
+    }
+
+    [Fact]
+    public async Task A_neighbour_LibreNMS_doesnt_monitor_says_so_and_opens_nothing()
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 1, LocalDeviceId = DeviceId, LocalPortId = 1, RemoteHostname = "phone-42", RemotePort = "Port 1", RemotePlatform = "IP Phone", Protocol = "cdp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "Gi0/1")]);
+
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+
+        Assert.Equal("phone-42", row.Title);
+        Assert.Equal("IP Phone · Not monitored in LibreNMS", row.Detail);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.False(row.IsLink);
+    }
+
+    [Theory]
+    [InlineData(DeviceSection.Ports)]
+    [InlineData(DeviceSection.Vlans)]
+    [InlineData(DeviceSection.Fdb)]
+    [InlineData(DeviceSection.Arp)]
+    [InlineData(DeviceSection.Wireless)]
+    public async Task A_device_with_no_ports_shows_the_empty_state_not_an_error(DeviceSection section)
+    {
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw NoPortsFound());
+        _client.Devices.GetWirelessSensorsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<WirelessSensor>>(_ => throw NoPortsFound());
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Vlan>());
+
+        Assert.Empty(await Load(section));
+
+        // As Core answers it: an empty list (DashyNMS/desktop#309).
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<Port>());
+        _client.Devices.GetWirelessSensorsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<WirelessSensor>());
+        Assert.Empty(await Load(section));
+    }
+
     [Fact]
     public async Task Vlans_count_the_ports_carrying_each()
     {

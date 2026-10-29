@@ -299,30 +299,92 @@ public sealed class DeviceSectionLoader
     {
         var ownTask = _client.Links.ListForDeviceAsync(deviceId, ct);
         var fleetTask = _client.Links.ListAllAsync(ct);
-        var portsTask = _client.Ports.ListForDeviceAsync(deviceId, ct);
+        var portsTask = PortNamesAsync(deviceId, ct);
         await Task.WhenAll(ownTask, fleetTask, portsTask);
 
-        var portNames = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);
         var neighbours = DeviceNeighbours.Build(
             deviceId,
             ownTask.Result,
             fleetTask.Result,
-            portNames,
+            portsTask.Result,
             new Dictionary<int, (int, NeighbourMatchKind)>());
+        var names = await SeenByNamesAsync(neighbours, ct);
 
         var rows = neighbours
-            .OrderBy(n => n.LocalPortName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(n => n.RemoteName, StringComparer.OrdinalIgnoreCase)
-            .Select(n => new SectionRow(n.RemoteName)
-            {
-                Subtitle = $"{n.LocalPortName ?? "?"} → {n.RemotePortName ?? "?"}",
-                Value = string.Join("/", n.Protocols.Select(p => p.ToUpperInvariant())),
-                Detail = n.Platform,
-                Status = n.Active ? RowStatus.None : RowStatus.Inactive,
-                LinkDeviceId = n.RemoteDeviceId,
-            });
+            .Select(n => (Neighbour: n, Name: n.RemoteDeviceId is { } id && names.TryGetValue(id, out var name) ? name : n.RemoteName))
+            .OrderBy(x => x.Neighbour.LocalPortName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(x => NeighbourRow(x.Neighbour, x.Name));
 
         return Groups(("Neighbours", rows));
+    }
+
+    /// <summary>
+    /// Readable whether or not LibreNMS monitors it (DashyNMS/desktop#448, #471):
+    /// one it doesn't says so, and has nothing to open.
+    /// </summary>
+    internal static SectionRow NeighbourRow(DeviceNeighbour neighbour, string name)
+    {
+        var known = neighbour.RemoteDeviceId is > 0;
+        return new SectionRow(name)
+        {
+            Subtitle = $"{neighbour.LocalPortName ?? "Unknown port"} → {neighbour.RemotePortName ?? "Unknown port"}",
+            Value = string.Join("/", neighbour.Protocols.Select(p => p.ToUpperInvariant())),
+            Detail = known ? neighbour.Platform : string.Join(" · ", new[] { neighbour.Platform, NotMonitored }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            Status = neighbour.Active ? RowStatus.None : RowStatus.Inactive,
+            LinkDeviceId = known ? neighbour.RemoteDeviceId : null,
+        };
+    }
+
+    internal const string NotMonitored = "Not monitored in LibreNMS";
+
+    /// <summary>
+    /// This device's port names, for its end of each link. Optional: a device
+    /// with no ports (every ping-only device) still has the neighbours that
+    /// see it (DashyNMS/desktop#309), so a failed lookup falls back to the
+    /// port text on the links themselves rather than failing the section.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, string>> PortNamesAsync(int deviceId, CancellationToken ct)
+    {
+        try
+        {
+            return (await _client.Ports.ListForDeviceAsync(deviceId, ct)).ToDictionary(p => p.PortId, p => p.DisplayName);
+        }
+        catch (LibreNmsApiException ex) when (!ex.IsAuthenticationFailure)
+        {
+            return new Dictionary<int, string>();
+        }
+    }
+
+    /// <summary>
+    /// Names for the devices that see this one but that it doesn't report
+    /// itself - Core knows them only as "Device 12". Usually one or two (an
+    /// access point's switch), so each is looked up on its own; one that
+    /// can't be found keeps Core's placeholder.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, string>> SeenByNamesAsync(IReadOnlyList<DeviceNeighbour> neighbours, CancellationToken ct)
+    {
+        var style = _settings.Current.DeviceNameStyle;
+        var lookups = neighbours
+            .Where(n => n.Source == NeighbourSource.Neighbour && n.RemoteDeviceId is > 0)
+            .Select(n => n.RemoteDeviceId!.Value)
+            .Distinct()
+            .Select(async id =>
+            {
+                try
+                {
+                    var device = await _client.Devices.GetAsync(id.ToString(CultureInfo.InvariantCulture), ct);
+                    return (Id: id, Name: device is null ? null : style.Resolve(device, device.Hostname));
+                }
+                catch (LibreNmsApiException)
+                {
+                    return (Id: id, Name: (string?)null);
+                }
+            });
+
+        return (await Task.WhenAll(lookups))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Name))
+            .ToDictionary(x => x.Id, x => x.Name!);
     }
 
     // ------------------------------------------------------------ vlans, fdb, arp

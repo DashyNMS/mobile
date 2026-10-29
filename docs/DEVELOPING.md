@@ -53,7 +53,8 @@ rather than rewritten.
   availability and outages, sensors (coloured against desktop's thresholds or
   the sensor's own limits), graphs, CPU/memory/storage, ports (tap one for
   its traffic, packet and error graphs), neighbours
-  (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
+  (tap through to the neighbour; a device with no ports, such as an access
+  point, still lists the devices that see it), VLANs, FDB, ARP, routing (BGP, OSPF,
   VRFs), wireless, inventory and the event log.
 - **Alerts**: on LibreNMS 26.10, faults appear in expandable groups by device
   and rule, with fault totals, worst severity, first and last seen times, and
