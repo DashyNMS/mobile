@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 
@@ -59,6 +60,17 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
 
     [ObservableProperty]
     private string _acknowledgementText = string.Empty;
+
+    [ObservableProperty]
+    private string _perEntityText = string.Empty;
+
+    [ObservableProperty]
+    private string _maxEntitiesText = string.Empty;
+
+    [ObservableProperty]
+    private string? _compatibilityWarning;
+
+    public bool HasCompatibilityWarning => CompatibilityWarning is not null;
 
     [ObservableProperty]
     private string? _notes;
@@ -220,6 +232,14 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         // LibreNMS treats a rule without these flags as having them on.
         RecoveryText = rule.Extra?.Recovery != false ? "On" : "Off";
         AcknowledgementText = rule.Extra?.Acknowledgement != false ? "On" : "Off";
+        PerEntityText = rule.NotifyPerEntity switch { true => "On", false => "Off", null => "Not reported by this server" };
+        MaxEntitiesText = rule.MaxEntities?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "Inherited (server default)";
+        // Warn about 26.10 compatibility even before an upgrade, so a read-only
+        // account can ask its administrator to repair the rule in time.
+        CompatibilityWarning = string.Join("\n", AlertRuleCompatibility.FindRemovedColumns(rule)
+            .Concat(AlertRuleCompatibility.FindRemovedColumns(null, rule.Rule))
+            .DistinctBy(field => field.Field).Select(field => field.Advice)) is { Length: > 0 } warning ? warning : null;
+        OnPropertyChanged(nameof(HasCompatibilityWarning));
         Notes = rule.Notes?.Trim();
         Procedure = rule.Procedure?.Trim();
         TemplateName = "…";
