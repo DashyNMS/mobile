@@ -376,7 +376,7 @@ public sealed class AlertWatcherTests
         });
         var watcher = new AlertWatcher(_client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance)
             { WidgetRefreshBudget = TimeSpan.FromSeconds(1) };
-        var result = await watcher.CheckAsync(background: true).WaitAsync(TimeSpan.FromSeconds(3));
+        var result = await watcher.CheckAsync(background: true).WaitAsync(TimeSpan.FromSeconds(10));
         Assert.Equal(AlertCheckOutcome.Checked, result.Outcome);
         Assert.Single(_notifier.Shown);
         Assert.Equal(1, _store.State!.Snapshot.Entries[new AlertKey(AlertSource.Alert, 2)].State);

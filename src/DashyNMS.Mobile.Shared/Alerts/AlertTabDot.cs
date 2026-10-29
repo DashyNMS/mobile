@@ -1,4 +1,5 @@
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.Alerts;
@@ -45,8 +46,9 @@ public sealed class AlertTabDot(AlertCountThreshold? threshold = null)
         // Only what the app icon counts, its severity threshold (#96) included.
         var counted = AlertBadge.Counted(alerts, settings, threshold?.Minimum ?? AlertSeverity.Ok).ToList();
 
-        var critical = counted.Count(a => a.Severity == AlertSeverity.Critical);
-        var warning = counted.Count(a => a.Severity == AlertSeverity.Warning);
+        var groups = AlertCounting.CountGroups(counted, AlertSeverity.Ok, includeAcknowledged: true);
+        var critical = groups.Critical;
+        var warning = groups.Warning;
         var severity = critical > 0 ? AlertTabSeverity.Critical
             : warning > 0 ? AlertTabSeverity.Warning
             : AlertTabSeverity.None;

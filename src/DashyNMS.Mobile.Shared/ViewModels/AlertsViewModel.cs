@@ -40,6 +40,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     private int? _selectedId;
     private bool _loading;
+    private readonly HashSet<AlertGroupKey> _expandedGroups = [];
 
     /// <summary>
     /// Showing one of the dashboard's shortcuts (<see cref="ShowOnly"/>), not
@@ -118,25 +119,32 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     public BulkObservableCollection<AlertItem> Alerts { get; } = new();
 
+    /// <summary>Group headers and only the expanded children, keeping large lists virtualised.</summary>
+    public BulkObservableCollection<AlertItem> DisplayRows { get; } = new();
+
     public bool IsEmpty => Alerts.Count == 0 && !IsBusy;
 
     /// <summary>What the empty list says: nothing open at all, or nothing matching.</summary>
     public string EmptyText => _all.Count == 0 ? "No open alerts." : "No alerts match these filters.";
 
     /// <summary>Unacknowledged critical alerts, for the Critical chip - whatever the filters.</summary>
-    public int CriticalCount => _all.Count(a => a.Severity == AlertSeverity.Critical && !a.IsAcknowledged);
+    private IReadOnlyList<AlertGroup> AllGroups => AlertGrouping.ByDeviceAndRule(_all.Where(a => a.State != AlertState.Recovered).Select(a => a.Alert));
+    public int CriticalCount => AllGroups.Count(g => g.Severity == AlertSeverity.Critical && g.State != AlertState.Acknowledged);
+    public int WarningCount => AllGroups.Count(g => g.Severity == AlertSeverity.Warning && g.State != AlertState.Acknowledged);
+    public int OkCount => AllGroups.Count(g => g.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning) && g.State != AlertState.Acknowledged);
+    public int AcknowledgedCount => AllGroups.Count(g => g.State == AlertState.Acknowledged);
 
-    public int WarningCount => _all.Count(a => a.Severity == AlertSeverity.Warning && !a.IsAcknowledged);
-
-    /// <summary>Unacknowledged alerts that are neither critical nor warning - LibreNMS's ok severity.</summary>
-    public int OkCount => _all.Count(a => a.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning) && !a.IsAcknowledged);
-
-    public int AcknowledgedCount => _all.Count(a => a.IsAcknowledged);
-
-    /// <summary>"12 alerts", or "3 of 12 alerts" when filtered.</summary>
-    public string CountText => Alerts.Count == _all.Count
-        ? $"{_all.Count} {Plural(_all.Count)}"
-        : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
+    public string CountText
+    {
+        get
+        {
+            if (!_all.Any(a => a.Alert.Source == AlertSource.Fault))
+                return Alerts.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
+            var groups = VisibleGroups();
+            var faults = groups.Sum(g => g.FaultCount);
+            return $"{groups.Count} alert {(groups.Count == 1 ? "group" : "groups")} · {faults} {(faults == 1 ? "fault" : "faults")}";
+        }
+    }
 
     /// <summary>True when anything narrows the list - shows the Clear button.</summary>
     public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
@@ -292,7 +300,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private async Task AcknowledgeAsync(AlertItem? item)
     {
-        if (item is null || item.IsAcknowledged)
+        if (item is null || item.Alert.Source == AlertSource.Fault || item.IsAcknowledged)
         {
             return;
         }
@@ -320,7 +328,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private async Task UnacknowledgeAsync(AlertItem? item)
     {
-        if (item is null || !item.IsAcknowledged)
+        if (item is null || item.Alert.Source == AlertSource.Fault || !item.IsAcknowledged)
         {
             return;
         }
@@ -343,6 +351,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         _selectedId = alertId;
         MarkSelected(_all);
+        MarkSelected(DisplayRows);
     }
 
     private void MarkSelected(IEnumerable<AlertItem> items)
@@ -350,9 +359,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         var canChange = CanAcknowledge;
         foreach (var item in items)
         {
-            item.IsSelected = item.Id == _selectedId;
+            item.IsSelected = item.Group is { } group ? group.Faults.Any(f => f.Id == _selectedId) : item.Id == _selectedId;
             item.IsTicked = Selection.Contains(item.Id);
-            item.CanChange = canChange;
+            item.CanChange = canChange && item.Alert.Source == AlertSource.Alert;
         }
     }
 
@@ -426,6 +435,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             }
         }
 
+        RebuildDisplayRows();
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(CountText));
@@ -451,6 +461,13 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             return Task.CompletedTask;
         }
 
+        if (item.Group is { } group)
+        {
+            if (!_expandedGroups.Add(group.Key)) _expandedGroups.Remove(group.Key);
+            RebuildDisplayRows();
+            return Task.CompletedTask;
+        }
+
         // Selecting: a tap ticks rather than opens.
         if (Selection.IsSelecting)
         {
@@ -465,7 +482,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void Hold(AlertItem? item)
     {
-        if (item is not null)
+        if (item is not null && item.Alert.Source == AlertSource.Alert)
         {
             Selection.Hold(item.Id);
         }
@@ -547,7 +564,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     }
 
     /// <summary>The ticked alerts still listed, in the list's order.</summary>
-    private List<AlertItem> Ticked() => _all.Where(a => Selection.Contains(a.Id)).ToList();
+    private List<AlertItem> Ticked() => _all.Where(a => a.Alert.Source == AlertSource.Alert && Selection.Contains(a.Id)).ToList();
 
     private List<int> ShownIds() => Alerts.Select(a => a.Id).ToList();
 
@@ -607,6 +624,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         Alerts.ReplaceAll(_all.Where(Allows));
         OnPropertyChanged(nameof(SelectAllText));
 
+        RebuildDisplayRows();
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(CountText));
@@ -615,6 +633,35 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));
         OnPropertyChanged(nameof(AcknowledgedCount));
+    }
+
+    private IReadOnlyList<AlertGroup> VisibleGroups()
+    {
+        var qualifying = _all.Where(Allows).Select(item => item.Alert.Identity).ToHashSet();
+        return AllGroups.Where(group => group.Faults.Any(fault => qualifying.Contains(fault.Identity))).ToList();
+    }
+
+    private void RebuildDisplayRows()
+    {
+        var items = _all.ToDictionary(item => item.Alert.Identity);
+        var rows = new List<AlertItem>();
+        foreach (var group in VisibleGroups())
+        {
+            if (group.Primary.Source == AlertSource.Alert)
+            {
+                rows.AddRange(group.Faults.Select(f => items[f.Identity]).Where(Allows));
+                continue;
+            }
+            var expanded = _expandedGroups.Contains(group.Key);
+            var primary = items[group.Primary.Identity];
+            rows.Add(new AlertItem(group.Primary, _settings.Current.ServerTimestampsAreUtc, primary.Device)
+                { Group = group, IsExpanded = expanded, CanChange = false });
+            if (expanded)
+                rows.AddRange(group.Faults.Select(fault => new AlertItem(fault, _settings.Current.ServerTimestampsAreUtc, items[fault.Identity].Device)
+                    { IsFaultChild = true, CanChange = false }));
+        }
+        MarkSelected(rows);
+        DisplayRows.ReplaceAll(rows);
     }
 
     private void SaveFilter()
