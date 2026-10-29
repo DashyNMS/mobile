@@ -31,6 +31,76 @@ public sealed class HealthViewModelTests
         return vm;
     }
 
+    private CorePolling Polling()
+    {
+        var session = Substitute.For<DesktopNMS.Services.ISessionService>();
+        session.IsConnected.Returns(true);
+        return new CorePolling(_client, session, Fakes.Settings());
+    }
+
+    private static Sensor Inlet(double current) =>
+        new() { SensorId = 1, DeviceId = 2, SensorClass = "temperature", Description = "Inlet", Current = current, LimitHigh = 70 };
+
+    [Fact]
+    public async Task A_slow_sensor_list_keeps_the_earlier_readings_on_screen_until_the_new_ones_arrive()
+    {
+        using var polling = Polling();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns([Inlet(30)]);
+        await polling.SensorsAsync();
+        var slow = new TaskCompletionSource<IReadOnlyList<Sensor>>();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(slow.Task);
+        var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation, polling: polling);
+        vm.SelectCategoryCommand.Execute(vm.Categories.Single(c => c.SensorClass == "temperature"));
+
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal("30 °C", Assert.Single(vm.Sensors).Value);
+        Assert.Equal("Updating…", vm.CountText);
+        Assert.False(vm.IsLoadingFirstTime);
+
+        slow.SetResult([Inlet(31)]);
+        await refresh;
+
+        Assert.Equal("31 °C", Assert.Single(vm.Sensors).Value);
+        Assert.Equal("1 temperature sensor", vm.CountText);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task A_sensor_list_timeout_shows_the_kept_readings_and_their_time()
+    {
+        using var polling = Polling();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns([Inlet(30)]);
+        var good = await polling.SensorsAsync();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Sensor>>(_ => throw new LibreNmsApiException("Timed out") { IsTimeout = true });
+        var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation, polling: polling);
+        vm.SelectCategoryCommand.Execute(vm.Categories.Single(c => c.SensorClass == "temperature"));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsBusy);
+        Assert.Equal("30 °C", Assert.Single(vm.Sensors).Value);
+        Assert.Equal(
+            $"LibreNMS took too long to send the sensor list - showing readings from {good.ObservedAt!.Value.LocalDateTime:HH:mm}.",
+            vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task A_sensor_list_timeout_with_nothing_kept_says_to_try_again()
+    {
+        using var polling = Polling();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Sensor>>(_ => throw new LibreNmsApiException("Timed out") { IsTimeout = true });
+        var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation, polling: polling);
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.False(vm.IsBusy);
+        Assert.Empty(vm.Sensors);
+        Assert.Equal("LibreNMS took too long to send the sensor list. Try refreshing again.", vm.ErrorMessage);
+    }
+
     [Fact]
     public async Task Unavailable_readings_are_not_counted_as_healthy()
     {

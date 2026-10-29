@@ -1,4 +1,5 @@
 using System.Globalization;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -21,12 +22,20 @@ public sealed class DeviceSectionLoader
 
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
+    private readonly CorePolling? _polling;
 
-    public DeviceSectionLoader(ILibreNmsClient client, ISettingsStore settings)
+    public DeviceSectionLoader(ILibreNmsClient client, ISettingsStore settings, CorePolling? polling = null)
     {
         _client = client;
         _settings = settings;
+        _polling = polling;
     }
+
+    /// <summary>
+    /// How old the sensor readings shown are, when the last fleet sensor list
+    /// failed and Core kept the ones before it (DashyNMS/desktop#373).
+    /// </summary>
+    public string? SensorStatus => _polling?.LastSensors is { } last ? SensorRefreshStatus.Describe(last) : null;
 
     private bool ServerUtc => _settings.Current.ServerTimestampsAreUtc;
 
@@ -106,8 +115,9 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> SensorsAsync(int deviceId, CancellationToken ct)
     {
-        // No per-device endpoint: LibreNMS only lists every sensor at once.
-        var sensors = (await _client.Sensors.ListAsync(ct)).Where(s => s.DeviceId == deviceId);
+        // No per-device endpoint: LibreNMS only lists every sensor at once,
+        // so Device View shares the fleet list Health and the dashboard use.
+        var sensors = (await FleetSensorsAsync(ct)).Where(s => s.DeviceId == deviceId);
         var settings = _settings.Current;
 
         return sensors
@@ -119,6 +129,19 @@ public sealed class DeviceSectionLoader
                 .ThenBy(s => s.Description, StringComparer.OrdinalIgnoreCase)
                 .Select(s => SensorRow(s, settings))))
             .ToList();
+    }
+
+    private async Task<IReadOnlyList<Sensor>> FleetSensorsAsync(CancellationToken ct)
+    {
+        if (_polling is null)
+        {
+            return await _client.Sensors.ListAsync(ct);
+        }
+
+        var result = await _polling.SensorsAsync(ct);
+        return SensorRefreshStatus.HasNothingToShow(result)
+            ? throw new InvalidOperationException(SensorRefreshStatus.Describe(result))
+            : result.Sensors;
     }
 
     internal static SectionRow SensorRow(Sensor sensor, AppSettings settings)

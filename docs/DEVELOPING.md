@@ -236,6 +236,12 @@ still schedules background wakes and notifications and preserves mobile's
 server-specific notification baseline. Widgets use the same device cache
 and sensor monitor as the pages.
 
+Health, the dashboard's Sensors cards and Device View share one in-flight
+sensor list request, waited for outside the alert and device polls. A large
+LibreNMS can take most of a minute to send it, and Core allows two. Pages keep
+Core's last good readings on screen with "Updating…" while it loads. After a
+failure they say how old the readings are, in desktop's words.
+
 Sensor values use Core's formatting, including API units for unknown classes.
 Missing or non-finite readings show a dash with no severity or widget fill.
 Graphs retain LibreNMS's legend when API entries cannot be matched to drawn

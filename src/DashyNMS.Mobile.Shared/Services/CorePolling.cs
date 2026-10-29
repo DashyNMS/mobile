@@ -27,6 +27,17 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private volatile bool _reset;
     private long _generation;
     private SensorPollResult? _lastSensors;
+    private readonly object _sensorSync = new();
+    private Task<SensorPollResult>? _sensorsInFlight;
+
+    /// <summary>Most requests get this long before the page gives up on Core's answer.</summary>
+    private static readonly TimeSpan PollWait = TimeSpan.FromSeconds(90);
+
+    /// <summary>
+    /// Core allows the fleet sensor list at least two minutes (DashyNMS/desktop#373);
+    /// waiting a little longer lets Core's own timeout, with its kept readings, arrive first.
+    /// </summary>
+    private static readonly TimeSpan SensorWait = TimeSpan.FromSeconds(150);
 
     public CorePolling(ILibreNmsClient client, ISessionService session, ISettingsStore settings, ILoggerFactory? logs = null)
     {
@@ -43,6 +54,12 @@ public sealed class CorePolling : IDisposable, IAppActivity
     public IReadOnlyDictionary<int, Device> CachedDeviceNames => !_reset && _cache is { IsLoaded: true }
         ? _cache.All.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First())
         : new Dictionary<int, Device>();
+
+    /// <summary>
+    /// The latest sensor list for this server: Core's kept readings, and their
+    /// time, after a failed refresh. Pages show these while the next one loads.
+    /// </summary>
+    public SensorPollResult? LastSensors => _reset ? null : _lastSensors;
 
     public IAlertRuleCache Rules { get; }
     public IDashboardLayoutService Layout { get; }
@@ -98,18 +115,11 @@ public sealed class CorePolling : IDisposable, IAppActivity
             EnsureMonitors();
             var monitor = _alerts!;
             var result = await Next<AlertPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
-                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, token).ConfigureAwait(false);
+                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token).ConfigureAwait(false);
             if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
             return result.Alerts;
         }
         finally { _gate.Release(); }
-    }
-
-    public async Task<IReadOnlyList<Sensor>> SensorReadingsAsync(CancellationToken token = default)
-    {
-        var result = await SensorsAsync(token).ConfigureAwait(false);
-        if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
-        return result.Sensors;
     }
 
     public async Task<IReadOnlyList<Device>> DevicesAsync(CancellationToken token = default)
@@ -120,27 +130,53 @@ public sealed class CorePolling : IDisposable, IAppActivity
             EnsureMonitors();
             var monitor = _devices!;
             var result = await Next<DevicePollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
-                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, token).ConfigureAwait(false);
+                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token).ConfigureAwait(false);
             if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
             return result.Devices;
         }
         finally { _gate.Release(); }
     }
 
-    public async Task<SensorPollResult> SensorsAsync(CancellationToken token = default)
+    /// <summary>
+    /// The next sensor list. Health, the dashboard's Sensors cards and Device
+    /// View all ask for the same fleet list, which can take most of a minute
+    /// (DashyNMS/desktop#373): a request already on its way is shared rather
+    /// than followed by another, and a caller giving up doesn't cancel it for
+    /// the rest. A failure keeps Core's last good readings and their time.
+    /// </summary>
+    public Task<SensorPollResult> SensorsAsync(CancellationToken token = default)
     {
-        await _gate.WaitAsync(token).ConfigureAwait(false);
+        Task<SensorPollResult> shared;
+        lock (_sensorSync)
+        {
+            if (_sensorsInFlight is not { IsCompleted: false })
+            {
+                _sensorsInFlight = PollSensorsAsync();
+            }
+
+            shared = _sensorsInFlight;
+        }
+
+        return shared.WaitAsync(token);
+    }
+
+    // Waits outside the gate, so a slow sensor list never holds up the alert and device polls.
+    private async Task<SensorPollResult> PollSensorsAsync()
+    {
+        SensorMonitor monitor;
+        await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             EnsureMonitors();
-            var monitor = _sensors!;
-            return await Next<SensorPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
-                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, token).ConfigureAwait(false);
+            monitor = _sensors!;
         }
         finally { _gate.Release(); }
+
+        return await Next<SensorPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
+            () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, SensorWait, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private async Task<T> Next<T>(Action<EventHandler<T>> subscribe, Action<EventHandler<T>> unsubscribe, Action refresh, CancellationToken token)
+    private async Task<T> Next<T>(Action<EventHandler<T>> subscribe, Action<EventHandler<T>> unsubscribe, Action refresh, TimeSpan wait, CancellationToken token)
     {
         var generation = _generation;
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -151,7 +187,7 @@ public sealed class CorePolling : IDisposable, IAppActivity
         try
         {
             refresh();
-            var result = await completion.Task.WaitAsync(TimeSpan.FromSeconds(90), token).ConfigureAwait(false);
+            var result = await completion.Task.WaitAsync(wait, token).ConfigureAwait(false);
             if (generation != _generation) throw new OperationCanceledException("The session changed during the refresh");
             return result;
         }

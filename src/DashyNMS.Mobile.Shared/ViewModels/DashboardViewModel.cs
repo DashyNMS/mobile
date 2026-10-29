@@ -9,6 +9,7 @@ using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Devices;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
 
@@ -43,7 +44,17 @@ public sealed partial class DashboardCard : ObservableObject
     /// <summary>A Sensors card's sensors, coloured as on the Health tab.</summary>
     public BulkObservableCollection<SectionRow> Sensors { get; } = new();
 
-    public bool HasNoSensors => Sensors.Count == 0;
+    public bool HasNoSensors => Sensors.Count == 0 && SensorStatus is null;
+
+    /// <summary>
+    /// "Updating…" while a slow sensor list loads, or how old the readings
+    /// shown are after it failed (DashyNMS/desktop#373); null when current.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSensorStatus), nameof(HasNoSensors))]
+    private string? _sensorStatus;
+
+    public bool HasSensorStatus => SensorStatus is not null;
 
     /// <summary>A Graph card's page (see <see cref="GraphHtml"/>), or null until it has one.</summary>
     [ObservableProperty]
@@ -211,6 +222,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private const int MaxConcurrentWirelessRequests = 4;
 
     private readonly ILibreNmsClient _client;
+    private readonly CorePolling? _polling;
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly DeviceBookmarks _bookmarks;
@@ -283,9 +295,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         DashboardWelcome? welcome = null,
         IAppPreferences? preferences = null,
         IDialogService? dialogs = null,
-        BackupAddressStatus? backup = null)
+        BackupAddressStatus? backup = null,
+        CorePolling? polling = null)
     {
         _dialogs = dialogs;
+        _polling = polling;
         Backup = backup;
 
         // Back on the server address (#114): everything again from there.
@@ -386,6 +400,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
 
     /// <summary>Awaited by tests: the maintenance count, filled in after the rest of the dashboard.</summary>
     internal Task MaintenanceCounted { get; private set; } = Task.CompletedTask;
+
+    /// <summary>Awaited by tests: the Sensors cards, which can take most of a minute, so fill in after the rest.</summary>
+    internal Task SensorsLoaded { get; private set; } = Task.CompletedTask;
 
     /// <summary>
     /// A count's tap: the Alerts tab with only that kind showing (#32) -
@@ -501,9 +518,15 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             .Select(r => new RecentDeviceRow(r, byId.TryGetValue(r.DeviceId, out var device) ? new DeviceItem(device, style) : null, now))
             .ToList());
 
+        // A slow sensor list never holds up the rest, nor the Checked time
+        // (DashyNMS/desktop#364): its cards say "Updating…" until it arrives.
+        if (Shows(DashboardLayout.Sensors))
+        {
+            SensorsLoaded = LoadSensorsAsync(byId, style);
+        }
+
         // The extras, only for the cards that show them; one failing doesn't stop the rest.
         await Task.WhenAll(
-            Shows(DashboardLayout.Sensors) ? LoadSensorsAsync(byId, style) : Task.CompletedTask,
             Shows(DashboardLayout.Graph) ? LoadGraphsAsync(byId, style) : Task.CompletedTask,
             Shows(DashboardLayout.Wireless) ? LoadWirelessAsync(devices, style) : Task.CompletedTask,
             Cards.Any(c => TopCards.IsTop(c.Type)) ? LoadTopAsync(byId, style) : Task.CompletedTask);
@@ -651,9 +674,37 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        var picked = cards.Where(c => c.Widget.Sensors.Count > 0).ToList();
+        foreach (var card in picked)
+        {
+            card.SensorStatus = SensorRefreshStatus.Updating;
+        }
+
         try
         {
-            var all = (await _client.Sensors.ListAsync()).ToDictionary(s => s.SensorId);
+            SensorPollResult result;
+            if (_polling is null)
+            {
+                result = new SensorPollResult { Succeeded = true, Sensors = await _client.Sensors.ListAsync(), CompletedAt = DateTimeOffset.Now };
+            }
+            else
+            {
+                result = await _polling.SensorsAsync();
+            }
+
+            // Nothing kept to show: the cards keep what they had, saying why.
+            var problem = SensorRefreshStatus.Describe(result);
+            if (SensorRefreshStatus.HasNothingToShow(result))
+            {
+                foreach (var card in picked)
+                {
+                    card.SensorStatus = problem;
+                }
+
+                return;
+            }
+
+            var all = result.Sensors.ToDictionary(s => s.SensorId);
             var settings = _settings.Current;
 
             // In the order they were added; one LibreNMS has since dropped just doesn't show.
@@ -674,11 +725,24 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
                         };
                     })
                     .ToList());
+                card.SensorStatus = problem;
             }
         }
-        catch (LibreNmsApiException)
+        catch (OperationCanceledException)
         {
-            // Kept as they were; the rest of the dashboard still refreshes.
+            foreach (var card in picked)
+            {
+                card.SensorStatus = null;
+            }
+        }
+        catch (Exception ex)
+        {
+            // Nothing awaits this load, so every failure ends on the cards. Kept
+            // as they were; the rest of the dashboard has already refreshed.
+            foreach (var card in picked)
+            {
+                card.SensorStatus = Describe(ex);
+            }
         }
     }
 

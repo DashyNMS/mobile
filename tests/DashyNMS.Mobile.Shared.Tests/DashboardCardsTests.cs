@@ -524,6 +524,29 @@ public sealed class DashboardCardsTests
     }
 
     [Fact]
+    public async Task A_slow_sensor_list_doesnt_hold_up_the_rest_of_the_dashboard()
+    {
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        card.Sensors.Add(new PinnedSensor { SensorId = 10, DeviceId = 1 });
+        var slow = new TaskCompletionSource<IReadOnlyList<Sensor>>();
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(slow.Task);
+        var vm = NewViewModel();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.NotNull(vm.LastUpdated);
+        var shown = vm.Cards.Single(c => c.Type == DashboardLayout.Sensors);
+        Assert.Equal("Updating…", shown.SensorStatus);
+        Assert.False(shown.HasNoSensors);
+
+        slow.SetResult([new Sensor { SensorId = 10, DeviceId = 1, SensorClass = "temperature", Description = "Inlet", Current = 30 }]);
+        await vm.SensorsLoaded;
+
+        Assert.Null(shown.SensorStatus);
+        Assert.Equal(["Inlet"], shown.Sensors.Select(s => s.Title));
+    }
+
+    [Fact]
     public async Task Several_sensors_cards_each_show_their_own_from_one_request()
     {
         var temps = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);

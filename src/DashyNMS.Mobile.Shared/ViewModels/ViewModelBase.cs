@@ -16,7 +16,7 @@ public abstract partial class ViewModelBase : ObservableObject
     /// shows desktop-style "Loading…" rather than a blank page (issue #45).
     /// Later refreshes keep what's shown and use the pull-to-refresh spinner.
     /// </summary>
-    public bool IsLoadingFirstTime => IsBusy && !_hasLoaded;
+    public virtual bool IsLoadingFirstTime => IsBusy && !_hasLoaded;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
