@@ -196,7 +196,12 @@ work from this app.
 
 Mobile consumes the pinned `DashyNMS.Core` package from
 [DashyNMS/core](https://github.com/DashyNMS/core), targeting net10.0.
-Core's own repository runs its tests. Update the package version in
+Core's own repository runs its tests. The pinned 2.0.0-ci.45 package includes
+LibreNMS 26.10 fault identities, grouping, recovery state, scope-aware actions,
+fault history and per-resource permissions. It also corrects single-fault action
+results so untouched siblings do not appear as failures. Mobile's versioned
+notification baseline must accompany these APIs before a build ships.
+Update the package version in
 `src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj` to take a Core fix.
 Mobile's app version stays independent of Core and desktop; the next mobile
 release remains 2.0.0.
