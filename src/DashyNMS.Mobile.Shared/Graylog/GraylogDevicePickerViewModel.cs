@@ -6,6 +6,7 @@ using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Devices;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.Graylog;
@@ -132,7 +133,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         Add(groups, "Devices", matches.Take(MaxShown).Select(d => Choice(d)));
 
         // Syslog from something LibreNMS doesn't poll - search its address as typed.
-        if (_list?.SearchesAddresses == true && LooksLikeAddress(term) && !matches.Any(d => SameAddress(d.Device, term)))
+        if (_list?.SearchesAddresses == true && LooksLikeAddress(term) && DeviceAddresses.Find(_devices.Select(d => d.Device), term) is null)
         {
             Add(groups, "Not in LibreNMS", [new GraylogDeviceChoice(GraylogDeviceFilter.ForAddress(term), "Search Graylog for this address", RowStatus.Inactive)]);
         }
@@ -156,7 +157,4 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
     internal static bool LooksLikeAddress(string term) =>
         IPAddress.TryParse(term, out _)
         || (Uri.CheckHostName(term) == UriHostNameType.Dns && term.Contains('.', StringComparison.Ordinal));
-
-    private static bool SameAddress(Device device, string term) =>
-        new[] { device.Ip, device.Hostname, device.SysName }.Any(a => string.Equals(a?.Trim(), term, StringComparison.OrdinalIgnoreCase));
 }

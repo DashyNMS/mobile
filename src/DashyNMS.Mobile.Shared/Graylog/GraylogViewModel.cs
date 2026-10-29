@@ -7,6 +7,7 @@ using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Devices;
 using DesktopNMS.Core.Graylog;
 using DesktopNMS.Core.Models;
 
@@ -49,7 +50,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     private readonly List<GraylogMessageItem> _loaded = new();
     private IReadOnlyList<GraylogStream> _streams = [];
     private IReadOnlyList<Device>? _devices;
-    private Dictionary<string, (string Name, int? DeviceId)>? _byAddress;
+    /// <summary>Each message source's device, found once while the page is open.</summary>
+    private readonly Dictionary<string, (string Name, int? DeviceId)> _bySource = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<string>? _deviceAddresses;
     private CancellationTokenSource? _loadCts;
     private bool _hasLoaded;
@@ -381,7 +383,6 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             var token = cts.Token;
             var firstLoad = _devices is null;
             _devices ??= await _client.Devices.ListAsync(token);
-            _byAddress ??= AddressLookup(_devices, _settings.Current.DeviceNameStyle);
 
             if (firstLoad)
             {
@@ -543,26 +544,23 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             return (string.Empty, null);
         }
 
-        return _byAddress is not null && _byAddress.TryGetValue(address.Trim(), out var known) ? known : (address, null);
-    }
-
-    /// <summary>Each device by its IP, hostname and sysName - the addresses syslog senders usually use.</summary>
-    internal static Dictionary<string, (string Name, int? DeviceId)> AddressLookup(IEnumerable<Device> devices, DeviceNameStyle style)
-    {
-        var lookup = new Dictionary<string, (string Name, int? DeviceId)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var device in devices)
+        if (_devices is null)
         {
-            var entry = (new DeviceItem(device, style).Name, (int?)device.DeviceId);
-            foreach (var address in new[] { device.Ip, device.Hostname, device.SysName })
-            {
-                if (!string.IsNullOrWhiteSpace(address))
-                {
-                    lookup.TryAdd(address.Trim(), entry);
-                }
-            }
+            return (address, null);
         }
 
-        return lookup;
+        var source = address.Trim();
+        if (!_bySource.TryGetValue(source, out var known))
+        {
+            // Core's match, as desktop's (DashyNMS/desktop#304): IP, hostname or
+            // sysName, then a short name like "core-sw1" if only one device has it.
+            known = DeviceAddresses.Find(_devices, source) is { } device
+                ? (new DeviceItem(device, _settings.Current.DeviceNameStyle).Name, device.DeviceId)
+                : (address, null);
+            _bySource[source] = known;
+        }
+
+        return known;
     }
 
     /// <summary>LibreNMS's <c>gethostbyname($device->hostname)</c> - the first IPv4 address, or null if it doesn't resolve in time.</summary>
