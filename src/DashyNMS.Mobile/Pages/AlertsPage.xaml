@@ -116,26 +116,27 @@
                             <SwipeView Threshold="96">
                                 <!-- Swipe left to show Acknowledge (or Unacknowledge), then tap it: revealing rather
                                      than acting, so a stray sideways scroll can't acknowledge anything. -->
-                                <!-- Glyphs rather than words, which the revealed space cut off (#93):
-                                     a tick to acknowledge, an undo arrow to unacknowledge, named for VoiceOver. -->
+                                <!-- The labels name the action's scope beside the glyphs, also read by VoiceOver. -->
                                 <SwipeView.RightItems>
                                     <SwipeItems Mode="Reveal" SwipeBehaviorOnInvoked="Close">
                                         <SwipeItemView IsVisible="{Binding ShowAcknowledge}"
                                                        Command="{Binding AcknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
                                                        CommandParameter="{Binding .}"
-                                                       SemanticProperties.Description="Acknowledge">
-                                            <Grid WidthRequest="76" BackgroundColor="{StaticResource OkTextLight}">
+                                                       SemanticProperties.Description="{Binding AcknowledgeLabel}">
+                                            <Grid WidthRequest="112" BackgroundColor="{StaticResource OkTextLight}" RowDefinitions="Auto,Auto" RowSpacing="4" Padding="6,10">
                                                 <Image Source="icon_acknowledge.png" WidthRequest="26" HeightRequest="26"
                                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                                                <Label Grid.Row="1" Text="{Binding AcknowledgeLabel}" FontSize="12" TextColor="White" HorizontalTextAlignment="Center" />
                                             </Grid>
                                         </SwipeItemView>
                                         <SwipeItemView IsVisible="{Binding ShowUnacknowledge}"
                                                        Command="{Binding UnacknowledgeCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
                                                        CommandParameter="{Binding .}"
-                                                       SemanticProperties.Description="Unacknowledge">
-                                            <Grid WidthRequest="76" BackgroundColor="{StaticResource WarningTextLight}">
+                                                       SemanticProperties.Description="{Binding UnacknowledgeLabel}">
+                                            <Grid WidthRequest="112" BackgroundColor="{StaticResource WarningTextLight}" RowDefinitions="Auto,Auto" RowSpacing="4" Padding="6,10">
                                                 <Image Source="icon_unacknowledge.png" WidthRequest="26" HeightRequest="26"
                                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                                                <Label Grid.Row="1" Text="{Binding UnacknowledgeLabel}" FontSize="12" TextColor="White" HorizontalTextAlignment="Center" />
                                             </Grid>
                                         </SwipeItemView>
                                     </SwipeItems>
@@ -144,7 +145,7 @@
                                 <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
                                       controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:AlertsViewModel}}, x:DataType=vm:AlertsViewModel}"
                                       controls:LongPress.CommandParameter="{Binding .}"
-                                      SemanticProperties.Hint="Touch and hold to select several">
+                                      SemanticProperties.Hint="{Binding InteractionHint}">
                                     <!-- Press and hold starts selecting several, with this one ticked (#85). -->
                                     <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
                                     <Grid.Triggers>
@@ -174,6 +175,7 @@
                                         <Label Style="{StaticResource Faint}" Text="{Binding MetaText}" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding GroupTimesText}" IsVisible="{Binding IsGroupHeader}" />
                                         <Label Style="{StaticResource Caption}" Text="{Binding ExpansionText}" IsVisible="{Binding IsGroupHeader}" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding ActionRefusedText}" IsVisible="{Binding ActionRefusedText, Converter={StaticResource IsNotNull}}" />
                                         <Label Style="{StaticResource Caption}" Text="{Binding Note}" FontAttributes="Italic"
                                                LineBreakMode="TailTruncation" MaxLines="2"
                                                IsVisible="{Binding HasNote}" />

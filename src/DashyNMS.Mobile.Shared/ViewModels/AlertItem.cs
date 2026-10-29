@@ -59,6 +59,10 @@ public sealed partial class AlertItem : ObservableObject
     public bool IsFaultChild { get; init; }
     public bool IsExpanded { get; init; }
     public string RowRule => IsFaultChild ? AlertGrouping.EntityName(Alert) ?? "Device fault" : Rule;
+    public string AcknowledgeLabel => Alert.Source == AlertSource.Fault ? "Acknowledge group" : "Acknowledge";
+    public string UnacknowledgeLabel => Alert.Source == AlertSource.Fault ? "Unacknowledge group" : "Unacknowledge";
+    public string? ActionRefusedText { get; init; }
+    public string InteractionHint => IsGroupHeader ? "Tap to show or hide faults" : IsFaultChild ? "Tap to open this fault" : "Touch and hold to select several";
     public string ExpansionText => IsExpanded ? "Collapse faults" : "Show faults";
     public string GroupTimesText => Group is null ? string.Empty : $"First seen {TimeText(Group.FirstSeen)} · Last seen {TimeText(Group.LastChanged)}";
     private string TimeText(DateTime? time) => ServerTime.ToLocal(time, _serverTimestampsAreUtc)?.ToString("g", CultureInfo.CurrentCulture) ?? "unknown";
@@ -85,7 +89,7 @@ public sealed partial class AlertItem : ObservableObject
     public bool ShowAcknowledge => IsNotAcknowledged && CanChange;
 
     /// <summary>The swipe action to unacknowledge: acknowledged, and the token may.</summary>
-    public bool ShowUnacknowledge => IsAcknowledged && CanChange;
+    public bool ShowUnacknowledge => (IsAcknowledged || Group is { AcknowledgedCount: > 0 }) && CanChange;
 
     public string? Note => string.IsNullOrWhiteSpace(Alert.Note) ? null : Alert.Note;
 
