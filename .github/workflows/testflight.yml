@@ -146,6 +146,9 @@ jobs:
       # Android workload; publish still insists on -f as well. The display
       # version comes from Directory.Build.props.
       - name: Build IPA
+        env:
+          # NuGet needs credentials as well as the workflow's packages: read permission.
+          DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
           dotnet publish src/DashyNMS.Mobile
           -p:MobilePlatform=ios
