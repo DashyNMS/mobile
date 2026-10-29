@@ -76,9 +76,12 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly DashboardToast _toast;
 
-    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast)
+    private readonly DesktopNMS.Core.Services.IDashboardLayoutService _layout;
+
+    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast, DesktopNMS.Core.Services.IDashboardLayoutService? layout = null)
     {
         _settings = settings;
+        _layout = layout ?? new DesktopNMS.Core.Services.DashboardLayoutService(settings);
         _navigation = navigation;
         _toast = toast;
         Refresh();
@@ -162,7 +165,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     private void Save()
     {
         DashboardLayout.Save(_settings.Current, Cards.Select(c => c.Widget));
-        _settings.Save();
+        _layout.Restore(_settings.Current.DashboardWidgets.ToList());
     }
 
     private void OnLayoutRestored(object? sender, EventArgs e) => Refresh();

@@ -41,6 +41,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DesktopNMS.Core.SignIn.ICertificateProbe, DesktopNMS.Core.SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<CorePolling>();
+        services.AddSingleton<DesktopNMS.Core.Services.IAlertRuleCache>(sp => sp.GetRequiredService<CorePolling>().Rules);
+        services.AddSingleton<DesktopNMS.Core.Services.IDashboardLayoutService>(sp => sp.GetRequiredService<CorePolling>().Layout);
         services.AddSingleton<DeviceBookmarks>();
         services.AddSingleton<MaintenanceScan>();
 

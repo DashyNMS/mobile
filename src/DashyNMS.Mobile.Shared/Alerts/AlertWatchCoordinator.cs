@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Services;
@@ -15,6 +16,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     /// <summary>The fastest the in-app timer checks, whatever the poll interval says.</summary>
     public static readonly TimeSpan MinimumForegroundInterval = TimeSpan.FromSeconds(30);
 
+    private readonly CorePolling? _polling;
     private readonly ISessionService _session;
     private readonly ISettingsStore _settings;
     private readonly AlertWatcher _watcher;
@@ -41,8 +43,9 @@ public sealed class AlertWatchCoordinator : IDisposable
         IHomeWidgets widgets,
         TimeProvider time,
         ILogger<AlertWatchCoordinator> logger,
-        AlertTabDot? tabDot = null)
+        AlertTabDot? tabDot = null, CorePolling? polling = null)
     {
+        _polling = polling;
         _tabDot = tabDot;
         _session = session;
         _settings = settings;
@@ -97,6 +100,7 @@ public sealed class AlertWatchCoordinator : IDisposable
     /// <summary>The app came to the front (true) or went to the background (false).</summary>
     public void SetForeground(bool foreground)
     {
+        _polling?.SetForeground(foreground);
         _foreground = foreground;
         Apply();
     }

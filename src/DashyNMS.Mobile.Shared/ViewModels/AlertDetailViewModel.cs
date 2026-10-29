@@ -69,14 +69,17 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private bool _isGone;
 
+    private readonly CorePolling? _polling;
+
     public AlertDetailViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
         IDialogService dialogs,
         INavigationService navigation,
         ISelfActionTracker selfActions,
-        DashyNMS.Mobile.Alerts.NotifyRules? rules = null)
+        DashyNMS.Mobile.Alerts.NotifyRules? rules = null, CorePolling? polling = null)
     {
+        _polling = polling;
         _client = client;
         _settings = settings;
         _dialogs = dialogs;
@@ -166,7 +169,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(HasDevice));
         Title = alert.DisplayRuleName;
 
-        var ruleTask = BestEffort(() => _client.Rules.GetAsync(alert.RuleId));
+        var ruleTask = BestEffort(() => _polling?.Rules.GetRuleAsync(alert.RuleId) ?? _client.Rules.GetAsync(alert.RuleId));
         var logTask = BestEffort(() => _client.Logs.ListAlertLogAsync(alert.DeviceId, LogDepth));
         await Task.WhenAll(ruleTask, logTask);
 

@@ -29,9 +29,12 @@ public sealed partial class DashboardToast : ObservableObject
     [ObservableProperty]
     private string? _highlightId;
 
-    public DashboardToast(ISettingsStore settings)
+    private readonly DesktopNMS.Core.Services.IDashboardLayoutService _layout;
+
+    public DashboardToast(ISettingsStore settings, DesktopNMS.Core.Services.IDashboardLayoutService? layout = null)
     {
         _settings = settings;
+        _layout = layout ?? new DesktopNMS.Core.Services.DashboardLayoutService(settings);
     }
 
     /// <summary>How long a toast stays - long enough to reach Undo.</summary>
@@ -49,7 +52,7 @@ public sealed partial class DashboardToast : ObservableObject
     /// The list as it is, before a change - call, make the change, then
     /// <see cref="Show"/>.
     /// </summary>
-    public IReadOnlyList<DashboardWidget> Before() => DashboardLayout.Snapshot(_settings.Current);
+    public IReadOnlyList<DashboardWidget> Before() => _layout.Snapshot();
 
     /// <summary>Says what changed, with Undo back to <paramref name="before"/>.</summary>
     public void Show(string message, IReadOnlyList<DashboardWidget> before, string? highlightId = null)
@@ -74,7 +77,7 @@ public sealed partial class DashboardToast : ObservableObject
         }
 
         DashboardLayout.Restore(_settings.Current, before);
-        _settings.Save();
+        _layout.Restore(_settings.Current.DashboardWidgets.ToList());
         Dismiss();
         LayoutRestored?.Invoke(this, EventArgs.Empty);
     }

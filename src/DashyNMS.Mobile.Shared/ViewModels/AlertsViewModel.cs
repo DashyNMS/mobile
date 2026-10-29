@@ -69,6 +69,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _searchText;
 
+    private readonly CorePolling? _polling;
+
     public AlertsViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -79,8 +81,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         IAppBadge badge,
         TimeProvider time,
         AlertTabDot? tabDot = null,
-        AlertCountThreshold? countThreshold = null)
+        AlertCountThreshold? countThreshold = null, CorePolling? polling = null)
     {
+        _polling = polling;
         _countThreshold = countThreshold;
         _client = client;
         _settings = settings;
@@ -252,7 +255,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
+        var alertsTask = _polling?.AlertsAsync() ?? _client.Alerts.ListAsync(AlertQuery.Open);
         var devicesTask = DevicesByIdAsync();
         await Task.WhenAll(alertsTask, devicesTask);
 
@@ -591,7 +594,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         try
         {
-            return (await _client.Devices.ListAsync()).ToDictionary(d => d.DeviceId);
+            return (await (_polling?.DevicesAsync() ?? _client.Devices.ListAsync())).ToDictionary(d => d.DeviceId);
         }
         catch (LibreNmsApiException)
         {
