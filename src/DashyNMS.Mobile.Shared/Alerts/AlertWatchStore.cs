@@ -1,11 +1,14 @@
 using System.Text.Json;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Alerting;
+using CoreWatchState = DesktopNMS.Core.Alerting.AlertWatchState;
 using Microsoft.Extensions.Logging;
 
 namespace DashyNMS.Mobile.Alerts;
 
 /// <summary>The alert states seen at the last check, and which server they came from.</summary>
-public sealed record AlertWatchState(string Server, IReadOnlyDictionary<int, int> States);
+public sealed record AlertWatchState(string Server, CoreWatchState Snapshot);
 
 /// <summary>
 /// Remembers the last check between app launches - including background
@@ -59,21 +62,18 @@ public sealed class AlertWatchStore : IAlertWatchStore
                 }
 
                 var persisted = JsonSerializer.Deserialize<Persisted>(File.ReadAllText(_path), SerializerOptions);
-                if (persisted?.Server is null || persisted.Alerts is null)
-                {
-                    return null;
-                }
+                if (persisted?.Server is null) return null;
+                if (persisted.Version != CoreWatchState.CurrentVersion || persisted.Entries is null || persisted.Source is null || !Enum.IsDefined(persisted.Source.Value))
+                    return new AlertWatchState(persisted.Server, CoreWatchState.Outdated);
 
-                var states = new Dictionary<int, int>(persisted.Alerts.Count);
-                foreach (var pair in persisted.Alerts)
+                var entries = new Dictionary<AlertKey, AlertWatchEntry>();
+                foreach (var (text, entry) in persisted.Entries)
                 {
-                    if (int.TryParse(pair.Key, out var id))
-                    {
-                        states[id] = pair.Value;
-                    }
+                    if (entry is null || !text.Contains(':') || !AlertKey.TryParse(text, out var key) || key.Source != persisted.Source)
+                        return new AlertWatchState(persisted.Server, CoreWatchState.Outdated);
+                    entries[key] = entry;
                 }
-
-                return new AlertWatchState(persisted.Server, states);
+                return new AlertWatchState(persisted.Server, new CoreWatchState(persisted.Source, entries));
             }
             catch (Exception ex)
             {
@@ -94,9 +94,9 @@ public sealed class AlertWatchStore : IAlertWatchStore
                 {
                     Server = state.Server,
                     SavedAtUtc = DateTime.UtcNow,
-                    Alerts = state.States.ToDictionary(
-                        p => p.Key.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                        p => p.Value),
+                    Version = CoreWatchState.CurrentVersion,
+                    Source = state.Snapshot.Source,
+                    Entries = state.Snapshot.Entries.ToDictionary(p => p.Key.ToString(), p => p.Value),
                 };
 
                 var temp = _path + ".tmp";
@@ -131,7 +131,8 @@ public sealed class AlertWatchStore : IAlertWatchStore
 
         public DateTime SavedAtUtc { get; set; }
 
-        /// <summary>Alert id (a string, as JSON keys must be) to alerts.state.</summary>
-        public Dictionary<string, int>? Alerts { get; set; }
+        public int Version { get; set; }
+        public AlertSource? Source { get; set; }
+        public Dictionary<string, AlertWatchEntry>? Entries { get; set; }
     }
 }

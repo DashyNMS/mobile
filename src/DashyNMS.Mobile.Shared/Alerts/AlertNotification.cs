@@ -20,6 +20,8 @@ public sealed record AlertNotification(
     int? DeviceId,
     int? AlertId = null)
 {
+    public bool IsUpdate { get; init; }
+
     public const string SummaryTag = "summary";
 
     public static string TagFor(int alertId) => "alert-" + alertId.ToString(System.Globalization.CultureInfo.InvariantCulture);

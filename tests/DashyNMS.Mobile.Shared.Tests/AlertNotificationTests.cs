@@ -58,7 +58,100 @@ public sealed class AlertWatcherTests
         _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(alerts);
 
     private void BaselineOf(params Alert[] alerts) =>
-        _store.State = new AlertWatchState(Server, AlertChangeDetector.Snapshot(alerts));
+        _store.State = new AlertWatchState(Server, Fakes.Watch(alerts));
+
+    private static Alert Fault(int id, bool acknowledged = false, bool recovered = false)
+    {
+        var alert = Fakes.Alert(id, 7, "critical", acknowledged);
+        alert.Source = AlertSource.Fault;
+        alert.RuleId = 10;
+        alert.RuleName = "Processor load";
+        alert.EntityType = "processor";
+        alert.EntityId = id;
+        alert.EntityKey = $"processor:{id}";
+        if (recovered) alert.StateValue = 0;
+        return alert;
+    }
+
+    [Fact]
+    public async Task Eight_new_faults_notify_once_and_partial_recovery_updates_silently()
+    {
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
+        _store.State = new AlertWatchState(Server, new DesktopNMS.Core.Alerting.AlertWatchState(AlertSource.Fault, new Dictionary<AlertKey, AlertWatchEntry>()));
+        ServerReturns(Enumerable.Range(1, 8).Select(id => Fault(id)).ToArray());
+        await _watcher.CheckAsync();
+        Assert.Single(_notifier.Shown);
+        Assert.Equal("device:7/rule:10", _notifier.Shown[0].Tag);
+        Assert.Contains("more", _notifier.Shown[0].Detail);
+
+        ServerReturns(Enumerable.Range(2, 7).Select(id => Fault(id)).ToArray());
+        _client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(Fault(1, recovered: true));
+        await _watcher.CheckAsync();
+        Assert.Equal(2, _notifier.Shown.Count);
+        Assert.True(_notifier.Shown[1].IsUpdate);
+        Assert.Contains("7 open", _notifier.Shown[1].Detail);
+        Assert.Equal(_notifier.Shown[0].Tag, _notifier.Shown[1].Tag);
+    }
+
+    [Fact]
+    public async Task A_denied_missing_fault_prevents_false_group_recovery_then_recovery_fires_once()
+    {
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
+        BaselineOf(Fault(1), Fault(2));
+        ServerReturns(Fault(1, recovered: true));
+        _client.Alerts.GetAsync(2, Arg.Any<CancellationToken>()).Returns<Alert?>(_ => throw new LibreNmsApiException("Denied", System.Net.HttpStatusCode.Forbidden));
+        await _watcher.CheckAsync();
+        Assert.DoesNotContain(_notifier.Shown, n => n.Title.StartsWith("Recovered"));
+        Assert.True(_store.State!.Snapshot.Entries[new AlertKey(AlertSource.Fault, 2)].IsOutstanding);
+        _client.Alerts.GetAsync(2, Arg.Any<CancellationToken>()).Returns(Fault(2, recovered: true));
+        await _watcher.CheckAsync();
+        await _watcher.CheckAsync();
+        Assert.Single(_notifier.Shown, n => n.Title.StartsWith("Recovered"));
+    }
+
+    [Fact]
+    public async Task Recovery_lookups_run_even_when_display_and_recovery_notifications_exclude_recovered()
+    {
+        _settings.Notifications.NotifyOnRecovery = false;
+        _settings.IncludeRecoveredAlerts = false;
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
+        BaselineOf(Fault(1));
+        ServerReturns();
+        _client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(Fault(1, recovered: true));
+        await _watcher.CheckAsync();
+        await _client.Alerts.Received(1).GetAsync(1, Arg.Any<CancellationToken>());
+        Assert.False(_store.State!.Snapshot.Entries[new AlertKey(AlertSource.Fault, 1)].IsOutstanding);
+        Assert.Empty(_notifier.Shown);
+    }
+
+    [Fact]
+    public async Task New_fault_in_an_acknowledged_group_notifies()
+    {
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
+        BaselineOf(Fault(1, acknowledged: true));
+        ServerReturns(Fault(1, acknowledged: true), Fault(2));
+        await _watcher.CheckAsync();
+        Assert.Single(_notifier.Shown);
+        Assert.True(_notifier.Shown[0].IsProblem);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Old_state_or_changed_source_forces_a_quiet_baseline_even_with_suppression_off(bool outdated)
+    {
+        _settings.Notifications.SuppressOnFirstPoll = false;
+        _store.State = new AlertWatchState(Server, outdated ? DesktopNMS.Core.Alerting.AlertWatchState.Outdated : Fakes.Watch(Fakes.Alert(1, 99, "critical")));
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
+        ServerReturns(Fault(1));
+        var result = await _watcher.CheckAsync();
+        Assert.Equal(AlertCheckOutcome.Baseline, result.Outcome);
+        Assert.Empty(_notifier.Shown);
+        Assert.Equal(1, _notifier.RemoveAllCalls);
+        Assert.Equal(AlertSource.Fault, _store.State!.Snapshot.Source);
+        await _watcher.CheckAsync();
+        Assert.Empty(_notifier.Shown);
+    }
 
     [Fact]
     public async Task Every_check_updates_the_app_icons_count_even_the_first()
@@ -80,7 +173,7 @@ public sealed class AlertWatcherTests
 
         Assert.Equal(AlertCheckOutcome.Baseline, result.Outcome);
         Assert.Empty(_notifier.Shown);
-        Assert.Equal(1, _store.State!.States[1]);
+        Assert.Equal(1, _store.State!.Snapshot.Entries[new AlertKey(AlertSource.Alert, 1)].State);
     }
 
     [Fact]
@@ -105,7 +198,7 @@ public sealed class AlertWatcherTests
 
         Assert.Equal((AlertCheckOutcome.Checked, 1, 1), (result.Outcome, result.Changes, result.Notified));
         var shown = Assert.Single(_notifier.Shown);
-        Assert.Equal("alert-2", shown.Tag);
+        Assert.Equal("device:9/rule:20", shown.Tag);
         Assert.Equal("Critical: host9", shown.Title);
         Assert.Equal("Rule 2", shown.Body);
         Assert.Equal(9, shown.DeviceId);
@@ -135,7 +228,7 @@ public sealed class AlertWatcherTests
     [Fact]
     public async Task A_baseline_from_another_server_starts_again()
     {
-        _store.State = new AlertWatchState("https://other.example.com/", new Dictionary<int, int>());
+        _store.State = new AlertWatchState("https://other.example.com/", Fakes.Watch());
         ServerReturns(Fakes.Alert(1, 7, "critical"));
 
         var result = await _watcher.CheckAsync();
@@ -166,7 +259,7 @@ public sealed class AlertWatcherTests
 
         await _watcher.CheckAsync();
 
-        Assert.Equal(["alert-2"], _notifier.Shown.Select(n => n.Tag));
+        Assert.Equal(["device:7/rule:20"], _notifier.Shown.Select(n => n.Tag));
     }
 
     [Fact]
@@ -194,7 +287,7 @@ public sealed class AlertWatcherTests
 
         await _watcher.CheckAsync();
 
-        Assert.Equal(["alert-1"], _notifier.Removed);
+        Assert.Equal(["device:7/rule:10"], _notifier.Removed);
         Assert.Empty(_notifier.Shown); // "notify on acknowledge" is off by default
     }
 
@@ -278,7 +371,7 @@ public sealed class AlertWatcherTests
         _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(_ =>
         {
             Assert.Single(_notifier.Shown);
-            Assert.Equal(1, _store.State!.States[2]);
+            Assert.Equal(1, _store.State!.Snapshot.Entries[new AlertKey(AlertSource.Alert, 2)].State);
             return never.Task;
         });
         var watcher = new AlertWatcher(_client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance)
@@ -286,7 +379,7 @@ public sealed class AlertWatcherTests
         var result = await watcher.CheckAsync(background: true).WaitAsync(TimeSpan.FromSeconds(3));
         Assert.Equal(AlertCheckOutcome.Checked, result.Outcome);
         Assert.Single(_notifier.Shown);
-        Assert.Equal(1, _store.State!.States[2]);
+        Assert.Equal(1, _store.State!.Snapshot.Entries[new AlertKey(AlertSource.Alert, 2)].State);
         Assert.Single(_widgets.Updates);
         Assert.Equal(1, _widgets.Updates[0].Critical);
         _ = _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
@@ -466,7 +559,7 @@ public sealed class AlertWatchCoordinatorTests
     [Fact]
     public void Signing_out_cancels_and_forgets_the_baseline()
     {
-        _store.State = new AlertWatchState("https://nms.example.com/", new Dictionary<int, int>());
+        _store.State = new AlertWatchState("https://nms.example.com/", Fakes.Watch());
 
         SessionBecomes(connected: false);
 
@@ -564,14 +657,33 @@ public sealed class AlertWatchStoreTests : IDisposable
     {
         Assert.Null(_store.Load());
 
-        _store.Save(new AlertWatchState("https://nms.example.com/", new Dictionary<int, int> { [4] = 2 }));
+        _store.Save(new AlertWatchState("https://nms.example.com/", Fakes.Watch(Fakes.Alert(4, 1, "critical", acknowledged: true))));
         var loaded = _store.Load();
 
         Assert.Equal("https://nms.example.com/", loaded!.Server);
-        Assert.Equal(2, loaded.States[4]);
+        Assert.Equal(2, loaded.Snapshot.Entries[new AlertKey(AlertSource.Alert, 4)].State);
 
         _store.Clear();
         Assert.Null(_store.Load());
+    }
+
+    [Fact]
+    public void Old_numeric_state_is_read_as_needing_a_baseline()
+    {
+        File.WriteAllText(_path, """{"server":"https://nms.example.com/","alerts":{"12":1}}""");
+        Assert.True(_store.Load()!.Snapshot.NeedsBaseline);
+    }
+
+    [Fact]
+    public void Fault_keys_and_recovery_memory_round_trip()
+    {
+        var cleared = new DateTime(2026, 10, 29, 12, 0, 0, DateTimeKind.Utc);
+        _store.Save(new AlertWatchState("https://nms.example.com/", new DesktopNMS.Core.Alerting.AlertWatchState(AlertSource.Fault,
+            new Dictionary<AlertKey, AlertWatchEntry> { [new(AlertSource.Fault, 12)] = new(7, 10, 0, cleared) })));
+        var state = _store.Load()!.Snapshot;
+        Assert.Equal(AlertSource.Fault, state.Source);
+        Assert.Equal(cleared, state.Entries[new AlertKey(AlertSource.Fault, 12)].ClearedAtUtc);
+        Assert.False(state.NeedsBaseline);
     }
 
     [Fact]

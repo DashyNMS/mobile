@@ -30,8 +30,15 @@ public sealed class IosAlertNotifier : IAlertNotifier
             ThreadIdentifier = "alerts",
         };
 
+        // A partial recovery or additional fault updates the existing group
+        // in the notification list without interrupting the user again.
+        if (notification.IsUpdate)
+        {
+            content.InterruptionLevel = UNNotificationInterruptionLevel.Passive;
+        }
+
         // Recoveries and acknowledgements arrive silently, as on desktop.
-        if (notification.IsProblem)
+        if (notification.IsProblem && !notification.IsUpdate)
         {
             content.Sound = UNNotificationSound.Default;
         }
@@ -54,6 +61,12 @@ public sealed class IosAlertNotifier : IAlertNotifier
         await UNUserNotificationCenter.Current.AddNotificationRequestAsync(request);
     }
 
+    public void RemoveAll()
+    {
+        UNUserNotificationCenter.Current.RemoveAllDeliveredNotifications();
+        UNUserNotificationCenter.Current.RemoveAllPendingNotificationRequests();
+    }
+
     public void Remove(string tag)
     {
         UNUserNotificationCenter.Current.RemoveDeliveredNotifications([tag]);
@@ -71,7 +84,9 @@ internal sealed class NotificationCenterDelegate : UNUserNotificationCenterDeleg
     {
         // iOS hides notifications from the app in front unless asked; show them
         // like any other, since the in-app timer is what raises most of them.
-        completionHandler(UNNotificationPresentationOptions.Banner | UNNotificationPresentationOptions.List | UNNotificationPresentationOptions.Sound);
+        completionHandler(notification.Request.Content.InterruptionLevel == UNNotificationInterruptionLevel.Passive
+            ? UNNotificationPresentationOptions.List
+            : UNNotificationPresentationOptions.Banner | UNNotificationPresentationOptions.List | UNNotificationPresentationOptions.Sound);
     }
 
     public override void DidReceiveNotificationResponse(
