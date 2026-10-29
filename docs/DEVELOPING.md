@@ -171,50 +171,31 @@ work from this app.
 
 ## How the code is shared with desktop
 
-```
-external/desktop/                  git submodule: DashyNMS/desktop
-src/
-  DesktopNMS.Core.Portable/        desktop's Core, compiled for net10.0
-  DashyNMS.Mobile.Shared/          view models, session, secret storage (net10.0)
-  DashyNMS.Mobile/                 MAUI app head: pages + platform adapters
-tests/
-  DesktopNMS.Core.Tests/           desktop's own Core tests, run against the portable build
-  DashyNMS.Mobile.Shared.Tests/    tests for the shared mobile layer
-```
+Mobile consumes the pinned `DashyNMS.Core` package from
+[DashyNMS/core](https://github.com/DashyNMS/core), targeting net10.0.
+Core's own repository runs its tests. Update the package version in
+`src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj` to take a Core fix.
+Mobile's app version stays independent of Core and desktop; the next mobile
+release remains 2.0.0.
 
-- **No copied code.** `DesktopNMS.Core.Portable` compiles
-  `external/desktop/src/DesktopNMS.Core/**/*.cs` directly. Desktop's
-  `SessionService` depends only on Core, so it's linked in the same way.
-  To pick up desktop changes, bump the submodule:
-  `git submodule update --remote external/desktop`.
-- **What's different on mobile.** Core leaves secret storage to each app:
-  desktop uses Windows DPAPI. Mobile implements Core's `ITokenProtector` over MAUI `SecureStorage`
-  instead (`SecureTokenProtector` + `SecretCache`), and registers its own
-  services rather than calling `AddDesktopNmsCore()`.
-- **Portability check.** CI runs the desktop Core test suite on Linux against
-  the portable build, so anything upstream that only works on Windows shows
-  up here. The whole suite runs; nothing is filtered out.
-- **Keep the head thin.** Anything that isn't a page or a platform API belongs
-  in `DashyNMS.Mobile.Shared`, where it's plain .NET and unit tested. The
-  head only supplies adapters for navigation, dialogs, the browser, secure
-  storage, notifications and background scheduling.
+The shared mobile project owns session handling and CSV export (originally
+adapted from desktop), view models and services. The MAUI head supplies pages
+and platform adapters. Session and CSV source provenance is recorded in
+`src/DashyNMS.Mobile.Shared/Desktop/README.md`.
 
 ## Building
 
-You need the .NET 10.0.402 SDK or later (see `global.json`) and a clone that includes the
-submodule:
+Use the .NET SDK in `global.json`. No submodules are needed.
+GitHub Packages requires authentication even for public packages. Set
+`DASHYNMS_PACKAGES_TOKEN` to a token with `read:packages`; never commit it.
+The package source and mapping are in `nuget.config`. Actions uses its
+`GITHUB_TOKEN` with `packages: read`; the Core package must grant this
+repository Actions read access.
 
-```sh
-git clone --recurse-submodules https://github.com/DashyNMS/mobile
-# or, in an existing clone:
-git submodule update --init
-```
-
-Shared code and tests (any OS, no MAUI workloads needed):
+Shared code and tests (no MAUI workloads):
 
 ```sh
 dotnet test tests/DashyNMS.Mobile.Shared.Tests
-dotnet test tests/DesktopNMS.Core.Tests
 ```
 
 The app itself:
@@ -245,7 +226,7 @@ Confirm the same pinned tabs and devices remain selected after resizing.
 Also check a conventional iPhone and iPad. A successful simulator build
 alone does not verify these layouts.
 
-CI (`.github/workflows/ci.yml`) runs both test suites, builds an Android APK
+CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
 To ship an iOS build, see [Releasing](#releasing) below. The manually

@@ -309,8 +309,8 @@ public sealed record WidgetSnapshot
 
     /// <summary>Where the reading sits between the sensor's own low and high limits.</summary>
     internal static double? Position(Sensor sensor) =>
-        sensor is { LimitLow: { } low, LimitHigh: { } high } && high > low
-            ? Math.Round(Math.Clamp((sensor.Current - low) / (high - low), 0, 1), 3)
+        sensor is { Current: { } current, LimitLow: { } low, LimitHigh: { } high } && high > low
+            ? Math.Round(Math.Clamp((current - low) / (high - low), 0, 1), 3)
             : null;
 
     private static long UnixTime(DateTime? timestamp, bool serverTimestampsAreUtc) =>

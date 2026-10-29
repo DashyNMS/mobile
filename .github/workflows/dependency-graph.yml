@@ -12,6 +12,10 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   submit:
@@ -19,10 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # the dependency submission API
+      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -37,7 +40,6 @@ jobs:
         run: |
           dotnet restore src/DashyNMS.Mobile
           dotnet restore tests/DashyNMS.Mobile.Shared.Tests
-          dotnet restore tests/DesktopNMS.Core.Tests
 
       - name: Submit to the dependency graph
         uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0

@@ -1,7 +1,7 @@
 name: CodeQL
 
 # Security analysis of every language in the repo: the workflows themselves,
-# the C# (shared code, the MAUI head and the desktop Core it compiles), and
+# the C# (shared code, the MAUI head), and
 # the iOS widget's Swift. Runs on pull requests so a finding shows on the PR
 # before it merges, and weekly so new queries catch old code. Release branches
 # (release/1.1.0 and on) are where the next version is built, so they are
@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   analyze:
@@ -45,8 +46,6 @@ jobs:
             runner: xcode-27
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
 
       - if: matrix.language == 'csharp'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0

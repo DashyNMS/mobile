@@ -1,3 +1,4 @@
+using AlertWatchState = DashyNMS.Mobile.Alerts.AlertWatchState;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Rules;
 using DashyNMS.Mobile.Services;
