@@ -55,7 +55,12 @@ rather than rewritten.
   its traffic, packet and error graphs), neighbours
   (tap through to the neighbour), VLANs, FDB, ARP, routing (BGP, OSPF,
   VRFs), wireless, inventory and the event log.
-- **Alerts**: open alerts, most severe first, with desktop's Critical /
+- **Alerts**: on LibreNMS 26.10, faults appear in expandable groups by device
+  and rule, with fault totals, worst severity, first and last seen times, and
+  partial acknowledgement. Expanded children name their entities. Groups stay
+  visible while any child matches the filters, including a new fault alongside
+  acknowledged siblings. Children enter the virtualised list only when expanded.
+  Open alerts are most severe first, with desktop's Critical /
   Warning / OK / Acknowledged filter chips (with counts) and search across device,
   rule, note and alert id. Filters are remembered between launches. Swipe to
   acknowledge (with an optional note) or unacknowledge. **Export** shares the

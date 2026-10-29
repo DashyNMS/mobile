@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.ViewModels;
@@ -52,21 +53,31 @@ public sealed partial class AlertItem : ObservableObject
 
     public Alert Alert { get; }
 
+    /// <summary>A collapsed or expanded device/rule header in the virtualised alert list.</summary>
+    public AlertGroup? Group { get; init; }
+    public bool IsGroupHeader => Group is not null;
+    public bool IsFaultChild { get; init; }
+    public bool IsExpanded { get; init; }
+    public string RowRule => IsFaultChild ? AlertGrouping.EntityName(Alert) ?? "Device fault" : Rule;
+    public string ExpansionText => IsExpanded ? "Collapse faults" : "Show faults";
+    public string GroupTimesText => Group is null ? string.Empty : $"First seen {TimeText(Group.FirstSeen)} · Last seen {TimeText(Group.LastChanged)}";
+    private string TimeText(DateTime? time) => ServerTime.ToLocal(time, _serverTimestampsAreUtc)?.ToString("g", CultureInfo.CurrentCulture) ?? "unknown";
+
     public int Id => Alert.Id;
 
     public string Rule => Alert.DisplayRuleName;
 
     public string Device => _deviceName ?? Alert.DisplayHostname;
 
-    public AlertSeverity Severity => Alert.Severity;
+    public AlertSeverity Severity => Group?.Severity ?? Alert.Severity;
 
     public string SeverityText => Severity.ToDisplayString();
 
-    public AlertState State => Alert.State;
+    public AlertState State => Group?.State ?? Alert.State;
 
     public string StateText => State.ToDisplayString();
 
-    public bool IsAcknowledged => Alert.IsAcknowledged;
+    public bool IsAcknowledged => State == AlertState.Acknowledged;
 
     public bool IsNotAcknowledged => !IsAcknowledged;
 
@@ -94,7 +105,9 @@ public sealed partial class AlertItem : ObservableObject
     };
 
     /// <summary>"#4821 · Acknowledged": the list's quiet third line, with the age at the right instead.</summary>
-    public string MetaText => $"#{Id.ToString(CultureInfo.InvariantCulture)} · {StateText}";
+    public string MetaText => Group is { } group
+        ? $"1 alert group · {group.FaultCount} {(group.FaultCount == 1 ? "fault" : "faults")} · " + (group.IsPartlyAcknowledged ? $"Partly acknowledged ({group.AcknowledgedCount}/{group.FaultCount})" : StateText)
+        : $"#{Id.ToString(CultureInfo.InvariantCulture)} · {StateText}";
 
     /// <summary>"5m ago · Acknowledged", as the list's second line.</summary>
     public string Summary => $"{(AgeText.Length > 0 ? AgeText : "unknown time")} · {StateText}";
@@ -109,5 +122,6 @@ public sealed partial class AlertItem : ObservableObject
         || SeverityText.Contains(term, StringComparison.OrdinalIgnoreCase)
         || StateText.Contains(term, StringComparison.OrdinalIgnoreCase)
         || (Note?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-        || Id.ToString(CultureInfo.InvariantCulture).Contains(term, StringComparison.Ordinal);
+        || Id.ToString(CultureInfo.InvariantCulture).Contains(term, StringComparison.Ordinal)
+        || (AlertGrouping.EntityName(Alert)?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false);
 }
