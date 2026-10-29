@@ -15,7 +15,7 @@
     <controls:ListDetail x:Name="Split" Placeholder="Choose a rule to see it here.">
 
     <!-- As the other lists (#122): search that slides away, the chips, a count, then the rules in one card. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Alert rules" />
 

@@ -6,7 +6,11 @@ namespace DashyNMS.Mobile.Controls;
 /// page's own header card names the device or alert. The navigation bar is
 /// hidden in its place.
 /// </summary>
-/// <remarks>Call <see cref="Apply"/> from the page's OnAppearing.</remarks>
+/// <remarks>
+/// Call <see cref="Apply"/> from the page's OnAppearing. Its row is the
+/// Dashboard's top line (#253), so "‹ Devices" sits where every page's title
+/// does; the page puts no top padding of its own above it.
+/// </remarks>
 public sealed class BackBar : Grid
 {
     private readonly IconButton _back = new() { Kind = IconButtonKind.Plain, Icon = Icons.Back, Text = "Back", Padding = new Thickness(0, 0, 8, 0) };
@@ -14,8 +18,10 @@ public sealed class BackBar : Grid
     public BackBar()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
-        MinimumHeightRequest = 48;
+        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height))];
+        Padding = new Thickness(0, TopBar.Offset, 0, 0);
         _back.HorizontalOptions = LayoutOptions.Start;
+        _back.VerticalOptions = LayoutOptions.Center;
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
         Add(_back);
     }

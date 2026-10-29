@@ -12,7 +12,7 @@
          a way to either device, then what the neighbour announces. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,4,16,24" Spacing="12" IsVisible="{Binding HasLink}">
+            <VerticalStackLayout Padding="16,0,16,24" Spacing="12" IsVisible="{Binding HasLink}">
 
                 <controls:BackBar x:Name="TopBar" />
 

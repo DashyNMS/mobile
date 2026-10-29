@@ -15,7 +15,7 @@
     <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
          reorder, removed with Undo, set up; then Add card - desktop's picker. -->
     <Grid RowDefinitions="Auto,Auto,*">
-        <controls:BackBar x:Name="TopBar" Margin="16,4,16,0" />
+        <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
 
         <!-- Not in a ReadableColumn: a CollectionView needs the page's height to scroll. -->

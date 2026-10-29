@@ -16,10 +16,10 @@
     <Grid>
         <ScrollView>
             <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16" Spacing="12">
+                <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
 
                     <!-- Pinned to the tab bar, Settings has its own big title; from More, the navigation bar. -->
-                    <controls:PageHeader x:Name="Header" Title="Settings" Margin="0,-4,0,-8" />
+                    <controls:PageHeader x:Name="Header" Title="Settings" />
 
                     <!-- The server as a card of its own, as in the mock-ups. -->
                     <Border Style="{StaticResource Card}">

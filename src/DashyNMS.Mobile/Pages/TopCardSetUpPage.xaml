@@ -13,7 +13,7 @@
 
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,4,16,16" Spacing="12">
+            <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
 
                 <controls:BackBar x:Name="TopBar">
                     <controls:BackBar.Actions>

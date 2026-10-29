@@ -12,7 +12,7 @@
     Title="{Binding Title}">
     <Grid RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,8,16,0" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" />
         <Grid Grid.Row="1">
 
 

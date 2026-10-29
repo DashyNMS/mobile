@@ -132,6 +132,14 @@
             </Style>
 
             <!-- A page's own big title, where there's no navigation bar. -->
+            <!-- The top line every page shares (#253): the Dashboard's logo,
+                 "DashyNMS" and Customise sit on it, and so does every other
+                 page's title - or, pushed, its "‹ Back" row - so switching tabs
+                 never moves it. PageHeader and BackBar take their place from
+                 these; a page adds no top padding of its own above them. -->
+            <Thickness x:Key="TopBarPadding">16,16,16,8</Thickness>
+            <x:Double x:Key="TopBarHeight">44</x:Double>
+
             <Style x:Key="PageTitle" TargetType="Label">
                 <Setter Property="FontSize" Value="28" />
                 <Setter Property="FontFamily" Value="Display" />

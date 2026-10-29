@@ -16,6 +16,7 @@ public partial class MorePage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Header.Apply(this);
 		_viewModel.Update();
 	}
 }

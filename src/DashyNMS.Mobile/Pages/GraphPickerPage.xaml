@@ -13,7 +13,7 @@
     SafeAreaEdges="Container"
     Title="Dashboard graph">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,4,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:BackBar x:Name="TopBar">
             <controls:BackBar.Actions>

@@ -135,7 +135,7 @@
 
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <ScrollView>
-            <VerticalStackLayout Padding="16,4,16,16" Spacing="8">
+            <VerticalStackLayout Padding="16,0,16,16" Spacing="8">
 
                 <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device. -->
                 <controls:BackBar x:Name="TopBar">

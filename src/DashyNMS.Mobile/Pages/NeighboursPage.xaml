@@ -16,7 +16,7 @@
 
     <!-- Laid out as the Devices tab (#98) and brought up to date (#121): search, the chips as the
          network map's, a count, then the rows in one card with the busy card over it. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Neighbours">
             <controls:PageHeader.Actions>

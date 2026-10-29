@@ -12,7 +12,7 @@
     Title="Device">
 
     <!-- The Graylog page's Device chip (#117): suggestions first, then search every device. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,4,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:BackBar x:Name="TopBar">
             <controls:BackBar.Actions>

@@ -17,7 +17,7 @@
          on top of the map but Fit (#110). -->
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
 
-        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,8,16,0">
+        <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,0,16,0">
             <controls:PageHeader.Actions>
                 <HorizontalStackLayout Spacing="4">
                     <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"

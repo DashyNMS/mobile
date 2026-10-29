@@ -16,7 +16,7 @@
 
     <!-- As the Logs mock-up (#118): Event log / Alert log, search, the filter
          chips, a summary, then the entries in one card - Graylog's layout. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <!-- Graylog has its own page in More, so it isn't repeated here. -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}" />

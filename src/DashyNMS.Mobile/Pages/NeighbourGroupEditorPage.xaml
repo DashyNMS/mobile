@@ -11,7 +11,7 @@
     <!-- As desktop's view editor (#98): a name, all or any, and the rules. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,4,16,16" Spacing="12">
+            <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
 
                 <!-- "‹ Neighbourhoods" and Save, as the app's other pushed pages. -->
                 <controls:BackBar x:Name="TopBar">
