@@ -10,7 +10,9 @@ public sealed class IosAlertNotifier : IAlertNotifier
 {
     /// <summary>Notification user info key carrying the device id, for tap handling.</summary>
     internal const string DeviceIdKey = "deviceId";
-    internal const string AlertIdKey = "alertId";
+    internal const string AlertIdKey = "alertId"; // Previous app versions only.
+    internal const string AlertKeyKey = "alertKey";
+    internal const string AlertGroupKey = "alertGroupKey";
 
     public async Task<bool> RequestPermissionAsync()
     {
@@ -54,6 +56,8 @@ public sealed class IosAlertNotifier : IAlertNotifier
             userInfo[new NSString(AlertIdKey)] = NSNumber.FromInt32(alertId);
         }
 
+        if (notification.Key is { } key) userInfo[new NSString(AlertKeyKey)] = new NSString(key.ToString());
+        if (notification.Group is { } group) userInfo[new NSString(AlertGroupKey)] = new NSString(group.ToString());
         content.UserInfo = userInfo;
 
         // Same identifier as an earlier notification for this alert: iOS replaces it.
@@ -103,7 +107,9 @@ internal sealed class NotificationCenterDelegate : UNUserNotificationCenterDeleg
             : null;
 
         var router = IPlatformApplication.Current?.Services.GetService<NotificationRouter>();
-        _ = router?.OpenAsync(new NotificationTarget(deviceId, alertId));
+        _ = router?.OpenAsync(NotificationTarget.FromPayload(deviceId, alertId,
+            userInfo?.ObjectForKey(new NSString(IosAlertNotifier.AlertKeyKey))?.ToString(),
+            userInfo?.ObjectForKey(new NSString(IosAlertNotifier.AlertGroupKey))?.ToString()));
 
         completionHandler();
     }

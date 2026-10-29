@@ -28,6 +28,7 @@ public sealed class AlertScopeActionTests
 
     public AlertScopeActionTests()
     {
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
         _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(_ => Current());
         _client.Alerts.GetAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(call => Current().FirstOrDefault(a => a.Id == call.Arg<int>()));
         _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = false });
@@ -51,7 +52,7 @@ public sealed class AlertScopeActionTests
     private async Task<AlertDetailViewModel> Detail()
     {
         var vm = new AlertDetailViewModel(_client, Fakes.Settings(), _dialogs, new RecordingNavigation(), _self);
-        await vm.LoadAsync(1);
+        await vm.LoadAsync(new AlertKey(AlertSource.Fault, 1));
         return vm;
     }
 
@@ -111,6 +112,7 @@ public sealed class AlertScopeActionTests
         permissions.NoteServerVersion(new Version(26, 10, 0));
         permissions.Learn(HttpMethod.Put, "faults/1", new LibreNmsApiException("Denied", HttpStatusCode.Forbidden, serverMessage: "Insufficient permissions to update this alert"));
         _client.Permissions.Returns(permissions);
+        _client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(AlertSource.Fault);
         _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([Fault(1), Fault(3, device: 8)]);
         var vm = await List();
         Assert.True(vm.CanAcknowledge);

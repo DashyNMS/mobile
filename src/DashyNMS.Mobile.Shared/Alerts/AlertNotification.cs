@@ -9,7 +9,7 @@ namespace DashyNMS.Mobile.Alerts;
 /// </param>
 /// <param name="IsProblem">Something starting or resuming (as opposed to a recovery or acknowledgement).</param>
 /// <param name="DeviceId">The alert's device, or null for a summary of several.</param>
-/// <param name="AlertId">Where tapping it goes - that alert's page - or null (a summary) for the alert list.</param>
+/// <param name="AlertId">Legacy numeric payload, retained only to recognise old notifications.</param>
 public sealed record AlertNotification(
     string Tag,
     string Title,
@@ -20,11 +20,11 @@ public sealed record AlertNotification(
     int? DeviceId,
     int? AlertId = null)
 {
+    public DesktopNMS.Core.Models.AlertKey? Key { get; init; }
+    public DesktopNMS.Core.Alerting.AlertGroupKey? Group { get; init; }
     public bool IsUpdate { get; init; }
 
     public const string SummaryTag = "summary";
-
-    public static string TagFor(int alertId) => "alert-" + alertId.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>
     /// What a locked phone shows instead, when details are hidden there (#8):

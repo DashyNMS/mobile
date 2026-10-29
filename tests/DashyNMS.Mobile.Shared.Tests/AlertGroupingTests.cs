@@ -91,7 +91,7 @@ public sealed class AlertGroupingTests
     {
         var vm = await Load([Fault(1), Fault(2)]);
         await vm.OpenAlertCommand.ExecuteAsync(vm.DisplayRows[0]);
-        vm.Select(2);
+        vm.SelectKey(new AlertKey(AlertSource.Fault, 2));
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal(3, vm.DisplayRows.Count);
         Assert.True(vm.DisplayRows[0].IsExpanded);

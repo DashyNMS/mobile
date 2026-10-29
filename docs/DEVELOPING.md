@@ -203,6 +203,15 @@ work from this app.
   app's notification settings.
 - Signing out stops the checks and forgets the saved state.
 
+Notification and widget taps carry a qualified alert key (`fault:12` or
+`alert:12`) or a device/rule group (`device:7/rule:3`). Group targets open the
+Alerts list with that group expanded, including its acknowledged faults;
+single-fault targets open only that fault. Detail loading checks the server's
+alert source before reading the id. Old numeric targets open Alerts with a
+moved-on message, so a server upgrade cannot make an old notification open an
+unrelated fault. Widget snapshot version 2 includes both keys; the app and the
+Swift extension ignore older snapshots until the next alert check replaces them.
+
 ## How the code is shared with desktop
 
 Mobile consumes the pinned `DashyNMS.Core` package from

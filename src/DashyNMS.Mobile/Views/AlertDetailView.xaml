@@ -26,7 +26,7 @@
                     <!-- A recovery notification can point at an alert LibreNMS has since dropped. -->
                     <Border Style="{StaticResource Card}" IsVisible="{Binding IsGone}">
                         <VerticalStackLayout Spacing="12">
-                            <Label Text="This alert has cleared, and LibreNMS no longer lists it." />
+                            <Label Text="This alert has moved on or is no longer visible to this account." />
                             <Button Style="{StaticResource SecondaryButton}" Text="Open device" Command="{Binding OpenDeviceCommand}" IsVisible="{Binding HasDevice}" />
                         </VerticalStackLayout>
                     </Border>

@@ -87,7 +87,13 @@ enum Links {
     static let alerts = URL(string: "dashynms://alerts")!
 
     static func alert(_ alert: WidgetAlert) -> URL {
-        URL(string: "dashynms://alert/\(alert.alertId)?device=\(alert.deviceId)") ?? alerts
+        if let group = alert.groupKey, let path = group.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) {
+            return URL(string: "dashynms://group/\(path)") ?? alerts
+        }
+        if let key = alert.key, let path = key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) {
+            return URL(string: "dashynms://alert/\(path)?device=\(alert.deviceId)") ?? alerts
+        }
+        return alerts
     }
 
     static func device(_ id: Int) -> URL {

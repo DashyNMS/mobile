@@ -1,4 +1,6 @@
 using DashyNMS.Mobile.Controls;
+using DashyNMS.Mobile.Alerts;
+using DesktopNMS.Core.Models;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DashyNMS.Mobile.Views;
@@ -13,7 +15,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 	private readonly ShortcutReturn _shortcut = new();
 
 	/// <summary>The alert showing beside the list, if any - highlighted while the pane is there.</summary>
-	private int? _shown;
+	private AlertKey? _shown;
 
 	public AlertsPage(AlertsViewModel viewModel)
 	{
@@ -21,7 +23,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 		BindingContext = _viewModel = viewModel;
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading alerts…", "Refreshing alerts…");
 		SearchReveal.Attach(List, SearchSlot, Search);
-		Split.SplitChanged += (_, _) => _viewModel.Select(Split.IsSplit ? _shown : null);
+		Split.SplitChanged += (_, _) => _viewModel.SelectKey(Split.IsSplit ? _shown : null);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -31,6 +33,17 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 			_shortcut.Arrived();
 			_viewModel.ShowOnly(kind);
 		}
+
+        if (query.TryGetValue(Routes.AlertGroupKeyParameter, out var group) && AlertTargets.ParseGroup(group.ToString()) is { } key)
+        {
+            _shortcut.Arrived();
+            _viewModel.ShowGroup(key);
+        }
+        if (query.TryGetValue(Routes.AlertNoticeParameter, out var notice) && notice is string text)
+        {
+            _shortcut.Arrived();
+            _viewModel.ShowNotice(text);
+        }
 
 		// Applied once: coming back to the tab later shouldn't reapply it.
 		query.Clear();
@@ -67,8 +80,8 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost
 		view.ViewModel.AlertChanged += (_, change) => _viewModel.ShowChange(change);
 		view.Load(parameters);
 		Split.Detail = view;
-		_shown = parameters?.TryGetValue(Routes.AlertIdParameter, out var id) == true ? id as int? : null;
-		_viewModel.Select(_shown);
+		_shown = parameters?.TryGetValue(Routes.AlertKeyParameter, out var id) == true ? AlertTargets.ParseKey(id.ToString()) : null;
+		_viewModel.SelectKey(_shown);
 		return true;
 	}
 

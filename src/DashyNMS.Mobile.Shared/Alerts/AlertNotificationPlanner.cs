@@ -59,7 +59,7 @@ public static class AlertNotificationPlanner
 
         var show = plan.Notifications
             .Select(planned => planned.Change is { Alert: var alert }
-                ? new AlertNotification(planned.Tag ?? AlertNotification.SummaryTag, planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, alert.Source == AlertSource.Alert ? alert.DeviceId : null, alert.Source == AlertSource.Alert ? alert.Id : null) { IsUpdate = planned.IsUpdate }
+                ? new AlertNotification(planned.Tag ?? AlertNotification.SummaryTag, planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, alert.DeviceId) { Group = planned.Change.Group, IsUpdate = planned.IsUpdate }
                 : new AlertNotification(AlertNotification.SummaryTag, planned.Title, planned.Body, planned.Detail, planned.Severity, planned.IsProblem, DeviceId: null))
             .ToList();
 

@@ -20,7 +20,9 @@ public static class NavigationDescription
 
         var context = new List<string>();
         Add(context, parameters, Routes.DeviceIdParameter, id => "device " + id);
-        Add(context, parameters, Routes.AlertIdParameter, id => "alert #" + id);
+        Add(context, parameters, Routes.AlertIdParameter, id => "legacy alert #" + id);
+        if (parameters.TryGetValue(Routes.AlertKeyParameter, out var rawKey) && Alerts.AlertTargets.ParseKey(rawKey.ToString()) is { } key) context.Add(key.ToString());
+        if (parameters.TryGetValue(Routes.AlertGroupKeyParameter, out var rawGroup) && Alerts.AlertTargets.ParseGroup(rawGroup.ToString()) is { } group) context.Add(group.ToString());
         Add(context, parameters, Routes.RuleIdParameter, id => "rule " + id);
         Add(context, parameters, Routes.TemplateIdParameter, id => "template " + id);
         Add(context, parameters, Routes.SectionParameter, section => "section " + section);

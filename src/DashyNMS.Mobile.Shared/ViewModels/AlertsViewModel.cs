@@ -38,7 +38,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private readonly TimeProvider _time;
     private IReadOnlyList<AlertItem> _all = Array.Empty<AlertItem>();
 
-    private int? _selectedId;
+    private AlertKey? _selectedKey;
     private bool _loading;
     private readonly HashSet<AlertGroupKey> _expandedGroups = [];
 
@@ -49,6 +49,26 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// turned off never seemed to stay off.
     /// </summary>
     private bool _shortcut;
+    private AlertGroupKey? _focusedGroup;
+
+    [ObservableProperty]
+    private string? _navigationNotice;
+
+    /// <summary>A notification or widget opens the whole group, independently of saved filters.</summary>
+    public void ShowGroup(AlertGroupKey key)
+    {
+        _shortcut = true;
+        _focusedGroup = key;
+        NavigationNotice = null;
+        _expandedGroups.Add(key);
+        ResetFilters();
+    }
+
+    public void ShowNotice(string notice)
+    {
+        ShowOnly("all");
+        NavigationNotice = notice;
+    }
 
     [ObservableProperty]
     private bool _showCritical;
@@ -148,7 +168,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     }
 
     /// <summary>True when anything narrows the list - shows the Clear button.</summary>
-    public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasActiveFilters => _focusedGroup is not null || !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
 
     partial void OnShowCriticalChanged(bool value) => OnFilterChanged();
 
@@ -196,12 +216,14 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public void ShowSavedFilter()
     {
-        if (!_shortcut)
+        if (!_shortcut && _focusedGroup is null && NavigationNotice is null)
         {
             return;
         }
 
         _shortcut = false;
+        _focusedGroup = null;
+        NavigationNotice = null;
         var filter = _settings.Current.Filter;
         _loading = true;
         ShowCritical = filter.ShowCritical;
@@ -224,6 +246,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         // Shown, not saved: the user's own filter comes back afterwards (#81).
         _shortcut = true;
+        _focusedGroup = null;
+        NavigationNotice = null;
         if (string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase))
         {
             ResetFilters();
@@ -246,6 +270,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ClearFilters()
     {
         _shortcut = false;
+        _focusedGroup = null;
+        NavigationNotice = null;
         ResetFilters();
     }
 
@@ -269,6 +295,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(alertsTask, devicesTask);
 
         var alerts = alertsTask.Result;
+        if (_focusedGroup is { } requested)
+            NavigationNotice = alerts.Any(a => a.DeviceId == requested.DeviceId && a.RuleId == requested.RuleId) ? null : AlertTargets.MovedNotice;
         _all = alerts
             .OrderBy(a => a.IsAcknowledged)
             .ThenByDescending(a => a.Severity.SortRank())
@@ -404,7 +432,12 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public void Select(int? alertId)
     {
-        _selectedId = alertId;
+        SelectKey(alertId is { } id ? new AlertKey(AlertSource.Alert, id) : null);
+    }
+
+    public void SelectKey(AlertKey? key)
+    {
+        _selectedKey = key;
         MarkSelected(_all);
         MarkSelected(DisplayRows);
     }
@@ -414,7 +447,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         var canChange = CanAcknowledge;
         foreach (var item in items)
         {
-            item.IsSelected = item.Group is { } group ? group.Faults.Any(f => f.Id == _selectedId) : item.Id == _selectedId;
+            item.IsSelected = item.Group is { } group ? group.Faults.Any(f => f.Identity == _selectedKey) : item.Alert.Identity == _selectedKey;
             item.IsTicked = Selection.Contains(item.Id);
             item.CanChange = canChange && !item.IsFaultChild && MayChange(item);
         }
@@ -638,6 +671,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     private bool Allows(AlertItem alert)
     {
+        if (_focusedGroup is { } group && (alert.Alert.DeviceId != group.DeviceId || alert.Alert.RuleId != group.RuleId)) return false;
         var severityAllowed = alert.Severity switch
         {
             AlertSeverity.Critical => ShowCritical,

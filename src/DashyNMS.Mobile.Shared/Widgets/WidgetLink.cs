@@ -5,7 +5,8 @@ namespace DashyNMS.Mobile.Widgets;
 
 /// <summary>
 /// The dashynms:// links an iOS widget opens the app with: <c>dashynms://alerts</c>
-/// for the alert list, <c>dashynms://alert/5?device=3</c> for one alert,
+/// for the alert list, <c>dashynms://alert/fault:5?device=3</c> for one fault,
+/// <c>dashynms://group/device:7/rule:3</c> for a group,
 /// <c>dashynms://device/3</c> for a device (the pinned devices and sensors widgets).
 /// </summary>
 /// <remarks>
@@ -29,14 +30,19 @@ public static class WidgetLink
             case "alerts":
                 return new NotificationTarget(DeviceId: null);
 
+            case "group":
+                var group = AlertTargets.ParseGroup(Uri.UnescapeDataString(uri.AbsolutePath.Trim('/')));
+                return group is { } target ? new NotificationTarget(null, Group: target) : null;
+
             case "alert":
-                var segment = uri.AbsolutePath.Trim('/');
+                var segment = Uri.UnescapeDataString(uri.AbsolutePath.Trim('/'));
+                int? deviceId = TryParseId(QueryValue(uri, "device"), out var device) ? device : null;
+                if (AlertTargets.ParseKey(segment) is { } key) return new NotificationTarget(deviceId, Key: key);
                 if (!TryParseId(segment, out var alertId))
                 {
                     return null;
                 }
 
-                int? deviceId = TryParseId(QueryValue(uri, "device"), out var device) ? device : null;
                 return new NotificationTarget(deviceId, alertId);
 
             case "device":

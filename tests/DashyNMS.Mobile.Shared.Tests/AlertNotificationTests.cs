@@ -202,7 +202,8 @@ public sealed class AlertWatcherTests
         Assert.Equal("Critical: host9", shown.Title);
         Assert.Equal("Rule 2", shown.Body);
         Assert.Equal(9, shown.DeviceId);
-        Assert.Equal(2, shown.AlertId); // tapping it opens the alert's own page
+        Assert.Null(shown.AlertId);
+        Assert.Equal(new AlertGroupKey(9, 20), shown.Group);
         Assert.True(shown.IsProblem);
     }
 
