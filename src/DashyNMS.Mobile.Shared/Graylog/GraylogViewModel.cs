@@ -197,6 +197,29 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     internal Func<string?, CancellationToken, Task<string?>> ResolveHostname { get; set; } = ResolveHostnameAsync;
 
     /// <summary>Every device's messages, or with <paramref name="deviceId"/> only that device's.</summary>
+    /// <summary>A Graylog card's See all: its stream and time range, the stream once the streams have loaded.</summary>
+    public void ShowFeed(string? streamId, int rangeSeconds)
+    {
+        RangeIndex = Math.Max(0, GraylogQuery.Ranges.ToList().FindIndex(r => r.Seconds == rangeSeconds));
+        _pendingStreamId = streamId ?? string.Empty;
+        ApplyPendingStream();
+    }
+
+    /// <summary>A stream asked for before the streams arrived; empty for every stream.</summary>
+    private string? _pendingStreamId;
+
+    private void ApplyPendingStream()
+    {
+        if (_pendingStreamId is not { } id || (id.Length > 0 && _streams.Count == 0))
+        {
+            return;
+        }
+
+        _pendingStreamId = null;
+        // Not one this account can see: every stream, as the Stream chip's own fallback.
+        StreamIndex = _streams.ToList().FindIndex(s => s.Id == id) + 1;
+    }
+
     public void Initialise(int? deviceId, string? deviceName)
     {
         if (DeviceId == deviceId && _deviceName == deviceName && (deviceId is not null || Device is null))
@@ -489,6 +512,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         StreamLabels = new[] { "All streams" }.Concat(_streams.Select(s => s.DisplayText)).ToList();
         OnPropertyChanged(nameof(StreamLabels));
         OnPropertyChanged(nameof(StreamChipText));
+        ApplyPendingStream();
     }
 
     /// <summary>"(4) Warning and worse" to "Warning and worse", for the chip.</summary>

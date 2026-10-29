@@ -301,6 +301,20 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
+    public async Task A_Graylog_cards_see_all_searches_its_stream_and_range()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns([new GraylogStream { Id = "s1", Title = "Network" }]);
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+
+        vm.ShowFeed("s1", 3600);
+        await vm.EnsureLoadedAsync();
+
+        Assert.Equal(("Last 1 hour", "Network"), (vm.RangeChipText, vm.StreamChipText));
+        await _api.Received().SearchAsync(Arg.Any<string>(), Arg.Is(3600), Arg.Any<int>(), Arg.Is(0), Arg.Any<string>(), Arg.Is("streams:s1"), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Every_devices_messages_newest_first_with_known_sources_named()
     {
         var vm = NewViewModel();

@@ -49,6 +49,22 @@ public sealed class LogsViewModelTests
     }
 
     [Fact]
+    public async Task An_event_log_cards_see_all_shows_its_type()
+    {
+        Returns([.. Events(2), .. Events(1, type: "reboot")]);
+        var vm = NewViewModel();
+
+        vm.ShowEventType("reboot");
+        await vm.EnsureLoadedAsync();
+
+        Assert.Equal("reboot", vm.EventType);
+        Assert.All(vm.Entries, e => Assert.Equal("reboot", e.Type));
+
+        vm.ShowEventType("");
+        Assert.Null(vm.EventType);
+    }
+
+    [Fact]
     public async Task Shows_every_devices_events_with_the_device_named()
     {
         Logs.ListEventLogAsync(null, LogsViewModel.PageSize, Arg.Any<CancellationToken>()).Returns(Events(3));

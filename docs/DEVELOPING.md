@@ -29,6 +29,9 @@ rather than rewritten.
   - one device graph you pick, with its time range
   - wireless controllers' access points and clients, found as desktop finds
     them (one device per OS first)
+  - the newest event log entries or Graylog messages across the network,
+    with desktop's type, stream, range and count; a tap opens the entry with
+    its device, and See all opens Logs or Graylog on the card's filter
 
   Each card only fetches what it needs. Pull to refresh.
 - **Devices**: every device, with desktop's Up / Down / Maintenance / Disabled

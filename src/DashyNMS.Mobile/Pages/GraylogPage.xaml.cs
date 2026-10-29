@@ -28,6 +28,13 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost
 		var deviceId = query.TryGetValue(Routes.DeviceIdParameter, out var id) && id is int value ? value : (int?)null;
 		query.TryGetValue(Routes.DeviceNameParameter, out var name);
 		_viewModel.Initialise(deviceId, name as string);
+
+		// A Graylog card's See all: its stream and time range.
+		if (query.TryGetValue(Routes.GraylogRangeParameter, out var range) && range is int seconds)
+		{
+			query.TryGetValue(Routes.GraylogStreamParameter, out var stream);
+			_viewModel.ShowFeed(stream as string, seconds);
+		}
 	}
 
 	/// <summary>A message tapped with room beside the list (#88) opens there.</summary>

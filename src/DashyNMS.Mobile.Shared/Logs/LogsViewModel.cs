@@ -269,6 +269,13 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
 
     // ------------------------------------------------------------- setting up
 
+    /// <summary>An Event log card's See all: the event log, of the card's type or every type.</summary>
+    public void ShowEventType(string? type)
+    {
+        ShowingEventLog = true;
+        EventType = string.IsNullOrWhiteSpace(type) ? null : type;
+    }
+
     /// <summary>Every device's logs, or with <paramref name="deviceId"/> only that device's event log.</summary>
     public void Initialise(int? deviceId, string? deviceName)
     {

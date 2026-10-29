@@ -90,6 +90,9 @@ public static class Routes
     /// <summary>Query attribute: the <c>LogsViewModel</c> whose chips the entry's "Only" sets.</summary>
     public const string LogsListParameter = "logslist";
 
+    /// <summary>Query attribute: the event type an Event log card's See all opens <see cref="Logs"/> on; empty for every type.</summary>
+    public const string LogTypeParameter = "logtype";
+
     /// <summary>Graylog messages - every device's, or with <see cref="DeviceIdParameter"/> one device's.</summary>
     public const string Graylog = "graylog";
 
@@ -104,6 +107,12 @@ public static class Routes
 
     /// <summary>Query attribute: the <c>GraylogViewModel</c> whose Device chip the message sets, or the <c>IDeviceChipList</c> the chooser sets.</summary>
     public const string GraylogListParameter = "grayloglist";
+
+    /// <summary>Query attribute: the stream id a Graylog card's See all opens <see cref="Graylog"/> on; empty for every stream.</summary>
+    public const string GraylogStreamParameter = "stream";
+
+    /// <summary>Query attribute: the time range, in seconds, a Graylog card's See all opens <see cref="Graylog"/> on.</summary>
+    public const string GraylogRangeParameter = "range";
 
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
