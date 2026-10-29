@@ -41,7 +41,7 @@ public sealed class WidgetSnapshotTests
         // Critical newest first, then warnings, then acknowledged at the end.
         Assert.Equal([3, 2, 1, 6, 4], snapshot.Alerts.Select(a => a.AlertId));
         Assert.Equal(
-            new WidgetAlert(3, 3, "critical", "Rule 3", "host3", false, new DateTimeOffset(new DateTime(2026, 9, 28, 10, 0, 0, DateTimeKind.Local)).ToUnixTimeSeconds()),
+            new WidgetAlert(3, 3, "critical", "Rule 3", "host3", false, new DateTimeOffset(new DateTime(2026, 9, 28, 10, 0, 0, DateTimeKind.Local)).ToUnixTimeSeconds(), Key: "alert:3", GroupKey: "device:3/rule:30"),
             snapshot.Alerts[0]);
         Assert.True(snapshot.Alerts[^1].Acknowledged);
         Assert.Equal(Now.ToUnixTimeSeconds(), snapshot.CheckedAt);
@@ -76,12 +76,12 @@ public sealed class WidgetSnapshotTests
     }
 
     [Fact]
-    public void A_snapshot_saved_before_the_new_widgets_still_reads()
+    public void A_snapshot_saved_before_qualified_targets_is_ignored()
     {
         var back = WidgetSnapshot.FromJson("""{"signedIn":true,"critical":1,"warning":0,"acknowledged":0,"devicesDown":null,"alerts":[{"alertId":1,"deviceId":2,"severity":"critical","rule":"Down","device":"a"}],"checkedAt":5}""");
 
-        Assert.True(back.SignedIn);
-        Assert.False(Assert.Single(back.Alerts).Acknowledged);
+        Assert.False(back.SignedIn);
+        Assert.Empty(back.Alerts);
         Assert.Empty(back.Pinned);
         Assert.Null(back.Devices);
     }

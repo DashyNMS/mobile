@@ -116,7 +116,7 @@ public sealed class AlertFaultDetailTests
         var client = Fakes.Client(alerts: [alert]);
         client.Logs.ListAlertLogAsync(7, AlertDetailViewModel.LogDepth, Arg.Any<CancellationToken>()).Returns(entries);
         var vm = new AlertDetailViewModel(client, Fakes.Settings(), Substitute.For<IDialogService>(), new RecordingNavigation(), Substitute.For<ISelfActionTracker>());
-        await vm.LoadAsync(1);
+        await vm.LoadAsync(new AlertKey(AlertSource.Fault, 1));
         var history = vm.Groups.Single(g => g.Name == "History");
         Assert.StartsWith("Fired once in the last 30 days", history[0].Title);
         Assert.DoesNotContain(history, row => row.Title == "History incomplete");
@@ -129,7 +129,7 @@ public sealed class AlertFaultDetailTests
         var client = Fakes.Client(alerts: [alert]);
         client.Logs.ListAlertLogAsync(7, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns<IReadOnlyList<AlertLogEntry>>(_ => throw new LibreNmsApiException("Denied", HttpStatusCode.Forbidden));
         var vm = new AlertDetailViewModel(client, Fakes.Settings(), Substitute.For<IDialogService>(), new RecordingNavigation(), Substitute.For<ISelfActionTracker>());
-        await vm.LoadAsync(1);
+        await vm.LoadAsync(new AlertKey(AlertSource.Fault, 1));
         Assert.True(vm.Alert!.IsAcknowledged);
         Assert.Equal("port-one", Assert.Single(vm.Groups.Single(g => g.Name == "Why it fired")).Title);
         Assert.Contains(vm.Groups.Single(g => g.Name == "History"), row => row.Title == "History unavailable");

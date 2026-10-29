@@ -516,7 +516,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     });
 
     [RelayCommand]
-    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : _navigation.GoToAlertAsync(item.Alert);
+    private Task OpenAlertAsync(AlertItem? item) => item is null ? Task.CompletedTask : item.Group is { } group
+        ? _navigation.GoToAsync(Routes.Alerts, new Dictionary<string, object> { [Routes.AlertGroupKeyParameter] = group.Key.ToString() })
+        : _navigation.GoToAlertAsync(item.Alert);
 
     [RelayCommand]
     private Task OpenPinnedAsync(DeviceItem? item) => item is null ? Task.CompletedTask : OpenAsync(item.DeviceId);

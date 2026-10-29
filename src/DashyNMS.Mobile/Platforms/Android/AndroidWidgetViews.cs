@@ -99,7 +99,7 @@ internal static class AndroidWidgetViews
             more > 0 ? $"{more} more" : null,
             snapshot.AlertTotalsText,
         }.Where(p => p is not null)));
-        views.SetOnClickPendingIntent(Resource.Id.widget_root, slots.Open(context, worst.DeviceId, worst.AlertId));
+        views.SetOnClickPendingIntent(Resource.Id.widget_root, slots.Open(context, worst.DeviceId, worst.AlertId, worst.Key, worst.GroupKey));
         return views;
     }
 
@@ -124,8 +124,8 @@ internal static class AndroidWidgetViews
             views.AddView(Resource.Id.widget_rows, large
                 ? Row(context, alert.Acknowledged ? "acknowledged" : alert.Severity, alert.Rule,
                     string.Join(" · ", new[] { alert.Device, age.Length == 0 ? null : age, alert.Acknowledged ? "Acknowledged" : null }.Where(p => p is not null)),
-                    trailing: null, slots.Open(context, alert.DeviceId, alert.AlertId), titleLines: 2, dim: alert.Acknowledged)
-                : Row(context, alert.Severity, alert.Rule, alert.Device, age, slots.Open(context, alert.DeviceId, alert.AlertId)));
+                    trailing: null, slots.Open(context, alert.DeviceId, alert.AlertId, alert.Key, alert.GroupKey), titleLines: 2, dim: alert.Acknowledged)
+                : Row(context, alert.Severity, alert.Rule, alert.Device, age, slots.Open(context, alert.DeviceId, alert.AlertId, alert.Key, alert.GroupKey)));
         }
 
         return views;
@@ -231,7 +231,7 @@ internal static class AndroidWidgetViews
 
             foreach (var alert in devices.Take(Capacity(size with { Height = size.Height - 150 }, RowHeight, 5)))
             {
-                views.AddView(Resource.Id.widget_rows, Row(context, alert.Severity, alert.Device, alert.Rule, trailing: null, slots.Open(context, alert.DeviceId, alert.AlertId)));
+                views.AddView(Resource.Id.widget_rows, Row(context, alert.Severity, alert.Device, alert.Rule, trailing: null, slots.Open(context, alert.DeviceId, alert.AlertId, alert.Key, alert.GroupKey)));
             }
         }
 
@@ -280,7 +280,7 @@ internal static class AndroidWidgetViews
         {
             var age = WidgetFormat.Age(alert.RaisedAt, now);
             views.AddView(Resource.Id.widget_rows, Row(
-                context, alert.Severity, alert.Rule, alert.Device, age, slots.Open(context, alert.DeviceId, alert.AlertId)));
+                context, alert.Severity, alert.Rule, alert.Device, age, slots.Open(context, alert.DeviceId, alert.AlertId, alert.Key, alert.GroupKey)));
         }
 
         return views;
@@ -443,7 +443,7 @@ internal static class AndroidWidgetViews
         private int _next;
 
         /// <summary>Opens the app as a notification tap does (MainActivity hands it to the NotificationRouter).</summary>
-        public PendingIntent Open(Context context, int? deviceId, int? alertId)
+        public PendingIntent Open(Context context, int? deviceId, int? alertId, string? key = null, string? groupKey = null)
         {
             var intent = new Intent(context, typeof(MainActivity));
             intent.SetFlags(ActivityFlags.NewTask | ActivityFlags.SingleTop | ActivityFlags.ClearTop);
@@ -453,12 +453,16 @@ internal static class AndroidWidgetViews
                 intent.PutExtra(AndroidAlertNotifier.ExtraDeviceId, device);
             }
 
-            if (alertId is { } alert)
+            if (key is not null) intent.PutExtra(AndroidAlertNotifier.ExtraAlertKey, key);
+            if (groupKey is not null) intent.PutExtra(AndroidAlertNotifier.ExtraAlertGroupKey, groupKey);
+            if (key is null && groupKey is null && alertId is { } alert)
             {
                 intent.PutExtra(AndroidAlertNotifier.ExtraAlertId, alert);
             }
 
-            var requestCode = RequestBase + ((widgetId & 0xFFFF) << 5) + (_next++ & 0x1F);
+            var slot = _next++;
+            intent.SetData(global::Android.Net.Uri.Parse($"dashynms://widget/{widgetId}/{slot}"));
+            var requestCode = RequestBase + ((widgetId & 0xFFFF) << 5) + (slot & 0x1F);
             return PendingIntent.GetActivity(
                 context, requestCode, intent, PendingIntentFlags.UpdateCurrent | PendingIntentFlags.Immutable)!;
         }

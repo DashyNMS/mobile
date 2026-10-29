@@ -14,6 +14,7 @@ internal static class Fakes
         var client = Substitute.For<ILibreNmsClient>();
         client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(devices ?? []);
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(alerts ?? []);
+        client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(alerts?.FirstOrDefault()?.Source ?? AlertSource.Alert);
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Sensor>());
         return client;
     }

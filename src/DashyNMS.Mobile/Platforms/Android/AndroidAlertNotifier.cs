@@ -16,7 +16,9 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
     /// <summary>Intent extras MainActivity reads when a notification is tapped.</summary>
     internal const string ExtraFromNotification = "net.pckp.dashynms.fromNotification";
     internal const string ExtraDeviceId = "net.pckp.dashynms.deviceId";
-    internal const string ExtraAlertId = "net.pckp.dashynms.alertId";
+    internal const string ExtraAlertId = "net.pckp.dashynms.alertId"; // Previous app versions only.
+    internal const string ExtraAlertKey = "net.pckp.dashynms.alertKey";
+    internal const string ExtraAlertGroupKey = "net.pckp.dashynms.alertGroupKey";
 
     private const string CriticalChannel = "alerts-critical";
     private const string WarningChannel = "alerts-warning";
@@ -106,6 +108,9 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
         var intent = new Intent(AppContext, typeof(MainActivity));
         intent.SetFlags(ActivityFlags.NewTask | ActivityFlags.SingleTop | ActivityFlags.ClearTop);
         intent.PutExtra(ExtraFromNotification, true);
+        intent.SetData(global::Android.Net.Uri.Parse("dashynms://notification/" + Uri.EscapeDataString(notification.Tag)));
+        if (notification.Key is { } key) intent.PutExtra(ExtraAlertKey, key.ToString());
+        if (notification.Group is { } group) intent.PutExtra(ExtraAlertGroupKey, group.ToString());
         if (notification.DeviceId is { } deviceId)
         {
             intent.PutExtra(ExtraDeviceId, deviceId);

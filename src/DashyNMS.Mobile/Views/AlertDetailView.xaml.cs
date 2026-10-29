@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Views;
@@ -23,10 +24,14 @@ public partial class AlertDetailView : ContentView
 	/// <summary>Loads the alert <see cref="Routes.AlertDetail"/>'s parameters name (and its device, from a notification).</summary>
 	public void Load(IDictionary<string, object>? parameters)
 	{
-		if (parameters?.TryGetValue(Routes.AlertIdParameter, out var id) == true && id is int alertId)
+		if (parameters?.TryGetValue(Routes.AlertKeyParameter, out var id) == true && AlertTargets.ParseKey(id.ToString()) is { } key)
 		{
 			int? deviceId = parameters.TryGetValue(Routes.DeviceIdParameter, out var device) && device is int value ? value : null;
-			_ = ViewModel.LoadAsync(alertId, deviceId);
+			_ = ViewModel.LoadAsync(key, deviceId);
 		}
+        else
+        {
+            _ = ViewModel.OpenMovedAlertListAsync();
+        }
 	}
 }

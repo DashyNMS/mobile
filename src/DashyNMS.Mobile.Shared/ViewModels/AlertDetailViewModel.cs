@@ -88,7 +88,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         _rules = rules;
     }
 
-    public int AlertId { get; private set; }
+    public int AlertId => Key.Id;
+    public AlertKey Key { get; private set; }
 
     /// <summary>Known before the alert loads when a notification said so, which keeps "Open device" working for a cleared alert.</summary>
     public int? DeviceId { get; private set; }
@@ -154,9 +155,14 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
     internal const string AlertGroupName = "Alert";
 
-    public Task LoadAsync(int alertId, int? deviceId = null)
+    public Task LoadAsync(int alertId, int? deviceId = null) => LoadAsync(new AlertKey(AlertSource.Alert, alertId), deviceId);
+
+    public Task OpenMovedAlertListAsync() => _navigation.GoToAsync(Routes.Alerts,
+        new Dictionary<string, object> { [Routes.AlertNoticeParameter] = DashyNMS.Mobile.Alerts.AlertTargets.MovedNotice });
+
+    public Task LoadAsync(AlertKey key, int? deviceId = null)
     {
-        AlertId = alertId;
+        Key = key;
         DeviceId = deviceId;
         OnPropertyChanged(nameof(HasDevice));
         return RefreshAsync();
@@ -168,12 +174,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         _faultGroup = null;
         _faultScope = null;
         var utc = _settings.Current.ServerTimestampsAreUtc;
-        var alert = await FindAlertAsync(AlertId);
+        var alert = await FindAlertAsync(Key);
         if (alert is null)
         {
             Alert = null;
             IsGone = true;
-            Title = "Alert cleared";
+            Title = "Alert moved on";
             Groups.ReplaceAll([]);
             OnPropertyChanged(nameof(CardGroups));
             return;
@@ -280,9 +286,16 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     /// the page said it had cleared, while the list still showed it (#113).
     /// The open list - firing and acknowledged - finds it then.
     /// </summary>
-    private async Task<Alert?> FindAlertAsync(int alertId) =>
-        await _client.Alerts.GetAsync(alertId)
-        ?? (await _client.Alerts.ListAsync(AlertQuery.Open)).FirstOrDefault(a => a.Id == alertId);
+    private async Task<Alert?> FindAlertAsync(AlertKey key)
+    {
+        // GetAsync uses the server's current source. Check it before looking
+        // up an id that another namespace may now own after an upgrade.
+        if (key.Source is not (AlertSource.Alert or AlertSource.Fault) || DashyNMS.Mobile.Alerts.AlertTargets.ParseKey(key.ToString()) is null || await _client.Alerts.GetSourceAsync() != key.Source) return null;
+        bool Matches(Alert a) => a.Identity == key && (DeviceId is null || a.DeviceId == DeviceId);
+        var alert = await _client.Alerts.GetAsync(key.Id);
+        return alert is not null && Matches(alert) ? alert
+            : (await _client.Alerts.ListAsync(AlertQuery.Open)).FirstOrDefault(Matches);
+    }
 
     // ------------------------------------------------------------ notifications (#102)
 

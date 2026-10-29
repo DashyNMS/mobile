@@ -12,6 +12,8 @@ struct WidgetAlert: Codable, Hashable {
     /// Unix seconds; 0 if LibreNMS didn't say.
     var raisedAt: Int64 = 0
     var faultCount: Int = 1
+    var key: String? = nil
+    var groupKey: String? = nil
 }
 
 extension WidgetAlert {
@@ -26,6 +28,8 @@ extension WidgetAlert {
         acknowledged = try c.decodeIfPresent(Bool.self, forKey: .acknowledged) ?? false
         raisedAt = try c.decodeIfPresent(Int64.self, forKey: .raisedAt) ?? 0
         faultCount = try c.decodeIfPresent(Int.self, forKey: .faultCount) ?? 1
+        key = try c.decodeIfPresent(String.self, forKey: .key)
+        groupKey = try c.decodeIfPresent(String.self, forKey: .groupKey)
     }
 }
 
@@ -75,6 +79,7 @@ struct SensorReading: Codable, Hashable {
 /// What the app saved after its last alert check. The widget never talks to
 /// LibreNMS itself and holds no token: it only draws this.
 struct Snapshot: Codable {
+    var version: Int = 2
     var signedIn: Bool = false
     var critical: Int = 0
     var warning: Int = 0
@@ -121,9 +126,13 @@ struct Snapshot: Codable {
 }
 
 extension Snapshot {
-    /// Every field optional, so a snapshot saved by an older app still reads.
+    /// Ignore snapshots whose unqualified alert ids predate version 2.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 0
+        guard version == 2 else {
+            throw DecodingError.dataCorruptedError(forKey: .version, in: c, debugDescription: "Unsupported widget snapshot version")
+        }
         signedIn = try c.decodeIfPresent(Bool.self, forKey: .signedIn) ?? false
         critical = try c.decodeIfPresent(Int.self, forKey: .critical) ?? 0
         warning = try c.decodeIfPresent(Int.self, forKey: .warning) ?? 0

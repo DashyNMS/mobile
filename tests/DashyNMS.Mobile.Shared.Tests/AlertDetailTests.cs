@@ -201,7 +201,7 @@ public sealed class AlertDetailViewModelTests
 
         var visit = Assert.Single(_navigation.Visits);
         Assert.Equal(Routes.AlertDetail, visit.Route);
-        Assert.Equal(5, visit.Parameters![Routes.AlertIdParameter]);
+        Assert.Equal("alert:5", visit.Parameters![Routes.AlertKeyParameter]);
         Assert.Equal(3, visit.Parameters[Routes.DeviceIdParameter]);
     }
 
@@ -229,11 +229,11 @@ public sealed class AlertNotificationTargetTests
         var router = new NotificationRouter(session, navigation);
         await router.MainShownAsync();
 
-        await router.OpenAsync(new NotificationTarget(DeviceId: 3, AlertId: 5));
+        await router.OpenAsync(new NotificationTarget(DeviceId: 3, Key: new AlertKey(AlertSource.Alert, 5)));
 
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.AlertDetail, visit.Route);
-        Assert.Equal(5, visit.Parameters![Routes.AlertIdParameter]);
+        Assert.Equal("alert:5", visit.Parameters![Routes.AlertKeyParameter]);
         Assert.Equal(3, visit.Parameters[Routes.DeviceIdParameter]);
     }
 }

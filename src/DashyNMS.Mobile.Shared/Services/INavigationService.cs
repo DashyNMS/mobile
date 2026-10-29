@@ -166,11 +166,15 @@ public static class Routes
 
     public const string Maintenance = "maintenance";
 
-    /// <summary>One alert - with <see cref="AlertIdParameter"/>, and <see cref="DeviceIdParameter"/> when known.</summary>
+    /// <summary>One alert - with <see cref="AlertKeyParameter"/>, and <see cref="DeviceIdParameter"/> when known.</summary>
     public const string AlertDetail = "alert";
 
-    /// <summary>Query attribute: the alert id for <see cref="AlertDetail"/>.</summary>
+    /// <summary>Old numeric query attribute; never resolve it against the current alert source.</summary>
     public const string AlertIdParameter = "alertid";
+
+    public const string AlertKeyParameter = "alertkey";
+    public const string AlertGroupKeyParameter = "alertgroup";
+    public const string AlertNoticeParameter = "alertnotice";
 
     /// <summary>Query attribute: a <c>DeviceSection</c>.</summary>
     public const string SectionParameter = "section";
@@ -200,7 +204,7 @@ public static class NavigationServiceExtensions
     public static Task GoToAlertAsync(this INavigationService navigation, DesktopNMS.Core.Models.Alert alert) =>
         navigation.GoToAsync(Routes.AlertDetail, new Dictionary<string, object>
         {
-            [Routes.AlertIdParameter] = alert.Id,
+            [Routes.AlertKeyParameter] = alert.Identity.ToString(),
             [Routes.DeviceIdParameter] = alert.DeviceId,
         });
 }

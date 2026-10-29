@@ -21,7 +21,9 @@ public sealed record WidgetAlert(
     [property: JsonPropertyName("device")] string Device,
     [property: JsonPropertyName("acknowledged")] bool Acknowledged = false,
     [property: JsonPropertyName("raisedAt")] long RaisedAt = 0,
-    [property: JsonPropertyName("faultCount")] int FaultCount = 1);
+    [property: JsonPropertyName("faultCount")] int FaultCount = 1,
+    [property: JsonPropertyName("key")] string? Key = null,
+    [property: JsonPropertyName("groupKey")] string? GroupKey = null);
 
 /// <summary>
 /// Every device once, by state: up/down/disabled as LibreNMS polls them, and
@@ -73,11 +75,16 @@ public sealed record WidgetSensor(
 /// On iOS a Swift WidgetKit extension reads it from the shared App Group
 /// folder, so the JSON names are a contract with
 /// <c>ios-widget/DashyNMSWidget/Snapshot.swift</c>: change both together.
-/// Fields added later are optional there, so an older saved snapshot still
-/// reads after an update.
+/// Version 2 carries qualified alert targets; older snapshots are ignored
+/// rather than opening a number in the wrong namespace.
 /// </remarks>
 public sealed record WidgetSnapshot
 {
+    public const int CurrentVersion = 2;
+
+    [JsonPropertyName("version")]
+    public int Version { get; init; } = CurrentVersion;
+
     /// <summary>How many alerts a widget can list - the large size's worth.</summary>
     public const int MaxAlerts = 7;
 
@@ -193,7 +200,7 @@ public sealed record WidgetSnapshot
             .Take(MaxAlerts)
             .Select(g => new WidgetAlert(
                 g.Primary.Id, g.DeviceId, SeverityKey(g.Severity), g.DisplayRuleName, DeviceName(g.Primary),
-                g.State == AlertState.Acknowledged, UnixTime(g.LastChanged, utc), fullGroups[g.Key].FaultCount))
+                g.State == AlertState.Acknowledged, UnixTime(g.LastChanged, utc), fullGroups[g.Key].FaultCount, g.Primary.Identity.ToString(), g.Key.ToString()))
             .ToList();
 
         return new WidgetSnapshot
@@ -365,6 +372,11 @@ public sealed record WidgetSnapshot
 
         try
         {
+            using var document = JsonDocument.Parse(json);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("version", out var version)
+                || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != CurrentVersion)
+                return SignedOut;
             return JsonSerializer.Deserialize<WidgetSnapshot>(json) ?? SignedOut;
         }
         catch (JsonException)
