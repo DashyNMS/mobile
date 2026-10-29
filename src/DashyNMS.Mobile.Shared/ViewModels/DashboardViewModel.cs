@@ -4,6 +4,7 @@ using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.Alerts;
 using DesktopNMS.Core.Alerting;
 using DashyNMS.Mobile.DeviceSections;
+using DashyNMS.Mobile.Graylog;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -296,10 +297,14 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         IAppPreferences? preferences = null,
         IDialogService? dialogs = null,
         BackupAddressStatus? backup = null,
-        CorePolling? polling = null)
+        CorePolling? polling = null,
+        GraylogSetup? graylogSetup = null,
+        IGraylogApi? graylog = null)
     {
         _dialogs = dialogs;
         _polling = polling;
+        _graylogSetup = graylogSetup;
+        _graylog = graylog;
         Backup = backup;
 
         // Back on the server address (#114): everything again from there.
@@ -529,7 +534,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(
             Shows(DashboardLayout.Graph) ? LoadGraphsAsync(byId, style) : Task.CompletedTask,
             Shows(DashboardLayout.Wireless) ? LoadWirelessAsync(devices, style) : Task.CompletedTask,
-            Cards.Any(c => TopCards.IsTop(c.Type)) ? LoadTopAsync(byId, style) : Task.CompletedTask);
+            Cards.Any(c => TopCards.IsTop(c.Type)) ? LoadTopAsync(byId, style) : Task.CompletedTask,
+            LoadLogsAsync(devices));
 
         LastUpdated = DateTime.Now;
         OnPropertyChanged(nameof(HasNoAlerts));

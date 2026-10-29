@@ -81,7 +81,7 @@ public sealed class DashboardLayoutTests
     [Fact]
     public void The_starter_is_desktops_with_its_places_on_desktops_grid_and_the_phones_names()
     {
-        var unknown = new DashboardWidget { WidgetType = "EventLog" };
+        var unknown = new DashboardWidget { WidgetType = "SomethingNew" };
         var settings = new AppSettings { DashboardWidgets = [unknown] };
 
         DashboardLayout.UseStarter(settings);
@@ -90,7 +90,7 @@ public sealed class DashboardLayoutTests
         Assert.Equal(starter.Select(w => w.WidgetType), DashboardLayout.Current(settings).Select(w => w.WidgetType));
         Assert.Equal(starter.Select(w => (w.Column, w.Row, w.ColumnSpan, w.RowSpan)),
             DashboardLayout.Current(settings).Select(w => (w.Column, w.Row, w.ColumnSpan, w.RowSpan)));
-        Assert.Contains(unknown, settings.DashboardWidgets); // desktop's log widget kept
+        Assert.Contains(unknown, settings.DashboardWidgets); // a desktop widget the phone doesn't show, kept
 
         // Desktop's titles ("Alerts gauge") aren't titles of its own: the phone's names show.
         Assert.Equal(["Alerts", "Devices", "Needs attention", "Top interfaces", "Recently viewed"],
@@ -122,10 +122,10 @@ public sealed class DashboardLayoutTests
     }
 
     [Fact]
-    public void Card_kinds_are_filed_in_desktops_categories_without_logs()
+    public void Card_kinds_are_filed_in_desktops_categories()
     {
         Assert.All(DashboardLayout.Kinds, k => Assert.Contains(k.Category, DashboardLayout.Categories));
-        Assert.DoesNotContain(DashboardLayout.Kinds, k => k.Type is DashboardWidgetTypes.EventLog or DashboardWidgetTypes.Graylog);
+        Assert.Equal(["Alerts", "Devices", "Traffic", "Logs", "Sensors and graphs"], DashboardLayout.Categories);
     }
 }
 
@@ -270,8 +270,8 @@ public sealed class AddCardViewModelTests
     {
         var vm = NewViewModel();
 
-        Assert.Equal(["All 11", "Alerts 2", "Devices 4", "Traffic 3", "Sensors and graphs 2"], vm.Categories.Select(c => c.Label));
-        Assert.Equal(11, vm.Cards.Count);
+        Assert.Equal(["All 13", "Alerts 2", "Devices 4", "Traffic 3", "Logs 2", "Sensors and graphs 2"], vm.Categories.Select(c => c.Label));
+        Assert.Equal(13, vm.Cards.Count);
         Assert.Same(vm.Cards[0], vm.Selected); // the first that can be added, as desktop's
 
         vm.ChooseCategoryCommand.Execute(vm.Categories.Single(c => c.Name == "Traffic"));

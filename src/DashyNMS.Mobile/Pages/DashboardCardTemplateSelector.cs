@@ -25,6 +25,10 @@ public sealed class DashboardCardTemplateSelector : DataTemplateSelector
     /// <summary>Top interfaces, Top errors and Top devices share one (#103).</summary>
     public DataTemplate? Top { get; set; }
 
+    public DataTemplate? EventLog { get; set; }
+
+    public DataTemplate? Graylog { get; set; }
+
     public DataTemplate? Empty { get; set; }
 
     protected override DataTemplate OnSelectTemplate(object item, BindableObject container) =>
@@ -39,6 +43,8 @@ public sealed class DashboardCardTemplateSelector : DataTemplateSelector
             DashboardLayout.Graph => Graph,
             DashboardLayout.Wireless => Wireless,
             DashboardLayout.TopInterfaces or DashboardLayout.TopErrors or DashboardLayout.TopDevices => Top,
+            DashboardLayout.EventLog => EventLog,
+            DashboardLayout.Graylog => Graylog,
             _ => null,
         }) ?? Empty!;
 }

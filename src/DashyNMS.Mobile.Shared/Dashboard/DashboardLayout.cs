@@ -28,7 +28,7 @@ public enum CardPreview
 /// <param name="Title">The phone's name for it, and the card's title.</param>
 /// <param name="Description">What it shows - desktop's widget picker's words.</param>
 /// <param name="Category">Where the card picker files it: desktop's categories.</param>
-/// <param name="AllowsSeveral">Sensors, Graph and the Top cards: as many as you like, each set up on its own (#87, #103).</param>
+/// <param name="AllowsSeveral">Sensors, Graph, the Top and the log cards: as many as you like, each set up on its own (#87, #103).</param>
 /// <param name="DesktopTitle">Desktop's name where it differs ("Alerts gauge") - a card with it hasn't been given a title of its own.</param>
 public sealed record DashboardCardKind(
     string Type,
@@ -46,7 +46,7 @@ public sealed record DashboardCardKind(
 /// <para>Desktop lays widgets out on a resizable grid; a phone has one column
 /// (or a few on a tablet), so here the list's order is the layout and the grid
 /// positions are left alone.</para>
-/// <para>Sensors, Graph and Top cards can appear any number of times, each its
+/// <para>Sensors, Graph, Top and log cards can appear any number of times, each its
 /// own widget with its own id, title and set-up - as desktop already allows,
 /// so both apps show the same cards (#87, #103). Every other kind shows once. A removed
 /// card is simply not in the list, so removing one forgets its set-up.</para>
@@ -69,9 +69,11 @@ public static class DashboardLayout
     public const string TopInterfaces = DashboardWidgetTypes.TopInterfaces;
     public const string TopErrors = DashboardWidgetTypes.TopErrors;
     public const string TopDevices = DashboardWidgetTypes.TopDevices;
+    public const string EventLog = DashboardWidgetTypes.EventLog;
+    public const string Graylog = DashboardWidgetTypes.Graylog;
 
-    /// <summary>The card picker's categories, in desktop's order - without its Logs, as the phone has no log cards.</summary>
-    public static IReadOnlyList<string> Categories { get; } = ["Alerts", "Devices", "Traffic", "Sensors and graphs"];
+    /// <summary>The card picker's categories, in desktop's order.</summary>
+    public static IReadOnlyList<string> Categories { get; } = ["Alerts", "Devices", "Traffic", "Logs", "Sensors and graphs"];
 
     /// <summary>
     /// Every card the phone can show, in the order the card picker lists them.
@@ -89,6 +91,8 @@ public static class DashboardLayout
         new(TopInterfaces, "Top interfaces", "The busiest ports in the fleet, in and out", "Traffic", CardPreview.Ranked, AllowsSeveral: true),
         new(TopErrors, "Top errors", "The ports with the most errors per second", "Traffic", CardPreview.RankedWarning, AllowsSeveral: true),
         new(TopDevices, "Top devices", "The devices moving the most traffic", "Traffic", CardPreview.Ranked, AllowsSeveral: true),
+        new(EventLog, "Event log", "The newest LibreNMS events across every device", "Logs", CardPreview.List, AllowsSeveral: true),
+        new(Graylog, "Graylog", "The newest Graylog messages, by stream or search", "Logs", CardPreview.List, AllowsSeveral: true),
         new(Sensors, "Sensors", "Track temperature, signal, fan speed and more", "Sensors and graphs", CardPreview.Ranked, AllowsSeveral: true),
         new(Graph, "Graph", "Any device graph, over a time range you pick", "Sensors and graphs", CardPreview.Graph, AllowsSeveral: true),
     ];

@@ -6,6 +6,8 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
+    xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
+    xmlns:graylog="clr-namespace:DashyNMS.Mobile.Graylog;assembly=DashyNMS.Mobile.Shared"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
@@ -470,6 +472,87 @@
                     </Border>
                 </DataTemplate>
             </pages:DashboardCardTemplateSelector.Top>
+
+            <!-- Event log and Graylog (desktop#202, #203): the newest entries across the network,
+                 desktop's filters as the title's chips. A row opens the entry's own page, with
+                 its device (desktop#304); See all opens Logs or Graylog on the card's filter. -->
+            <pages:DashboardCardTemplateSelector.EventLog>
+                <DataTemplate x:DataType="vm:DashboardCard">
+                    <Border Style="{StaticResource DashCard}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <HorizontalStackLayout Spacing="8">
+                                <Button Style="{StaticResource Chip}" Text="{Binding LogTypeText}" Command="{Binding ChooseLogTypeCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="Event type" />
+                                <Button Style="{StaticResource Chip}" Text="{Binding LogCountText}" Command="{Binding ChooseLogCountCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="How many to show" />
+                            </HorizontalStackLayout>
+                            <Label Style="{StaticResource Caption}" Text="{Binding LogStatus}" IsVisible="{Binding HasLogStatus}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding EventRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="logs:LogEntryItem">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenLogEntryCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" VerticalOptions="Start" Margin="0,6,0,0" />
+                                            <VerticalStackLayout Grid.Column="1">
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Message}" LineBreakMode="TailTruncation" MaxLines="1" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"
+                                    Command="{Binding SeeAllLogsCommand}" HeightRequest="36" MinimumHeightRequest="36" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </pages:DashboardCardTemplateSelector.EventLog>
+
+            <pages:DashboardCardTemplateSelector.Graylog>
+                <DataTemplate x:DataType="vm:DashboardCard">
+                    <Border Style="{StaticResource DashCard}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <HorizontalStackLayout Spacing="8" IsVisible="{Binding NeedsGraylogSetUp, Converter={StaticResource Invert}}">
+                                <Button Style="{StaticResource Chip}" Text="{Binding GraylogStreamText}" Command="{Binding ChooseGraylogStreamCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="Stream" />
+                                <Button Style="{StaticResource Chip}" Text="{Binding GraylogRangeText}" Command="{Binding ChooseGraylogRangeCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="Time range" />
+                                <Button Style="{StaticResource Chip}" Text="{Binding LogCountText}" Command="{Binding ChooseLogCountCommand}"
+                                        HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="How many to show" />
+                            </HorizontalStackLayout>
+                            <Label Style="{StaticResource Caption}" Text="{Binding LogStatus}" IsVisible="{Binding HasLogStatus}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding GraylogRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="graylog:GraylogMessageItem">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenGraylogMessageCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" VerticalOptions="Start" Margin="0,6,0,0" />
+                                            <VerticalStackLayout Grid.Column="1">
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding SourceText}" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding MessageText}" LineBreakMode="TailTruncation" MaxLines="1" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortTimeText}" VerticalOptions="Start" Margin="0,3,0,0" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"
+                                    Command="{Binding SeeAllLogsCommand}" HeightRequest="36" MinimumHeightRequest="36" />
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </pages:DashboardCardTemplateSelector.Graylog>
 
             <pages:DashboardCardTemplateSelector.Empty>
                 <DataTemplate x:DataType="vm:DashboardCard">

@@ -28,6 +28,12 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost
 		var deviceId = query.TryGetValue(Routes.DeviceIdParameter, out var id) && id is int value ? value : (int?)null;
 		query.TryGetValue(Routes.DeviceNameParameter, out var name);
 		_viewModel.Initialise(deviceId, name as string);
+
+		// An Event log card's See all: its type.
+		if (query.TryGetValue(Routes.LogTypeParameter, out var type))
+		{
+			_viewModel.ShowEventType(type as string);
+		}
 	}
 
 	/// <summary>An entry tapped with room beside the list (#88) opens there.</summary>
