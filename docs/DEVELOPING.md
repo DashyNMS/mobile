@@ -109,8 +109,10 @@ rather than rewritten.
   View): messages from your Graylog server, found as LibreNMS finds them -
   by time range, level, stream and message text, newest first, and for a
   device by its names and addresses (optionally every interface address).
-  Known sources are shown by device name; tap a message for every field and
-  a way to its device. Set up in Settings → Graylog with desktop's Graylog
+  Known sources are shown by device name, matched as desktop matches them:
+  IP, hostname or sysName in any case, then a short name such as `core-sw1`
+  when only one device has it. Tap a message for every field and a way to
+  its device. Set up in Settings → Graylog with desktop's Graylog
   settings; the password is kept in the platform keychain/keystore. Like
   desktop, it's independent of the LibreNMS sign-in.
 - **Health**: desktop's Health tab. Every sensor across the network in its

@@ -260,6 +260,47 @@ public sealed class GraylogViewModelTests
     };
 
     [Fact]
+    public async Task Sources_match_devices_by_full_or_short_name_sysName_and_any_case()
+    {
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            Fakes.Device(5, "core-sw1.example.net", ip: "192.0.2.5"),
+            Fakes.Device(6, "192.0.2.6", sysName: "dist-sw"),
+            Fakes.Device(7, "ap1.site-a.example.net"),
+            Fakes.Device(8, "ap1.site-b.example.net"),
+        ]);
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(
+            Result(total: 6, "core-sw1", "CORE-SW1.Example.Net", "core-sw1.example.org", "dist-sw", "ap1", "192.0.2.5"));
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+
+        await vm.EnsureLoadedAsync();
+
+        Assert.Equal([5, 5, 5, 6, null, 5], vm.Messages.Select(m => m.DeviceId));
+        Assert.Equal("core-sw1.example.net", vm.Messages[0].SourceText);
+
+        // Two devices share the short name "ap1": neither, as on desktop.
+        Assert.Equal("ap1", vm.Messages[4].SourceText);
+    }
+
+    [Fact]
+    public async Task A_message_from_a_short_name_opens_its_device()
+    {
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(5, "core-sw1.example.net")]);
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(Result(total: 1, "core-sw1"));
+        var vm = NewViewModel();
+        vm.Initialise(null, null);
+        await vm.EnsureLoadedAsync();
+        var message = new GraylogMessageViewModel(_navigation);
+        message.Load(vm.Messages.Single(), vm);
+
+        Assert.True(message.HasDevice);
+        await message.OpenDeviceCommand.ExecuteAsync(null);
+
+        Assert.Equal(5, _navigation.Visits.Single().Parameters![Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
     public async Task Every_devices_messages_newest_first_with_known_sources_named()
     {
         var vm = NewViewModel();
@@ -671,6 +712,32 @@ public sealed class GraylogDevicePickerTests
 
         picker.SearchText = "nothing like it";
         Assert.True(picker.IsEmpty);
+    }
+
+    [Fact]
+    public async Task An_ambiguous_short_name_still_offers_to_search_Graylog_for_it()
+    {
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            Fakes.Device(7, "ap1.site-a.example.net"),
+            Fakes.Device(8, "ap1.site-b.example.net"),
+            Fakes.Device(9, "core-sw1.example.net"),
+        ]);
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(new GraylogSearchResult
+        {
+            TotalResults = 1,
+            Messages = [new GraylogMessageEnvelope { Message = new GraylogMessage(new Dictionary<string, JsonElement> { ["source"] = JsonSerializer.SerializeToElement("ap1") }) }],
+        });
+
+        var (_, picker) = await OpenAsync();
+
+        var sender = Assert.Single(picker.Groups[0]);
+        Assert.Equal(GraylogDeviceFilter.ForAddress("ap1"), sender.Filter);
+        Assert.Equal("Not in LibreNMS", sender.Details);
+
+        // A full name whose short name one device has is that device, not an address to search.
+        picker.SearchText = "core-sw1.example.org";
+        Assert.DoesNotContain(picker.Groups, g => g.Name == "Not in LibreNMS");
     }
 
     [Fact]
