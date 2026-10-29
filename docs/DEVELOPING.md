@@ -163,6 +163,12 @@ work from this app.
   already open without notifying, like desktop's "don't notify on first poll".
   Later checks, including background wakes in a fresh process, compare
   against that saved state (`alert-watch.json` in the app's data folder).
+- Notifications reach the platform before the check saves its new alert state.
+  A cancelled fetch or failed delivery leaves the previous state for the next check.
+- Widget alert data updates before device and sensor enrichment. Enrichment has
+  a five-second budget; a failure keeps the previous readings and their timestamp.
+  Sensors are fetched only when a sensor card needs them. Notification names use
+  the session's cached devices, or the alert's hostname until devices are loaded.
 - Your own acknowledge/unacknowledge from the Alerts tab doesn't notify you.
 - A later notification for the same alert replaces the earlier one, and
   acknowledging or recovering an alert removes its notification.

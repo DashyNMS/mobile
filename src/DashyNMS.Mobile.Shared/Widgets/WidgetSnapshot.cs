@@ -80,6 +80,14 @@ public sealed record WidgetSnapshot
     /// <summary>How many pinned devices or sensors a widget can list.</summary>
     public const int MaxRows = 8;
 
+    /// <summary>An alert-only refresh retains the last successful fleet enrichment on disk.</summary>
+    [JsonIgnore]
+    public bool PreserveEnrichment { get; init; }
+
+    public WidgetSnapshot RetainEnrichment(WidgetSnapshot previous) => PreserveEnrichment && SignedIn && previous.SignedIn
+        ? this with { Devices = previous.Devices, DevicesDown = previous.DevicesDown, Pinned = previous.Pinned, Sensors = previous.Sensors, SensorsReadAt = previous.SensorsReadAt }
+        : this;
+
     [JsonPropertyName("signedIn")]
     public bool SignedIn { get; init; }
 

@@ -226,7 +226,10 @@ public sealed class WidgetUpdateTests
     {
         await _watcher.CheckAsync();
 
-        var first = Assert.Single(_widgets.Updates);
+        Assert.Equal(2, _widgets.Updates.Count);
+        Assert.Equal(1, _widgets.Updates[0].Critical);
+        Assert.Null(_widgets.Updates[0].Devices);
+        var first = _widgets.Updates[1];
         Assert.Equal((1, 1), (first.Critical, first.DevicesDown));
         Assert.Equal(2, first.Devices!.Total - first.Devices.Disabled);
 
@@ -235,7 +238,7 @@ public sealed class WidgetUpdateTests
         _time.Advance(TimeSpan.FromMinutes(5));
         await _watcher.CheckAsync();
 
-        Assert.Equal(3, _widgets.Updates.Count);
+        Assert.Equal(6, _widgets.Updates.Count);
         await _client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>()); // Core owns expiry, independently of snapshot timestamps
     }
 

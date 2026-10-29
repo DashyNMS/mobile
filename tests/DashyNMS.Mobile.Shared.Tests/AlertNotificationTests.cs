@@ -123,7 +123,10 @@ public sealed class AlertWatcherTests
         BaselineOf(Fakes.Alert(1, 7, "warning"));
         ServerReturns(Fakes.Alert(1, 7, "warning"), Fakes.Alert(2, 9, "critical"));
 
-        await _watcher.CheckAsync();
+        using var polling = new CorePolling(_client, _session, Fakes.Settings(_settings));
+        await polling.CachedDevicesAsync();
+        var watcher = new AlertWatcher(_client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance, polling: polling);
+        await watcher.CheckAsync();
 
         // Not the alert's own hostname (#80).
         Assert.Equal("Critical: edge-rtr-09", Assert.Single(_notifier.Shown).Title);
@@ -261,6 +264,78 @@ public sealed class AlertWatcherTests
 
         Assert.Equal(AlertCheckOutcome.Failed, result.Outcome);
         Assert.Same(before, _store.State);
+    }
+
+    [Fact]
+    public async Task A_sensor_request_that_never_answers_cannot_hold_notifications_or_state()
+    {
+        BaselineOf();
+        ServerReturns(Fakes.Alert(2, 9, "critical"));
+        _widgets.IsInUse = true;
+        DashyNMS.Mobile.Dashboard.DashboardLayout.Add(_settings, DashyNMS.Mobile.Dashboard.DashboardLayout.Sensors)
+            .Sensors.Add(new PinnedSensor { SensorId = 1, DeviceId = 9 });
+        var never = new TaskCompletionSource<IReadOnlyList<Sensor>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            Assert.Single(_notifier.Shown);
+            Assert.Equal(1, _store.State!.States[2]);
+            return never.Task;
+        });
+        var watcher = new AlertWatcher(_client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, _notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance)
+            { WidgetRefreshBudget = TimeSpan.FromSeconds(1) };
+        var result = await watcher.CheckAsync(background: true).WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.Equal(AlertCheckOutcome.Checked, result.Outcome);
+        Assert.Single(_notifier.Shown);
+        Assert.Equal(1, _store.State!.States[2]);
+        Assert.Single(_widgets.Updates);
+        Assert.Equal(1, _widgets.Updates[0].Critical);
+        _ = _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
+        never.TrySetResult([]);
+    }
+
+    [Fact]
+    public async Task Failed_platform_delivery_does_not_commit_watch_state()
+    {
+        BaselineOf();
+        var previous = _store.State;
+        ServerReturns(Fakes.Alert(2, 9, "critical"));
+        var notifier = Substitute.For<IAlertNotifier>();
+        notifier.ShowAsync(Arg.Any<AlertNotification>()).Returns(Task.FromException(new IOException("delivery failed")));
+        var watcher = new AlertWatcher(_client, _session, Fakes.Secrets(), Fakes.Settings(_settings), _store, _selfActions, notifier, _badge, _widgets, _time, NullLogger<AlertWatcher>.Instance);
+        Assert.Equal(AlertCheckOutcome.Failed, (await watcher.CheckAsync()).Outcome);
+        Assert.Same(previous, _store.State);
+    }
+
+    [Fact]
+    public void Alert_only_snapshot_keeps_previous_sensor_readings_and_timestamp()
+    {
+        var previous = new WidgetSnapshot { SignedIn = true, SensorsReadAt = 123, Sensors = [new WidgetSensor(1, 9, "Temperature", "example", "20 °C", "ok", null)] };
+        var current = new WidgetSnapshot { SignedIn = true, Critical = 2, PreserveEnrichment = true };
+        var combined = current.RetainEnrichment(previous);
+        Assert.Equal(2, combined.Critical);
+        Assert.Equal(previous.Sensors, combined.Sensors);
+        Assert.Equal(123, combined.SensorsReadAt);
+        Assert.Empty(WidgetSnapshot.SignedOut.RetainEnrichment(previous).Sensors);
+    }
+
+    [Fact]
+    public async Task Cancellation_after_listing_leaves_changes_for_the_next_check()
+    {
+        BaselineOf();
+        var previous = _store.State;
+        using var cancellation = new CancellationTokenSource();
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            cancellation.Cancel();
+            return new[] { Fakes.Alert(2, 9, "critical") };
+        });
+        Assert.Equal(AlertCheckOutcome.Failed, (await _watcher.CheckAsync(cancellation.Token)).Outcome);
+        Assert.Same(previous, _store.State);
+        Assert.Empty(_notifier.Shown);
+        ServerReturns(Fakes.Alert(2, 9, "critical"));
+        await _watcher.CheckAsync();
+        await _watcher.CheckAsync();
+        Assert.Single(_notifier.Shown);
     }
 
     [Fact]

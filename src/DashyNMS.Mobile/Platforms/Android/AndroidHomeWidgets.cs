@@ -44,6 +44,7 @@ public sealed class AndroidHomeWidgets : IHomeWidgets
     {
         try
         {
+            snapshot = snapshot.RetainEnrichment(Load(AppContext));
             Save(AppContext, snapshot);
             var manager = AppWidgetManager.GetInstance(AppContext)!;
             foreach (var kind in Enum.GetValues<AndroidWidgetKind>())
