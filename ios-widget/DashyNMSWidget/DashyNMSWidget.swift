@@ -72,7 +72,10 @@ struct AlertsWidgetView: View {
             } else if family == .systemSmall {
                 small
             } else {
-                medium
+                VStack(alignment: .leading, spacing: 3) {
+                    medium
+                    Text(snapshot.alertTotalsText).font(.system(size: 9)).foregroundColor(.dnFaint).lineLimit(2)
+                }
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -100,13 +103,14 @@ struct AlertsWidgetView: View {
                     .lineLimit(2)
                 Spacer(minLength: 0)
                 Text(smallFooter(worst))
-                    .font(.system(size: 11))
+                    .font(.system(size: 9))
                     .foregroundColor(.dnFaint)
-                    .lineLimit(1)
+                    .lineLimit(2)
                     .minimumScaleFactor(0.8)
             } else {
                 Spacer(minLength: 0)
                 EmptyMessage(text: "No active alerts.", systemImage: "checkmark.circle.fill")
+                Text(snapshot.alertTotalsText).font(.system(size: 9)).foregroundColor(.dnFaint).lineLimit(2)
                 Spacer(minLength: 0)
             }
         }
@@ -115,7 +119,7 @@ struct AlertsWidgetView: View {
     /// "4m · 3 critical, 7 warning".
     private func smallFooter(_ alert: WidgetAlert) -> String {
         let age = Format.age(alert.raisedAt, now: entry.date)
-        let counts = "\(snapshot.critical) critical, \(snapshot.warning) warning"
+        let counts = snapshot.alertTotalsText
         return age.isEmpty ? counts : "\(age == "just now" ? "now" : age) · \(counts)"
     }
 

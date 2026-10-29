@@ -71,8 +71,8 @@
         android:id="@+id/widget_footer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:maxLines="2"
         android:ellipsize="end"
         android:textColor="@color/widget_text_secondary"
-        android:textSize="11.5sp" />
+        android:textSize="9.5sp" />
 </LinearLayout>

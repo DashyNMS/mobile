@@ -21,7 +21,7 @@ rather than rewritten.
   straight back in next launch.
 - **Dashboard**: desktop's widgets as a column of cards you choose and
   order (Dashboard → Customise), kept in desktop's own dashboard setting:
-  - alert counts, with desktop's gauge as a bar
+  - alert group counts with separate fault totals, labelled as visible to this account, with desktop's gauge as a bar
   - device counts
   - the five alerts most needing attention
   - pinned and recently viewed devices
@@ -85,7 +85,7 @@ rather than rewritten.
 - **Alert notifications**: new, reopened and (optionally) recovered or
   acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
   Tapping one opens the alert, or the alert list for a summary.
-- **App icon badge** (iPhone): the open-alert count on the icon, counted as
+- **App icon badge** (iPhone): the open alert-group count on the icon, counted as
   desktop's Alerts tab badge and using its settings (on/off, and whether
   acknowledged alerts count). It updates with every alert check, so it's
   live in the background too. Android launchers show their own dot or
@@ -128,6 +128,9 @@ rather than rewritten.
   - *Lock screen* (iPhone): circular and rectangular. Counts only
     unless Settings → Lock screen widgets → Hide alert details is turned off.
 
+  Alert widgets count and list each device/rule group once. Acknowledgement
+  and severity settings apply to qualifying children; fault totals stay separate.
+  Totals describe what is visible to the account.
   Tap an alert or device to open it, anywhere else for the alert list.
   Android's are normal app widgets that show more as they're resized.
   iPhone's are a Swift WidgetKit extension (`ios-widget/`), which uses an

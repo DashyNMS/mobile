@@ -78,13 +78,13 @@ internal static class AndroidWidgetViews
             views.SetTextViewText(Resource.Id.widget_rule, "No active alerts.");
             views.SetTextColor(Resource.Id.widget_rule, ColourOf(context, Resource.Color.widget_ok_text));
             views.SetTextViewText(Resource.Id.widget_device, string.Empty);
-            views.SetTextViewText(Resource.Id.widget_footer, WidgetFormat.Checked(snapshot.CheckedAt, now));
+            views.SetTextViewText(Resource.Id.widget_footer, snapshot.AlertTotalsText);
             return views;
         }
 
         var critical = worst.Severity == "critical";
         views.SetViewVisibility(Resource.Id.widget_badge, ViewStates.Visible);
-        views.SetTextViewText(Resource.Id.widget_badge, critical ? "CRITICAL" : "WARNING");
+        views.SetTextViewText(Resource.Id.widget_badge, critical ? "CRITICAL" : worst.Severity == "warning" ? "WARNING" : "OK");
         views.SetTextColor(Resource.Id.widget_badge, ColourOf(context, critical ? Resource.Color.widget_critical_text : Resource.Color.widget_warning_text));
         views.SetInt(Resource.Id.widget_badge, "setBackgroundResource", critical ? Resource.Drawable.widget_badge_critical : Resource.Drawable.widget_badge_warning);
         views.SetTextViewText(Resource.Id.widget_rule, worst.Rule);
@@ -97,6 +97,7 @@ internal static class AndroidWidgetViews
         {
             age.Length == 0 ? null : age == "just now" ? age : $"{age} ago",
             more > 0 ? $"{more} more" : null,
+            snapshot.AlertTotalsText,
         }.Where(p => p is not null)));
         views.SetOnClickPendingIntent(Resource.Id.widget_root, slots.Open(context, worst.DeviceId, worst.AlertId));
         return views;
@@ -105,7 +106,7 @@ internal static class AndroidWidgetViews
     private static RemoteViews Alerts(Context context, Slots slots, WidgetSize size, WidgetSnapshot snapshot, DateTimeOffset now)
     {
         var large = size.Height >= LargeHeight;
-        var views = List(context, slots, "Alerts", WidgetFormat.Checked(snapshot.CheckedAt, now));
+        var views = List(context, slots, "Alerts", snapshot.AlertTotalsText);
         Summary(views, context, snapshot);
 
         var alerts = (large ? snapshot.Alerts : snapshot.Alerts.Where(a => !a.Acknowledged).ToList())
@@ -138,6 +139,7 @@ internal static class AndroidWidgetViews
             ($"{snapshot.Critical} critical", Resource.Color.widget_critical_text),
             ($"{snapshot.Warning} warning", Resource.Color.widget_warning_text),
         };
+        if (snapshot.Ok > 0) parts.Add(($"{snapshot.Ok} other", Resource.Color.widget_text_secondary));
         if (snapshot.Acknowledged > 0)
         {
             parts.Add(($"{snapshot.Acknowledged} ack'd", Resource.Color.widget_acknowledged_text));
@@ -246,7 +248,7 @@ internal static class AndroidWidgetViews
 
     private static RemoteViews Overview(Context context, Slots slots, WidgetSize size, WidgetSnapshot snapshot, DateTimeOffset now)
     {
-        var views = List(context, slots, "Network", WidgetFormat.Checked(snapshot.CheckedAt, now));
+        var views = List(context, slots, "Network", snapshot.AlertTotalsText);
 
         if (snapshot.Devices is { } counts)
         {

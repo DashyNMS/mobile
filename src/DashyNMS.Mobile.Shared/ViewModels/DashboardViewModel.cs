@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Dashboard;
+using DashyNMS.Mobile.Alerts;
+using DesktopNMS.Core.Alerting;
 using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -218,6 +220,9 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
 
     private readonly DashboardToast _toast;
     private readonly IDialogService? _dialogs;
+    [ObservableProperty]
+    private string _alertTotalsText = string.Empty;
+
     private IReadOnlyList<Alert> _openAlerts = [];
     private IReadOnlyDictionary<int, Device> _devicesById = new Dictionary<int, Device>();
     private readonly HashSet<string> _probedOses = new(StringComparer.OrdinalIgnoreCase);
@@ -467,13 +472,13 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         _devicesById = byId;
 
         var alerts = alertsTask.Result;
-        var active = alerts.Where(a => !a.IsAcknowledged).ToList();
-        CriticalAlerts = active.Count(a => a.Severity == AlertSeverity.Critical);
-        WarningAlerts = active.Count(a => a.Severity == AlertSeverity.Warning);
-        AcknowledgedAlerts = alerts.Count - active.Count;
-
-        OkAlerts = active.Count(a => a.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning));
-        Welcome.ShowCounts(devices.Count, active.Count);
+        var totals = AlertTotals.From(alerts, _settings.Current.Notifications.CountFrom, _settings.Current.AlertTabBadgeIncludesAcknowledged);
+        CriticalAlerts = totals.Critical;
+        WarningAlerts = totals.Warning;
+        AcknowledgedAlerts = totals.Acknowledged;
+        OkAlerts = totals.Ok;
+        AlertTotalsText = totals.Description;
+        Welcome.ShowCounts(devices.Count, totals.Groups - totals.Acknowledged);
 
         // Last, and without holding up the rest: one request per device.
         if (Shows(DashboardLayout.DeviceStatus))
@@ -527,14 +532,15 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private void ShowTopAlerts()
     {
         var widget = CardsOf(DashboardLayout.Alerts).FirstOrDefault()?.Widget ?? new DashboardWidget();
-        TopAlerts.ReplaceAll(_openAlerts
-            .Where(a => widget.AlertsIncludeAcknowledged || !a.IsAcknowledged)
-            .Where(a => (widget.AlertsShowCritical && a.Severity == AlertSeverity.Critical)
-                        || (widget.AlertsShowWarning && a.Severity == AlertSeverity.Warning))
-            .OrderByDescending(a => a.Severity.SortRank())
-            .ThenByDescending(a => a.Timestamp)
+        var groups = AlertGrouping.ByDeviceAndRule(_openAlerts.Where(a => a.State != AlertState.Recovered));
+        TopAlerts.ReplaceAll(groups
+            .Where(group => group.Faults.Any(a => (widget.AlertsIncludeAcknowledged || !a.IsAcknowledged)
+                && ((widget.AlertsShowCritical && a.Severity == AlertSeverity.Critical)
+                    || (widget.AlertsShowWarning && a.Severity == AlertSeverity.Warning))))
             .Take(TopAlertCount)
-            .Select(alert => AlertItem.For(alert, _settings.Current, _devicesById))
+            .Select(group => new AlertItem(group.Primary, _settings.Current.ServerTimestampsAreUtc,
+                _settings.Current.DeviceNameStyle.Resolve(_devicesById.GetValueOrDefault(group.DeviceId), group.Primary.Hostname))
+                { Group = group })
             .ToList());
         OnPropertyChanged(nameof(HasNoAlerts));
     }
