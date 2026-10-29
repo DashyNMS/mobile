@@ -7,17 +7,18 @@ on:
 # Read-only token: CI only checks out and builds (#7).
 permissions:
   contents: read
+  packages: read
+
+env:
+  DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  # Shared code and the desktop's Core suite, on plain .NET - fast, and
-  # catches upstream Core changes that don't hold up off Windows.
+  # Mobile's shared code on plain .NET; Core runs its tests upstream.
   test:
     name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -26,16 +27,12 @@ jobs:
       - name: Test shared code
         run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug
 
-      - name: Test desktop Core (portable build)
-        run: dotnet test tests/DesktopNMS.Core.Tests -c Debug
 
   android:
     name: Android
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
@@ -66,8 +63,6 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          submodules: true
 
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:

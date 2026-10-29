@@ -13,21 +13,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The desktop app's session service depends only on Core, so it is
-         shared as-is rather than rewritten. -->
-    <Compile Include="$(DesktopRoot)src/DesktopNMS/Services/SessionService.cs" Link="Desktop/SessionService.cs" />
-    <!-- RFC 4180 CSV with spreadsheet formula-injection escaping; no WPF in it. -->
-    <Compile Include="$(DesktopRoot)src/DesktopNMS/Infrastructure/CsvWriter.cs" Link="Desktop/CsvWriter.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../DesktopNMS.Core.Portable/DesktopNMS.Core.Portable.csproj" />
+    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.42" />
   </ItemGroup>
 
   <ItemGroup>
