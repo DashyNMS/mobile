@@ -46,6 +46,7 @@ public sealed record AlertCheckResult(AlertCheckOutcome Outcome, int Changes = 0
 /// </remarks>
 public sealed class AlertWatcher
 {
+    private readonly CorePolling _polling;
     private readonly ILibreNmsClient _client;
     private readonly ISessionService _session;
     private readonly SecretCache _secrets;
@@ -60,9 +61,6 @@ public sealed class AlertWatcher
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private IReadOnlyList<DesktopNMS.Core.Models.Device>? _devices;
-    private DateTimeOffset _devicesAt;
-    private IReadOnlyList<DesktopNMS.Core.Models.Sensor>? _sensors;
     private DateTimeOffset _sensorsAt;
 
     public AlertWatcher(
@@ -79,11 +77,12 @@ public sealed class AlertWatcher
         ILogger<AlertWatcher> logger,
         AlertTabDot? tabDot = null,
         AlertCountThreshold? countThreshold = null,
-        NotifyRules? rules = null)
+        NotifyRules? rules = null, CorePolling? polling = null)
     {
         // Asked for only so a phone's pre-1.1.0 ignored list has moved into
         // the settings (#167) before the first check: the planner reads them.
         _ = rules;
+        _polling = polling ?? new CorePolling(client, session, settings);
         _countThreshold = countThreshold;
         _client = client;
         _session = session;
@@ -252,68 +251,15 @@ public sealed class AlertWatcher
         }
     }
 
-    /// <summary>How long a device list stays good enough for the widgets.</summary>
-    internal static readonly TimeSpan DevicesMaxAge = TimeSpan.FromMinutes(5);
+    private Task<IReadOnlyList<DesktopNMS.Core.Models.Device>?> DevicesAsync(CancellationToken cancellationToken) =>
+        _polling.CachedDevicesAsync(cancellationToken);
 
-    /// <summary>How long sensor readings stay good enough for the widgets - LibreNMS itself only polls every five minutes or so.</summary>
-    internal static readonly TimeSpan SensorsMaxAge = TimeSpan.FromMinutes(15);
-
-    /// <summary>
-    /// The device list, for the widgets' device counts and pinned devices -
-    /// read at most every few minutes, since it's far bigger than the alert
-    /// list, and kept (or left unknown) if reading it fails: the alerts
-    /// matter more.
-    /// </summary>
-    private async Task<IReadOnlyList<DesktopNMS.Core.Models.Device>?> DevicesAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyList<DesktopNMS.Core.Models.Sensor>?> SensorsAsync(AppSettings settings, CancellationToken cancellationToken)
     {
-        var now = _time.GetUtcNow();
-        if (_devices is not null && now - _devicesAt < DevicesMaxAge)
-        {
-            return _devices;
-        }
-
-        try
-        {
-            _devices = await _client.Devices.ListAsync(cancellationToken).ConfigureAwait(false);
-            _devicesAt = now;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "Could not read devices for names and the widgets");
-        }
-
-        return _devices;
-    }
-
-    /// <summary>
-    /// Every sensor, for the Sensors widget - only when the dashboard has
-    /// sensors picked (LibreNMS lists every sensor at once, which on a big
-    /// network is a big fetch), and at most every quarter of an hour.
-    /// </summary>
-    private async Task<IReadOnlyList<DesktopNMS.Core.Models.Sensor>?> SensorsAsync(DesktopNMS.Core.Configuration.AppSettings settings, CancellationToken cancellationToken)
-    {
-        if (WidgetSnapshot.PickedSensors(settings).Count == 0)
-        {
-            return null;
-        }
-
-        var now = _time.GetUtcNow();
-        if (_sensors is not null && now - _sensorsAt < SensorsMaxAge)
-        {
-            return _sensors;
-        }
-
-        try
-        {
-            _sensors = await _client.Sensors.ListAsync(cancellationToken).ConfigureAwait(false);
-            _sensorsAt = now;
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogDebug(ex, "Could not read sensors for the widgets");
-        }
-
-        return _sensors;
+        if (WidgetSnapshot.PickedSensors(settings).Count == 0) return null;
+        var result = await _polling.WidgetSensorsAsync(cancellationToken).ConfigureAwait(false);
+        _sensorsAt = result.ObservedAt ?? default;
+        return result.Sensors;
     }
 
     private async Task<bool> EnsureSignedInAsync(CancellationToken cancellationToken)

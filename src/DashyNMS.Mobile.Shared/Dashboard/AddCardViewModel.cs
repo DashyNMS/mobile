@@ -103,9 +103,12 @@ public sealed partial class AddCardViewModel : ViewModelBase
 
     private string _category = AllCategory;
 
-    public AddCardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast, DeviceBookmarks bookmarks)
+    private readonly DesktopNMS.Core.Services.IDashboardLayoutService _layout;
+
+    public AddCardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast, DeviceBookmarks bookmarks, DesktopNMS.Core.Services.IDashboardLayoutService? layout = null)
     {
         _settings = settings;
+        _layout = layout ?? new DesktopNMS.Core.Services.DashboardLayoutService(settings);
         _navigation = navigation;
         _toast = toast;
         _bookmarks = bookmarks;
@@ -184,7 +187,7 @@ public sealed partial class AddCardViewModel : ViewModelBase
 
         var before = _toast.Before();
         var widget = DashboardLayout.Add(_settings.Current, choice.Kind.Type);
-        _settings.Save();
+        _layout.Restore(_settings.Current.DashboardWidgets.ToList());
         _toast.Show($"{choice.Name} added at the bottom", before, widget.Id);
 
         await _navigation.GoToAsync(Routes.Back);

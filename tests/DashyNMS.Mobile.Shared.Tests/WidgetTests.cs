@@ -222,7 +222,7 @@ public sealed class WidgetUpdateTests
     }
 
     [Fact]
-    public async Task Each_check_updates_the_widget_reading_devices_every_few_minutes()
+    public async Task Each_check_updates_widgets_using_the_shared_Core_device_cache()
     {
         await _watcher.CheckAsync();
 
@@ -232,15 +232,15 @@ public sealed class WidgetUpdateTests
 
         _time.Advance(TimeSpan.FromMinutes(1));
         await _watcher.CheckAsync();
-        _time.Advance(AlertWatcher.DevicesMaxAge);
+        _time.Advance(TimeSpan.FromMinutes(5));
         await _watcher.CheckAsync();
 
         Assert.Equal(3, _widgets.Updates.Count);
-        await _client.Devices.Received(2).ListAsync(Arg.Any<CancellationToken>()); // not on the middle check
+        await _client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>()); // Core owns expiry, independently of snapshot timestamps
     }
 
     [Fact]
-    public async Task Sensors_are_read_only_when_picked_and_at_most_every_quarter_hour()
+    public async Task Sensors_are_read_only_when_picked_and_shared_between_checks()
     {
         await _watcher.CheckAsync();
         await _client.Sensors.DidNotReceiveWithAnyArgs().ListAsync(default);
@@ -250,10 +250,10 @@ public sealed class WidgetUpdateTests
         await _watcher.CheckAsync();
         _time.Advance(TimeSpan.FromMinutes(10));
         await _watcher.CheckAsync();
-        _time.Advance(AlertWatcher.SensorsMaxAge);
+        _time.Advance(TimeSpan.FromMinutes(15));
         await _watcher.CheckAsync();
 
-        await _client.Sensors.Received(2).ListAsync(Arg.Any<CancellationToken>());
+        await _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
         Assert.Single(_widgets.Updates[^1].Sensors);
     }
 

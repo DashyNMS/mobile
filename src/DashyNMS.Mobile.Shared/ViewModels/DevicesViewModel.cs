@@ -98,6 +98,8 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private bool _isFilterPanelOpen;
 
+    private readonly CorePolling? _polling;
+
     public DevicesViewModel(
         ILibreNmsClient client,
         INavigationService navigation,
@@ -106,8 +108,9 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
         TimeProvider time,
         MaintenanceScan? maintenance = null,
         IAppPreferences? preferences = null,
-        IDialogService? dialogs = null)
+        IDialogService? dialogs = null, CorePolling? polling = null)
     {
+        _polling = polling;
         _dialogs = dialogs;
         _client = client;
         _navigation = navigation;
@@ -416,7 +419,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     private Task RefreshAsync() => RunAsync(async () =>
     {
         OnPropertyChanged(nameof(MayScheduleMaintenance));
-        var devices = await _client.Devices.ListAsync();
+        var devices = await (_polling?.DevicesAsync() ?? _client.Devices.ListAsync());
         var style = _settings.Current.DeviceNameStyle;
         var pinned = _bookmarks.PinnedIds;
 

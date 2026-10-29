@@ -67,8 +67,11 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     /// <summary>The severity chips as the user last left them (#81).</summary>
     private readonly ChipMemory _chips;
 
-    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IAppPreferences? preferences = null)
+    private readonly CorePolling? _polling;
+
+    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IAppPreferences? preferences = null, CorePolling? polling = null)
     {
+        _polling = polling;
         _client = client;
         _settings = settings;
         _navigation = navigation;
@@ -181,8 +184,8 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     private Task RefreshAsync() => RunAsync(async () =>
     {
         // LibreNMS lists every sensor in one call; the device list gives them names.
-        var sensorsTask = _client.Sensors.ListAsync();
-        var devicesTask = _client.Devices.ListAsync();
+        var sensorsTask = _polling?.SensorReadingsAsync() ?? _client.Sensors.ListAsync();
+        var devicesTask = _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
         await Task.WhenAll(sensorsTask, devicesTask);
 
         var style = _settings.Current.DeviceNameStyle;

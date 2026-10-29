@@ -178,6 +178,17 @@ Core's own repository runs its tests. Update the package version in
 Mobile's app version stays independent of Core and desktop; the next mobile
 release remains 2.0.0.
 
+CorePolling connects the mobile pages to Core's AlertMonitor, DeviceMonitor,
+SensorMonitor, DeviceCache and AlertRuleCache. Worker events complete awaited
+requests; page continuations run on the UI context. Session changes discard
+cached names and readings. Device and sensor polling slows while the app is
+in the background, using Core's activity policy. The platform coordinator
+still schedules background wakes and notifications and preserves mobile's
+server-specific notification baseline. Widgets use the same device cache
+and sensor monitor as the pages. Core's DashboardLayoutService persists card
+changes and Undo; DashboardLayout retains only the phone's ordering and
+supported-card projection of the shared settings.
+
 The shared mobile project owns session handling and CSV export (originally
 adapted from desktop), view models and services. The MAUI head supplies pages
 and platform adapters. Session and CSV source provenance is recorded in
