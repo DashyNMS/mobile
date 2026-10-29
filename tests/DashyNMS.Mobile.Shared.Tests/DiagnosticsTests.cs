@@ -248,10 +248,12 @@ public sealed class DiagnosticsReportTests
 
         Assert.Equal("App: DashyNMS mobile 1.1.0 (163)", header[2]);
         Assert.Equal("Phone: Apple iPhone16,1 · iOS 26.1", header[3]);
-        Assert.Equal("Server: LibreNMS 24.9.1 · https", header[4]);
-        Assert.Equal("Address in use: main", header[5]);
-        Assert.Contains("tabs Devices, Alerts, Health", header[6]);
-        Assert.Contains("notify every alert", header[6]); // which alerts notify (#167): counts, never rule names
+        Assert.StartsWith("Core: ", header[4]); // About's versions (#215)
+        Assert.Equal("Sensor definitions: Unavailable (Unavailable)", header[5]);
+        Assert.Equal("Server: LibreNMS 24.9.1 · https", header[6]);
+        Assert.Equal("Address in use: main", header[7]);
+        Assert.Contains("tabs Devices, Alerts, Health", header[8]);
+        Assert.Contains("notify every alert", header[8]); // which alerts notify (#167): counts, never rule names
         Assert.DoesNotContain(header, l => l.Contains("secret-token", StringComparison.Ordinal));
     }
 

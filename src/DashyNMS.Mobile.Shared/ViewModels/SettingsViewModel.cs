@@ -75,8 +75,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
         ILocalDataWipe? wipe = null,
         BackupAddressStatus? backup = null,
         DiagnosticsReport? report = null,
-        SensorDefinitions? definitions = null)
+        SensorDefinitions? definitions = null,
+        IClipboardText? clipboard = null,
+        WhatsNew? whatsNew = null)
     {
+        _whatsNew = whatsNew;
+        _clipboard = clipboard;
         _wipe = wipe;
         _definitions = definitions;
         Backup = backup;
@@ -278,6 +282,58 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
 
     private readonly SensorDefinitions? _definitions;
+    private readonly IClipboardText? _clipboard;
+    private readonly WhatsNew? _whatsNew;
+
+    /// <summary>About's "What's new in this version" (#159), with a taste of it.</summary>
+    public bool HasWhatsNew => _whatsNew?.Notes is not null;
+
+    public string WhatsNewSummary => _whatsNew?.Summary ?? string.Empty;
+
+    [RelayCommand]
+    private Task OpenWhatsNewAsync() => _navigation.GoToAsync(Routes.WhatsNew);
+
+    /// <summary>
+    /// About's versions (#215): the app and build, Core, the sensor
+    /// definitions and their state, and the phone's system - never its name.
+    /// </summary>
+    public IReadOnlyList<ComponentVersion> Versions => ComponentVersions.Build(
+        _diagnostics?.AppVersion ?? AppVersion,
+        _definitions?.Store,
+        _diagnostics?.Device?.Split(" · ").LastOrDefault());
+
+    /// <summary>"Copy version details", then "Copied" on the button itself for a moment.</summary>
+    [ObservableProperty]
+    private string _copyVersionsText = CopyVersionsLabel;
+
+    private const string CopyVersionsLabel = "Copy version details";
+
+    public bool CanCopyVersions => _clipboard is not null;
+
+    [RelayCommand]
+    private async Task CopyVersionDetailsAsync()
+    {
+        if (_clipboard is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _clipboard.SetTextAsync(ComponentVersions.Format(Versions));
+            CopyVersionsText = "Copied";
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
+        {
+            CopyVersionsText = "Copy unavailable";
+        }
+
+        await Task.Delay(CopiedFor);
+        CopyVersionsText = CopyVersionsLabel;
+    }
+
+    /// <summary>How long the button says "Copied" - none in tests.</summary>
+    internal TimeSpan CopiedFor { get; set; } = TimeSpan.FromSeconds(2.5);
 
     /// <summary>"On · 2026.10.1", "On · not downloaded yet" or "Off" (#209).</summary>
     public string SensorDefinitionsSummary => _definitions?.Store is not { } store ? "Not available"
@@ -632,6 +688,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsServerInsecure));
         OnPropertyChanged(nameof(GraylogStatusText));
         OnPropertyChanged(nameof(SensorDefinitionsSummary));
+        OnPropertyChanged(nameof(Versions));
     }
 
     [RelayCommand]

@@ -11,7 +11,8 @@ public partial class App : Application
 	private readonly Services.SensorDefinitions _definitions;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
-		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions)
+		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
+		Services.WhatsNew whatsNew)
 	{
 		InitializeComponent();
 
@@ -24,6 +25,9 @@ public partial class App : Application
 		_diagnostics = diagnostics;
 		_alerts.Start();
 		_definitions = definitions;
+
+		// Before sign-in can save a server: a fresh install has nothing that's new to it (#159).
+		whatsNew.MarkSeenIfFreshInstall();
 
 		// A certificate met while signed in - the backup address's, say - is
 		// asked about there and then (#141); once trusted, the page showing loads again.

@@ -137,6 +137,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();
 		builder.Services.AddTransient<SensorDefinitionsSettingsPage>();
+		builder.Services.AddTransient<WhatsNewPage>();
 		builder.Services.AddTransient<GraylogMessagePage>();
 		builder.Services.AddTransient<GraylogDevicePickerPage>();
 
