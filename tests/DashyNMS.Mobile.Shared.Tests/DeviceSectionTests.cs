@@ -293,7 +293,7 @@ public sealed class DeviceSectionViewModelTests
         await vm.LoadAsync(7, DeviceSection.Fdb);
 
         Assert.True(vm.IsEmpty);
-        Assert.Equal("LibreNMS has no fdb for this device.", vm.EmptyText);
+        Assert.Equal("No fdb visible to this account", vm.EmptyText);
     }
 
     [Fact]

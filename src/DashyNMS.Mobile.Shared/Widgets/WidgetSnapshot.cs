@@ -37,7 +37,8 @@ public sealed record WidgetDeviceCounts(
     [property: JsonPropertyName("critical")] int Critical,
     [property: JsonPropertyName("warning")] int Warning,
     [property: JsonPropertyName("acknowledged")] int Acknowledged,
-    [property: JsonPropertyName("ok")] int Ok);
+    [property: JsonPropertyName("ok")] int Ok,
+    [property: JsonPropertyName("unknown")] int Unknown = 0);
 
 /// <summary>A pinned device as a widget row.</summary>
 /// <param name="State">"down", "critical", "warning", "acknowledged", "ok" or "disabled" - what it's coloured by.</param>
@@ -204,7 +205,7 @@ public sealed record WidgetSnapshot
             Acknowledged = totals.Acknowledged,
             Faults = totals.Faults,
             UsesFaults = totals.UsesFaults,
-            DevicesDown = devices?.Count(d => d.State == DeviceState.Down),
+            DevicesDown = devices?.Count(d => d.ReportedState == DeviceState.Down),
             Alerts = listed,
             Devices = devices is null ? null : CountDevices(devices, open),
             Pinned = devices is null ? [] : PinnedDevices(settings, devices, open, names),
@@ -226,7 +227,7 @@ public sealed record WidgetSnapshot
 
     private static WidgetDeviceCounts CountDevices(IReadOnlyList<Device> devices, IReadOnlyList<Alert> open)
     {
-        var watched = devices.Where(d => d.State != DeviceState.Disabled).ToList();
+        var watched = devices.Where(d => d.ReportedState is not (DeviceState.Disabled or DeviceState.Unknown) && d.ReportedStatus is not null).ToList();
         var byDevice = open.ToLookup(a => a.DeviceId);
         int critical = 0, warning = 0, acknowledged = 0;
         foreach (var device in watched)
@@ -241,13 +242,14 @@ public sealed record WidgetSnapshot
 
         return new WidgetDeviceCounts(
             Total: devices.Count,
-            Up: watched.Count(d => d.State != DeviceState.Down),
-            Down: watched.Count(d => d.State == DeviceState.Down),
-            Disabled: devices.Count - watched.Count,
+            Up: watched.Count(d => d.ReportedStatus == true),
+            Down: watched.Count(d => d.ReportedStatus == false),
+            Disabled: devices.Count(d => d.ReportedState == DeviceState.Disabled),
             Critical: critical,
             Warning: warning,
             Acknowledged: acknowledged,
-            Ok: watched.Count - critical - warning - acknowledged);
+            Ok: watched.Count - critical - warning - acknowledged,
+            Unknown: devices.Count - watched.Count - devices.Count(d => d.ReportedState == DeviceState.Disabled));
     }
 
     /// <summary>A device's worst open alert: an active critical, any other active, only acknowledged, or none ("ok").</summary>
@@ -286,19 +288,21 @@ public sealed record WidgetSnapshot
                     .FirstOrDefault();
                 var location = string.IsNullOrWhiteSpace(device.Location) ? null : device.Location;
 
-                if (device.State == DeviceState.Disabled)
+                if (device.ReportedState is DeviceState.Disabled or DeviceState.Ignored)
                 {
-                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "disabled", "Disabled", location);
+                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "disabled", device.ReportedState.ToDisplayString(), location);
                 }
 
-                if (device.State == DeviceState.Down)
+                if (device.ReportedState == DeviceState.Down)
                 {
                     return new WidgetDevice(device.DeviceId, names[device.DeviceId], "down", "Down", location, worst is null ? 0 : UnixTime(worst.Timestamp, utc));
                 }
 
+                if (device.ReportedState == DeviceState.Unknown)
+                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "unknown", "State unknown", location);
                 var state = WorstState(byDevice[device.DeviceId]);
-                var status = worst is null ? $"Up {Formatting.Uptime(device.Uptime)}" : worst.DisplayRuleName;
-                if (worst is null && device.Uptime <= 0)
+                var status = worst is null ? device.ReportedUptime is { } uptime ? $"Up {Formatting.Uptime(uptime)}" : "Up · uptime unknown" : worst.DisplayRuleName;
+                if (worst is null && device.ReportedUptime is <= 0)
                 {
                     status = "Up";
                 }

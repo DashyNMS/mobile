@@ -146,14 +146,14 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
 
     public int DisabledCount => _all.Count(r => r.IsDisabled);
 
-    public bool IsEmpty => _loaded && Rules.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Rules.Count == 0 && !IsBusy;
 
     public bool HasLoaded => _loaded;
 
     /// <summary>"No rules" when LibreNMS has none; "No matches" when the chips or search hide them.</summary>
     public string EmptyTitle => _all.Count == 0 ? "No rules" : "No matches";
 
-    public string EmptyText => _all.Count == 0 ? "LibreNMS has no alert rules." : "None of the rules match the search and chips.";
+    public string EmptyText => ReadFailureText ?? (_all.Count == 0 ? "LibreNMS has no alert rules." : "None of the rules match the search and chips.");
 
     /// <summary>Anything Clear filters would undo.</summary>
     public bool HasActiveFilters => OnlyAlerting || !ShowCritical || !ShowWarning || !ShowDisabled || !string.IsNullOrWhiteSpace(SearchText);

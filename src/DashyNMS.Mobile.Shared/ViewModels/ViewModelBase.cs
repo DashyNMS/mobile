@@ -65,6 +65,16 @@ public abstract partial class ViewModelBase : ObservableObject
             scheduler);
     }
 
+    private Exception? _failure;
+    public SourceOutcome? FailureOutcome => _failure is null ? null : VisibleTotals.Classify(null, _failure);
+
+    public string? ReadFailureText => FailureOutcome switch
+    {
+        SourceOutcome.Denied => "Access to this resource was denied.",
+        SourceOutcome.Failed => "This resource couldn't be loaded.",
+        _ => null,
+    };
+
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
 
     /// <summary>
@@ -72,12 +82,13 @@ public abstract partial class ViewModelBase : ObservableObject
     /// failure into <see cref="ErrorMessage"/> rather than an unhandled
     /// exception. Returns false when it failed.
     /// </summary>
-    protected async Task<bool> RunAsync(Func<Task> work)
+    protected async Task<bool> RunAsync(Func<Task> work, bool isRead = true)
     {
         var firstLoad = !_hasLoaded;
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
         IsBusy = true;
         ErrorMessage = null;
+        if (isRead) _failure = null;
         try
         {
             await work();
@@ -89,6 +100,7 @@ public abstract partial class ViewModelBase : ObservableObject
         }
         catch (Exception ex)
         {
+            if (isRead) _failure = ex;
             ErrorMessage = Describe(ex);
             return false;
         }
@@ -97,6 +109,12 @@ public abstract partial class ViewModelBase : ObservableObject
             // Set before IsBusy so its change notification sees it.
             _hasLoaded = true;
             IsBusy = false;
+            OnPropertyChanged(nameof(FailureOutcome));
+            OnPropertyChanged(nameof(ReadFailureText));
+            // List bindings must also refresh when a failed request bypasses ApplyFilter.
+            OnPropertyChanged("IsEmpty");
+            OnPropertyChanged("CountText");
+            OnPropertyChanged("EmptyText");
 
             if (firstLoad)
             {

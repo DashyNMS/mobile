@@ -46,10 +46,10 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
     /// <summary>Groups or locations, filtered: counts on the right, red when any device is down.</summary>
     public BulkObservableCollection<SectionRow> Places { get; } = new();
 
-    public bool IsEmpty => _loaded && Places.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Places.Count == 0 && !IsBusy;
 
-    public string EmptyText => !string.IsNullOrWhiteSpace(SearchText) ? "Nothing matches."
-        : ShowingGroups ? "LibreNMS has no device groups." : "No devices have a location.";
+    public string EmptyText => ReadFailureText ?? (!string.IsNullOrWhiteSpace(SearchText) ? "Nothing matches."
+        : ShowingGroups ? "LibreNMS has no device groups." : "No devices have a location.");
 
     partial void OnShowingGroupsChanged(bool value) => ApplyFilter();
 
@@ -177,8 +177,9 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
 
     private static PlaceRow Place(string key, string title, string? subtitle, IReadOnlyCollection<Device> members)
     {
-        var down = members.Count(d => d.State == DeviceState.Down);
-        var disabled = members.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
+        var down = members.Count(d => d.ReportedState == DeviceState.Down);
+        var unknown = members.Count(d => d.ReportedState == DeviceState.Unknown);
+        var disabled = members.Count(d => d.ReportedState is DeviceState.Disabled or DeviceState.Ignored);
         return new PlaceRow(key, down, new SectionRow(title)
         {
             Subtitle = string.IsNullOrWhiteSpace(subtitle) ? null : subtitle,
@@ -187,8 +188,9 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
             {
                 down > 0 ? $"{down} down" : null,
                 disabled > 0 ? $"{disabled} disabled" : null,
+                unknown > 0 ? $"{unknown} unknown" : null,
             }.Where(t => t is not null)),
-            Status = down > 0 ? RowStatus.Critical : members.Count > 0 ? RowStatus.Ok : RowStatus.None,
+            Status = down > 0 ? RowStatus.Critical : members.Count > unknown ? RowStatus.Ok : RowStatus.None,
         });
     }
 

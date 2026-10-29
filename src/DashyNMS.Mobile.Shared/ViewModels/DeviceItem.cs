@@ -56,12 +56,12 @@ public sealed partial class DeviceItem : ObservableObject
         .Where(s => !string.IsNullOrWhiteSpace(s)));
 
     /// <summary>As desktop: maintenance takes over from up/down while a window is open.</summary>
-    public DeviceState State => IsUnderMaintenance ? DeviceState.Maintenance : Device.State;
+    public DeviceState State => IsUnderMaintenance ? DeviceState.Maintenance : Device.ReportedState;
 
     public string StateText => State.ToDisplayString();
 
     /// <summary>Uptime means nothing for a device that isn't up, so desktop shows a dash.</summary>
-    public string UptimeText => Device.State == DeviceState.Up ? Formatting.Uptime(Device.Uptime) : "—";
+    public string UptimeText => Device.ReportedUptime is not { } uptime ? "Unknown" : Device.ReportedState == DeviceState.Up ? Formatting.Uptime(uptime) : "—";
 
     /// <summary>The fields desktop's device search looks in.</summary>
     public bool Matches(string term) =>

@@ -82,9 +82,9 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
         _pins = placement.Pins.Select((pin, index) =>
         {
             var members = pin.DeviceIds.Where(byId.ContainsKey).Select(id => byId[id]).ToList();
-            var state = members.Any(d => d.State == DeviceState.Down) ? "down"
-                : members.Any(d => d.State == DeviceState.Up) ? "up"
-                : "off";
+            var state = members.Any(d => d.ReportedState == DeviceState.Down) ? "down"
+                : members.Any(d => d.ReportedState == DeviceState.Up) ? "up"
+                : members.Any(d => d.ReportedState == DeviceState.Unknown) ? "unknown" : "off";
             var items = members
                 .Select(d => new DeviceItem(d, style))
                 .OrderByDescending(d => d.State == DeviceState.Down)
@@ -92,10 +92,10 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
                 .ToList();
             // The name as the Devices tab's Location filter shows it, not a geocoded object's JSON.
             var name = DeviceLocation.Name(pin.Name) ?? pin.Name;
-            var down = members.Count(d => d.State == DeviceState.Down);
-            var maintenance = members.Count(d => d.State == DeviceState.Maintenance);
-            var off = members.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
-            var up = members.Count - down - maintenance - off;
+            var down = members.Count(d => d.ReportedState == DeviceState.Down);
+            var maintenance = members.Count(d => d.ReportedState == DeviceState.Maintenance);
+            var off = members.Count(d => d.ReportedState is DeviceState.Disabled or DeviceState.Ignored);
+            var up = members.Count(d => d.ReportedState == DeviceState.Up);
             return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off), (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 

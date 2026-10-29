@@ -1,5 +1,6 @@
 using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DesktopNMS.Core.Api;
 
 namespace DashyNMS.Mobile.DeviceSections;
 
@@ -120,12 +121,15 @@ public sealed partial class DeviceSectionCard : ObservableObject
     }
 
     /// <summary>A section that couldn't load stays, saying so, rather than vanishing as if empty.</summary>
-    public void Failed()
+    public void Failed(Exception? error = null)
     {
         _loaded = true;
         _failed = true;
         Groups = [];
-        SummaryText = "Couldn't load - tap to try again";
+        Status = RowStatus.None;
+        SummaryText = error is LibreNmsApiException { IsPermissionDenied: true }
+            ? VisibleTotals.Describe(SourceOutcome.Denied, 0, Info.Title.ToLowerInvariant())
+            : "Couldn't load - tap to try again";
         Highlights = [];
         Count = 0;
         OnPropertyChanged(nameof(Groups));

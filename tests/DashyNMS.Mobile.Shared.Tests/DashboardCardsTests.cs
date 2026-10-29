@@ -445,9 +445,9 @@ public sealed class DashboardCardsTests
     private readonly ILibreNmsClient _client = Fakes.Client(
         devices:
         [
-            new Device { DeviceId = 1, Hostname = "core-sw", Status = true, Os = "ios" },
-            new Device { DeviceId = 2, Hostname = "wlc-1", Status = true, Os = "arubaos" },
-            new Device { DeviceId = 3, Hostname = "wlc-2", Status = false, Os = "arubaos" },
+            new Device { DeviceId = 1, Hostname = "core-sw", Status = true, Disabled = false, Ignore = false, Os = "ios" },
+            new Device { DeviceId = 2, Hostname = "wlc-1", Status = true, Disabled = false, Ignore = false, Os = "arubaos" },
+            new Device { DeviceId = 3, Hostname = "wlc-2", Status = false, Disabled = false, Ignore = false, Os = "arubaos" },
         ],
         alerts: [Fakes.Alert(1, 1, "critical"), Fakes.Alert(2, 1, "warning"), Fakes.Alert(3, 1, "warning", acknowledged: true), Fakes.Alert(4, 1, "critical")]);
 

@@ -24,7 +24,7 @@
         <pages:DeviceCardTemplateSelector x:Key="GridCardTemplates">
             <pages:DeviceCardTemplateSelector.Ping>
                 <DataTemplate x:DataType="sections:DeviceOverviewCard">
-                    <ContentView IsVisible="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource IsNotNull}}">
+                    <ContentView IsVisible="{Binding HasPingGraph, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}">
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto">
@@ -32,7 +32,8 @@
                                     <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="24h" />
                                 </Grid>
                                 <Grid>
-                                    <controls:GraphView Html="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
+                                    <controls:GraphView IsVisible="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource IsNotNull}}" Html="{Binding PingGraphPage, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding PingGraphError, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" IsVisible="{Binding PingGraphError, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource IsNotNull}}" />
                                     <!-- The web view would swallow taps. -->
                                     <BoxView Color="Transparent">
                                         <BoxView.GestureRecognizers>

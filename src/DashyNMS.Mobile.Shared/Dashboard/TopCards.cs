@@ -74,7 +74,7 @@ public static class TopCards
         var count = CountOf(widget);
 
         string DeviceName(int id) => devices.TryGetValue(id, out var device) ? name(device) : "Device " + id.ToString(CultureInfo.CurrentCulture);
-        DeviceState? StateOf(int id) => devices.TryGetValue(id, out var device) ? device.State : null;
+        DeviceState? StateOf(int id) => devices.TryGetValue(id, out var device) ? device.ReportedState : null;
 
         switch (widget.WidgetType)
         {

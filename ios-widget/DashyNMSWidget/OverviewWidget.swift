@@ -135,6 +135,7 @@ struct OverviewWidgetView: View {
     private func deviceLine(_ counts: DeviceCounts) -> String {
         var parts = ["\(counts.up) up", "\(counts.down) down"]
         if counts.disabled > 0 { parts.append("\(counts.disabled) disabled") }
+        if let unknown = counts.unknown, unknown > 0 { parts.append("\(unknown) unknown") }
         return parts.joined(separator: " · ")
     }
 }

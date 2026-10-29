@@ -464,8 +464,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(devicesTask, alertsTask);
 
         var devices = devicesTask.Result;
-        DevicesDown = devices.Count(d => d.State == DeviceState.Down);
-        DevicesInactive = devices.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
+        DevicesDown = devices.Count(d => d.ReportedState == DeviceState.Down);
+        DevicesInactive = devices.Count(d => d.ReportedState is DeviceState.Disabled or DeviceState.Ignored);
         CountUp(devices, _maintenanceIds);
 
         var byId = devices.ToDictionary(d => d.DeviceId);
@@ -789,14 +789,14 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             .Where(d => readings.ContainsKey(d.DeviceId))
             .Select(d => (Device: d, Summary: WirelessFleet.Summarise(d.DeviceId, readings[d.DeviceId])))
             .Where(x => x.Summary.HasAny)
-            .OrderByDescending(x => x.Device.State == DeviceState.Down)
+            .OrderByDescending(x => x.Device.ReportedState == DeviceState.Down)
             .ThenByDescending(x => x.Summary.Severity)
             .ThenBy(x => x.Device.Hostname, StringComparer.OrdinalIgnoreCase)
             .Select(x => new SectionRow(new DeviceItem(x.Device, style).Name)
             {
                 Value = x.Summary.Clients is { } clients ? $"{clients:N0} clients" : null,
                 Subtitle = x.Summary.ApCount is { } aps ? $"{aps:N0} access points" : null,
-                Status = x.Device.State == DeviceState.Down ? RowStatus.Critical : x.Summary.Severity switch
+                Status = x.Device.ReportedState == DeviceState.Down ? RowStatus.Critical : x.Summary.Severity switch
                 {
                     AlertSeverity.Critical => RowStatus.Critical,
                     AlertSeverity.Warning => RowStatus.Warning,
@@ -860,7 +860,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private void CountUp(IReadOnlyList<Device> devices, IReadOnlySet<int> maintenance)
     {
         DevicesMaintenance = devices.Count(d => maintenance.Contains(d.DeviceId));
-        DevicesUp = devices.Count(d => d.State == DeviceState.Up && !maintenance.Contains(d.DeviceId));
+        DevicesUp = devices.Count(d => d.ReportedState == DeviceState.Up && !maintenance.Contains(d.DeviceId));
     }
 
     private async Task CountMaintenanceAsync(IReadOnlyList<Device> devices)
