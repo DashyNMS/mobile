@@ -4,6 +4,7 @@ using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
 
@@ -106,7 +107,8 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 
     public int OkCount => InCategory.Count(s => s.Row.Status == RowStatus.Ok);
 
-    public string CountText => ReadFailureText ?? (Sensors.Count == InCategory.Count()
+    /// <summary>"Updating…" over readings already on screen while a slow sensor list loads (DashyNMS/desktop#373).</summary>
+    public string CountText => IsBusy && _all.Count > 0 ? SensorRefreshStatus.Updating : ReadFailureText ?? (Sensors.Count == InCategory.Count()
         ? $"{Sensors.Count} {SelectedCategory.Label.ToLowerInvariant()} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
         : $"{Sensors.Count} of {InCategory.Count()} {SelectedCategory.Label.ToLowerInvariant()} sensors");
 
@@ -117,6 +119,18 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     public string EmptyText => ReadFailureText ?? (InCategory.Any()
         ? "No sensors match these filters."
         : $"LibreNMS has no {SelectedCategory.Label.ToLowerInvariant()} sensors.");
+
+    /// <summary>Kept readings from another page are on screen, so a first load needs no "Loading…" over them.</summary>
+    public override bool IsLoadingFirstTime => base.IsLoadingFirstTime && _all.Count == 0;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(IsBusy))
+        {
+            OnPropertyChanged(nameof(CountText));
+        }
+    }
 
     private IEnumerable<HealthSensor> InCategory =>
         _all.Where(s => string.Equals(s.SensorClass, SelectedCategory.SensorClass, StringComparison.OrdinalIgnoreCase));
@@ -183,19 +197,47 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        var style = _settings.Current.DeviceNameStyle;
+
+        // Opened while another page has the readings: show them while the next list loads.
+        if (!_loaded && _polling?.LastSensors is { ObservedAt: not null } kept)
+        {
+            _names = _polling.CachedDeviceNames.ToDictionary(d => d.Key, d => new DeviceItem(d.Value, style).Name);
+            _sensors = kept.Sensors;
+            Rebuild();
+            OnPropertyChanged(nameof(IsLoadingFirstTime));
+        }
+
         // LibreNMS lists every sensor in one call; the device list gives them names.
-        var sensorsTask = _polling?.SensorReadingsAsync() ?? _client.Sensors.ListAsync();
+        var sensorsTask = _polling?.SensorsAsync() ?? ListSensorsAsync();
         var devicesTask = _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
         await Task.WhenAll(sensorsTask, devicesTask);
 
-        var style = _settings.Current.DeviceNameStyle;
+        var result = sensorsTask.Result;
+        var problem = SensorRefreshStatus.Describe(result);
+        if (SensorRefreshStatus.HasNothingToShow(result))
+        {
+            throw new InvalidOperationException(problem);
+        }
+
         _names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
-        _sensors = sensorsTask.Result;
+        _sensors = result.Sensors;
 
         _loaded = true;
         _loadedAt = DateTimeOffset.UtcNow;
         Rebuild();
+
+        // The kept readings stay on screen, saying how old they are.
+        ErrorMessage = problem;
     });
+
+    private async Task<SensorPollResult> ListSensorsAsync() => new()
+    {
+        Succeeded = true,
+        Sensors = await _client.Sensors.ListAsync(),
+        CompletedAt = DateTimeOffset.Now,
+        ObservedAt = DateTimeOffset.Now,
+    };
 
     private void Rebuild()
     {

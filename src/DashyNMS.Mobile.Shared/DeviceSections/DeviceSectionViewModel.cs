@@ -118,6 +118,12 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         _loaded = true;
         ApplyFilter();
         OnPropertyChanged(nameof(ShowSearch));
+
+        // Kept readings after a slow sensor list say how old they are.
+        if (Section == DeviceSection.Sensors)
+        {
+            ErrorMessage = _loader.SensorStatus;
+        }
     });
 
     /// <summary>A neighbour that's a LibreNMS device opens that device; a port opens its graphs.</summary>

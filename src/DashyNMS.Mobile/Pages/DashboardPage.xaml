@@ -284,6 +284,8 @@
                         <VerticalStackLayout Spacing="4">
                             <!-- Chosen in Customise (Set up), or from this hint - not a button on the card. -->
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" Margin="0,0,0,4" />
+                            <!-- "Updating…", or how old the readings are after a slow sensor list (desktop#373). -->
+                            <Label Style="{StaticResource Caption}" Text="{Binding SensorStatus}" IsVisible="{Binding HasSensorStatus}" />
                             <Label Style="{StaticResource Caption}" Text="Tap to choose sensors to keep an eye on here." IsVisible="{Binding HasNoSensors}">
                                 <Label.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding Dashboard.PickSensorsCommand}" CommandParameter="{Binding .}" />
