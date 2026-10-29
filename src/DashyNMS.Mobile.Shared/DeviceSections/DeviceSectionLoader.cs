@@ -178,11 +178,21 @@ public sealed class DeviceSectionLoader
             : AgainstOwnLimits(current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
 
         var unit = registered?.UnitSuffix ?? (string.IsNullOrWhiteSpace(sensor.Unit) ? UnitFor(sensor.SensorClass) : " " + sensor.Unit.Trim());
-        return new SensorReading(
-            string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
-            GraphLegend.FormatSensor(sensor.Current, sensor.SensorClass, sensor.Unit),
-            ToStatus(severity),
-            Limits(sensor.LimitLow, sensor.LimitHigh, unit));
+        var name = string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!;
+        var raw = GraphLegend.FormatSensor(sensor.Current, sensor.SensorClass, sensor.Unit);
+
+        // A state sensor the definitions know (#210), as desktop's
+        // (DashyNMS/desktop#468): its name, with the number beneath, and the
+        // definition's severity - Unknown unless its source is authoritative,
+        // so an unresolved or label-only state never shows OK.
+        if (sensor.StateDefinition is { } state)
+        {
+            return state.Label is { Length: > 0 } label
+                ? new SensorReading(name, label, ToStatus(state.Severity), "Raw value: " + raw)
+                : new SensorReading(name, raw, ToStatus(state.Severity), null);
+        }
+
+        return new SensorReading(name, raw, ToStatus(severity), Limits(sensor.LimitLow, sensor.LimitHigh, unit));
     }
 
     private static string SensorClassName(string? sensorClass) =>
