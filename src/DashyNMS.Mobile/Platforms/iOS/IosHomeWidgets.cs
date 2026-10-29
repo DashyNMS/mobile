@@ -63,6 +63,7 @@ public sealed class IosHomeWidgets : IHomeWidgets
         try
         {
             var path = Path.Combine(_folder, SnapshotFile);
+            snapshot = snapshot.RetainEnrichment(WidgetSnapshot.FromJson(File.Exists(path) ? File.ReadAllText(path) : null));
             var temp = path + ".tmp";
             File.WriteAllText(temp, (snapshot with { HideLockScreenDetails = HideLockScreenDetails }).ToJson());
             File.Move(temp, path, overwrite: true);

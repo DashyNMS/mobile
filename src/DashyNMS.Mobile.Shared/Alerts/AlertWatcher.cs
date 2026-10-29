@@ -172,37 +172,21 @@ public sealed class AlertWatcher
             var query = settings.Notifications.NotifyOnRecovery || settings.IncludeRecoveredAlerts
                 ? AlertQuery.All
                 : AlertQuery.Open;
+            var fetchStarted = _time.GetTimestamp();
             var alerts = await _client.Alerts.ListAsync(query, cancellationToken).ConfigureAwait(false);
+            _logger.LogInformation("Alert list completed in {Milliseconds} ms", _time.GetElapsedTime(fetchStarted).TotalMilliseconds);
+            cancellationToken.ThrowIfCancellationRequested();
 
             var saved = _store.Load();
             var hasBaseline = saved is not null && saved.Server == server;
             var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
-            _store.Save(new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts)));
+            var nextState = new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts));
             _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? DesktopNMS.Core.Models.AlertSeverity.Ok));
             _tabDot?.Update(alerts, settings);
 
-            if (_widgets.IsInUse)
-            {
-                var devices = await DevicesAsync(cancellationToken).ConfigureAwait(false);
-                var sensors = await SensorsAsync(settings, cancellationToken).ConfigureAwait(false);
-                _widgets.Update(WidgetSnapshot.Build(alerts, _time.GetUtcNow(), settings, devices, sensors, _sensorsAt));
-            }
-
-            if (!hasBaseline && settings.Notifications.SuppressOnFirstPoll)
-            {
-                _logger.LogInformation("First alert check for {Server}: {Count} alert(s) recorded, none announced", server, alerts.Count);
-                return new AlertCheckResult(AlertCheckOutcome.Baseline, changes.Count);
-            }
-
-            // Devices named as the user chose to see them (#80), not by the
-            // alert's own hostname - often an IP. The device list (cached, as
-            // the widgets use it) is only read when there's something to say.
-            IReadOnlyDictionary<int, DesktopNMS.Core.Models.Device>? devicesById = null;
-            if (changes.Count > 0 && settings.Notifications.Enabled
-                && await DevicesAsync(cancellationToken).ConfigureAwait(false) is { } known)
-            {
-                devicesById = known.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First());
-            }
+            var quietBaseline = !hasBaseline && settings.Notifications.SuppressOnFirstPoll;
+            // Use only names already loaded by a page or a previous widget refresh.
+            var devicesById = _polling.CachedDeviceNames;
 
             var nameStyle = settings.DeviceNameStyle;
             var localNow = _time.GetLocalNow().DateTime;
@@ -211,13 +195,15 @@ public sealed class AlertWatcher
             // settings - only here: the badge, dot and widgets above still
             // count a left-out alert.
             var plan = AlertNotificationPlanner.Plan(
-                changes,
+                quietBaseline ? [] : changes,
                 settings.Notifications,
                 localNow,
                 _selfActions,
                 alert => nameStyle.Resolve(devicesById?.GetValueOrDefault(alert.DeviceId), alert.DisplayHostname),
                 alert => devicesById?.GetValueOrDefault(alert.DeviceId)?.LocationName());
 
+            cancellationToken.ThrowIfCancellationRequested();
+            var deliveryStarted = _time.GetTimestamp();
             foreach (var tag in plan.Remove)
             {
                 _notifier.Remove(tag);
@@ -227,6 +213,20 @@ public sealed class AlertWatcher
             {
                 await _notifier.ShowAsync(notification).ConfigureAwait(false);
             }
+
+            // Commit only after the platform accepted every notification. A cancelled
+            // fetch or failed delivery leaves the previous state available to retry.
+            _store.Save(nextState);
+            _logger.LogInformation("Alert notification delivery completed in {Milliseconds} ms", _time.GetElapsedTime(deliveryStarted).TotalMilliseconds);
+            if (_widgets.IsInUse)
+            {
+                // Alert data is current immediately; fleet enrichment is optional.
+                _widgets.Update(WidgetSnapshot.Build(alerts, _time.GetUtcNow(), settings) with { PreserveEnrichment = true });
+                await EnrichWidgetsAsync(alerts, settings, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (quietBaseline)
+                return new AlertCheckResult(AlertCheckOutcome.Baseline, changes.Count);
 
             if (plan.SuppressionReason is { } why)
             {
@@ -251,6 +251,30 @@ public sealed class AlertWatcher
         }
     }
 
+    internal TimeSpan WidgetRefreshBudget { get; init; } = TimeSpan.FromSeconds(5);
+
+    private async Task EnrichWidgetsAsync(IReadOnlyList<DesktopNMS.Core.Models.Alert> alerts, AppSettings settings, CancellationToken cancellationToken)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(WidgetRefreshBudget);
+        var started = _time.GetTimestamp();
+        var stage = "widget devices";
+        try
+        {
+            var devices = await DevicesAsync(budget.Token).WaitAsync(budget.Token).ConfigureAwait(false);
+            if (devices is null) throw new InvalidOperationException("Device refresh failed");
+            stage = "widget sensors";
+            var sensors = await SensorsAsync(settings, budget.Token).WaitAsync(budget.Token).ConfigureAwait(false);
+            budget.Token.ThrowIfCancellationRequested();
+            _widgets.Update(WidgetSnapshot.Build(alerts, _time.GetUtcNow(), settings, devices, sensors, _sensorsAt));
+            _logger.LogInformation("Widget enrichment completed in {Milliseconds} ms", _time.GetElapsedTime(started).TotalMilliseconds);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("{Stage} stopped after {Milliseconds} ms; retaining alert snapshot: {Reason}", stage, _time.GetElapsedTime(started).TotalMilliseconds, ex.Message);
+        }
+    }
+
     private Task<IReadOnlyList<DesktopNMS.Core.Models.Device>?> DevicesAsync(CancellationToken cancellationToken) =>
         _polling.CachedDevicesAsync(cancellationToken);
 
@@ -258,6 +282,7 @@ public sealed class AlertWatcher
     {
         if (WidgetSnapshot.PickedSensors(settings).Count == 0) return null;
         var result = await _polling.WidgetSensorsAsync(cancellationToken).ConfigureAwait(false);
+        if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
         _sensorsAt = result.ObservedAt ?? default;
         return result.Sensors;
     }

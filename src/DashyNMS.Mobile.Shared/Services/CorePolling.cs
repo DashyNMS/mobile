@@ -39,6 +39,11 @@ public sealed class CorePolling : IDisposable, IAppActivity
         session.StateChanged += OnSessionChanged;
     }
 
+    /// <summary>Names already known to the session; notification delivery must never wait for the fleet list.</summary>
+    public IReadOnlyDictionary<int, Device> CachedDeviceNames => !_reset && _cache is { IsLoaded: true }
+        ? _cache.All.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First())
+        : new Dictionary<int, Device>();
+
     public IAlertRuleCache Rules { get; }
     public IDashboardLayoutService Layout { get; }
     public bool IsInBackground => _background;
