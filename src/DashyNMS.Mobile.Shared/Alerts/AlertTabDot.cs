@@ -44,7 +44,7 @@ public sealed class AlertTabDot(AlertCountThreshold? threshold = null)
     public void Update(IEnumerable<Alert> alerts, AppSettings settings)
     {
         // Only what the app icon counts, its severity threshold (#96) included.
-        var counted = AlertBadge.Counted(alerts, settings, threshold?.Minimum ?? AlertSeverity.Ok).ToList();
+        var counted = AlertBadge.Counted(alerts, settings, threshold?.Minimum ?? settings.Notifications.CountFrom).ToList();
 
         var groups = AlertCounting.CountGroups(counted, AlertSeverity.Ok, includeAcknowledged: true);
         var critical = groups.Critical;

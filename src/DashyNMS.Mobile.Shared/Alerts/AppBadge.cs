@@ -41,11 +41,11 @@ public static class AlertBadge
     /// (<see cref="AlertCountThreshold"/>, #96), decided by Core's
     /// <see cref="AlertCounting"/> so desktop's badge counts the same (#168).
     /// </summary>
-    public static int Count(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity minimum = AlertSeverity.Ok) =>
-        Counted(alerts, settings, minimum).Count();
+    public static int Count(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity? minimum = null) =>
+        AlertCounting.CountGroups(Counted(alerts, settings, minimum), minimum ?? settings.Notifications.CountFrom, settings.AlertTabBadgeIncludesAcknowledged).Total;
 
     /// <summary>The alerts <see cref="Count"/> counts; the Alerts tab's dot (<see cref="AlertTabDot"/>) looks at the same ones.</summary>
-    public static IEnumerable<Alert> Counted(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity minimum = AlertSeverity.Ok) => settings.ShowAlertTabBadge
-        ? alerts.Where(a => AlertCounting.Counts(a, minimum, settings.AlertTabBadgeIncludesAcknowledged))
+    public static IEnumerable<Alert> Counted(IEnumerable<Alert> alerts, AppSettings settings, AlertSeverity? minimum = null) => settings.ShowAlertTabBadge
+        ? alerts.Where(a => AlertCounting.Counts(a, minimum ?? settings.Notifications.CountFrom, settings.AlertTabBadgeIncludesAcknowledged))
         : [];
 }

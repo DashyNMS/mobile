@@ -37,7 +37,7 @@ public sealed class AlertGroupingTests
         var vm = await Load(faults);
         var header = Assert.Single(vm.DisplayRows);
         Assert.True(header.IsGroupHeader);
-        Assert.Equal("1 alert group · 8 faults", vm.CountText);
+        Assert.Equal("1 alert group · 8 faults · visible to this account", vm.CountText);
         Assert.Equal(1, vm.CriticalCount);
         Assert.Contains("First seen", header.GroupTimesText);
         Assert.Equal(faults[0].FirstSeen, header.Group!.FirstSeen);
@@ -107,7 +107,7 @@ public sealed class AlertGroupingTests
         var vm = await Load([recovered, Fault(2)]);
         var header = Assert.Single(vm.DisplayRows);
         Assert.Equal(1, header.Group!.FaultCount);
-        Assert.Equal("1 alert group · 1 fault", vm.CountText);
+        Assert.Equal("1 alert group · 1 fault · visible to this account", vm.CountText);
     }
 
     [Fact]

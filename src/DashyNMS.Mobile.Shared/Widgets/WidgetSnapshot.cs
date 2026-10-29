@@ -5,6 +5,8 @@ using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Alerting;
+using DashyNMS.Mobile.Alerts;
 using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.Widgets;
@@ -18,7 +20,8 @@ public sealed record WidgetAlert(
     [property: JsonPropertyName("rule")] string Rule,
     [property: JsonPropertyName("device")] string Device,
     [property: JsonPropertyName("acknowledged")] bool Acknowledged = false,
-    [property: JsonPropertyName("raisedAt")] long RaisedAt = 0);
+    [property: JsonPropertyName("raisedAt")] long RaisedAt = 0,
+    [property: JsonPropertyName("faultCount")] int FaultCount = 1);
 
 /// <summary>
 /// Every device once, by state: up/down/disabled as LibreNMS polls them, and
@@ -98,6 +101,21 @@ public sealed record WidgetSnapshot
     [JsonPropertyName("warning")]
     public int Warning { get; init; }
 
+    [JsonPropertyName("ok")]
+    public int Ok { get; init; }
+
+    [JsonPropertyName("usesFaults")]
+    public bool UsesFaults { get; init; }
+
+    [JsonPropertyName("faults")]
+    public int Faults { get; init; }
+
+    [JsonIgnore]
+    public int AlertGroups => Critical + Warning + Ok + Acknowledged;
+
+    [JsonIgnore]
+    public string AlertTotalsText => new AlertTotals(Critical, Warning, Ok, Acknowledged, Faults, UsesFaults).Description;
+
     [JsonPropertyName("acknowledged")]
     public int Acknowledged { get; init; }
 
@@ -144,7 +162,7 @@ public sealed record WidgetSnapshot
     public static WidgetSnapshot SignedOut { get; } = new();
 
     [JsonIgnore]
-    public int Active => Critical + Warning;
+    public int Active => Critical + Warning + Ok;
 
     /// <param name="devices">The device list, when it's been read: device counts, pinned devices and better names come from it.</param>
     /// <param name="sensors">Every sensor, when they've been read: the dashboard's picked ones are shown.</param>
@@ -157,30 +175,35 @@ public sealed record WidgetSnapshot
         DateTimeOffset? sensorsReadAt = null)
     {
         var open = alerts.Where(a => a.State is AlertState.Active or AlertState.Acknowledged).ToList();
-        var active = open.Where(a => a.State == AlertState.Active).ToList();
-        var acknowledged = open.Where(a => a.State == AlertState.Acknowledged);
+        var minimum = settings.Notifications.CountFrom;
+        var includeAcknowledged = settings.AlertTabBadgeIncludesAcknowledged;
+        var totals = AlertTotals.From(open, minimum, includeAcknowledged);
+        var qualifying = open.Where(a => AlertCounting.Counts(a, minimum, includeAcknowledged)).ToList();
+        var groups = AlertGrouping.ByDeviceAndRule(qualifying);
+        var fullGroups = AlertGrouping.ByDeviceAndRule(open).ToDictionary(g => g.Key);
         var utc = settings.ServerTimestampsAreUtc;
         var style = settings.DeviceNameStyle;
         var names = devices?.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name) ?? new Dictionary<int, string>();
 
         string DeviceName(Alert a) => names.TryGetValue(a.DeviceId, out var name) ? name : a.DisplayHostname;
 
-        var listed = active
-            .OrderByDescending(a => a.Severity.SortRank())
-            .ThenByDescending(a => a.Timestamp)
-            .Concat(acknowledged.OrderByDescending(a => a.Timestamp))
+        var listed = groups.OrderBy(g => g.State == AlertState.Acknowledged)
+            .ThenByDescending(g => g.Severity.SortRank()).ThenByDescending(g => g.LastChanged)
             .Take(MaxAlerts)
-            .Select(a => new WidgetAlert(
-                a.Id, a.DeviceId, SeverityKey(a.Severity), a.DisplayRuleName, DeviceName(a),
-                a.State == AlertState.Acknowledged, UnixTime(a.Timestamp, utc)))
+            .Select(g => new WidgetAlert(
+                g.Primary.Id, g.DeviceId, SeverityKey(g.Severity), g.DisplayRuleName, DeviceName(g.Primary),
+                g.State == AlertState.Acknowledged, UnixTime(g.LastChanged, utc), fullGroups[g.Key].FaultCount))
             .ToList();
 
         return new WidgetSnapshot
         {
             SignedIn = true,
-            Critical = active.Count(a => a.Severity == AlertSeverity.Critical),
-            Warning = active.Count(a => a.Severity == AlertSeverity.Warning),
-            Acknowledged = open.Count - active.Count,
+            Critical = totals.Critical,
+            Warning = totals.Warning,
+            Ok = totals.Ok,
+            Acknowledged = totals.Acknowledged,
+            Faults = totals.Faults,
+            UsesFaults = totals.UsesFaults,
             DevicesDown = devices?.Count(d => d.State == DeviceState.Down),
             Alerts = listed,
             Devices = devices is null ? null : CountDevices(devices, open),

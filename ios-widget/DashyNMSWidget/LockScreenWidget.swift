@@ -33,28 +33,32 @@ struct LockScreenWidgetView: View {
             }
         }
         .widgetURL(Links.alerts)
+        .accessibilityLabel(snapshot.alertTotalsText)
         .modifier(AccessoryBackground())
     }
 
     private var summary: String {
         if !snapshot.signedIn { return "Not signed in" }
-        if snapshot.active == 0 { return "All clear" }
-        if snapshot.critical == 0 { return "\(snapshot.warning) warning" }
-        if snapshot.warning == 0 { return "\(snapshot.critical) critical" }
-        return "\(snapshot.critical) critical · \(snapshot.warning) warning"
+        if snapshot.alertGroups == 0 { return "All clear" }
+        var parts: [String] = []
+        if snapshot.critical > 0 { parts.append("\(snapshot.critical) critical") }
+        if snapshot.warning > 0 { parts.append("\(snapshot.warning) warning") }
+        if snapshot.ok > 0 { parts.append("\(snapshot.ok) other") }
+        if snapshot.acknowledged > 0 { parts.append("\(snapshot.acknowledged) acknowledged") }
+        return parts.joined(separator: " · ")
     }
 
     private var inline: some View {
         ViewThatFits {
-            Label(summary, systemImage: snapshot.active == 0 ? "checkmark.circle" : "exclamationmark.triangle")
-            Text(snapshot.signedIn ? "\(snapshot.active) alerts" : "DashyNMS")
+            Label(summary, systemImage: snapshot.alertGroups == 0 ? "checkmark.circle" : "exclamationmark.triangle")
+            Text(snapshot.signedIn ? "\(snapshot.alertGroups) alerts" : "DashyNMS")
         }
     }
 
     /// The share of watched devices with a problem - nearly empty on a healthy network.
     private var problemShare: Double {
         guard let counts = snapshot.devices, counts.watched > 0 else {
-            return snapshot.active > 0 ? 1 : 0
+            return snapshot.alertGroups > 0 ? 1 : 0
         }
 
         return Double(counts.critical + counts.warning) / Double(counts.watched)
@@ -65,7 +69,7 @@ struct LockScreenWidgetView: View {
             Text("Alerts")
         } currentValueLabel: {
             VStack(spacing: -2) {
-                Text(snapshot.signedIn ? Format.count(snapshot.active) : "–")
+                Text(snapshot.signedIn ? Format.count(snapshot.alertGroups) : "–")
                     .font(.system(size: 20, weight: .semibold, design: .rounded))
                 Text("ALERTS")
                     .font(.system(size: 8, weight: .semibold))
@@ -91,7 +95,7 @@ struct LockScreenWidgetView: View {
                 Text(summary)
                     .font(.system(size: 13, weight: .semibold))
                     .lineLimit(1)
-                if snapshot.active > 0 {
+                if snapshot.alertGroups > 0 {
                     Text("Unlock for details")
                         .font(.caption)
                         .foregroundStyle(.secondary)

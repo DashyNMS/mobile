@@ -11,6 +11,7 @@ struct WidgetAlert: Codable, Hashable {
     var acknowledged: Bool = false
     /// Unix seconds; 0 if LibreNMS didn't say.
     var raisedAt: Int64 = 0
+    var faultCount: Int = 1
 }
 
 extension WidgetAlert {
@@ -24,6 +25,7 @@ extension WidgetAlert {
         device = try c.decodeIfPresent(String.self, forKey: .device) ?? ""
         acknowledged = try c.decodeIfPresent(Bool.self, forKey: .acknowledged) ?? false
         raisedAt = try c.decodeIfPresent(Int64.self, forKey: .raisedAt) ?? 0
+        faultCount = try c.decodeIfPresent(Int.self, forKey: .faultCount) ?? 1
     }
 }
 
@@ -76,6 +78,9 @@ struct Snapshot: Codable {
     var critical: Int = 0
     var warning: Int = 0
     var acknowledged: Int = 0
+    var ok: Int = 0
+    var faults: Int = 0
+    var usesFaults: Bool = false
     var devicesDown: Int? = nil
     var alerts: [WidgetAlert] = []
     var devices: DeviceCounts? = nil
@@ -90,7 +95,12 @@ struct Snapshot: Codable {
     static let appGroup = "group.net.pckp.DashyNMS"
     static let fileName = "widget-snapshot.json"
 
-    var active: Int { critical + warning }
+    var active: Int { critical + warning + ok }
+    var alertGroups: Int { active + acknowledged }
+    var alertTotalsText: String {
+        let alerts = "\(alertGroups) \(alertGroups == 1 ? "alert" : "alerts")"
+        return usesFaults ? "\(alerts) · \(faults) \(faults == 1 ? "fault" : "faults") · visible to this account" : "\(alerts) visible to this account"
+    }
 
     /// Unacknowledged alerts, worst first.
     var activeAlerts: [WidgetAlert] { alerts.filter { !$0.acknowledged } }
@@ -117,6 +127,9 @@ extension Snapshot {
         critical = try c.decodeIfPresent(Int.self, forKey: .critical) ?? 0
         warning = try c.decodeIfPresent(Int.self, forKey: .warning) ?? 0
         acknowledged = try c.decodeIfPresent(Int.self, forKey: .acknowledged) ?? 0
+        ok = try c.decodeIfPresent(Int.self, forKey: .ok) ?? 0
+        faults = try c.decodeIfPresent(Int.self, forKey: .faults) ?? 0
+        usesFaults = try c.decodeIfPresent(Bool.self, forKey: .usesFaults) ?? false
         devicesDown = try c.decodeIfPresent(Int.self, forKey: .devicesDown)
         alerts = try c.decodeIfPresent([WidgetAlert].self, forKey: .alerts) ?? []
         devices = try c.decodeIfPresent(DeviceCounts.self, forKey: .devices)
@@ -135,6 +148,7 @@ extension Snapshot {
             critical: 2,
             warning: 3,
             acknowledged: 1,
+            faults: 6,
             devicesDown: 1,
             alerts: [
                 WidgetAlert(alertId: 1, deviceId: 1, severity: "critical", rule: "Device down", device: "core-sw-01", raisedAt: now - 12 * 60),

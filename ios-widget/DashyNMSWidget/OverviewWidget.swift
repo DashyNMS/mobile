@@ -68,6 +68,8 @@ struct OverviewWidgetView: View {
                     .foregroundColor(.dnSecondary)
             }
 
+            Text(snapshot.alertTotalsText).font(.system(size: 10)).foregroundColor(.dnSecondary).lineLimit(2)
+
             if let counts = snapshot.devices {
                 VStack(alignment: .leading, spacing: 5) {
                     DeviceBar(counts: counts)

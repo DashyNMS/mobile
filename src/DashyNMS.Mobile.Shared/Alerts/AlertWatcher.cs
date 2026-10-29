@@ -219,7 +219,7 @@ public sealed class AlertWatcher
                 _notifier.RemoveAll();
                 _logger.LogInformation("Quiet alert baseline: {Reason}", detected.BaselineReason);
             }
-            _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? DesktopNMS.Core.Models.AlertSeverity.Ok));
+            _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? settings.Notifications.CountFrom));
             _tabDot?.Update(alerts, settings);
 
             var quietBaseline = detected.IsBaseline || (!hasBaseline && settings.Notifications.SuppressOnFirstPoll);

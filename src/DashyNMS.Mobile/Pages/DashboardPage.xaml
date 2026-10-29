@@ -41,6 +41,7 @@
                                 <Label Grid.Column="1" Style="{StaticResource CardNote}"
                                        Text="{Binding Dashboard.LastUpdated, StringFormat='Checked {0:HH:mm}'}" />
                             </Grid>
+                            <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
                                 <Border Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
@@ -184,6 +185,7 @@
                                     </Button>
                                 </HorizontalStackLayout>
                             </Grid>
+                            <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" />
                             <Label Style="{StaticResource Caption}" Text="Nothing needs attention." IsVisible="{Binding Dashboard.HasNoAlerts}" />
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
                                 <BindableLayout.ItemTemplate>

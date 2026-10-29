@@ -142,7 +142,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
                 return Alerts.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
             var groups = VisibleGroups();
             var faults = groups.Sum(g => g.FaultCount);
-            return $"{groups.Count} alert {(groups.Count == 1 ? "group" : "groups")} · {faults} {(faults == 1 ? "fault" : "faults")}";
+            return $"{groups.Count} alert {(groups.Count == 1 ? "group" : "groups")} · {faults} {(faults == 1 ? "fault" : "faults")} · visible to this account";
         }
     }
 
@@ -278,7 +278,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         ApplyFilter();
 
         // Straight away, rather than at the next check - after acknowledging, say.
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? _settings.Current.Notifications.CountFrom));
         _tabDot?.Update(alerts, _settings.Current);
     });
 
@@ -393,7 +393,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             .Concat(rows.Select(a => new AlertItem(a, _settings.Current.ServerTimestampsAreUtc, name))).ToList();
         ApplyFilter();
         var alerts = _all.Select(a => a.Alert).ToList();
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? _settings.Current.Notifications.CountFrom));
         _tabDot?.Update(alerts, _settings.Current);
     }
 
@@ -505,7 +505,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(AcknowledgedCount));
 
         var alerts = _all.Select(a => a.Alert).ToList();
-        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? AlertSeverity.Ok));
+        _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? _settings.Current.Notifications.CountFrom));
         _tabDot?.Update(alerts, _settings.Current);
     }
 
