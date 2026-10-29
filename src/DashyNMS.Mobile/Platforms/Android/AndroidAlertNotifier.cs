@@ -67,6 +67,8 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
             ? NotificationCompat.PriorityHigh
             : NotificationCompat.PriorityDefault);
         builder.SetAutoCancel(true);
+        builder.SetOnlyAlertOnce(notification.IsUpdate);
+        builder.SetSilent(notification.IsUpdate);
         builder.SetContentIntent(TapIntent(notification));
 
         // Private: a locked phone shows the public version below instead -
@@ -96,6 +98,8 @@ public sealed class AndroidAlertNotifier : IAlertNotifier
     }
 
     public void Remove(string tag) => NotificationManagerCompat.From(AppContext)!.Cancel(tag, 0);
+
+    public void RemoveAll() => NotificationManagerCompat.From(AppContext)!.CancelAll();
 
     private static PendingIntent TapIntent(AlertNotification notification)
     {

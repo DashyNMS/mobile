@@ -4,6 +4,8 @@ using DashyNMS.Mobile.Widgets;
 using DesktopNMS.Core.Alerting;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Models;
+using CoreWatchState = DesktopNMS.Core.Alerting.AlertWatchState;
 using DesktopNMS.Services;
 using Microsoft.Extensions.Logging;
 
@@ -173,18 +175,54 @@ public sealed class AlertWatcher
                 ? AlertQuery.All
                 : AlertQuery.Open;
             var fetchStarted = _time.GetTimestamp();
+            var source = await _client.Alerts.GetSourceAsync(cancellationToken).ConfigureAwait(false);
             var alerts = await _client.Alerts.ListAsync(query, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Alert list completed in {Milliseconds} ms", _time.GetElapsedTime(fetchStarted).TotalMilliseconds);
             cancellationToken.ThrowIfCancellationRequested();
+            if (alerts.Any(a => a.Source != source)) throw new InvalidOperationException("Alert list returned an inconsistent source");
 
             var saved = _store.Load();
             var hasBaseline = saved is not null && saved.Server == server;
-            var changes = AlertChangeDetector.Detect(hasBaseline ? saved!.States : new Dictionary<int, int>(), alerts);
-            var nextState = new AlertWatchState(server, AlertChangeDetector.Snapshot(alerts));
+            var previous = hasBaseline ? saved!.Snapshot : CoreWatchState.Empty;
+            var rows = alerts.ToList();
+            var unresolved = new System.Collections.Concurrent.ConcurrentBag<AlertKey>();
+            if (!previous.NeedsBaseline && previous.Source == source)
+            {
+                var present = rows.Select(a => a.Identity).ToHashSet();
+                var missing = previous.Outstanding.Where(e => !present.Contains(e.Key)).ToList();
+                var resolved = new System.Collections.Concurrent.ConcurrentBag<Alert>();
+                var recoveryStarted = _time.GetTimestamp();
+                await Parallel.ForEachAsync(missing, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (entry, token) =>
+                {
+                    try
+                    {
+                        var row = await _client.Alerts.GetAsync(entry.Key.Id, token).ConfigureAwait(false);
+                        if (row is not null && row.Identity == entry.Key && row.DeviceId == entry.Value.DeviceId && row.RuleId == entry.Value.RuleId)
+                            resolved.Add(row);
+                        else unresolved.Add(entry.Key);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                    catch (Exception ex)
+                    {
+                        unresolved.Add(entry.Key);
+                        _logger.LogWarning("Recovery lookup for {Key} failed: {Reason}", entry.Key, ex.Message);
+                    }
+                }).ConfigureAwait(false);
+                rows.AddRange(resolved);
+                _logger.LogInformation("Alert recovery lookups completed in {Milliseconds} ms; {Unresolved} unresolved", _time.GetElapsedTime(recoveryStarted).TotalMilliseconds, unresolved.Count);
+            }
+            var detected = AlertGroupChangeDetector.Detect(previous, source, rows, _time.GetUtcNow().UtcDateTime, unresolved.ToArray());
+            var changes = detected.Changes;
+            var nextState = new AlertWatchState(server, detected.Next);
+            if (detected.IsBaseline)
+            {
+                _notifier.RemoveAll();
+                _logger.LogInformation("Quiet alert baseline: {Reason}", detected.BaselineReason);
+            }
             _badge.SetCount(AlertBadge.Count(alerts, settings, _countThreshold?.Minimum ?? DesktopNMS.Core.Models.AlertSeverity.Ok));
             _tabDot?.Update(alerts, settings);
 
-            var quietBaseline = !hasBaseline && settings.Notifications.SuppressOnFirstPoll;
+            var quietBaseline = detected.IsBaseline || (!hasBaseline && settings.Notifications.SuppressOnFirstPoll);
             // Use only names already loaded by a page or a previous widget refresh.
             var devicesById = _polling.CachedDeviceNames;
 

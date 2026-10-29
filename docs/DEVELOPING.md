@@ -163,6 +163,14 @@ work from this app.
   already open without notifying, like desktop's "don't notify on first poll".
   Later checks, including background wakes in a fresh process, compare
   against that saved state (`alert-watch.json` in the app's data folder).
+  The versioned state distinguishes legacy alerts from faults. An older saved
+  state or a server switching source always takes a quiet baseline and withdraws
+  old notifications, even when first-poll suppression is off.
+- Fault changes notify once per device and rule. Additional faults and partial
+  recovery update the same notification silently. Recovery requires the last
+  outstanding fault to be confirmed recovered. Missing rows are looked up with
+  at most four requests at once, regardless of display and notification filters.
+  Failed, denied or missing lookups retain the last known state.
 - Notifications reach the platform before the check saves its new alert state.
   A cancelled fetch or failed delivery leaves the previous state for the next check.
 - Widget alert data updates before device and sensor enrichment. Enrichment has

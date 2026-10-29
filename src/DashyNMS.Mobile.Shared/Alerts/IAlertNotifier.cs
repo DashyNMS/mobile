@@ -10,6 +10,9 @@ public interface IAlertNotifier
 
     /// <summary>Takes away the notification with <paramref name="tag"/>, if it's still showing.</summary>
     void Remove(string tag);
+
+    /// <summary>Withdraws targets whose numeric identities became unsafe after migration.</summary>
+    void RemoveAll();
 }
 
 /// <summary>

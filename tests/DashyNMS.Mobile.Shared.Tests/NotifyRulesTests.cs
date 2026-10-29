@@ -130,13 +130,13 @@ public sealed class NotifyRulesTests
             client, session, Fakes.Secrets(), _settings, store, new SelfActionTracker(), notifier, badge,
             new RecordingWidgets { IsInUse = false }, time, NullLogger<AlertWatcher>.Instance, rules: _rules);
 
-        store.State = new AlertWatchState(Server, AlertChangeDetector.Snapshot([]));
+        store.State = new AlertWatchState(Server, Fakes.Watch());
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([On(1, 7), On(2, 7)]);
         _rules.Apply(NotificationRuleAction.LeaveOutOnDevice, 10, "Rule 1", 7, "core-sw");
 
         var result = await watcher.CheckAsync();
 
-        Assert.Equal("alert-2", Assert.Single(notifier.Shown).Tag);
+        Assert.Equal("device:7/rule:20", Assert.Single(notifier.Shown).Tag);
         Assert.Equal(2, result.Changes);
         Assert.Equal(1, result.Ignored);
         Assert.Equal(2, badge.Count);
@@ -155,14 +155,14 @@ public sealed class NotifyRulesTests
             client, session, Fakes.Secrets(), _settings, store, new SelfActionTracker(), notifier, new RecordingBadge(),
             new RecordingWidgets { IsInUse = false }, new FakeTimeProvider(), NullLogger<AlertWatcher>.Instance, rules: _rules);
 
-        store.State = new AlertWatchState(Server, AlertChangeDetector.Snapshot([]));
+        store.State = new AlertWatchState(Server, Fakes.Watch());
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([On(1, 7), On(2, 7)]);
         _rules.Mode = NotificationRuleMode.Only;
         _rules.AddEverywhere(20, "Rule 2");
 
         await watcher.CheckAsync();
 
-        Assert.Equal("alert-2", Assert.Single(notifier.Shown).Tag);
+        Assert.Equal("device:7/rule:20", Assert.Single(notifier.Shown).Tag);
     }
 
     [Fact]

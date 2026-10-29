@@ -53,6 +53,10 @@ internal static class Fakes
             Uptime = uptime,
         };
 
+    public static DesktopNMS.Core.Alerting.AlertWatchState Watch(params Alert[] alerts) =>
+        DesktopNMS.Core.Alerting.AlertGroupChangeDetector.Detect(DesktopNMS.Core.Alerting.AlertWatchState.Empty,
+            alerts.FirstOrDefault()?.Source ?? AlertSource.Alert, alerts, DateTime.UtcNow).Next;
+
     /// <summary>StateValue 1 is active, 2 acknowledged - see AlertStateExtensions.FromValue.</summary>
     public static Alert Alert(int id, int deviceId, string severity, bool acknowledged = false, DateTime? at = null) =>
         new()
@@ -93,6 +97,9 @@ internal sealed class RecordingNotifier : IAlertNotifier
     }
 
     public void Remove(string tag) => Removed.Add(tag);
+
+    public int RemoveAllCalls { get; private set; }
+    public void RemoveAll() => RemoveAllCalls++;
 }
 
 /// <summary>Records the app icon's count, as a phone that can show one (an iPhone).</summary>
