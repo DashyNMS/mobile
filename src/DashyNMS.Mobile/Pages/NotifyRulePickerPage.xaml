@@ -13,7 +13,7 @@
 
     <!-- Settings › Notifications › Add a rule (#167): one of LibreNMS's rules, on every device,
          for the chosen mode's list. A rule already on it, everywhere, can't be added again. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0" RowSpacing="10">
+    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,0,16,0" RowSpacing="10">
         <controls:PageHeader x:Name="Header" Title="Add a rule" />
         <Label Grid.Row="1" Style="{StaticResource Caption}" FontSize="14" Text="{Binding Intro}" />
         <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search alert rules" />

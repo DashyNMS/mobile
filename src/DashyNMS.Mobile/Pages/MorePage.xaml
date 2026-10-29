@@ -14,12 +14,14 @@
     <!-- Every page, grouped, with a pin for the tab bar (#68). -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16" Spacing="4">
+            <VerticalStackLayout Padding="16,0,16,16" Spacing="4">
 
-                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                    <Label Style="{StaticResource PageTitle}" Text="More" />
-                    <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding PinnedText}" VerticalOptions="Center" />
-                </Grid>
+                <!-- On the Dashboard's line, as every page's title (#253). -->
+                <controls:PageHeader x:Name="Header" Title="More">
+                    <controls:PageHeader.Actions>
+                        <Label Style="{StaticResource Caption}" Text="{Binding PinnedText}" />
+                    </controls:PageHeader.Actions>
+                </controls:PageHeader>
                 <Label Style="{StaticResource Caption}" Text="Pin up to three pages to the tab bar. Dashboard and More always stay." />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}">

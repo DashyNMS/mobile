@@ -14,7 +14,7 @@
 
     <!-- As the Health mock-up (#69): the four sensor types as a segmented
          control, then search, severity chips and the sensors in one card. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Health" />
 

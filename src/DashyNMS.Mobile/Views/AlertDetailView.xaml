@@ -16,7 +16,7 @@
     <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
         <ScrollView>
             <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,4,16,24" Spacing="12">
+                <VerticalStackLayout Padding="16,0,16,24" Spacing="12">
 
                     <controls:BackBar x:Name="TopBar" />
 

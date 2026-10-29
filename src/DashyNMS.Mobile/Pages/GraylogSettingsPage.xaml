@@ -12,7 +12,7 @@
     Title="Graylog">
     <Grid RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Graylog" Margin="16,8,16,0">
+        <controls:PageHeader x:Name="Header" Title="Graylog" Margin="16,0,16,0">
             <controls:PageHeader.Actions>
                 <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
             </controls:PageHeader.Actions>

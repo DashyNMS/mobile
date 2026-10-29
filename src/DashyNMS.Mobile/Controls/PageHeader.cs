@@ -8,6 +8,11 @@ namespace DashyNMS.Mobile.Controls;
 /// does - so a page looks the same however it was reached.
 /// </summary>
 /// <remarks>
+/// <para>Its first row is the Dashboard's top line (#253): on a tab's own
+/// page the title sits on it, centred where "DashyNMS" is, its actions where
+/// Customise is; pushed, "‹ More" takes the line and the title goes beneath.
+/// So the title never moves between tabs. The page puts no top padding of
+/// its own above it - see <see cref="TopBar"/>.</para>
 /// <para>Call <see cref="Apply"/> from the page's OnAppearing.</para>
 /// <para>It used to hand a pushed page the system bar instead, deciding by the
 /// navigation stack's size in OnAppearing. The first time a page is pushed
@@ -38,13 +43,12 @@ public sealed class PageHeader : Grid
     public PageHeader()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
-        RowDefinitions = [new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
-        MinimumHeightRequest = 52;
-        Margin = new Thickness(0, 4, 0, 4);
+        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto)];
+        Padding = new Thickness(0, TopBar.Offset, 0, 4);
 
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
+        _back.VerticalOptions = LayoutOptions.Center;
         Add(_back);
-        SetRow((IView)_title, 1);
         Add(_title);
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level1);
     }
@@ -90,7 +94,7 @@ public sealed class PageHeader : Grid
 
             if (value is not null)
             {
-                SetRow((IView)value, 1);
+                SetRow((IView)value, GetRow(_title));
                 SetColumn((IView)value, 1);
                 value.VerticalOptions = LayoutOptions.Center;
                 Add(value);
@@ -109,6 +113,15 @@ public sealed class PageHeader : Grid
 
         var pushed = IsPushed(page);
         _back.IsVisible = pushed;
+
+        // A tab's own page: the title on the top line. Pushed: "‹ More" there, the title beneath.
+        var row = pushed ? 1 : 0;
+        SetRow((IView)_title, row);
+        if (Actions is { } actions)
+        {
+            SetRow((IView)actions, row);
+        }
+
         if (pushed)
         {
             _back.Text = BackBar.PreviousTitle(page);

@@ -14,7 +14,7 @@
     <!-- Everything third-party this build ships (#164): each component's
          copyright and licence, with the licence's full text a tap away. -->
     <Grid RowDefinitions="Auto,*">
-        <controls:PageHeader x:Name="Header" Title="Open-source licences" Margin="16,8,16,0" />
+        <controls:PageHeader x:Name="Header" Title="Open-source licences" Margin="16,0,16,0" />
 
         <ScrollView Grid.Row="1">
             <controls:ReadableColumn>

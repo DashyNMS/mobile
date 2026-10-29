@@ -13,7 +13,7 @@
     Title="{Binding Title}">
     <Grid RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,8,16,0" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" />
 
         <!-- As desktop's Graphs in cards (#158): the graph and range on top, the graph in the
              app's colours, and our own legend under it - a row per series, tap to turn it off

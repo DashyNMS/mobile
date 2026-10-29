@@ -334,6 +334,12 @@ Confirm the same pinned tabs and devices remain selected after resizing.
 Also check a conventional iPhone and iPad. A successful simulator build
 alone does not verify these layouts.
 
+Every page's title sits on the Dashboard's top line (#253). App.xaml's
+`TopBarPadding` and `TopBarHeight` place it; `PageHeader` and `BackBar` take
+their position from them, so a page adds no top padding or margin above its
+header. A tab's own page puts its title on the line; a pushed page puts its
+"‹ Back" row there, with the title beneath.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

@@ -33,7 +33,7 @@
          shape. A card that can't be added is greyed out with the reason. -->
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*,Auto">
 
-        <controls:BackBar x:Name="TopBar" Margin="16,4,16,0" />
+        <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Add card" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
 
         <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search cards" Margin="10,2,10,0" />

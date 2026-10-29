@@ -11,7 +11,7 @@
     SafeAreaEdges="Container"
     Title="Dashboard sensors">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,4,16,0">
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:BackBar x:Name="TopBar" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Choose sensors" SemanticProperties.HeadingLevel="Level1" />
