@@ -161,6 +161,18 @@
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="{Binding CopyVersionsText}" Command="{Binding CopyVersionDetailsCommand}"
                                     IsVisible="{Binding CanCopyVersions}" HorizontalOptions="Start" HeightRequest="40" MinimumHeightRequest="40" />
+                            <!-- This release's notes again (#159). -->
+                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding HasWhatsNew}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding HasWhatsNew}">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenWhatsNewCommand}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="What's new in this version" FontSize="15" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding WhatsNewSummary}" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                            </Grid>
                             <BoxView Style="{StaticResource Divider}" />
                             <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
                                 <Grid.GestureRecognizers>

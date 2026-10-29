@@ -10,11 +10,18 @@ public partial class AppShell : Shell
 	private readonly AlertTabDot _alertDot;
 	private readonly Dictionary<AppPage, Tab> _pinnedTabs = [];
 
-	public AppShell(TabPins pins, AlertTabDot alertDot)
+	private readonly WhatsNew _whatsNew;
+	private readonly DesktopNMS.Services.ISessionService _session;
+	private readonly INavigationService _navigation;
+
+	public AppShell(TabPins pins, AlertTabDot alertDot, WhatsNew whatsNew, DesktopNMS.Services.ISessionService session, INavigationService navigation)
 	{
 		InitializeComponent();
 		_pins = pins;
 		_alertDot = alertDot;
+		_whatsNew = whatsNew;
+		_session = session;
+		_navigation = navigation;
 
 		Routing.RegisterRoute(Routes.DeviceDetail, typeof(DeviceDetailPage));
 		Routing.RegisterRoute(Routes.DeviceSection, typeof(DeviceSectionPage));
@@ -33,6 +40,7 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.AlertTemplate, typeof(AlertTemplatePage));
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
 		Routing.RegisterRoute(Routes.SensorDefinitionsSettings, typeof(SensorDefinitionsSettingsPage));
+		Routing.RegisterRoute(Routes.WhatsNew, typeof(WhatsNewPage));
 		Routing.RegisterRoute(Routes.GraylogMessage, typeof(GraylogMessagePage));
 		Routing.RegisterRoute(Routes.GraylogDevice, typeof(GraylogDevicePickerPage));
 		Routing.RegisterRoute(Routes.LogEntry, typeof(LogEntryPage));
@@ -166,5 +174,18 @@ public partial class AppShell : Shell
 
 		// The tabs moved: the dot goes with Alerts, or to More.
 		Dispatcher.Dispatch(ShowAlertDot);
+	}
+
+	/// <summary>
+	/// Signed in and on one of the app's pages: What's new, if this is the
+	/// first launch since an update (#159). Once a launch at most.
+	/// </summary>
+	protected override void OnNavigated(ShellNavigatedEventArgs args)
+	{
+		base.OnNavigated(args);
+		if (_session.IsConnected && args.Current?.Location.OriginalString.StartsWith(Routes.Main, StringComparison.Ordinal) == true)
+		{
+			_ = _whatsNew.ShowIfDueAsync(_navigation);
+		}
 	}
 }

@@ -26,4 +26,8 @@
     <InternalsVisibleTo Include="DashyNMS.Mobile.Shared.Tests" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- What's new in this release (#159), in desktop's WhatsNew.md shape. -->
+    <EmbeddedResource Include="WhatsNew.md" LogicalName="DashyNMS.Mobile.WhatsNew.md" />
+  </ItemGroup>
 </Project>

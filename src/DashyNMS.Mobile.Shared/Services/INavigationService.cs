@@ -117,6 +117,9 @@ public static class Routes
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
 
+    /// <summary>What's new in this release (#159).</summary>
+    public const string WhatsNew = "whatsnew";
+
     /// <summary>Settings, Sensor definitions (#209).</summary>
     public const string SensorDefinitionsSettings = "sensordefinitions";
 

@@ -122,6 +122,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Graylog.GraylogViewModel>();
         services.AddTransient<Graylog.GraylogSettingsViewModel>();
         services.AddTransient<SensorDefinitionsSettingsViewModel>();
+        services.AddSingleton(sp => new WhatsNew(sp.GetRequiredService<ISettingsStore>()));
+        services.AddTransient<WhatsNewViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();
         services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
 

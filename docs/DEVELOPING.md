@@ -159,7 +159,9 @@ rather than rewritten.
   severity, recovery, acknowledgement, quiet hours), desktop's Health
   thresholds, lock screen widgets, Graylog and sensor definitions - then
   About and Diagnostics, then sign-out. About lists the app version and
-  build, Core, the sensor definitions and their state, and the platform.
+  build, Core, the sensor definitions and their state, and the platform, and
+  reopens What's new. What's new appears once after an update, never on a
+  fresh install, from the embedded `WhatsNew.md`.
   Copy version details copies that list with the OS and architecture, never
   the server, names, token or a path, and the diagnostics header reuses it.
 - **Sensor definitions** (Settings): the DashyNMS/sensor-definitions
@@ -379,7 +381,10 @@ version is built on its own branch, `release/<version>` (for example
 
 1. Bump `<Version>` in `Directory.Build.props` on the new release branch
    (the display version, for example `1.1.0`). Build numbers are set
-   automatically, so repeat uploads of one version are fine.
+   automatically, so repeat uploads of one version are fine. Update
+   `src/DashyNMS.Mobile.Shared/WhatsNew.md` to match: its `# 2.0.0` heading
+   must be the new version, or What's new won't show. Keep it short, with a
+   `{icon}` from the tab glyphs on each line.
 2. Actions → **TestFlight** → *Run workflow* on the release branch (or
    `main` for a fix), and approve the run. Leave *Build number* blank unless
    you need a particular one.
