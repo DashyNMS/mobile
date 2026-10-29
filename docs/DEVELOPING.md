@@ -76,7 +76,11 @@ rather than rewritten.
   filtered list as CSV, in desktop's columns.
 - **Logs** (More, or Alerts → Logs): LibreNMS's event log and alert log for the whole
   network, newest first, with each entry's device and a tap through to it.
-  Loads a page at a time; search covers what's loaded.
+  Loads a page at a time; search covers what's loaded. Logs and Graylog have
+  desktop's Auto-refresh chip and interval, off until switched on. It runs only
+  while the page shows and the app is in the foreground, never overlaps a
+  request, and brings new entries in at the top without moving a list
+  scrolled down. A failed refresh keeps the rows and filters.
 - **Alert detail**: tap any alert (in the list, on the dashboard, in Device
   View or in a notification) for its own page: why it fired - desktop's
   fault details, showing the columns the rule tests, with the rest behind
