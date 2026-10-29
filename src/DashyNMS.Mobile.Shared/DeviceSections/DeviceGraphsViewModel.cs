@@ -495,9 +495,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             return legendColours.Count == 1 ? [new GraphLegendEntry(graph.Description ?? graph.Name, null, null)] : null;
         }
 
-        if (await LegendEntriesAsync(graph.Name) is { } fromApi && fromApi.Count == legendColours.Count)
+        if (await LegendEntriesAsync(graph.Name) is { } fromApi)
         {
-            return fromApi;
+            // Missing readings can leave fewer drawn series than API entries.
+            // Keep LibreNMS’s legend when we cannot map colours reliably.
+            return fromApi.Count == legendColours.Count ? fromApi : null;
         }
 
         if (GraphSeriesNames.Resolve(graph.Name, legendColours) is { } names)

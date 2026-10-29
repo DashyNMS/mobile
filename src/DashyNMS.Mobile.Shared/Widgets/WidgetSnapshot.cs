@@ -351,7 +351,7 @@ public sealed record WidgetSnapshot
 
     /// <summary>Where the reading sits between the sensor's own low and high limits.</summary>
     internal static double? Position(Sensor sensor) =>
-        sensor is { Current: { } current, LimitLow: { } low, LimitHigh: { } high } && high > low
+        sensor is { Current: { } current, LimitLow: { } low, LimitHigh: { } high } && sensor.HasReading && double.IsFinite(low) && double.IsFinite(high) && high > low
             ? Math.Round(Math.Clamp((current - low) / (high - low), 0, 1), 3)
             : null;
 

@@ -2,6 +2,7 @@ using System.Globalization;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Graphs;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Topology;
 
@@ -140,22 +141,23 @@ public sealed class DeviceSectionLoader
     /// </summary>
     internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings)
     {
-        if (sensor.Current is not { } current)
+        if (!sensor.HasReading)
         {
             return new SensorReading(
                 string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
-                "—", RowStatus.None, string.Empty);
+                GraphLegend.FormatSensor(sensor.Current, sensor.SensorClass, sensor.Unit), RowStatus.None, string.Empty);
         }
 
+        var current = sensor.Current!.Value;
         var registered = SensorCategoryRegistry.Resolve(sensor.SensorClass);
         var severity = registered is not null
             ? registered.Thresholds(settings, sensor).Evaluate(current)
             : AgainstOwnLimits(current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
 
-        var unit = registered?.UnitSuffix ?? UnitFor(sensor.SensorClass);
+        var unit = registered?.UnitSuffix ?? (string.IsNullOrWhiteSpace(sensor.Unit) ? UnitFor(sensor.SensorClass) : " " + sensor.Unit.Trim());
         return new SensorReading(
             string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
-            current.ToString("0.##", CultureInfo.CurrentCulture) + unit,
+            GraphLegend.FormatSensor(sensor.Current, sensor.SensorClass, sensor.Unit),
             ToStatus(severity),
             Limits(sensor.LimitLow, sensor.LimitHigh, unit));
     }
@@ -438,8 +440,9 @@ public sealed class DeviceSectionLoader
                 .OrderBy(s => s.Description, StringComparer.OrdinalIgnoreCase)
                 .Select(s => new SectionRow(string.IsNullOrWhiteSpace(s.Description) ? $"Sensor {s.SensorId}" : s.Description!)
                 {
-                    Value = WirelessSensorClasses.Format(s.SensorClass, s.Current),
-                    Status = s.Current is { } v
+                    Value = s.Current is { } value && double.IsFinite(value)
+                        ? WirelessSensorClasses.Format(s.SensorClass, value) : "–",
+                    Status = s.Current is { } v && double.IsFinite(v)
                         ? ToStatus(AgainstOwnLimits(v, s.LimitLow, s.LimitLowWarn, s.LimitHighWarn, s.LimitHigh))
                         : RowStatus.None,
                 })))
