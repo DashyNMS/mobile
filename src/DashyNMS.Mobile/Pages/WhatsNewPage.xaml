@@ -12,7 +12,7 @@
     Title="What's new">
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="What's new" Margin="16,8,16,0" />
+        <controls:PageHeader x:Name="Header" Title="What's new" Margin="16,0,16,0" />
 
         <ScrollView Grid.Row="1">
             <controls:ReadableColumn>
