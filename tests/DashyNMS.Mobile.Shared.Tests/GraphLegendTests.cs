@@ -52,6 +52,20 @@ public sealed class GraphLegendTests
     }
 
     [Fact]
+    public async Task Mismatched_sensor_entries_keep_the_server_legend()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { DeviceId = 7, SensorClass = "temperature", Description = "Inlet", Current = 31 },
+            new Sensor { DeviceId = 7, SensorClass = "temperature", Description = "Missing", Current = null },
+            new Sensor { DeviceId = 7, SensorClass = "temperature", Description = "Outlet", Current = 43 },
+        ]);
+        var vm = await OpenAsync();
+        Assert.Empty(vm.Series);
+        Assert.NotNull(vm.GraphPage);
+    }
+
+    [Fact]
     public async Task Names_each_series_from_the_api_with_its_value_and_crops_librenmss_legend()
     {
         var vm = await OpenAsync();

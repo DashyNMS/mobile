@@ -234,7 +234,13 @@ cached names and readings. Device and sensor polling slows while the app is
 in the background, using Core's activity policy. The platform coordinator
 still schedules background wakes and notifications and preserves mobile's
 server-specific notification baseline. Widgets use the same device cache
-and sensor monitor as the pages. Core's DashboardLayoutService persists card
+and sensor monitor as the pages.
+
+Sensor values use Core's formatting, including API units for unknown classes.
+Missing or non-finite readings show a dash with no severity or widget fill.
+Graphs retain LibreNMS's legend when API entries cannot be matched to drawn
+series; the graph picker uses the device's advertised graph lists.
+Core's DashboardLayoutService persists card
 changes and Undo; DashboardLayout retains only the phone's ordering and
 supported-card projection of the shared settings.
 

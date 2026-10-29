@@ -32,6 +32,16 @@ public sealed class HealthViewModelTests
     }
 
     [Fact]
+    public async Task Unavailable_readings_are_not_counted_as_healthy()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [new Sensor { DeviceId = 1, SensorClass = "temperature", Description = "Missing", Current = null }]);
+        var vm = await Loaded("temperature");
+        Assert.Equal((0, 0, 0), (vm.CriticalCount, vm.WarningCount, vm.OkCount));
+        Assert.Equal("–", Assert.Single(vm.Sensors).Value);
+    }
+
+    [Fact]
     public void Has_desktops_four_categories_in_its_order()
     {
         var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation);

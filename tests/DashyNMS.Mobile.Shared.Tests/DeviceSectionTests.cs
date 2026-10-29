@@ -15,9 +15,44 @@ public sealed class DeviceSectionLoaderTests
     {
         var sensor = new Sensor { SensorId = 7, SensorClass = "temperature", Current = null, LimitLow = 0, LimitHigh = 100 };
         var reading = DeviceSectionLoader.ReadSensor(sensor, new AppSettings());
-        Assert.Equal("—", reading.Value);
+        Assert.Equal("–", reading.Value);
         Assert.Equal(RowStatus.None, reading.Status);
         Assert.Null(DashyNMS.Mobile.Widgets.WidgetSnapshot.Position(sensor));
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    public void Non_finite_readings_have_no_severity_or_fill(double value)
+    {
+        var sensor = new Sensor { Current = value, LimitLow = 0, LimitHigh = 100 };
+        var reading = DeviceSectionLoader.ReadSensor(sensor, new AppSettings());
+        Assert.Equal("–", reading.Value);
+        Assert.Equal(RowStatus.None, reading.Status);
+        Assert.Null(DashyNMS.Mobile.Widgets.WidgetSnapshot.Position(sensor));
+    }
+
+    [Fact]
+    public void Unknown_sensor_classes_keep_the_api_unit()
+    {
+        var sensor = new Sensor { SensorClass = "custom", Current = 12.34, Unit = "widgets" };
+        Assert.Equal("12.3 widgets", DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Value);
+    }
+
+    [Theory]
+    [InlineData("-nan")]
+    [InlineData("nan")]
+    [InlineData("inf")]
+    [InlineData("")]
+    public void Invalid_api_readings_load_without_breaking_other_sensors(string value)
+    {
+        var json = "[{\"sensor_class\":\"custom\",\"sensor_current\":"
+            + System.Text.Json.JsonSerializer.Serialize(value)
+            + "},{\"sensor_class\":\"temperature\",\"sensor_current\":25}]";
+        var sensors = System.Text.Json.JsonSerializer.Deserialize<Sensor[]>(json)!;
+        Assert.Equal("–", DeviceSectionLoader.ReadSensor(sensors[0], new AppSettings()).Value);
+        Assert.Equal("25 °C", DeviceSectionLoader.ReadSensor(sensors[1], new AppSettings()).Value);
     }
 
     private const int DeviceId = 7;
