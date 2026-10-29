@@ -26,6 +26,7 @@ public sealed class DiagnosticsReport
     private readonly IAppPreferences _preferences;
     private readonly ILibreNmsClient? _client;
     private readonly TimeProvider _time;
+    private readonly SensorDefinitions? _definitions;
 
     public DiagnosticsReport(
         DiagnosticsLog log,
@@ -37,8 +38,10 @@ public sealed class DiagnosticsReport
         NotifyRules notifyRules,
         IAppPreferences preferences,
         ILibreNmsClient? client = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        SensorDefinitions? definitions = null)
     {
+        _definitions = definitions;
         _log = log;
         _session = session;
         _settings = settings;
@@ -75,6 +78,11 @@ public sealed class DiagnosticsReport
             $"Shared: {_time.GetLocalNow().ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}{(HideNames ? " · names hidden" : string.Empty)}",
             $"App: DashyNMS mobile {_log.AppVersion ?? "unknown"}",
             $"Phone: {_log.Device ?? "unknown"}",
+
+            // About's versions (#215), less the app and phone above.
+            .. ComponentVersions.Build(_log.AppVersion, _definitions?.Store, null)
+                .Where(c => c.Name is not ("App" or "Platform"))
+                .Select(c => $"{c.Name}: {c.Version} ({c.State})"),
             $"Server: LibreNMS {_session.ServerInfo?.LocalVersion ?? "unknown"}{(_session.Connection is { } connection ? $" · {connection.WebRoot.Scheme}" : " · not signed in")}",
             $"Address in use: {address}",
             "Settings: "

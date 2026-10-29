@@ -158,7 +158,10 @@ rather than rewritten.
   30 seconds to 15 minutes - and the app icon badge), notifications (per
   severity, recovery, acknowledgement, quiet hours), desktop's Health
   thresholds, lock screen widgets, Graylog and sensor definitions - then
-  sign-out.
+  About and Diagnostics, then sign-out. About lists the app version and
+  build, Core, the sensor definitions and their state, and the platform.
+  Copy version details copies that list with the OS and architecture, never
+  the server, names, token or a path, and the diagnostics header reuses it.
 - **Sensor definitions** (Settings): the DashyNMS/sensor-definitions
   catalogue that names state sensors, on by default as desktop's. You can
   use your own public GitHub repository instead. Core's

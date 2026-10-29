@@ -160,82 +160,82 @@ public sealed class SensorDefinitionsTests : IDisposable
         Assert.Equal("1.1.0", vm.VersionText);
         Assert.NotEqual("Not checked", vm.LastCheckText);
     }
+}
 
-    /// <summary>Core's own fixture (DashyNMS/core's SensorDefinitionTests): one OS, one fan state.</summary>
-    private sealed class FakeGitHub : HttpMessageHandler
+/// <summary>Core's own fixture (DashyNMS/core's SensorDefinitionTests): one OS, one fan state.</summary>
+internal sealed class FakeGitHub : HttpMessageHandler
+{
+    private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+    public string Version = "1.0.0";
+    public bool Offline;
+    public readonly List<string> Requests = [];
+
+    private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
+
+    private static byte[] Compress(byte[] bytes)
     {
-        private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
-        public string Version = "1.0.0";
-        public bool Offline;
-        public readonly List<string> Requests = [];
-
-        private static string Hash(byte[] bytes) => Convert.ToHexStringLower(SHA256.HashData(bytes));
-
-        private static byte[] Compress(byte[] bytes)
+        using var buffer = new MemoryStream();
+        using (var zip = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
         {
-            using var buffer = new MemoryStream();
-            using (var zip = new GZipStream(buffer, CompressionMode.Compress, leaveOpen: true))
-            {
-                zip.Write(bytes);
-            }
-
-            return buffer.ToArray();
+            zip.Write(bytes);
         }
 
-        private static byte[] Shard(string os) => JsonSerializer.SerializeToUtf8Bytes(new
+        return buffer.ToArray();
+    }
+
+    private static byte[] Shard(string os) => JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        schemaVersion = 1,
+        sources = new[] { new { id = "fixture", kind = "reviewed-override", location = "https://example.net/definitions", revision = "fixture-1", licence = "MIT" } },
+        definitions = new[]
         {
-            schemaVersion = 1,
-            sources = new[] { new { id = "fixture", kind = "reviewed-override", location = "https://example.net/definitions", revision = "fixture-1", licence = "MIT" } },
-            definitions = new[]
+            new
             {
-                new
-                {
-                    id = os + "/fan",
-                    match = new { os, sensorClass = "state", sensorType = "exampleFanState", oidPrefix = "1.3.6.1.4.1.32473.1" },
-                    states = new[] { new { value = "2", label = "Ready", genericState = "ok" } },
-                    sourceRefs = new[] { new { sourceId = "fixture", path = "fixture.json", symbol = "exampleFanState", suppliesSeverity = true } },
-                },
+                id = os + "/fan",
+                match = new { os, sensorClass = "state", sensorType = "exampleFanState", oidPrefix = "1.3.6.1.4.1.32473.1" },
+                states = new[] { new { value = "2", label = "Ready", genericState = "ok" } },
+                sourceRefs = new[] { new { sourceId = "fixture", path = "fixture.json", symbol = "exampleFanState", suppliesSeverity = true } },
             },
-        });
+        },
+    });
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var path = request.RequestUri!.AbsolutePath;
+        Requests.Add(path);
+        if (Offline)
         {
-            var path = request.RequestUri!.AbsolutePath;
-            Requests.Add(path);
-            if (Offline)
-            {
-                throw new HttpRequestException("Offline");
-            }
-
-            if (path.Contains("/feeds/v2/", StringComparison.Ordinal))
-            {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) { RequestMessage = request });
-            }
-
-            var zip = Compress(Shard("example-os"));
-            var notice = Encoding.UTF8.GetBytes("Synthetic fixture notices");
-            byte[] bytes;
-            if (path.EndsWith("stable.json", StringComparison.Ordinal))
-            {
-                bytes = JsonSerializer.SerializeToUtf8Bytes(new SensorDefinitionIndex
-                {
-                    SchemaVersion = 1,
-                    CatalogueVersion = Version,
-                    Shards = [new SensorDefinitionShard("example-os", Hash(zip), zip.Length, Shard("example-os").Length, 1)],
-                    Notices = new SensorDefinitionAsset(Hash(notice), notice.Length),
-                }, Json);
-            }
-            else if (path.EndsWith("notices.txt", StringComparison.Ordinal))
-            {
-                bytes = notice;
-            }
-            else
-            {
-                bytes = zip;
-            }
-
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes), RequestMessage = request });
+            throw new HttpRequestException("Offline");
         }
+
+        if (path.Contains("/feeds/v2/", StringComparison.Ordinal))
+        {
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound) { RequestMessage = request });
+        }
+
+        var zip = Compress(Shard("example-os"));
+        var notice = Encoding.UTF8.GetBytes("Synthetic fixture notices");
+        byte[] bytes;
+        if (path.EndsWith("stable.json", StringComparison.Ordinal))
+        {
+            bytes = JsonSerializer.SerializeToUtf8Bytes(new SensorDefinitionIndex
+            {
+                SchemaVersion = 1,
+                CatalogueVersion = Version,
+                Shards = [new SensorDefinitionShard("example-os", Hash(zip), zip.Length, Shard("example-os").Length, 1)],
+                Notices = new SensorDefinitionAsset(Hash(notice), notice.Length),
+            }, Json);
+        }
+        else if (path.EndsWith("notices.txt", StringComparison.Ordinal))
+        {
+            bytes = notice;
+        }
+        else
+        {
+            bytes = zip;
+        }
+
+        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(bytes), RequestMessage = request });
     }
 }

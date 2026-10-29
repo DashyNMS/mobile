@@ -14,4 +14,7 @@ public interface IClipboardText
     bool HasText { get; }
 
     Task<string?> GetTextAsync();
+
+    /// <summary>About's Copy version details (#215).</summary>
+    Task SetTextAsync(string text);
 }

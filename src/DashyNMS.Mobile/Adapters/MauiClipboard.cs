@@ -12,4 +12,6 @@ public sealed class MauiClipboard : IClipboardText
     public bool HasText => Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.HasText;
 
     public Task<string?> GetTextAsync() => Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.GetTextAsync();
+
+    public Task SetTextAsync(string text) => Microsoft.Maui.ApplicationModel.DataTransfer.Clipboard.Default.SetTextAsync(text);
 }
