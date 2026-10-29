@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SensorDefinitionsSettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:SensorDefinitionsSettingsViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Sensor definitions">
+    <Grid RowDefinitions="Auto,*">
+        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Sensor definitions" Margin="16,8,16,0">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <ScrollView Grid.Row="1">
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16" Spacing="4">
+
+                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="Sensor definitions" />
+                                <Label Style="{StaticResource Caption}"
+                                       Text="Names and colours for state sensors (&quot;Ready&quot;, &quot;Fan failed&quot;), from a catalogue on GitHub that updates without an app release. Checked at most once a day; the downloaded copy works offline. Turning this off deletes it." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Label Style="{StaticResource SectionHeader}" Text="SOURCE" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout>
+                                    <Label Text="Use my own repository" />
+                                    <Label Style="{StaticResource Caption}" Text="A public GitHub repository laid out like DashyNMS/sensor-definitions." />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding UseCustomRepository}" VerticalOptions="Center" />
+                            </Grid>
+                            <Entry Text="{Binding CustomRepository}" Placeholder="https://github.com/owner/sensor-definitions" Keyboard="Url"
+                                   IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" IsVisible="{Binding UseCustomRepository}" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding SourceText}" LineBreakMode="CharacterWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Style="{StaticResource SectionHeader}" Text="CATALOGUE" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Version" />
+                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding VersionText}" />
+                            </Grid>
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="Last checked" />
+                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding LastCheckText}" />
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="{Binding StatusText}" />
+                            <Button Text="Update now" Command="{Binding UpdateNowCommand}" IsEnabled="{Binding CanUpdate}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
+    </Grid>
+</ContentPage>

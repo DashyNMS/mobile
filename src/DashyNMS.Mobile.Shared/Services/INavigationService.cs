@@ -117,6 +117,9 @@ public static class Routes
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
 
+    /// <summary>Settings, Sensor definitions (#209).</summary>
+    public const string SensorDefinitionsSettings = "sensordefinitions";
+
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 

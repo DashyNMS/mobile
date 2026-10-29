@@ -43,6 +43,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<CorePolling>();
         services.AddSingleton<DesktopNMS.Core.Services.IAppActivity>(sp => sp.GetRequiredService<CorePolling>());
+
+        // Beside Core's data, which sign-out keeps and "forget everything" wipes (#209).
+        services.AddSingleton(_ => new SensorDefinitions(AppPaths.DataDirectory));
         services.AddSingleton<DesktopNMS.Core.Services.IAlertRuleCache>(sp => sp.GetRequiredService<CorePolling>().Rules);
         services.AddSingleton<DesktopNMS.Core.Services.IDashboardLayoutService>(sp => sp.GetRequiredService<CorePolling>().Layout);
         services.AddSingleton<DeviceBookmarks>();
@@ -118,6 +121,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Topology.NeighbourDirectory>();
         services.AddTransient<Graylog.GraylogViewModel>();
         services.AddTransient<Graylog.GraylogSettingsViewModel>();
+        services.AddTransient<SensorDefinitionsSettingsViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();
         services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
 
