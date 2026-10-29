@@ -19,9 +19,9 @@ namespace DashyNMS.Mobile.ViewModels;
 /// selected, on its own page.
 /// </summary>
 /// <remarks>
-/// "Why it fired" is desktop's: the rule's condition names the columns that
-/// matter (<see cref="AlertRuleConditions"/>), the latest alert log entry
-/// for the rule holds their values (<see cref="AlertFaultParser"/>). The rule
+/// "Why it fired" uses the selected fault's payload and matching fault_id
+/// history. Legacy alerts use their device/rule log. The rule's condition
+/// names the columns that matter (<see cref="AlertRuleConditions"/>). The rule
 /// and the log are best effort - a read-only token may not see rules - so
 /// the alert itself still shows without them.
 /// </remarks>
@@ -194,7 +194,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(ruleTask, logTask);
 
         var rule = ruleTask.Result;
-        var log = (logTask.Result ?? []).Where(e => e.RuleId == alert.RuleId).ToList();
+        var log = logTask.Result ?? [];
 
         if (alert.Source == AlertSource.Fault)
         {
@@ -205,16 +205,18 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         }
         ShowPermissions();
         _rule = rule;
-        _ruleLog = log;
+        _deviceLog = log;
         _logRead = logTask.Result is not null;
+        _logTruncated = logTask.Result?.Count >= LogDepth;
         ShowGroups();
     });
 
     private AlertRule? _rule;
-    private IReadOnlyList<AlertLogEntry> _ruleLog = [];
+    private IReadOnlyList<AlertLogEntry> _deviceLog = [];
 
     /// <summary>Whether the alert log could be read - without it, "no earlier alerts" would be a guess.</summary>
     private bool _logRead;
+    private bool _logTruncated;
 
     /// <summary>
     /// "Why it fired" shows the columns the rule tests by default (#46) -
@@ -243,9 +245,9 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
-        var detail = AlertFaultParser.Parse(_ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(_rule));
+        var detail = AlertFaultDetails.Resolve(alert.Alert, _deviceLog, AlertRuleConditions.ExtractFields(_rule));
         HasMoreFields = detail.Faults.Concat(detail.Resolved).Any(HasHiddenFields);
-        var groups = BuildGroups(alert, _rule, _ruleLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields, _logRead ? DateTime.Now : null).ToList();
+        var groups = BuildGroups(alert, _rule, _deviceLog, _settings.Current.ServerTimestampsAreUtc, ShowAllFields, _logRead ? DateTime.Now : null, _logTruncated).ToList();
         if (HasMoreFields || ShowAllFields)
         {
             // The link on Why it fired's card. On the group rather than bound
@@ -435,7 +437,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
         : Task.CompletedTask;
 
-    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false, DateTime? now = null)
+    internal static IEnumerable<SectionGroup> BuildGroups(AlertItem alert, AlertRule? rule, IReadOnlyList<AlertLogEntry> ruleLog, bool utc, bool showAllFields = false, DateTime? now = null, bool historyTruncated = false)
     {
         var status = StatusFor(alert.Severity);
 
@@ -453,8 +455,9 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
         yield return new SectionGroup(AlertGroupName, facts);
 
-        // The newest log entry for the rule carries the faults for the alert showing now.
-        var detail = AlertFaultParser.Parse(ruleLog.FirstOrDefault(), AlertRuleConditions.ExtractFields(rule));
+        // A sibling can have a newer log entry. Core resolves only the
+        // selected fault's payload or its own historical details.
+        var detail = AlertFaultDetails.Resolve(alert.Alert, ruleLog, AlertRuleConditions.ExtractFields(rule));
         if (detail.HasFaults)
         {
             yield return new SectionGroup(
@@ -475,7 +478,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             yield return new SectionGroup(RuleGroupName, RuleRows(rule));
         }
 
-        var history = ruleLog.Take(HistoryRows).Select(e => new SectionRow(e.State.ToDisplayString())
+        var history = AlertFaultDetails.History(ruleLog, alert.Alert).Take(HistoryRows).Select(e => new SectionRow(e.State.ToDisplayString())
         {
             Value = ServerTime.ToLocal(e.TimeLogged, utc) is { } at ? When(at) : null,
             Status = e.State switch
@@ -492,9 +495,18 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         // would be a guess.
         if (now is { } localNow)
         {
-            var summary = AlertHistory.Summarise(ruleLog, alert.Alert.RuleId, alert.Alert.DeviceId, localNow, utc);
+            var summary = AlertHistory.Summarise(ruleLog, alert.Alert.RuleId, alert.Alert.DeviceId, localNow, utc, truncated: historyTruncated);
             history.Insert(0, new SectionRow(summary.Describe(localNow)) { Status = RowStatus.None });
+            var occurrences = AlertHistory.Occurrences(ruleLog, alert.Alert.RuleId, alert.Alert.DeviceId, utc);
+            var uncertain = occurrences.Any(o => (o.StartedBeforeHistory || o.RecoveryUnseen)
+                && (o.Ended ?? o.Started ?? localNow) >= localNow - AlertHistory.DefaultPeriod);
+            var missingEnd = alert.State == AlertState.Recovered && occurrences.LastOrDefault()?.IsOpen == true;
+            if (summary.IsIncomplete || uncertain || missingEnd)
+                history.Insert(1, new SectionRow("History incomplete") { Subtitle = "The retained log cannot establish every start and recovery; the occurrence count may be a minimum." });
         }
+
+        if (now is null && alert.Alert.Source == AlertSource.Fault)
+            history.Insert(0, new SectionRow("History unavailable") { Subtitle = "The alert log could not be read, so earlier occurrences cannot be counted." });
 
         if (history.Count > 0)
         {

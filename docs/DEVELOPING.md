@@ -77,8 +77,11 @@ rather than rewritten.
   View or in a notification) for its own page: why it fired - desktop's
   fault details, showing the columns the rule tests, with the rest behind
   "Show all fields" - the rule's
-  condition, notes and procedure, the rule's recent history on that device,
-  and acknowledge / unacknowledge.
+  condition, notes and procedure, and acknowledge / unacknowledge. A 26.10
+  fault uses its own current payload and matching fault_id history, including
+  while acknowledged. Its recurrence summary counts device/rule occurrences
+  across all sibling faults. Truncated or uncertain history is marked incomplete;
+  an unreadable log is shown as unavailable.
 - **Alert notifications**: new, reopened and (optionally) recovered or
   acknowledged alerts, with desktop's rules - see [below](#alert-notifications).
   Tapping one opens the alert, or the alert list for a summary.
