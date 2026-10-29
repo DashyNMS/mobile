@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.WhatsNewPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:WhatsNewViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="What's new">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="What's new" Margin="16,8,16,0" />
+
+        <ScrollView Grid.Row="1">
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16" Spacing="4">
+                    <Label Text="{Binding Title}" FontSize="22" FontFamily="BodySemibold" />
+                    <Label Style="{StaticResource Faint}" Text="{Binding Released}" IsVisible="{Binding HasReleased}" />
+
+                    <!-- New, Improved and Fixed, each a card of changes - desktop's sheet (desktop#244). -->
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="4">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:WhatsNewGroup">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
+                                    <Border Style="{StaticResource Card}">
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="12">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:WhatsNewRow">
+                                                    <Grid ColumnDefinitions="28,*" ColumnSpacing="12">
+                                                        <Image Source="{Binding Image}" IsVisible="{Binding HasImage}" WidthRequest="22" HeightRequest="22" VerticalOptions="Start" />
+                                                        <VerticalStackLayout Grid.Column="1">
+                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding Text}" />
+                                                        </VerticalStackLayout>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+
+                    <Button Style="{StaticResource LinkButton}" Text="Full release notes" Command="{Binding OpenReleaseNotesCommand}"
+                            HorizontalOptions="Start" Margin="0,8,0,0" />
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
+
+        <Button Grid.Row="2" Text="Got it" Command="{Binding GotItCommand}" Margin="16,8,16,16" />
+    </Grid>
+</ContentPage>

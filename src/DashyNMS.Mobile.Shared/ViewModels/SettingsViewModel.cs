@@ -76,8 +76,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         BackupAddressStatus? backup = null,
         DiagnosticsReport? report = null,
         SensorDefinitions? definitions = null,
-        IClipboardText? clipboard = null)
+        IClipboardText? clipboard = null,
+        WhatsNew? whatsNew = null)
     {
+        _whatsNew = whatsNew;
         _clipboard = clipboard;
         _wipe = wipe;
         _definitions = definitions;
@@ -281,6 +283,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     private readonly SensorDefinitions? _definitions;
     private readonly IClipboardText? _clipboard;
+    private readonly WhatsNew? _whatsNew;
+
+    /// <summary>About's "What's new in this version" (#159), with a taste of it.</summary>
+    public bool HasWhatsNew => _whatsNew?.Notes is not null;
+
+    public string WhatsNewSummary => _whatsNew?.Summary ?? string.Empty;
+
+    [RelayCommand]
+    private Task OpenWhatsNewAsync() => _navigation.GoToAsync(Routes.WhatsNew);
 
     /// <summary>
     /// About's versions (#215): the app and build, Core, the sensor

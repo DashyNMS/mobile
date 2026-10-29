@@ -30,8 +30,9 @@ public sealed class SettingsAboutTests
         await launcher.Received(1).OpenAsync(new Uri("https://dashynms.pckp.net/mobile/support/"));
     }
 
-    private static SettingsViewModel NewViewModel(
-        ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null, IClipboardText? clipboard = null)
+    internal static SettingsViewModel NewViewModel(
+        ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null, IClipboardText? clipboard = null,
+        WhatsNew? whatsNew = null, RecordingNavigation? navigation = null)
     {
         var settings = Fakes.Settings(appSettings ?? new AppSettings());
         session ??= Substitute.For<ISessionService>();
@@ -39,8 +40,9 @@ public sealed class SettingsAboutTests
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
         return new SettingsViewModel(
-            session, settings, Substitute.For<IDialogService>(), new RecordingNavigation(), new RecordingNotifier(), coordinator,
+            session, settings, Substitute.For<IDialogService>(), navigation ?? new RecordingNavigation(), new RecordingNotifier(), coordinator,
             new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(),
+            whatsNew: whatsNew,
             diagnostics: new DiagnosticsLog(null, TimeProvider.System, "2.0.0 (412)", "Apple iPhone16,1 · iOS 26.1"),
             definitions: definitions, clipboard: clipboard)
         {
