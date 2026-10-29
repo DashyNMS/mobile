@@ -207,9 +207,10 @@ work from this app.
 
 Mobile consumes the pinned `DashyNMS.Core` package from
 [DashyNMS/core](https://github.com/DashyNMS/core), targeting net10.0.
-Core's own repository runs its tests. The pinned 2.0.0-ci.45 package includes
+Core's own repository runs its tests. The pinned 2.0.0-ci.46 package includes
 LibreNMS 26.10 fault identities, grouping, recovery state, scope-aware actions,
-fault history and per-resource permissions. It also corrects single-fault action
+fault history and per-resource permissions. Nullable reported device values keep
+omitted flags and uptime unknown. It also corrects single-fault action
 results so untouched siblings do not appear as failures. Mobile's versioned
 notification baseline must accompany these APIs before a build ships.
 Update the package version in
@@ -232,6 +233,12 @@ The shared mobile project owns session handling and CSV export (originally
 adapted from desktop), view models and services. The MAUI head supplies pages
 and platform adapters. Session and CSV source provenance is recorded in
 `src/DashyNMS.Mobile.Shared/Desktop/README.md`.
+
+Denied reads stay distinct from empty results. Device section cards remain visible
+with a permission message, and denied graphs show as denied rather than broken.
+Missing device state flags and uptime display as unknown, including in widgets.
+A resource-specific write refusal leaves other devices available and does not stop
+a bulk action; a token-wide refusal still stops the batch.
 
 ## Building
 

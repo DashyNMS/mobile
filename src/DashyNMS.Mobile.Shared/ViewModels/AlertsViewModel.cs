@@ -122,10 +122,10 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// <summary>Group headers and only the expanded children, keeping large lists virtualised.</summary>
     public BulkObservableCollection<AlertItem> DisplayRows { get; } = new();
 
-    public bool IsEmpty => Alerts.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && Alerts.Count == 0 && !IsBusy;
 
     /// <summary>What the empty list says: nothing open at all, or nothing matching.</summary>
-    public string EmptyText => _all.Count == 0 ? "No open alerts." : "No alerts match these filters.";
+    public string EmptyText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "alerts") : _all.Count == 0 ? "No open alerts visible to this account." : "No alerts match these filters.";
 
     /// <summary>Unacknowledged critical alerts, for the Critical chip - whatever the filters.</summary>
     private IReadOnlyList<AlertGroup> AllGroups => AlertGrouping.ByDeviceAndRule(_all.Where(a => a.State != AlertState.Recovered).Select(a => a.Alert));
@@ -138,8 +138,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         get
         {
+            if (FailureOutcome is { } failure) return VisibleTotals.Describe(failure, 0, "alerts");
             if (!_all.Any(a => a.Alert.Source == AlertSource.Fault))
-                return Alerts.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}";
+                return (Alerts.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}") + " visible to this account";
             var groups = VisibleGroups();
             var faults = groups.Sum(g => g.FaultCount);
             return $"{groups.Count} alert {(groups.Count == 1 ? "group" : "groups")} · {faults} {(faults == 1 ? "fault" : "faults")} · visible to this account";
@@ -293,7 +294,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         }
 
         var fileName = $"alerts-{_time.GetLocalNow():yyyy-MM-dd-HHmmss}.csv";
-        await RunAsync(() => _share.ShareTextFileAsync(fileName, BuildCsv(), "text/csv", "Export alerts"));
+        await RunAsync(() => _share.ShareTextFileAsync(fileName, BuildCsv(), "text/csv", "Export alerts"), isRead: false);
     }
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as desktop's default.</summary>
@@ -321,7 +322,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             return;
         }
 
-        if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
+        if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim()), isRead: false))
         {
             // So the next alert check doesn't notify you about your own acknowledgement.
             _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
@@ -346,7 +347,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         }
 
         // One alert, and acknowledging puts it back: no need to ask (#146).
-        if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
+        if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id), isRead: false))
         {
             _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
             UpdateInPlace(item, ActiveState, note: null);
@@ -380,7 +381,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
                 _selfActions.Record(changed.Id, acknowledge ? AlertChangeKind.Acknowledged : AlertChangeKind.Unacknowledged);
             Selection.Report(result.Summary);
             await RefreshFaultGroupAsync(group.Key);
-        });
+        }, isRead: false);
         ShowPermissions();
     }
 
@@ -447,7 +448,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         if (change.Group is { } group)
         {
-            _ = RunAsync(() => RefreshFaultGroupAsync(group));
+            _ = RunAsync(() => RefreshFaultGroupAsync(group), isRead: false);
             return;
         }
         if (_all.FirstOrDefault(a => a.Id == change.AlertId) is { } item)

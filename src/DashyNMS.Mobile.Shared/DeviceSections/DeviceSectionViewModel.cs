@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using DesktopNMS.Core.Api;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 
@@ -85,16 +86,22 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     /// <summary>Long lists (ports, FDB, ARP) get a search box; short ones don't need it.</summary>
     public bool ShowSearch => _all.Sum(g => g.Count) > 12;
 
-    public bool IsEmpty => _loaded && Groups.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Groups.Count == 0 && !IsBusy;
 
-    public string EmptyText => _all.Count == 0
-        ? $"LibreNMS has no {DeviceSectionInfo.For(Section).Title.ToLowerInvariant()} for this device."
+    public string EmptyText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, DeviceSectionInfo.For(Section).Title.ToLowerInvariant()) : _all.Count == 0
+        ? VisibleTotals.Describe(SourceOutcome.Empty, 0, DeviceSectionInfo.For(Section).Title.ToLowerInvariant())
         : "Nothing matches.";
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     public Task LoadAsync(int deviceId, DeviceSection section, string? deviceName = null)
     {
+        if (DeviceId != deviceId || Section != section)
+        {
+            _all = [];
+            Groups.ReplaceAll([]);
+            _loaded = false;
+        }
         DeviceId = deviceId;
         Section = section;
         OnPropertyChanged(nameof(IsPorts));

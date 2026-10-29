@@ -115,6 +115,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         DeviceName = devices.Count == 1 ? devices[0].Name : string.Create(CultureInfo.CurrentCulture, $"{devices.Count} devices");
         OnPropertyChanged(nameof(DeviceName));
         OnPropertyChanged(nameof(DeviceId));
+        OnPropertyChanged(nameof(MaySchedule));
+        OnPropertyChanged(nameof(RefusedText));
     }
 
     [RelayCommand]
@@ -133,10 +135,12 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     /// The token may schedule maintenance - until LibreNMS refuses it once
     /// (#144). Then Schedule goes and <see cref="RefusedText"/> says why.
     /// </summary>
-    public bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+    public bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true
+        && Devices.Any(d => _client.Permissions?.IsRefusedFor(HttpMethod.Post, $"devices/{d.Id}/maintenance") != true);
 
     /// <summary>Why Schedule is off, in desktop's words; null while it's allowed.</summary>
-    public string? RefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+    public string? RefusedText => MaySchedule ? null : _client.Permissions?.IsRefused(ApiPermission.EditDevices) == true
+        ? ApiPermissions.Describe(ApiPermission.EditDevices) : "This account cannot schedule maintenance for the selected devices.";
 
     [RelayCommand]
     private async Task SaveAsync()

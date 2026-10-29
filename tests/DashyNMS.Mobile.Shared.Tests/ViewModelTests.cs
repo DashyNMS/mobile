@@ -105,7 +105,7 @@ public sealed class AlertsViewModelTests
         var vm = await LoadedViewModel();
 
         Assert.Equal([3, 1, 2], vm.Alerts.Select(a => a.Id));
-        Assert.Equal("3 alerts", vm.CountText);
+        Assert.Equal("3 alerts visible to this account", vm.CountText);
         Assert.False(vm.HasActiveFilters);
     }
 
@@ -129,7 +129,7 @@ public sealed class AlertsViewModelTests
 
         vm.ToggleCriticalCommand.Execute(null);
         Assert.Equal([1], vm.Alerts.Select(a => a.Id));
-        Assert.Equal("1 of 3 alerts", vm.CountText);
+        Assert.Equal("1 of 3 alerts visible to this account", vm.CountText);
         Assert.True(vm.HasActiveFilters);
     }
 

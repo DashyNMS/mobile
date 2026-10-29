@@ -261,6 +261,7 @@ internal static class AndroidWidgetViews
                 parts.Add($"{counts.Disabled} disabled");
             }
 
+            if (counts.Unknown > 0) parts.Add($"{counts.Unknown} unknown");
             parts.Add($"{counts.Total} devices");
             views.SetTextViewText(Resource.Id.widget_detail, string.Join(" · ", parts));
         }

@@ -287,6 +287,9 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         var version = ++_loadVersion;
         return RunAsync(async () =>
         {
+            GraphPage = null;
+            _raw = null;
+            Series.ReplaceAll([]);
             var raw = await RawAsync(graph, range.Range);
             var legendColours = GraphSvgStyle.Restyle(raw, Palette).LegendColours;
             var entries = await NameSeriesAsync(graph, legendColours);
@@ -406,6 +409,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
 
     private void Show(string svg)
     {
+        GraphImages.ThrowIfDenied(svg);
         GraphAspect = GraphHtml.AspectOf(svg) ?? GraphAspect;
         GraphPage = GraphHtml.Page(svg, DarkTheme);
     }
@@ -440,12 +444,13 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     /// <summary>The graph with LibreNMS's legend - fetched once per graph and range.</summary>
     private async Task<string> RawAsync(GraphType graph, GraphTimeRange range)
     {
-        var key = (GraphKey(graph), range);
+        var key = ($"{DeviceId}:{GraphKey(graph)}", range);
         if (!_cache.TryGetValue(key, out var raw))
         {
             raw = PortIfName is { } ifName
                 ? await _client.Graphs.GetPortSvgAsync(DeviceId, ifName, graph.Name, range, GraphWidth, GraphHeight, legend: true)
                 : await _client.Graphs.GetSvgAsync(DeviceId, graph.Name, range, GraphWidth, GraphHeight, legend: true);
+            GraphImages.ThrowIfDenied(raw);
             _cache[key] = raw;
         }
 
@@ -454,10 +459,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
 
     private async Task<string> SensorRawAsync(string graphName, int sensorId, GraphTimeRange range)
     {
-        var key = (graphName + "/" + sensorId.ToString(CultureInfo.InvariantCulture), range);
+        var key = ($"{DeviceId}:" + graphName + "/" + sensorId.ToString(CultureInfo.InvariantCulture), range);
         if (!_cache.TryGetValue(key, out var raw))
         {
             raw = await _client.Graphs.GetSensorSvgAsync(DeviceId, graphName, sensorId, range, GraphWidth, GraphHeight, legend: false);
+            GraphImages.ThrowIfDenied(raw);
             _cache[key] = raw;
         }
 

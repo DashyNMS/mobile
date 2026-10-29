@@ -216,9 +216,9 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
             {
                 // A newer refresh (or another device) took over.
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                card.Failed();
+                card.Failed(ex);
             }
             finally
             {
@@ -252,12 +252,12 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     public string PinText => IsPinned ? "Unpin" : "Pin";
 
-    public DeviceState? State => Device?.State;
+    public DeviceState? State => Device?.ReportedState;
 
-    public string StateText => Device?.State.ToDisplayString() ?? string.Empty;
+    public string StateText => Device?.ReportedState.ToDisplayString() ?? string.Empty;
 
     /// <summary>Desktop's Uptime tile: a dash for a device that isn't up, as uptime means nothing then.</summary>
-    public string UptimeText => Device is { State: DeviceState.Up } up ? Formatting.Uptime(up.Uptime) : "—";
+    public string UptimeText => Device?.ReportedUptime is not { } uptime ? "Unknown" : Device.ReportedState == DeviceState.Up ? Formatting.Uptime(uptime) : "—";
 
     /// <summary>Under the name, as desktop's header: "C9300-48P · iosxe · 192.0.2.10", leaving out what isn't known.</summary>
     public string Subtitle => Device is null ? string.Empty
@@ -362,7 +362,14 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     /// <summary>LibreNMS's own 24h ping graph (<c>device_icmp_perf</c>), as desktop's Ping response card; null until it's in.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPingGraph))]
     private string? _pingGraphPage;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPingGraph))]
+    private string? _pingGraphError;
+
+    public bool HasPingGraph => PingGraphPage is not null || PingGraphError is not null;
 
     /// <summary>
     /// The ping graph opens the device's graphs, as desktop's does - on the
@@ -383,12 +390,16 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     {
         try
         {
+            if (DeviceId == deviceId) PingGraphError = null;
             var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400, legend: false);
             PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            if (DeviceId != deviceId) return;
             PingGraphPage = null;
+            PingGraphError = ex is LibreNmsApiException { StatusCode: System.Net.HttpStatusCode.NotFound } ? null
+                : VisibleTotals.Describe(VisibleTotals.Classify(null, ex), 0, "this graph");
         }
     }
 
@@ -523,10 +534,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// </summary>
     private bool CanScheduleMaintenance() => HasDevice() && MaySchedule;
 
-    private bool MaySchedule => _client.Permissions?.IsRefused(ApiPermission.EditDevices) != true;
+    private bool MaySchedule => _client.Permissions?.IsRefusedFor(HttpMethod.Post, $"devices/{DeviceId}/maintenance") != true;
 
     /// <summary>Why Maintenance is off, in desktop's words; null while it's allowed.</summary>
-    public string? MaintenanceRefusedText => MaySchedule ? null : ApiPermissions.Describe(ApiPermission.EditDevices);
+    public string? MaintenanceRefusedText => MaySchedule ? null : _client.Permissions?.IsRefused(ApiPermission.EditDevices) == true
+        ? ApiPermissions.Describe(ApiPermission.EditDevices) : "This account cannot schedule maintenance for this device.";
 
     [RelayCommand(CanExecute = nameof(CanScheduleMaintenance))]
     private Task ScheduleMaintenanceAsync() => _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>

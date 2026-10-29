@@ -39,6 +39,7 @@ struct DeviceCounts: Codable, Hashable {
     var warning: Int
     var acknowledged: Int
     var ok: Int
+    var unknown: Int? = nil
 
     /// Devices that aren't disabled - the pie's whole.
     var watched: Int { critical + warning + acknowledged + ok }

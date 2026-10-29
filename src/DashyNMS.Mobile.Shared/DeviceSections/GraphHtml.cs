@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using DesktopNMS.Core.Graphs;
+using DesktopNMS.Core.Api;
 
 namespace DashyNMS.Mobile.DeviceSections;
 
@@ -51,6 +52,7 @@ public static partial class GraphHtml
     public static string Build(string svg, bool dark)
     {
         ArgumentNullException.ThrowIfNull(svg);
+        GraphImages.ThrowIfDenied(svg);
         return Page(GraphSvgStyle.Restyle(svg, PaletteFor(dark)).Svg, dark);
     }
 
@@ -58,6 +60,7 @@ public static partial class GraphHtml
     public static string Page(string svg, bool dark)
     {
         ArgumentNullException.ThrowIfNull(svg);
+        GraphImages.ThrowIfDenied(svg);
 
         var image = Convert.ToBase64String(Encoding.UTF8.GetBytes(WithNamespace(MakeScalable(svg))));
         var background = dark ? "#11141A" : "#FFFFFF";

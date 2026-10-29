@@ -255,13 +255,12 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
     }
 
     /// <summary>Loaded, nothing to draw - a location whose devices have no links between them.</summary>
-    public bool IsEmpty => _loaded && !IsBusy && !IsLayingOut && Nodes.Count == 0;
+    public bool IsEmpty => !HasError && _loaded && !IsBusy && !IsLayingOut && Nodes.Count == 0;
 
-    public string EmptyText =>
-        SelectedLocation.Key is null && SelectedGroup.Key is null ? "LibreNMS has no CDP or LLDP links between monitored devices."
+    public string EmptyText => ReadFailureText ?? (SelectedLocation.Key is null && SelectedGroup.Key is null ? "LibreNMS has no CDP or LLDP links between monitored devices."
         : SelectedGroup.Key is null ? "No links between devices at this location."
         : SelectedLocation.Key is null ? "No links between devices in this group."
-        : "No links between devices in this group at this location.";
+        : "No links between devices in this group at this location.");
 
     // ------------------------------------------------------------ chips (#110)
 
@@ -618,7 +617,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
             if (byId.TryGetValue(id, out var device))
             {
                 node.Name = new DeviceItem(device, style).Name;
-                node.State = _maintenanceIds.Contains(id) ? DeviceState.Maintenance : device.State;
+                node.State = _maintenanceIds.Contains(id) ? DeviceState.Maintenance : device.ReportedState;
                 node.Detail = string.Join(" · ", new[] { device.Ip, device.Hardware }.Where(s => !string.IsNullOrWhiteSpace(s)));
             }
 

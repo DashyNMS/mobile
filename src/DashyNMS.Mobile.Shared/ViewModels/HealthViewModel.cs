@@ -106,17 +106,17 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 
     public int OkCount => InCategory.Count(s => s.Row.Status == RowStatus.Ok);
 
-    public string CountText => Sensors.Count == InCategory.Count()
+    public string CountText => ReadFailureText ?? (Sensors.Count == InCategory.Count()
         ? $"{Sensors.Count} {SelectedCategory.Label.ToLowerInvariant()} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
-        : $"{Sensors.Count} of {InCategory.Count()} {SelectedCategory.Label.ToLowerInvariant()} sensors";
+        : $"{Sensors.Count} of {InCategory.Count()} {SelectedCategory.Label.ToLowerInvariant()} sensors");
 
     public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !string.IsNullOrWhiteSpace(SearchText);
 
-    public bool IsEmpty => _loaded && Sensors.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Sensors.Count == 0 && !IsBusy;
 
-    public string EmptyText => InCategory.Any()
+    public string EmptyText => ReadFailureText ?? (InCategory.Any()
         ? "No sensors match these filters."
-        : $"LibreNMS has no {SelectedCategory.Label.ToLowerInvariant()} sensors.";
+        : $"LibreNMS has no {SelectedCategory.Label.ToLowerInvariant()} sensors.");
 
     private IEnumerable<HealthSensor> InCategory =>
         _all.Where(s => string.Equals(s.SensorClass, SelectedCategory.SensorClass, StringComparison.OrdinalIgnoreCase));

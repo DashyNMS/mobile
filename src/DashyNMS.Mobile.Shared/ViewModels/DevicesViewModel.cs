@@ -182,9 +182,9 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     public int DisabledCount => _all.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
 
     /// <summary>"340 devices", or "12 of 340 devices" when filtered.</summary>
-    public string CountText => Devices.Count == _all.Count
-        ? $"{_all.Count} {Plural(_all.Count)}"
-        : $"{Devices.Count} of {_all.Count} {Plural(_all.Count)}";
+    public string CountText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "devices")
+        : (Devices.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Devices.Count} of {_all.Count} {Plural(_all.Count)}")
+            + " visible to this account" + (_all.Any(d => d.State == DeviceState.Unknown) ? $" · {_all.Count(d => d.State == DeviceState.Unknown)} unknown" : string.Empty);
 
     /// <summary>Anything narrowing the list - shows Clear.</summary>
     public bool HasActiveFilters =>
@@ -210,7 +210,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public bool ShowsPinGlyphs => PinningEnabled && Selection.IsOff;
 
-    public string EmptyText => _all.Count == 0 ? "No devices." : "No devices match these filters.";
+    public string EmptyText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "devices") : _all.Count == 0 ? "No devices visible to this account." : "No devices match these filters.";
 
     /// <summary>Group membership and maintenance, loaded after the list itself - awaited by tests.</summary>
     internal Task Extras { get; private set; } = Task.CompletedTask;
@@ -649,6 +649,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
             DeviceState.Up => ShowUp,
             DeviceState.Down => ShowDown,
             DeviceState.Maintenance => ShowMaintenance,
+            DeviceState.Unknown => true,
             _ => ShowDisabled,
         };
 
@@ -696,7 +697,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     {
         DeviceSort.Status => By(d => StatusRank(d.State)),
         DeviceSort.IpAddress => Comparer<DeviceItem>.Create(CompareIp),
-        DeviceSort.Uptime => By(d => d.Device.State == DeviceState.Up ? d.Device.Uptime : long.MaxValue),
+        DeviceSort.Uptime => By(d => d.Device.ReportedState == DeviceState.Up ? d.Device.ReportedUptime ?? long.MaxValue : long.MaxValue),
         DeviceSort.Location => ByText(d => d.Device.LocationName()),
         DeviceSort.Os => ByText(d => d.Device.Os),
         DeviceSort.Hardware => ByText(d => d.Device.Hardware),

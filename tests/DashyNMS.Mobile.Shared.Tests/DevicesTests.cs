@@ -72,7 +72,7 @@ public sealed class DevicesViewModelTests
         var vm = await Loaded();
 
         Assert.Equal(["access-sw", "backup-rtr", "Branch-fw", "core-sw", "lab-server"], Names(vm));
-        Assert.Equal("5 devices", vm.CountText);
+        Assert.Equal("5 devices visible to this account", vm.CountText);
         Assert.False(vm.HasActiveFilters);
     }
 
@@ -134,7 +134,7 @@ public sealed class DevicesViewModelTests
         vm.ToggleDisabledCommand.Execute(null);
 
         Assert.Equal(["access-sw"], Names(vm));
-        Assert.Equal("1 of 5 devices", vm.CountText);
+        Assert.Equal("1 of 5 devices visible to this account", vm.CountText);
         Assert.True(vm.HasActiveFilters);
     }
 

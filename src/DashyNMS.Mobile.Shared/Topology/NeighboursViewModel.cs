@@ -148,17 +148,18 @@ public sealed partial class NeighboursViewModel : ViewModelBase, IRefreshable
     {
         get
         {
+            if (ReadFailureText is { } failure) return failure;
             var total = _all.Count;
             var noun = total == 1 ? "neighbour" : "neighbours";
             return Links.Count == total ? $"{total} {noun}" : $"{Links.Count} of {total} {noun}";
         }
     }
 
-    public bool IsEmpty => _loaded && Links.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Links.Count == 0 && !IsBusy;
 
-    public string EmptyText => _all.Count == 0
+    public string EmptyText => ReadFailureText ?? (_all.Count == 0
         ? "LibreNMS has no CDP or LLDP neighbours."
-        : "None of the neighbours match the search and chips.";
+        : "None of the neighbours match the search and chips.");
 
     /// <summary>"No neighbours" when there are none at all; "No matches" when the filters hide them.</summary>
     public string EmptyTitle => _all.Count == 0 ? "No neighbours" : "No matches";

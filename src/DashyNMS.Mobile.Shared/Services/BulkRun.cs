@@ -53,8 +53,8 @@ public sealed record BulkResult<T>(IReadOnlyList<T> Succeeded, IReadOnlyList<Bul
 /// Runs one action over several items (#85) - acknowledging alerts,
 /// rediscovering devices - one at a time, so LibreNMS isn't asked for them
 /// all at once, reporting progress, and carrying on past a failure so one
-/// bad item doesn't stop the rest. A refusal does stop it (#144): the API
-/// token isn't allowed the action, so every other item would be refused too.
+/// bad item doesn't stop the rest. A token-wide refusal stops it (#144). A resource-specific
+/// refusal is reported for that item and leaves later items available.
 /// </summary>
 public static class BulkRun
 {
@@ -84,7 +84,7 @@ public static class BulkRun
             {
                 throw;
             }
-            catch (DesktopNMS.Core.Api.LibreNmsApiException ex) when (ex.IsPermissionDenied)
+            catch (DesktopNMS.Core.Api.LibreNmsApiException ex) when (ex.IsPermissionDenied && !DesktopNMS.Core.Api.ApiPermissions.IsItemRefusal(ex))
             {
                 failures.Add(new BulkFailure(name(item), Reason(ex)));
                 refusal = ex.ToUserMessage();
