@@ -27,6 +27,8 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private volatile bool _reset;
     private long _generation;
     private SensorPollResult? _lastSensors;
+    private readonly SensorDefinitions? _definitions;
+    private int _definitionsVersion;
     private readonly object _sensorSync = new();
     private Task<SensorPollResult>? _sensorsInFlight;
 
@@ -39,8 +41,14 @@ public sealed class CorePolling : IDisposable, IAppActivity
     /// </summary>
     private static readonly TimeSpan SensorWait = TimeSpan.FromSeconds(150);
 
-    public CorePolling(ILibreNmsClient client, ISessionService session, ISettingsStore settings, ILoggerFactory? logs = null)
+    public CorePolling(ILibreNmsClient client, ISessionService session, ISettingsStore settings, ILoggerFactory? logs = null, SensorDefinitions? definitions = null)
     {
+        _definitions = definitions;
+        if (definitions is not null)
+        {
+            definitions.Store.Changed += (_, _) => Interlocked.Increment(ref _definitionsVersion);
+        }
+
         _client = client;
         _session = session;
         _settings = settings;
@@ -172,8 +180,37 @@ public sealed class CorePolling : IDisposable, IAppActivity
         }
         finally { _gate.Release(); }
 
-        return await Next<SensorPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
+        var result = await Next<SensorPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
             () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, SensorWait, CancellationToken.None).ConfigureAwait(false);
+        await ApplyDefinitionsAsync(result.Sensors).ConfigureAwait(false);
+        return result;
+    }
+
+    /// <summary>Bumped whenever the sensor definitions change - turned off, another source, a newer catalogue.</summary>
+    public int DefinitionsVersion => Volatile.Read(ref _definitionsVersion);
+
+    /// <summary>
+    /// State sensors named and coloured from the sensor definitions (#210).
+    /// Only in the foreground: Core may fetch an OS's definitions from GitHub,
+    /// which a background alert check must never do. Turned off, it clears
+    /// the names again, so the readings go back to their numbers.
+    /// </summary>
+    public async Task ApplyDefinitionsAsync(IReadOnlyList<Sensor> sensors)
+    {
+        if (_definitions is null || _background || sensors.Count == 0)
+        {
+            return;
+        }
+
+        var devices = CachedDeviceNames;
+        try
+        {
+            await _definitions.Store.ApplyWithDevicesAsync(sensors, id => devices.GetValueOrDefault(id)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is IOException or HttpRequestException or OperationCanceledException or InvalidDataException)
+        {
+            // Unnamed readings are still readings; Core's status says why.
+        }
     }
 
     private async Task<T> Next<T>(Action<EventHandler<T>> subscribe, Action<EventHandler<T>> unsubscribe, Action refresh, TimeSpan wait, CancellationToken token)

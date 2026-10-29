@@ -167,6 +167,12 @@ rather than rewritten.
   The app asks for a newer catalogue at launch and when it comes back to the
   foreground. Core fetches at most daily and works offline from the cached
   copy. Nothing is fetched from a background alert check.
+  With them on, a state sensor shows its name ("Ready", "Fan failed") with
+  the number beneath, in Device View, the dashboard's Sensors cards and the
+  sensor picker. It's coloured by the definition only when the source says
+  how healthy the state is; an unresolved or label-only state is never OK.
+  `CorePolling` applies them to each sensor list in the foreground only, so a
+  background check never asks GitHub for an OS's definitions.
 
 Read-only alert rule details show per-entity notification settings and the maximum
 entity limit (including inherited limits). Conditions using device columns removed
