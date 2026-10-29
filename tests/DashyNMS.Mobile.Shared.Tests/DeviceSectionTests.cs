@@ -10,6 +10,16 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed class DeviceSectionLoaderTests
 {
+    [Fact]
+    public void Missing_sensor_reading_has_no_severity_or_widget_position()
+    {
+        var sensor = new Sensor { SensorId = 7, SensorClass = "temperature", Current = null, LimitLow = 0, LimitHigh = 100 };
+        var reading = DeviceSectionLoader.ReadSensor(sensor, new AppSettings());
+        Assert.Equal("—", reading.Value);
+        Assert.Equal(RowStatus.None, reading.Status);
+        Assert.Null(DashyNMS.Mobile.Widgets.WidgetSnapshot.Position(sensor));
+    }
+
     private const int DeviceId = 7;
 
     private readonly ILibreNmsClient _client = Fakes.Client();

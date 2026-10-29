@@ -140,15 +140,22 @@ public sealed class DeviceSectionLoader
     /// </summary>
     internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings)
     {
+        if (sensor.Current is not { } current)
+        {
+            return new SensorReading(
+                string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
+                "—", RowStatus.None, string.Empty);
+        }
+
         var registered = SensorCategoryRegistry.Resolve(sensor.SensorClass);
         var severity = registered is not null
-            ? registered.Thresholds(settings, sensor).Evaluate(sensor.Current)
-            : AgainstOwnLimits(sensor.Current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
+            ? registered.Thresholds(settings, sensor).Evaluate(current)
+            : AgainstOwnLimits(current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
 
         var unit = registered?.UnitSuffix ?? UnitFor(sensor.SensorClass);
         return new SensorReading(
             string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!,
-            sensor.Current.ToString("0.##", CultureInfo.CurrentCulture) + unit,
+            current.ToString("0.##", CultureInfo.CurrentCulture) + unit,
             ToStatus(severity),
             Limits(sensor.LimitLow, sensor.LimitHigh, unit));
     }
