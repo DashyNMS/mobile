@@ -185,6 +185,9 @@ public sealed partial class AddCardViewModel : ViewModelBase
             return;
         }
 
+        // A card added (#219): just that one was - never which.
+        Diagnostics.FeatureUse.Count(Diagnostics.MetricArea.CardAdded);
+
         var before = _toast.Before();
         var widget = DashboardLayout.Add(_settings.Current, choice.Kind.Type);
         _layout.Restore(_settings.Current.DashboardWidgets.ToList());

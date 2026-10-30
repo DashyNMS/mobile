@@ -12,11 +12,15 @@ public partial class App : Application
 	private readonly Diagnostics.DiagnosticsReporter _errors;
 	private readonly Diagnostics.AppMetrics _metrics;
 	private readonly Diagnostics.StartupTiming _startup;
+	private readonly Diagnostics.UiStallMonitor _stalls;
+	private readonly Diagnostics.MemoryMonitor _memory;
+	private readonly Diagnostics.SessionHealth _sessions;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
 		Services.WhatsNew whatsNew, Diagnostics.DiagnosticsReporter errors, Diagnostics.AppMetrics metrics,
-		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport)
+		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport,
+		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions)
 	{
 		InitializeComponent();
 
@@ -45,6 +49,22 @@ public partial class App : Application
 			}
 		};
 		Diagnostics.Measurements.Observe(transport, metrics);
+
+		// Feature use (#219): the listed pages each time they're opened - not
+		// returned to - plus a card added or a CSV export.
+		_stalls = stalls;
+		_memory = memory;
+		_sessions = sessions;
+		Diagnostics.FeatureUse.Used += (_, area) => metrics.Record(new Diagnostics.MetricObservation(Diagnostics.MetricName.FeatureUse, 1, Area: area));
+		shell.Navigated += (_, e) =>
+		{
+			if (e.Source is not (ShellNavigationSource.Pop or ShellNavigationSource.PopToRoot or ShellNavigationSource.Remove)
+				&& shell.CurrentPage?.BindingContext is { } vm
+				&& Diagnostics.MetricRules.FeatureArea(vm.GetType().Name) is { } feature)
+			{
+				metrics.Record(new Diagnostics.MetricObservation(Diagnostics.MetricName.FeatureUse, 1, Area: feature));
+			}
+		};
 		appDiagnostics.Start();
 		appearance.Apply();
 		_shell = shell;
@@ -86,6 +106,9 @@ public partial class App : Application
 			_errors.Start();
 			_metrics.Start();
 			_startup.WindowShown();
+			_sessions.Begin();
+			_stalls.Resume();
+			_memory.Resume();
 			CheckSensorDefinitions();
 		};
 		window.Resumed += (_, _) =>
@@ -94,11 +117,17 @@ public partial class App : Application
 			_errors.Start();
 			_metrics.Start();
 			_startup.WindowShown();
+			_sessions.Begin();
+			_stalls.Resume();
+			_memory.Resume();
 			CheckSensorDefinitions();
 		};
 		window.Stopped += (_, _) =>
 		{
 			_alerts.SetForeground(false);
+			_stalls.Pause();
+			_memory.Pause();
+			_sessions.End();
 
 			// What's gathered goes to the queue before iOS or Android may end the app.
 			_metrics.Flush();

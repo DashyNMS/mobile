@@ -172,8 +172,8 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
             timestamp = point.Timestamp.ToUnixTimeMilliseconds() / 1000.0,
             trace_id = report.EventId.ToString("N"),
             name = MetricKey(point.Observation.Name),
-            type = MetricRules.IsCounter(point.Observation.Name) ? "counter" : "distribution",
-            unit = MetricRules.IsCounter(point.Observation.Name) ? "none" : "millisecond",
+            type = MetricRules.IsCounter(point.Observation.Name) ? "counter" : MetricRules.IsGauge(point.Observation.Name) ? "gauge" : "distribution",
+            unit = MetricRules.IsCounter(point.Observation.Name) ? "none" : MetricRules.IsGauge(point.Observation.Name) ? "byte" : "millisecond",
             value = point.Observation.Value,
             attributes = new Dictionary<string, object>
             {
@@ -198,6 +198,13 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
         MetricName.ScreenLoadDuration => "dashynms.screen_load.duration",
         MetricName.ApiRequests => "dashynms.api.requests",
         MetricName.ApiDuration => "dashynms.api.duration",
+        MetricName.FeatureUse => "dashynms.feature.use",
+        MetricName.UiStalls => "dashynms.ui_stall.count",
+        MetricName.UiStallDuration => "dashynms.ui_stall.duration",
+        MetricName.MemoryFootprint => "dashynms.memory.footprint",
+        MetricName.ManagedHeap => "dashynms.memory.managed_heap",
+        MetricName.SessionOutcome => "dashynms.session.outcome",
+        MetricName.SessionDuration => "dashynms.session.duration",
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
 

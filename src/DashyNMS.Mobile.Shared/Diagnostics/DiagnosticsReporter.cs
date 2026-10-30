@@ -70,6 +70,9 @@ public sealed class DiagnosticsReporter : IErrorReports, IDisposable
 
     public ErrorReportContext Context => _context;
 
+    /// <summary>An error was reported, and how - so session health (#219) knows the session errored or crashed.</summary>
+    public event EventHandler<ErrorOrigin>? ErrorCaptured;
+
     /// <summary>Sends in the background after a capture or <see cref="Start"/>; off in tests, which send themselves.</summary>
     internal bool SendsInBackground { get; init; } = true;
 
@@ -142,6 +145,14 @@ public sealed class DiagnosticsReporter : IErrorReports, IDisposable
             }
         }
 
+        try
+        {
+            ErrorCaptured?.Invoke(this, origin);
+        }
+        catch (Exception)
+        {
+        }
+
         // The app is closing: the report waits for the next launch.
         if (origin != ErrorOrigin.Unhandled)
         {
@@ -149,8 +160,11 @@ public sealed class DiagnosticsReporter : IErrorReports, IDisposable
         }
     }
 
-    /// <summary>A minute's measurements, from <see cref="AppMetrics"/>: queued if usage is still shared.</summary>
-    public bool RecordMetrics(IReadOnlyList<MetricPoint> points)
+    /// <summary>
+    /// A minute's measurements, from <see cref="AppMetrics"/>, or a session's
+    /// outcome under the session's own id (#219): queued if usage is still shared.
+    /// </summary>
+    public bool RecordMetrics(IReadOnlyList<MetricPoint> points, Guid? id = null)
     {
         lock (_gate)
         {
@@ -161,7 +175,7 @@ public sealed class DiagnosticsReporter : IErrorReports, IDisposable
 
             try
             {
-                var report = new MetricsReport(1, Guid.NewGuid(), points.Min(point => point.Timestamp), _context, points);
+                var report = new MetricsReport(1, id ?? Guid.NewGuid(), points.Min(point => point.Timestamp), _context, points);
                 return ErrorPayload.IsValid(report) && Persist(report);
             }
             catch (Exception)

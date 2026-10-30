@@ -95,7 +95,7 @@ public sealed class AppMetrics : IAppMetrics, IDisposable
                     return;
                 }
             }
-            else
+            else if (!MetricRules.IsGauge(observation.Name))
             {
                 if (!_samples.TryGetValue(key, out var seen) && _samples.Count >= MetricRules.MaximumPoints)
                 {
