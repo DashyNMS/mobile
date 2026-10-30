@@ -34,10 +34,14 @@ internal sealed class TopLineSpace
     private string? _reported;
     private bool _queued;
 
+#if IOS
+    private SafeAreaWatcher? _watcher;
+#endif
+
     private TopLineSpace(Page page)
     {
         _page = page;
-        page.SizeChanged += (_, _) => Queue();
+        page.SizeChanged += (_, _) => Settle();
         page.Appearing += (_, _) => Queue();
     }
 
@@ -80,6 +84,16 @@ internal sealed class TopLineSpace
         Queue();
     }
 
+    // The page has turned, resized or had its safe area change. UIKit may
+    // move the status bar after telling us, so look again a moment later:
+    // turning the inner display to landscape and back left the line below
+    // the status bar, placed from where it had been in landscape (#282).
+    private void Settle()
+    {
+        Queue();
+        _page.Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(500), Queue);
+    }
+
     // After the layout pass, when the line's position across the page is known.
     private void Queue()
     {
@@ -98,6 +112,7 @@ internal sealed class TopLineSpace
 
     private void Update()
     {
+        Watch();
         _seen.Clear();
         var keep = new HashSet<BindableObject>();
         _lines.RemoveAll(l => !l.Line.TryGetTarget(out _));
@@ -193,6 +208,21 @@ internal sealed class TopLineSpace
         }
 #endif
         return null;
+    }
+
+    // Hears of safe-area changes the page's size doesn't show.
+    private void Watch()
+    {
+#if IOS
+        if (_page.Handler?.PlatformView is not UIView page || ReferenceEquals(_watcher?.Superview, page))
+        {
+            return;
+        }
+
+        _watcher?.RemoveFromSuperview();
+        _watcher = new SafeAreaWatcher(Settle) { Frame = page.Bounds };
+        page.AddSubview(_watcher);
+#endif
     }
 
     private TopLinePlacement? Place(Layout line)
