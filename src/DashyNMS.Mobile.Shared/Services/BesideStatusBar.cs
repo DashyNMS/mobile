@@ -84,11 +84,12 @@ public static class BesideStatusBar
             return null;
         }
 
-        // Level with the status bar's middle, as standard bars sit; but never
-        // ending above it, so what comes after the line stays clear of it.
+        // Level with the status bar's middle, so the title lines up with the
+        // clock as standard bars do. Holding the line down to the status bar's
+        // foot instead left it visibly lower than the clock (#278).
         var top = inStrip.Min(a => a.Top);
         var bottom = inStrip.Max(a => a.Bottom);
-        var lineTop = Math.Max(0, Math.Max((top + bottom - lineHeight) / 2, bottom - lineHeight));
+        var lineTop = Math.Max(0, (top + bottom - lineHeight) / 2);
 
         // No higher than it already is: nothing to gain.
         if (lineTop >= safeTop)
