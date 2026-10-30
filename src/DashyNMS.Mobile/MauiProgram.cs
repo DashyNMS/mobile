@@ -10,6 +10,9 @@ public static class MauiProgram
 {
 	public static MauiApp CreateMauiApp()
 	{
+		// Start-up time (#218) runs from here, as early as the app can see.
+		var startup = new Diagnostics.StartupTiming();
+
 		var builder = MauiApp.CreateBuilder();
 		builder
 			.UseMauiApp<App>()
@@ -81,12 +84,17 @@ public static class MauiProgram
 		// Opt-in error reports (#217): Sentry, with the key this build was
 		// given (none outside the store builds), and the queue they wait in.
 		builder.Services.AddSingleton<Diagnostics.IDiagnosticsTransport>(_ => new Diagnostics.SentryTransport(SentryDsn()));
-		builder.Services.AddSingleton(sp => new Diagnostics.ErrorReporter(
+		builder.Services.AddSingleton(sp => new Diagnostics.DiagnosticsReporter(
 			ReportContext(),
 			sp.GetRequiredService<Diagnostics.IDiagnosticsTransport>(),
 			sp.GetRequiredService<IDiagnosticsConsent>(),
 			Path.Combine(FileSystem.AppDataDirectory, "error-reports")));
-		builder.Services.AddSingleton<Diagnostics.IErrorReports>(sp => sp.GetRequiredService<Diagnostics.ErrorReporter>());
+		builder.Services.AddSingleton<Diagnostics.IErrorReports>(sp => sp.GetRequiredService<Diagnostics.DiagnosticsReporter>());
+
+		// Usage and performance (#218): batched and sampled, queued with the error reports.
+		builder.Services.AddSingleton<Diagnostics.AppMetrics>();
+		builder.Services.AddSingleton<Diagnostics.IAppMetrics>(sp => sp.GetRequiredService<Diagnostics.AppMetrics>());
+		builder.Services.AddSingleton(startup);
 
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();

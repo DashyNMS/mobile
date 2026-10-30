@@ -21,6 +21,7 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
     private readonly HttpClient _client;
     private readonly Uri? _endpoint;
     private readonly string? _publicKey;
+    private long _metricSequence = -1;
 
     public SentryTransport(string? dsn)
         : this(dsn, new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false, UseDefaultCredentials = false })
@@ -57,15 +58,31 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
 
     public async Task<SendResult> SendAsync(DiagnosticReport report, CancellationToken cancellationToken)
     {
-        if (_endpoint is null || report is not ErrorReport error || !ErrorPayload.IsValid(report))
+        if (_endpoint is null || !ErrorPayload.IsValid(report) || report is not (ErrorReport or MetricsReport))
         {
             return new SendResult(SendDisposition.Rejected);
         }
 
-        var payload = Event(error);
+        var metrics = report as MetricsReport;
+        var payload = metrics is null ? Event((ErrorReport)report) : Metrics(metrics);
+        var category = metrics is null ? "error" : "trace_metric";
         using var body = new MemoryStream();
         WriteJsonLine(body, new { event_id = report.EventId.ToString("N") });
-        WriteJsonLine(body, new { type = "event", length = payload.Length });
+        if (metrics is null)
+        {
+            WriteJsonLine(body, new { type = "event", length = payload.Length });
+        }
+        else
+        {
+            WriteJsonLine(body, new
+            {
+                type = "trace_metric",
+                item_count = metrics.Points.Count,
+                content_type = "application/vnd.sentry.items.trace-metric+json",
+                length = payload.Length,
+            });
+        }
+
         body.Write(payload);
         body.WriteByte((byte)'\n');
         if (body.Length > ErrorPayload.MaximumBytes)
@@ -82,12 +99,12 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
             using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                return new SendResult(SendDisposition.Accepted, RetryDelay(response, "error"));
+                return new SendResult(SendDisposition.Accepted, RetryDelay(response, category));
             }
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                return new SendResult(SendDisposition.Retry, RetryDelay(response, "error") ?? TimeSpan.FromMinutes(1));
+                return new SendResult(SendDisposition.Retry, RetryDelay(response, category) ?? TimeSpan.FromMinutes(1));
             }
 
             // A 4xx won't get better by sending again; a 5xx might.
@@ -139,7 +156,58 @@ public sealed class SentryTransport : IDiagnosticsTransport, IDisposable
         },
     });
 
+    /// <summary>
+    /// A minute's measurements as Sentry metrics (#218): each a fixed name,
+    /// value and unit, with the release, platform, OS version band,
+    /// architecture, outcome and area as attributes, and Sentry told not to
+    /// infer an IP address or user agent. The trace id is the report's own
+    /// random id, never one that lasts.
+    /// </summary>
+    internal byte[] Metrics(MetricsReport report) => JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        version = 2,
+        ingest_settings = new { infer_ip = "never", infer_user_agent = "never" },
+        items = report.Points.Select(point => new
+        {
+            timestamp = point.Timestamp.ToUnixTimeMilliseconds() / 1000.0,
+            trace_id = report.EventId.ToString("N"),
+            name = MetricKey(point.Observation.Name),
+            type = MetricRules.IsCounter(point.Observation.Name) ? "counter" : "distribution",
+            unit = MetricRules.IsCounter(point.Observation.Name) ? "none" : "millisecond",
+            value = point.Observation.Value,
+            attributes = new Dictionary<string, object>
+            {
+                ["sentry.release"] = Attribute(report.Context.Release),
+                ["operating_system"] = Attribute(report.Context.OperatingSystem),
+                ["os_version"] = Attribute(report.Context.OsVersion),
+                ["architecture"] = Attribute(report.Context.Architecture),
+                ["outcome"] = Attribute(Snake(point.Observation.Outcome.ToString())),
+                ["area"] = Attribute(Snake(point.Observation.Area.ToString())),
+                ["sentry.sdk.name"] = Attribute("dashynms.envelope"),
+                ["sentry.sdk.version"] = Attribute("1.0.0"),
+                ["sentry.timestamp.sequence"] = new { type = "integer", value = Interlocked.Increment(ref _metricSequence) },
+            },
+        }).ToArray(),
+    });
+
+    /// <summary>Desktop's metric names where it measures the same thing, so the two read alike in Sentry.</summary>
+    internal static string MetricKey(MetricName name) => name switch
+    {
+        MetricName.AppStart => "dashynms.app_start",
+        MetricName.StartupDuration => "dashynms.startup.duration",
+        MetricName.ScreenLoadDuration => "dashynms.screen_load.duration",
+        MetricName.ApiRequests => "dashynms.api.requests",
+        MetricName.ApiDuration => "dashynms.api.duration",
+        _ => throw new ArgumentOutOfRangeException(nameof(name)),
+    };
+
     public void Dispose() => _client.Dispose();
+
+    private static object Attribute(string value) => new { type = "string", value };
+
+    /// <summary>"NetworkMap" as "network_map".</summary>
+    private static string Snake(string name) =>
+        string.Concat(name.Select((c, i) => i > 0 && char.IsUpper(c) ? "_" + char.ToLowerInvariant(c) : char.ToLowerInvariant(c).ToString()));
 
     private static Dictionary<string, object> Frame(ErrorFrame frame)
     {

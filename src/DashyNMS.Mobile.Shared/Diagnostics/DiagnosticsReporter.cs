@@ -5,18 +5,19 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Diagnostics;
 
 /// <summary>
-/// Opt-in error reports (#217), as desktop's (DashyNMS/desktop#62): a report
-/// is saved to a small queue first - at most ten, of 32 KiB each, for seven
-/// days - and sent from there, so a fatal error goes at the next launch and
-/// nothing is lost going offline.
+/// Opt-in error reports (#217) and usage measurements (#218), as desktop's
+/// (DashyNMS/desktop#62, #498): each is saved to a small queue first - at
+/// most ten reports, of 32 KiB each, for seven days - and sent from there, so
+/// a fatal error goes at the next launch and nothing is lost going offline.
 /// </summary>
 /// <remarks>
 /// Nothing is captured until <see cref="Start"/>, which the app calls only
 /// once it's on screen: iOS and Android can launch it in the background for
-/// an alert check, and those launches are never reported. Turning error
-/// reports off deletes the queue and abandons anything being sent.
+/// an alert check, and those launches are never reported. Each kind goes only
+/// while its own choice is on; turning one off deletes what's queued for it
+/// and abandons anything being sent. Measurements go at most once a minute.
 /// </remarks>
-public sealed class ErrorReporter : IErrorReports, IDisposable
+public sealed class DiagnosticsReporter : IErrorReports, IDisposable
 {
     public const int MaximumQueued = 10;
 
@@ -36,10 +37,13 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
     private long _generation;
     private bool _started;
     private bool _disposed;
-    private DateTimeOffset _nextAttempt;
+    private DateTimeOffset _nextErrorAttempt;
+    private DateTimeOffset _nextUsageAttempt;
+    private bool _errorsWereAllowed;
+    private bool _usageWasAllowed;
     private int _pumpScheduled;
 
-    public ErrorReporter(ErrorReportContext context, IDiagnosticsTransport transport, IDiagnosticsConsent consent, string directory, TimeProvider? time = null)
+    public DiagnosticsReporter(ErrorReportContext context, IDiagnosticsTransport transport, IDiagnosticsConsent consent, string directory, TimeProvider? time = null)
     {
         _context = ErrorPayload.SafeContext(context);
         _transport = transport;
@@ -47,11 +51,20 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
         _directory = directory;
         _time = time ?? TimeProvider.System;
         _consent.Changed += (_, _) => ConsentChanged();
+        _errorsWereAllowed = ErrorsAllowed;
+        _usageWasAllowed = UsageAllowed;
 
-        // Reports left from before error reports were turned off are never sent.
-        if (!Allowed)
+        // Reports left from before a choice was turned off are never sent.
+        lock (_gate)
         {
-            Purge();
+            if (!ErrorsAllowed && !UsageAllowed)
+            {
+                Purge();
+            }
+            else
+            {
+                _ = ReadQueue();
+            }
         }
     }
 
@@ -60,7 +73,23 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
     /// <summary>Sends in the background after a capture or <see cref="Start"/>; off in tests, which send themselves.</summary>
     internal bool SendsInBackground { get; init; } = true;
 
-    private bool Allowed => _transport.IsAvailable && _consent.ShareErrors;
+    private bool ErrorsAllowed => _transport.IsAvailable && _consent.ShareErrors;
+
+    private bool UsageAllowed => _transport.IsAvailable && _consent.ShareUsage;
+
+    /// <summary>The app has been on screen, and usage is shared: measurements may be kept.</summary>
+    public bool MeasuringAllowed
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _started && !_disposed && UsageAllowed;
+            }
+        }
+    }
+
+    private bool IsAllowed(DiagnosticReport report) => report is MetricsReport ? UsageAllowed : ErrorsAllowed;
 
     /// <summary>
     /// The app is on screen: capture from now on, and send what's queued -
@@ -91,7 +120,7 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
 
         lock (_gate)
         {
-            if (!_started || _disposed || !Allowed || _captured.TryGetValue(exception, out _))
+            if (!_started || _disposed || !ErrorsAllowed || _captured.TryGetValue(exception, out _))
             {
                 return;
             }
@@ -117,6 +146,28 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
         if (origin != ErrorOrigin.Unhandled)
         {
             Pump();
+        }
+    }
+
+    /// <summary>A minute's measurements, from <see cref="AppMetrics"/>: queued if usage is still shared.</summary>
+    public bool RecordMetrics(IReadOnlyList<MetricPoint> points)
+    {
+        lock (_gate)
+        {
+            if (!_started || _disposed || !UsageAllowed || points.Count == 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                var report = new MetricsReport(1, Guid.NewGuid(), points.Min(point => point.Timestamp), _context, points);
+                return ErrorPayload.IsValid(report) && Persist(report);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 
@@ -149,12 +200,15 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
                 using var timeout = new CancellationTokenSource(SendTimeout, _time);
                 lock (_gate)
                 {
-                    if (!_started || _disposed || !Allowed || _time.GetUtcNow() < _nextAttempt)
+                    if (!_started || _disposed)
                     {
                         return;
                     }
 
-                    var queue = ReadQueue();
+                    var now = _time.GetUtcNow();
+                    var queue = ReadQueue()
+                        .Where(item => now >= (item.Report is MetricsReport ? _nextUsageAttempt : _nextErrorAttempt))
+                        .ToList();
                     if (queue.Count == 0)
                     {
                         return;
@@ -191,8 +245,8 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
 
                     if (result.Disposition == SendDisposition.Retry)
                     {
-                        Wait(result.RetryAfter ?? TimeSpan.FromMinutes(1));
-                        return;
+                        Wait(report, result.RetryAfter ?? TimeSpan.FromMinutes(1));
+                        continue;
                     }
 
                     Delete(path);
@@ -203,7 +257,13 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
 
                     if (result.RetryAfter is { } backoff && backoff > TimeSpan.Zero)
                     {
-                        Wait(backoff);
+                        Wait(report, backoff);
+                    }
+
+                    // Measurements go at most once a minute (#218).
+                    if (report is MetricsReport)
+                    {
+                        Wait(report, TimeSpan.FromMinutes(1));
                     }
                 }
             }
@@ -241,18 +301,32 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
     {
         lock (_gate)
         {
-            if (_disposed || Allowed)
+            var errors = ErrorsAllowed;
+            var usage = UsageAllowed;
+            var withdrawn = (_errorsWereAllowed && !errors) || (_usageWasAllowed && !usage);
+            _errorsWereAllowed = errors;
+            _usageWasAllowed = usage;
+            if (_disposed || !withdrawn)
             {
                 return;
             }
 
-            // Withdrawn: what's being sent is abandoned, and what's queued goes.
+            // Withdrawn: what's being sent is abandoned, and what's queued for it goes.
             _generation++;
             _withdrawn.Cancel();
             _withdrawn.Dispose();
             _withdrawn = new CancellationTokenSource();
-            _nextAttempt = default;
-            Purge();
+            if (!errors)
+            {
+                _nextErrorAttempt = default;
+            }
+
+            if (!usage)
+            {
+                _nextUsageAttempt = default;
+            }
+
+            _ = ReadQueue();
         }
     }
 
@@ -276,12 +350,17 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
         });
     }
 
-    private void Wait(TimeSpan delay)
+    /// <summary>Holds back this report's kind; Sentry's limits are per kind (error or metric).</summary>
+    private void Wait(DiagnosticReport report, TimeSpan delay)
     {
         var next = _time.GetUtcNow() + TimeSpan.FromSeconds(Math.Clamp(delay.TotalSeconds, 1, 86400));
-        if (next > _nextAttempt)
+        if (report is MetricsReport)
         {
-            _nextAttempt = next;
+            _nextUsageAttempt = next > _nextUsageAttempt ? next : _nextUsageAttempt;
+        }
+        else
+        {
+            _nextErrorAttempt = next > _nextErrorAttempt ? next : _nextErrorAttempt;
         }
     }
 
@@ -325,7 +404,10 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
         }
     }
 
-    /// <summary>The queue, oldest first, with anything stale, oversized, malformed or renamed deleted on the way.</summary>
+    /// <summary>
+    /// The queue, oldest first, with anything no longer allowed, stale,
+    /// oversized, malformed or renamed deleted on the way.
+    /// </summary>
     private List<(string Path, DiagnosticReport Report)> ReadQueue()
     {
         var queue = new List<(string Path, DiagnosticReport Report)>();
@@ -348,7 +430,7 @@ public sealed class ErrorReporter : IErrorReports, IDisposable
                 var report = file.Length is > 0 and <= ErrorPayload.MaximumBytes
                     ? JsonSerializer.Deserialize<DiagnosticReport>(File.ReadAllBytes(path), ErrorPayload.JsonOptions)
                     : null;
-                if (report is null || !ErrorPayload.IsValid(report)
+                if (report is null || !ErrorPayload.IsValid(report) || !IsAllowed(report)
                     || report.Timestamp < now - MaximumAge || report.Timestamp > now.AddMinutes(5)
                     || Path.GetFileName(path) != report.EventId.ToString("N") + ".json")
                 {

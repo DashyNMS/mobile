@@ -29,11 +29,13 @@ public sealed record ErrorFrame(string Module, string Type, string Function, str
 public sealed record ErrorException(string Type, IReadOnlyList<ErrorFrame> Frames);
 
 /// <summary>
-/// Anything queued for Sentry. Error reports are the only kind for now;
-/// usage measurements (#218) join them here so they share the queue's caps.
+/// Anything queued for Sentry: error reports (#217) and usage measurements
+/// (#218), which share the queue's caps but each go only while their own
+/// choice is on.
 /// </summary>
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(ErrorReport), "error")]
+[JsonDerivedType(typeof(MetricsReport), "metrics")]
 public abstract record DiagnosticReport(int Schema, Guid EventId, DateTimeOffset Timestamp, ErrorReportContext Context);
 
 /// <summary>An error report as it is saved and sent: up to three exceptions, innermost last.</summary>
