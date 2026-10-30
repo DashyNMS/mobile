@@ -336,6 +336,14 @@ saved session, then repeat from the outer display and unfold. Both paths
 must show the pinned tab bar without needing another launch. The iOS
 `AppShellRenderer` applies MAUI's compact tab-controller workaround to phones
 as well as tablets, before the child controllers are created.
+On the inner display in portrait, every page's top line (the Dashboard's
+logo and Customise, other pages' titles or "‹ Back") should sit level with
+the clock, its right-hand buttons stopping short of the status bar and
+camera. `TopLineSpace` places it from UIKit's occlusion reserved regions
+(iOS 27.1) and puts it back below the status bar wherever they leave too
+little room, so check the outer display and a conventional iPhone are
+unchanged, and that pushed pages, list/detail panes and scrolled pages
+look right as the phone opens and closes.
 Also check a conventional iPhone and iPad. A successful simulator build
 alone does not verify these layouts.
 

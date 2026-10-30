@@ -12,6 +12,13 @@ internal static class TopBar
     /// <summary>The line's height: the Dashboard's 44pt Customise button.</summary>
     public static double Height => Resource<double>("TopBarHeight") ?? 44;
 
+    /// <summary>
+    /// Lets <paramref name="line"/> move up beside the status bar where the
+    /// screen leaves room, as on iPhone Duo's inner display (#278). Call it
+    /// once its padding is set: that's the padding it keeps elsewhere.
+    /// </summary>
+    public static void Fit(Layout line) => TopLineSpace.Track(line);
+
     private static T? Resource<T>(string key) where T : struct =>
         Application.Current?.Resources.TryGetValue(key, out var value) == true && value is T typed ? typed : null;
 }
