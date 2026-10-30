@@ -8,6 +8,7 @@
 - **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
 
 ## Improved
+- **Logs.** Entries sit under a heading for each day, with the time at the right. {logs}
 - **Notifications.** One per alert group, and a tap opens the alert or group it was for. {alerts}
 - **Slow sensor lists.** The last readings stay on screen, with their time, while LibreNMS answers. {health}
 - **Graylog.** Messages from a short host name link to their device. {graylog}
