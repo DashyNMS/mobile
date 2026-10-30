@@ -317,6 +317,34 @@
                     </Grid>
                 </Border>
 
+                <!-- ==================== Error reports and usage ==================== -->
+                <!-- The sheet's two choices (#216); each applies at once, and off deletes what's waiting to be sent. -->
+                <VerticalStackLayout x:Name="Diagnostics" Spacing="12" IsVisible="False">
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout>
+                                    <Label Text="Share error reports" />
+                                    <Label Style="{StaticResource Caption}"
+                                           Text="When something goes wrong: the app version, the phone's operating system and its version, and where in the app's code it happened." />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareErrorReports}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout>
+                                    <Label Text="Share usage and performance" />
+                                    <Label Style="{StaticResource Caption}"
+                                           Text="How often the app starts and which features are used, how long pages and requests take, responsiveness and memory. No user or install ID is kept." />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareUsage}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Style="{StaticResource Caption}" Margin="4,0"
+                           Text="Never sent: your server's address, device names or addresses, tokens or passwords, readings, logs, or anything you type. Turning a choice off deletes anything not yet sent." />
+                </VerticalStackLayout>
+
             </VerticalStackLayout>
         </controls:ReadableColumn>
     </ScrollView>

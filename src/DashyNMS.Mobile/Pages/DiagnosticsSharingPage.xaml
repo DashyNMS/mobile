@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.DiagnosticsSharingPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:DiagnosticsSharingViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Help improve DashyNMS">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
+        <controls:PageHeader x:Name="Header" Title="Help improve DashyNMS" Margin="16,0,16,0" />
+
+        <!-- Desktop's choices (desktop#62, #498), worded for the phone. Both
+             start unticked; going Back records nothing and asks next launch. -->
+        <ScrollView Grid.Row="1">
+            <controls:ReadableColumn>
+                <VerticalStackLayout Padding="16" Spacing="12">
+                    <Label Text="Choose what to share with DashyNMS through Sentry. They're separate choices, both optional, and you can change them in Settings › Error reports and usage." />
+
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout>
+                                    <Label Text="Share error reports" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Caption}"
+                                           Text="When something goes wrong: the app version, the phone's operating system and its version, and where in the app's code it happened." />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareErrors}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout>
+                                    <Label Text="Share usage and performance" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Caption}"
+                                           Text="How often the app starts and which features are used, how long pages and requests take, responsiveness and memory. No user or install ID is kept." />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareUsage}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Style="{StaticResource Caption}"
+                           Text="Never sent: your server's address, device names or addresses, tokens or passwords, readings, logs, or anything you type. Sentry sees your connection's IP address when something is sent." />
+
+                    <Button Style="{StaticResource LinkButton}" Text="Privacy policy" Command="{Binding OpenPrivacyPolicyCommand}"
+                            HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </controls:ReadableColumn>
+        </ScrollView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="16,8,16,16">
+            <Button Style="{StaticResource SecondaryButton}" Text="Don't share" Command="{Binding DeclineCommand}" />
+            <Button Grid.Column="1" Text="Allow selected" Command="{Binding AllowSelectedCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

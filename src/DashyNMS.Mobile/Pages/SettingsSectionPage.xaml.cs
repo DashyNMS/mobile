@@ -27,6 +27,7 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable
 			AlertChecks.IsVisible = section == SettingsSection.AlertChecks;
 			Notifications.IsVisible = section == SettingsSection.Notifications;
 			LockScreen.IsVisible = section == SettingsSection.LockScreen;
+			Diagnostics.IsVisible = section == SettingsSection.Diagnostics;
 		}
 	}
 

@@ -11,15 +11,17 @@ public partial class AppShell : Shell
 	private readonly Dictionary<AppPage, Tab> _pinnedTabs = [];
 
 	private readonly WhatsNew _whatsNew;
+	private readonly DiagnosticsConsent _consent;
 	private readonly DesktopNMS.Services.ISessionService _session;
 	private readonly INavigationService _navigation;
 
-	public AppShell(TabPins pins, AlertTabDot alertDot, WhatsNew whatsNew, DesktopNMS.Services.ISessionService session, INavigationService navigation)
+	public AppShell(TabPins pins, AlertTabDot alertDot, WhatsNew whatsNew, DiagnosticsConsent consent, DesktopNMS.Services.ISessionService session, INavigationService navigation)
 	{
 		InitializeComponent();
 		_pins = pins;
 		_alertDot = alertDot;
 		_whatsNew = whatsNew;
+		_consent = consent;
 		_session = session;
 		_navigation = navigation;
 
@@ -41,6 +43,7 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
 		Routing.RegisterRoute(Routes.SensorDefinitionsSettings, typeof(SensorDefinitionsSettingsPage));
 		Routing.RegisterRoute(Routes.WhatsNew, typeof(WhatsNewPage));
+		Routing.RegisterRoute(Routes.DiagnosticsSharing, typeof(DiagnosticsSharingPage));
 		Routing.RegisterRoute(Routes.GraylogMessage, typeof(GraylogMessagePage));
 		Routing.RegisterRoute(Routes.GraylogDevice, typeof(GraylogDevicePickerPage));
 		Routing.RegisterRoute(Routes.LogEntry, typeof(LogEntryPage));
@@ -177,15 +180,25 @@ public partial class AppShell : Shell
 	}
 
 	/// <summary>
-	/// Signed in and on one of the app's pages: What's new, if this is the
-	/// first launch since an update (#159). Once a launch at most.
+	/// Signed in and on one of the app's pages: whether to share error reports
+	/// and usage, if not yet chosen (#216), then What's new, if this is the
+	/// first launch since an update (#159) - each once a launch at most. What's
+	/// new waits for the sharing sheet to close, which lands back here.
 	/// </summary>
 	protected override void OnNavigated(ShellNavigatedEventArgs args)
 	{
 		base.OnNavigated(args);
 		if (_session.IsConnected && args.Current?.Location.OriginalString.StartsWith(Routes.Main, StringComparison.Ordinal) == true)
 		{
-			_ = _whatsNew.ShowIfDueAsync(_navigation);
+			_ = OfferAsync();
+		}
+	}
+
+	private async Task OfferAsync()
+	{
+		if (!await _consent.ShowIfDueAsync(_navigation))
+		{
+			await _whatsNew.ShowIfDueAsync(_navigation);
 		}
 	}
 }
