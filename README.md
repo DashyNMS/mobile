@@ -46,7 +46,7 @@ Clean and easy to read in dark or light mode, with more on screen at once on iPa
 
 ## Private by design
 
-DashyNMS talks only to your own LibreNMS server. There's no account to create, no analytics and no tracking. Your API token is kept in your phone's keychain and never leaves the device except to go to your server. Read the full [privacy policy](https://dashynms.pckp.net/mobile/privacy/).
+DashyNMS talks to your own LibreNMS server. There's no account to create and no tracking. Error reports and usage measurements are sent only if you choose to share them, and never include your server, devices, names or tokens. Your API token is kept in your phone's keychain and never leaves the device except to go to your server. See [PRIVACY.md](PRIVACY.md) and the full [privacy policy](https://dashynms.pckp.net/mobile/privacy/).
 
 ## Get the app
 

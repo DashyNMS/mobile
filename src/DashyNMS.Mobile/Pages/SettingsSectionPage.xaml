@@ -326,7 +326,7 @@
                                 <VerticalStackLayout>
                                     <Label Text="Share error reports" />
                                     <Label Style="{StaticResource Caption}"
-                                           Text="When something goes wrong: the app version, the phone's operating system and its version, and where in the app's code it happened." />
+                                           Text="When something goes wrong: the app version, the phone's operating system and its version, the processor type, and where in the app's code it happened." />
                                 </VerticalStackLayout>
                                 <Switch Grid.Column="1" IsToggled="{Binding ShareErrorReports}" VerticalOptions="Center" />
                             </Grid>
@@ -335,7 +335,7 @@
                                 <VerticalStackLayout>
                                     <Label Text="Share usage and performance" />
                                     <Label Style="{StaticResource Caption}"
-                                           Text="How often the app starts and which features are used, how long pages and requests take, responsiveness and memory. No user or install ID is kept." />
+                                           Text="How often the app starts and which features are used, how long pages and requests take, responsiveness and memory. With both on, how each time it was open ended, under a random ID that's new each time. No user or install ID." />
                                 </VerticalStackLayout>
                                 <Switch Grid.Column="1" IsToggled="{Binding ShareUsage}" VerticalOptions="Center" />
                             </Grid>
