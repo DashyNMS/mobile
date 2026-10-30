@@ -20,6 +20,7 @@ public enum SettingsSection
     AlertChecks,
     Notifications,
     LockScreen,
+    Diagnostics,
 }
 
 /// <summary>Which server we're on, timestamps, notifications, and signing out.</summary>
@@ -77,9 +78,21 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DiagnosticsReport? report = null,
         SensorDefinitions? definitions = null,
         IClipboardText? clipboard = null,
-        WhatsNew? whatsNew = null)
+        WhatsNew? whatsNew = null,
+        DiagnosticsConsent? consent = null)
     {
         _whatsNew = whatsNew;
+        _consent = consent;
+        if (consent is not null)
+        {
+            // The sheet can answer while Settings is open behind it.
+            consent.Changed += (_, _) =>
+            {
+                OnPropertyChanged(nameof(ShareErrorReports));
+                OnPropertyChanged(nameof(ShareUsage));
+                OnPropertyChanged(nameof(SharingSummary));
+            };
+        }
         _clipboard = clipboard;
         _wipe = wipe;
         _definitions = definitions;
@@ -489,6 +502,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         SettingsSection.AlertChecks => "Alert checks",
         SettingsSection.Notifications => "Notifications",
         SettingsSection.LockScreen => "Lock screen",
+        SettingsSection.Diagnostics => "Error reports and usage",
         _ => "Settings",
     };
 
@@ -538,6 +552,52 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     /// <summary>The diagnostics log can be shared (#107) - the app keeps one, and the phone can share a file.</summary>
     public bool CanShareDiagnostics => _diagnostics is not null && _share is not null;
+
+    private readonly DiagnosticsConsent? _consent;
+
+    /// <summary>
+    /// The error reports and usage choices can be changed (#216) - only in a
+    /// build that can send them.
+    /// </summary>
+    public bool CanChooseSharing => _consent?.IsAvailable == true;
+
+    /// <summary>The Diagnostics card has something to show.</summary>
+    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing;
+
+    /// <summary>Settings' Error reports switch (#216): on at once, and off deletes what's waiting to be sent.</summary>
+    public bool ShareErrorReports
+    {
+        get => _consent?.ShareErrors ?? false;
+        set
+        {
+            if (_consent is not null && _consent.ShareErrors != value)
+            {
+                _consent.SetShareErrors(value);
+            }
+        }
+    }
+
+    /// <summary>Settings' Usage and performance switch (#216): on at once, and off deletes what's waiting to be sent.</summary>
+    public bool ShareUsage
+    {
+        get => _consent?.ShareUsage ?? false;
+        set
+        {
+            if (_consent is not null && _consent.ShareUsage != value)
+            {
+                _consent.SetShareUsage(value);
+            }
+        }
+    }
+
+    /// <summary>"Error reports and usage", "Error reports", "Usage and performance" or "Nothing shared".</summary>
+    public string SharingSummary => (ShareErrorReports, ShareUsage) switch
+    {
+        (true, true) => "Error reports and usage",
+        (true, false) => "Error reports",
+        (false, true) => "Usage and performance",
+        _ => "Nothing shared",
+    };
 
     /// <summary>
     /// Shares the diagnostics log as a text file, after saying what's in it -

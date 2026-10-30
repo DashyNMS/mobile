@@ -120,6 +120,9 @@ public static class Routes
     /// <summary>What's new in this release (#159).</summary>
     public const string WhatsNew = "whatsnew";
 
+    /// <summary>Whether to share error reports and usage (#216), asked once after sign-in.</summary>
+    public const string DiagnosticsSharing = "diagnosticssharing";
+
     /// <summary>Settings, Sensor definitions (#209).</summary>
     public const string SensorDefinitionsSettings = "sensordefinitions";
 

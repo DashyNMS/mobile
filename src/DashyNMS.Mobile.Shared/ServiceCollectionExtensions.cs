@@ -124,6 +124,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<SensorDefinitionsSettingsViewModel>();
         services.AddSingleton(sp => new WhatsNew(sp.GetRequiredService<ISettingsStore>()));
         services.AddTransient<WhatsNewViewModel>();
+
+        // Error reports and usage (#216): no build has a reporting key until
+        // error reports land (#217), so nothing is asked or shared yet.
+        services.AddSingleton(sp => new DiagnosticsConsent(sp.GetRequiredService<IAppPreferences>(), reportingAvailable: false));
+        services.AddSingleton<IDiagnosticsConsent>(sp => sp.GetRequiredService<DiagnosticsConsent>());
+        services.AddTransient<DiagnosticsSharingViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();
         services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
 

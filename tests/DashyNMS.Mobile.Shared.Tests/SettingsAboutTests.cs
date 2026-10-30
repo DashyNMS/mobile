@@ -32,7 +32,7 @@ public sealed class SettingsAboutTests
 
     internal static SettingsViewModel NewViewModel(
         ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null, IClipboardText? clipboard = null,
-        WhatsNew? whatsNew = null, RecordingNavigation? navigation = null)
+        WhatsNew? whatsNew = null, RecordingNavigation? navigation = null, DiagnosticsConsent? consent = null)
     {
         var settings = Fakes.Settings(appSettings ?? new AppSettings());
         session ??= Substitute.For<ISessionService>();
@@ -44,7 +44,7 @@ public sealed class SettingsAboutTests
             new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(),
             whatsNew: whatsNew,
             diagnostics: new DiagnosticsLog(null, TimeProvider.System, "2.0.0 (412)", "Apple iPhone16,1 · iOS 26.1"),
-            definitions: definitions, clipboard: clipboard)
+            definitions: definitions, clipboard: clipboard, consent: consent)
         {
             CopiedFor = TimeSpan.Zero,
         };
