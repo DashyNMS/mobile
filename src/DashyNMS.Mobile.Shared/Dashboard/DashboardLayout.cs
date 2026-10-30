@@ -149,10 +149,11 @@ public static class DashboardLayout
     }
 
     /// <summary>
-    /// A new card of <paramref name="type"/> at the end - another Sensors or
-    /// Graph card, or a once-only kind if it isn't showing yet (else that one).
+    /// A new card of <paramref name="type"/> - another Sensors or Graph card,
+    /// or a once-only kind if it isn't showing yet (else that one) - at
+    /// <paramref name="position"/> among the cards shown, or at the end.
     /// </summary>
-    public static DashboardWidget Add(AppSettings settings, string type)
+    public static DashboardWidget Add(AppSettings settings, string type, int? position = null)
     {
         var current = Current(settings).ToList();
         if (!KindOf(type).AllowsSeveral && current.FirstOrDefault(w => w.WidgetType == type) is { } existing)
@@ -161,9 +162,27 @@ public static class DashboardLayout
         }
 
         var widget = New(type);
-        current.Add(widget);
+        current.Insert(position is { } at ? Math.Clamp(at, 0, current.Count) : current.Count, widget);
         Save(settings, current);
         return widget;
+    }
+
+    /// <summary>
+    /// Moves the card with <paramref name="id"/> to just after
+    /// <paramref name="afterId"/> - where a duplicate goes on a phone, the
+    /// next free spot in one column (#145).
+    /// </summary>
+    public static void MoveAfter(AppSettings settings, string id, string afterId)
+    {
+        var current = Current(settings).ToList();
+        if (current.FirstOrDefault(w => w.Id == id) is not { } moving || !current.Any(w => w.Id == afterId))
+        {
+            return;
+        }
+
+        current.Remove(moving);
+        current.Insert(current.FindIndex(w => w.Id == afterId) + 1, moving);
+        Save(settings, current);
     }
 
     /// <summary>Takes a card off the dashboard, its set-up with it.</summary>

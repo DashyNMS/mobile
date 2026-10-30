@@ -47,6 +47,9 @@ public sealed partial class DashboardCardOption : ObservableObject
     /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
     public bool CanSetUp => Kind.AllowsSeveral;
 
+    /// <summary>The kinds there can be several of can be copied, set-up and all (#145).</summary>
+    public bool CanDuplicate => Kind.AllowsSeveral;
+
     /// <summary>Just added: outlined for a moment, as on the dashboard.</summary>
     [ObservableProperty]
     private bool _isHighlighted;
@@ -61,10 +64,15 @@ public sealed partial class DashboardCardOption : ObservableObject
 
 /// <summary>
 /// Edit dashboard (#140): the cards on the dashboard, in order - dragged to
-/// reorder, removed with Undo, set up - and Add card, desktop's widget
-/// picker. The phone's version of desktop's edit mode, without the resizing
-/// a one-column screen doesn't need. Changes save as they're made.
+/// reorder, removed with Undo, set up, duplicated - and Add card, desktop's
+/// widget picker. The phone's version of desktop's edit mode, without the
+/// resizing a one-column screen doesn't need. Changes save as they're made.
 /// </summary>
+/// <remarks>
+/// Desktop's free "+" space (its #277) is, in one column, the end of the
+/// list - or just below a card, from its ⋯ menu; a duplicate (its #279)
+/// goes just below the card it copies (#145).
+/// </remarks>
 /// <remarks>
 /// Every card can be removed, not switched off as it used to be. Removing
 /// the last leaves an empty dashboard, which shows the welcome card - so
@@ -75,11 +83,13 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly DashboardToast _toast;
+    private readonly IDialogService? _dialogs;
 
     private readonly DesktopNMS.Core.Services.IDashboardLayoutService _layout;
 
-    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast, DesktopNMS.Core.Services.IDashboardLayoutService? layout = null)
+    public CustomiseDashboardViewModel(ISettingsStore settings, INavigationService navigation, DashboardToast toast, DesktopNMS.Core.Services.IDashboardLayoutService? layout = null, IDialogService? dialogs = null)
     {
+        _dialogs = dialogs;
         _settings = settings;
         _layout = layout ?? new DesktopNMS.Core.Services.DashboardLayoutService(settings);
         _navigation = navigation;
@@ -124,9 +134,73 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsEmpty));
     }
 
-    /// <summary>The card picker - desktop's "Add widget" (#140).</summary>
+    /// <summary>The card picker - desktop's "Add widget" (#140) - adding at the bottom.</summary>
     [RelayCommand]
     private Task AddCardAsync() => _navigation.GoToAsync(Routes.AddCard);
+
+    /// <summary>The card picker, adding just below <paramref name="card"/> (#145).</summary>
+    [RelayCommand]
+    private Task AddCardBelowAsync(DashboardCardOption? card)
+    {
+        var index = card is null ? -1 : Cards.IndexOf(card);
+        return index < 0
+            ? Task.CompletedTask
+            : _navigation.GoToAsync(Routes.AddCard, new Dictionary<string, object> { [Routes.PositionParameter] = index + 1 });
+    }
+
+    internal const string DuplicateChoice = "Duplicate";
+    internal const string AddBelowChoice = "Add a card below";
+
+    /// <summary>A card's ⋯: Duplicate, where it can be copied, and Add a card below.</summary>
+    [RelayCommand]
+    private async Task MoreAsync(DashboardCardOption? card)
+    {
+        if (card is null || _dialogs is null)
+        {
+            return;
+        }
+
+        var choice = await _dialogs.ChooseAsync(card.Title, card.CanDuplicate ? [DuplicateChoice, AddBelowChoice] : [AddBelowChoice]);
+        if (choice == DuplicateChoice)
+        {
+            Duplicate(card);
+        }
+        else if (choice == AddBelowChoice)
+        {
+            await AddCardBelowAsync(card);
+        }
+    }
+
+    /// <summary>
+    /// A copy titled "… (copy)" with the same sensors, graph or options, just
+    /// below the original and outlined there - as desktop's Duplicate (its
+    /// #279), with Undo in the toast.
+    /// </summary>
+    [RelayCommand]
+    private void Duplicate(DashboardCardOption? card)
+    {
+        if (card is not { CanDuplicate: true } || !Cards.Contains(card))
+        {
+            return;
+        }
+
+        var before = _toast.Before();
+        var title = card.Title;
+
+        // Core's copy, so it takes a free spot on desktop's grid too; then
+        // under its original in the phone's one column.
+        if (_layout.DuplicateWidget(card.Widget.Id) is not { } copy)
+        {
+            return;
+        }
+
+        // Named from what the card shows, which may be the kind's name rather than a title of its own.
+        copy.Title = title + " (copy)";
+        DashboardLayout.MoveAfter(_settings.Current, copy.Id, card.Widget.Id);
+        _layout.Restore(_settings.Current.DashboardWidgets.ToList());
+        _toast.Show($"Duplicated ‘{title}’, with its set-up", before, copy.Id);
+        Refresh();
+    }
 
     /// <summary>After the list was dragged into a new order.</summary>
     [RelayCommand]
