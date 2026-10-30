@@ -15,8 +15,10 @@ internal sealed class AppShellRenderer : ShellRenderer
     {
     }
 
+    // Assign ShellItem as the base method does: without it the tab controller
+    // has no sections to show and the window stays black.
     protected override IShellItemRenderer CreateShellItemRenderer(ShellItem item)
-        => new AppShellItemRenderer(this);
+        => new AppShellItemRenderer(this) { ShellItem = item };
 
     private sealed class AppShellItemRenderer : ShellItemRenderer
     {
