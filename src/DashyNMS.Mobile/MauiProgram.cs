@@ -96,6 +96,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<Diagnostics.IAppMetrics>(sp => sp.GetRequiredService<Diagnostics.AppMetrics>());
 		builder.Services.AddSingleton(startup);
 
+		// Stalls, memory and sessions (#219), on screen only - App starts and stops them.
+		builder.Services.AddSingleton(sp => new Diagnostics.UiStallMonitor(
+			sp.GetRequiredService<Diagnostics.IAppMetrics>(), MainThread.BeginInvokeOnMainThread));
+		builder.Services.AddSingleton(sp => new Diagnostics.MemoryMonitor(
+			sp.GetRequiredService<Diagnostics.IAppMetrics>(), MemoryReader.Read));
+		builder.Services.AddSingleton(sp => new Diagnostics.SessionHealth(
+			sp.GetRequiredService<Diagnostics.DiagnosticsReporter>(),
+			sp.GetRequiredService<IDiagnosticsConsent>(),
+			Path.Combine(FileSystem.AppDataDirectory, "session-health")));
+
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();

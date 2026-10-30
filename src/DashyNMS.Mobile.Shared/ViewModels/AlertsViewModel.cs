@@ -321,6 +321,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        // A CSV export (#219): just that one happened - never what was in it.
+        Diagnostics.FeatureUse.Count(Diagnostics.MetricArea.CsvExport);
+
         var fileName = $"alerts-{_time.GetLocalNow():yyyy-MM-dd-HHmmss}.csv";
         await RunAsync(() => _share.ShareTextFileAsync(fileName, BuildCsv(), "text/csv", "Export alerts"), isRead: false);
     }
