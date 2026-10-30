@@ -52,6 +52,9 @@ public static class MauiProgram
 #endif
 
 #if IOS
+		builder.ConfigureMauiHandlers(handlers =>
+			handlers.AddHandler(typeof(AppShell), typeof(AppShellRenderer)));
+
 		// A search box in a list's header (Batch 10) drew UISearchBar's own
 		// bar round it: a black outline on the toned page. Minimal style with
 		// no background image leaves just the rounded field. After Background,
