@@ -43,7 +43,7 @@ public sealed class ErrorReportTests : IDisposable
         throw new InvalidOperationException("Expected a throw");
     }
 
-    private (ErrorReporter Reporter, DiagnosticsConsent Consent) NewReporter(bool errors = true, bool started = true, string? dsn = Dsn)
+    private (DiagnosticsReporter Reporter, DiagnosticsConsent Consent) NewReporter(bool errors = true, bool started = true, string? dsn = Dsn)
     {
         var transport = new SentryTransport(dsn, _handler);
         var consent = new DiagnosticsConsent(_preferences, transport.IsAvailable);
@@ -52,7 +52,7 @@ public sealed class ErrorReportTests : IDisposable
             consent.Choose(errors, usage: false);
         }
 
-        var reporter = new ErrorReporter(Context, transport, consent, _directory, _time) { SendsInBackground = false };
+        var reporter = new DiagnosticsReporter(Context, transport, consent, _directory, _time) { SendsInBackground = false };
         if (started)
         {
             reporter.Start();
@@ -124,7 +124,7 @@ public sealed class ErrorReportTests : IDisposable
     {
         var transport = new SentryTransport(Dsn, _handler);
         var consent = new DiagnosticsConsent(_preferences, transport.IsAvailable);
-        var reporter = new ErrorReporter(Context, transport, consent, _directory, _time) { SendsInBackground = false };
+        var reporter = new DiagnosticsReporter(Context, transport, consent, _directory, _time) { SendsInBackground = false };
         reporter.Start();
 
         reporter.Capture(Thrown(), ErrorOrigin.UnobservedTask);
@@ -219,10 +219,10 @@ public sealed class ErrorReportTests : IDisposable
             reporter.Capture(Thrown(), ErrorOrigin.Unhandled);
         }
 
-        Assert.Equal(ErrorReporter.MaximumQueued, reporter.Queued.Count);
+        Assert.Equal(DiagnosticsReporter.MaximumQueued, reporter.Queued.Count);
         Assert.Equal(_time.GetUtcNow() - TimeSpan.FromMinutes(9), reporter.Queued[0].Timestamp);
 
-        _time.Advance(ErrorReporter.MaximumAge + TimeSpan.FromMinutes(1));
+        _time.Advance(DiagnosticsReporter.MaximumAge + TimeSpan.FromMinutes(1));
         Assert.Empty(reporter.Queued);
     }
 

@@ -124,6 +124,13 @@ public static partial class ErrorPayload
             return false;
         }
 
+        if (report is MetricsReport metrics)
+        {
+            return metrics.Points is { Count: > 0 and <= MetricRules.MaximumPoints }
+                && metrics.Points.All(point => point is not null && MetricRules.IsValid(point.Observation)
+                    && point.Timestamp >= metrics.Timestamp && point.Timestamp - metrics.Timestamp <= TimeSpan.FromDays(7));
+        }
+
         return report is ErrorReport error
             && Enum.IsDefined(error.Origin)
             && error.Exceptions is { Count: >= 1 and <= MaximumExceptions }

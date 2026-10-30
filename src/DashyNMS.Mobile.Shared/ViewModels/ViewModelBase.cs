@@ -44,6 +44,9 @@ public abstract partial class ViewModelBase : ObservableObject
     /// </summary>
     public static event EventHandler<Exception>? Failed;
 
+    /// <summary>A page's first load, how long it took and how it ended - for the opt-in measurements (#218).</summary>
+    public static event EventHandler<FirstLoad>? FirstLoadFinished;
+
     /// <summary>
     /// Runs <paramref name="apply"/> once typing pauses, on the thread that
     /// typed. Filtering (and reloading the list) on every keystroke made
@@ -92,6 +95,7 @@ public abstract partial class ViewModelBase : ObservableObject
     {
         var firstLoad = !_hasLoaded;
         var started = System.Diagnostics.Stopwatch.GetTimestamp();
+        var outcome = LoadOutcome.Loaded;
         IsBusy = true;
         ErrorMessage = null;
         if (isRead) _failure = null;
@@ -102,10 +106,12 @@ public abstract partial class ViewModelBase : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            outcome = LoadOutcome.Cancelled;
             return false;
         }
         catch (Exception ex)
         {
+            outcome = LoadOutcome.Failed;
             Failed?.Invoke(this, ex);
             if (isRead) _failure = ex;
             ErrorMessage = Describe(ex);
@@ -125,7 +131,9 @@ public abstract partial class ViewModelBase : ObservableObject
 
             if (firstLoad)
             {
-                FirstLoadTook?.Invoke(this, System.Diagnostics.Stopwatch.GetElapsedTime(started));
+                var took = System.Diagnostics.Stopwatch.GetElapsedTime(started);
+                FirstLoadTook?.Invoke(this, took);
+                FirstLoadFinished?.Invoke(this, new FirstLoad(took, outcome));
             }
         }
     }
@@ -139,3 +147,14 @@ public abstract partial class ViewModelBase : ObservableObject
         _ => ex.Message,
     };
 }
+
+/// <summary>How a page's first load ended.</summary>
+public enum LoadOutcome
+{
+    Loaded,
+    Failed,
+    Cancelled,
+}
+
+/// <summary>A page's first load: how long, and how it ended.</summary>
+public sealed record FirstLoad(TimeSpan Took, LoadOutcome Outcome);

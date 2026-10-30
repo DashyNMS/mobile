@@ -9,11 +9,14 @@ public partial class App : Application
 	private readonly AlertWatchCoordinator _alerts;
 	private readonly Services.DiagnosticsLog _diagnostics;
 	private readonly Services.SensorDefinitions _definitions;
-	private readonly Diagnostics.ErrorReporter _errors;
+	private readonly Diagnostics.DiagnosticsReporter _errors;
+	private readonly Diagnostics.AppMetrics _metrics;
+	private readonly Diagnostics.StartupTiming _startup;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
-		Services.WhatsNew whatsNew, Diagnostics.ErrorReporter errors)
+		Services.WhatsNew whatsNew, Diagnostics.DiagnosticsReporter errors, Diagnostics.AppMetrics metrics,
+		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport)
 	{
 		InitializeComponent();
 
@@ -24,6 +27,24 @@ public partial class App : Application
 		// What a page caught unexpectedly is a warning report (#217); the
 		// reporter drops offline, timeouts and the server's own errors.
 		ViewModels.ViewModelBase.Failed += (_, ex) => errors.Capture(ex, Diagnostics.ErrorOrigin.Caught);
+
+		// Usage and performance (#218): pages' first loads, start-up to the
+		// first usable page, and Core's requests - each kept only if shared.
+		_metrics = metrics;
+		_startup = startup;
+		ViewModels.ViewModelBase.FirstLoadFinished += (vm, load) =>
+		{
+			Diagnostics.Measurements.PageLoaded(metrics, vm, load);
+			startup.Ready(metrics);
+		};
+		shell.Navigated += (_, _) =>
+		{
+			if (shell.CurrentPage?.BindingContext is ViewModels.SignInViewModel)
+			{
+				startup.Ready(metrics);
+			}
+		};
+		Diagnostics.Measurements.Observe(transport, metrics);
 		appDiagnostics.Start();
 		appearance.Apply();
 		_shell = shell;
@@ -63,15 +84,25 @@ public partial class App : Application
 		{
 			_alerts.SetForeground(true);
 			_errors.Start();
+			_metrics.Start();
+			_startup.WindowShown();
 			CheckSensorDefinitions();
 		};
 		window.Resumed += (_, _) =>
 		{
 			_alerts.SetForeground(true);
 			_errors.Start();
+			_metrics.Start();
+			_startup.WindowShown();
 			CheckSensorDefinitions();
 		};
-		window.Stopped += (_, _) => _alerts.SetForeground(false);
+		window.Stopped += (_, _) =>
+		{
+			_alerts.SetForeground(false);
+
+			// What's gathered goes to the queue before iOS or Android may end the app.
+			_metrics.Flush();
+		};
 
 		// Pages and the app coming and going, for diagnostics - and a page left
 		// blank after unlocking is put right (#107).
