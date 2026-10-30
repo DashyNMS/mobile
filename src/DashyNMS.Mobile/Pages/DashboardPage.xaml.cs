@@ -13,6 +13,9 @@ public partial class DashboardPage : ContentPage
 
 		// A pull starts the refresh, with no spinner: the logo's heartbeat shows the load.
 		Controls.PullToRefresh.HideSpinner(Refresh);
+
+		// Beside the status bar where there's room, as every page's line (#278).
+		Controls.TopBar.Fit(TopLine);
 	}
 
 	protected override void OnAppearing()

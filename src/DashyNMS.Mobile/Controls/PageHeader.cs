@@ -45,6 +45,7 @@ public sealed class PageHeader : Grid
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
         RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto)];
         Padding = new Thickness(0, TopBar.Offset, 0, 4);
+        TopBar.Fit(this);
 
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
         _back.VerticalOptions = LayoutOptions.Center;

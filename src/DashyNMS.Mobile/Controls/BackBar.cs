@@ -20,6 +20,7 @@ public sealed class BackBar : Grid
         ColumnDefinitions = [new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
         RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height))];
         Padding = new Thickness(0, TopBar.Offset, 0, 0);
+        TopBar.Fit(this);
         _back.HorizontalOptions = LayoutOptions.Start;
         _back.VerticalOptions = LayoutOptions.Center;
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));

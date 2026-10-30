@@ -569,7 +569,7 @@
         <!-- The logo, name and Customise stay put; the cards scroll beneath
              them, fading out as they pass under (Customise is the sliders
              button - #30, #41). -->
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="{StaticResource TopBarPadding}" MinimumHeightRequest="{StaticResource TopBarHeight}">
+        <Grid x:Name="TopLine" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="{StaticResource TopBarPadding}" MinimumHeightRequest="{StaticResource TopBarHeight}">
             <!-- The logo is the refresh indicator: its heartbeat sweeps while the
                  dashboard loads - every time, pulled or not - then rests. -->
             <controls:HeartbeatLogo WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
