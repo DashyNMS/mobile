@@ -78,6 +78,16 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
 		builder.Services.AddSingleton<IAppPreferences, MauiPreferences>();
 
+		// Opt-in error reports (#217): Sentry, with the key this build was
+		// given (none outside the store builds), and the queue they wait in.
+		builder.Services.AddSingleton<Diagnostics.IDiagnosticsTransport>(_ => new Diagnostics.SentryTransport(SentryDsn()));
+		builder.Services.AddSingleton(sp => new Diagnostics.ErrorReporter(
+			ReportContext(),
+			sp.GetRequiredService<Diagnostics.IDiagnosticsTransport>(),
+			sp.GetRequiredService<IDiagnosticsConsent>(),
+			Path.Combine(FileSystem.AppDataDirectory, "error-reports")));
+		builder.Services.AddSingleton<Diagnostics.IErrorReports>(sp => sp.GetRequiredService<Diagnostics.ErrorReporter>());
+
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();
@@ -144,4 +154,21 @@ public static class MauiProgram
 
 		return builder.Build();
 	}
+
+	/// <summary>The key the store build baked in (see the csproj), or none.</summary>
+	private static string? SentryDsn() =>
+		typeof(MauiProgram).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
+			.OfType<System.Reflection.AssemblyMetadataAttribute>()
+			.FirstOrDefault(a => a.Key == "SentryDsn")?.Value is { Length: > 0 } dsn ? dsn : null;
+
+	/// <summary>
+	/// "2.0.0+412" - the release the TestFlight and Play workflows record in
+	/// Sentry - with the platform, its version band and the architecture.
+	/// Never the device's name or model.
+	/// </summary>
+	private static Diagnostics.ErrorReportContext ReportContext() => new(
+		$"{AppInfo.Current.VersionString}+{AppInfo.Current.BuildString}",
+		DeviceInfo.Current.Platform == DevicePlatform.iOS ? "ios" : DeviceInfo.Current.Platform == DevicePlatform.Android ? "android" : "unknown",
+		Diagnostics.ErrorPayload.OsVersionBand(DeviceInfo.Current.Version),
+		Diagnostics.ErrorPayload.ArchitectureName(System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture));
 }

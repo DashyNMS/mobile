@@ -120,6 +120,7 @@ jobs:
           fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "Build number: $BUILD_NUMBER"
+          echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
 
       # The widget's versions must match the app's, or App Store Connect
       # rejects the upload.
@@ -149,6 +150,8 @@ jobs:
         env:
           # NuGet needs credentials as well as the workflow's packages: read permission.
           DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Opt-in error reports' key (#217), built into this build only.
+          DASHYNMS_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: >
           dotnet publish src/DashyNMS.Mobile
           -p:MobilePlatform=ios
@@ -190,6 +193,22 @@ jobs:
           IPA=$(ls "$RUNNER_TEMP"/ipa/*.ipa | head -1)
           xcrun altool --upload-app --type ios --file "$IPA" \
             --apiKey "$API_KEY_ID" --apiIssuer "$API_ISSUER_ID"
+
+      # The release the app reports its errors under (#217), "2.0.0+<build>",
+      # recorded once the build is uploaded so testers' reports match it.
+      # Bookkeeping only: a Sentry hiccup doesn't fail an upload that worked.
+      - name: Record the release in Sentry
+        if: vars.SENTRY_DSN != ''
+        continue-on-error: true
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        with:
+          release: ${{ env.APP_VERSION }}+${{ env.BUILD_NUMBER }}
+          set_commits: auto
+          ignore_missing: true
 
       - name: Keep the IPA
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

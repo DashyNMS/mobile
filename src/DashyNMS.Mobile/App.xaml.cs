@@ -9,15 +9,21 @@ public partial class App : Application
 	private readonly AlertWatchCoordinator _alerts;
 	private readonly Services.DiagnosticsLog _diagnostics;
 	private readonly Services.SensorDefinitions _definitions;
+	private readonly Diagnostics.ErrorReporter _errors;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
-		Services.WhatsNew whatsNew)
+		Services.WhatsNew whatsNew, Diagnostics.ErrorReporter errors)
 	{
 		InitializeComponent();
 
 		// Errors, memory, the network and the theme; settings changes and slow pages (#126).
-		SystemWatch.Start(this, diagnostics);
+		SystemWatch.Start(this, diagnostics, errors);
+		_errors = errors;
+
+		// What a page caught unexpectedly is a warning report (#217); the
+		// reporter drops offline, timeouts and the server's own errors.
+		ViewModels.ViewModelBase.Failed += (_, ex) => errors.Capture(ex, Diagnostics.ErrorOrigin.Caught);
 		appDiagnostics.Start();
 		appearance.Apply();
 		_shell = shell;
@@ -50,14 +56,19 @@ public partial class App : Application
 
 		// Check for alerts on a timer while the app is on screen; in the
 		// background the platform's scheduler takes over.
+		// Error reports (#217) start only here, on screen: a launch for a
+		// background alert check is never reported. Each return sends what
+		// waited - last launch's fatal error, or what queued offline.
 		window.Activated += (_, _) =>
 		{
 			_alerts.SetForeground(true);
+			_errors.Start();
 			CheckSensorDefinitions();
 		};
 		window.Resumed += (_, _) =>
 		{
 			_alerts.SetForeground(true);
+			_errors.Start();
 			CheckSensorDefinitions();
 		};
 		window.Stopped += (_, _) => _alerts.SetForeground(false);

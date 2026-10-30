@@ -18,22 +18,41 @@ public static class SystemWatch
     private static Foundation.NSObject? _memoryWarnings;
 #endif
 
-    public static void Start(Application app, DiagnosticsLog log)
+    /// <param name="errors">
+    /// Opt-in error reports (#217): the same errors, sanitised, if the user
+    /// shares them - the log stays on the phone either way.
+    /// </param>
+    public static void Start(Application app, DiagnosticsLog log, Diagnostics.IErrorReports errors)
     {
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
             log.NoteImportant("Error [error]", Describe(e.ExceptionObject as Exception) + (e.IsTerminating ? " - the app closed" : string.Empty));
+            if (e.ExceptionObject is Exception ex)
+            {
+                errors.Capture(ex, e.IsTerminating ? Diagnostics.ErrorOrigin.Unhandled : Diagnostics.ErrorOrigin.UnobservedTask);
+            }
+        };
 
         TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
             log.NoteImportant("Error [error]", "Unobserved task: " + Describe(e.Exception.InnerException ?? e.Exception));
+            errors.Capture(e.Exception, Diagnostics.ErrorOrigin.UnobservedTask);
+        };
 
 #if IOS
         ObjCRuntime.Runtime.MarshalManagedException += (_, e) =>
+        {
             log.NoteImportant("Error [error]", "Through iOS: " + Describe(e.Exception));
+            errors.Capture(e.Exception, Diagnostics.ErrorOrigin.Unhandled);
+        };
         _memoryWarnings = UIKit.UIApplication.Notifications.ObserveDidReceiveMemoryWarning((_, _) =>
             log.NoteImportant("System [warning]", "Low on memory"));
 #elif ANDROID
         Android.Runtime.AndroidEnvironment.UnhandledExceptionRaiser += (_, e) =>
+        {
             log.NoteImportant("Error [error]", "Through Android: " + Describe(e.Exception));
+            errors.Capture(e.Exception, Diagnostics.ErrorOrigin.Unhandled);
+        };
 #endif
 
         Connectivity.Current.ConnectivityChanged += (_, e) =>
