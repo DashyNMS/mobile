@@ -66,12 +66,11 @@ public sealed record SectionRow(string Title)
 
     /// <summary>
     /// Part of one block rather than a row in a list - alert detail's rule,
-    /// its notes and procedure - so no line above it.
+    /// its notes and procedure - so its title is a small label. The lines
+    /// between rows no longer depend on it: every pair of rows in a card has
+    /// one (#120).
     /// </summary>
     public bool IsStacked { get; init; }
-
-    /// <summary>The line above a row in a list (see <see cref="IsStacked"/>).</summary>
-    public bool HasDivider => !IsStacked;
 
     /// <summary>A stacked row's title is a label for its text ("Notes"), drawn small, not a heading.</summary>
     public bool HasCaptionTitle => IsStacked && !IsCode;
