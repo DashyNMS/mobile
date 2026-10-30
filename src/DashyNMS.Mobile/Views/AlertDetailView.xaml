@@ -79,12 +79,12 @@
                                 <Border Style="{StaticResource Card}" Padding="16,14">
                                     <VerticalStackLayout Spacing="4">
                                         <Label Style="{StaticResource CardTitle}" Text="{Binding Name}" Margin="0,0,0,4" />
-                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding .}">
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding .}" controls:RowLines.Between="True">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="sections:SectionRow">
                                                     <VerticalStackLayout Spacing="6" Padding="0,6,0,0">
-                                                        <!-- A line between list rows; none within the rule's block. -->
-                                                        <BoxView Style="{StaticResource Divider}" Margin="0,0,0,4" IsVisible="{Binding HasDivider}" />
+                                                        <!-- A line between every pair of rows, whatever their kind, none above the first (#120). -->
+                                                        <controls:RowDivider Margin="0,0,0,4" />
                                                         <Label Style="{StaticResource Caption}" Text="{Binding Title}" IsVisible="{Binding HasCaptionTitle}" />
                                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding HasHeadingTitle}">
                                                             <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="14" />
