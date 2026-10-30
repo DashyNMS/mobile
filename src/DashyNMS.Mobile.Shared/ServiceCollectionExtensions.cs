@@ -125,9 +125,12 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(sp => new WhatsNew(sp.GetRequiredService<ISettingsStore>()));
         services.AddTransient<WhatsNewViewModel>();
 
-        // Error reports and usage (#216): no build has a reporting key until
-        // error reports land (#217), so nothing is asked or shared yet.
-        services.AddSingleton(sp => new DiagnosticsConsent(sp.GetRequiredService<IAppPreferences>(), reportingAvailable: false));
+        // Error reports and usage (#216, #217): asked about only when the
+        // build has a Sentry key. Without the app head's transport there's
+        // none, so tests and keyless builds never ask or send.
+        services.AddSingleton<Diagnostics.IDiagnosticsTransport>(_ => new Diagnostics.SentryTransport(null));
+        services.AddSingleton(sp => new DiagnosticsConsent(
+            sp.GetRequiredService<IAppPreferences>(), sp.GetRequiredService<Diagnostics.IDiagnosticsTransport>().IsAvailable));
         services.AddSingleton<IDiagnosticsConsent>(sp => sp.GetRequiredService<DiagnosticsConsent>());
         services.AddTransient<DiagnosticsSharingViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();

@@ -77,6 +77,7 @@ jobs:
           fi
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
           echo "Version code: $BUILD_NUMBER"
+          echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
 
       # MobilePlatform=android so restore doesn't also want the iOS workload.
       # The passwords are read from the environment (env:), so they never
@@ -86,6 +87,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD || secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          # Opt-in error reports' key (#217), built into this build only.
+          DASHYNMS_SENTRY_DSN: ${{ vars.SENTRY_DSN }}
         run: >
           dotnet publish src/DashyNMS.Mobile
           -p:MobilePlatform=android
@@ -115,6 +118,22 @@ jobs:
           releaseFiles: ${{ env.AAB }}
           track: internal
           status: ${{ inputs.status }}
+
+      # The release the app reports its errors under (#217), "2.0.0+<build>",
+      # recorded once the build is uploaded so testers' reports match it.
+      # Bookkeeping only: a Sentry hiccup doesn't fail an upload that worked.
+      - name: Record the release in Sentry
+        if: inputs.upload && vars.SENTRY_DSN != ''
+        continue-on-error: true
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
+        with:
+          release: ${{ env.APP_VERSION }}+${{ env.BUILD_NUMBER }}
+          set_commits: auto
+          ignore_missing: true
 
       - name: Keep the bundle
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

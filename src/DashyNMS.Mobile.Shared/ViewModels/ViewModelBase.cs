@@ -39,6 +39,12 @@ public abstract partial class ViewModelBase : ObservableObject
     public static event EventHandler<TimeSpan>? FirstLoadTook;
 
     /// <summary>
+    /// Anything a page's load or action caught - offline and the server's
+    /// errors included - for an error report (#217), which drops the expected ones.
+    /// </summary>
+    public static event EventHandler<Exception>? Failed;
+
+    /// <summary>
     /// Runs <paramref name="apply"/> once typing pauses, on the thread that
     /// typed. Filtering (and reloading the list) on every keystroke made
     /// searching a few hundred devices lag behind the keyboard.
@@ -100,6 +106,7 @@ public abstract partial class ViewModelBase : ObservableObject
         }
         catch (Exception ex)
         {
+            Failed?.Invoke(this, ex);
             if (isRead) _failure = ex;
             ErrorMessage = Describe(ex);
             return false;

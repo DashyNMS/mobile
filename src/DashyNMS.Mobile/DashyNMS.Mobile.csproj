@@ -40,6 +40,16 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+	<!-- The Sentry key for opt-in error reports (#217): the store build
+	     environments' SENTRY_DSN, passed as DASHYNMS_SENTRY_DSN - never the
+	     repository's. Every other build is without one, and sends nothing. -->
+	<PropertyGroup>
+		<DashyNMSSentryDsn Condition="'$(DashyNMSSentryDsn)' == ''">$(DASHYNMS_SENTRY_DSN)</DashyNMSSentryDsn>
+	</PropertyGroup>
+	<ItemGroup>
+		<AssemblyMetadata Include="SentryDsn" Value="$(DashyNMSSentryDsn)" />
+	</ItemGroup>
+
 	<ItemGroup>
 		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#11141A" BaseSize="128,128" />
 		<MauiImage Include="Resources\Images\*" />

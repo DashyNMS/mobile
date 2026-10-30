@@ -32,6 +32,9 @@ public sealed record AlertCheckResult(AlertCheckOutcome Outcome, int Changes = 0
     /// <summary>Changes to alerts the notification rules leave out (#167) - not announced.</summary>
     public int Ignored { get; init; }
 
+    /// <summary>What a failed check threw, for an error report (#217) if it wasn't an expected state.</summary>
+    public Exception? Exception { get; init; }
+
     /// <summary>Worth the platform scheduling the next check as normal (as opposed to backing off).</summary>
     public bool Succeeded => Outcome is not AlertCheckOutcome.Failed;
 }
@@ -63,6 +66,7 @@ public sealed class AlertWatcher
     private readonly TimeProvider _time;
     private readonly ILogger<AlertWatcher> _logger;
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly Diagnostics.IErrorReports? _errors;
     private DateTimeOffset _sensorsAt;
 
     public AlertWatcher(
@@ -79,8 +83,10 @@ public sealed class AlertWatcher
         ILogger<AlertWatcher> logger,
         AlertTabDot? tabDot = null,
         AlertCountThreshold? countThreshold = null,
-        NotifyRules? rules = null, CorePolling? polling = null)
+        NotifyRules? rules = null, CorePolling? polling = null,
+        Diagnostics.IErrorReports? errors = null)
     {
+        _errors = errors;
         // Asked for only so a phone's pre-1.1.0 ignored list has moved into
         // the settings (#167) before the first check: the planner reads them.
         _ = rules;
@@ -106,6 +112,14 @@ public sealed class AlertWatcher
         var started = _time.GetTimestamp();
         var result = await CheckOnceAsync(cancellationToken).ConfigureAwait(false);
         Describe(result, background, _time.GetElapsedTime(started));
+
+        // A check that failed unexpectedly is a warning report (#217) - but
+        // never from a background launch, which is never reported.
+        if (!background && result.Exception is { } failure)
+        {
+            _errors?.Capture(failure, Diagnostics.ErrorOrigin.Caught);
+        }
+
         return result;
     }
 
@@ -281,7 +295,7 @@ public sealed class AlertWatcher
         catch (Exception ex)
         {
             // Said once, with the time, by Describe.
-            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: $"{ex.GetType().Name}: {ex.Message}");
+            return new AlertCheckResult(AlertCheckOutcome.Failed, Error: $"{ex.GetType().Name}: {ex.Message}") { Exception = ex };
         }
         finally
         {

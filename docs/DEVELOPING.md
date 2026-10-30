@@ -415,6 +415,18 @@ repository secrets:
 | `IOS_WIDGET_PROVISIONING_PROFILE_BASE64` | The widget's profile; without it builds ship the app alone |
 | `APPSTORE_API_KEY_ID` / `APPSTORE_API_ISSUER_ID` / `APPSTORE_API_PRIVATE_KEY` | The App Store Connect API key the upload uses (the `.p8`'s whole contents) |
 
+**Opt-in error reports and usage (#108)** go to the `dashynms-mobile` Sentry
+project, separate from desktop's. Both `iOS-Build` and `Android-Build` have:
+
+| Name | Kind | What it is |
+| --- | --- | --- |
+| `SENTRY_DSN` | variable | The project's DSN, built into store builds as `DASHYNMS_SENTRY_DSN`. A build without one never asks about sharing and sends nothing; CI and simulator builds never have it. |
+| `SENTRY_AUTH_TOKEN` | secret | An organisation token that records each uploaded build as a Sentry release, `<version>+<build number>` - the name the app reports under |
+
+`SENTRY_ORG` (`pckp`) and `SENTRY_PROJECT` are repository variables. The
+privacy policy must say what's shared (#220) before a build with the DSN
+reaches testers.
+
 **Worth knowing:**
 
 - The distribution certificate expires after a year, and the profiles with
