@@ -5,6 +5,7 @@
 - **Event log and Graylog cards.** The newest entries on the dashboard; tap one to open it. {dashboard}
 - **State sensor names.** Fans and power supplies read "Ready" or "Fan failed", from the sensor definitions catalogue. {health}
 - **Auto-refresh.** Logs and Graylog can refresh themselves while they're open. {logs}
+- **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
 
 ## Improved
 - **Notifications.** One per alert group, and a tap opens the alert or group it was for. {alerts}

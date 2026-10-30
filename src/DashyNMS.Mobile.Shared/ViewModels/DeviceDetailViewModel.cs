@@ -24,6 +24,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly Graylog.GraylogSetup? _graylog;
+    private readonly Unimus.UnimusSetup? _unimus;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Title), nameof(StateText), nameof(State), nameof(UptimeText), nameof(Properties), nameof(PinText), nameof(FreshnessText), nameof(Subtitle), nameof(TypeText))]
@@ -42,8 +43,10 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         IDialogService dialogs,
         INavigationService navigation,
         Graylog.GraylogSetup? graylog = null,
-        DeviceSectionLoader? sections = null)
+        DeviceSectionLoader? sections = null,
+        Unimus.UnimusSetup? unimus = null)
     {
+        _unimus = unimus;
         _client = client;
         _settings = settings;
         _launcher = launcher;
@@ -61,7 +64,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     /// <summary>
     /// Desktop's Device View tabs as cards, each with a quick view and
-    /// opening on its own page (#43) - Graylog's too, once it's set up. Only
+    /// opening on its own page (#43) - Graylog's and Unimus's too, once they're set up. Only
     /// the ones with something to show, as desktop hides empty tabs (#44).
     /// </summary>
     public BulkObservableCollection<DeviceSectionCard> SectionCards { get; } = new();
@@ -99,14 +102,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         DeviceSection.Wireless,
         DeviceSection.Inventory,
         DeviceSection.EventLog,
+        DeviceSection.Unimus,
         DeviceSection.Graylog,
     ];
 
     private void BuildSectionCards()
     {
-        IEnumerable<DeviceSectionInfo> infos = (_graylog?.IsConfigured == true
-                ? [.. DeviceSectionInfo.All, DeviceSectionInfo.Graylog]
-                : DeviceSectionInfo.All)
+        IEnumerable<DeviceSectionInfo> infos = DeviceSectionInfo.All
+            .Concat(_graylog?.IsConfigured == true ? [DeviceSectionInfo.Graylog] : [])
+            .Concat(_unimus?.IsConfigured == true ? [DeviceSectionInfo.Unimus] : [])
             .OrderBy(info => Array.IndexOf(CardOrder, info.Section) is var i and >= 0 ? i : int.MaxValue);
 
         foreach (var card in _sectionCards)
@@ -436,7 +440,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         var deviceTask = _client.Devices.GetAsync(DeviceId.ToString(CultureInfo.InvariantCulture));
         var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
         var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
-        await Task.WhenAll(deviceTask, alertsTask, graylogTask);
+        var unimusTask = _unimus?.EnsureConfiguredAsync() ?? Task.FromResult(false);
+        await Task.WhenAll(deviceTask, alertsTask, graylogTask, unimusTask);
         Device = deviceTask.Result;
         OnPropertyChanged(nameof(MaintenanceRefusedText));
         if (Device is null)
@@ -452,7 +457,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
             _bookmarks.RecordViewed(DeviceId, Title);
             IsPinned = _bookmarks.IsPinned(DeviceId);
 
-            // Fresh cards each refresh (Graylog may have been set up since),
+            // Fresh cards each refresh (Graylog or Unimus may have been set up since),
             // loading behind the device's own details.
             _sectionsCts?.Cancel();
             _sectionsCts = new CancellationTokenSource();
@@ -501,6 +506,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         {
             DeviceSection.Graphs => Routes.DeviceGraphs,
             DeviceSection.Graylog => Routes.Graylog,
+            DeviceSection.Unimus => Routes.UnimusBackups,
 
             // The Logs page with its Device chip fixed, for the type filter and search (#125).
             DeviceSection.EventLog => Routes.Logs,

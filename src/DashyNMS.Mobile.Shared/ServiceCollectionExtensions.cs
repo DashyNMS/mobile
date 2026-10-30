@@ -16,7 +16,7 @@ namespace DashyNMS.Mobile;
 public static class ServiceCollectionExtensions
 {
     /// <summary>Every secret key the app uses, read into <see cref="SecretCache"/> at start-up.</summary>
-    public static IReadOnlyList<string> SecretKeys { get; } = [SecureTokenProtector.Key, SecureGraylogPasswordProtector.Key];
+    public static IReadOnlyList<string> SecretKeys { get; } = [SecureTokenProtector.Key, SecureGraylogPasswordProtector.Key, SecureUnimusTokenProtector.Key];
 
     /// <summary>
     /// Core's LibreNMS client and settings, the session, and the view models.
@@ -25,8 +25,8 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// Mirrors desktop's <c>AddDesktopNmsCore</c>, plus keychain-backed secret
-    /// stores (Core leaves those to each app), minus the integrations mobile
-    /// doesn't have screens for yet (Unimus, update checks).
+    /// stores (Core leaves those to each app), minus desktop's update checks,
+    /// which the stores do on a phone.
     /// </remarks>
     public static IServiceCollection AddDashyNmsMobile(this IServiceCollection services)
     {
@@ -135,6 +135,17 @@ public static class ServiceCollectionExtensions
         services.AddTransient<DiagnosticsSharingViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();
         services.AddTransient<Graylog.GraylogDevicePickerViewModel>();
+
+        // Unimus config backups (#21): independent of the LibreNMS sign-in, as Graylog.
+        services.AddSingleton<UnimusApi>();
+        services.AddSingleton<IUnimusApi>(sp => sp.GetRequiredService<UnimusApi>());
+        services.AddSingleton<IUnimusTokenProtector, SecureUnimusTokenProtector>();
+        services.AddSingleton<Unimus.UnimusSetup>();
+        services.AddSingleton<Unimus.IUnimusConnectionTester, Unimus.UnimusConnectionTester>();
+        services.AddTransient<Unimus.UnimusSettingsViewModel>();
+        services.AddTransient<Unimus.UnimusBackupsViewModel>();
+        services.AddTransient<Unimus.UnimusBackupViewModel>();
+        services.AddTransient<Unimus.UnimusDiffViewModel>();
 
         // Device View sections.
         services.AddSingleton<DeviceSectionLoader>();

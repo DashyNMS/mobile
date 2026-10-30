@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.UnimusDiffPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:unimus="clr-namespace:DashyNMS.Mobile.Unimus;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="unimus:UnimusDiffViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Changes">
+
+    <!-- Two backups compared (#21): removed lines red with "-", added green
+         with "+", unchanged stretches folded until tapped. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+        <controls:PageHeader x:Name="Header" Title="Changes">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <VerticalStackLayout Grid.Row="1" Margin="4,0,0,8" Spacing="2">
+            <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" />
+            <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" />
+            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,0,0,8">
+            <HorizontalStackLayout Spacing="8">
+                <Button Style="{StaticResource Chip}" Text="Only changes" Clicked="OnOnlyChangedClicked">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding OnlyChanged}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Style="{StaticResource Chip}" Text="Ignore blank lines" Clicked="OnIgnoreEmptyLinesClicked">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IgnoreEmptyLines}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+
+        <controls:BusyCard Grid.Row="4" Text="Comparing…" IsVisible="{Binding IsBusy}" ZIndex="1" />
+        <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12" Padding="0,6"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
+            <CollectionView ItemsSource="{Binding Lines}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Style="{StaticResource Caption}" Text="These two backups are the same." IsVisible="{Binding IsEmpty}"
+                           HorizontalTextAlignment="Center" Margin="20,32" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="unimus:UnimusLine">
+                        <Grid ColumnDefinitions="40,14,*" ColumnSpacing="6" Padding="8,1" BackgroundColor="Transparent">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding ExpandCommand, Source={RelativeSource AncestorType={x:Type unimus:UnimusDiffViewModel}}, x:DataType=unimus:UnimusDiffViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <Grid.Triggers>
+                                <DataTrigger TargetType="Grid" Binding="{Binding IsAdded}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Grid" Binding="{Binding IsRemoved}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                                </DataTrigger>
+                            </Grid.Triggers>
+                            <Label Text="{Binding NumberText}" FontFamily="Mono" FontSize="11" HorizontalTextAlignment="End"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                            <Label Grid.Column="1" Text="{Binding Prefix}" FontFamily="Mono" FontSize="12">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsAdded}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsRemoved}" Value="True">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                            <Label Grid.Column="2" Text="{Binding Text}" FontFamily="Mono" FontSize="12" LineBreakMode="CharacterWrap"
+                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}">
+                                <Label.Triggers>
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsHidden}" Value="True">
+                                        <Setter Property="TextColor" Value="{StaticResource ButtonPrimary}" />
+                                        <Setter Property="FontFamily" Value="BodyRegular" />
+                                    </DataTrigger>
+                                </Label.Triggers>
+                            </Label>
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Border>
+    </Grid>
+
+</ContentPage>

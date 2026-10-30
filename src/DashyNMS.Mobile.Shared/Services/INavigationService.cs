@@ -117,6 +117,21 @@ public static class Routes
     /// <summary>Settings, Graylog.</summary>
     public const string GraylogSettings = "graylogsettings";
 
+    /// <summary>Settings, Unimus (#21).</summary>
+    public const string UnimusSettings = "unimussettings";
+
+    /// <summary>A device's Config backups from Unimus (#21), with <see cref="DeviceIdParameter"/> and <see cref="DeviceNameParameter"/>.</summary>
+    public const string UnimusBackups = "unimusbackups";
+
+    /// <summary>One config backup, with <see cref="UnimusParameter"/> holding a <c>UnimusBackupRequest</c>.</summary>
+    public const string UnimusBackup = "unimusbackup";
+
+    /// <summary>Two backups compared, with <see cref="UnimusParameter"/> holding a <c>UnimusDiffRequest</c>.</summary>
+    public const string UnimusDiff = "unimusdiff";
+
+    /// <summary>Query attribute: what <see cref="UnimusBackup"/> or <see cref="UnimusDiff"/> shows.</summary>
+    public const string UnimusParameter = "unimus";
+
     /// <summary>What's new in this release (#159).</summary>
     public const string WhatsNew = "whatsnew";
 

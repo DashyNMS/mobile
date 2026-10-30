@@ -41,6 +41,10 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.AlertRule, typeof(AlertRulePage));
 		Routing.RegisterRoute(Routes.AlertTemplate, typeof(AlertTemplatePage));
 		Routing.RegisterRoute(Routes.GraylogSettings, typeof(GraylogSettingsPage));
+		Routing.RegisterRoute(Routes.UnimusSettings, typeof(UnimusSettingsPage));
+		Routing.RegisterRoute(Routes.UnimusBackups, typeof(UnimusBackupsPage));
+		Routing.RegisterRoute(Routes.UnimusBackup, typeof(UnimusBackupPage));
+		Routing.RegisterRoute(Routes.UnimusDiff, typeof(UnimusDiffPage));
 		Routing.RegisterRoute(Routes.SensorDefinitionsSettings, typeof(SensorDefinitionsSettingsPage));
 		Routing.RegisterRoute(Routes.WhatsNew, typeof(WhatsNewPage));
 		Routing.RegisterRoute(Routes.DiagnosticsSharing, typeof(DiagnosticsSharingPage));

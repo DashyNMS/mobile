@@ -478,7 +478,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Neighbours views | ✅ | 🟡 Every CDP/LLDP link, down ends first (desktop's own custom views stay on desktop) |
 | Maps: network, geographical, custom | ✅ | 🟡 Geographical, on OpenStreetMap or desktop's tile server (network and custom maps stay on desktop) |
 | Logs: event log, Graylog | ✅ | 🟡 Network-wide event log and alert log (Alerts → Logs); Graylog to come |
-| Unimus config backups and diffs | ✅ | ⬜ |
+| Unimus config backups and diffs | ✅ | ✅ Device View's Config backups: read and search a backup, compare any two, share either through the share sheet (no Backup now) |
 | Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | ✅ Poll interval, thresholds, device names, light/dark, timestamps, notifications (accent colour and server logo stay desktop's) |
 | Update checks | ✅ | ➖ The stores handle it |
 
@@ -492,13 +492,10 @@ Ordered by how much each adds on a phone, not by desktop's order.
 
 What's left is the less everyday:
 
-1. **Unimus**: config backups, including Device View's Unimus section. Core
-   already has the client; it needs a keychain-backed token store like
-   Graylog's.
-2. **Rules and templates**, read-only.
-3. **Instant alerts**: a push from the server side, so alerts don't wait for
+1. **Rules and templates**, read-only.
+2. **Instant alerts**: a push from the server side, so alerts don't wait for
    the next background check.
-4. **Store builds**: Play internal testing (TestFlight is in place, see
+3. **Store builds**: Play internal testing (TestFlight is in place, see
    above).
 
 ## Upstream notes
@@ -512,7 +509,7 @@ notification rules, and certificate trust (DashyNMS/desktop#189).
 
 The app asks before trusting a certificate it can't verify, in Core's words
 (`CertificateTrust.DescribeForPrompt`), at sign-in, when the saved session
-is restored, and when testing Graylog. A background alert check can't ask,
+is restored, and when testing Graylog or Unimus. A background alert check can't ask,
 so it just fails until the app is opened.
 
 Nothing is outstanding. Add new findings here, and raise them on
