@@ -58,9 +58,12 @@
                                 </Grid>
                                 <Label Style="{StaticResource Caption}" Text="No active alerts."
                                        IsVisible="{Binding HasAlerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel, Converter={StaticResource Invert}}" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" Spacing="6">
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}" Spacing="6"
+                                                     controls:RowLines.Between="True">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AlertItem">
+                                            <VerticalStackLayout Spacing="6">
+                                            <controls:RowDivider />
                                             <Grid ColumnDefinitions="10,*" ColumnSpacing="10">
                                                 <Grid.GestureRecognizers>
                                                     <TapGestureRecognizer
@@ -73,6 +76,7 @@
                                                     <Label Style="{StaticResource Caption}" Text="{Binding Summary}" FontSize="12" />
                                                 </VerticalStackLayout>
                                             </Grid>
+                                            </VerticalStackLayout>
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
@@ -111,10 +115,11 @@
 
                             <!-- What desktop's card shows: resources as bars, the rest a line each. -->
                             <VerticalStackLayout Grid.Row="2" Grid.ColumnSpan="2" BindableLayout.ItemsSource="{Binding Highlights}"
-                                                 IsVisible="{Binding HasHighlights}" Spacing="6">
+                                                 IsVisible="{Binding HasHighlights}" Spacing="6" controls:RowLines.Between="True">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <VerticalStackLayout Spacing="3">
+                                            <controls:RowDivider Margin="0,0,0,3" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Label Text="{Binding Title}" FontSize="13" LineBreakMode="TailTruncation" />
                                                 <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
@@ -236,9 +241,12 @@
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="10">
                         <Label Style="{StaticResource CardTitle}" Text="Device" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Properties}" Spacing="8">
+                        <!-- A line between every pair of rows, none above the first (#120). -->
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Properties}" Spacing="8" controls:RowLines.Between="True">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DeviceProperty">
+                                    <VerticalStackLayout Spacing="8">
+                                    <controls:RowDivider />
                                     <!-- Location and Groups tap through to the devices there, as desktop's Groups &amp; locations. -->
                                     <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
                                         <Grid.GestureRecognizers>
@@ -255,6 +263,7 @@
                                             </Label.Triggers>
                                         </Label>
                                     </Grid>
+                                    </VerticalStackLayout>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>

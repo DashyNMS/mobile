@@ -8,22 +8,37 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DashyNMS.Mobile;
 
 [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true, LaunchMode = LaunchMode.SingleTop, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// Desktop's sign-in QR code, opened from the camera (#171).
+[IntentFilter([Intent.ActionView], Categories = [Intent.CategoryDefault, Intent.CategoryBrowsable], DataScheme = "dashynms", DataHost = "sign-in")]
 public class MainActivity : MauiAppCompatActivity
 {
 	protected override void OnCreate(Bundle? savedInstanceState)
 	{
 		base.OnCreate(savedInstanceState);
 
-		// A notification tap that launched the app.
+		// A notification tap or a sign-in link that launched the app.
 		OpenFromNotification(Intent);
+		OpenSignInLink(Intent);
 	}
 
 	protected override void OnNewIntent(Intent? intent)
 	{
 		base.OnNewIntent(intent);
 
-		// A notification tap while the app was already running.
+		// A notification tap or a sign-in link while the app was already running.
 		OpenFromNotification(intent);
+		OpenSignInLink(intent);
+	}
+
+	private static void OpenSignInLink(Intent? intent)
+	{
+		if (intent?.Action != Intent.ActionView || !Adapters.SignInLinkLauncher.TryOpen(intent.DataString))
+		{
+			return;
+		}
+
+		// Handled once: the activity being recreated (rotation) mustn't ask again.
+		intent.SetData(null);
 	}
 
 	private static void OpenFromNotification(Intent? intent)

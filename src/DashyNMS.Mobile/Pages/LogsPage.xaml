@@ -218,7 +218,11 @@
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="logs:LogEntryItem">
                             <!-- A severity or state dot, the device, the message on one line,
-                                 its type and user, and a short age at the right. -->
+                                 its type and user, and the time at the right - under a
+                                 heading for each day, as the Logs mock-up (#69). -->
+                            <VerticalStackLayout>
+                            <Label Style="{StaticResource SectionHeader}" Text="{Binding DayHeader}" IsVisible="{Binding HasDayHeader}"
+                                   Margin="14,14,14,2" SemanticProperties.HeadingLevel="Level2" />
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
@@ -235,11 +239,12 @@
                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
                                     <Label Style="{StaticResource Faint}" Text="{Binding MetaText}" IsVisible="{Binding HasMeta}" />
                                 </VerticalStackLayout>
-                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,2,0,0" />
+                                <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ClockText}" VerticalOptions="Start" Margin="0,2,0,0" />
                                 <!-- The bottom padding; the line itself is at the top of the row (#120). -->
                                 <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
                                 <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
                             </Grid>
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                     <!-- Further back, as the card's last row. -->
