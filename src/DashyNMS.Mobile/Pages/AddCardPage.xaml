@@ -84,6 +84,7 @@
                                 <Setter Property="Opacity" Value="0.5" />
                             </DataTrigger>
                         </Border.Triggers>
+                        <Grid>
                         <VerticalStackLayout Spacing="4">
                             <Border StrokeThickness="0" StrokeShape="RoundRectangle 9" HeightRequest="58" Padding="10,9" Margin="0,0,0,4"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}">
@@ -158,18 +159,25 @@
                             <Label Text="{Binding Name}" FontFamily="BodySemibold" FontSize="14.5" />
                             <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" MaxLines="2">
                                 <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding HasSome}" Value="True">
+                                    <DataTrigger TargetType="Label" Binding="{Binding IsAccented}" Value="True">
                                         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                     </DataTrigger>
                                 </Label.Triggers>
                             </Label>
                         </VerticalStackLayout>
+                        <!-- Ticked, to add with the others (#145). -->
+                        <Border WidthRequest="22" HeightRequest="22" StrokeThickness="0" StrokeShape="RoundRectangle 11"
+                                BackgroundColor="{StaticResource ButtonPrimary}" HorizontalOptions="End" VerticalOptions="Start"
+                                Margin="0,4,4,0" IsVisible="{Binding IsSelected}" SemanticProperties.Description="Ticked">
+                            <Label Text="✓" TextColor="White" FontSize="13" HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        </Grid>
                     </Border>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <!-- The button names what it adds. -->
+        <!-- The button says what it adds: "Add Top errors", "Add 3 cards". -->
         <Border Grid.Row="5" StrokeThickness="0" Padding="16,12,16,16"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}">
             <Button Text="{Binding AddText}" Command="{Binding AddCommand}" HeightRequest="50" />

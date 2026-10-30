@@ -379,8 +379,12 @@ public sealed record WidgetSnapshot
                 return SignedOut;
             return JsonSerializer.Deserialize<WidgetSnapshot>(json) ?? SignedOut;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException or ArgumentException or FormatException)
         {
+            // Any snapshot that can't be read is as good as none (#286).
+            // Saving reads the old one first, to keep its device and sensor
+            // rows, so an exception escaping here stopped every later save and
+            // left the widgets on whatever was written first.
             return SignedOut;
         }
     }
@@ -417,6 +421,13 @@ public interface IHomeWidgets
 
     /// <summary>Saves <paramref name="snapshot"/> where the widgets read it, and asks them to redraw.</summary>
     void Update(WidgetSnapshot snapshot);
+
+    /// <summary>
+    /// For Share diagnostics (#286): whether the snapshot was saved, and
+    /// whether the widgets could read it - the widgets can't write to the
+    /// app's log themselves. Empty where there are no widgets.
+    /// </summary>
+    IReadOnlyList<string> DiagnosticsLines => [];
 }
 
 /// <summary>No widgets: the default, and in tests.</summary>

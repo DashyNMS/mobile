@@ -238,6 +238,57 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Fact]
+    public void Duplicating_copies_the_set_up_just_below_and_Undo_removes_the_copy()
+    {
+        var graph = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        graph.Title = "Traffic";
+        graph.GraphDeviceId = 4;
+        graph.GraphName = "device_bits";
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var vm = NewViewModel();
+
+        vm.DuplicateCommand.Execute(vm.Cards[0]);
+
+        var cards = DashboardLayout.Current(_appSettings);
+        Assert.Equal(3, cards.Count);
+        var copy = cards[1];
+        Assert.NotEqual(graph.Id, copy.Id);
+        Assert.Equal(("Traffic (copy)", 4, "device_bits"), (copy.Title, copy.GraphDeviceId, copy.GraphName));
+        Assert.Equal("Duplicated ‘Traffic’, with its set-up", _toast.Message);
+        Assert.Equal(copy.Id, _toast.HighlightId);
+        Assert.Equal(copy.Id, vm.Cards[1].Widget.Id);
+
+        _toast.UndoCommand.Execute(null);
+        Assert.Equal([graph.Id, cards[2].Id], DashboardLayout.Current(_appSettings).Select(w => w.Id));
+    }
+
+    [Fact]
+    public async Task A_cards_menu_duplicates_where_it_can_and_adds_below()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        DashboardLayout.Add(_appSettings, DashboardLayout.TopErrors);
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Add a card below");
+        var navigation = new RecordingNavigation();
+        var vm = new CustomiseDashboardViewModel(_settings, navigation, _toast, dialogs: dialogs);
+        vm.Attach();
+
+        Assert.False(vm.Cards[0].CanDuplicate);
+        Assert.True(vm.Cards[1].CanDuplicate);
+
+        await vm.MoreCommand.ExecuteAsync(vm.Cards[0]);
+
+        await dialogs.Received(1).ChooseAsync("Needs attention", Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Add a card below" })));
+        var visit = Assert.Single(navigation.Visits);
+        Assert.Equal(Routes.AddCard, visit.Route);
+        Assert.Equal(1, visit.Parameters![Routes.PositionParameter]);
+
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Duplicate");
+        await vm.MoreCommand.ExecuteAsync(vm.Cards[1]);
+        Assert.Equal(3, DashboardLayout.Current(_appSettings).Count);
+    }
+
+    [Fact]
     public async Task Add_card_opens_the_card_picker()
     {
         var navigation = new RecordingNavigation();
@@ -272,7 +323,9 @@ public sealed class AddCardViewModelTests
 
         Assert.Equal(["All 13", "Alerts 2", "Devices 4", "Traffic 3", "Logs 2", "Sensors and graphs 2"], vm.Categories.Select(c => c.Label));
         Assert.Equal(13, vm.Cards.Count);
-        Assert.Same(vm.Cards[0], vm.Selected); // the first that can be added, as desktop's
+        Assert.Empty(vm.Ticked);
+        Assert.Equal("Choose cards", vm.AddText);
+        Assert.False(vm.AddCommand.CanExecute(null));
 
         vm.ChooseCategoryCommand.Execute(vm.Categories.Single(c => c.Name == "Traffic"));
         Assert.Equal(["Top interfaces", "Top errors", "Top devices"], vm.Cards.Select(c => c.Name));
@@ -295,7 +348,8 @@ public sealed class AddCardViewModelTests
         Assert.Equal("On your dashboard", alerts.Subtitle);
 
         vm.PickCommand.Execute(alerts);
-        Assert.NotSame(alerts, vm.Selected);
+        Assert.False(alerts.IsSelected);
+        Assert.Empty(vm.Ticked);
 
         var top = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopInterfaces);
         Assert.True(top.IsAvailable && top.HasSome);
@@ -330,6 +384,66 @@ public sealed class AddCardViewModelTests
 
         _toast.UndoCommand.Execute(null);
         Assert.Equal([DashboardLayout.Alerts], DashboardLayout.Current(_appSettings).Select(w => w.WidgetType));
+    }
+
+    [Fact]
+    public async Task Several_ticked_go_in_together_where_the_picker_was_opened_for()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Wireless);
+        var vm = NewViewModel();
+        vm.Position = 1;
+
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopErrors));
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.Graph));
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopDevices));
+        vm.PickCommand.Execute(vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopDevices)); // and untick
+        Assert.Equal("Add 2 cards", vm.AddText);
+
+        // Ticks stay when the category changes.
+        vm.ChooseCategoryCommand.Execute(vm.Categories.Single(c => c.Name == "Logs"));
+        Assert.Equal(2, vm.Ticked.Count);
+
+        await vm.AddCommand.ExecuteAsync(null);
+
+        Assert.Equal(
+            [DashboardLayout.Alerts, DashboardLayout.TopErrors, DashboardLayout.Graph, DashboardLayout.Wireless],
+            DashboardLayout.Current(_appSettings).Select(w => w.WidgetType));
+        Assert.Equal("2 cards added", _toast.Message);
+        Assert.Equal(DashboardLayout.Current(_appSettings)[1].Id, _toast.HighlightId);
+        Assert.Equal([Routes.Back], _navigation.Visits.Select(v => v.Route)); // several: no set-up to go on to
+
+        _toast.UndoCommand.Execute(null);
+        Assert.Equal([DashboardLayout.Alerts, DashboardLayout.Wireless], DashboardLayout.Current(_appSettings).Select(w => w.WidgetType));
+    }
+
+    [Fact]
+    public void Suggested_picks_out_what_fits_the_set_up_and_opens_first()
+    {
+        _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1 });
+        _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 2 });
+        _appSettings.Graylog = new GraylogSettings { Enabled = true, Server = "graylog.example.com" };
+
+        var vm = NewViewModel();
+
+        Assert.Equal(["All 13", "Suggested 2"], vm.Categories.Take(2).Select(c => c.Label));
+        Assert.True(vm.Categories[1].IsSelected);
+        Assert.Equal(["Pinned devices", "Graylog"], vm.Cards.Select(c => c.Name));
+        Assert.Equal("You've pinned 2 devices", vm.Cards[0].Subtitle);
+        Assert.Equal("Graylog is connected", vm.Cards[1].Subtitle);
+
+        // Once one's on the dashboard, it isn't suggested any more.
+        DashboardLayout.Add(_appSettings, DashboardLayout.Graylog);
+        vm.Load();
+        Assert.Equal(["Pinned devices"], vm.Cards.Select(c => c.Name));
+    }
+
+    [Fact]
+    public void Graylog_needs_setting_up_first()
+    {
+        var graylog = NewViewModel().Cards.Single(c => c.Kind.Type == DashboardLayout.Graylog);
+
+        Assert.Equal("Set up Graylog in Settings first", graylog.UnavailableReason);
     }
 
     [Fact]

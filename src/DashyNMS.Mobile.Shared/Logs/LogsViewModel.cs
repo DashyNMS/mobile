@@ -706,11 +706,20 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         var shown = items.Where(i => since is null || i.LocalTime >= since).ToList();
         if (merge)
         {
-            Entries.Merge(shown, e => (e.IsAlert, e.Id), (a, b) => a.ShortAge == b.ShortAge && a.Message == b.Message && a.DeviceName == b.DeviceName);
+            Entries.Merge(shown, e => (e.IsAlert, e.Id), (a, b) => a.ClockText == b.ClockText && a.Message == b.Message && a.DeviceName == b.DeviceName);
         }
         else
         {
             Entries.ReplaceAll(shown);
+        }
+
+        // Grouped by day, as the Logs mock-up (#69): a heading on each day's first entry.
+        DateTime? day = null;
+        foreach (var item in Entries)
+        {
+            var first = item.LocalTime is { } at && at.Date != day;
+            day = item.LocalTime?.Date ?? day;
+            item.DayHeader = first ? LogEntryItem.DayText(item.LocalTime!.Value, now) : null;
         }
 
         OnPropertyChanged(nameof(CanLoadMore));

@@ -13,7 +13,8 @@
     Title="Edit dashboard">
 
     <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
-         reorder, removed with Undo, set up; then Add card - desktop's picker. -->
+         reorder, removed with Undo, set up, duplicated or added below from ⋯;
+         then the free spot at the end - desktop's "+" space (#145). -->
     <Grid RowDefinitions="Auto,Auto,*">
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
@@ -24,7 +25,7 @@
                         MaximumWidthRequest="720">
                 <CollectionView.Header>
                     <Label Style="{StaticResource Caption}" Margin="4,4,4,12"
-                           Text="Drag ≡ to reorder. Changes save as you make them. Remove every card to see the welcome card again." />
+                           Text="Drag ≡ to reorder; ⋯ duplicates a card or adds one below it. Changes save as you make them. Remove every card to see the welcome card again." />
                 </CollectionView.Header>
                 <CollectionView.EmptyView>
                     <Border Style="{StaticResource Card}" Padding="20,28">
@@ -46,7 +47,7 @@
                                         <Setter Property="StrokeThickness" Value="2" />
                                     </DataTrigger>
                                 </Border.Triggers>
-                                <Grid ColumnDefinitions="40,*,Auto,Auto" ColumnSpacing="6" MinimumHeightRequest="64">
+                                <Grid ColumnDefinitions="40,*,Auto,Auto,Auto" ColumnSpacing="2" MinimumHeightRequest="64">
                                     <Label Text="≡" FontSize="22" HorizontalOptions="Center" VerticalOptions="Center"
                                            TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
                                            SemanticProperties.Description="Drag to reorder" />
@@ -59,8 +60,13 @@
                                             VerticalOptions="Center"
                                             Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
+                                    <!-- Duplicate (where it can be copied) and Add a card below (#145). -->
+                                    <Button Grid.Column="3" Text="⋯" Style="{StaticResource LinkButton}" FontSize="20" WidthRequest="44"
+                                            VerticalOptions="Center" SemanticProperties.Description="{Binding Title, StringFormat='More for {0}'}"
+                                            Command="{Binding MoreCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
+                                            CommandParameter="{Binding .}" />
                                     <!-- Any card comes off; Undo is in the toast. -->
-                                    <Border Grid.Column="3" WidthRequest="44" HeightRequest="44" StrokeThickness="0" BackgroundColor="Transparent"
+                                    <Border Grid.Column="4" WidthRequest="44" HeightRequest="44" StrokeThickness="0" BackgroundColor="Transparent"
                                             VerticalOptions="Center" SemanticProperties.Description="{Binding Title, StringFormat='Remove {0}'}">
                                         <Border.GestureRecognizers>
                                             <TapGestureRecognizer
@@ -79,9 +85,18 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
                 <CollectionView.Footer>
-                    <VerticalStackLayout Padding="0,8,0,96">
-                        <Button Text="Add card" Command="{Binding AddCardCommand}" />
-                    </VerticalStackLayout>
+                    <!-- The free spot where the next card goes, as desktop's "+ Add widget" space (#145). -->
+                    <Grid Padding="0,0,0,96">
+                        <Border StrokeThickness="1.5" StrokeDashArray="4,3" StrokeShape="RoundRectangle 16" MinimumHeightRequest="64"
+                                BackgroundColor="Transparent" Stroke="{StaticResource PrimaryStroke}"
+                                SemanticProperties.Description="Add a card">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding AddCardCommand}" />
+                            </Border.GestureRecognizers>
+                            <Label Text="+ Add a card" FontFamily="BodySemibold" FontSize="15" HorizontalOptions="Center" VerticalOptions="Center"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                        </Border>
+                    </Grid>
                 </CollectionView.Footer>
             </CollectionView>
 

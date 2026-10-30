@@ -195,6 +195,26 @@ public sealed class LogsViewModelTests
     }
 
     [Fact]
+    public async Task Entries_are_headed_by_their_day_with_the_time_at_the_right()
+    {
+        Returns(
+        [
+            new EventLogEntry { Id = 4, DeviceId = 1, Message = "Now", Timestamp = Noon.AddMinutes(-5) },
+            new EventLogEntry { Id = 3, DeviceId = 1, Message = "This morning", Timestamp = Noon.AddHours(-3) },
+            new EventLogEntry { Id = 2, DeviceId = 1, Message = "Yesterday", Timestamp = Noon.AddHours(-26) },
+            new EventLogEntry { Id = 1, DeviceId = 1, Message = "Earlier", Timestamp = Noon.AddDays(-5) },
+        ]);
+        var vm = NewViewModel();
+
+        await vm.EnsureLoadedAsync();
+
+        Assert.Equal(["Today", null, "Yesterday", LogEntryItem.DayText(Noon.AddDays(-5), Noon)], vm.Entries.Select(e => e.DayHeader));
+        Assert.Equal(Noon.AddMinutes(-5).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture), vm.Entries[0].ClockText);
+        Assert.DoesNotContain(Noon.Year.ToString(System.Globalization.CultureInfo.InvariantCulture), vm.Entries[3].DayHeader);
+        Assert.EndsWith("2025", LogEntryItem.DayText(new DateTime(2025, 12, 31), Noon));
+    }
+
+    [Fact]
     public async Task The_device_chip_asks_LibreNMS_for_that_devices_log()
     {
         Returns(Events(5));
