@@ -1,6 +1,7 @@
 # 2.0.0
 
 ## New
+- **Sign in from desktop.** Scan the QR code DashyNMS shows on your computer with the camera. The app asks first, then signs in as that computer does. {settings}
 - **Alert groups.** On LibreNMS 26.10, faults are grouped by device and rule, with each fault's details and history. {alerts}
 - **Event log and Graylog cards.** The newest entries on the dashboard; tap one to open it. {dashboard}
 - **State sensor names.** Fans and power supplies read "Ready" or "Fan failed", from the sensor definitions catalogue. {health}

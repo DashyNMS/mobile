@@ -246,11 +246,12 @@ Swift extension ignore older snapshots until the next alert check replaces them.
 
 Mobile consumes the pinned `DashyNMS.Core` package from
 [DashyNMS/core](https://github.com/DashyNMS/core), targeting net10.0.
-Core's own repository runs its tests. The pinned 2.0.0-ci.46 package includes
+Core's own repository runs its tests. The pinned 2.0.0-ci.49 package includes
 LibreNMS 26.10 fault identities, grouping, recovery state, scope-aware actions,
 fault history and per-resource permissions. Nullable reported device values keep
 omitted flags and uptime unknown. It also corrects single-fault action
-results so untouched siblings do not appear as failures. Mobile's versioned
+results so untouched siblings do not appear as failures. It reads and writes the
+sign-in link desktop shows as a QR code (#171). Mobile's versioned
 notification baseline must accompany these APIs before a build ships.
 Update the package version in
 `src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj` to take a Core fix.
@@ -458,8 +459,8 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 
 | Area | Desktop | Mobile |
 | --- | --- | --- |
-| Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ |
-| Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | ✅ The same widgets as cards you add, order, duplicate and remove (one column, so no resizing); the picker adds several at once, below a card or at the end, and suggests what fits your set-up |
+| Sign-in, saved session, backup address, self-signed certs | ✅ | ✅ Also by scanning desktop's sign-in QR code with the camera, which always asks first |
+| Dashboard | Drag-and-resize widget grid: alerts, gauge, device status, pinned sensors, graph, recently viewed, pinned devices, wireless | ✅ The same widgets as cards you show, hide and order (one column, so no resizing; one of each) |
 | Alert notifications | Toasts, per-severity persistence/sound, quiet hours, start-up suppression | ✅ Same rules; sound and persistence set by the phone |
 | Worst severity at a glance | Tray icon with open-alert count | ✅ Home-screen widget; app icon badge (iPhone; Android's launcher dot comes from notifications) |
 | Alerts list | Severity/state filters, search, CSV export | ✅ Same filters (remembered between launches), search, CSV export through the share sheet |

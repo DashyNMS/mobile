@@ -57,6 +57,9 @@ public static class ServiceCollectionExtensions
         // A certificate met while signed in - the backup address's, say (#141).
         services.AddSingleton<CertificatePrompt>();
 
+        // Desktop's QR code, opened from the Camera app (#171).
+        services.AddSingleton<SignInLinks>();
+
         // Alert notifications. The app head supplies IAlertNotifier and
         // IBackgroundAlertScheduler for its platform, and IAppBadge where the
         // platform can set a number on the icon (registered later, it wins).

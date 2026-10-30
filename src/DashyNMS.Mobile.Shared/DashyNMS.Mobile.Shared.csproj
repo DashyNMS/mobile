@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.46" />
+    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.49" />
   </ItemGroup>
 
   <ItemGroup>
