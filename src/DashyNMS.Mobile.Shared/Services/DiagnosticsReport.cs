@@ -27,6 +27,7 @@ public sealed class DiagnosticsReport
     private readonly ILibreNmsClient? _client;
     private readonly TimeProvider _time;
     private readonly SensorDefinitions? _definitions;
+    private readonly Widgets.IHomeWidgets? _widgets;
 
     public DiagnosticsReport(
         DiagnosticsLog log,
@@ -39,8 +40,10 @@ public sealed class DiagnosticsReport
         IAppPreferences preferences,
         ILibreNmsClient? client = null,
         TimeProvider? time = null,
-        SensorDefinitions? definitions = null)
+        SensorDefinitions? definitions = null,
+        Widgets.IHomeWidgets? widgets = null)
     {
+        _widgets = widgets;
         _definitions = definitions;
         _log = log;
         _session = session;
@@ -94,6 +97,9 @@ public sealed class DiagnosticsReport
                 + $" · tabs {(pinned.Count == 0 ? "none pinned" : string.Join(", ", pinned))}"
                 + $" · notify {NotifyModeText()}"
                 + $" · {settings.DashboardWidgets.Count.ToString(CultureInfo.InvariantCulture)} dashboard cards",
+
+            // Saved, and read by the widget? (#286)
+            .. _widgets?.DiagnosticsLines ?? [],
             new string('-', 40),
         ];
     }

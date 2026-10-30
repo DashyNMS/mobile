@@ -3,8 +3,12 @@ using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.AddCard"/>, from Edit dashboard or the welcome card (#140).</summary>
-public partial class AddCardPage : ContentPage
+/// <summary>
+/// Shown via <see cref="Routes.AddCard"/>, from Edit dashboard or the welcome
+/// card (#140) - with <see cref="Routes.PositionParameter"/> from a card's
+/// "Add a card below" (#145).
+/// </summary>
+public partial class AddCardPage : ContentPage, IQueryAttributable
 {
 	private readonly AddCardViewModel _viewModel;
 
@@ -13,6 +17,9 @@ public partial class AddCardPage : ContentPage
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 	}
+
+	public void ApplyQueryAttributes(IDictionary<string, object> query) =>
+		_viewModel.Position = query.TryGetValue(Routes.PositionParameter, out var value) && value is int position ? position : null;
 
 	/// <summary>What's on the dashboard may have changed since it was made.</summary>
 	protected override void OnAppearing()

@@ -100,6 +100,9 @@ struct Snapshot: Codable {
 
     static let appGroup = "group.net.pckp.DashyNMS"
     static let fileName = "widget-snapshot.json"
+    /// The widget's note of its last read, for the app's Share diagnostics
+    /// (#286): WidgetDiagnostics.ReadNoteFile in the app.
+    static let readNoteName = "widget-read.json"
 
     var active: Int { critical + warning + ok }
     var alertGroups: Int { active + acknowledged }
@@ -111,17 +114,53 @@ struct Snapshot: Codable {
     /// Unacknowledged alerts, worst first.
     var activeAlerts: [WidgetAlert] { alerts.filter { !$0.acknowledged } }
 
-    /// The saved snapshot, or a signed-out one when there's none yet.
+    /// The saved snapshot, or a signed-out one when there's none yet or it
+    /// can't be read - noting which, and why, beside it for the app's
+    /// diagnostics, since a widget has no log of its own to say.
     static func load() -> Snapshot {
-        guard
-            let folder = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup),
-            let data = try? Data(contentsOf: folder.appendingPathComponent(fileName)),
-            let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data)
-        else {
+        guard let folder = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup) else {
             return Snapshot()
         }
 
-        return snapshot
+        let data: Data
+        do {
+            data = try Data(contentsOf: folder.appendingPathComponent(fileName))
+        } catch {
+            let missing = (error as NSError).domain == NSCocoaErrorDomain && (error as NSError).code == NSFileReadNoSuchFileError
+            note(in: folder, outcome: missing ? "no-file" : "unreadable", detail: missing ? nil : describe(error))
+            return Snapshot()
+        }
+
+        do {
+            let snapshot = try JSONDecoder().decode(Snapshot.self, from: data)
+            note(in: folder, outcome: "ok", signedIn: snapshot.signedIn)
+            return snapshot
+        } catch {
+            note(in: folder, outcome: "unreadable", detail: describe(error))
+            return Snapshot()
+        }
+    }
+
+    /// Short and free of content: a decoding error names the field, never its value.
+    private static func describe(_ error: Error) -> String {
+        switch error {
+        case DecodingError.keyNotFound(let key, _):
+            return "missing \(key.stringValue)"
+        case DecodingError.typeMismatch(_, let context), DecodingError.valueNotFound(_, let context), DecodingError.dataCorrupted(let context):
+            let path = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+            return path.isEmpty ? context.debugDescription : "\(path): \(context.debugDescription)"
+        default:
+            let ns = error as NSError
+            return "\(ns.domain) \(ns.code)"
+        }
+    }
+
+    private static func note(in folder: URL, outcome: String, detail: String? = nil, signedIn: Bool = false) {
+        var note: [String: Any] = ["readAt": Int64(Date().timeIntervalSince1970), "outcome": outcome, "signedIn": signedIn]
+        if let detail { note["detail"] = detail }
+        if let data = try? JSONSerialization.data(withJSONObject: note) {
+            try? data.write(to: folder.appendingPathComponent(readNoteName), options: .atomic)
+        }
     }
 }
 

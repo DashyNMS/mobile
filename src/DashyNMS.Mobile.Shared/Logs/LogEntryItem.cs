@@ -11,7 +11,7 @@ namespace DashyNMS.Mobile.Logs;
 /// dot, the device, the message on one line, its type, a short age - and
 /// everything about it on its own page.
 /// </summary>
-public sealed class LogEntryItem
+public sealed class LogEntryItem : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
 {
     private LogEntryItem(int id, int deviceId, string deviceName, DateTime? at, DateTime now)
     {
@@ -21,6 +21,7 @@ public sealed class LogEntryItem
         LocalTime = at;
         TimeText = at?.ToString("d MMM yyyy, HH:mm:ss", CultureInfo.CurrentCulture);
         ShortAge = at is { } time ? Short(now - time) : string.Empty;
+        ClockText = at?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? string.Empty;
         AgeText = at is { } when ? Formatting.Age(Positive(now - when)) : string.Empty;
     }
 
@@ -102,8 +103,38 @@ public sealed class LogEntryItem
     /// <summary>"23m ago".</summary>
     public string AgeText { get; }
 
-    /// <summary>"23m", "now" - the row's right-hand column, as the other lists (#69).</summary>
+    /// <summary>"23m", "now" - how old it is, in short.</summary>
     public string ShortAge { get; }
+
+    /// <summary>"14:32" - the row's right-hand column, under its day's heading, as the Logs mock-up (#69).</summary>
+    public string ClockText { get; }
+
+    /// <summary>
+    /// "Today", "Yesterday", "Wednesday 28 October" - on the first entry of
+    /// each day in the list, else null. Set on the rows already showing, so a
+    /// new entry arriving above one moves the heading without replacing the row.
+    /// </summary>
+    public string? DayHeader
+    {
+        get => _dayHeader;
+        internal set
+        {
+            if (SetProperty(ref _dayHeader, value))
+            {
+                OnPropertyChanged(nameof(HasDayHeader));
+            }
+        }
+    }
+
+    private string? _dayHeader;
+
+    public bool HasDayHeader => DayHeader is not null;
+
+    /// <summary>The heading for <paramref name="day"/>, as seen on <paramref name="today"/>; the year only when it isn't this one.</summary>
+    internal static string DayText(DateTime day, DateTime today) =>
+        day.Date == today.Date ? "Today"
+        : day.Date == today.Date.AddDays(-1) ? "Yesterday"
+        : day.ToString(day.Year == today.Year ? "dddd d MMMM" : "dddd d MMMM yyyy", CultureInfo.CurrentCulture);
 
     /// <summary>"4 Oct 2026, 09:31:12 · 23m ago".</summary>
     public string WhenText => string.Join(" · ", new[] { TimeText, AgeText }.Where(s => !string.IsNullOrEmpty(s)));

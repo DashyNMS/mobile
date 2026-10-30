@@ -224,6 +224,9 @@ public static class Routes
     /// <summary>Query attribute: which dashboard card <see cref="PickSensors"/> or <see cref="PickGraph"/> sets up (#87).</summary>
     public const string WidgetIdParameter = "widget";
 
+    /// <summary>Query attribute: where on the dashboard the card picker adds, counted from the top; absent for the bottom (#145).</summary>
+    public const string PositionParameter = "position";
+
     /// <summary>Query attribute: a port's ifName, for <see cref="DeviceGraphs"/>.</summary>
     public const string PortParameter = "port";
 
