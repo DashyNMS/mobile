@@ -65,15 +65,15 @@ public sealed class BesideStatusBarTests
     }
 
     [Fact]
-    public void A_status_bar_taller_than_the_line_sets_the_line_level_with_its_foot()
+    public void A_status_bar_taller_than_the_line_has_the_line_centred_on_it()
     {
         var placement = BesideStatusBar.Place(80, Left, Right, Height, [new OccupiedArea(380, 0, 600, 70)]);
 
         Assert.NotNull(placement);
-        Assert.Equal(26, placement.Value.Top); // 70 - 44: what follows the line stays clear of it
+        Assert.Equal(13, placement.Value.Top); // (0 + 70 - 44) / 2: level with the clock
     }
 
     [Fact]
     public void A_line_already_as_high_as_it_can_go_stays_put() =>
-        Assert.Null(BesideStatusBar.Place(40, Left, Right, Height, [new OccupiedArea(380, 0, 600, 90)]));
+        Assert.Null(BesideStatusBar.Place(20, Left, Right, Height, [new OccupiedArea(380, 0, 600, 90)]));
 }

@@ -30,6 +30,8 @@ internal sealed class TopLineSpace
     private readonly Page _page;
     private readonly List<(WeakReference<Layout> Line, Thickness Padding)> _lines = [];
     private readonly Dictionary<BindableObject, (bool WasSet, object? Value)> _freed = [];
+    private readonly List<string> _seen = [];
+    private string? _reported;
     private bool _queued;
 
     private TopLineSpace(Page page)
@@ -96,6 +98,7 @@ internal sealed class TopLineSpace
 
     private void Update()
     {
+        _seen.Clear();
         var keep = new HashSet<BindableObject>();
         _lines.RemoveAll(l => !l.Line.TryGetTarget(out _));
         foreach (var (reference, padding) in _lines)
@@ -130,6 +133,7 @@ internal sealed class TopLineSpace
             }
 
             _freed.Remove(element);
+            Remeasure(element);
         }
 
         foreach (var element in keep.Where(e => !_freed.ContainsKey(e)))
@@ -139,7 +143,56 @@ internal sealed class TopLineSpace
             element.SetValue(
                 Layout.SafeAreaEdgesProperty,
                 new SafeAreaEdges(edges.Left, SafeAreaRegions.None, edges.Right, edges.Bottom));
+            Remeasure(element);
         }
+
+        Report();
+    }
+
+    // MAUI reads a layout's SafeAreaEdges again only when the layout is next
+    // measured, and changing the property doesn't measure it. Without this,
+    // a layout no padding change reached went on keeping clear of the status
+    // bar - the Dashboard's line moved up only by its padding (#278).
+    private static void Remeasure(BindableObject element) => (element as IView)?.InvalidateMeasure();
+
+    // What each line was given, and where it then ended up, in the
+    // diagnostics log Settings shares - only when it changes. iPhone Duo's
+    // regions can't be seen any other way off the device (#278).
+    private void Report()
+    {
+        if (_seen.Count == 0)
+        {
+            return;
+        }
+
+        var seen = string.Join(" | ", _seen);
+        if (seen == _reported)
+        {
+            return;
+        }
+
+        _reported = seen;
+        _page.Dispatcher.DispatchDelayed(TimeSpan.FromSeconds(1), () =>
+        {
+            var landed = string.Join(", ", _lines
+                .Select(l => l.Line.TryGetTarget(out var line) ? Landed(line) : null)
+                .Where(text => text is not null));
+            (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)
+                ?.Note("Layout", $"Top line on {_page.GetType().Name}: {seen}; laid out at {landed}");
+        });
+    }
+
+    // The line's top and its first row's top, from the top of the page.
+    private string? Landed(Layout line)
+    {
+#if IOS
+        if (_page.Handler?.PlatformView is UIView page && line.Handler?.PlatformView is UIView view && view.Window is not null)
+        {
+            var frame = view.ConvertRectToView(view.Bounds, page);
+            return $"{frame.Top:0.#} + padding {line.Padding.Top:0.#} (own strip {view.SafeAreaInsets.Top:0.#})";
+        }
+#endif
+        return null;
     }
 
     private TopLinePlacement? Place(Layout line)
@@ -153,8 +206,14 @@ internal sealed class TopLineSpace
         }
 
         var frame = view.ConvertRectToView(view.Bounds, page);
-        return BesideStatusBar.Place(
-            page.SafeAreaInsets.Top, frame.Left, frame.Right, TopBar.Height, ReservedRegions.Occupied(page));
+        var occupied = ReservedRegions.Occupied(page);
+        var placement = BesideStatusBar.Place(page.SafeAreaInsets.Top, frame.Left, frame.Right, TopBar.Height, occupied);
+        _seen.Add(
+            $"strip {page.SafeAreaInsets.Top:0.#}, page {page.Bounds.Width:0.#}×{page.Bounds.Height:0.#}, "
+            + $"line {frame.Left:0.#}–{frame.Right:0.#}, occupied "
+            + (occupied.Count == 0 ? "none" : string.Join("; ", occupied.Select(a => $"{a.Left:0.#}–{a.Right:0.#} × {a.Top:0.#}–{a.Bottom:0.#}")))
+            + (placement is { } p ? $" → top {p.Top:0.#}, insets {p.InsetStart:0.#}/{p.InsetEnd:0.#}" : " → stays below"));
+        return placement;
 #else
         return null;
 #endif
