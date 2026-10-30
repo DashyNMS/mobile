@@ -11,7 +11,8 @@ namespace DashyNMS.Mobile;
 /// delegate does the rest.
 /// </summary>
 /// <remarks>
-/// With scenes, iOS delivers dashynms:// links (the widgets' taps) here
+/// With scenes, iOS delivers dashynms:// links (the widgets' taps, and
+/// desktop's sign-in QR code from the Camera app, #171) here
 /// rather than to <see cref="AppDelegate"/>: while running, through
 /// <see cref="OpenUrlContexts"/>; on a cold launch, in the connection
 /// options <see cref="WillConnect"/> gets.
@@ -25,7 +26,7 @@ public class SceneDelegate : MauiUISceneDelegate
 
 		foreach (var context in connectionOptions.UrlContexts ?? new NSSet<UIOpenUrlContext>())
 		{
-			AppDelegate.OpenWidgetLink(context.Url);
+			Open(context.Url);
 		}
 	}
 
@@ -35,7 +36,15 @@ public class SceneDelegate : MauiUISceneDelegate
 	{
 		foreach (var context in urlContexts)
 		{
-			AppDelegate.OpenWidgetLink(context.Url);
+			Open(context.Url);
+		}
+	}
+
+	private static void Open(NSUrl? url)
+	{
+		if (!Adapters.SignInLinkLauncher.TryOpen(url?.AbsoluteString))
+		{
+			AppDelegate.OpenWidgetLink(url);
 		}
 	}
 }
