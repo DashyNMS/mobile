@@ -331,6 +331,11 @@ Before shipping, check a Duo on both displays: launch closed and open,
 fold and unfold while on Dashboard and a list/detail page, rotate, and
 check the header, system tab bar, alert dot, scrolling and keyboard insets.
 Confirm the same pinned tabs and devices remain selected after resizing.
+In particular, force-quit and launch directly on the inner display with a
+saved session, then repeat from the outer display and unfold. Both paths
+must show the pinned tab bar without needing another launch. The iOS
+`AppShellRenderer` applies MAUI's compact tab-controller workaround to phones
+as well as tablets, before the child controllers are created.
 Also check a conventional iPhone and iPad. A successful simulator build
 alone does not verify these layouts.
 
