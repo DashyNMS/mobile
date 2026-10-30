@@ -129,6 +129,17 @@
                             <BoxView Style="{StaticResource Divider}" />
                             <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
                                 <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenUnimusSettingsCommand}" />
+                                </Grid.GestureRecognizers>
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="Unimus" FontSize="15" FontFamily="BodySemibold" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding UnimusStatusText}" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource Divider}" />
+                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
+                                <Grid.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding OpenSensorDefinitionsCommand}" />
                                 </Grid.GestureRecognizers>
                                 <VerticalStackLayout VerticalOptions="Center">

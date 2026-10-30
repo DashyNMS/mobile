@@ -172,6 +172,10 @@ public static class MauiProgram
 		builder.Services.AddTransient<DiagnosticsSharingPage>();
 		builder.Services.AddTransient<GraylogMessagePage>();
 		builder.Services.AddTransient<GraylogDevicePickerPage>();
+		builder.Services.AddTransient<UnimusSettingsPage>();
+		builder.Services.AddTransient<UnimusBackupsPage>();
+		builder.Services.AddTransient<UnimusBackupPage>();
+		builder.Services.AddTransient<UnimusDiffPage>();
 
 		return builder.Build();
 	}

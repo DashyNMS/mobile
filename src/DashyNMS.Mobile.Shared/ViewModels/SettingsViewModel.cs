@@ -44,6 +44,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly DeviceBookmarks _bookmarks;
     private readonly IShareService? _share;
     private readonly Graylog.GraylogSetup? _graylog;
+    private readonly Unimus.UnimusSetup? _unimus;
     private readonly INotificationPrivacy _privacy;
     private readonly ILauncherService? _launcher;
     private readonly AlertCountThreshold _countThreshold;
@@ -79,8 +80,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         SensorDefinitions? definitions = null,
         IClipboardText? clipboard = null,
         WhatsNew? whatsNew = null,
-        DiagnosticsConsent? consent = null)
+        DiagnosticsConsent? consent = null,
+        Unimus.UnimusSetup? unimus = null)
     {
+        _unimus = unimus;
         _whatsNew = whatsNew;
         _consent = consent;
         if (consent is not null)
@@ -293,6 +296,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
+
+    /// <summary>"On · unimus.example.com", or "Off" - the Unimus row's second line.</summary>
+    public string UnimusStatusText => _settings.Current.Unimus is { Enabled: true, Url: { Length: > 0 } url }
+        && DesktopNMS.Core.Api.UnimusConnection.TryParseWebRoot(url, out var root, out _)
+            ? "On · " + root!.Host
+            : "Off";
+
+    [RelayCommand]
+    private Task OpenUnimusSettingsAsync() => _navigation.GoToAsync(Routes.UnimusSettings);
 
     private readonly SensorDefinitions? _definitions;
     private readonly IClipboardText? _clipboard;
@@ -747,6 +759,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(ServerVersion));
         OnPropertyChanged(nameof(IsServerInsecure));
         OnPropertyChanged(nameof(GraylogStatusText));
+        OnPropertyChanged(nameof(UnimusStatusText));
         OnPropertyChanged(nameof(SensorDefinitionsSummary));
         OnPropertyChanged(nameof(Versions));
     }
@@ -790,11 +803,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>What goes, in plain words, as desktop's sign-out says it (desktop #231).</summary>
     internal const string ForgetEverythingMessage =
         "This removes everything DashyNMS has saved on this phone: your sign-in and servers, settings, dashboard, "
-        + "map layouts, which alerts notify you and the Graylog connection. " + Confirmations.CannotBeUndone
+        + "map layouts, which alerts notify you and the Graylog and Unimus connections. " + Confirmations.CannotBeUndone
         + "\n\nThe diagnostics log is kept, for bug reports.";
 
     /// <summary>
-    /// As a fresh install (#139): the servers and Graylog password forgotten,
+    /// As a fresh install (#139): the servers, Graylog password and Unimus token forgotten,
     /// then every file and stored preference wiped, and the settings back to
     /// their defaults (#112) - in memory too, as the app keeps running.
     /// Before #139 the settings, map layouts, ignored alerts, tab pins and
@@ -822,7 +835,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _diagnostics?.Note("Sign out", "Forgot everything on this phone");
     }
 
-    /// <summary>The LibreNMS addresses and the Graylog connection, password included.</summary>
+    /// <summary>The LibreNMS addresses and the Graylog and Unimus connections, password and token included.</summary>
     private void ForgetServers()
     {
         var current = _settings.Current;
@@ -831,8 +844,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         current.AllowUntrustedCertificate = false;
         current.TrustedCertificates.Clear();
         current.Graylog = new GraylogSettings();
+        current.Unimus = new UnimusSettings();
         _settings.Save();
         _graylog?.ForgetPassword();
+        _unimus?.ForgetToken();
     }
 
     private void SetNotification<T>(T current, T value, Action<T> apply, bool requestPermission = false, [System.Runtime.CompilerServices.CallerMemberName] string? property = null)

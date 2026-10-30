@@ -1,6 +1,6 @@
 # Privacy
 
-DashyNMS Mobile talks to the LibreNMS server you sign in to, and to Graylog if you set it up. There's no account, no advertising and no tracking, and nothing about your network is ever sent to DashyNMS.
+DashyNMS Mobile talks to the LibreNMS server you sign in to, and to Graylog and Unimus if you set them up. There's no account, no advertising and no tracking, and nothing about your network is ever sent to DashyNMS.
 
 A few things leave your phone only in the ways described here:
 

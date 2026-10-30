@@ -38,6 +38,7 @@ public sealed partial class DeviceSectionCard : ObservableObject
         DeviceSection.Graphs,
         DeviceSection.EventLog,
         DeviceSection.Graylog,
+        DeviceSection.Unimus,
     ];
 
     [ObservableProperty]
@@ -77,8 +78,8 @@ public sealed partial class DeviceSectionCard : ObservableObject
 
     public string Description => Info.Description;
 
-    /// <summary>Whether it's fetched its own quick view - graphs and Graylog have their own pages and don't.</summary>
-    public bool HasQuickView => Info.Section is not (DeviceSection.Graphs or DeviceSection.Graylog);
+    /// <summary>Whether it's fetched its own quick view - graphs, Graylog and config backups have their own pages and don't.</summary>
+    public bool HasQuickView => Info.Section is not (DeviceSection.Graphs or DeviceSection.Graylog or DeviceSection.Unimus);
 
     public bool IsVisible => AlwaysShown.Contains(Info.Section) || IsLoading || !_loaded || _failed || Count > 0;
 

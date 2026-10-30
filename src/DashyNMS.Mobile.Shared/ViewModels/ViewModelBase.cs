@@ -142,6 +142,7 @@ public abstract partial class ViewModelBase : ObservableObject
     {
         LibreNmsApiException api => api.Message,
         GraylogApiException graylog => graylog.ToUserMessage(),
+        UnimusApiException unimus => unimus.ToUserMessage(),
         HttpRequestException => "Couldn't reach the LibreNMS server. Check your connection and try again.",
         TimeoutException => "LibreNMS took too long to answer.",
         _ => ex.Message,
