@@ -13,7 +13,7 @@ namespace DashyNMS.Mobile.Controls;
 /// Resources/Images' tab_*.svg turned into path data (rectangles and circles
 /// as their outlines): change both together.
 /// </remarks>
-public sealed class Glyph : Microsoft.Maui.Controls.Shapes.Path
+public sealed class Glyph : ContentView
 {
     /// <summary>Each tab image's shape, by the image's name.</summary>
     internal static readonly IReadOnlyDictionary<string, string> Shapes = new Dictionary<string, string>
@@ -37,15 +37,23 @@ public sealed class Glyph : Microsoft.Maui.Controls.Shapes.Path
         nameof(Name), typeof(string), typeof(Glyph), null,
         propertyChanged: (view, _, value) => ((Glyph)view).SetShape(value as string));
 
+    // MAUI's Path is sealed, so the view owns the drawing rather than inheriting it.
+    private readonly Microsoft.Maui.Controls.Shapes.Path _path = new()
+    {
+        StrokeThickness = 1.8,
+        StrokeLineCap = PenLineCap.Round,
+        StrokeLineJoin = PenLineJoin.Round,
+        WidthRequest = 24,
+        HeightRequest = 24,
+        Aspect = Stretch.None,
+        Scale = 0.9,
+    };
+
     public Glyph()
     {
-        StrokeThickness = 1.8;
-        StrokeLineCap = PenLineCap.Round;
-        StrokeLineJoin = PenLineJoin.Round;
         WidthRequest = 24;
         HeightRequest = 24;
-        Aspect = Stretch.None;
-        Scale = 0.9;
+        Content = _path;
         ApplyTheme();
         if (Application.Current is { } app)
         {
@@ -61,13 +69,13 @@ public sealed class Glyph : Microsoft.Maui.Controls.Shapes.Path
     }
 
     private void SetShape(string? name) =>
-        Data = name is not null && Shapes.TryGetValue(name, out var shape)
+        _path.Data = name is not null && Shapes.TryGetValue(name, out var shape)
             ? (Geometry?)new PathGeometryConverter().ConvertFromInvariantString(shape)
             : null;
 
     private void ApplyTheme()
     {
         var key = Application.Current?.RequestedTheme == AppTheme.Dark ? "TextSecondaryDark" : "TextSecondaryLight";
-        Stroke = Application.Current?.Resources.TryGetValue(key, out var colour) == true && colour is Color c ? c : Colors.Gray;
+        _path.Stroke = Application.Current?.Resources.TryGetValue(key, out var colour) == true && colour is Color c ? c : Colors.Gray;
     }
 }
