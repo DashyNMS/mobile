@@ -157,7 +157,7 @@
                     <Border Style="{StaticResource Card}" Padding="14,0">
                         <VerticalStackLayout>
                             <!-- What's installed, for a bug report (#215): versions only, never the server or names. -->
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,10,0,4" Spacing="6">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,10,0,10" Spacing="6">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="services:ComponentVersion">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -170,8 +170,6 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
-                            <Button Style="{StaticResource LinkButton}" Text="{Binding CopyVersionsText}" Command="{Binding CopyVersionDetailsCommand}"
-                                    IsVisible="{Binding CanCopyVersions}" HorizontalOptions="Start" HeightRequest="40" MinimumHeightRequest="40" />
                             <!-- This release's notes again (#159). -->
                             <BoxView Style="{StaticResource Divider}" IsVisible="{Binding HasWhatsNew}" />
                             <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding HasWhatsNew}">
