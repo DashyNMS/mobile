@@ -167,9 +167,11 @@
         <!-- Compact while closed, capped lower on a short screen; open, as tall as
              most of the map, so its connections can be read (see the page, #296). -->
         <!-- Over the foot of the map, always clear of the camera and tab bar, its
-             foot level with a side tab bar's (margin set from the page). -->
+             foot level with a side tab bar's (margin set from the page). It
+             slides up as a device is tapped and back down as it's closed, and
+             grows and shrinks as its connections open and close (the page). -->
         <Border x:Name="SelectionCard" Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" SafeAreaEdges="None"
-                IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+                IsVisible="False" MaximumHeightRequest="300">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">
@@ -180,7 +182,7 @@
                     <!-- A neighbour isn't a LibreNMS device: nothing to open. -->
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}"
                             IsVisible="{Binding HasSelectedDevice}" />
-                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
+                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Clicked="OnCloseCard" />
                 </Grid>
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." VerticalOptions="Center" />

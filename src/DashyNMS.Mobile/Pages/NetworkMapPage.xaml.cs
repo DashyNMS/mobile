@@ -109,7 +109,15 @@ public partial class NetworkMapPage : ContentPage
 			}
 			else if (e.PropertyName == nameof(NetworkMapViewModel.IsSelectionExpanded))
 			{
-				Dispatcher.Dispatch(SizeCard);
+				Dispatcher.Dispatch(() => SizeCard(animate: true));
+			}
+			else if (e.PropertyName == nameof(NetworkMapViewModel.SelectedNode))
+			{
+				Dispatcher.Dispatch(() =>
+				{
+					SlideCard(_viewModel.HasSelectedNode);
+					FadeDim(_viewModel.HasSelectedNode);
+				});
 			}
 		};
 
@@ -224,8 +232,138 @@ public partial class NetworkMapPage : ContentPage
 	protected override void OnSizeAllocated(double width, double height)
 	{
 		base.OnSizeAllocated(width, height);
-		SizeCard();
+		SizeCard(animate: false);
 	}
+
+	/// <summary>How long the device card takes to slide, grow or shrink, and the map to dim.</summary>
+	private const uint CardMotion = 250;
+
+	/// <summary>
+	/// Slides the device card up from the foot of the screen as a device is
+	/// tapped, or back down out of sight - then <paramref name="then"/>.
+	/// At once with Reduce Motion.
+	/// </summary>
+	private void SlideCard(bool show, Action? then = null)
+	{
+		const string name = "CardSlide";
+		double Travel() => (SelectionCard.Height > 0 ? SelectionCard.Height : 240) + SelectionCard.Margin.Bottom + 8;
+
+		// Already up - another device tapped while it shows: it stays.
+		if (show && SelectionCard.IsVisible && !SelectionCard.AnimationIsRunning(name) && SelectionCard.TranslationY == 0)
+		{
+			then?.Invoke();
+			return;
+		}
+
+		SelectionCard.AbortAnimation(name);
+		if (ReducedMotion.IsOn || (!show && !SelectionCard.IsVisible))
+		{
+			SelectionCard.IsVisible = show;
+			SelectionCard.TranslationY = 0;
+			SelectionCard.Opacity = 1;
+			then?.Invoke();
+			return;
+		}
+
+		if (show && !SelectionCard.IsVisible)
+		{
+			// Out of sight before it shows, or it flashes in place first.
+			SelectionCard.Opacity = 0;
+			SelectionCard.TranslationY = Travel();
+			SelectionCard.IsVisible = true;
+		}
+
+		// Once laid out, so it knows how far it has to come.
+		Dispatcher.Dispatch(() =>
+		{
+			var fromY = show && SelectionCard.Opacity == 0 ? Travel() : SelectionCard.TranslationY;
+			var fromOpacity = SelectionCard.Opacity;
+			var toY = show ? 0 : Travel();
+			var toOpacity = show ? 1.0 : 0;
+			SelectionCard.Animate(
+				name,
+				v =>
+				{
+					SelectionCard.TranslationY = fromY + ((toY - fromY) * v);
+					SelectionCard.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
+				},
+				length: CardMotion,
+				easing: show ? Easing.CubicOut : Easing.CubicIn,
+				finished: (_, cancelled) =>
+				{
+					if (cancelled)
+					{
+						return;
+					}
+
+					if (!show)
+					{
+						SelectionCard.IsVisible = false;
+						SelectionCard.TranslationY = 0;
+						SelectionCard.Opacity = 1;
+					}
+
+					then?.Invoke();
+				});
+		});
+	}
+
+	/// <summary>
+	/// Dims the rest of the map gradually as a device is picked out, and
+	/// brings it back the same way, rather than all at once.
+	/// </summary>
+	private void FadeDim(bool dim)
+	{
+		const string name = "MapDim";
+		if (_viewModel.SelectedNode is { } node)
+		{
+			_drawable.DimmedAround = node;
+		}
+
+		var from = _drawable.Dim;
+		var to = dim ? 1.0 : 0;
+		MapCanvas.AbortAnimation(name);
+		if (ReducedMotion.IsOn || from == to)
+		{
+			_drawable.Dim = to;
+			if (!dim)
+			{
+				_drawable.DimmedAround = null;
+			}
+
+			MapCanvas.Invalidate();
+			return;
+		}
+
+		MapCanvas.Animate(
+			name,
+			v =>
+			{
+				_drawable.Dim = from + ((to - from) * v);
+				MapCanvas.Invalidate();
+			},
+			length: CardMotion,
+			easing: Easing.CubicInOut,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled && !dim)
+				{
+					_drawable.DimmedAround = null;
+					MapCanvas.Invalidate();
+				}
+			});
+	}
+
+	// Close, or a tap on empty map: the card slides away and the map
+	// brightens, and only then is the device let go - the card would empty
+	// as it went.
+	private void CloseCard()
+	{
+		FadeDim(false);
+		SlideCard(false, () => _viewModel.Select(null));
+	}
+
+	private void OnCloseCard(object? sender, EventArgs e) => CloseCard();
 
 	/// <summary>
 	/// Closed, the device card is as small as its name and state allow,
@@ -233,20 +371,60 @@ public partial class NetworkMapPage : ContentPage
 	/// connections can be read: capped as the closed card is, the list was
 	/// cut to a line or two on iPhone Duo's outer display.
 	/// </summary>
-	private void SizeCard()
+	private void SizeCard(bool animate)
 	{
-		var height = Height;
+		const string name = "CardHeight";
+		var cap = Height > 0 && Height < ShortScreen ? 200 : 300;
+		var current = SelectionCard.Height;
+		var smooth = animate && !ReducedMotion.IsOn && SelectionCard.IsVisible && current > 0;
+		SelectionCard.AbortAnimation(name);
+
 		if (_viewModel.IsSelectionExpanded && MapArea.Height > 0)
 		{
 			SelectionCard.MaximumHeightRequest = double.PositiveInfinity;
-			SelectionCard.HeightRequest = Math.Max(240, MapArea.Height * OpenCardShare);
+			var open = Math.Max(240, MapArea.Height * OpenCardShare);
+			if (smooth)
+			{
+				GrowCard(current, open, null);
+			}
+			else
+			{
+				SelectionCard.HeightRequest = open;
+			}
+
+			return;
 		}
-		else
+
+		SelectionCard.MaximumHeightRequest = cap;
+		if (!smooth)
 		{
 			SelectionCard.HeightRequest = -1;
-			SelectionCard.MaximumHeightRequest = height > 0 && height < ShortScreen ? 200 : 300;
+			return;
 		}
+
+		// To the height it'll have closed: measured without its own height,
+		// which is then put back to shrink from - all before it's drawn again.
+		SelectionCard.HeightRequest = -1;
+		var closed = ((IView)SelectionCard).Measure(SelectionCard.Width + SelectionCard.Margin.HorizontalThickness, double.PositiveInfinity).Height
+			- SelectionCard.Margin.VerticalThickness;
+		SelectionCard.HeightRequest = current;
+		GrowCard(current, Math.Min(closed, cap), () => SelectionCard.HeightRequest = -1);
 	}
+
+	private void GrowCard(double from, double to, Action? then) =>
+		SelectionCard.Animate(
+			"CardHeight",
+			v => SelectionCard.HeightRequest = from + ((to - from) * v),
+			length: CardMotion,
+			easing: Easing.CubicInOut,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled)
+				{
+					then?.Invoke();
+				}
+			});
+
 
 	/// <summary>
 	/// Keeps the header, the chips' ends, Fit and the device card clear of
@@ -541,7 +719,15 @@ public partial class NetworkMapPage : ContentPage
 			else
 			{
 				// A tap on empty space clears the selection, as a click does on desktop.
-				_viewModel.Select(_drawable.HitTest(_pressAt));
+				var hit = _drawable.HitTest(_pressAt);
+				if (hit is null && _viewModel.HasSelectedNode)
+				{
+					CloseCard();
+				}
+				else
+				{
+					_viewModel.Select(hit);
+				}
 				_lastTapAt = now;
 				_lastTapPoint = _pressAt;
 			}
