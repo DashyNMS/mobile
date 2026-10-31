@@ -83,8 +83,8 @@ public sealed class DiagnosticsReport
             $"Phone: {_log.Device ?? "unknown"}",
 
             // About's versions (#215), less the app and phone above.
-            .. ComponentVersions.Build(_log.AppVersion, _definitions?.Store, null)
-                .Where(c => c.Name is not ("App" or "Platform"))
+            .. ComponentVersions.Build(_log.AppVersion, _definitions?.Store)
+                .Where(c => c.Name != "App")
                 .Select(c => $"{c.Name}: {c.Version} ({c.State})"),
             $"Server: LibreNMS {_session.ServerInfo?.LocalVersion ?? "unknown"}{(_session.Connection is { } connection ? $" · {connection.WebRoot.Scheme}" : " · not signed in")}",
             $"Address in use: {address}",

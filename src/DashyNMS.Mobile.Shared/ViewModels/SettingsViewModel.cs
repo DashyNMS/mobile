@@ -78,7 +78,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
         BackupAddressStatus? backup = null,
         DiagnosticsReport? report = null,
         SensorDefinitions? definitions = null,
-        IClipboardText? clipboard = null,
         WhatsNew? whatsNew = null,
         DiagnosticsConsent? consent = null,
         Unimus.UnimusSetup? unimus = null)
@@ -96,7 +95,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(SharingSummary));
             };
         }
-        _clipboard = clipboard;
         _wipe = wipe;
         _definitions = definitions;
         Backup = backup;
@@ -307,7 +305,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private Task OpenUnimusSettingsAsync() => _navigation.GoToAsync(Routes.UnimusSettings);
 
     private readonly SensorDefinitions? _definitions;
-    private readonly IClipboardText? _clipboard;
     private readonly WhatsNew? _whatsNew;
 
     /// <summary>About's "What's new in this version" (#159), with a taste of it.</summary>
@@ -319,46 +316,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private Task OpenWhatsNewAsync() => _navigation.GoToAsync(Routes.WhatsNew);
 
     /// <summary>
-    /// About's versions (#215): the app and build, Core, the sensor
-    /// definitions and their state, and the phone's system - never its name.
+    /// About's versions (#215): the app and build, Core, and the sensor
+    /// definitions and their state - no longer the phone's system (#269).
     /// </summary>
     public IReadOnlyList<ComponentVersion> Versions => ComponentVersions.Build(
         _diagnostics?.AppVersion ?? AppVersion,
-        _definitions?.Store,
-        _diagnostics?.Device?.Split(" · ").LastOrDefault());
-
-    /// <summary>"Copy version details", then "Copied" on the button itself for a moment.</summary>
-    [ObservableProperty]
-    private string _copyVersionsText = CopyVersionsLabel;
-
-    private const string CopyVersionsLabel = "Copy version details";
-
-    public bool CanCopyVersions => _clipboard is not null;
-
-    [RelayCommand]
-    private async Task CopyVersionDetailsAsync()
-    {
-        if (_clipboard is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await _clipboard.SetTextAsync(ComponentVersions.Format(Versions));
-            CopyVersionsText = "Copied";
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException or UnauthorizedAccessException)
-        {
-            CopyVersionsText = "Copy unavailable";
-        }
-
-        await Task.Delay(CopiedFor);
-        CopyVersionsText = CopyVersionsLabel;
-    }
-
-    /// <summary>How long the button says "Copied" - none in tests.</summary>
-    internal TimeSpan CopiedFor { get; set; } = TimeSpan.FromSeconds(2.5);
+        _definitions?.Store);
 
     /// <summary>"On · 2026.10.1", "On · not downloaded yet" or "Off" (#209).</summary>
     public string SensorDefinitionsSummary => _definitions?.Store is not { } store ? "Not available"

@@ -31,7 +31,7 @@ public sealed class SettingsAboutTests
     }
 
     internal static SettingsViewModel NewViewModel(
-        ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null, IClipboardText? clipboard = null,
+        ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null,
         WhatsNew? whatsNew = null, RecordingNavigation? navigation = null, DiagnosticsConsent? consent = null)
     {
         var settings = Fakes.Settings(appSettings ?? new AppSettings());
@@ -44,22 +44,18 @@ public sealed class SettingsAboutTests
             new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(),
             whatsNew: whatsNew,
             diagnostics: new DiagnosticsLog(null, TimeProvider.System, "2.0.0 (412)", "Apple iPhone16,1 · iOS 26.1"),
-            definitions: definitions, clipboard: clipboard, consent: consent)
-        {
-            CopiedFor = TimeSpan.Zero,
-        };
+            definitions: definitions, consent: consent);
     }
 
     [Fact]
-    public void About_lists_the_app_Core_sensor_definitions_and_platform_with_their_state()
+    public void About_lists_the_app_Core_and_sensor_definitions_with_their_state()
     {
         var vm = NewViewModel();
 
-        Assert.Equal(["App", "Core", "Sensor definitions", "Platform"], vm.Versions.Select(v => v.Name));
+        Assert.Equal(["App", "Core", "Sensor definitions"], vm.Versions.Select(v => v.Name));
         Assert.Equal(("2.0.0 (412)", "Installed"), (vm.Versions[0].Version, vm.Versions[0].State));
         Assert.NotEqual(ComponentVersions.Unavailable, vm.Versions[1].Version);
         Assert.Equal(("Unavailable", "Unavailable"), (vm.Versions[2].Version, vm.Versions[2].State));
-        Assert.Equal("iOS 26.1", vm.Versions[3].Version);
     }
 
     [Fact]
@@ -86,7 +82,7 @@ public sealed class SettingsAboutTests
     }
 
     [Fact]
-    public async Task Copied_version_details_hold_no_server_device_token_or_source_address()
+    public async Task The_versions_hold_no_server_device_token_or_source_address()
     {
         var folder = Path.Combine(Path.GetTempPath(), $"dashynms-{Guid.NewGuid():N}");
         Directory.CreateDirectory(folder);
@@ -103,25 +99,16 @@ public sealed class SettingsAboutTests
             session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "secret-token"));
             var appSettings = new AppSettings();
             appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1, DisplayName = "core-sw-01" });
-            var clipboard = Substitute.For<IClipboardText>();
-            string? copied = null;
-            clipboard.SetTextAsync(Arg.Do<string>(t => copied = t)).Returns(Task.CompletedTask);
-            var vm = NewViewModel(session, appSettings, definitions, clipboard);
+            var vm = NewViewModel(session, appSettings, definitions);
 
-            await vm.CopyVersionDetailsCommand.ExecuteAsync(null);
-
-            Assert.NotNull(copied);
-            Assert.Contains("App: 2.0.0 (412) (Installed)", copied);
-            Assert.Contains("Core: ", copied);
-            Assert.Contains("Sensor definitions: ", copied);
-            Assert.Contains("OS: ", copied);
-            Assert.Contains("Architecture: ", copied);
+            // What About shows, and the diagnostics header repeats.
+            var shown = string.Join("\n", vm.Versions.Select(c => $"{c.Name}: {c.Version} ({c.State})"));
+            Assert.Contains("App: 2.0.0 (412) (Installed)", shown);
             foreach (var secret in new[] { "nms.example.net", "secret-token", "core-sw-01", "example-owner", "private-definitions", folder })
             {
-                Assert.DoesNotContain(secret, copied, StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain(secret, shown, StringComparison.OrdinalIgnoreCase);
             }
 
-            Assert.Equal("Copy version details", vm.CopyVersionsText);
         }
         finally
         {

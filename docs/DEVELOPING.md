@@ -159,11 +159,11 @@ rather than rewritten.
   severity, recovery, acknowledgement, quiet hours), desktop's Health
   thresholds, lock screen widgets, Graylog and sensor definitions - then
   About and Diagnostics, then sign-out. About lists the app version and
-  build, Core, the sensor definitions and their state, and the platform, and
-  reopens What's new. What's new appears once after an update, never on a
-  fresh install, from the embedded `WhatsNew.md`.
-  Copy version details copies that list with the OS and architecture, never
-  the server, names, token or a path, and the diagnostics header reuses it.
+  build, Core, and the sensor definitions and their state, and reopens
+  What's new. What's new appears once after an update, never on a fresh
+  install, from the embedded `WhatsNew.md`. The diagnostics header reuses
+  that list beside the phone and its system, never the server, names, token
+  or a path.
 - **Sensor definitions** (Settings): the DashyNMS/sensor-definitions
   catalogue that names state sensors, on by default as desktop's. You can
   use your own public GitHub repository instead. Core's

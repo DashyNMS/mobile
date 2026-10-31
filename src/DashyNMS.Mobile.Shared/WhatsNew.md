@@ -14,7 +14,7 @@
 - **Notifications.** One per alert group, and a tap opens the alert or group it was for. {alerts}
 - **Slow sensor lists.** The last readings stay on screen, with their time, while LibreNMS answers. {health}
 - **Graylog.** Messages from a short host name link to their device. {graylog}
-- **About.** Lists the app, Core and sensor definition versions, ready to copy into a bug report. {settings}
+- **About.** Lists the app, Core and sensor definition versions. Share diagnostics carries them for a bug report. {settings}
 
 ## Fixed
 - **Devices with no ports.** Show the devices that see them, rather than an error. {neighbours}
