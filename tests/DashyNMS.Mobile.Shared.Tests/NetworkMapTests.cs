@@ -261,4 +261,22 @@ public sealed class NetworkMapViewModelTests
         layouts.Received(1).Clear(vm.ScopeKey);
         await dialogs.Received().ConfirmDestructiveAsync("Reset layout", Arg.Is<string>(m => m.Contains("\"All devices\"") && m.EndsWith(Confirmations.CannotBeUndone)), "Reset layout");
     }
+
+    [Fact]
+    public void Search_shows_when_asked_for_and_stays_while_it_has_text()
+    {
+        var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation);
+        Assert.False(vm.ShowsSearch);
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.True(vm.ShowsSearch);
+
+        vm.SearchText = "core";
+        vm.IsSearchOpen = false;
+        Assert.True(vm.ShowsSearch); // something in it: it stays
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.False(vm.ShowsSearch);
+        Assert.Equal(string.Empty, vm.SearchText);
+    }
 }

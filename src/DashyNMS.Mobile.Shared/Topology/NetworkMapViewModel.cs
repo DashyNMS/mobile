@@ -131,7 +131,31 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
     private bool _showUnlinkedDevices;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSearch))]
     private string _searchText = string.Empty;
+
+    /// <summary>Search opened from the header's icon (#296); the map has the room otherwise.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowsSearch))]
+    private bool _isSearchOpen;
+
+    /// <summary>The search box shows once asked for, and stays while it has something in it.</summary>
+    public bool ShowsSearch => IsSearchOpen || !string.IsNullOrEmpty(SearchText);
+
+    /// <summary>The header's search icon: opens the box, or closes it (and clears it) when it's open.</summary>
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void ToggleSearch()
+    {
+        if (ShowsSearch)
+        {
+            SearchText = string.Empty;
+            IsSearchOpen = false;
+        }
+        else
+        {
+            IsSearchOpen = true;
+        }
+    }
 
     [ObservableProperty]
     private NetworkNode? _selectedNode;
