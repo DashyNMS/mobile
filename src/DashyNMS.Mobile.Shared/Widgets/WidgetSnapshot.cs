@@ -183,12 +183,11 @@ public sealed record WidgetSnapshot
         DateTimeOffset? sensorsReadAt = null)
     {
         var open = alerts.Where(a => a.State is AlertState.Active or AlertState.Acknowledged).ToList();
-        var minimum = settings.Notifications.CountFrom;
-        var includeAcknowledged = settings.AlertTabBadgeIncludesAcknowledged;
-        var totals = AlertTotals.From(open, minimum, includeAcknowledged);
-        var qualifying = open.Where(a => AlertCounting.Counts(a, minimum, includeAcknowledged)).ToList();
-        var groups = AlertGrouping.ByDeviceAndRule(qualifying);
-        var fullGroups = AlertGrouping.ByDeviceAndRule(open).ToDictionary(g => g.Key);
+        // Every open alert (#256): Alert checks' "Count alerts from" and
+        // acknowledged switches choose what the app icon and Alerts tab's dot
+        // count, not what the widgets say is alerting.
+        var totals = AlertTotals.From(open);
+        var groups = AlertGrouping.ByDeviceAndRule(open);
         var utc = settings.ServerTimestampsAreUtc;
         var style = settings.DeviceNameStyle;
         var names = devices?.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name) ?? new Dictionary<int, string>();
@@ -200,7 +199,7 @@ public sealed record WidgetSnapshot
             .Take(MaxAlerts)
             .Select(g => new WidgetAlert(
                 g.Primary.Id, g.DeviceId, SeverityKey(g.Severity), g.DisplayRuleName, DeviceName(g.Primary),
-                g.State == AlertState.Acknowledged, UnixTime(g.LastChanged, utc), fullGroups[g.Key].FaultCount, g.Primary.Identity.ToString(), g.Key.ToString()))
+                g.State == AlertState.Acknowledged, UnixTime(g.LastChanged, utc), g.FaultCount, g.Primary.Identity.ToString(), g.Key.ToString()))
             .ToList();
 
         return new WidgetSnapshot
