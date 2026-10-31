@@ -431,7 +431,7 @@ internal static class TabBarButtons
             var target = shown ? frame : glass.Frame;
             var moved = target != glass.Frame || (glass.Alpha > 0) != shown;
             glass.Frame = target;
-            glass.Layer.CornerRadius = Math.Min(target.Width, target.Height) / 2;
+            glass.Layer.CornerRadius = (nfloat)(Math.Min(target.Width, target.Height) / 2);
             glass.Alpha = shown ? 1 : 0;
             return moved;
         }
