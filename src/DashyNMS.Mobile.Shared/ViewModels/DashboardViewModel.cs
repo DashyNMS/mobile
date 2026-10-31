@@ -299,8 +299,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         BackupAddressStatus? backup = null,
         CorePolling? polling = null,
         GraylogSetup? graylogSetup = null,
-        IGraylogApi? graylog = null)
+        IGraylogApi? graylog = null,
+        DesktopNMS.Core.Spotlights.SpotlightResolver? spotlights = null)
     {
+        _spotlights = spotlights ?? new DesktopNMS.Core.Spotlights.SpotlightResolver(client);
         _dialogs = dialogs;
         _polling = polling;
         _graylogSetup = graylogSetup;

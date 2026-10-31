@@ -102,6 +102,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Dashboard.SensorPickerViewModel>();
         services.AddTransient<Dashboard.GraphPickerViewModel>();
         services.AddTransient<Dashboard.TopCardSetUpViewModel>();
+
+        // Which devices a log card's Spotlight covers (#270): one for the app, so its group and location lists are cached between visits.
+        services.AddSingleton(sp => new DesktopNMS.Core.Spotlights.SpotlightResolver(sp.GetRequiredService<ILibreNmsClient>()));
+        services.AddTransient<Dashboard.SpotlightPickerViewModel>();
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Logs.LogEntryViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();

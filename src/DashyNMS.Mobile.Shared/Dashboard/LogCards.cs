@@ -1,11 +1,13 @@
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Spotlights;
 
 namespace DashyNMS.Mobile.Dashboard;
 
 /// <summary>
 /// What the Event log and Graylog cards (DashyNMS/desktop#202, #203) share
-/// with desktop's widgets: how many entries, and Graylog's time ranges. The
-/// options live on the widget, so either app shows the same entries.
+/// with desktop's widgets: how many entries, Graylog's time ranges and the
+/// Spotlight (desktop#552). The options live on the widget, so either app
+/// shows the same entries.
 /// </summary>
 public static class LogCards
 {
@@ -38,9 +40,17 @@ public static class LogCards
 
     public static string RangeLabel(DashboardWidget widget) => RangeChoices.First(r => r.Seconds == RangeOf(widget)).Label;
 
-    /// <summary>Nothing to show: desktop's words, saying whether the filters are why.</summary>
-    public static string EventsEmptyText(DashboardWidget widget) =>
-        string.IsNullOrWhiteSpace(widget.LogType) && string.IsNullOrWhiteSpace(widget.LogSearch) ? "No events yet." : "No events match.";
+    /// <summary>Nothing to show: desktop's words, saying whether the filters or the Spotlight (#270) are why.</summary>
+    public static string EventsEmptyText(DashboardWidget widget, SpotlightScope? scope = null) =>
+        scope is { IsWholeNetwork: false } ? $"No events for {scope.Summary}."
+        : string.IsNullOrWhiteSpace(widget.LogType) && string.IsNullOrWhiteSpace(widget.LogSearch) ? "No events yet." : "No events match.";
 
-    public static string GraylogEmptyText(DashboardWidget widget) => $"No messages in the last {RangeLabel(widget)}.";
+    public static string GraylogEmptyText(DashboardWidget widget, SpotlightScope? scope = null) =>
+        scope is { IsWholeNetwork: false }
+            ? $"No messages from {scope.Summary} in the last {RangeLabel(widget)}."
+            : $"No messages in the last {RangeLabel(widget)}.";
+
+    /// <summary>The card's subtitle: "Whole network", or what it's kept to (#270) - its saved names until worked out.</summary>
+    public static string SpotlightText(DashboardWidget widget, SpotlightScope? scope) =>
+        scope?.Summary ?? SpotlightScope.Describe(widget.Spotlight);
 }
