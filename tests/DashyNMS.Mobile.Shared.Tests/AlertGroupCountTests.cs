@@ -45,15 +45,30 @@ public sealed class AlertGroupCountTests
     }
 
     [Fact]
-    public void Fully_acknowledged_groups_follow_the_setting()
+    public void Fully_acknowledged_groups_follow_the_setting_on_the_badge_only()
     {
         var alerts = new[] { Fault(1, acknowledged: true), Fault(2, acknowledged: true) };
         var settings = new AppSettings { AlertTabBadgeIncludesAcknowledged = false };
         Assert.Equal(0, AlertBadge.Count(alerts, settings));
-        Assert.Empty(WidgetSnapshot.Build(alerts, DateTimeOffset.UtcNow, settings).Alerts);
+        var snapshot = WidgetSnapshot.Build(alerts, DateTimeOffset.UtcNow, settings);
+        Assert.True(Assert.Single(snapshot.Alerts).Acknowledged);
+        Assert.Equal(1, snapshot.Acknowledged);
         settings.AlertTabBadgeIncludesAcknowledged = true;
         Assert.Equal(1, AlertBadge.Count(alerts, settings));
-        Assert.Equal(1, WidgetSnapshot.Build(alerts, DateTimeOffset.UtcNow, settings).Acknowledged);
+    }
+
+    [Fact]
+    public void Widgets_show_every_open_alert_whatever_the_app_icon_counts()
+    {
+        var warning = Fault(1, severity: "warning");
+        warning.RuleId = 11;
+        var alerts = new[] { warning, Fault(2, acknowledged: true) };
+        var settings = new AppSettings { AlertTabBadgeIncludesAcknowledged = false };
+        settings.Notifications.CountFrom = AlertSeverity.Critical;
+        Assert.Equal(0, AlertBadge.Count(alerts, settings));
+        var snapshot = WidgetSnapshot.Build(alerts, DateTimeOffset.UtcNow, settings);
+        Assert.Equal((0, 1, 1), (snapshot.Critical, snapshot.Warning, snapshot.Acknowledged));
+        Assert.Equal(2, snapshot.Alerts.Count);
     }
 
     [Fact]
@@ -65,8 +80,6 @@ public sealed class AlertGroupCountTests
         Assert.Equal(0, AlertBadge.Count(alerts, settings));
         settings.AlertTabBadgeIncludesAcknowledged = true;
         Assert.Equal(1, AlertBadge.Count(alerts, settings));
-        var snapshot = WidgetSnapshot.Build(alerts, DateTimeOffset.UtcNow, settings);
-        Assert.Equal((0, 1, 2), (snapshot.Critical, snapshot.Acknowledged, snapshot.Faults));
         var dot = new AlertTabDot();
         dot.Update(alerts, settings);
         Assert.Equal(1, dot.CriticalCount);
@@ -91,6 +104,22 @@ public sealed class AlertGroupCountTests
         Assert.Equal(1, vm.CriticalAlerts);
         Assert.Equal(8, Assert.Single(vm.TopAlerts).Group!.FaultCount);
         Assert.Equal("1 alert · 8 faults · visible to this account", vm.AlertTotalsText);
+    }
+
+    [Fact]
+    public async Task Dashboard_counts_ignore_the_app_icons_count_settings()
+    {
+        var settings = Fakes.Settings();
+        settings.Current.Notifications.CountFrom = AlertSeverity.Critical;
+        settings.Current.AlertTabBadgeIncludesAcknowledged = false;
+        var warning = Fault(1, severity: "warning");
+        warning.RuleId = 11;
+        var acknowledged = Fault(2, acknowledged: true);
+        var client = Fakes.Client(alerts: [warning, acknowledged]);
+        var vm = new DashboardViewModel(client, settings, new RecordingNavigation(), new DeviceBookmarks(settings, TimeProvider.System));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal((0, 1, 1), (vm.CriticalAlerts, vm.WarningAlerts, vm.AcknowledgedAlerts));
+        Assert.Equal("2 alerts · 2 faults · visible to this account", vm.AlertTotalsText);
     }
 
     [Fact]

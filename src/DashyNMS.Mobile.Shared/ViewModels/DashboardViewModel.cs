@@ -506,7 +506,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         _devicesById = byId;
 
         var alerts = alertsTask.Result;
-        var totals = AlertTotals.From(alerts, _settings.Current.Notifications.CountFrom, _settings.Current.AlertTabBadgeIncludesAcknowledged);
+        // Every open alert (#256): Alert checks' "Count alerts from" and
+        // acknowledged switches are the app icon's, not these cards'. Needs
+        // attention narrows its list with its own chips, so its counts can't
+        // leave out what the list shows.
+        var totals = AlertTotals.From(alerts);
         CriticalAlerts = totals.Critical;
         WarningAlerts = totals.Warning;
         AcknowledgedAlerts = totals.Acknowledged;
