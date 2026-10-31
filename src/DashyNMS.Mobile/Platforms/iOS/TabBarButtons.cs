@@ -114,6 +114,13 @@ internal static class TabBarButtons
     }
 
     /// <summary>
+    /// The tab bar's pill in <paramref name="view"/>'s points, for lining
+    /// things up with it; null where it wasn't found or nothing's shown.
+    /// </summary>
+    public static CGRect? PillIn(UIView view) =>
+        _host is { Window: not null, Hidden: false } host && !_pill.IsEmpty ? host.ConvertRectToView(_pill, view) : null;
+
+    /// <summary>
     /// The tab bar's pill and the buttons, in <paramref name="view"/>'s points,
     /// for what keeps clear of them across its own row (<c>CoveredEdges.Beside</c>);
     /// nothing where the pill wasn't found.

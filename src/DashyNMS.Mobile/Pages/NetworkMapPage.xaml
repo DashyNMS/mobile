@@ -164,10 +164,14 @@
         <!-- The tapped device: a compact bar - name, state, Open - that opens to
              what it's connected to (tap one to go there), so it doesn't cover
              half the map (#110). -->
-        <!-- Capped lower on a short screen (see the page), so a selected device leaves most of the map (#296). -->
-        <!-- Over the foot of the map, always clear of the camera and tab bar (margin set from the page). -->
+        <!-- Compact while closed, capped lower on a short screen; open, as tall as
+             most of the map, so its connections can be read (see the page, #296). -->
+        <!-- Over the foot of the map, always clear of the camera and tab bar, its
+             foot level with a side tab bar's (margin set from the page). It
+             slides up as a device is tapped and back down as it's closed, and
+             grows and shrinks as its connections open and close (the page). -->
         <Border x:Name="SelectionCard" Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" SafeAreaEdges="None"
-                IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+                IsVisible="False" MaximumHeightRequest="300">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">
@@ -178,16 +182,17 @@
                     <!-- A neighbour isn't a LibreNMS device: nothing to open. -->
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Open" Command="{Binding OpenSelectedDeviceCommand}"
                             IsVisible="{Binding HasSelectedDevice}" />
-                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
+                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Clicked="OnCloseCard" />
                 </Grid>
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." VerticalOptions="Center" />
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="{Binding ConnectionsText}"
                             Command="{Binding ToggleSelectionExpandedCommand}" HeightRequest="32" MinimumHeightRequest="32" />
                 </Grid>
-                <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsSelectionExpanded}" Spacing="4">
+                <!-- The connections fill what's left of the card, scrolling. -->
+                <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="4" IsVisible="{Binding IsSelectionExpanded}">
                     <Label Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
-                <CollectionView x:Name="ConnectionsList" ItemsSource="{Binding SelectedConnections}" SelectionMode="None" MaximumHeightRequest="200">
+                <CollectionView x:Name="ConnectionsList" Grid.Row="1" ItemsSource="{Binding SelectedConnections}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NetworkConnection">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,7">
@@ -202,7 +207,7 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-                </VerticalStackLayout>
+                </Grid>
             </Grid>
         </Border>
 

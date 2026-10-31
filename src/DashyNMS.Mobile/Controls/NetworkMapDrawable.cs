@@ -31,6 +31,12 @@ public sealed class NetworkMapDrawable : IDrawable
 
     public PointF Offset { get; set; }
 
+    /// <summary>How far everything but the picked-out device and its links is dimmed, 0 to 1, as the page fades it.</summary>
+    public double Dim { get; set; }
+
+    /// <summary>The device the dim is around while it fades away after the selection has gone.</summary>
+    public NetworkNode? DimmedAround { get; set; }
+
     /// <summary>Node size tracks zoom, within limits - still findable zoomed out, not huge zoomed in. A little bigger than desktop's, for fingers.</summary>
     public float NodeRadius => (float)Math.Clamp(9 * Scale, 4.5, 14);
 
@@ -129,19 +135,25 @@ public sealed class NetworkMapDrawable : IDrawable
 
         var selected = _map.SelectedNode;
         var edges = _map.Edges;
-        var neighbours = selected is null
+
+        // What's picked out, and how far the rest is dimmed: the page fades
+        // it in and out (#328), so the device it's around outlasts the
+        // selection while the dim fades away.
+        var focus = selected ?? DimmedAround;
+        var dim = focus is null ? 0f : (float)Math.Clamp(Dim, 0, 1);
+        var neighbours = focus is null
             ? new HashSet<NetworkNode>()
-            : edges.Where(e => e.Touches(selected)).Select(e => e.Other(selected)).ToHashSet();
-        var dimOthers = selected is not null;
+            : edges.Where(e => e.Touches(focus)).Select(e => e.Other(focus)).ToHashSet();
+        var dimOthers = dim > 0.5f;
 
         canvas.StrokeLineCap = LineCap.Round;
         foreach (var edge in edges)
         {
-            var highlighted = selected is not null && edge.Touches(selected);
-            canvas.StrokeColor = highlighted ? accent : line;
-            canvas.StrokeSize = (float)((edge.LinkCount > 1 ? 2.5 : 1.2) * (highlighted ? 1.6 : 1));
+            var highlighted = focus is not null && edge.Touches(focus);
+            canvas.StrokeColor = highlighted ? Mix(line, accent, dim) : line;
+            canvas.StrokeSize = (float)((edge.LinkCount > 1 ? 2.5 : 1.2) * (highlighted ? 1 + (0.6 * dim) : 1));
             canvas.StrokeDashPattern = edge.IsToOfflineDevice ? [1f, 2.5f] : null;
-            canvas.Alpha = highlighted ? 1 : dimOthers ? 0.15f : 0.5f;
+            canvas.Alpha = highlighted ? 0.5f + (0.5f * dim) : 0.5f - (0.35f * dim);
             var a = Drawn(edge.A);
             var b = Drawn(edge.B);
             canvas.DrawLine(a, b);
@@ -152,8 +164,8 @@ public sealed class NetworkMapDrawable : IDrawable
         foreach (var node in nodes)
         {
             var centre = Drawn(node);
-            var faded = dimOthers && !ReferenceEquals(node, selected) && !neighbours.Contains(node);
-            canvas.Alpha = faded ? 0.3f : 1;
+            var faded = !ReferenceEquals(node, focus) && !neighbours.Contains(node);
+            canvas.Alpha = faded ? 1 - (0.7f * dim) : 1;
             canvas.FillColor = StateColour(node.State);
             canvas.StrokeColor = surface;
             canvas.StrokeSize = 1.5f;
@@ -193,7 +205,7 @@ public sealed class NetworkMapDrawable : IDrawable
         canvas.FontSize = 11;
         foreach (var node in nodes)
         {
-            var isFocus = ReferenceEquals(node, selected);
+            var isFocus = ReferenceEquals(node, focus);
             var isNeighbour = neighbours.Contains(node);
             if ((!labelAll && !isFocus && !isNeighbour) || (dimOthers && !isFocus && !isNeighbour))
             {
@@ -231,6 +243,13 @@ public sealed class NetworkMapDrawable : IDrawable
         DeviceState.Maintenance => Colour("MaintenanceColor", Colors.CornflowerBlue),
         _ => Color.FromArgb("#6E6E6E"),
     };
+
+    // Part way from one colour to another, for the highlight fading in.
+    private static Color Mix(Color from, Color to, float amount) => new(
+        from.Red + ((to.Red - from.Red) * amount),
+        from.Green + ((to.Green - from.Green) * amount),
+        from.Blue + ((to.Blue - from.Blue) * amount),
+        from.Alpha + ((to.Alpha - from.Alpha) * amount));
 
     private static Color Colour(string key, Color fallback) =>
         Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Color colour ? colour : fallback;
