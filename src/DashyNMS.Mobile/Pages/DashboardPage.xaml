@@ -11,9 +11,10 @@
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:DashboardViewModel"
     Shell.NavBarIsVisible="False"
-    SafeAreaEdges="Container"
+    ios:Page.UseSafeArea="True"
     Title="Dashboard">
 
     <!-- Each widget is one card, its title inside, as in the design
@@ -579,24 +580,18 @@
     </ContentPage.Resources>
 
 
-    <!-- On iOS the cards scroll on down under the tab bar to the foot of the
-         screen, as they would on a display that size. They never go under
-         the tab bar's glass at the side: the page places the top line, the
-         cards' column and the toast clear of it (see CoveredEdges), so
-         nothing here keeps clear of the safe area on its own. -->
-    <Grid RowDefinitions="Auto,*" SafeAreaEdges="None">
+    <Grid RowDefinitions="Auto,*">
 
         <!-- The logo, name and Customise stay put; the cards scroll beneath
              them, fading out as they pass under (Customise is the sliders
-             button - #30, #41; by the tab bar instead on iOS 26). -->
-        <Grid x:Name="TopLine" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="{StaticResource TopBarPadding}" MinimumHeightRequest="{StaticResource TopBarHeight}"
-              SafeAreaEdges="None">
+             button - #30, #41). -->
+        <Grid x:Name="TopLine" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="{StaticResource TopBarPadding}" MinimumHeightRequest="{StaticResource TopBarHeight}">
             <!-- The logo is the refresh indicator: its heartbeat sweeps while the
                  dashboard loads - every time, pulled or not - then rests. -->
             <controls:HeartbeatLogo WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
                                     IsBeating="{Binding IsBusy}" />
             <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
-            <Border x:Name="CustomiseButton" Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
+            <Border Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
                     SemanticProperties.Description="Edit dashboard" SemanticProperties.Hint="Order, remove and add cards">
                 <Border.GestureRecognizers>
@@ -611,14 +606,14 @@
             </Border>
         </Grid>
 
-        <Grid Grid.Row="1" SafeAreaEdges="None">
+        <Grid Grid.Row="1">
             <!-- Pull to refresh, with no spinner of its own (see the
                  code-behind): the logo's heartbeat shows the load. -->
-            <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
+            <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}">
                 <!-- No scroll bar: it sat beside the first cards, looking like one of
                      their own (#29). -->
-                <ScrollView x:Name="Scroller" VerticalScrollBarVisibility="Never" SafeAreaEdges="None">
-                    <VerticalStackLayout x:Name="CardColumn" Padding="16,8,16,16" Spacing="4" SafeAreaEdges="None">
+                <ScrollView x:Name="Scroller" VerticalScrollBarVisibility="Never">
+                    <VerticalStackLayout Padding="16,8,16,16" Spacing="4">
 
                         <!-- On the server's backup address (#114), as desktop's title-bar warning:
                              an amber pill, tapped for what happened and the way back. -->
@@ -740,7 +735,7 @@
             </RefreshView>
 
             <!-- What just changed, with Undo (#140). -->
-            <views:DashboardToastView x:Name="Toast" BindingContext="{Binding Toast}" ZIndex="2" SafeAreaEdges="None" />
+            <views:DashboardToastView BindingContext="{Binding Toast}" ZIndex="2" />
 
             <!-- The cards fade out as they scroll up under the header. -->
             <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
