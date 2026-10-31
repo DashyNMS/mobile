@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using CoreGraphics;
 using Microsoft.Maui.Controls.Handlers.Compatibility;
 using Microsoft.Maui.Controls.Platform.Compatibility;
 using UIKit;
@@ -48,6 +49,9 @@ internal sealed class AppShellRenderer : ShellRenderer
         private bool _tried;
         private bool _applying;
         private int _nextId;
+
+        /// <summary>The view controller Shell last selected, as Shell sees it.</summary>
+        private UIViewController? _shellSelected;
 
         public AppShellItemRenderer(IShellContext context) : base(context)
         {
@@ -108,6 +112,8 @@ internal sealed class AppShellRenderer : ShellRenderer
                     Fail(nameof(SelectedViewController), error);
                     base.SelectedViewController = value!;
                 }
+
+                _shellSelected = value;
             }
         }
 
@@ -121,6 +127,18 @@ internal sealed class AppShellRenderer : ShellRenderer
                 _tried = true;
                 BeginInvokeOnMainThread(Start);
             }
+        }
+
+        // Opening, folding or turning iPhone Duo with the tabs in use: if the
+        // app dies on it, the next launch leaves them alone.
+        public override void ViewWillTransitionToSize(CGSize toSize, IUIViewControllerTransitionCoordinator coordinator)
+        {
+            if (_active)
+            {
+                TabBarSearch.Risky();
+            }
+
+            base.ViewWillTransitionToSize(toSize, coordinator);
         }
 
         public override void ViewWillLayoutSubviews()
@@ -152,7 +170,9 @@ internal sealed class AppShellRenderer : ShellRenderer
         [SupportedOSPlatform("ios26.0")]
         private void Start()
         {
-            if (_active || base.ViewControllers is not { Length: > 0 } controllers || View?.Window is null)
+            // Not Sign in's, which shows no tab bar, nor one already closed.
+            if (_active || Handle == ObjCRuntime.NativeHandle.Zero || TabBar is not { Hidden: false }
+                || base.ViewControllers is not { Length: > 1 } controllers || View?.Window is null)
             {
                 return;
             }
@@ -179,6 +199,11 @@ internal sealed class AppShellRenderer : ShellRenderer
                     }
                 };
 
+                // UIKit selects a tapped tab itself, past Shell, which shows
+                // and hides pages - and pushes onto - the tab it last chose.
+                DidSelectTab += (_, _) => TellShell();
+
+                _shellSelected = base.SelectedViewController;
                 ApplyTabs();
                 TabBarSearch.Started();
             }
@@ -205,19 +230,28 @@ internal sealed class AppShellRenderer : ShellRenderer
             var allowed = shell?.Invoke(controller, viewController) ?? true;
             if (allowed)
             {
-                // Shell hears of a new tab through SelectedViewController;
-                // with tabs, UIKit may not set it, so once it's selected,
-                // pass it on.
-                BeginInvokeOnMainThread(() =>
-                {
-                    if (_active && SelectedTab is { } selected && ControllerFor(selected) is { } now && !ReferenceEquals(now, base.SelectedViewController))
-                    {
-                        SelectedViewController = now;
-                    }
-                });
+                BeginInvokeOnMainThread(TellShell);
             }
 
             return allowed;
+        }
+
+        /// <summary>
+        /// Tells Shell of the tab UIKit has selected. Shell hears of a new tab
+        /// only through SelectedViewController, which UIKit doesn't set when a
+        /// tab is tapped: Shell went on thinking the first tab was showing, so
+        /// it never showed the new one's page (the network map didn't load),
+        /// and More's Settings was pushed onto the hidden Dashboard tab.
+        /// Judged against what Shell last chose - UIKit's own selection has
+        /// already moved.
+        /// </summary>
+        private void TellShell()
+        {
+            if (_active && OperatingSystem.IsIOSVersionAtLeast(18) && SelectedTab is { } selected
+                && ControllerFor(selected) is { } now && !ReferenceEquals(now, _shellSelected))
+            {
+                Guard(nameof(TellShell), () => SelectedViewController = now);
+            }
         }
 
         [SupportedOSPlatform("ios18.0")]
@@ -274,7 +308,7 @@ internal sealed class AppShellRenderer : ShellRenderer
 
         private void Guard(string where, Action action)
         {
-            if (!_active || !OperatingSystem.IsIOSVersionAtLeast(18))
+            if (!_active || Handle == ObjCRuntime.NativeHandle.Zero || !OperatingSystem.IsIOSVersionAtLeast(18))
             {
                 return;
             }
