@@ -286,6 +286,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _wirelessClientsNote = string.Empty;
 
+    /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
+    public LastKnownData? Offline => _lastKnown;
+
+    private readonly LastKnownData? _lastKnown;
+
     public DashboardViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -300,9 +305,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         CorePolling? polling = null,
         GraylogSetup? graylogSetup = null,
         IGraylogApi? graylog = null,
-        DesktopNMS.Core.Spotlights.SpotlightResolver? spotlights = null)
+        DesktopNMS.Core.Spotlights.SpotlightResolver? spotlights = null,
+        LastKnownData? lastKnown = null)
     {
         _spotlights = spotlights ?? new DesktopNMS.Core.Spotlights.SpotlightResolver(client);
+        _lastKnown = lastKnown;
         _dialogs = dialogs;
         _polling = polling;
         _graylogSetup = graylogSetup;
@@ -483,8 +490,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     {
         ApplyLayout();
 
-        var devicesTask = _client.Devices.ListAsync();
-        var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
+        // The saved copy (#130) when the server can't be reached.
+        Func<Task<IReadOnlyList<Device>>> fetchDevices = () => _client.Devices.ListAsync();
+        Func<Task<IReadOnlyList<Alert>>> fetchAlerts = () => _client.Alerts.ListAsync(AlertQuery.Open);
+        var devicesTask = _lastKnown?.DevicesAsync(fetchDevices) ?? fetchDevices();
+        var alertsTask = _lastKnown?.AlertsAsync(fetchAlerts) ?? fetchAlerts();
         await Task.WhenAll(devicesTask, alertsTask);
 
         var devices = devicesTask.Result;
