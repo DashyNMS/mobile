@@ -107,6 +107,10 @@ public partial class NetworkMapPage : ContentPage
 			{
 				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
 			}
+			else if (e.PropertyName == nameof(NetworkMapViewModel.IsSelectionExpanded))
+			{
+				Dispatcher.Dispatch(SizeCard);
+			}
 		};
 
 		// Done with the keyboard - put away, or the map touched: done searching.
@@ -211,15 +215,37 @@ public partial class NetworkMapPage : ContentPage
 	}
 
 
-	/// <summary>Shorter than this, the device card leaves the map most of the screen (#296).</summary>
+	/// <summary>Shorter than this, the closed device card is capped lower, leaving the map most of the screen (#296).</summary>
 	private const double ShortScreen = 740;
+
+	/// <summary>How much of the map the device card takes with its connections open.</summary>
+	private const double OpenCardShare = 0.6;
 
 	protected override void OnSizeAllocated(double width, double height)
 	{
 		base.OnSizeAllocated(width, height);
-		var isShort = height > 0 && height < ShortScreen;
-		SelectionCard.MaximumHeightRequest = isShort ? 200 : 300;
-		ConnectionsList.MaximumHeightRequest = isShort ? 110 : 200;
+		SizeCard();
+	}
+
+	/// <summary>
+	/// Closed, the device card is as small as its name and state allow,
+	/// capped on a short screen. Open, it takes most of the map so its
+	/// connections can be read: capped as the closed card is, the list was
+	/// cut to a line or two on iPhone Duo's outer display.
+	/// </summary>
+	private void SizeCard()
+	{
+		var height = Height;
+		if (_viewModel.IsSelectionExpanded && MapArea.Height > 0)
+		{
+			SelectionCard.MaximumHeightRequest = double.PositiveInfinity;
+			SelectionCard.HeightRequest = Math.Max(240, MapArea.Height * OpenCardShare);
+		}
+		else
+		{
+			SelectionCard.HeightRequest = -1;
+			SelectionCard.MaximumHeightRequest = height > 0 && height < ShortScreen ? 200 : 300;
+		}
 	}
 
 	/// <summary>
@@ -239,9 +265,17 @@ public partial class NetworkMapPage : ContentPage
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
 
-		// The card has the foot when it shows, and keeps clear itself.
+		// The card has the foot when it shows, and keeps clear itself - its
+		// foot level with a side tab bar's, as one row of glass and card.
 		MapControls.Margin = new Thickness(edges.Left, 0, edges.Right, SelectionCard.IsVisible ? 0 : edges.Bottom);
-		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, 12 + edges.Bottom);
+		var cardFoot = 12 + edges.Bottom;
+#if IOS
+		if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
+		{
+			cardFoot = Math.Max(0, page.Bounds.Height - pill.Bottom);
+		}
+#endif
+		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, cardFoot);
 
 		// The search field goes as wide as its own row allows: past the
 		// column the tab bar sits at the foot of, short of the camera. Its
