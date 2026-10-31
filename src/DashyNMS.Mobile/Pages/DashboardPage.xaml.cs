@@ -98,7 +98,7 @@ public partial class DashboardPage : ContentPage
 			// A side tab bar: wherever UIKit's safe area ends, the cards stop a
 			// gap short of the pill's column, and the toast's foot is level with
 			// the pill's, as one row of glass and toast.
-			if (pill.GetMidX() > page.Bounds.Width / 2)
+			if (pill.Left + (pill.Width / 2) > page.Bounds.Width / 2)
 			{
 				right = Math.Max(right, page.Bounds.Width - pill.Left + GlassGap - 16);
 			}
