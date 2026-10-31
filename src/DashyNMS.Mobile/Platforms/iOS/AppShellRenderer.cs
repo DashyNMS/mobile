@@ -37,7 +37,7 @@ internal sealed class AppShellRenderer : ShellRenderer
         public override void ViewDidLayoutSubviews()
         {
             base.ViewDidLayoutSubviews();
-            TabBarSearch.Relayout(this);
+            TabBarButtons.Relayout(this);
         }
     }
 }

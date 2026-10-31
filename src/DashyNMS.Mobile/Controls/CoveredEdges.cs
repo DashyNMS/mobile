@@ -68,9 +68,9 @@ internal static class CoveredEdges
         var obstacles = occupied
             .Select(a => new CGRect(a.Left, a.Top, a.Right - a.Left, a.Bottom - a.Top))
             .ToList();
-        // The tab bar's pill and the search button where they were found;
+        // The tab bar's pill and its glass buttons where they were found;
         // else the whole bar, which may run the length of its edge.
-        var tabBarAreas = TabBarSearch.Occupied(pageView);
+        var tabBarAreas = TabBarButtons.Occupied(pageView);
         if (tabBarAreas.Count > 0)
         {
             obstacles.AddRange(tabBarAreas);

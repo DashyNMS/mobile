@@ -28,7 +28,7 @@
                 <HorizontalStackLayout Spacing="4">
                     <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
                                          IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="Find a device" />
-                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}"
+                    <controls:IconButton x:Name="RefreshButton" Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}"
                                          SemanticProperties.Description="Refresh the map" />
                 </HorizontalStackLayout>
             </controls:PageHeader.Actions>
@@ -113,14 +113,15 @@
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
                    HorizontalOptions="Start" VerticalOptions="End" />
 
-            <!-- Fit floats in the corner, out of the map's way. -->
-            <Button Text="Fit" FontSize="13" FontFamily="BodySemibold" Clicked="OnFitClicked"
-                    WidthRequest="48" HeightRequest="48" CornerRadius="24" Padding="0" Margin="12"
-                    HorizontalOptions="End" VerticalOptions="End"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}"
-                    TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                    BorderColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" BorderWidth="1"
-                    SemanticProperties.Description="Fit the whole map" />
+            <!-- Fit floats in the corner, out of the map's way - on iOS 26 and
+                 later it's in the glass by the tab bar instead (see the page). -->
+            <controls:IconButton x:Name="FitButton" Kind="Filled" Icon="{x:Static controls:Icons.Fit}"
+                                 WidthRequest="48" HeightRequest="48" Margin="12" HorizontalOptions="End" VerticalOptions="End"
+                                 SemanticProperties.Description="Fit the whole map">
+                <controls:IconButton.StrokeShape>
+                    <RoundRectangle CornerRadius="24" />
+                </controls:IconButton.StrokeShape>
+            </controls:IconButton>
 
             <!-- Centred over the map, the logo's heartbeat over what it's doing (#109). -->
             <controls:BusyCard Text="Loading the network…" IsVisible="{Binding IsFetching}" />
@@ -153,7 +154,7 @@
                           WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
                           Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
                     <Entry x:Name="Search" Grid.Column="1" Text="{Binding SearchText}" Placeholder="Find a device" VerticalOptions="Center"
-                           ReturnType="Search" ClearButtonVisibility="WhileEditing" Completed="OnSearchCompleted"
+                           ReturnType="Search" ClearButtonVisibility="Never" Completed="OnSearchCompleted"
                            IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" MinimumHeightRequest="40" />
                 </Grid>
                 </Border>

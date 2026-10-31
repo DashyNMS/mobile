@@ -106,14 +106,22 @@ public partial class NetworkMapPage : ContentPage
 			if (e.PropertyName == nameof(NetworkMapViewModel.IsSearchOpen))
 			{
 				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
-#if IOS
-				TabBarSearch.SetOpen(this, _viewModel.IsSearchOpen);
-#endif
 			}
 		};
 
 		// Done with the keyboard - put away, or the map touched: done searching.
 		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
+
+		FitButton.Command = new Command(Fit);
+#if IOS
+		// Search, Refresh and Fit are Liquid Glass by the tab bar instead.
+		if (TabBarButtons.IsAvailable)
+		{
+			SearchButton.IsVisible = false;
+			RefreshButton.IsVisible = false;
+			FitButton.IsVisible = false;
+		}
+#endif
 	}
 
 	/// <summary>How long the search box takes to slide in or out.</summary>
@@ -210,7 +218,7 @@ public partial class NetworkMapPage : ContentPage
 		var edges = CoveredEdges.Of(this);
 #if IOS
 		// Above a bottom tab bar, the search button floats over its right end.
-		edges = new Thickness(edges.Left, edges.Top, edges.Right, edges.Bottom + TabBarSearch.CoveredBottom);
+		edges = new Thickness(edges.Left, edges.Top, edges.Right, edges.Bottom + TabBarButtons.CoveredBottom);
 #endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
@@ -235,13 +243,21 @@ public partial class NetworkMapPage : ContentPage
 	}
 
 #if IOS
-	// Search is the glass button by the tab bar while it's there, and the
-	// header's icon otherwise: before iOS 26, or with nowhere to place it.
-	private void OnSearchButtonMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(() =>
+	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+
+	// The glass search button: opens search, or puts the cursor back in the
+	// box if it's open - closing is tapping off it or pressing Search.
+	private void OnGlassSearch()
 	{
-		SearchButton.IsVisible = !(TabBarSearch.IsAvailable && TabBarSearch.IsPlaced);
-		PlaceControls();
-	});
+		if (_viewModel.IsSearchOpen)
+		{
+			Search.Focus();
+		}
+		else
+		{
+			_viewModel.IsSearchOpen = true;
+		}
+	}
 #endif
 
 	/// <summary>
@@ -298,9 +314,12 @@ public partial class NetworkMapPage : ContentPage
 		base.OnAppearing();
 		Header.Apply(this);
 #if IOS
-		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null), _viewModel.IsSearchOpen, "Find a device");
-		TabBarSearch.Moved += OnSearchButtonMoved;
-		OnSearchButtonMoved(null, EventArgs.Empty);
+		TabBarButtons.Show(this, OnGlassSearch, "Find a device",
+		[
+			new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)),
+			new GlassAction("viewfinder", "Fit the whole map", Fit),
+		]);
+		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
 
@@ -318,8 +337,8 @@ public partial class NetworkMapPage : ContentPage
 		base.OnDisappearing();
 		KeyboardDismiss.Close(Search);
 #if IOS
-		TabBarSearch.Moved -= OnSearchButtonMoved;
-		TabBarSearch.Hide(this);
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
+		TabBarButtons.Hide(this);
 #endif
 		SaveView();
 		_jiggleTimer?.Stop();
@@ -385,7 +404,7 @@ public partial class NetworkMapPage : ContentPage
 	// The keyboard's search key: the map has found the device, so it goes.
 	private void OnSearchCompleted(object? sender, EventArgs e) => _viewModel.DismissSearch();
 
-	private void OnFitClicked(object? sender, EventArgs e)
+	private void Fit()
 	{
 		_drawable.FitTo(VisibleArea());
 		MapCanvas.Invalidate();

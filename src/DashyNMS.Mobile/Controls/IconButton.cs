@@ -21,6 +21,9 @@ public static class Icons
     public const string Telnet = "M3 5H21V19H3Z M7 10 10 12 7 14 M12 15H17";
 
     public const string Search = "M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20";
+
+    /// <summary>A viewfinder's corners: fit the whole thing in view.</summary>
+    public const string Fit = "M4 9V4H9 M15 4H20V9 M20 15V20H15 M9 20H4V15";
 }
 
 /// <summary>How an <see cref="IconButton"/> draws.</summary>

@@ -40,7 +40,7 @@ internal static class TabDots
 
     private static UITabBar? FindTabBar() => FindTabs()?.TabBar;
 
-    /// <summary>Shell's own tab bar controller, in the key window; also where <see cref="TabBarSearch"/> puts its button.</summary>
+    /// <summary>Shell's own tab bar controller, in the key window; also where <see cref="TabBarButtons"/> puts its buttons.</summary>
     internal static UITabBarController? FindTabs()
     {
         var root = UIApplication.SharedApplication.ConnectedScenes
