@@ -499,6 +499,42 @@ What's left is the less everyday:
 3. **Store builds**: Play internal testing (TestFlight is in place, see
    above).
 
+## Intelligence on the phone
+
+Where Batch 7 (Intelligence, #236) stands, checked for #297 on 2026-10-31
+against Core 2.0.0-ci.49 and DashyNMS/mcp at `61161c4`.
+
+**Core has the engine.** The pinned package has everything except the network
+tools: the ChatGPT sign-in (`ChatGptSignIn`, `IdTokenValidator`), the
+Responses client, the conversation loop and its instructions
+(`IntelligenceConversation`, `IntelligenceInstructions`), saved chats
+(`FileIntelligenceChatStore`, `SavedIntelligenceChat`), consent, the detail
+dial, and the allowlist of 22 tool names (`IntelligenceToolAllowlist`). So
+#222 to #234 can be built in Mobile.Shared on Core alone, with desktop's view
+models as the spec.
+
+**The network tools can't be used yet.** A phone can't start desktop's
+`dashynms-mcp` process, so the tools have to run in the app, from
+DashyNMS/mcp's `DashyNMS.Agent`. Against #221's four upstream needs:
+
+| Need | Where it stands |
+| --- | --- |
+| A published package | Not yet: the mcp repository's CI doesn't pack or push it, and there's no `DashyNMS.Agent` on GitHub Packages |
+| The host's own clients | Not yet: `AddDashyNmsAgent` registers its own `LibreNmsClient`, `UnimusApi` and `GraylogApi` with `AddSingleton`, not `TryAdd`, so certificate trust and the backup address wouldn't follow the app's |
+| Plain options | Done: `AgentOptions` is plain; only the `DashyNMS.Mcp` host reads environment variables |
+| A tool table safe for AOT | Not yet: the 39 tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
+
+Until those land, #221's on-device check (a Release build on an iPhone and
+an Android phone, the four tools' results, size, first-question cost and
+memory) can't be run.
+
+**Recommendation.** Move Batch 7 to 2.1.0 rather than hold 2.0.0 for it.
+First make the three remaining changes in DashyNMS/mcp (publish the package,
+`TryAdd` the clients or take them from the host, and give the tools a
+generated or hand-written table), then run #221 on devices. The fallback, if
+the package still can't run in-process, is re-implementing the commonest
+tools over Core's clients in Mobile.Shared, which is the most work.
+
 ## Upstream notes
 
 Things found while porting that would be better fixed in the desktop repo.
