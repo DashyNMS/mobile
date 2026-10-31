@@ -735,7 +735,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
             .Select(d => d.LocationName())
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .GroupBy(name => name!, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, NaturalOrder.Instance)
             .Select(g => new FacetOption(g.Key, $"{g.Key} ({g.Count()})"))
             .ToList();
 
@@ -769,7 +769,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         var counted = _groups.Values
             .SelectMany(names => names)
             .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(g => g.Key, NaturalOrder.Instance)
             .Select(g => new FacetOption(g.Key, $"{g.Key} ({g.Count()})"))
             .ToList();
 
