@@ -34,9 +34,7 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <!-- Search when asked for, from the header's icon: otherwise the map has the room (#296). -->
         <VerticalStackLayout x:Name="SearchPanel" Grid.Row="1" Padding="16,0,16,0" SafeAreaEdges="None">
-            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" IsVisible="{Binding ShowsSearch}" />
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         </VerticalStackLayout>
 
@@ -112,6 +110,21 @@
              the camera and tab bar leave (set from the page) - also what Fit
              fits to. Touches between them go through to the map. -->
         <Grid x:Name="MapControls" Grid.Row="3" SafeAreaEdges="None" InputTransparent="True" CascadeInputTransparent="False">
+            <!-- Search when asked for (the glass button by the tab bar, or the
+                 header's icon where there's no glass): a field floating over
+                 the top of the map, where the keyboard can't cover it, rather
+                 than a system bar wedged under the title (#296). -->
+            <Border x:Name="SearchField" Margin="12,8" Padding="4,0" VerticalOptions="Start" HeightRequest="46"
+                    IsVisible="{Binding ShowsSearch}" StrokeThickness="1"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="23" />
+                </Border.StrokeShape>
+                <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Find a device" VerticalOptions="Center"
+                           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}" />
+            </Border>
+
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
                    HorizontalOptions="Start" VerticalOptions="End" />
 

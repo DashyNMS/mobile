@@ -96,6 +96,12 @@ public static class KeyboardDismiss
         Hide(searchBar);
     }
 
+    /// <summary>
+    /// Closes <paramref name="searchBar"/>'s keyboard - for a page that hides
+    /// its box: hiding a focused box leaves its keyboard up on iOS.
+    /// </summary>
+    public static void Close(SearchBar searchBar) => Hide(searchBar);
+
     private static void Hide(SearchBar searchBar)
     {
         _focused = null;
