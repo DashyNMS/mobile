@@ -360,7 +360,14 @@ public sealed record WidgetSnapshot
             ? new DateTimeOffset(DateTime.SpecifyKind(local, DateTimeKind.Local)).ToUnixTimeSeconds()
             : 0;
 
-    public string ToJson() => JsonSerializer.Serialize(this);
+    /// <summary>
+    /// Through <see cref="WidgetSnapshotJson"/>, never reflection: nothing in
+    /// the app reads or sets <see cref="Version"/>, so a trimmed iOS build
+    /// dropped it and saved snapshots with no version, which the widget turns
+    /// away as too old (#286). The generated code names every property, so
+    /// the trimmer keeps them all.
+    /// </summary>
+    public string ToJson() => JsonSerializer.Serialize(this, WidgetSnapshotJson.Default.WidgetSnapshot);
 
     /// <summary>The saved snapshot, or <see cref="SignedOut"/> when there's none or it can't be read.</summary>
     public static WidgetSnapshot FromJson(string? json)
@@ -377,7 +384,7 @@ public sealed record WidgetSnapshot
                 || !document.RootElement.TryGetProperty("version", out var version)
                 || version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != CurrentVersion)
                 return SignedOut;
-            return JsonSerializer.Deserialize<WidgetSnapshot>(json) ?? SignedOut;
+            return JsonSerializer.Deserialize(json, WidgetSnapshotJson.Default.WidgetSnapshot) ?? SignedOut;
         }
         catch (Exception ex) when (ex is JsonException or NotSupportedException or InvalidOperationException or ArgumentException or FormatException)
         {
@@ -396,6 +403,12 @@ public sealed record WidgetSnapshot
         AlertSeverity.Warning => "warning",
         _ => "ok",
     };
+}
+
+/// <summary>The snapshot's JSON, generated at build time so trimming can't drop a field (#286).</summary>
+[JsonSerializable(typeof(WidgetSnapshot))]
+internal sealed partial class WidgetSnapshotJson : JsonSerializerContext
+{
 }
 
 /// <summary>
