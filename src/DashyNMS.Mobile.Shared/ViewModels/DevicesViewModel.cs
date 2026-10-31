@@ -100,6 +100,11 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 
     private readonly CorePolling? _polling;
 
+    /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
+    public LastKnownData? Offline => _lastKnown;
+
+    private readonly LastKnownData? _lastKnown;
+
     public DevicesViewModel(
         ILibreNmsClient client,
         INavigationService navigation,
@@ -108,8 +113,9 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
         TimeProvider time,
         MaintenanceScan? maintenance = null,
         IAppPreferences? preferences = null,
-        IDialogService? dialogs = null, CorePolling? polling = null)
+        IDialogService? dialogs = null, CorePolling? polling = null, LastKnownData? lastKnown = null)
     {
+        _lastKnown = lastKnown;
         _polling = polling;
         _dialogs = dialogs;
         _client = client;
@@ -419,7 +425,8 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     private Task RefreshAsync() => RunAsync(async () =>
     {
         OnPropertyChanged(nameof(MayScheduleMaintenance));
-        var devices = await (_polling?.DevicesAsync() ?? _client.Devices.ListAsync());
+        Func<Task<IReadOnlyList<Device>>> fetch = () => _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
+        var devices = await (_lastKnown?.DevicesAsync(fetch) ?? fetch());
         var style = _settings.Current.DeviceNameStyle;
         var pinned = _bookmarks.PinnedIds;
 

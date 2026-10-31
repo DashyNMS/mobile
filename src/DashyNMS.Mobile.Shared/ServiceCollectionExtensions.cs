@@ -41,6 +41,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<DesktopNMS.Core.SignIn.ICertificateProbe, DesktopNMS.Core.SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
         services.AddSingleton<ISessionService, SessionService>();
+
+        // The last good lists, for opening with the server out of reach (#130).
+        services.AddSingleton(sp => new LastKnownData(AppPaths.DataDirectory, sp.GetRequiredService<ISettingsStore>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LastKnownData>>()));
         services.AddSingleton<CorePolling>();
         services.AddSingleton<DesktopNMS.Core.Services.IAppActivity>(sp => sp.GetRequiredService<CorePolling>());
 

@@ -92,6 +92,11 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     private readonly CorePolling? _polling;
 
+    /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
+    public LastKnownData? Offline => _lastKnown;
+
+    private readonly LastKnownData? _lastKnown;
+
     public AlertsViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -102,8 +107,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         IAppBadge badge,
         TimeProvider time,
         AlertTabDot? tabDot = null,
-        AlertCountThreshold? countThreshold = null, CorePolling? polling = null)
+        AlertCountThreshold? countThreshold = null, CorePolling? polling = null, LastKnownData? lastKnown = null)
     {
+        _lastKnown = lastKnown;
         _polling = polling;
         _countThreshold = countThreshold;
         _client = client;
@@ -290,7 +296,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        var alertsTask = _polling?.AlertsAsync() ?? _client.Alerts.ListAsync(AlertQuery.Open);
+        Func<Task<IReadOnlyList<Alert>>> fetch = () => _polling?.AlertsAsync() ?? _client.Alerts.ListAsync(AlertQuery.Open);
+        var alertsTask = _lastKnown?.AlertsAsync(fetch) ?? fetch();
         var devicesTask = DevicesByIdAsync();
         await Task.WhenAll(alertsTask, devicesTask);
 
@@ -709,7 +716,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     {
         try
         {
-            return (await (_polling?.DevicesAsync() ?? _client.Devices.ListAsync())).ToDictionary(d => d.DeviceId);
+            Func<Task<IReadOnlyList<Device>>> fetch = () => _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
+            return (await (_lastKnown?.DevicesAsync(fetch) ?? fetch())).ToDictionary(d => d.DeviceId);
         }
         catch (LibreNmsApiException)
         {

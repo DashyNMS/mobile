@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.Services;
+using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Services;
@@ -70,8 +71,14 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 
     private readonly CorePolling? _polling;
 
-    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IAppPreferences? preferences = null, CorePolling? polling = null)
+    /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
+    public LastKnownData? Offline => _lastKnown;
+
+    private readonly LastKnownData? _lastKnown;
+
+    public HealthViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IAppPreferences? preferences = null, CorePolling? polling = null, LastKnownData? lastKnown = null)
     {
+        _lastKnown = lastKnown;
         _polling = polling;
         _client = client;
         _settings = settings;
@@ -225,26 +232,34 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 
         // LibreNMS lists every sensor in one call; the device list gives them names.
         _definitionsVersion = _polling?.DefinitionsVersion ?? 0;
-        var sensorsTask = _polling?.SensorsAsync() ?? ListSensorsAsync();
-        var devicesTask = _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
-        await Task.WhenAll(sensorsTask, devicesTask);
-
-        var result = sensorsTask.Result;
-        var problem = SensorRefreshStatus.Describe(result);
-        if (SensorRefreshStatus.HasNothingToShow(result))
+        // Nothing to show is a failure here, so the saved copy (#130) can stand in for it.
+        string? problem = null;
+        async Task<IReadOnlyList<Sensor>> FetchSensorsAsync()
         {
-            throw new InvalidOperationException(problem);
+            var result = await (_polling?.SensorsAsync() ?? ListSensorsAsync());
+            problem = SensorRefreshStatus.Describe(result);
+            if (SensorRefreshStatus.HasNothingToShow(result))
+            {
+                throw new InvalidOperationException(problem);
+            }
+
+            return result.Sensors;
         }
 
+        Func<Task<IReadOnlyList<Device>>> fetchDevices = () => _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
+        var sensorsTask = _lastKnown?.SensorsAsync(FetchSensorsAsync) ?? FetchSensorsAsync();
+        var devicesTask = _lastKnown?.DevicesAsync(fetchDevices) ?? fetchDevices();
+        await Task.WhenAll(sensorsTask, devicesTask);
+
         _names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
-        _sensors = result.Sensors;
+        _sensors = sensorsTask.Result;
 
         _loaded = true;
         _loadedAt = DateTimeOffset.UtcNow;
         Rebuild();
 
-        // The kept readings stay on screen, saying how old they are.
-        ErrorMessage = problem;
+        // The kept readings stay on screen, saying how old they are - unless the saved copy says it instead.
+        ErrorMessage = _lastKnown?.IsShowingSaved == true ? null : problem;
     });
 
     private async Task<SensorPollResult> ListSensorsAsync() => new()

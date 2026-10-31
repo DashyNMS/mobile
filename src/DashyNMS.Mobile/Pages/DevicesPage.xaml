@@ -17,7 +17,7 @@
 
     <Grid RowDefinitions="Auto,*" Padding="16,0,16,0">
 
-    <controls:PageHeader x:Name="Header" Title="Devices" />
+    <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Devices" />
 
     <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
 

@@ -633,6 +633,17 @@
                             </HorizontalStackLayout>
                         </Border>
 
+                        <!-- The server out of reach (#130): what's shown is the saved copy, and how old it is. -->
+                        <Border HorizontalOptions="Start" StrokeShape="RoundRectangle 15" StrokeThickness="1" Padding="12,6" Margin="0,0,0,6"
+                                BackgroundColor="{StaticResource InactiveTint}" Stroke="{StaticResource InactiveStroke}"
+                                IsVisible="{Binding Offline.IsShowingSaved, FallbackValue=False}">
+                            <HorizontalStackLayout Spacing="8">
+                                <Ellipse WidthRequest="8" HeightRequest="8" Fill="{StaticResource InactiveColor}" VerticalOptions="Center" />
+                                <Label Text="{Binding Offline.OfflineText}" FontSize="13" FontFamily="BodySemibold" VerticalOptions="Center"
+                                       TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
+                            </HorizontalStackLayout>
+                        </Border>
+
                         <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
                         <!-- An empty dashboard (#140): desktop's welcome card - the starter

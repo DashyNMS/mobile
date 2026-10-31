@@ -26,7 +26,24 @@ public sealed class PageHeader : Grid
         nameof(Title), typeof(string), typeof(PageHeader), string.Empty,
         propertyChanged: (view, _, value) => ((PageHeader)view)._title.Text = value as string);
 
+    /// <summary>A line under the title - "Offline: last updated 07:42" (#130) - hidden when there's nothing to say.</summary>
+    public static readonly BindableProperty NoteProperty = BindableProperty.Create(
+        nameof(Note), typeof(string), typeof(PageHeader), null,
+        propertyChanged: (view, _, value) =>
+        {
+            var header = (PageHeader)view;
+            header._note.Text = value as string;
+            header._note.IsVisible = !string.IsNullOrEmpty(value as string);
+        });
+
     private readonly Label _title = new() { Style = (Style)Application.Current!.Resources["PageTitle"] };
+
+    private readonly Label _note = new()
+    {
+        Style = (Style)Application.Current!.Resources["Faint"],
+        IsVisible = false,
+        Margin = new Thickness(0, -2, 0, 4),
+    };
 
     private readonly IconButton _back = new()
     {
@@ -43,7 +60,7 @@ public sealed class PageHeader : Grid
     public PageHeader()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
-        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto)];
+        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
         Padding = new Thickness(0, TopBar.Offset, 0, 4);
         TopBar.Fit(this);
 
@@ -51,6 +68,9 @@ public sealed class PageHeader : Grid
         _back.VerticalOptions = LayoutOptions.Center;
         Add(_back);
         Add(_title);
+        SetRow((IView)_note, 2);
+        SetColumnSpan((IView)_note, 2);
+        Add(_note);
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level1);
     }
 
@@ -58,6 +78,12 @@ public sealed class PageHeader : Grid
     {
         get => (string)GetValue(TitleProperty);
         set => SetValue(TitleProperty, value);
+    }
+
+    public string? Note
+    {
+        get => (string?)GetValue(NoteProperty);
+        set => SetValue(NoteProperty, value);
     }
 
     /// <summary>
@@ -85,7 +111,7 @@ public sealed class PageHeader : Grid
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back);
+        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note);
         set
         {
             if (Actions is { } old)

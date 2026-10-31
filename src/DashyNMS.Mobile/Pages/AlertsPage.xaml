@@ -17,7 +17,7 @@
 
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,0,16,0">
 
-        <controls:PageHeader x:Name="Header" Title="Alerts">
+        <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Alerts">
             <controls:PageHeader.Actions>
                 <HorizontalStackLayout Spacing="4">
                     <Button Style="{StaticResource LinkButton}" Text="Logs" Command="{Binding OpenLogsCommand}" />

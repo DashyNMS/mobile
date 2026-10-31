@@ -1,6 +1,7 @@
 # 2.0.0
 
 ## New
+- **Offline.** With no signal or the VPN down, the app opens to what it last saw, marked "Offline: last updated 07:42", and catches up as soon as the server answers. {dashboard}
 - **Sign in from desktop.** Scan the QR code DashyNMS shows on your computer with the camera. The app asks first, then signs in as that computer does. {settings}
 - **Alert groups.** On LibreNMS 26.10, faults are grouped by device and rule, with each fault's details and history. {alerts}
 - **Event log and Graylog cards.** The newest entries on the dashboard; tap one to open it. {dashboard}

@@ -61,12 +61,16 @@ public sealed class SessionService : ISessionService
     private readonly ITokenProtector _tokens;
     private readonly ILogger<SessionService> _logger;
 
+    private readonly DashyNMS.Mobile.Services.LastKnownData? _lastKnown;
+
     public SessionService(
         ILibreNmsClient client,
         ISettingsStore settings,
         ITokenProtector tokens,
-        ILogger<SessionService> logger)
+        ILogger<SessionService> logger,
+        DashyNMS.Mobile.Services.LastKnownData? lastKnown = null)
     {
+        _lastKnown = lastKnown;
         _client = client;
         _settings = settings;
         _tokens = tokens;
@@ -247,6 +251,16 @@ public sealed class SessionService : ISessionService
             {
                 _tokens.Clear();
             }
+            else if (result.UntrustedCertificate is null && _lastKnown?.HasSaved() == true)
+            {
+                // Out of reach - no signal, the VPN down - with a copy saved (#130):
+                // open on it rather than the sign-in form. Everything is fetched
+                // again, and used, as soon as the server answers.
+                _client.Connect(connection, false);
+                _logger.LogInformation("Opened offline on the saved lists for {Host}", webRoot);
+                StateChanged?.Invoke(this, EventArgs.Empty);
+                return ConnectionTestResult.Success(new SystemInfo());
+            }
         }
 
         return result;
@@ -256,6 +270,9 @@ public sealed class SessionService : ISessionService
     {
         _client.Disconnect();
         ServerInfo = null;
+
+        // Nothing of this server's left on the phone (#130).
+        _lastKnown?.Clear();
 
         if (forgetToken)
         {
