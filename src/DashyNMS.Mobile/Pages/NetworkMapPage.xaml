@@ -85,8 +85,9 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <!-- Out of the header, where it crowded the title on a narrow phone (#296). -->
-                <Button Style="{StaticResource Chip}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
+                <!-- Out of the header, where it crowded the title on a narrow phone (#296);
+                     on iOS 26 and later it's in the glass by the tab bar instead (see the page). -->
+                <Button x:Name="ResetLayoutChip" Style="{StaticResource Chip}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
                         SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
             </HorizontalStackLayout>
         </ScrollView>

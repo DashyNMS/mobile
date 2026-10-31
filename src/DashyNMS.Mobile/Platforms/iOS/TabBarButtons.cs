@@ -16,8 +16,8 @@ internal sealed record GlassAction(string Symbol, string Label, Action Tapped);
 /// <remarks>
 /// <para>Search is a button of its own beside the tab bar: above it, in its
 /// column, with a vertical tab bar (iPhone Duo), and beside or above its right
-/// end with a bottom one. The page's actions (the network map's Refresh and
-/// Fit) are a second glass group: at the top of a vertical tab bar's column,
+/// end with a bottom one. The page's actions (the network map's Refresh,
+/// Fit and Reset layout) are a second glass group: at the top of a vertical tab bar's column,
 /// below the status bar and camera; with a bottom tab bar, in the row above
 /// it to the left of search. The page keeps its own controls clear of them
 /// (<see cref="CoveredBottom"/>).</para>
