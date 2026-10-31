@@ -27,6 +27,8 @@ internal sealed record GlassAction(string Symbol, string Label, Action Tapped);
 /// controller instead, placed from the tab bar's glass pill, and placed again
 /// each time the controller lays out (<see cref="Relayout"/>), so they follow
 /// iPhone Duo opening, folding and turning.</para>
+/// <para>A page with nothing to search (the Dashboard) passes no search,
+/// and shows its actions alone: no magnifier that does nothing.</para>
 /// <para>One set for the app; a page takes it over as it appears and gives it
 /// up as it goes, so whichever page shows owns the taps.</para>
 /// </remarks>
@@ -53,14 +55,15 @@ internal static class TabBarButtons
     /// a bottom tab bar, when they sit there; nothing with a vertical one.
     /// </summary>
     public static double CoveredBottom => _host is { Hidden: false, AboveBottomBar: true } host
-        ? host.Search.Frame.Height + Gap
+        ? host.RowHeight + Gap
         : 0;
 
     /// <summary>
     /// Shows search (<paramref name="search"/>, said as <paramref name="searchLabel"/>)
-    /// and <paramref name="actions"/> for <paramref name="owner"/>.
+    /// and <paramref name="actions"/> for <paramref name="owner"/>; no search
+    /// button where <paramref name="search"/> is null.
     /// </summary>
-    public static void Show(object owner, Action search, string searchLabel, IReadOnlyList<GlassAction> actions)
+    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions)
     {
         if (!IsAvailable)
         {
@@ -180,16 +183,18 @@ internal static class TabBarButtons
         {
             // Search above the pill, in its column, as wide as it is; the
             // actions at the column's top, below whatever the system has there,
-            // or straight above search if that leaves them no room.
+            // or straight above search (or the pill) if that leaves them no room.
             var size = bar.Width;
             search = new CGRect(bar.GetMidX() - size / 2, bar.Top - Gap - size, size, size);
+            var below = host.HasSearch ? search.Top : bar.Top;
             var top = ColumnTop(host, bar) + Gap;
             actions = new CGRect(search.Left, top, size, size * count);
-            if (actions.Bottom + Gap > search.Top)
+            if (actions.Bottom + Gap > below)
             {
-                actions = new CGRect(search.Left, search.Top - Gap - (size * count), size, size * count);
+                actions = new CGRect(search.Left, below - Gap - (size * count), size, size * count);
             }
 
+            host.RowHeight = size;
             host.Vertical = true;
         }
         else
@@ -197,21 +202,42 @@ internal static class TabBarButtons
             // Search at the pill's right, a gap apart, as tall as it is - or
             // above its right end if the screen has no room there. The actions
             // in the row above, to search's left (or at the pill's right end).
+            // With no search, the actions take its place: beside the pill if
+            // they fit, else above its right end.
             var size = bar.Height;
-            search = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
             var row = bar.Top - Gap - size;
-            if (search.Right > host.Bounds.Width - host.SafeAreaInsets.Right)
+            var room = host.Bounds.Width - host.SafeAreaInsets.Right;
+            if (!host.HasSearch)
             {
-                search = new CGRect(bar.Right - size, row, size, size);
-                actions = new CGRect(search.Left - Gap - (size * count), row, size * count, size);
+                search = CGRect.Empty;
+                actions = bar.Right + Gap + (size * count) <= room
+                    ? new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size * count, size)
+                    : new CGRect(bar.Right - (size * count), row, size * count, size);
+                host.AboveBottomBar = count > 0 && actions.Top < bar.Top;
             }
             else
             {
-                actions = new CGRect(bar.Right - (size * count), row, size * count, size);
+                search = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
+                if (search.Right > room)
+                {
+                    search = new CGRect(bar.Right - size, row, size, size);
+                    actions = new CGRect(search.Left - Gap - (size * count), row, size * count, size);
+                }
+                else
+                {
+                    actions = new CGRect(bar.Right - (size * count), row, size * count, size);
+                }
+
+                host.AboveBottomBar = count > 0 || search.Top < bar.Top;
             }
 
-            host.AboveBottomBar = count > 0 || search.Top < bar.Top;
+            host.RowHeight = size;
             host.Vertical = false;
+        }
+
+        if (!host.HasSearch)
+        {
+            search = CGRect.Empty;
         }
 
         var moved = host.Arrange(search, actions);
@@ -329,7 +355,7 @@ internal static class TabBarButtons
     {
         var bounds = tabBar.ConvertRectToView(tabBar.Bounds, host);
         var text = $"screen {host.Bounds.Width:0.#}×{host.Bounds.Height:0.#}, tab bar {Text(bounds)}, glass {Text(bar)} from {from}"
-            + $" → search {Text(search)}, actions {Text(actions)}";
+            + $" → search {(search.IsEmpty ? "none" : Text(search))}, actions {Text(actions)}";
         if (text == _reported)
         {
             return;
@@ -381,6 +407,12 @@ internal static class TabBarButtons
         public int ActionCount => _actions.Count;
 
         public bool AboveBottomBar { get; set; }
+
+        /// <summary>Whether the page showing has search; without it the magnifier stays hidden.</summary>
+        public bool HasSearch => _search is not null;
+
+        /// <summary>How tall a row of glass is: the pill's height, or its width with a vertical one.</summary>
+        public double RowHeight { get; set; }
 
         /// <summary>The actions run down the group with a vertical tab bar, across it with a bottom one.</summary>
         public bool Vertical { get; set; }
