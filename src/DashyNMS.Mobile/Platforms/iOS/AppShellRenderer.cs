@@ -31,5 +31,13 @@ internal sealed class AppShellRenderer : ShellRenderer
                 TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
             }
         }
+
+        // The tab bar may have moved - iPhone Duo folded, opened or turned -
+        // so the search button by it moves too.
+        public override void ViewDidLayoutSubviews()
+        {
+            base.ViewDidLayoutSubviews();
+            TabBarSearch.Relayout(this);
+        }
     }
 }

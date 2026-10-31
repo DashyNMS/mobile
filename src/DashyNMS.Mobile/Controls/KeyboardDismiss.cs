@@ -97,10 +97,21 @@ public static class KeyboardDismiss
     }
 
     /// <summary>
-    /// Closes <paramref name="searchBar"/>'s keyboard - for a page that hides
-    /// its box: hiding a focused box leaves its keyboard up on iOS.
+    /// Closes <paramref name="box"/>'s keyboard - for a page that hides its
+    /// box, or a search done in a text box: hiding a focused box leaves its
+    /// keyboard up on iOS.
     /// </summary>
-    public static void Close(SearchBar searchBar) => Hide(searchBar);
+    public static void Close(InputView box)
+    {
+        if (box is SearchBar searchBar)
+        {
+            Hide(searchBar);
+            return;
+        }
+
+        _ = box.HideSoftInputAsync(CancellationToken.None);
+        box.Unfocus();
+    }
 
     private static void Hide(SearchBar searchBar)
     {

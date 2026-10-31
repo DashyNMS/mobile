@@ -117,16 +117,6 @@ public partial class NetworkMapPage : ContentPage
 		};
 
 #if IOS
-		// The field sits on the map itself, so UISearchBar's own grey field
-		// inside it would be a box in a box.
-		Search.HandlerChanged += (_, _) =>
-		{
-			if (Search.Handler?.PlatformView is UIKit.UISearchBar bar)
-			{
-				bar.SearchTextField.BackgroundColor = UIKit.UIColor.Clear;
-			}
-		};
-
 		// Search is the glass button by the tab bar instead.
 		SearchButton.IsVisible = !TabBarSearch.IsAvailable;
 #endif
@@ -305,6 +295,9 @@ public partial class NetworkMapPage : ContentPage
 	}
 
 	private static string ViewPreference(string scopeKey) => "networkmap.view." + scopeKey;
+
+	// The keyboard's search key: the map has found the device, so it goes.
+	private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
 
 	private void OnFitClicked(object? sender, EventArgs e)
 	{

@@ -114,15 +114,24 @@
                  header's icon where there's no glass): a field floating over
                  the top of the map, where the keyboard can't cover it, rather
                  than a system bar wedged under the title (#296). -->
-            <Border x:Name="SearchField" Margin="12,8" Padding="4,0" VerticalOptions="Start" HeightRequest="46"
+            <!-- A text box rather than a SearchBar: UISearchBar draws its own
+                 grey field, which sat inside this one as a box in a box. -->
+            <Border x:Name="SearchField" Margin="12,8" Padding="14,0,4,0" VerticalOptions="Start" HeightRequest="46"
                     IsVisible="{Binding ShowsSearch}" StrokeThickness="1"
-                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
                     Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
                 <Border.StrokeShape>
                     <RoundRectangle CornerRadius="23" />
                 </Border.StrokeShape>
-                <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Find a device" VerticalOptions="Center"
-                           BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceAltDark}}" />
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2">
+                    <!-- Icons.Search, in the placeholder's colour. -->
+                    <Path Data="M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20" StrokeThickness="2" StrokeLineCap="Round"
+                          WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                          Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                    <Entry x:Name="Search" Grid.Column="1" Text="{Binding SearchText}" Placeholder="Find a device" VerticalOptions="Center"
+                           ReturnType="Search" ClearButtonVisibility="WhileEditing" Completed="OnSearchCompleted"
+                           IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" MinimumHeightRequest="40" />
+                </Grid>
             </Border>
 
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
