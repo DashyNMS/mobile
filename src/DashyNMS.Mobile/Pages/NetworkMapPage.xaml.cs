@@ -96,14 +96,40 @@ public partial class NetworkMapPage : ContentPage
 		pinch.PinchUpdated += OnPinch;
 		MapCanvas.GestureRecognizers.Add(pinch);
 
-		// Opened from the header's icon: straight into typing.
+		// Opened: straight into typing. Closed: the keyboard goes too - hiding
+		// a focused box left it up.
 		_viewModel.PropertyChanged += (_, e) =>
 		{
 			if (e.PropertyName == nameof(NetworkMapViewModel.IsSearchOpen) && _viewModel.IsSearchOpen)
 			{
 				Dispatcher.Dispatch(() => Search.Focus());
 			}
+			else if (e.PropertyName == nameof(NetworkMapViewModel.ShowsSearch))
+			{
+				if (!_viewModel.ShowsSearch)
+				{
+					KeyboardDismiss.Close(Search);
+				}
+#if IOS
+				TabBarSearch.SetOpen(this, _viewModel.ShowsSearch);
+#endif
+			}
 		};
+
+#if IOS
+		// The field sits on the map itself, so UISearchBar's own grey field
+		// inside it would be a box in a box.
+		Search.HandlerChanged += (_, _) =>
+		{
+			if (Search.Handler?.PlatformView is UIKit.UISearchBar bar)
+			{
+				bar.SearchTextField.BackgroundColor = UIKit.UIColor.Clear;
+			}
+		};
+
+		// Search is the glass button by the tab bar instead.
+		SearchButton.IsVisible = !TabBarSearch.IsAvailable;
+#endif
 	}
 
 	/// <summary>Shorter than this, the device card leaves the map most of the screen (#296).</summary>
@@ -126,6 +152,10 @@ public partial class NetworkMapPage : ContentPage
 	private void PlaceControls()
 	{
 		var edges = CoveredEdges.Of(this);
+#if IOS
+		// Over a bottom tab bar, the search button floats above it.
+		edges = new Thickness(edges.Left, edges.Top, edges.Right, edges.Bottom + TabBarSearch.CoveredBottom);
+#endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
@@ -134,6 +164,10 @@ public partial class NetworkMapPage : ContentPage
 		MapControls.Margin = new Thickness(edges.Left, 0, edges.Right, SelectionCard.IsVisible ? 0 : edges.Bottom);
 		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, 12 + edges.Bottom);
 	}
+
+#if IOS
+	private void OnSearchButtonMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+#endif
 
 	/// <summary>
 	/// The part of the map nothing covers, in the map's own points: where
@@ -188,6 +222,10 @@ public partial class NetworkMapPage : ContentPage
 	{
 		base.OnAppearing();
 		Header.Apply(this);
+#if IOS
+		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null), _viewModel.ShowsSearch, "Find a device");
+		TabBarSearch.Moved += OnSearchButtonMoved;
+#endif
 		PlaceControls();
 
 		// Back from Settings, the jiggle may have been switched; never with Reduce Motion.
@@ -202,6 +240,11 @@ public partial class NetworkMapPage : ContentPage
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		KeyboardDismiss.Close(Search);
+#if IOS
+		TabBarSearch.Moved -= OnSearchButtonMoved;
+		TabBarSearch.Hide(this);
+#endif
 		SaveView();
 		_jiggleTimer?.Stop();
 		_viewModel.Jiggle.Clear();
@@ -282,6 +325,12 @@ public partial class NetworkMapPage : ContentPage
 		_multiTouch = false;
 		_moved = false;
 		_pressAt = _lastAt = e.Touches[0];
+
+		// Back to the map: the keyboard goes, what was typed stays.
+		if (Search.IsFocused)
+		{
+			KeyboardDismiss.Close(Search);
+		}
 
 		// Only the selected device moves, so a pan that starts on a device
 		// doesn't drag it by mistake: tap it first, then drag it.
