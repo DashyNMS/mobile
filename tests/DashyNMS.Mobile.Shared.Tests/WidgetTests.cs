@@ -58,6 +58,7 @@ public sealed class WidgetSnapshotTests
         var json = snapshot.ToJson();
 
         // The names Snapshot.swift decodes.
+        Assert.Contains("\"version\":2", json);
         foreach (var key in new[] { "\"signedIn\"", "\"critical\"", "\"warning\"", "\"acknowledged\"", "\"devicesDown\"", "\"alerts\"", "\"checkedAt\"", "\"alertId\"", "\"deviceId\"", "\"severity\"", "\"rule\"", "\"device\"" })
         {
             Assert.Contains(key, json);
@@ -73,6 +74,20 @@ public sealed class WidgetSnapshotTests
         Assert.Equal(snapshot.Alerts, back.Alerts);
         Assert.Equal(snapshot.Pinned, back.Pinned);
         Assert.Equal(snapshot.Sensors, back.Sensors);
+    }
+
+    [Fact]
+    public void Writes_the_same_json_as_reflection_but_without_needing_it()
+    {
+        // #286: a trimmed iOS build lost the version under reflection. The
+        // generated serializer must write exactly what reflection did.
+        var snapshot = WidgetSnapshot.Build(
+            [Fakes.Alert(1, 7, "critical")], Now, PinningAndSensors(),
+            [Fakes.Device(7, "core", up: false, location: "Comms room")],
+            [Sensor(1, 7, "temperature", 71)]) with { HideLockScreenDetails = true };
+
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(snapshot), snapshot.ToJson());
+        Assert.Contains("\"version\":2", WidgetSnapshot.SignedOut.ToJson());
     }
 
     [Fact]
