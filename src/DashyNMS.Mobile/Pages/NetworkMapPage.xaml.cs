@@ -15,6 +15,10 @@ namespace DashyNMS.Mobile.Pages;
 /// One finger comes from the graphics view's own touch events rather than
 /// pan and tap gestures, which don't say where a touch started - needed to
 /// tell dragging the selected device from panning the map.
+/// <para>On iOS the map fills the screen under the camera and the Liquid
+/// Glass tab bar, and the chips scroll in from under the camera, as they
+/// would on a display that size; what can be tapped is placed clear of
+/// them here (see <see cref="CoveredEdges"/>).</para>
 /// </remarks>
 public partial class NetworkMapPage : ContentPage
 {
@@ -44,6 +48,10 @@ public partial class NetworkMapPage : ContentPage
 	public NetworkMapPage(NetworkMapViewModel viewModel)
 	{
 		InitializeComponent();
+#if IOS
+		// Keep clear of the status bar only; the other edges are placed in PlaceControls.
+		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+#endif
 		BindingContext = _viewModel = viewModel;
 		_drawable = new NetworkMapDrawable(viewModel);
 		MapCanvas.Drawable = _drawable;
@@ -52,12 +60,13 @@ public partial class NetworkMapPage : ContentPage
 		_viewModel.RedrawRequested += (_, _) => Dispatcher.Dispatch(MapCanvas.Invalidate);
 		_viewModel.CenterOnRequested += (_, node) => Dispatcher.Dispatch(() =>
 		{
-			_drawable.CenterOn(node, MapCanvas.Bounds.Size);
+			_drawable.CenterOn(node, VisibleArea());
 			MapCanvas.Invalidate();
 		});
 
-		// Laid out before the view had a size: place it once it has one.
-		MapCanvas.SizeChanged += (_, _) =>
+		// Laid out before the view had a size: place it once it has one - and
+		// once the part of it that's visible has, which Fit aims for.
+		EventHandler sized = (_, _) =>
 		{
 			if (!_fitted)
 			{
@@ -65,6 +74,17 @@ public partial class NetworkMapPage : ContentPage
 			}
 
 			MapCanvas.Invalidate();
+		};
+		MapCanvas.SizeChanged += sized;
+		MapControls.SizeChanged += sized;
+
+		CoveredEdges.Watch(this, PlaceControls);
+		SelectionCard.PropertyChanged += (_, e) =>
+		{
+			if (e.PropertyName == nameof(IsVisible))
+			{
+				PlaceControls();
+			}
 		};
 
 		MapCanvas.StartInteraction += OnTouchStart;
@@ -95,6 +115,39 @@ public partial class NetworkMapPage : ContentPage
 		var isShort = height > 0 && height < ShortScreen;
 		SelectionCard.MaximumHeightRequest = isShort ? 200 : 300;
 		ConnectionsList.MaximumHeightRequest = isShort ? 110 : 200;
+	}
+
+	/// <summary>
+	/// Keeps the header, the chips' ends, Fit and the device card clear of
+	/// the camera and tab bar while the map runs on underneath them. The
+	/// chips' strip itself reaches the screen's edge, so a chip scrolls in
+	/// from under the camera, but its padding lets the last one scroll clear.
+	/// </summary>
+	private void PlaceControls()
+	{
+		var edges = CoveredEdges.Of(this);
+		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
+
+		// The card has the foot when it shows, and keeps clear itself.
+		MapControls.Margin = new Thickness(edges.Left, 0, edges.Right, SelectionCard.IsVisible ? 0 : edges.Bottom);
+		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, 12 + edges.Bottom);
+	}
+
+	/// <summary>
+	/// The part of the map nothing covers, in the map's own points: where
+	/// Fit and centring aim, so nodes don't land under the tab bar or card.
+	/// </summary>
+	private RectF VisibleArea()
+	{
+		if (MapControls.Width <= 0 || MapControls.Height <= 0)
+		{
+			return new RectF(0, 0, (float)MapCanvas.Width, (float)MapCanvas.Height);
+		}
+
+		return new RectF(
+			(float)(MapControls.X - MapArea.X), (float)(MapControls.Y - MapArea.Y), (float)MapControls.Width, (float)MapControls.Height);
 	}
 
 	/// <summary>
@@ -135,6 +188,7 @@ public partial class NetworkMapPage : ContentPage
 	{
 		base.OnAppearing();
 		Header.Apply(this);
+		PlaceControls();
 
 		// Back from Settings, the jiggle may have been switched; never with Reduce Motion.
 		_viewModel.UpdateJiggle(!ReducedMotion.IsOn);
@@ -189,7 +243,7 @@ public partial class NetworkMapPage : ContentPage
 		}
 		else
 		{
-			_drawable.FitTo(MapCanvas.Bounds.Size);
+			_drawable.FitTo(VisibleArea());
 		}
 
 		return true;
@@ -211,7 +265,7 @@ public partial class NetworkMapPage : ContentPage
 
 	private void OnFitClicked(object? sender, EventArgs e)
 	{
-		_drawable.FitTo(MapCanvas.Bounds.Size);
+		_drawable.FitTo(VisibleArea());
 		MapCanvas.Invalidate();
 	}
 
