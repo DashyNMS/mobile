@@ -19,17 +19,19 @@
 
         <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,0,16,0">
             <controls:PageHeader.Actions>
+                <!-- Icons only, so the title keeps its line on a narrow phone (#296). -->
                 <HorizontalStackLayout Spacing="4">
-                    <Button Style="{StaticResource LinkButton}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
-                        SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
+                    <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
+                                         IsOn="{Binding ShowsSearch}" SemanticProperties.Description="Find a device" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}"
                                          SemanticProperties.Description="Refresh the map" />
                 </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
+        <!-- Search when asked for, from the header's icon: otherwise the map has the room (#296). -->
         <VerticalStackLayout Grid.Row="1" Padding="16,0,16,0">
-            <SearchBar Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" />
+            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" IsVisible="{Binding ShowsSearch}" />
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         </VerticalStackLayout>
 
@@ -80,6 +82,9 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
+                <!-- Out of the header, where it crowded the title on a narrow phone (#296). -->
+                <Button Style="{StaticResource Chip}" Text="Reset layout" Command="{Binding ResetLayoutCommand}"
+                        SemanticProperties.Hint="Forget where devices were moved to and lay the map out again" />
             </HorizontalStackLayout>
         </ScrollView>
 
@@ -109,7 +114,8 @@
         <!-- The tapped device: a compact bar - name, state, Open - that opens to
              what it's connected to (tap one to go there), so it doesn't cover
              half the map (#110). -->
-        <Border Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+        <!-- Capped lower on a short screen (see the page), so a selected device leaves most of the map (#296). -->
+        <Border x:Name="SelectionCard" Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">
@@ -129,7 +135,7 @@
                 </Grid>
                 <VerticalStackLayout Grid.Row="2" IsVisible="{Binding IsSelectionExpanded}" Spacing="4">
                     <Label Style="{StaticResource Caption}" Text="{Binding SelectedNode.Detail}" LineBreakMode="TailTruncation" />
-                <CollectionView ItemsSource="{Binding SelectedConnections}" SelectionMode="None" MaximumHeightRequest="200">
+                <CollectionView x:Name="ConnectionsList" ItemsSource="{Binding SelectedConnections}" SelectionMode="None" MaximumHeightRequest="200">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NetworkConnection">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,7">

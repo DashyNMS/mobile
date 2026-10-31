@@ -19,6 +19,8 @@ public static class Icons
     public const string Ssh = "M4 17 10 12 4 7 M12 19H20";
 
     public const string Telnet = "M3 5H21V19H3Z M7 10 10 12 7 14 M12 15H17";
+
+    public const string Search = "M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20";
 }
 
 /// <summary>How an <see cref="IconButton"/> draws.</summary>

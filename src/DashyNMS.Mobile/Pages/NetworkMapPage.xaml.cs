@@ -75,6 +75,26 @@ public partial class NetworkMapPage : ContentPage
 		var pinch = new PinchGestureRecognizer();
 		pinch.PinchUpdated += OnPinch;
 		MapCanvas.GestureRecognizers.Add(pinch);
+
+		// Opened from the header's icon: straight into typing.
+		_viewModel.PropertyChanged += (_, e) =>
+		{
+			if (e.PropertyName == nameof(NetworkMapViewModel.IsSearchOpen) && _viewModel.IsSearchOpen)
+			{
+				Dispatcher.Dispatch(() => Search.Focus());
+			}
+		};
+	}
+
+	/// <summary>Shorter than this, the device card leaves the map most of the screen (#296).</summary>
+	private const double ShortScreen = 740;
+
+	protected override void OnSizeAllocated(double width, double height)
+	{
+		base.OnSizeAllocated(width, height);
+		var isShort = height > 0 && height < ShortScreen;
+		SelectionCard.MaximumHeightRequest = isShort ? 200 : 300;
+		ConnectionsList.MaximumHeightRequest = isShort ? 110 : 200;
 	}
 
 	/// <summary>
