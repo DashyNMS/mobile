@@ -114,6 +114,20 @@ public partial class NetworkMapPage : ContentPage
 
 		FitButton.Command = new Command(Fit);
 #if IOS
+		// No close button riding on the keyboard: tapping off the box or
+		// pressing Search already closes it. The empty accessory takes the
+		// place of whatever would ride there, and the assistant's buttons are
+		// the other way iOS puts them beside the keyboard.
+		Search.HandlerChanged += (_, _) =>
+		{
+			if (Search.Handler?.PlatformView is UIKit.UITextField field)
+			{
+				field.InputAccessoryView = new UIKit.UIView(CoreGraphics.CGRect.Empty);
+				field.InputAssistantItem.LeadingBarButtonGroups = [];
+				field.InputAssistantItem.TrailingBarButtonGroups = [];
+			}
+		};
+
 		// Search, Refresh and Fit are Liquid Glass by the tab bar instead.
 		if (TabBarButtons.IsAvailable)
 		{
