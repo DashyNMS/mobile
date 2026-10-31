@@ -183,14 +183,16 @@ public sealed class AlertWatcher
             var server = _session.Connection!.WebRoot.ToString();
             var settings = _settings.Current;
 
-            // Recoveries only show up if recovered alerts are fetched: the open
-            // list just loses them.
-            var query = settings.Notifications.NotifyOnRecovery || settings.IncludeRecoveredAlerts
-                ? AlertQuery.All
-                : AlertQuery.Open;
+            // Open alerts only, whatever the recovery settings - as desktop,
+            // whose recovery notifications don't widen its list either.
+            // Recoveries come from looking up each alert that leaves the open
+            // list (below), and nothing here shows a recovered one. Asking for
+            // recovered faults too got HTTP 500 from a LibreNMS 26.10 server on
+            // every check, which stopped notifications, the badge and the
+            // widgets with it.
             var fetchStarted = _time.GetTimestamp();
             var source = await _client.Alerts.GetSourceAsync(cancellationToken).ConfigureAwait(false);
-            var alerts = await _client.Alerts.ListAsync(query, cancellationToken).ConfigureAwait(false);
+            var alerts = await _client.Alerts.ListAsync(AlertQuery.Open, cancellationToken).ConfigureAwait(false);
             _logger.LogInformation("Alert list completed in {Milliseconds} ms", _time.GetElapsedTime(fetchStarted).TotalMilliseconds);
             cancellationToken.ThrowIfCancellationRequested();
             if (alerts.Any(a => a.Source != source)) throw new InvalidOperationException("Alert list returned an inconsistent source");
