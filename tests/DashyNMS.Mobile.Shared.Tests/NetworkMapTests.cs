@@ -263,20 +263,25 @@ public sealed class NetworkMapViewModelTests
     }
 
     [Fact]
-    public void Search_shows_when_asked_for_and_stays_while_it_has_text()
+    public void Search_closes_when_done_keeping_its_text_and_the_button_clears_it()
     {
         var vm = new NetworkMapViewModel(_client, Fakes.Settings(), _navigation);
-        Assert.False(vm.ShowsSearch);
+        Assert.False(vm.IsSearchOpen);
 
         vm.ToggleSearchCommand.Execute(null);
-        Assert.True(vm.ShowsSearch);
+        Assert.True(vm.IsSearchOpen);
 
         vm.SearchText = "core";
-        vm.IsSearchOpen = false;
-        Assert.True(vm.ShowsSearch); // something in it: it stays
+        vm.DismissSearch();
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal("core", vm.SearchText); // the device found stays picked out
 
         vm.ToggleSearchCommand.Execute(null);
-        Assert.False(vm.ShowsSearch);
+        Assert.True(vm.IsSearchOpen);
+        Assert.Equal("core", vm.SearchText); // back with what was typed
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.False(vm.IsSearchOpen);
         Assert.Equal(string.Empty, vm.SearchText);
     }
 }
