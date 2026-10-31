@@ -10,6 +10,7 @@ using DesktopNMS.Core.Devices;
 using DesktopNMS.Core.Graylog;
 using DesktopNMS.Core.Logs;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Spotlights;
 
 namespace DashyNMS.Mobile.ViewModels;
 
@@ -23,6 +24,7 @@ public sealed partial class DashboardViewModel
 {
     private readonly GraylogSetup? _graylogSetup;
     private readonly IGraylogApi? _graylog;
+    private readonly SpotlightResolver _spotlights;
 
     /// <summary>Every event type seen so far: the type chip's choices only ever grow, as desktop's.</summary>
     private readonly SortedSet<string> _eventTypes = new(StringComparer.OrdinalIgnoreCase);
@@ -41,7 +43,12 @@ public sealed partial class DashboardViewModel
             Shows(DashboardLayout.Graylog) ? LoadGraylogAsync() : Task.CompletedTask);
     }
 
-    /// <summary>One event log request for every Event log card, enough for the one wanting most.</summary>
+    /// <summary>
+    /// One event log request for every Event log card on the whole network,
+    /// enough for the one wanting most; a card kept to a Spotlight (#270)
+    /// gets its own, from Core - each device's log for a few devices, the
+    /// fleet's filtered for more.
+    /// </summary>
     private async Task LoadEventLogAsync()
     {
         var cards = CardsOf(DashboardLayout.EventLog);
@@ -50,30 +57,65 @@ public sealed partial class DashboardViewModel
             return;
         }
 
-        try
+        var whole = cards.Where(c => !HasSpotlight(c)).ToList();
+        var kept = cards.Where(HasSpotlight).ToList();
+        var utc = _settings.Current.ServerTimestampsAreUtc;
+        var now = DateTime.Now;
+
+        void Show(DashboardCard card, IEnumerable<EventLogEntry> entries) =>
+            card.ShowEvents(EventLogFeed.Filter(entries, card.Widget.LogType, card.Widget.LogSearch, LogCards.CountOf(card.Widget))
+                .Select(e => LogEntryItem.ForEvent(e, EventDeviceName(e), utc, now))
+                .ToList());
+
+        async Task LoadWholeAsync()
         {
-            var limit = cards.Max(c => EventLogFeed.FetchLimit(LogCards.CountOf(c.Widget), c.Widget.LogType, c.Widget.LogSearch));
+            if (whole.Count == 0)
+            {
+                return;
+            }
+
+            var limit = whole.Max(c => EventLogFeed.FetchLimit(LogCards.CountOf(c.Widget), c.Widget.LogType, c.Widget.LogSearch));
             var entries = await _client.Logs.ListEventLogAsync(null, limit);
             _eventTypes.UnionWith(EventLogFeed.Types(entries));
-
-            var utc = _settings.Current.ServerTimestampsAreUtc;
-            var now = DateTime.Now;
-            foreach (var card in cards)
+            foreach (var card in whole)
             {
-                card.ShowEvents(EventLogFeed.Filter(entries, card.Widget.LogType, card.Widget.LogSearch, LogCards.CountOf(card.Widget))
-                    .Select(e => LogEntryItem.ForEvent(e, EventDeviceName(e), utc, now))
-                    .ToList());
+                card.ShowSpotlight(null);
+                Show(card, entries);
             }
         }
-        catch (LibreNmsApiException)
+
+        async Task LoadKeptAsync(DashboardCard card)
         {
-            // The last rows stay under the error, as on desktop.
-            foreach (var card in cards)
+            var widget = card.Widget;
+            var scope = await _spotlights.ResolveAsync(widget.Spotlight, _logDevices);
+            card.ShowSpotlight(scope);
+            var entries = await EventLogFeed.FetchAsync(_client.Logs, LogCards.CountOf(widget), widget.LogType, widget.LogSearch, scope);
+            _eventTypes.UnionWith(EventLogFeed.Types(entries));
+            Show(card, entries);
+        }
+
+        await Task.WhenAll(
+            Guard(whole, LoadWholeAsync),
+            Task.WhenAll(kept.Select(card => Guard([card], () => LoadKeptAsync(card)))));
+
+        // The last rows stay under the error, as on desktop.
+        static async Task Guard(IReadOnlyList<DashboardCard> cards, Func<Task> load)
+        {
+            try
             {
-                card.LogStatus = "Couldn't reach LibreNMS for the event log.";
+                await load();
+            }
+            catch (LibreNmsApiException)
+            {
+                foreach (var card in cards)
+                {
+                    card.LogStatus = "Couldn't reach LibreNMS for the event log.";
+                }
             }
         }
     }
+
+    private static bool HasSpotlight(DashboardCard card) => card.Widget.Spotlight.Count > 0;
 
     private async Task LoadGraylogAsync()
     {
@@ -101,7 +143,16 @@ public sealed partial class DashboardViewModel
             var widget = card.Widget;
             try
             {
-                var query = string.IsNullOrWhiteSpace(widget.LogSearch) ? "*" : widget.LogSearch.Trim();
+                // Kept to a Spotlight (#270): only messages from its devices, by Core's query.
+                var scope = HasSpotlight(card) ? await _spotlights.ResolveAsync(widget.Spotlight, _logDevices) : SpotlightScope.WholeNetwork;
+                var spotlight = GraylogQuery.ForSpotlight(widget.LogSearch, _settings.Current.Graylog.QueryField, scope, _logDevices);
+                card.ShowSpotlight(scope, spotlight.DevicesLeftOut);
+                if (spotlight.Query is not { } query)
+                {
+                    card.ShowGraylog([], configured: true);
+                    return;
+                }
+
                 var result = await _graylog.SearchAsync(query, LogCards.RangeOf(widget), LogCards.CountOf(widget), 0,
                     "timestamp:desc", GraylogQuery.StreamFilter(widget.GraylogStreamId));
                 card.ShowGraylog(result.Messages.Select(m => new GraylogMessageItem(m.Message, zone, GraylogDevice)).ToList(), configured: true);
@@ -109,6 +160,10 @@ public sealed partial class DashboardViewModel
             catch (GraylogApiException)
             {
                 card.LogStatus = "Couldn't reach Graylog.";
+            }
+            catch (LibreNmsApiException)
+            {
+                card.LogStatus = "Couldn't reach LibreNMS for the Spotlight's devices.";
             }
         }));
     }
@@ -196,6 +251,10 @@ public sealed partial class DashboardViewModel
         }
     }
 
+    /// <summary>The Spotlight picker (#270), for this card.</summary>
+    internal Task ChooseSpotlightAsync(DashboardCard card) => _navigation.GoToAsync(Routes.SpotlightPicker,
+        new Dictionary<string, object> { [Routes.WidgetIdParameter] = card.Widget.Id });
+
     private async Task<int?> ChooseAsync(string title, IReadOnlyList<string> labels)
     {
         if (_dialogs is null || await _dialogs.ChooseAsync(title, labels) is not { } choice)
@@ -233,10 +292,16 @@ public sealed partial class DashboardViewModel
     {
         if (card.IsEventLog)
         {
-            return _navigation.GoToAsync(Routes.Logs, new Dictionary<string, object>
+            var parameters = new Dictionary<string, object> { [Routes.LogTypeParameter] = card.Widget.LogType ?? string.Empty };
+
+            // Kept to one device: Logs with its Device chip fixed, as the device's own event log.
+            if (card.Widget.Spotlight is [{ Kind: SpotlightKind.Device } device])
             {
-                [Routes.LogTypeParameter] = card.Widget.LogType ?? string.Empty,
-            });
+                parameters[Routes.DeviceIdParameter] = device.Id;
+                parameters[Routes.DeviceNameParameter] = device.Name;
+            }
+
+            return _navigation.GoToAsync(Routes.Logs, parameters);
         }
 
         return card.NeedsGraylogSetUp

@@ -47,6 +47,22 @@ public sealed partial class DashboardCard
 
     public string SeeAllLogsText => IsEventLog ? "See all events" : NeedsGraylogSetUp ? "Set up Graylog" : "See all messages";
 
+    /// <summary>The Spotlight as last worked out (#270); null until then, or for the whole network.</summary>
+    internal DesktopNMS.Core.Spotlights.SpotlightScope? Spotlight { get; private set; }
+
+    /// <summary>"Whole network ▾", or what the card is kept to - its subtitle, opening the Spotlight picker.</summary>
+    public string SpotlightText => LogCards.SpotlightText(Widget, Spotlight) + " ▾";
+
+    /// <summary>"3 devices left out of the search" - Graylog's query has a length limit; null otherwise.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSpotlightNote))]
+    private string? _spotlightNote;
+
+    public bool HasSpotlightNote => SpotlightNote is not null;
+
+    [RelayCommand]
+    private Task ChooseSpotlightAsync() => Dashboard.ChooseSpotlightAsync(this);
+
     [RelayCommand]
     private Task ChooseLogCountAsync() => Dashboard.ChooseLogCountAsync(this);
 
@@ -65,14 +81,26 @@ public sealed partial class DashboardCard
     internal void ShowEvents(IReadOnlyList<LogEntryItem> rows)
     {
         EventRows.ReplaceAll(rows);
-        LogStatus = rows.Count == 0 ? LogCards.EventsEmptyText(Widget) : null;
+        LogStatus = rows.Count == 0 ? LogCards.EventsEmptyText(Widget, Spotlight) : null;
     }
 
     internal void ShowGraylog(IReadOnlyList<GraylogMessageItem> rows, bool configured)
     {
         GraylogRows.ReplaceAll(rows);
         NeedsGraylogSetUp = !configured;
-        LogStatus = !configured ? LogCards.NotSetUp : rows.Count == 0 ? LogCards.GraylogEmptyText(Widget) : null;
+        LogStatus = !configured ? LogCards.NotSetUp : rows.Count == 0 ? LogCards.GraylogEmptyText(Widget, Spotlight) : null;
+    }
+
+    internal void ShowSpotlight(DesktopNMS.Core.Spotlights.SpotlightScope? scope, int devicesLeftOut = 0)
+    {
+        Spotlight = scope is { IsWholeNetwork: true } ? null : scope;
+        SpotlightNote = devicesLeftOut switch
+        {
+            <= 0 => null,
+            1 => "1 device left out of the search",
+            var n => $"{n} devices left out of the search",
+        };
+        OnPropertyChanged(nameof(SpotlightText));
     }
 
     internal void NameStream(string? name)
@@ -87,5 +115,6 @@ public sealed partial class DashboardCard
         OnPropertyChanged(nameof(LogTypeText));
         OnPropertyChanged(nameof(GraylogStreamText));
         OnPropertyChanged(nameof(GraylogRangeText));
+        OnPropertyChanged(nameof(SpotlightText));
     }
 }

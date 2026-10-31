@@ -148,6 +148,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<SensorPickerPage>();
 		builder.Services.AddTransient<GraphPickerPage>();
 		builder.Services.AddTransient<TopCardSetUpPage>();
+		builder.Services.AddTransient<SpotlightPickerPage>();
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<LogEntryPage>();
 		builder.Services.AddTransient<NeighboursPage>();

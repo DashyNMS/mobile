@@ -221,6 +221,9 @@ public static class Routes
     /// </summary>
     public const string DevicesParameter = "devices";
 
+    /// <summary>An Event log or Graylog card's Spotlight (#270), with <see cref="WidgetIdParameter"/>.</summary>
+    public const string SpotlightPicker = "spotlightpicker";
+
     /// <summary>Query attribute: which dashboard card <see cref="PickSensors"/> or <see cref="PickGraph"/> sets up (#87).</summary>
     public const string WidgetIdParameter = "widget";
 

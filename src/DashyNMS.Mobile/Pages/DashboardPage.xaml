@@ -481,6 +481,14 @@
                     <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <!-- What the card is kept to (#270): its Spotlight, tapped to change. -->
+                            <Label Style="{StaticResource Faint}" Text="{Binding SpotlightText}" LineBreakMode="TailTruncation"
+                                   SemanticProperties.Description="Spotlight">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ChooseSpotlightCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Label Style="{StaticResource Faint}" Text="{Binding SpotlightNote}" IsVisible="{Binding HasSpotlightNote}" />
                             <HorizontalStackLayout Spacing="8">
                                 <Button Style="{StaticResource Chip}" Text="{Binding LogTypeText}" Command="{Binding ChooseLogTypeCommand}"
                                         HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="Event type" />
@@ -519,6 +527,14 @@
                     <Border Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
+                            <!-- What the card is kept to (#270): its Spotlight, tapped to change. -->
+                            <Label Style="{StaticResource Faint}" Text="{Binding SpotlightText}" LineBreakMode="TailTruncation"
+                                   SemanticProperties.Description="Spotlight">
+                                <Label.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding ChooseSpotlightCommand}" />
+                                </Label.GestureRecognizers>
+                            </Label>
+                            <Label Style="{StaticResource Faint}" Text="{Binding SpotlightNote}" IsVisible="{Binding HasSpotlightNote}" />
                             <HorizontalStackLayout Spacing="8" IsVisible="{Binding NeedsGraylogSetUp, Converter={StaticResource Invert}}">
                                 <Button Style="{StaticResource Chip}" Text="{Binding GraylogStreamText}" Command="{Binding ChooseGraylogStreamCommand}"
                                         HeightRequest="32" MinimumHeightRequest="32" Padding="10,0" SemanticProperties.Description="Stream" />

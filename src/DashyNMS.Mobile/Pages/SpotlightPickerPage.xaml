@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.SpotlightPickerPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="dash:SpotlightPickerViewModel"
+    ios:Page.UseSafeArea="True"
+    SafeAreaEdges="Container"
+    Title="Spotlight">
+
+    <!-- A log card's Spotlight (#270): the whole network, devices, a group or a location. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+        <controls:PageHeader x:Name="Header" Title="Spotlight">
+            <controls:PageHeader.Actions>
+                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
+
+        <Button Grid.Row="1" Style="{StaticResource SecondaryButton}" Text="Whole network" Command="{Binding WholeNetworkCommand}"
+                HorizontalOptions="Fill" Margin="0,4,0,10" />
+
+        <Border Grid.Row="2" Style="{StaticResource SegmentBar}">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="4">
+                <Button Grid.Column="0" Style="{StaticResource Segment}" Text="Devices" FontSize="14" Command="{Binding ChooseKindCommand}" CommandParameter="0">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsDevices}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="1" Style="{StaticResource Segment}" Text="Group" FontSize="14" Command="{Binding ChooseKindCommand}" CommandParameter="1">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsGroup}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource Segment}" Text="Location" FontSize="14" Command="{Binding ChooseKindCommand}" CommandParameter="2">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding IsLocation}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
+        </Border>
+
+        <SearchBar Grid.Row="3" Text="{Binding SearchText}" Placeholder="Search" Margin="-6,6,-6,0" />
+
+        <Label Grid.Row="4" Style="{StaticResource Faint}" Text="{Binding HintText}" Margin="4,4,0,6" />
+
+        <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" VerticalOptions="Start" />
+        <controls:BusyCard Grid.Row="5" Text="Loading…" IsVisible="{Binding IsBusy}" ZIndex="1" />
+        <Border Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Choices}" SelectionMode="None">
+                <CollectionView.EmptyView>
+                    <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
+                           HorizontalTextAlignment="Center" Margin="20,32" />
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="dash:SpotlightChoice">
+                        <Grid Style="{StaticResource ListRow}" ColumnDefinitions="*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer
+                                    Command="{Binding PickCommand, Source={RelativeSource AncestorType={x:Type dash:SpotlightPickerViewModel}}, x:DataType=dash:SpotlightPickerViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            </Grid.GestureRecognizers>
+                            <VerticalStackLayout VerticalOptions="Center" Spacing="2">
+                                <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
+                                <Label Style="{StaticResource Faint}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="✓" FontSize="18" FontFamily="BodySemibold" VerticalOptions="Center"
+                                   TextColor="{StaticResource ButtonPrimary}" IsVisible="{Binding IsSelected}" />
+                            <BoxView Grid.Row="1" Grid.ColumnSpan="2" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
+                            <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Border>
+    </Grid>
+
+</ContentPage>
