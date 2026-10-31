@@ -41,8 +41,11 @@ internal static class TabBarButtons
 
     /// <summary>Where the tab bar's pill was last found, in the buttons' layer's points; empty if it wasn't.</summary>
     private static CGRect _pill = CGRect.Empty;
-    /// <summary>Most placements allowed in a second before the buttons stop following the tab bar.</summary>
+    /// <summary>Most placements allowed in a second before the buttons pause following the tab bar.</summary>
     private const int MostPlacesPerSecond = 120;
+
+    /// <summary>How long the buttons stay put once placed too often, before trying again.</summary>
+    private static readonly TimeSpan Pause = TimeSpan.FromSeconds(1);
 
     private static object? _owner;
     private static string? _reported;
@@ -53,7 +56,8 @@ internal static class TabBarButtons
     private static bool _placeQueued;
     private static int _placesThisSecond;
     private static DateTime _secondStarted;
-    private static bool _stopped;
+    private static DateTime _pausedUntil;
+    private static bool _pauseNoted;
 
     /// <summary>Liquid Glass needs iOS 26; before that, pages keep search and their actions on the page.</summary>
     public static bool IsAvailable => OperatingSystem.IsIOSVersionAtLeast(26);
@@ -111,22 +115,26 @@ internal static class TabBarButtons
     /// lays out its own glass after the controller does.
     /// </summary>
     /// <remarks>
-    /// Only one placement waits for the next turn at a time, however often
-    /// the controller lays out. And if placing them ever keeps the tab bar
-    /// laying out - more than <see cref="MostPlacesPerSecond"/> a second -
-    /// they stay where they are for the rest of the session, noted in the
-    /// diagnostics log, rather than leave the app unable to finish launching
-    /// (#332).
+    /// <para>Only a controller showing its tab bar places them. Signing in,
+    /// the sign-in screen's controller (its tab bar hidden) is still laying
+    /// out beside the main one for a moment; when both took the buttons in
+    /// turn, each move made the other lay out again, without end, and the
+    /// app never finished launching (#332).</para>
+    /// <para>Only one placement waits for the next turn at a time, however
+    /// often the controller lays out. And should placing them ever keep the
+    /// tab bar laying out - more than <see cref="MostPlacesPerSecond"/> a
+    /// second - they stay where they are for a moment, noted in the
+    /// diagnostics log, then try again.</para>
     /// </remarks>
     public static void Relayout(UITabBarController tabs)
     {
-        if (_stopped || _host is null || _owner is null || tabs.View is not { Window: not null } root)
+        if (_host is null || _owner is null || tabs.View is not { Window: not null } root)
         {
             return;
         }
 
         Place(tabs, root);
-        if (_placeQueued)
+        if (_placeQueued || tabs.TabBar is not { Hidden: false })
         {
             return;
         }
@@ -135,17 +143,23 @@ internal static class TabBarButtons
         NSRunLoop.Main.BeginInvokeOnMainThread(() =>
         {
             _placeQueued = false;
-            if (!_stopped && _owner is not null && tabs.View is { Window: not null } later)
+            if (_owner is not null && tabs.View is { Window: not null } later)
             {
                 Place(tabs, later);
             }
         });
     }
 
-    // Counts placements; true once there have been too many in a second.
-    private static bool TooOften()
+    // Counts placements; true while paused after too many in a second, and
+    // places once more when the pause is over.
+    private static bool TooOften(UITabBarController tabs)
     {
         var now = DateTime.UtcNow;
+        if (now < _pausedUntil)
+        {
+            return true;
+        }
+
         if (now - _secondStarted > TimeSpan.FromSeconds(1))
         {
             _secondStarted = now;
@@ -157,9 +171,22 @@ internal static class TabBarButtons
             return false;
         }
 
-        _stopped = true;
-        (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
-            "Layout", $"Tab bar buttons: stopped following the tab bar, placed over {MostPlacesPerSecond} times in a second");
+        _pausedUntil = now + Pause;
+        if (!_pauseNoted)
+        {
+            _pauseNoted = true;
+            (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
+                "Layout", $"Tab bar buttons: paused, placed over {MostPlacesPerSecond} times in a second");
+        }
+
+        var weak = new WeakReference<UITabBarController>(tabs);
+        NSTimer.CreateScheduledTimer((Pause + TimeSpan.FromMilliseconds(50)).TotalSeconds, false, _ =>
+        {
+            if (weak.TryGetTarget(out var again))
+            {
+                Relayout(again);
+            }
+        });
         return true;
     }
 
@@ -196,7 +223,18 @@ internal static class TabBarButtons
 
     private static void Place(UITabBarController tabs, UIView root)
     {
-        if (TooOften())
+        // A controller with no tab bar showing leaves the buttons where they are.
+        if (tabs.TabBar is not { Hidden: false, Window: not null } tabBar)
+        {
+            if (_host is { } shown && ReferenceEquals(shown.Superview, root))
+            {
+                Unplace(shown);
+            }
+
+            return;
+        }
+
+        if (TooOften(tabs))
         {
             return;
         }
@@ -212,12 +250,6 @@ internal static class TabBarButtons
         if (!ReferenceEquals(root.Subviews.LastOrDefault(), host))
         {
             root.BringSubviewToFront(host);
-        }
-
-        if (tabs.TabBar is not { Hidden: false, Window: not null } tabBar)
-        {
-            Unplace(host);
-            return;
         }
 
         var (bar, from) = Pill(tabs, tabBar, host);
@@ -509,6 +541,9 @@ internal static class TabBarButtons
                 _slots.Add(slot);
                 Actions.ContentView.AddSubview(slot);
             }
+
+            // In the group as it stands, so they show even before it's next placed.
+            LayoutSlots();
         }
 
         /// <summary>Puts the glass where it goes; empty frames hide it. True if anything moved.</summary>
@@ -518,16 +553,21 @@ internal static class TabBarButtons
             moved |= Put(Search, search);
             moved |= Put(Actions, _actions.Count > 0 ? actions : CGRect.Empty);
             _searchIcon.Frame = Search.ContentView.Bounds;
+            LayoutSlots();
+            return moved;
+        }
 
-            var step = Vertical ? actions.Width : actions.Height;
+        // One square per action, down the group with a vertical tab bar, across it with a bottom one.
+        private void LayoutSlots()
+        {
+            var bounds = Actions.Bounds;
+            var step = Vertical ? bounds.Width : bounds.Height;
             for (var i = 0; i < _slots.Count; i++)
             {
                 _slots[i].Frame = Vertical
                     ? new CGRect(0, i * step, step, step)
                     : new CGRect(i * step, 0, step, step);
             }
-
-            return moved;
         }
 
         public override UIView? HitTest(CGPoint point, UIEvent? uievent)
