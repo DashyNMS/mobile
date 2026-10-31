@@ -306,31 +306,38 @@ public sealed class AlertWatcherTests
     }
 
     [Fact]
-    public async Task Recoveries_need_recovered_alerts_fetched()
+    public async Task Recoveries_are_looked_up_rather_than_listed()
     {
         var recovered = Fakes.Alert(1, 7, "critical");
         recovered.StateValue = 0;
         BaselineOf(Fakes.Alert(1, 7, "critical"));
-        ServerReturns(recovered);
+        ServerReturns();
+        _client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(recovered);
 
         await _watcher.CheckAsync();
 
-        await _client.Alerts.Received(1).ListAsync(AlertQuery.All, Arg.Any<CancellationToken>());
+        await _client.Alerts.Received(1).ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>());
         var shown = Assert.Single(_notifier.Shown);
         Assert.Equal("Recovered: host7", shown.Title);
         Assert.False(shown.IsProblem);
     }
 
-    [Fact]
-    public async Task Without_recovery_notifications_only_open_alerts_are_fetched()
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(false, false)]
+    public async Task Only_open_alerts_are_fetched_whatever_the_recovery_settings(bool notifyOnRecovery, bool includeRecovered)
     {
-        _settings.Notifications.NotifyOnRecovery = false;
+        // A LibreNMS 26.10 server returned HTTP 500 for recovered faults on every check.
+        _settings.Notifications.NotifyOnRecovery = notifyOnRecovery;
+        _settings.IncludeRecoveredAlerts = includeRecovered;
         BaselineOf();
         ServerReturns();
 
         await _watcher.CheckAsync();
 
         await _client.Alerts.Received(1).ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>());
+        await _client.Alerts.DidNotReceive().ListAsync(AlertQuery.All, Arg.Any<CancellationToken>());
     }
 
     [Fact]

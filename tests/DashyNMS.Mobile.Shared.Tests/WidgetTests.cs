@@ -258,6 +258,20 @@ public sealed class WidgetUpdateTests
     }
 
     [Fact]
+    public async Task Widgets_update_when_the_server_cant_list_recovered_alerts()
+    {
+        // #286: the full list got HTTP 500 on every check, so no snapshot was saved.
+        _settings.Notifications.NotifyOnRecovery = true;
+        _client.Alerts.ListAsync(AlertQuery.All, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Server error", System.Net.HttpStatusCode.InternalServerError));
+
+        var result = await _watcher.CheckAsync();
+
+        Assert.NotEqual(AlertCheckOutcome.Failed, result.Outcome);
+        Assert.Equal(1, _widgets.Updates[0].Critical);
+    }
+
+    [Fact]
     public async Task Sensors_are_read_only_when_picked_and_shared_between_checks()
     {
         await _watcher.CheckAsync();

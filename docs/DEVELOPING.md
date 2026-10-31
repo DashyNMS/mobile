@@ -212,6 +212,10 @@ work from this app.
   The versioned state distinguishes legacy alerts from faults. An older saved
   state or a server switching source always takes a quiet baseline and withdraws
   old notifications, even when first-poll suppression is off.
+- Background checks fetch open alerts only, whatever the recovery settings:
+  recoveries come from looking up the alerts that left the open list. Some
+  LibreNMS 26.10 servers return HTTP 500 when recovered faults are listed, and
+  that failed every check, so notifications and widgets stopped.
 - Fault changes notify once per device and rule. Additional faults and partial
   recovery update the same notification silently. Recovery requires the last
   outstanding fault to be confirmed recovered. Missing rows are looked up with
