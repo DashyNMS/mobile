@@ -87,9 +87,6 @@ public partial class NetworkMapPage : ContentPage
 			}
 		};
 
-		// Once shown and laid out, it can be fitted to its row.
-		SearchField.SizeChanged += (_, _) => PlaceControls();
-
 		MapCanvas.StartInteraction += OnTouchStart;
 		MapCanvas.DragInteraction += OnTouchDrag;
 		MapCanvas.EndInteraction += OnTouchEnd;
@@ -113,11 +110,14 @@ public partial class NetworkMapPage : ContentPage
 				{
 					KeyboardDismiss.Close(Search);
 				}
+#if IOS
+				TabBarSearch.SetOpen(this, _viewModel.ShowsSearch);
+#endif
 			}
 		};
 
 #if IOS
-		// Search is the tab bar's own search tab instead.
+		// Search is the glass button by the tab bar instead.
 		SearchButton.IsVisible = !TabBarSearch.IsAvailable;
 #endif
 	}
@@ -142,6 +142,10 @@ public partial class NetworkMapPage : ContentPage
 	private void PlaceControls()
 	{
 		var edges = CoveredEdges.Of(this);
+#if IOS
+		// Over a bottom tab bar, the search button floats above it.
+		edges = new Thickness(edges.Left, edges.Top, edges.Right, edges.Bottom + TabBarSearch.CoveredBottom);
+#endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
@@ -149,20 +153,11 @@ public partial class NetworkMapPage : ContentPage
 		// The card has the foot when it shows, and keeps clear itself.
 		MapControls.Margin = new Thickness(edges.Left, 0, edges.Right, SelectionCard.IsVisible ? 0 : edges.Bottom);
 		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, 12 + edges.Bottom);
-
-		// The search field goes as wide as its own row allows: past the
-		// column the tab bar sits at the foot of, short of the camera. It sits
-		// in MapControls, already clear of the whole edge, so it's told the difference.
-		if (SearchField.IsVisible && SearchField.Height > 0)
-		{
-			var beside = CoveredEdges.Beside(this, SearchField);
-			var margin = new Thickness(12 + beside.Left - edges.Left, 8, 12 + beside.Right - edges.Right, 8);
-			if (SearchField.Margin != margin)
-			{
-				SearchField.Margin = margin;
-			}
-		}
 	}
+
+#if IOS
+	private void OnSearchButtonMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+#endif
 
 	/// <summary>
 	/// The part of the map nothing covers, in the map's own points: where
@@ -218,7 +213,8 @@ public partial class NetworkMapPage : ContentPage
 		base.OnAppearing();
 		Header.Apply(this);
 #if IOS
-		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null));
+		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null), _viewModel.ShowsSearch, "Find a device");
+		TabBarSearch.Moved += OnSearchButtonMoved;
 #endif
 		PlaceControls();
 
@@ -236,6 +232,7 @@ public partial class NetworkMapPage : ContentPage
 		base.OnDisappearing();
 		KeyboardDismiss.Close(Search);
 #if IOS
+		TabBarSearch.Moved -= OnSearchButtonMoved;
 		TabBarSearch.Hide(this);
 #endif
 		SaveView();
