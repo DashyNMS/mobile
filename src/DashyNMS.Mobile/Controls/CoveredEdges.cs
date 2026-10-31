@@ -1,4 +1,5 @@
 #if IOS
+using CoreGraphics;
 using UIKit;
 #endif
 
@@ -33,6 +34,78 @@ internal static class CoveredEdges
         }
 #endif
         return Thickness.Zero;
+    }
+
+    /// <summary>
+    /// How far in from each side <paramref name="view"/> must keep across the
+    /// row it sits in: only what is beside it there - the status bar, a
+    /// camera, the tabs - rather than the whole edge's safe area, which on
+    /// iPhone Duo's inner display covers a column the tab bar fills only at
+    /// its foot. Top and bottom are nought.
+    /// </summary>
+    /// <remarks>
+    /// Where iOS doesn't say what it draws where (before iOS 27.1), or the
+    /// view isn't laid out yet, it's the safe area's sides, as <see cref="Of"/>.
+    /// </remarks>
+    public static Thickness Beside(Page page, View view)
+    {
+        var edges = Of(page);
+        var fallback = new Thickness(edges.Left, 0, edges.Right, 0);
+#if IOS
+        if (!OperatingSystem.IsIOSVersionAtLeast(27, 1)
+            || page.Handler?.PlatformView is not UIView pageView || pageView.Window is null
+            || view.Handler?.PlatformView is not UIView row || row.Window is null || row.Bounds.Height <= 0)
+        {
+            return fallback;
+        }
+
+        var occupied = ReservedRegions.Occupied(pageView);
+        if (occupied.Count == 0)
+        {
+            return fallback;
+        }
+
+        var obstacles = occupied
+            .Select(a => new CGRect(a.Left, a.Top, a.Right - a.Left, a.Bottom - a.Top))
+            .ToList();
+        if (TabDots.FindTabs() is { TabBar: { Hidden: false } tabBar } controller)
+        {
+            // Each tab where UIKit's tabs are in use; otherwise the whole bar,
+            // which may run the length of its edge.
+            var tabs = controller.Tabs ?? [];
+            foreach (var tab in tabs)
+            {
+                var frame = tab.GetFrame(pageView);
+                if (!frame.IsNull() && frame.Width > 0 && frame.Height > 0)
+                {
+                    obstacles.Add(frame);
+                }
+            }
+
+            if (tabs.Length == 0)
+            {
+                obstacles.Add(tabBar.ConvertRectToView(tabBar.Bounds, pageView));
+            }
+        }
+
+        var line = row.ConvertRectToView(row.Bounds, pageView);
+        double left = 0, right = 0;
+        foreach (var obstacle in obstacles.Where(o => o.Top < line.Bottom && o.Bottom > line.Top))
+        {
+            if (obstacle.GetMidX() > line.GetMidX())
+            {
+                right = Math.Max(right, pageView.Bounds.Width - obstacle.Left);
+            }
+            else
+            {
+                left = Math.Max(left, obstacle.Right);
+            }
+        }
+
+        return new Thickness(left, 0, right, 0);
+#else
+        return fallback;
+#endif
     }
 
     /// <summary>
