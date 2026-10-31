@@ -41,8 +41,19 @@ internal static class TabBarButtons
 
     /// <summary>Where the tab bar's pill was last found, in the buttons' layer's points; empty if it wasn't.</summary>
     private static CGRect _pill = CGRect.Empty;
+    /// <summary>Most placements allowed in a second before the buttons stop following the tab bar.</summary>
+    private const int MostPlacesPerSecond = 120;
+
     private static object? _owner;
     private static string? _reported;
+
+    /// <summary>The pill last found, looked at again first rather than searching the window.</summary>
+    private static WeakReference<UIView>? _platter;
+
+    private static bool _placeQueued;
+    private static int _placesThisSecond;
+    private static DateTime _secondStarted;
+    private static bool _stopped;
 
     /// <summary>Liquid Glass needs iOS 26; before that, pages keep search and their actions on the page.</summary>
     public static bool IsAvailable => OperatingSystem.IsIOSVersionAtLeast(26);
@@ -99,21 +110,57 @@ internal static class TabBarButtons
     /// ViewDidLayoutSubviews, and once more straight after, as the tab bar
     /// lays out its own glass after the controller does.
     /// </summary>
+    /// <remarks>
+    /// Only one placement waits for the next turn at a time, however often
+    /// the controller lays out. And if placing them ever keeps the tab bar
+    /// laying out - more than <see cref="MostPlacesPerSecond"/> a second -
+    /// they stay where they are for the rest of the session, noted in the
+    /// diagnostics log, rather than leave the app unable to finish launching
+    /// (#332).
+    /// </remarks>
     public static void Relayout(UITabBarController tabs)
     {
-        if (_host is null || _owner is null || tabs.View is not { Window: not null } root)
+        if (_stopped || _host is null || _owner is null || tabs.View is not { Window: not null } root)
         {
             return;
         }
 
         Place(tabs, root);
+        if (_placeQueued)
+        {
+            return;
+        }
+
+        _placeQueued = true;
         NSRunLoop.Main.BeginInvokeOnMainThread(() =>
         {
-            if (_owner is not null && tabs.View is { Window: not null } later)
+            _placeQueued = false;
+            if (!_stopped && _owner is not null && tabs.View is { Window: not null } later)
             {
                 Place(tabs, later);
             }
         });
+    }
+
+    // Counts placements; true once there have been too many in a second.
+    private static bool TooOften()
+    {
+        var now = DateTime.UtcNow;
+        if (now - _secondStarted > TimeSpan.FromSeconds(1))
+        {
+            _secondStarted = now;
+            _placesThisSecond = 0;
+        }
+
+        if (++_placesThisSecond <= MostPlacesPerSecond)
+        {
+            return false;
+        }
+
+        _stopped = true;
+        (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
+            "Layout", $"Tab bar buttons: stopped following the tab bar, placed over {MostPlacesPerSecond} times in a second");
+        return true;
     }
 
     /// <summary>
@@ -149,6 +196,11 @@ internal static class TabBarButtons
 
     private static void Place(UITabBarController tabs, UIView root)
     {
+        if (TooOften())
+        {
+            return;
+        }
+
         var host = _host!;
         if (!ReferenceEquals(host.Superview, root))
         {
@@ -287,17 +339,28 @@ internal static class TabBarButtons
     /// full height: measured from that, the button went off the top of the
     /// screen (#306's diagnostics). So it's looked for across the whole window,
     /// leaving out the page showing and the buttons themselves.
+    /// <para>This runs every time the tab bar controller lays out, so the pill
+    /// once found is looked at again first, and the search never goes into
+    /// a page's views (the Dashboard's cards run to thousands) or the app's
+    /// own. The pill is UIKit's.</para>
     /// </remarks>
     private static (CGRect Bar, string From) Pill(UITabBarController tabs, UITabBar tabBar, UIView into)
     {
         var window = into.Window ?? tabBar.Window;
+        if (_platter is not null && _platter.TryGetTarget(out var known)
+            && known.Window is not null && ReferenceEquals(known.Window, window) && Showing(known))
+        {
+            return (known.ConvertRectToView(known.Bounds, into), Name(known));
+        }
+
+        _platter = null;
         var page = tabs.SelectedViewController?.View;
 
         // Not into the page's own views - a list can hold thousands - nor the buttons'.
         var candidates = window is null
             ? []
-            : Descendants(window, view => view.Hidden || ReferenceEquals(view, into) || ReferenceEquals(view, page))
-                .Where(view => view.Alpha > 0 && view.Bounds.Width > 0 && view.Bounds.Height > 0)
+            : Descendants(window, view => view.Hidden || ReferenceEquals(view, into) || ReferenceEquals(view, page) || IsOurs(view))
+                .Where(Showing)
                 .ToList();
 
         // The pill itself, the biggest if there are several (one per state).
@@ -308,6 +371,7 @@ internal static class TabBarButtons
             .FirstOrDefault();
         if (platter.View is not null)
         {
+            _platter = new WeakReference<UIView>(platter.View);
             return (platter.Frame, Name(platter.View));
         }
 
@@ -330,6 +394,16 @@ internal static class TabBarButtons
     }
 
     private static string Name(UIView view) => view.Class.Name ?? string.Empty;
+
+    private static bool Showing(UIView view) =>
+        !view.Hidden && view.Alpha > 0 && view.Bounds.Width > 0 && view.Bounds.Height > 0;
+
+    // A page's views - each page and layout is a MauiView, holding everything
+    // on it - and the app's own (the buttons, the safe-area watchers). Shell's
+    // containers are UIKit's own views, so the tab bar is still found.
+    private static bool IsOurs(UIView view) =>
+        view is Microsoft.Maui.Platform.MauiView
+        || (view.GetType().Namespace?.StartsWith("DashyNMS", StringComparison.Ordinal) ?? false);
 
     private static IEnumerable<UIView> Descendants(UIView view, Func<UIView, bool> skip)
     {
