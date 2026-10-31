@@ -15,7 +15,12 @@
     <!-- Search, then a strip of chips, then the map with the rest of the
          screen - Location and Group are chips, not pickers, and nothing sits
          on top of the map but Fit (#110). -->
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+    <!-- On iOS the map runs on under the camera and the tab bar, and the
+         chips scroll in from under the camera, so the screen feels as big as
+         it is; the header, Fit and the device card stay clear of them. The
+         page places those itself (see CoveredEdges), so nothing here keeps
+         clear of the safe area on its own. -->
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" SafeAreaEdges="None">
 
         <controls:PageHeader x:Name="Header" Title="Network map" Margin="16,0,16,0">
             <controls:PageHeader.Actions>
@@ -30,13 +35,13 @@
         </controls:PageHeader>
 
         <!-- Search when asked for, from the header's icon: otherwise the map has the room (#296). -->
-        <VerticalStackLayout Grid.Row="1" Padding="16,0,16,0">
+        <VerticalStackLayout x:Name="SearchPanel" Grid.Row="1" Padding="16,0,16,0" SafeAreaEdges="None">
             <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Find a device" Margin="-6,0" IsVisible="{Binding ShowsSearch}" />
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         </VerticalStackLayout>
 
-        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,4,16,8">
-            <HorizontalStackLayout Spacing="8">
+        <ScrollView x:Name="ChipStrip" Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,4,16,8" SafeAreaEdges="None">
+            <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
                 <!-- Location, device group (desktop's own scope), or both: tap to choose. -->
                 <Button Style="{StaticResource Chip}" Text="{Binding LocationChipText}" Command="{Binding ChooseLocationCommand}"
                         SemanticProperties.Hint="Show only the devices at one location">
@@ -88,10 +93,25 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <!-- The map itself; see NetworkMapDrawable for how it's drawn. -->
-        <Grid Grid.Row="3">
+        <!-- The map itself, on down behind the device card; see NetworkMapDrawable for how it's drawn. -->
+        <Grid x:Name="MapArea" Grid.Row="3" Grid.RowSpan="2" SafeAreaEdges="None">
             <GraphicsView x:Name="MapCanvas" />
 
+            <!-- The map fades out as it passes up under the chips, as the Dashboard's cards do under its header. -->
+            <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+                <BoxView.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                        <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                    </LinearGradientBrush>
+                </BoxView.Background>
+            </BoxView>
+        </Grid>
+
+        <!-- What sits on the map, above the device card and inside the edges
+             the camera and tab bar leave (set from the page) - also what Fit
+             fits to. Touches between them go through to the map. -->
+        <Grid x:Name="MapControls" Grid.Row="3" SafeAreaEdges="None" InputTransparent="True" CascadeInputTransparent="False">
             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" Margin="16,6" InputTransparent="True"
                    HorizontalOptions="Start" VerticalOptions="End" />
 
@@ -115,7 +135,9 @@
              what it's connected to (tap one to go there), so it doesn't cover
              half the map (#110). -->
         <!-- Capped lower on a short screen (see the page), so a selected device leaves most of the map (#296). -->
-        <Border x:Name="SelectionCard" Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
+        <!-- Over the foot of the map, always clear of the camera and tab bar (margin set from the page). -->
+        <Border x:Name="SelectionCard" Grid.Row="4" Style="{StaticResource Card}" Margin="12,6,12,12" SafeAreaEdges="None"
+                IsVisible="{Binding HasSelectedNode}" MaximumHeightRequest="300">
             <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
                     <VerticalStackLayout VerticalOptions="Center">

@@ -65,11 +65,16 @@ public sealed class NetworkMapDrawable : IDrawable
         return best;
     }
 
-    /// <summary>Zooms and pans so every node fits, with a margin; small maps stay at no more than 1:1.</summary>
-    public void FitTo(Size size)
+    /// <summary>
+    /// Zooms and pans so every node fits <paramref name="area"/>, with a
+    /// margin; small maps stay at no more than 1:1. The area is the part of
+    /// the view nothing covers: the map runs on under the camera, the tab
+    /// bar and the device card, and fitting to all of it put nodes there.
+    /// </summary>
+    public void FitTo(RectF area)
     {
         var nodes = _map.Nodes;
-        if (nodes.Count == 0 || size.Width <= 0 || size.Height <= 0)
+        if (nodes.Count == 0 || area.Width <= 0 || area.Height <= 0)
         {
             return;
         }
@@ -81,23 +86,23 @@ public sealed class NetworkMapDrawable : IDrawable
 
         const double margin = 40;
         Scale = Math.Clamp(
-            Math.Min((size.Width - margin * 2) / Math.Max(right - left, 1), (size.Height - margin * 2) / Math.Max(bottom - top, 1)),
+            Math.Min((area.Width - margin * 2) / Math.Max(right - left, 1), (area.Height - margin * 2) / Math.Max(bottom - top, 1)),
             MinScale,
             1);
         Offset = new PointF(
-            (float)(size.Width / 2 - (left + right) / 2 * Scale),
-            (float)(size.Height / 2 - (top + bottom) / 2 * Scale));
+            (float)(area.Center.X - (left + right) / 2 * Scale),
+            (float)(area.Center.Y - (top + bottom) / 2 * Scale));
     }
 
-    /// <summary>Brings a node to the middle, zooming in first if it's zoomed right out.</summary>
-    public void CenterOn(NetworkNode node, Size size)
+    /// <summary>Brings a node to the middle of <paramref name="area"/>, zooming in first if it's zoomed right out.</summary>
+    public void CenterOn(NetworkNode node, RectF area)
     {
         if (Scale < LabelAllScale)
         {
             Scale = 1;
         }
 
-        Offset = new PointF((float)(size.Width / 2 - node.X * Scale), (float)(size.Height / 2 - node.Y * Scale));
+        Offset = new PointF((float)(area.Center.X - node.X * Scale), (float)(area.Center.Y - node.Y * Scale));
     }
 
     /// <summary>Zooms by <paramref name="factor"/>, keeping the point under the fingers where it is.</summary>
