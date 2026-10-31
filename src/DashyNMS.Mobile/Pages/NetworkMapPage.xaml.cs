@@ -128,12 +128,13 @@ public partial class NetworkMapPage : ContentPage
 			}
 		};
 
-		// Search, Refresh and Fit are Liquid Glass by the tab bar instead.
+		// Search, Refresh, Fit and Reset layout are Liquid Glass by the tab bar instead.
 		if (TabBarButtons.IsAvailable)
 		{
 			SearchButton.IsVisible = false;
 			RefreshButton.IsVisible = false;
 			FitButton.IsVisible = false;
+			ResetLayoutChip.IsVisible = false;
 		}
 #endif
 	}
@@ -332,6 +333,7 @@ public partial class NetworkMapPage : ContentPage
 		[
 			new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)),
 			new GlassAction("viewfinder", "Fit the whole map", Fit),
+			new GlassAction("arrow.uturn.backward", "Reset layout", () => _viewModel.ResetLayoutCommand.Execute(null)),
 		]);
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
