@@ -53,6 +53,9 @@ internal sealed class AppShellRenderer : ShellRenderer
         /// <summary>The view controller Shell last selected, as Shell sees it.</summary>
         private UIViewController? _shellSelected;
 
+        /// <summary>Telling Shell of a tab now, so UIKit's echo of it isn't told again.</summary>
+        private bool _tellingShell;
+
         public AppShellItemRenderer(IShellContext context) : base(context)
         {
             // Set this before Shell creates the child controllers, so a cold
@@ -89,6 +92,11 @@ internal sealed class AppShellRenderer : ShellRenderer
             get => base.SelectedViewController;
             set
             {
+                // Before UIKit hears of it: selecting it there says a tab was
+                // selected, and that mustn't look like a new one (build 188
+                // went round that until the stack ran out).
+                _shellSelected = value;
+
                 // Shell selects by view controller: select its tab to match.
                 if (_active && value is not null && _tabs.TryGetValue(value, out var tab))
                 {
@@ -112,8 +120,6 @@ internal sealed class AppShellRenderer : ShellRenderer
                     Fail(nameof(SelectedViewController), error);
                     base.SelectedViewController = value!;
                 }
-
-                _shellSelected = value;
             }
         }
 
@@ -247,10 +253,20 @@ internal sealed class AppShellRenderer : ShellRenderer
         /// </summary>
         private void TellShell()
         {
-            if (_active && OperatingSystem.IsIOSVersionAtLeast(18) && SelectedTab is { } selected
-                && ControllerFor(selected) is { } now && !ReferenceEquals(now, _shellSelected))
+            if (_tellingShell || !_active || !OperatingSystem.IsIOSVersionAtLeast(18) || SelectedTab is not { } selected
+                || ControllerFor(selected) is not { } now || ReferenceEquals(now, _shellSelected))
+            {
+                return;
+            }
+
+            _tellingShell = true;
+            try
             {
                 Guard(nameof(TellShell), () => SelectedViewController = now);
+            }
+            finally
+            {
+                _tellingShell = false;
             }
         }
 
