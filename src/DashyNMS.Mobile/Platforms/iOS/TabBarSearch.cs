@@ -76,7 +76,7 @@ internal static class TabBarSearch
             if (Preferences.Default.Get<string?>(PendingKey, null) == build)
             {
                 Preferences.Default.Set(DisabledKey, build);
-                Note($"the last launch of build {build} didn't get past adding the search tab; off for this build");
+                Note($"the last launch of build {build} ended while the search tab was being added or the screen was changing; off for this build");
             }
 
             Preferences.Default.Remove(PendingKey);
@@ -129,6 +129,23 @@ internal static class TabBarSearch
     {
         SetActive(true);
         Note("added the search tab");
+        Application.Current?.Dispatcher.DispatchDelayed(SettleTime, () =>
+        {
+            if (IsActive)
+            {
+                Preferences.Default.Remove(PendingKey);
+            }
+        });
+    }
+
+    /// <summary>
+    /// Something the tabs might not survive is starting - iPhone Duo opening,
+    /// folding or turning: if the app dies before it settles, the next
+    /// launch leaves the tab bar as Shell makes it.
+    /// </summary>
+    internal static void Risky()
+    {
+        Starting();
         Application.Current?.Dispatcher.DispatchDelayed(SettleTime, () =>
         {
             if (IsActive)
