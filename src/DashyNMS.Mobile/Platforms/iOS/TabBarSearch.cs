@@ -1,193 +1,375 @@
+using CoreGraphics;
 using DashyNMS.Mobile.Services;
+using Foundation;
+using UIKit;
 
 namespace DashyNMS.Mobile;
 
 /// <summary>
-/// Search as UIKit's own search tab, beside the tab bar's other tabs, as in
-/// Music and other iOS 26 apps - for the page showing, so search is in the
+/// Search as its own Liquid Glass button in the tab bar's row, as Music and
+/// other iOS 26 apps have it, for the page showing - so search is in the
 /// same place on every page that has it rather than in each page's header.
 /// </summary>
 /// <remarks>
-/// <para>UIKit places the search tab itself, on every display and the right
-/// way round: beside a bottom tab bar, in line with a vertical one (iPhone
-/// Duo). A button laid over the tab bar by hand (#304, #306) never sat right
-/// on every display, and couldn't sit in the bar's row at all: only UIKit
-/// can shorten the bar to make room. Shell's tab bar controller is taught to
-/// use tabs in <see cref="AppShellRenderer"/>.</para>
-/// <para>The first try at it (#308) left a black screen at launch. So the
-/// tab bar only changes over once it has appeared, anything that goes wrong
-/// puts it back as Shell made it, with search in the page's header again,
-/// and a launch that never got past the change turns it off for that build
-/// (<see cref="CanTry"/>): one bad launch at worst, never every launch.</para>
-/// <para>A tap on the search tab doesn't switch tabs: it opens search on the
-/// page showing. The tab only shows while a page with search does - a page
-/// takes it over as it appears and gives it up as it goes.</para>
+/// <para>Shell's tab bar is UIKit's, built from view controllers, so it
+/// can't take UIKit's own search tab: the button is laid over Shell's tab
+/// bar controller instead, placed from where the tab bar's glass is. Beside
+/// a bottom tab bar it sits at the bar's right, a gap apart; with a vertical
+/// tab bar (iPhone Duo) it sits above it in the same column. Where a bottom
+/// bar leaves no room at its right, it floats above the bar's right end, and
+/// the page keeps its own controls clear of it (<see cref="CoveredBottom"/>).</para>
+/// <para>It's placed again each time the tab bar controller lays out
+/// (<see cref="Relayout"/>), and moves to whichever controller that is:
+/// placing it only as a page appeared left it where the tab bar had been,
+/// over the tabs or off the screen, once iPhone Duo was folded or turned.</para>
+/// <para>One button for the app; a page takes it over as it appears and
+/// gives it up as it goes, so whichever page shows owns the tap.</para>
 /// </remarks>
 internal static class TabBarSearch
 {
-    /// <summary>The build that is changing the tab bar over, until it has run a while since.</summary>
-    private const string PendingKey = "ios.searchtab.pending";
+    /// <summary>The gap between the button and the tab bar.</summary>
+    private const double Gap = 12;
 
-    /// <summary>The build the search tab is turned off for, having failed on it.</summary>
-    private const string DisabledKey = "ios.searchtab.disabled";
+    private static Host? _host;
 
-    /// <summary>How long the app runs after the change before it counts as having worked.</summary>
-    private static readonly TimeSpan SettleTime = TimeSpan.FromSeconds(10);
-
-    private static readonly List<WeakReference<IHost>> Hosts = [];
+    /// <summary>Where the tab bar's pill was last found, in the button's layer's points; empty if it wasn't.</summary>
+    private static CGRect _pill = CGRect.Empty;
     private static object? _owner;
-    private static Action? _tapped;
-    private static bool? _canTry;
+    private static string? _reported;
 
-    /// <summary>The tab bar that can show a search tab: Shell's, made to use UIKit's tabs.</summary>
-    internal interface IHost
-    {
-        void ShowSearch(bool shown);
-    }
-
-    /// <summary>Raised when the search tab starts or stops being there, so pages show search in their header or not.</summary>
-    public static event EventHandler? ActiveChanged;
-
-    /// <summary>Whether the tab bar has a search tab to offer: pages put search in their header otherwise.</summary>
-    public static bool IsActive { get; private set; }
-
-    /// <summary>Whether a page wants the search tab now.</summary>
-    internal static bool IsShown => _owner is not null;
+    /// <summary>Liquid Glass needs iOS 26; before that, pages keep search in their header.</summary>
+    public static bool IsAvailable => OperatingSystem.IsIOSVersionAtLeast(26);
 
     /// <summary>
-    /// Whether to try the search tab this launch: iOS 26 and later, and not a
-    /// build whose last launch never got past changing the tab bar over.
+    /// Whether the button is on the screen by the tab bar. Pages keep search
+    /// in their header while it isn't.
     /// </summary>
-    internal static bool CanTry
+    public static bool IsPlaced { get; private set; }
+
+    /// <summary>Raised when the button moves, so pages can keep their controls clear of it.</summary>
+    public static event EventHandler? Moved;
+
+    /// <summary>
+    /// How much more of the foot of the screen the button takes: only when
+    /// it has had to float above a bottom tab bar rather than sit beside it.
+    /// </summary>
+    public static double CoveredBottom => IsPlaced && _host is { Button.Hidden: false, AboveBottomBar: true } host
+        ? host.Button.Frame.Height + Gap
+        : 0;
+
+    /// <summary>Shows the button for <paramref name="owner"/>, which <paramref name="tapped"/> answers.</summary>
+    public static void Show(object owner, Action tapped, bool isOpen, string description)
     {
-        get
+        if (!IsAvailable)
         {
-            if (_canTry is { } known)
-            {
-                return known;
-            }
-
-            if (!OperatingSystem.IsIOSVersionAtLeast(26))
-            {
-                return (_canTry = false).Value;
-            }
-
-            var build = AppInfo.Current.BuildString;
-            if (Preferences.Default.Get<string?>(PendingKey, null) == build)
-            {
-                Preferences.Default.Set(DisabledKey, build);
-                Note($"the last launch of build {build} ended while the search tab was being added or the screen was changing; off for this build");
-            }
-
-            Preferences.Default.Remove(PendingKey);
-            return (_canTry = Preferences.Default.Get<string?>(DisabledKey, null) != build).Value;
+            return;
         }
-    }
 
-    /// <summary>Shows the search tab for <paramref name="owner"/>, which <paramref name="tapped"/> answers.</summary>
-    public static void Show(object owner, Action tapped)
-    {
-        // Only when it comes: changing the tabs can make UIKit show the page
-        // again, which would ask again.
-        var wasShown = IsShown;
+        _host ??= new Host();
         _owner = owner;
-        _tapped = tapped;
-        if (!wasShown)
+        _host.Tapped = tapped;
+        _host.Description = description;
+        _host.SetOpen(isOpen);
+        _host.Button.Hidden = false;
+        if (TabDots.FindTabs() is { } tabs)
         {
-            Tell(true);
+            Relayout(tabs);
         }
     }
 
-    /// <summary>Hides the search tab, unless another page has taken it over since.</summary>
+    /// <summary>Shows a cross while search is open, and a magnifying glass while it's closed.</summary>
+    public static void SetOpen(object owner, bool isOpen)
+    {
+        if (_host is not null && ReferenceEquals(owner, _owner))
+        {
+            _host.SetOpen(isOpen);
+        }
+    }
+
+    /// <summary>Hides the button, unless another page has taken it over since.</summary>
     public static void Hide(object owner)
     {
-        if (!ReferenceEquals(owner, _owner))
+        if (_host is null || !ReferenceEquals(owner, _owner))
         {
             return;
         }
 
         _owner = null;
-        _tapped = null;
-        Tell(false);
-    }
-
-    /// <summary>For a tab bar controller to tell of itself, and be told when search comes and goes.</summary>
-    internal static void Register(IHost host)
-    {
-        Hosts.RemoveAll(h => !h.TryGetTarget(out _));
-        Hosts.Add(new WeakReference<IHost>(host));
-    }
-
-    /// <summary>The search tab was tapped.</summary>
-    internal static void Tap() => _tapped?.Invoke();
-
-    /// <summary>The tab bar is about to change over: if this launch goes no further, the next one won't try.</summary>
-    internal static void Starting() => Preferences.Default.Set(PendingKey, AppInfo.Current.BuildString);
-
-    /// <summary>The tab bar has changed over: once the app has run a while on it, it counts as having worked.</summary>
-    internal static void Started()
-    {
-        SetActive(true);
-        Note("added the search tab");
-        Application.Current?.Dispatcher.DispatchDelayed(SettleTime, () =>
-        {
-            if (IsActive)
-            {
-                Preferences.Default.Remove(PendingKey);
-            }
-        });
+        _host.Tapped = null;
+        _host.Button.Hidden = true;
+        IsPlaced = false;
+        Moved?.Invoke(null, EventArgs.Empty);
     }
 
     /// <summary>
-    /// Something the tabs might not survive is starting - iPhone Duo opening,
-    /// folding or turning: if the app dies before it settles, the next
-    /// launch leaves the tab bar as Shell makes it.
+    /// Places the button by <paramref name="tabs"/>' tab bar - from its
+    /// ViewDidLayoutSubviews, and once more straight after, as the tab bar
+    /// lays out its own glass after the controller does.
     /// </summary>
-    internal static void Risky()
+    public static void Relayout(UITabBarController tabs)
     {
-        Starting();
-        Application.Current?.Dispatcher.DispatchDelayed(SettleTime, () =>
+        if (_host is null || _owner is null || tabs.View is not { Window: not null } root)
         {
-            if (IsActive)
+            return;
+        }
+
+        Place(tabs, root);
+        NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+        {
+            if (_owner is not null && tabs.View is { Window: not null } later)
             {
-                Preferences.Default.Remove(PendingKey);
+                Place(tabs, later);
             }
         });
     }
 
-    /// <summary>Something went wrong with the tabs: the tab bar is back as Shell made it, for the rest of this build.</summary>
-    internal static void Failed(string where, Exception error)
+    private static void Place(UITabBarController tabs, UIView root)
     {
-        _canTry = false;
-        Preferences.Default.Set(DisabledKey, AppInfo.Current.BuildString);
-        Preferences.Default.Remove(PendingKey);
-        SetActive(false);
-        Note($"search tab off after {error.GetType().Name} in {where}: {error.Message}");
-    }
-
-    private static void SetActive(bool active)
-    {
-        if (IsActive != active)
+        var host = _host!;
+        if (!ReferenceEquals(host.Superview, root))
         {
-            IsActive = active;
-            ActiveChanged?.Invoke(null, EventArgs.Empty);
+            host.RemoveFromSuperview();
+            host.Frame = root.Bounds;
+            root.AddSubview(host);
+        }
+
+        if (!ReferenceEquals(root.Subviews.LastOrDefault(), host))
+        {
+            root.BringSubviewToFront(host);
+        }
+
+        if (tabs.TabBar is not { Hidden: false, Window: not null } tabBar)
+        {
+            Unplace(host);
+            return;
+        }
+
+        var (bar, from) = Pill(tabs, tabBar, host);
+        _pill = from.StartsWith("bar", StringComparison.Ordinal) ? CGRect.Empty : bar;
+        if (bar.Width <= 0 || bar.Height <= 0)
+        {
+            Unplace(host);
+            return;
+        }
+
+        CGRect frame;
+        var vertical = bar.Height > bar.Width;
+        host.AboveBottomBar = false;
+        if (vertical)
+        {
+            // Above it, in its column, as wide as it is.
+            var size = bar.Width;
+            frame = new CGRect(bar.GetMidX() - size / 2, bar.Top - Gap - size, size, size);
+        }
+        else
+        {
+            // At its right, a gap apart, as tall as it is - or above its
+            // right end if the screen has no room there.
+            var size = bar.Height;
+            frame = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
+            if (frame.Right > host.Bounds.Width - host.SafeAreaInsets.Right)
+            {
+                frame = new CGRect(bar.Right - size, bar.Top - Gap - size, size, size);
+                host.AboveBottomBar = true;
+            }
+        }
+
+        // Never off the screen, nor under the status bar: if that's where it
+        // would go, it isn't shown, and the page keeps search in its header.
+        var placed = frame.Top >= host.SafeAreaInsets.Top && frame.Left >= 0
+            && frame.Bottom <= host.Bounds.Height && frame.Right <= host.Bounds.Width;
+        host.Button.Alpha = placed ? 1 : 0;
+        var moved = frame != host.Button.Frame || placed != IsPlaced;
+        IsPlaced = placed;
+        host.Button.Frame = frame;
+        host.Button.Layer.CornerRadius = frame.Height / 2;
+        host.Layout();
+        Report(tabBar, host, bar, from, frame);
+        if (moved)
+        {
+            Moved?.Invoke(null, EventArgs.Empty);
         }
     }
 
-    private static void Tell(bool shown)
+    /// <summary>
+    /// The tab bar's pill and the button, in <paramref name="view"/>'s points,
+    /// for what keeps clear of them across its own row (<c>CoveredEdges.Beside</c>);
+    /// nothing where the pill wasn't found.
+    /// </summary>
+    public static IReadOnlyList<CGRect> Occupied(UIView view)
     {
-        Hosts.RemoveAll(h => !h.TryGetTarget(out _));
-        foreach (var reference in Hosts)
+        if (_host is not { Window: not null } host || _pill.IsEmpty)
         {
-            if (reference.TryGetTarget(out var host))
+            return [];
+        }
+
+        var areas = new List<CGRect> { host.ConvertRectToView(_pill, view) };
+        if (IsPlaced)
+        {
+            areas.Add(host.ConvertRectToView(host.Button.Frame, view));
+        }
+
+        return areas;
+    }
+
+    // Not shown: no tab bar, or nothing to place it by.
+    private static void Unplace(Host host)
+    {
+        host.Button.Alpha = 0;
+        if (IsPlaced)
+        {
+            IsPlaced = false;
+            Moved?.Invoke(null, EventArgs.Empty);
+        }
+    }
+
+    /// <summary>
+    /// The tab bar's glass pill, in <paramref name="into"/>'s points.
+    /// </summary>
+    /// <remarks>
+    /// iOS 26 draws the pill as a <c>_UITabBarItemPlatterView</c>, round the
+    /// tab buttons (<c>_UITabButton</c>). With a vertical tab bar (iPhone Duo)
+    /// it isn't inside the UITabBar, which is then an empty column the screen's
+    /// full height: measured from that, the button went off the top of the
+    /// screen (#306's diagnostics). So it's looked for across the whole window,
+    /// leaving out the page showing and the button itself.
+    /// </remarks>
+    private static (CGRect Bar, string From) Pill(UITabBarController tabs, UITabBar tabBar, UIView into)
+    {
+        var window = into.Window ?? tabBar.Window;
+        var page = tabs.SelectedViewController?.View;
+        // Not into the page's own views - a list can hold thousands - nor the button's.
+        var candidates = window is null
+            ? []
+            : Descendants(window, view => view.Hidden || ReferenceEquals(view, into) || ReferenceEquals(view, page))
+                .Where(view => view.Alpha > 0 && view.Bounds.Width > 0 && view.Bounds.Height > 0)
+                .ToList();
+
+        // The pill itself, the biggest if there are several (one per state).
+        var platter = candidates
+            .Where(view => Name(view).Contains("TabBarItemPlatterView", StringComparison.Ordinal))
+            .Select(view => (View: view, Frame: view.ConvertRectToView(view.Bounds, into)))
+            .OrderByDescending(found => found.Frame.Width * found.Frame.Height)
+            .FirstOrDefault();
+        if (platter.View is not null)
+        {
+            return (platter.Frame, Name(platter.View));
+        }
+
+        // Else round the tab buttons.
+        var buttons = candidates.Where(view => Name(view).Contains("TabButton", StringComparison.Ordinal)).ToList();
+        if (buttons.Count > 0)
+        {
+            var area = CGRect.Null;
+            foreach (var button in buttons)
             {
-                host.ShowSearch(shown);
+                area = area.UnionWith(button.ConvertRectToView(button.Bounds, into));
+            }
+
+            return (area, $"{buttons.Count} {Name(buttons[0])}");
+        }
+
+        // Else the bar, and what there was, for the diagnostics log.
+        var seen = string.Join(", ", candidates.Select(Name).Where(name => name.Contains("Tab", StringComparison.Ordinal)).Distinct().Take(8));
+        return (tabBar.ConvertRectToView(tabBar.Bounds, into), "bar; saw " + (seen.Length == 0 ? "no tab views" : seen));
+    }
+
+    private static string Name(UIView view) => view.Class.Name ?? string.Empty;
+
+    private static IEnumerable<UIView> Descendants(UIView view, Func<UIView, bool> skip)
+    {
+        foreach (var child in view.Subviews)
+        {
+            if (skip(child))
+            {
+                continue;
+            }
+
+            yield return child;
+            foreach (var inner in Descendants(child, skip))
+            {
+                yield return inner;
             }
         }
     }
 
-    // In the diagnostics log Settings shares: the tab bar's change can't be
-    // seen any other way off the device.
-    private static void Note(string text) =>
-        (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.NoteImportant("Layout", "Search tab: " + text);
+    // Where the button went and what it was placed from, in the diagnostics
+    // log Settings shares - only when it changes. The tab bar's glass on
+    // iPhone Duo can't be seen any other way off the device.
+    private static void Report(UITabBar tabBar, UIView host, CGRect bar, string from, CGRect frame)
+    {
+        var bounds = tabBar.ConvertRectToView(tabBar.Bounds, host);
+        var text = $"screen {host.Bounds.Width:0.#}×{host.Bounds.Height:0.#}, tab bar {Text(bounds)}, glass {Text(bar)} from {from} → button {Text(frame)}";
+        if (text == _reported)
+        {
+            return;
+        }
+
+        _reported = text;
+        (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note("Layout", "Search button: " + text);
+
+        static string Text(CGRect r) => $"{r.Left:0.#},{r.Top:0.#} {r.Width:0.#}×{r.Height:0.#}";
+    }
+
+    /// <summary>
+    /// A clear layer over the whole tab bar controller holding the button,
+    /// passing every touch but the button's through.
+    /// </summary>
+    private sealed class Host : UIView
+    {
+        private readonly UIImageView _icon = new() { TintColor = UIColor.Label, ContentMode = UIViewContentMode.Center };
+
+        public Host()
+        {
+            BackgroundColor = UIColor.Clear;
+            AutoresizingMask = UIViewAutoresizing.FlexibleDimensions;
+
+            Button = new UIVisualEffectView(Glass()) { ClipsToBounds = true, IsAccessibilityElement = true, Alpha = 0 };
+            Button.AccessibilityTraits = UIAccessibilityTrait.Button;
+            Button.ContentView.AddSubview(_icon);
+
+            // On the glass itself: interactive glass keeps a button inside it
+            // from hearing the tap.
+            Button.AddGestureRecognizer(new UITapGestureRecognizer(() => Tapped?.Invoke()));
+            AddSubview(Button);
+            SetOpen(false);
+        }
+
+        public UIVisualEffectView Button { get; }
+
+        public Action? Tapped { get; set; }
+
+        public string Description { get; set; } = "Search";
+
+        public bool AboveBottomBar { get; set; }
+
+        public void SetOpen(bool open)
+        {
+            var symbol = UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium);
+            _icon.Image = UIImage.GetSystemImage(open ? "xmark" : "magnifyingglass", symbol);
+            Button.AccessibilityLabel = open ? "Close search" : Description;
+        }
+
+        public void Layout() => _icon.Frame = Button.ContentView.Bounds;
+
+        public override UIView? HitTest(CGPoint point, UIEvent? uievent)
+        {
+            var hit = base.HitTest(point, uievent);
+            return ReferenceEquals(hit, this) ? null : hit;
+        }
+
+        private static UIVisualEffect Glass()
+        {
+            if (!OperatingSystem.IsIOSVersionAtLeast(26))
+            {
+                return UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemMaterial);
+            }
+
+            // Reacts to the finger as the tab bar's own glass does. By key, as
+            // UIKit names it, whatever the binding calls the property.
+            var glass = new UIGlassEffect();
+            glass.SetValueForKey(NSNumber.FromBoolean(true), new NSString("interactive"));
+            return glass;
+        }
+    }
 }

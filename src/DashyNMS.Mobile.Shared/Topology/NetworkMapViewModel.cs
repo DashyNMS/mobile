@@ -131,22 +131,21 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
     private bool _showUnlinkedDevices;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsSearch))]
     private string _searchText = string.Empty;
 
-    /// <summary>Search opened from the header's icon (#296); the map has the room otherwise.</summary>
+    /// <summary>
+    /// The search box showing, opened from the search button (#296); the map
+    /// has the room otherwise. What was typed stays when it closes, so the
+    /// device found stays picked out and the box comes back with it.
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowsSearch))]
     private bool _isSearchOpen;
 
-    /// <summary>The search box shows once asked for, and stays while it has something in it.</summary>
-    public bool ShowsSearch => IsSearchOpen || !string.IsNullOrEmpty(SearchText);
-
-    /// <summary>The header's search icon: opens the box, or closes it (and clears it) when it's open.</summary>
+    /// <summary>The search button: opens the box, or closes it and clears it when it's open.</summary>
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private void ToggleSearch()
     {
-        if (ShowsSearch)
+        if (IsSearchOpen)
         {
             SearchText = string.Empty;
             IsSearchOpen = false;
@@ -156,6 +155,12 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
             IsSearchOpen = true;
         }
     }
+
+    /// <summary>
+    /// Done searching - the keyboard's Search key, or the keyboard put away:
+    /// the box goes, what was typed stays.
+    /// </summary>
+    public void DismissSearch() => IsSearchOpen = false;
 
     [ObservableProperty]
     private NetworkNode? _selectedNode;

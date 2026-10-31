@@ -99,24 +99,94 @@ public partial class NetworkMapPage : ContentPage
 		pinch.PinchUpdated += OnPinch;
 		MapCanvas.GestureRecognizers.Add(pinch);
 
-		// Opened: straight into typing. Closed: the keyboard goes too - hiding
-		// a focused box left it up.
+		// The box slides down from under the chips as search opens, straight
+		// into typing, and back up as it closes, taking the keyboard with it.
 		_viewModel.PropertyChanged += (_, e) =>
 		{
-			if (e.PropertyName == nameof(NetworkMapViewModel.IsSearchOpen) && _viewModel.IsSearchOpen)
+			if (e.PropertyName == nameof(NetworkMapViewModel.IsSearchOpen))
 			{
-				Dispatcher.Dispatch(() => Search.Focus());
-			}
-			else if (e.PropertyName == nameof(NetworkMapViewModel.ShowsSearch))
-			{
-				if (!_viewModel.ShowsSearch)
-				{
-					KeyboardDismiss.Close(Search);
-				}
+				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+#if IOS
+				TabBarSearch.SetOpen(this, _viewModel.IsSearchOpen);
+#endif
 			}
 		};
 
+		// Done with the keyboard - put away, or the map touched: done searching.
+		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
 	}
+
+	/// <summary>How long the search box takes to slide in or out.</summary>
+	private const uint SearchSlide = 220;
+
+	/// <summary>
+	/// Slides the search box down from under the chips, as if from behind the
+	/// fade, and into typing - or back up out of sight, closing the keyboard.
+	/// Shown or hidden at once with Reduce Motion.
+	/// </summary>
+	private void SlideSearch(bool open)
+	{
+		const string name = "SearchSlide";
+		var travel = -(SearchField.HeightRequest + SearchField.Margin.Top + 4);
+		SearchField.AbortAnimation(name);
+		if (open)
+		{
+			// Out of sight before it shows, or it flashes in place first.
+			if (!SearchField.IsVisible && !ReducedMotion.IsOn)
+			{
+				SearchField.TranslationY = travel;
+				SearchField.Opacity = 0;
+			}
+
+			SearchField.IsVisible = true;
+			Dispatcher.Dispatch(() => Search.Focus());
+		}
+		else
+		{
+			KeyboardDismiss.Close(Search);
+		}
+
+		// Done: hidden once out of sight, unless opened again meanwhile.
+		void Finish()
+		{
+			if (!_viewModel.IsSearchOpen)
+			{
+				SearchField.IsVisible = false;
+			}
+
+			SearchField.TranslationY = 0;
+			SearchField.Opacity = 1;
+		}
+
+		if (ReducedMotion.IsOn || (!open && !SearchField.IsVisible))
+		{
+			Finish();
+			return;
+		}
+
+		// From wherever it is now, so a quick open-close doesn't jump.
+		var fromY = SearchField.TranslationY;
+		var fromOpacity = SearchField.Opacity;
+		var toY = open ? 0 : travel;
+		var toOpacity = open ? 1.0 : 0;
+		SearchField.Animate(
+			name,
+			v =>
+			{
+				SearchField.TranslationY = fromY + ((toY - fromY) * v);
+				SearchField.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
+			},
+			length: SearchSlide,
+			easing: open ? Easing.CubicOut : Easing.CubicIn,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled)
+				{
+					Finish();
+				}
+			});
+	}
+
 
 	/// <summary>Shorter than this, the device card leaves the map most of the screen (#296).</summary>
 	private const double ShortScreen = 740;
@@ -138,6 +208,10 @@ public partial class NetworkMapPage : ContentPage
 	private void PlaceControls()
 	{
 		var edges = CoveredEdges.Of(this);
+#if IOS
+		// Above a bottom tab bar, the search button floats over its right end.
+		edges = new Thickness(edges.Left, edges.Top, edges.Right, edges.Bottom + TabBarSearch.CoveredBottom);
+#endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
@@ -147,12 +221,12 @@ public partial class NetworkMapPage : ContentPage
 		SelectionCard.Margin = new Thickness(12 + edges.Left, 6, 12 + edges.Right, 12 + edges.Bottom);
 
 		// The search field goes as wide as its own row allows: past the
-		// column the tab bar sits at the foot of, short of the camera. It sits
-		// in MapControls, already clear of the whole edge, so it's told the difference.
+		// column the tab bar sits at the foot of, short of the camera. Its
+		// strip runs the screen's width.
 		if (SearchField.IsVisible && SearchField.Height > 0)
 		{
 			var beside = CoveredEdges.Beside(this, SearchField);
-			var margin = new Thickness(12 + beside.Left - edges.Left, 8, 12 + beside.Right - edges.Right, 8);
+			var margin = new Thickness(12 + beside.Left, 8, 12 + beside.Right, 8);
 			if (SearchField.Margin != margin)
 			{
 				SearchField.Margin = margin;
@@ -161,10 +235,13 @@ public partial class NetworkMapPage : ContentPage
 	}
 
 #if IOS
-	// Search is the tab bar's own search tab while there is one, and the
-	// header's icon otherwise - before iOS 26, or if the tab bar couldn't take it.
-	private void OnSearchTabChanged(object? sender, EventArgs e) =>
-		Dispatcher.Dispatch(() => SearchButton.IsVisible = !TabBarSearch.IsActive);
+	// Search is the glass button by the tab bar while it's there, and the
+	// header's icon otherwise: before iOS 26, or with nowhere to place it.
+	private void OnSearchButtonMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(() =>
+	{
+		SearchButton.IsVisible = !(TabBarSearch.IsAvailable && TabBarSearch.IsPlaced);
+		PlaceControls();
+	});
 #endif
 
 	/// <summary>
@@ -221,9 +298,9 @@ public partial class NetworkMapPage : ContentPage
 		base.OnAppearing();
 		Header.Apply(this);
 #if IOS
-		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null));
-		TabBarSearch.ActiveChanged += OnSearchTabChanged;
-		OnSearchTabChanged(null, EventArgs.Empty);
+		TabBarSearch.Show(this, () => _viewModel.ToggleSearchCommand.Execute(null), _viewModel.IsSearchOpen, "Find a device");
+		TabBarSearch.Moved += OnSearchButtonMoved;
+		OnSearchButtonMoved(null, EventArgs.Empty);
 #endif
 		PlaceControls();
 
@@ -241,7 +318,7 @@ public partial class NetworkMapPage : ContentPage
 		base.OnDisappearing();
 		KeyboardDismiss.Close(Search);
 #if IOS
-		TabBarSearch.ActiveChanged -= OnSearchTabChanged;
+		TabBarSearch.Moved -= OnSearchButtonMoved;
 		TabBarSearch.Hide(this);
 #endif
 		SaveView();
@@ -306,7 +383,7 @@ public partial class NetworkMapPage : ContentPage
 	private static string ViewPreference(string scopeKey) => "networkmap.view." + scopeKey;
 
 	// The keyboard's search key: the map has found the device, so it goes.
-	private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
+	private void OnSearchCompleted(object? sender, EventArgs e) => _viewModel.DismissSearch();
 
 	private void OnFitClicked(object? sender, EventArgs e)
 	{

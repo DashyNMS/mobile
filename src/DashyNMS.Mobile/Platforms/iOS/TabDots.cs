@@ -14,19 +14,6 @@ internal static class TabDots
     /// <param name="index">The tab to mark (Alerts, or More when Alerts isn't pinned); every other tab is cleared.</param>
     public static void Show(int index, AlertTabSeverity severity, string description)
     {
-        // With a search tab, the bar is built from UIKit's tabs and may make
-        // its items again from them: the dot goes on the tab too, so it stays.
-        if (OperatingSystem.IsIOSVersionAtLeast(18) && FindTabs() is { Tabs: { Length: > 0 } tabs })
-        {
-            for (var i = 0; i < tabs.Length; i++)
-            {
-                if (tabs[i] is not UISearchTab)
-                {
-                    tabs[i].BadgeValue = i == index && severity != AlertTabSeverity.None ? string.Empty : null;
-                }
-            }
-        }
-
         if (FindTabBar() is not { Items: { } items })
         {
             return;

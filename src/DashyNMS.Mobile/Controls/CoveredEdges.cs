@@ -68,24 +68,16 @@ internal static class CoveredEdges
         var obstacles = occupied
             .Select(a => new CGRect(a.Left, a.Top, a.Right - a.Left, a.Bottom - a.Top))
             .ToList();
-        if (TabDots.FindTabs() is { TabBar: { Hidden: false } tabBar } controller)
+        // The tab bar's pill and the search button where they were found;
+        // else the whole bar, which may run the length of its edge.
+        var tabBarAreas = TabBarSearch.Occupied(pageView);
+        if (tabBarAreas.Count > 0)
         {
-            // Each tab where UIKit's tabs are in use; otherwise the whole bar,
-            // which may run the length of its edge.
-            var tabs = controller.Tabs ?? [];
-            foreach (var tab in tabs)
-            {
-                var frame = tab.GetFrame(pageView);
-                if (!frame.IsNull() && frame.Width > 0 && frame.Height > 0)
-                {
-                    obstacles.Add(frame);
-                }
-            }
-
-            if (tabs.Length == 0)
-            {
-                obstacles.Add(tabBar.ConvertRectToView(tabBar.Bounds, pageView));
-            }
+            obstacles.AddRange(tabBarAreas);
+        }
+        else if (TabDots.FindTabs() is { TabBar: { Hidden: false } tabBar })
+        {
+            obstacles.Add(tabBar.ConvertRectToView(tabBar.Bounds, pageView));
         }
 
         var line = row.ConvertRectToView(row.Bounds, pageView);
