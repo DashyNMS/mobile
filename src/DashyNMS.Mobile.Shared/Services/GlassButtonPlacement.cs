@@ -11,6 +11,17 @@ public static class GlassButtonPlacement
                 && area.Top < o.Bottom + gap && area.Bottom > o.Top - gap);
     }
 
+    /// <summary>Overflow stays in the tab column or bottom row, never among the page's content.</summary>
+    public static OccupiedArea? FindByBar(OccupiedArea wanted, OccupiedArea safe, OccupiedArea bar, IReadOnlyList<OccupiedArea> obstacles)
+    {
+        var vertical = bar.Bottom - bar.Top > bar.Right - bar.Left;
+        var height = wanted.Bottom - wanted.Top;
+        var lane = vertical
+            ? new OccupiedArea(Math.Max(safe.Left, bar.Left), safe.Top, Math.Min(safe.Right, bar.Right), Math.Min(safe.Bottom, bar.Top - 12))
+            : new OccupiedArea(safe.Left, Math.Max(safe.Top, bar.Top - 12 - height), safe.Right, Math.Min(safe.Bottom, bar.Bottom));
+        return Find(wanted, lane, obstacles, 0);
+    }
+
     /// <summary>Finds the nearest clear position at obstacle boundaries, without guessing a Live Activity's dimensions.</summary>
     public static OccupiedArea? Find(OccupiedArea wanted, OccupiedArea safe, IReadOnlyList<OccupiedArea> obstacles, double gap = 12)
     {

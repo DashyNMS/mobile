@@ -340,8 +340,9 @@ internal static class TabBarButtons
 
         }
 
-        var safe = new OccupiedArea(host.SafeAreaInsets.Left, host.SafeAreaInsets.Top,
-            host.Bounds.Width - host.SafeAreaInsets.Right, host.Bounds.Height - host.SafeAreaInsets.Bottom);
+        // Buttons live in the safe-area's tab column, unlike page content.
+        // Use screen bounds here; actual system occlusions are checked separately.
+        var safe = new OccupiedArea(0, host.SafeAreaInsets.Top, host.Bounds.Width, host.Bounds.Height);
         var obstacles = host.Regions.Append(Area(bar)).ToList();
         Layout(host.ExpandedActionCount, host.ExpandedHasSearch);
         // Once collapsed, require a little spare room before expanding again.
@@ -354,26 +355,15 @@ internal static class TabBarButtons
             Layout(host.ActionCount, false);
             if (!GlassButtonPlacement.IsClear(Area(actions), safe, obstacles))
             {
-                if (GlassButtonPlacement.Find(Area(actions), safe, obstacles) is { } found)
+                if (GlassButtonPlacement.FindByBar(Area(actions), safe, Area(bar), obstacles) is { } found)
                     actions = Rect(found);
                 else
                 {
-                    // Try the other orientation before giving up on a narrow gap.
-                    host.Vertical = !host.Vertical;
-                    var size = host.RowHeight;
-                    var alternative = new CGRect(actions.Left, actions.Top,
-                        host.Vertical ? size : size * host.ActionCount,
-                        host.Vertical ? size * host.ActionCount : size);
-                    if (GlassButtonPlacement.Find(Area(alternative), safe, obstacles) is { } other)
-                        actions = Rect(other);
-                    else
-                    {
-                        // Keep a full 44pt touch target when the bar's own squares are too large.
-                        var minimum = new OccupiedArea(actions.Left, actions.Top,
-                            actions.Left + (host.Vertical ? 44 : 44 * host.ActionCount),
-                            actions.Top + (host.Vertical ? 44 * host.ActionCount : 44));
-                        actions = GlassButtonPlacement.Find(minimum, safe, obstacles, 0) is { } small ? Rect(small) : CGRect.Empty;
-                    }
+                    // Try smaller full touch targets in the same lane, never the content area.
+                    var minimum = new OccupiedArea(actions.Left, actions.Top,
+                        actions.Left + (host.Vertical ? 44 : 44 * host.ActionCount),
+                        actions.Top + (host.Vertical ? 44 * host.ActionCount : 44));
+                    actions = GlassButtonPlacement.FindByBar(minimum, safe, Area(bar), obstacles) is { } small ? Rect(small) : CGRect.Empty;
                 }
             }
             // A relocated group may take more height above a bottom tab bar.
@@ -521,7 +511,7 @@ internal static class TabBarButtons
     {
         var bounds = tabBar.ConvertRectToView(tabBar.Bounds, host);
         var text = $"screen {host.Bounds.Width:0.#}×{host.Bounds.Height:0.#}, tab bar {Text(bounds)}, glass {Text(bar)} from {from}"
-            + $" → search {(search.IsEmpty ? "none" : Text(search))}, actions {Text(actions)}";
+            + $" → search {(search.IsEmpty ? "none" : Text(search))}, actions {Text(actions)}, overflow={((Host)host).Collapsed}, reserved={((Host)host).Regions.Count}";
         if (text == _reported)
         {
             return;
