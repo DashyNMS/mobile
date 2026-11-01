@@ -98,6 +98,15 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private bool _isFilterPanelOpen;
 
+    /// <summary>
+    /// The search box showing, opened from the search button, as on the
+    /// Network map; the list has the room otherwise. What was typed stays
+    /// when it closes, so the list stays narrowed and the box comes back
+    /// with it - <see cref="FiltersText"/> says so meanwhile.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSearchOpen;
+
     private readonly CorePolling? _polling;
 
     /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
@@ -202,6 +211,48 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     public bool HasPanelFilters =>
         SelectedType.Key is not null || SelectedLocation.Key is not null || SelectedGroup.Key is not null
         || SelectedSort.Sort != DeviceSort.Name;
+
+    /// <summary>
+    /// What narrows or orders the list that the chips don't show: "Matching
+    /// "core" · Location London · Sorted by Status". The search box and the
+    /// Sort &amp; filter card are put away while browsing, so without this a
+    /// shortened list wouldn't say why. Empty when there's nothing to say.
+    /// </summary>
+    public string FiltersText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (SearchText.Trim() is { Length: > 0 } term)
+            {
+                parts.Add($"Matching \u201c{term}\u201d");
+            }
+
+            if (SelectedType.Key is { } type)
+            {
+                parts.Add($"Type {type}");
+            }
+
+            if (SelectedLocation.Key is { } location)
+            {
+                parts.Add($"Location {location}");
+            }
+
+            if (SelectedGroup.Key is { } group)
+            {
+                parts.Add(group == NoGroupKey ? "Not in a group" : $"Group {group}");
+            }
+
+            if (SelectedSort.Sort != DeviceSort.Name)
+            {
+                parts.Add($"Sorted by {SelectedSort.Label}");
+            }
+
+            return string.Join(" \u00b7 ", parts);
+        }
+    }
+
+    public bool HasFiltersText => FiltersText.Length > 0;
 
     /// <summary>The strip shows while browsing, not while searching.</summary>
     public bool ShowRecentlyViewed => RecentlyViewed.Count > 0 && string.IsNullOrWhiteSpace(SearchText);
@@ -362,6 +413,45 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
 
+    /// <summary>The search button: opens the box, or closes it and clears it when it's open.</summary>
+    [RelayCommand]
+    private void ToggleSearch()
+    {
+        if (IsSearchOpen)
+        {
+            SearchText = string.Empty;
+            IsSearchOpen = false;
+        }
+        else
+        {
+            IsSearchOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// Done searching - the keyboard's Search key, the keyboard put away, or
+    /// the list scrolled: the box goes, what was typed stays.
+    /// </summary>
+    public void DismissSearch() => IsSearchOpen = false;
+
+    // One at a time: the Sort & filter card rises over the foot of the list
+    // while the box is at its top, and the keyboard would cover the card.
+    partial void OnIsSearchOpenChanged(bool value)
+    {
+        if (value)
+        {
+            IsFilterPanelOpen = false;
+        }
+    }
+
+    partial void OnIsFilterPanelOpenChanged(bool value)
+    {
+        if (value)
+        {
+            IsSearchOpen = false;
+        }
+    }
+
     /// <summary>Everything back to showing all devices (sort stays as chosen).</summary>
     [RelayCommand]
     private void ClearFilters()
@@ -395,7 +485,6 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
             ? AllLocations
             : LocationOptions.FirstOrDefault(o => string.Equals(o.Key, location, StringComparison.OrdinalIgnoreCase)) ?? new FacetOption(location, location);
         SearchText = string.Empty;
-        IsFilterPanelOpen = true;
         _resetting = false;
         ApplyFilter();
     }
@@ -691,6 +780,8 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(HasPanelFilters));
+        OnPropertyChanged(nameof(FiltersText));
+        OnPropertyChanged(nameof(HasFiltersText));
         OnPropertyChanged(nameof(UpCount));
         OnPropertyChanged(nameof(DownCount));
         OnPropertyChanged(nameof(MaintenanceCount));
