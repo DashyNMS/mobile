@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>
-/// Shown via <see cref="Routes.Logs"/>: from More or the Alerts page for every
+/// Shown via <see cref="Routes.Logs"/>: from More or the dashboard for every
 /// device, or from a device's Event log section with its id and name - the
 /// same page, with the Device chip fixed to it (#118, #125).
 /// </summary>

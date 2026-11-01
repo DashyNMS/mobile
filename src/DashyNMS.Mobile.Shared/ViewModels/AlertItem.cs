@@ -63,7 +63,10 @@ public sealed partial class AlertItem : ObservableObject
     public string UnacknowledgeLabel => Alert.Source == AlertSource.Fault ? "Unacknowledge group" : "Unacknowledge";
     public string? ActionRefusedText { get; init; }
     public string InteractionHint => IsGroupHeader ? "Tap to show or hide faults" : IsFaultChild ? "Tap to open this fault" : "Touch and hold to select several";
-    public string ExpansionText => IsExpanded ? "Collapse faults" : "Show faults";
+    /// <summary>What VoiceOver reads for the group's chevron: "Show 3 faults", "Hide faults".</summary>
+    public string ExpansionText => IsExpanded ? "Hide faults" : $"Show {FaultsText}";
+
+    private string FaultsText => Group is { FaultCount: var count } ? $"{count} {(count == 1 ? "fault" : "faults")}" : "faults";
     public string GroupTimesText => Group is null ? string.Empty : $"First seen {TimeText(Group.FirstSeen)} · Last seen {TimeText(Group.LastChanged)}";
     private string TimeText(DateTime? time) => ServerTime.ToLocal(time, _serverTimestampsAreUtc)?.ToString("g", CultureInfo.CurrentCulture) ?? "unknown";
 
@@ -108,9 +111,12 @@ public sealed partial class AlertItem : ObservableObject
         var age => age.Replace(" ago", string.Empty, StringComparison.Ordinal),
     };
 
-    /// <summary>"#4821 · Acknowledged": the list's quiet third line, with the age at the right instead.</summary>
+    /// <summary>
+    /// "#4821 · Acknowledged", or a group's "3 faults · Active": the list's
+    /// quiet third line, with the severity and age at the right instead.
+    /// </summary>
     public string MetaText => Group is { } group
-        ? $"1 alert group · {group.FaultCount} {(group.FaultCount == 1 ? "fault" : "faults")} · " + (group.IsPartlyAcknowledged ? $"Partly acknowledged ({group.AcknowledgedCount}/{group.FaultCount})" : StateText)
+        ? $"{FaultsText} · " + (group.IsPartlyAcknowledged ? $"Partly acknowledged ({group.AcknowledgedCount}/{group.FaultCount})" : StateText)
         : $"#{Id.ToString(CultureInfo.InvariantCulture)} · {StateText}";
 
     /// <summary>"5m ago · Acknowledged", as the list's second line.</summary>

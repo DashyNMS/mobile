@@ -90,6 +90,15 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _searchText;
 
+    /// <summary>
+    /// The search box showing, opened from the search button, as on Devices;
+    /// the list has the room otherwise. What was typed stays when it closes,
+    /// so the list stays narrowed and the box comes back with it -
+    /// <see cref="FiltersText"/> says so meanwhile.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSearchOpen;
+
     private readonly CorePolling? _polling;
 
     /// <summary>Set when what's shown is the saved copy, with the server out of reach (#130): the page's "Offline: last updated 07:42".</summary>
@@ -173,6 +182,35 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         }
     }
 
+    /// <summary>
+    /// What narrows the list that the chips don't show: "Matching "core"",
+    /// or the one alert group a notification opened. The search box is put
+    /// away while browsing, so without this a shortened list wouldn't say
+    /// why. Empty when there's nothing to say.
+    /// </summary>
+    public string FiltersText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (_focusedGroup is { } group)
+            {
+                parts.Add(_all.FirstOrDefault(a => a.Alert.DeviceId == group.DeviceId && a.Alert.RuleId == group.RuleId) is { } shown
+                    ? $"Only {shown.Rule} on {shown.Device}"
+                    : "Only one alert group");
+            }
+
+            if (SearchText.Trim() is { Length: > 0 } term)
+            {
+                parts.Add($"Matching \u201c{term}\u201d");
+            }
+
+            return string.Join(" \u00b7 ", parts);
+        }
+    }
+
+    public bool HasFiltersText => FiltersText.Length > 0;
+
     /// <summary>True when anything narrows the list - shows the Clear button.</summary>
     public bool HasActiveFilters => _focusedGroup is not null || !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
 
@@ -185,6 +223,27 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     partial void OnShowAcknowledgedChanged(bool value) => OnFilterChanged();
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
+
+    /// <summary>The header's search icon: opens the box, or closes it and clears it when it's open.</summary>
+    [RelayCommand]
+    private void ToggleSearch()
+    {
+        if (IsSearchOpen)
+        {
+            SearchText = string.Empty;
+            IsSearchOpen = false;
+        }
+        else
+        {
+            IsSearchOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// Done searching - the keyboard's Search key, the keyboard put away, or
+    /// the list scrolled: the box goes, what was typed stays.
+    /// </summary>
+    public void DismissSearch() => IsSearchOpen = false;
 
     // A chip tapped on a shortcut makes what's showing the user's own filter.
     [RelayCommand]
@@ -553,10 +612,6 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         _tabDot?.Update(alerts, _settings.Current);
     }
 
-    /// <summary>The network-wide alert and event logs.</summary>
-    [RelayCommand]
-    private Task OpenLogsAsync() => _navigation.GoToAsync(Routes.Logs);
-
     [RelayCommand]
     private Task OpenAlertAsync(AlertItem? item)
     {
@@ -735,6 +790,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(FiltersText));
+        OnPropertyChanged(nameof(HasFiltersText));
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));

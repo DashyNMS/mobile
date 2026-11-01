@@ -14,12 +14,38 @@ public partial class AlertDetailView : ContentView
 	{
 		InitializeComponent();
 		BindingContext = ViewModel = viewModel;
+#if IOS
+		// The page or pane showing it keeps the column clear of the camera
+		// and the glass (PlaceContent); left to themselves these would add
+		// the safe area again, stopping the cards short of the screen's foot.
+		var none = new SafeAreaEdges(SafeAreaRegions.None);
+		Root.SafeAreaEdges = none;
+		Refresh.SafeAreaEdges = none;
+		Scroller.SafeAreaEdges = none;
+		Readable.SafeAreaEdges = none;
+		Column.SafeAreaEdges = none;
+#endif
 	}
 
 	public AlertDetailViewModel ViewModel { get; }
 
 	/// <summary>"‹ Alerts"; beside the list, its back button is hidden.</summary>
 	public Controls.BackBar Bar => TopBar;
+
+	/// <summary>
+	/// Pads the cards' column clear of <paramref name="clear"/> - the camera,
+	/// a side tab bar's column, and at the foot a bottom tab bar and its
+	/// glass - so they scroll on underneath to the screen's edge and the last
+	/// one still comes clear.
+	/// </summary>
+	public void PlaceContent(Thickness clear)
+	{
+		var padding = new Thickness(16 + clear.Left, TopBar.IsVisible ? 0 : 8, 16 + clear.Right, 24 + clear.Bottom);
+		if (Column.Padding != padding)
+		{
+			Column.Padding = padding;
+		}
+	}
 
 	/// <summary>Loads the alert <see cref="Routes.AlertDetail"/>'s parameters name (and its device, from a notification).</summary>
 	public void Load(IDictionary<string, object>? parameters)
