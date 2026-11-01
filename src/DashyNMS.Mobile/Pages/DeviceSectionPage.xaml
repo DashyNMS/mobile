@@ -21,9 +21,13 @@
              On iOS 26 and later Back is glass by the tab bar instead. -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None">
             <controls:PageHeader.Actions>
-                <!-- Where there's no glass by the tab bar (Android, iOS before 26): the search icon. -->
-                <controls:IconButton x:Name="HeaderSearch" Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
-                                     IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
+                <!-- Where there's no glass by the tab bar (Android, iOS before 26): search, and Ports' Sort &amp; filter. -->
+                <HorizontalStackLayout x:Name="HeaderActions" Spacing="4" SafeAreaEdges="None">
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
+                                         IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
+                                         IsOn="{Binding HasPanelFilters}" IsVisible="{Binding IsPorts}" SemanticProperties.Description="Sort and filter" />
+                </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
@@ -52,12 +56,9 @@
             </Border>
         </Grid>
 
-        <!-- Ports only: the order and grouping, by port ID until chosen, then remembered (#92). -->
-        <Grid x:Name="PortOptions" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="16,4,16,0"
-              IsVisible="{Binding IsPorts}" SafeAreaEdges="None">
-            <Picker Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
-            <Picker Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
-        </Grid>
+        <!-- Once search and Sort &amp; filter are put away, what narrows or orders the list (#350). -->
+        <Label x:Name="FilterLine" Grid.Row="2" Margin="20,4,16,0" Style="{StaticResource Faint}" Text="{Binding FiltersText}"
+               IsVisible="{Binding HasFiltersText}" LineBreakMode="TailTruncation" />
 
         <Label x:Name="ErrorLine" Grid.Row="3" Margin="16,8,16,0" Style="{StaticResource Error}" Text="{Binding ErrorMessage}"
                IsVisible="{Binding HasError}" />
@@ -129,6 +130,28 @@
                 </CollectionView.Footer>
             </CollectionView>
         </RefreshView>
+
+        <!-- Behind the Sort &amp; filter card the list fades back gradually; a tap on it puts the card away. -->
+        <BoxView x:Name="Dim" Grid.Row="2" Grid.RowSpan="3" IsVisible="False" Opacity="0"
+                 Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+
+        <!-- Ports' order and grouping (#92), by port ID until chosen, then remembered: a card
+             that rises from the foot of the screen near the glass button that opens it (#350). -->
+        <Border x:Name="FilterCard" Grid.Row="4" Style="{StaticResource Card}" IsVisible="False" VerticalOptions="End"
+                Margin="16,6,16,12" SafeAreaEdges="None">
+            <VerticalStackLayout Spacing="6" SafeAreaEdges="None">
+                <Grid ColumnDefinitions="*,Auto" SafeAreaEdges="None">
+                    <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
+                </Grid>
+                <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="2" ColumnSpacing="8" SafeAreaEdges="None">
+                    <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
+                    <Picker Grid.Column="1" Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
+                    <Picker Grid.Row="1" Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
 
         <!-- The rows fade out as they scroll up under the header, as the Dashboard's cards. -->
         <BoxView Grid.Row="4" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">

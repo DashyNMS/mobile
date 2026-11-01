@@ -92,4 +92,35 @@ public sealed class PortArrangementTests
         var next = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation(), preferences);
         Assert.Equal(PortGrouping.Vlan, next.SelectedPortGrouping.Grouping);
     }
+
+    [Fact]
+    public async Task Sort_and_filter_and_search_are_one_at_a_time_and_the_list_says_why_it_is_short()
+    {
+        var client = Fakes.Client();
+        client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns([Port(2, "Gi0/2", vlan: 10), Port(1, "Gi0/1", vlan: 20)]);
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation(), new InMemoryPreferences());
+        await vm.LoadAsync(7, DeviceSection.Ports);
+        Assert.False(vm.HasPanelFilters);
+        Assert.False(vm.HasFiltersText);
+
+        vm.IsSearchOpen = true;
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.True(vm.IsFilterPanelOpen);
+        Assert.False(vm.IsSearchOpen);
+
+        vm.SelectedPortSort = vm.PortSortOptions.Single(o => o.Sort == PortSort.Name);
+        vm.SelectedPortGrouping = vm.PortGroupingOptions.Single(o => o.Grouping == PortGrouping.Vlan);
+        Assert.True(vm.HasPanelFilters);
+        Assert.False(vm.HasFiltersText);
+
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.True(vm.HasFiltersText);
+        Assert.Equal("Sorted by Name \u00b7 Grouped by VLAN", vm.FiltersText);
+
+        vm.IsSearchOpen = true;
+        Assert.False(vm.IsFilterPanelOpen);
+        vm.SearchText = "Gi0/1";
+        vm.DismissSearch();
+        Assert.Equal("Matching \u201cGi0/1\u201d \u00b7 Sorted by Name \u00b7 Grouped by VLAN", vm.FiltersText);
+    }
 }
