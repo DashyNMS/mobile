@@ -166,8 +166,12 @@
                         <VerticalStackLayout Spacing="4">
                             <Grid ColumnDefinitions="Auto,*,Auto">
                                 <!-- The device's logo from LibreNMS, as desktop's header (#348); no gap when there's none. -->
-                                <controls:LogoView WidthRequest="40" HeightRequest="40" Margin="0,0,12,0" VerticalOptions="Center"
-                                                   Html="{Binding LogoPage}" IsVisible="{Binding HasLogo}" />
+                                <Border WidthRequest="48" HeightRequest="48" Padding="7" Margin="0,0,12,0" VerticalOptions="Center"
+                                        IsVisible="{Binding HasLogo}" StrokeThickness="1" StrokeShape="RoundRectangle 12"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark=#DDE2E9}"
+                                        Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                                    <controls:LogoView Html="{Binding LogoPage}" />
+                                </Border>
                                 <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
                                 <Label Grid.Column="1" Text="{Binding Title}" FontSize="24" FontFamily="Display"
                                        LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
