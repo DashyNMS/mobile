@@ -14,6 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost
 {
 	private readonly LogsViewModel _viewModel;
+	private readonly TabAlignedListLayout _listLayout;
 	private const uint SearchSlide = 220;
 	private bool _searchOpen;
 
@@ -21,6 +22,10 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
+		{
+			if (Split.Detail is LogEntryView detail) detail.PlaceContent(clear);
+		});
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading the log…", "Refreshing the log…");
 		SearchButton.Command = new Command(() =>
 		{
@@ -125,8 +130,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
 	private void PlaceFooter()
 	{
-		ListFoot.HeightRequest = 24 + TabBarButtons.CoveredBottom;
-		if (Split.Detail is LogEntryView entry) entry.SetGlassClearance(TabBarButtons.CoveredBottom);
+		_listLayout.Place();
 	}
 #endif
 

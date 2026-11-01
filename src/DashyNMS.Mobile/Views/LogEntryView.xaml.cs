@@ -17,7 +17,10 @@ public partial class LogEntryView : ContentView
 
 	public LogEntryViewModel ViewModel { get; }
 
-	/// <summary>Extra clearance for glass above the page's normal bottom safe area.</summary>
+	/// <summary>The embedded pane keeps its own right and bottom edges clear of the tab glass.</summary>
+	public void PlaceContent(Thickness clear) => ContentColumn.Padding = new Thickness(16, 16, 16 + clear.Right, 24 + clear.Bottom);
+
+	/// <summary>Extra clearance for glass above the standalone page's normal bottom safe area.</summary>
 	public void SetGlassClearance(double bottom) => ContentColumn.Padding = new Thickness(16, 16, 16, 24 + bottom);
 
 	/// <summary>"‹ Logs"; beside the list, its back button is hidden.</summary>
