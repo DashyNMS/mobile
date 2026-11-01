@@ -12,7 +12,7 @@
          level, sender and full text, the device's actions, then every field. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,0,16,24" Spacing="12" IsVisible="{Binding HasMessage}">
+            <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12" IsVisible="{Binding HasMessage}">
 
                 <controls:BackBar x:Name="TopBar" />
 
