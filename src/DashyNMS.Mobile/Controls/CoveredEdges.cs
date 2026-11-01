@@ -37,6 +37,35 @@ internal static class CoveredEdges
     }
 
     /// <summary>
+    /// What a page's scrolling column keeps clear of, beyond its own 16-point
+    /// gutters, as the Dashboard's cards do: the camera; a side tab bar's
+    /// column, wherever UIKit's safe area ends, with a <paramref name="gap"/>
+    /// before its glass; and at the foot the home indicator, a bottom tab bar
+    /// and the glass row above it. Top is nought - the page keeps clear of
+    /// the status bar itself.
+    /// </summary>
+    public static Thickness ForScrolling(Page page, double gap = 12)
+    {
+        var edges = Of(page);
+        double left = edges.Left, right = edges.Right, bottom = edges.Bottom;
+#if IOS
+        bottom += TabBarButtons.CoveredBottom;
+        if (page.Handler?.PlatformView is UIView view && TabBarButtons.PillIn(view) is { } pill && pill.Height > pill.Width)
+        {
+            if (pill.Left + (pill.Width / 2) > view.Bounds.Width / 2)
+            {
+                right = Math.Max(right, view.Bounds.Width - pill.Left + gap - 16);
+            }
+            else
+            {
+                left = Math.Max(left, pill.Right + gap - 16);
+            }
+        }
+#endif
+        return new Thickness(left, 0, right, bottom);
+    }
+
+    /// <summary>
     /// How far in from each side <paramref name="view"/> must keep across the
     /// row it sits in: only what is beside it there - the status bar, a
     /// camera, the tabs - rather than the whole edge's safe area, which on
