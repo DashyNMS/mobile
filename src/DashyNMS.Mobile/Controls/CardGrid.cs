@@ -26,6 +26,13 @@ public sealed class CardGrid : Layout
     public static readonly BindableProperty GapProperty = BindableProperty.Create(
         nameof(Gap), typeof(double), typeof(CardGrid), 8d, propertyChanged: Invalidate);
 
+    /// <summary>
+    /// Only as many columns as fill every row: four tiles go one, two or four
+    /// across, never three with the last alone beneath them (#347).
+    /// </summary>
+    public static readonly BindableProperty EvenRowsProperty = BindableProperty.Create(
+        nameof(EvenRows), typeof(bool), typeof(CardGrid), false, propertyChanged: Invalidate);
+
     public double MinColumnWidth
     {
         get => (double)GetValue(MinColumnWidthProperty);
@@ -44,15 +51,29 @@ public sealed class CardGrid : Layout
         set => SetValue(GapProperty, value);
     }
 
+    public bool EvenRows
+    {
+        get => (bool)GetValue(EvenRowsProperty);
+        set => SetValue(EvenRowsProperty, value);
+    }
+
     protected override ILayoutManager CreateLayoutManager() => new CardGridManager(this);
 
     private static void Invalidate(BindableObject view, object oldValue, object newValue) =>
         ((CardGrid)view).InvalidateMeasure();
 
-    /// <summary>How many columns fit <paramref name="width"/>, and how wide each is.</summary>
-    private (int Columns, double ColumnWidth) Columns(double width)
+    /// <summary>How many columns fit <paramref name="width"/> for <paramref name="cards"/> cards, and how wide each is.</summary>
+    private (int Columns, double ColumnWidth) Columns(double width, int cards)
     {
         var columns = Math.Clamp((int)((width + Gap) / (MinColumnWidth + Gap)), 1, Math.Max(1, MaxColumns));
+        if (EvenRows && cards > columns)
+        {
+            while (columns > 1 && cards % columns != 0)
+            {
+                columns--;
+            }
+        }
+
         return (columns, Math.Max(0, (width - (Gap * (columns - 1))) / columns));
     }
 
@@ -67,7 +88,7 @@ public sealed class CardGrid : Layout
             var width = double.IsInfinity(widthConstraint)
                 ? grid.MinColumnWidth
                 : widthConstraint - padding.HorizontalThickness;
-            var (columns, columnWidth) = grid.Columns(width);
+            var (columns, columnWidth) = grid.Columns(width, Visible().Count());
 
             _rowHeights.Clear();
             var index = 0;
@@ -90,7 +111,7 @@ public sealed class CardGrid : Layout
         public override Size ArrangeChildren(Rect bounds)
         {
             var padding = grid.Padding;
-            var (columns, columnWidth) = grid.Columns(bounds.Width - padding.HorizontalThickness);
+            var (columns, columnWidth) = grid.Columns(bounds.Width - padding.HorizontalThickness, Visible().Count());
             var y = bounds.Top + padding.Top;
             var index = 0;
             foreach (var child in Visible())
