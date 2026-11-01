@@ -108,6 +108,13 @@ public sealed class PageHeader : Grid
         remove => _titleTapped -= value;
     }
 
+    /// <summary>
+    /// Back is glass by the tab bar instead (iOS 26 and later), so a pushed
+    /// page shows no "‹ More" of its own and its title takes the top line,
+    /// as a tab's own page - the page shows the glass Back itself.
+    /// </summary>
+    public bool BackInGlass { get; set; }
+
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
@@ -138,10 +145,11 @@ public sealed class PageHeader : Grid
         Shell.SetNavBarIsVisible(page, false);
         IsVisible = true;
 
-        var pushed = IsPushed(page);
+        var pushed = IsPushed(page) && !BackInGlass;
         _back.IsVisible = pushed;
 
-        // A tab's own page: the title on the top line. Pushed: "‹ More" there, the title beneath.
+        // A tab's own page (or Back in the glass): the title on the top line.
+        // Pushed: "‹ More" there, the title beneath.
         var row = pushed ? 1 : 0;
         SetRow((IView)_title, row);
         if (Actions is { } actions)

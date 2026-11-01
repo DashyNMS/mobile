@@ -372,6 +372,20 @@ card changes need Save, and ticking cards in Add card needs Add. Back must
 preserve these rules, and returning to an editor must restore its glass
 action without leaving another page's actions visible.
 
+A device's page and each of its section pages (Ports, Sensors, Inventory
+and the rest) also put Back in the glass on iOS 26 and later (#340, #344).
+A section page sets `PageHeader.BackInGlass`, so its title takes the top
+line with no "‹ Back" row. Both pages keep only the top safe area and pad
+their content from `CoveredEdges.ForScrolling`, so on iPhone Duo's
+landscape screen the rows reach from the camera to the side tab bar's glass
+rather than sitting in a narrow column in the middle. Section rows go two or
+three across when there's room, except Inventory, whose nesting reads down
+one column. Check a short section and a long one (search shows past 12
+rows), Ports with its pickers, and Inventory, with bottom and side tab bars,
+after rotation, and on a small phone: the header card and first heading
+must start clear of the status bar, and the last row must scroll clear of
+the glass.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

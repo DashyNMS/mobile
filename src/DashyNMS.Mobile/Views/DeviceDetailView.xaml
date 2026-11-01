@@ -141,151 +141,170 @@
     <!-- On iOS the cards scroll on down to the foot of the screen, under a
          bottom tab bar, and the column is padded clear of the glass by the
          page or pane showing it (PlaceContent). -->
-    <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-        <ScrollView x:Name="Scroller">
-            <VerticalStackLayout x:Name="Column" Padding="16,0,16,16" Spacing="8">
+    <Grid x:Name="Root">
+        <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+            <ScrollView x:Name="Scroller">
+                <!-- 12 between cards, as Alert detail: at 8 the tiles and the
+                     section cards ran together on a phone (#344). -->
+                <VerticalStackLayout x:Name="Column" Padding="16,0,16,24" Spacing="12">
 
-                <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device.
-                     On iOS 26 and later both are glass by the tab bar instead (UseGlass). -->
-                <controls:BackBar x:Name="TopBar">
-                    <controls:BackBar.Actions>
-                        <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Pin}" IsOn="{Binding IsPinned}"
-                                             Command="{Binding TogglePinCommand}" SemanticProperties.Description="{Binding PinText}" />
-                    </controls:BackBar.Actions>
-                </controls:BackBar>
+                    <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device.
+                         On iOS 26 and later both are glass by the tab bar instead (UseGlass). -->
+                    <controls:BackBar x:Name="TopBar">
+                        <controls:BackBar.Actions>
+                            <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Pin}" IsOn="{Binding IsPinned}"
+                                                 Command="{Binding TogglePinCommand}" SemanticProperties.Description="{Binding PinText}" />
+                        </controls:BackBar.Actions>
+                    </controls:BackBar>
 
-                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                <controls:BusyCard Text="Loading the device…" IsVisible="{Binding IsLoadingFirstTime}" Margin="0,32" />
+                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                    <controls:BusyCard Text="Loading the device…" IsVisible="{Binding IsLoadingFirstTime}" Margin="0,32" />
 
-                <!-- ==================== Header ==================== -->
-                <!-- What the device is and its state, as desktop's header. -->
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="4">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
-                            <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
-                                   LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
-                            <!-- State pill: tinted, with a dot and the state in its readable colour. -->
-                            <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="0,4,0,0"
-                                    BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
+                    <!-- ==================== Header ==================== -->
+                    <!-- What the device is and its state, as desktop's header. -->
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
+                                <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
+                                       LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
+                                <!-- State pill: tinted, with a dot and the state in its readable colour. -->
+                                <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="0,4,0,0"
+                                        BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
+                                                 Fill="{Binding State, Converter={StaticResource StatusText}}" />
+                                        <Label Style="{StaticResource PillText}" Text="{Binding StateText}"
+                                               TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                    </HorizontalStackLayout>
+                                </Border>
+                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding TypeText}" FontSize="12"
+                                   IsVisible="{Binding TypeText, Converter={StaticResource IsNotNull}}" />
+
+                            <!-- Desktop's actions, and "Open in" SSH / Telnet in whichever app handles the link. -->
+                            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" Margin="0,8,0,0">
+                                <controls:IconButton Icon="{x:Static controls:Icons.Rediscover}" Text="Rediscover" Command="{Binding RediscoverCommand}" />
+                                <controls:IconButton Grid.Column="1" Icon="{x:Static controls:Icons.Maintenance}" Text="Maintenance" Command="{Binding ScheduleMaintenanceCommand}" />
+                                <controls:IconButton Grid.Row="1" Icon="{x:Static controls:Icons.Ssh}" Text="SSH" Command="{Binding OpenSshCommand}" />
+                                <controls:IconButton Grid.Row="1" Grid.Column="1" Icon="{x:Static controls:Icons.Telnet}" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
+                            </Grid>
+                            <!-- Maintenance is dimmed when the token isn't allowed it (#144): say why. -->
+                            <Label Style="{StaticResource Caption}" Text="{Binding MaintenanceRefusedText}" Margin="0,6,0,0"
+                                   IsVisible="{Binding MaintenanceRefusedText, Converter={StaticResource IsNotNull}}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- ==================== Stat tiles ==================== -->
+                    <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room.
+                         The card's own padding, as every other card, and figures a step below
+                         the device's name so the name stays the page's heading (#344). -->
+                    <controls:CardGrid MinColumnWidth="150" MaxColumns="4" Gap="12">
+                        <Border Style="{StaticResource Card}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Availability" />
+                            </Border.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4">
                                 <HorizontalStackLayout Spacing="6">
-                                    <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"
-                                             Fill="{Binding State, Converter={StaticResource StatusText}}" />
-                                    <Label Style="{StaticResource PillText}" Text="{Binding StateText}"
-                                           TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                    <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
+                                    <Label Style="{StaticResource Faint}" Text="Availability · 30 days" />
                                 </HorizontalStackLayout>
-                            </Border>
-                        </Grid>
-                        <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
-                        <Label Style="{StaticResource Caption}" Text="{Binding TypeText}" FontSize="12"
-                               IsVisible="{Binding TypeText, Converter={StaticResource IsNotNull}}" />
+                                <Label Text="{Binding AvailabilityTileText}" FontSize="20" FontFamily="BodySemibold" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{StaticResource Primary}" />
+                                    <Label Style="{StaticResource Faint}" Text="Uptime" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding UptimeText}" FontSize="20" FontFamily="BodySemibold" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Ports" />
+                            </Border.GestureRecognizers>
+                            <VerticalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
+                                    <Label Style="{StaticResource Faint}" Text="Ports up" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding PortsTileText}" FontSize="20" FontFamily="BodySemibold" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="6">
+                                    <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
+                                    <Label Style="{StaticResource Faint}" Text="Active alerts" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding Alerts.Count}" FontSize="20" FontFamily="BodySemibold" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </controls:CardGrid>
 
-                        <!-- Desktop's actions, and "Open in" SSH / Telnet in whichever app handles the link. -->
-                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" Margin="0,10,0,0">
-                            <controls:IconButton Icon="{x:Static controls:Icons.Rediscover}" Text="Rediscover" Command="{Binding RediscoverCommand}" />
-                            <controls:IconButton Grid.Column="1" Icon="{x:Static controls:Icons.Maintenance}" Text="Maintenance" Command="{Binding ScheduleMaintenanceCommand}" />
-                            <controls:IconButton Grid.Row="1" Icon="{x:Static controls:Icons.Ssh}" Text="SSH" Command="{Binding OpenSshCommand}" />
-                            <controls:IconButton Grid.Row="1" Grid.Column="1" Icon="{x:Static controls:Icons.Telnet}" Text="Telnet" Command="{Binding OpenTelnetCommand}" />
-                        </Grid>
-                        <!-- Maintenance is dimmed when the token isn't allowed it (#144): say why. -->
-                        <Label Style="{StaticResource Caption}" Text="{Binding MaintenanceRefusedText}" Margin="0,6,0,0"
-                               IsVisible="{Binding MaintenanceRefusedText, Converter={StaticResource IsNotNull}}" />
-                    </VerticalStackLayout>
-                </Border>
-
-                <!-- ==================== Stat tiles ==================== -->
-                <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room. -->
-                <controls:CardGrid MinColumnWidth="150" MaxColumns="4">
-                    <Border Style="{StaticResource Card}" Padding="0">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Availability" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="4">
-                            <HorizontalStackLayout Spacing="6">
-                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AvailabilityTileStatus, Converter={StaticResource StatusColor}}" />
-                                <Label Style="{StaticResource Faint}" Text="Availability · 30 days" />
-                            </HorizontalStackLayout>
-                            <Label Text="{Binding AvailabilityTileText}" FontSize="24" FontFamily="BodySemibold" />
+                    <!-- ==================== Device ==================== -->
+                    <!-- The details first and full width, as desktop's Device card. -->
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource CardTitle}" Text="Device" />
+                            <!-- A line between every pair of rows, none above the first (#120).
+                                 The names' column follows the card's width (FitPropertyNames). -->
+                            <VerticalStackLayout x:Name="PropertyRows" BindableLayout.ItemsSource="{Binding Properties}" Spacing="8" controls:RowLines.Between="True">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DeviceProperty">
+                                        <VerticalStackLayout Spacing="8">
+                                        <controls:RowDivider />
+                                        <!-- Location and Groups tap through to the devices there, as desktop's Groups &amp; locations. -->
+                                        <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
+                                            <Grid.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding OpenPropertyCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Grid.GestureRecognizers>
+                                            <Label Style="{StaticResource Caption}" Text="{Binding Key}" />
+                                            <Label Grid.Column="1" Text="{Binding Value}" LineBreakMode="WordWrap">
+                                                <Label.Triggers>
+                                                    <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                    </DataTrigger>
+                                                </Label.Triggers>
+                                            </Label>
+                                        </Grid>
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
-                    <Border Style="{StaticResource Card}" Padding="0">
-                        <VerticalStackLayout Padding="14,12" Spacing="4">
-                            <HorizontalStackLayout Spacing="6">
-                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{StaticResource Primary}" />
-                                <Label Style="{StaticResource Faint}" Text="Uptime" />
-                            </HorizontalStackLayout>
-                            <Label Text="{Binding UptimeText}" FontSize="24" FontFamily="BodySemibold" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Style="{StaticResource Card}" Padding="0">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Ports" />
-                        </Border.GestureRecognizers>
-                        <VerticalStackLayout Padding="14,12" Spacing="4">
-                            <HorizontalStackLayout Spacing="6">
-                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding PortsTileStatus, Converter={StaticResource StatusColor}}" />
-                                <Label Style="{StaticResource Faint}" Text="Ports up" />
-                            </HorizontalStackLayout>
-                            <Label Text="{Binding PortsTileText}" FontSize="24" FontFamily="BodySemibold" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Border Style="{StaticResource Card}" Padding="0">
-                        <VerticalStackLayout Padding="14,12" Spacing="4">
-                            <HorizontalStackLayout Spacing="6">
-                                <Ellipse WidthRequest="8" HeightRequest="8" VerticalOptions="Center" Fill="{Binding AlertsTileStatus, Converter={StaticResource StatusColor}}" />
-                                <Label Style="{StaticResource Faint}" Text="Active alerts" />
-                            </HorizontalStackLayout>
-                            <Label Text="{Binding Alerts.Count}" FontSize="24" FontFamily="BodySemibold" />
-                        </VerticalStackLayout>
-                    </Border>
-                </controls:CardGrid>
 
-                <!-- ==================== Device ==================== -->
-                <!-- The details first and full width, as desktop's Device card. -->
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Style="{StaticResource CardTitle}" Text="Device" />
-                        <!-- A line between every pair of rows, none above the first (#120). -->
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Properties}" Spacing="8" controls:RowLines.Between="True">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="vm:DeviceProperty">
-                                    <VerticalStackLayout Spacing="8">
-                                    <controls:RowDivider />
-                                    <!-- Location and Groups tap through to the devices there, as desktop's Groups &amp; locations. -->
-                                    <Grid ColumnDefinitions="130,*" ColumnSpacing="12">
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenPropertyCommand, Source={RelativeSource AncestorType={x:Type vm:DeviceDetailViewModel}}, x:DataType=vm:DeviceDetailViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Grid.GestureRecognizers>
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Key}" />
-                                        <Label Grid.Column="1" Text="{Binding Value}" LineBreakMode="WordWrap">
-                                            <Label.Triggers>
-                                                <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
-                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                                </DataTrigger>
-                                            </Label.Triggers>
-                                        </Label>
-                                    </Grid>
-                                    </VerticalStackLayout>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
-                    </VerticalStackLayout>
-                </Border>
+                    <!-- ==================== Ping, alerts and sections ==================== -->
+                    <!-- Ping and active alerts, then desktop's overview cards and its
+                         other sections: each loads behind the page, opens in full, and
+                         drops out if the device has nothing in it (#43, #44, #65, #69). -->
+                    <controls:CardGrid Gap="12" BindableLayout.ItemsSource="{Binding GridCards}"
+                                       BindableLayout.ItemTemplateSelector="{StaticResource GridCardTemplates}" />
 
-                <!-- ==================== Ping, alerts and sections ==================== -->
-                <!-- Ping and active alerts, then desktop's overview cards and its
-                     other sections: each loads behind the page, opens in full, and
-                     drops out if the device has nothing in it (#43, #44, #65, #69). -->
-                <controls:CardGrid BindableLayout.ItemsSource="{Binding GridCards}"
-                                   BindableLayout.ItemTemplateSelector="{StaticResource GridCardTemplates}" />
+                    <Label Style="{StaticResource Caption}" Text="{Binding FreshnessText}" HorizontalOptions="Center"
+                           IsVisible="{Binding FreshnessText, Converter={StaticResource IsNotNull}}" />
 
-                <Label Style="{StaticResource Caption}" Text="{Binding FreshnessText}" HorizontalOptions="Center" Margin="0,8,0,0"
-                       IsVisible="{Binding FreshnessText, Converter={StaticResource IsNotNull}}" />
+                </VerticalStackLayout>
+            </ScrollView>
+        </RefreshView>
 
-            </VerticalStackLayout>
-        </ScrollView>
-    </RefreshView>
+        <!-- With Back and the pin in the glass there's no top bar: the cards
+             fade out as they scroll up under the status bar, as the Dashboard's
+             under its header, rather than stopping at a hard edge (UseGlass). -->
+        <BoxView x:Name="TopFade" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" IsVisible="False">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
+    </Grid>
 
 </ContentView>
