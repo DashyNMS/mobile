@@ -473,6 +473,11 @@ and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
 split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
+Sensors widget setup uses the themed rounded search field instead of the
+native SearchBar (#386). Filtering and immediate saving remain unchanged;
+the keyboard Search key dismisses typing while retaining the filter. Check
+both themes, clearing the filter and sensor selection on a small screen.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
