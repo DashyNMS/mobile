@@ -404,6 +404,12 @@ are unavailable. Cards include speed, traffic in/out and discovery direction.
 Check an unmonitored neighbour, a reverse-only link and a busy switch, with
 search, rotation, dark mode and VoiceOver/TalkBack.
 
+Device and port Graphs pages use the same edge clearances and glass Back
+as the device page (#353). At 800pt of usable width, named series sit in a
+300pt panel beside the graph; on phones they follow it. Graphs without a
+named series list keep the full width. Check rotation, side and bottom tab
+bars, graph/range selection, series toggles, Show all and long-press isolation.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
