@@ -13,7 +13,8 @@ namespace DashyNMS.Mobile.Pages;
 /// to the foot of the Liquid Glass tab bar - under a bottom one, its rows
 /// scrolling clear; short of a side one's column, its foot level with the
 /// pill's. Search, Sort &amp; filter and Refresh are glass by the tab bar on
-/// iOS 26 and later, and header icons before that and on Android. What can
+/// iOS 26 and later - with the pin of a device showing beside the list -
+/// and header icons before that and on Android. What can
 /// be tapped is placed clear of the camera and glass here (see
 /// <see cref="CoveredEdges"/>); beside a detail pane (#88) only the edges
 /// that reach the list's own column count.
@@ -41,8 +42,11 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 	/// <summary>On screen, so a change of filters can swap the glass's Sort &amp; filter icon.</summary>
 	private bool _showing;
 
-	/// <summary>Whether the glass's Sort &amp; filter icon was last shown filled.</summary>
-	private bool? _glassFiltered;
+	/// <summary>The device beside the list (#88), whose pin is glass with the list's actions.</summary>
+	private DeviceDetailView? _detail;
+
+	/// <summary>What the glass last showed: Sort &amp; filter filled, and the pane's pin (shown, filled).</summary>
+	private (bool Filtered, bool Pin, bool Pinned)? _glass;
 
 	public DevicesPage(DevicesViewModel viewModel)
 	{
@@ -57,6 +61,9 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		{
 			_viewModel.Select(Split.IsSplit ? _shown : null);
 			PlaceControls();
+#if IOS
+			UpdateGlass();
+#endif
 		};
 
 		CoveredEdges.Watch(this, PlaceControls);
@@ -81,8 +88,8 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 					});
 					break;
 #if IOS
-				case nameof(DevicesViewModel.HasPanelFilters) when _showing && _glassFiltered != _viewModel.HasPanelFilters:
-					Dispatcher.Dispatch(ShowGlass);
+				case nameof(DevicesViewModel.HasPanelFilters):
+					Dispatcher.Dispatch(UpdateGlass);
 					break;
 #endif
 			}
@@ -187,8 +194,28 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 		var view = new DeviceDetailView(services.GetRequiredService<DeviceDetailViewModel>());
 		view.Bar.ShowsBack = false;
+#if IOS
+		// Its pin joins the list's glass by the tab bar, so the pane needs no top bar.
+		if (TabBarButtons.IsAvailable)
+		{
+			view.UseGlass();
+		}
+
+		if (_detail is { } old)
+		{
+			old.ViewModel.PropertyChanged -= OnDetailChanged;
+			old.ViewModel.TogglePinCommand.CanExecuteChanged -= OnDetailPinChanged;
+		}
+
+		view.ViewModel.PropertyChanged += OnDetailChanged;
+		view.ViewModel.TogglePinCommand.CanExecuteChanged += OnDetailPinChanged;
+#endif
 		view.Load(parameters);
-		Split.Detail = view;
+		Split.Detail = _detail = view;
+		PlaceControls();
+#if IOS
+		UpdateGlass();
+#endif
 		_shown = parameters?.TryGetValue(Routes.DeviceIdParameter, out var id) == true ? id as int? : null;
 		_viewModel.Select(_shown);
 		return true;
@@ -217,7 +244,8 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		Header.Apply(this);
 		_showing = true;
 #if IOS
-		ShowGlass();
+		_glass = null;
+		UpdateGlass();
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 
@@ -503,27 +531,55 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 			ListFoot.HeightRequest = spacer;
 		}
 
-		// The detail pane keeps clear of a side tab bar's column and a bottom one.
-		Split.PaneMargin = Split.IsSplit ? new Thickness(0, 0, clearRight, covered) : Thickness.Zero;
+		// The device beside the list runs on to the screen's foot too, its
+		// cards padded clear of a side tab bar's column and a bottom one.
+		_detail?.PlaceContent(new Thickness(0, 0, clearRight, covered));
 	}
 
 #if IOS
 	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
 
-	/// <summary>Search, Sort &amp; filter - filled while a filter or sort is on - and Refresh, by the tab bar.</summary>
-	private void ShowGlass()
+	/// <summary>
+	/// Search, Sort &amp; filter - filled while a filter or sort is on - and
+	/// Refresh by the tab bar, with the pin of the device showing beside the
+	/// list; shown again only when one of them changes.
+	/// </summary>
+	private void UpdateGlass()
 	{
-		var filtered = _viewModel.HasPanelFilters;
-		_glassFiltered = filtered;
-		TabBarButtons.Show(this, OpenSearch, "Search devices",
+		var detail = Split.IsSplit ? _detail?.ViewModel : null;
+		var pin = detail?.TogglePinCommand.CanExecute(null) == true;
+		var state = (Filtered: _viewModel.HasPanelFilters, Pin: pin, Pinned: pin && detail!.IsPinned);
+		if (!_showing || _glass == state)
+		{
+			return;
+		}
+
+		_glass = state;
+		List<GlassAction> actions =
 		[
-			new GlassAction(
-				filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
-				filtered ? "Sort and filter, filters on" : "Sort and filter",
+			new(
+				state.Filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
+				state.Filtered ? "Sort and filter, filters on" : "Sort and filter",
 				() => _viewModel.ToggleFilterPanelCommand.Execute(null)),
-			new GlassAction("arrow.clockwise", "Refresh devices", () => _viewModel.RefreshCommand.Execute(null)),
-		]);
+			new("arrow.clockwise", "Refresh devices", () => _viewModel.RefreshCommand.Execute(null)),
+		];
+		if (state.Pin)
+		{
+			actions.Add(GlassActions.Pin(state.Pinned, () => detail!.TogglePinCommand.Execute(null)));
+		}
+
+		TabBarButtons.Show(this, OpenSearch, "Search devices", actions);
 	}
+
+	private void OnDetailChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName == nameof(DeviceDetailViewModel.IsPinned))
+		{
+			Dispatcher.Dispatch(UpdateGlass);
+		}
+	}
+
+	private void OnDetailPinChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(UpdateGlass);
 
 	private void StopInsetAdjustment()
 	{

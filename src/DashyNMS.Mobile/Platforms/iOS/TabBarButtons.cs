@@ -8,6 +8,14 @@ namespace DashyNMS.Mobile;
 /// <summary>A page's action in the tab bar's glass: an SF Symbol, what VoiceOver says, and what it does.</summary>
 internal sealed record GlassAction(string Symbol, string Label, Action Tapped);
 
+/// <summary>Glass actions more than one page shows, so they look and read the same wherever they are.</summary>
+internal static class GlassActions
+{
+    /// <summary>A device's pin, filled while it's pinned - on its own page, and beside the Devices list.</summary>
+    public static GlassAction Pin(bool pinned, Action toggle) =>
+        new(pinned ? "pin.fill" : "pin", pinned ? "Unpin this device" : "Pin this device", toggle);
+}
+
 /// <summary>
 /// The page's search and actions as Liquid Glass buttons by the tab bar, as
 /// iOS 26 apps have them, for the page showing - so they're in the same place

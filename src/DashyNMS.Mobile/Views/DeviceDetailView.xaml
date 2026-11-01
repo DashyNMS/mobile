@@ -138,11 +138,15 @@
         </pages:DeviceCardTemplateSelector>
     </ContentView.Resources>
 
-    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-        <ScrollView>
-            <VerticalStackLayout Padding="16,0,16,16" Spacing="8">
+    <!-- On iOS the cards scroll on down to the foot of the screen, under a
+         bottom tab bar, and the column is padded clear of the glass by the
+         page or pane showing it (PlaceContent). -->
+    <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView x:Name="Scroller">
+            <VerticalStackLayout x:Name="Column" Padding="16,0,16,16" Spacing="8">
 
-                <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device. -->
+                <!-- "‹ Devices" and the pin, as the mock-up: no title bar, the header card names the device.
+                     On iOS 26 and later both are glass by the tab bar instead (UseGlass). -->
                 <controls:BackBar x:Name="TopBar">
                     <controls:BackBar.Actions>
                         <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Pin}" IsOn="{Binding IsPinned}"

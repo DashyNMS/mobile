@@ -21,8 +21,8 @@ public sealed class ListDetail : Grid
         propertyChanged: (view, _, value) => ((ListDetail)view)._placeholder.Text = (string)value);
 
     // No safe area of their own: a page that runs under the camera and tab
-    // bar keeps the pane clear itself (PaneMargin), and a layout left to
-    // pad itself would add the inset again.
+    // bar pads what's in the pane clear itself, and a layout left to pad
+    // itself would add the inset again.
     private readonly Grid _pane = new() { IsVisible = false, SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None) };
     private readonly ContentView _detail = new() { SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None) };
     private readonly Label _placeholder = new()
@@ -58,21 +58,6 @@ public sealed class ListDetail : Grid
     {
         get => (string)GetValue(PlaceholderProperty);
         set => SetValue(PlaceholderProperty, value);
-    }
-
-    /// <summary>
-    /// Keeps what's in the pane clear of the camera and the tab bar's glass,
-    /// for a page that runs its list on under them (Devices); the hairline
-    /// beside the list stays at the pane's edge.
-    /// </summary>
-    public Thickness PaneMargin
-    {
-        get => _detail.Margin;
-        set
-        {
-            _detail.Margin = value;
-            _placeholder.Margin = new Thickness(24 + value.Left, 24 + value.Top, 24 + value.Right, 24 + value.Bottom);
-        }
     }
 
     /// <summary>Whether the page is wide enough for the pane, so a tap should fill it rather than open a page.</summary>
