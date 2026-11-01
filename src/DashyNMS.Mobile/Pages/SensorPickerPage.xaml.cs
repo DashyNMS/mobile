@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.Services;
 
@@ -12,6 +13,7 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		DashboardBackNavigation.Attach(this, TopBar);
 	}
 
 	/// <summary>Loads once it knows which card - before then it would set up a new one.</summary>

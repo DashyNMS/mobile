@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.Services;
 
@@ -12,6 +13,7 @@ public partial class CustomiseDashboardPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		DashboardBackNavigation.Attach(this, TopBar);
 	}
 
 	/// <summary>Back from a card's set-up or the card picker: the cards may have changed (#87, #140).</summary>
