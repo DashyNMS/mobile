@@ -277,7 +277,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		_glass = state;
 		List<GlassAction> actions =
 		[
-			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
+			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
 		];
 		if (state.Filter)
 		{

@@ -443,6 +443,18 @@ glass. Check one device and multiple selected devices, Start now and a
 later date, duration presets and custom values, denied scheduling, keyboard
 entry, rotation, and side/bottom glass.
 
+Glass actions avoid the whole system-reserved region, including active Live
+Activities (#371). If expanded actions cannot fit, Search and all non-Back
+actions move into a native ellipsis menu. Back is explicitly marked as
+navigation and stays outside the menu. Compact placement checks the tab bar,
+safe edges and occlusions again, trying a neighbouring position and the other
+orientation if needed. An 8pt expansion margin prevents toggling at a boundary.
+Reserved regions are read in UIKit's constraint-update callback so changes
+trigger placement again. Check Live Activity appearance, expansion and removal,
+rotation, root/pushed pages, filled action icons, menu callbacks, VoiceOver,
+and Reduce Motion. On systems without the reserved-region API, safe-area
+bounds remain the available fallback.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

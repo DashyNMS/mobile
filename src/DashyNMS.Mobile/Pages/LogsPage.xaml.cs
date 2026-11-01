@@ -83,7 +83,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		{
 			TabBarButtons.Show(this, OpenSearch, _viewModel.SearchPlaceholder,
 			[
-				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
+				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
 			]);
 		}
 		TabBarButtons.Moved += OnGlassMoved;

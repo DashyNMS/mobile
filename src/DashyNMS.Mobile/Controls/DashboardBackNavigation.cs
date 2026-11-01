@@ -42,7 +42,7 @@ internal static class DashboardBackNavigation
             TabBarButtons.Show(page, null, string.Empty,
             [
                 new GlassAction("chevron.backward", "Back to " + BackBar.PreviousTitle(page),
-                    () => _ = Shell.Current.GoToAsync("..")),
+                    () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
             ]);
             TabBarButtons.Moved += OnMoved;
             PlaceControls();

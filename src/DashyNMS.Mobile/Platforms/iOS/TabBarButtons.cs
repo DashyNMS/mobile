@@ -6,7 +6,7 @@ using UIKit;
 namespace DashyNMS.Mobile;
 
 /// <summary>A page's action in the tab bar's glass: an SF Symbol, what VoiceOver says, and what it does.</summary>
-internal sealed record GlassAction(string Symbol, string Label, Action Tapped);
+internal sealed record GlassAction(string Symbol, string Label, Action Tapped, bool IsBack = false);
 
 /// <summary>Glass actions more than one page shows, so they look and read the same wherever they are.</summary>
 internal static class GlassActions
@@ -268,68 +268,112 @@ internal static class TabBarButtons
             return;
         }
 
-        var count = host.ActionCount;
-        CGRect search, actions;
-        host.AboveBottomBar = false;
-        if (bar.Height > bar.Width)
+        CGRect search = CGRect.Empty, actions = CGRect.Empty;
+        void Layout(int count, bool hasSearch)
         {
-            // Search above the pill, in its column, as wide as it is; the
-            // actions at the column's top, below whatever the system has there,
-            // or straight above search (or the pill) if that leaves them no room.
-            var size = bar.Width;
-            search = new CGRect(bar.GetMidX() - size / 2, bar.Top - Gap - size, size, size);
-            var below = host.HasSearch ? search.Top : bar.Top;
-            var top = ColumnTop(host, bar) + Gap;
-            actions = new CGRect(search.Left, top, size, size * count);
-            if (actions.Bottom + Gap > below)
+            host.AboveBottomBar = false;
+            if (bar.Height > bar.Width)
             {
-                actions = new CGRect(search.Left, below - Gap - (size * count), size, size * count);
-            }
+                // Search above the pill, in its column, as wide as it is; the
+                // actions at the column's top, below whatever the system has there,
+                // or straight above search (or the pill) if that leaves them no room.
+                var size = bar.Width;
+                search = new CGRect(bar.GetMidX() - size / 2, bar.Top - Gap - size, size, size);
+                var below = hasSearch ? search.Top : bar.Top;
+                var top = ColumnTop(host, bar) + Gap;
+                actions = new CGRect(search.Left, top, size, size * count);
+                if (actions.Bottom + Gap > below)
+                {
+                    actions = new CGRect(search.Left, below - Gap - (size * count), size, size * count);
+                }
 
-            host.RowHeight = size;
-            host.Vertical = true;
-        }
-        else
-        {
-            // Search at the pill's right, a gap apart, as tall as it is - or
-            // above its right end if the screen has no room there. The actions
-            // in the row above, to search's left (or at the pill's right end).
-            // With no search, the actions take its place: beside the pill if
-            // they fit, else above its right end.
-            var size = bar.Height;
-            var row = bar.Top - Gap - size;
-            var room = host.Bounds.Width - host.SafeAreaInsets.Right;
-            if (!host.HasSearch)
-            {
-                search = CGRect.Empty;
-                actions = bar.Right + Gap + (size * count) <= room
-                    ? new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size * count, size)
-                    : new CGRect(bar.Right - (size * count), row, size * count, size);
-                host.AboveBottomBar = count > 0 && actions.Top < bar.Top;
+                host.RowHeight = size;
+                host.Vertical = true;
             }
             else
             {
-                search = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
-                if (search.Right > room)
+                // Search at the pill's right, a gap apart, as tall as it is - or
+                // above its right end if the screen has no room there. The actions
+                // in the row above, to search's left (or at the pill's right end).
+                // With no search, the actions take its place: beside the pill if
+                // they fit, else above its right end.
+                var size = bar.Height;
+                var row = bar.Top - Gap - size;
+                var room = host.Bounds.Width - host.SafeAreaInsets.Right;
+                if (!hasSearch)
                 {
-                    search = new CGRect(bar.Right - size, row, size, size);
-                    actions = new CGRect(search.Left - Gap - (size * count), row, size * count, size);
+                    search = CGRect.Empty;
+                    actions = bar.Right + Gap + (size * count) <= room
+                        ? new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size * count, size)
+                        : new CGRect(bar.Right - (size * count), row, size * count, size);
+                    host.AboveBottomBar = count > 0 && actions.Top < bar.Top;
                 }
                 else
                 {
-                    actions = new CGRect(bar.Right - (size * count), row, size * count, size);
+                    search = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
+                    if (search.Right > room)
+                    {
+                        search = new CGRect(bar.Right - size, row, size, size);
+                        actions = new CGRect(search.Left - Gap - (size * count), row, size * count, size);
+                    }
+                    else
+                    {
+                        actions = new CGRect(bar.Right - (size * count), row, size * count, size);
+                    }
+
+                    host.AboveBottomBar = count > 0 || search.Top < bar.Top;
                 }
 
-                host.AboveBottomBar = count > 0 || search.Top < bar.Top;
+                host.RowHeight = size;
+                host.Vertical = false;
             }
 
-            host.RowHeight = size;
-            host.Vertical = false;
+            if (!hasSearch)
+            {
+                search = CGRect.Empty;
+            }
+
         }
 
-        if (!host.HasSearch)
+        var safe = new OccupiedArea(host.SafeAreaInsets.Left, host.SafeAreaInsets.Top,
+            host.Bounds.Width - host.SafeAreaInsets.Right, host.Bounds.Height - host.SafeAreaInsets.Bottom);
+        var obstacles = host.Regions.Append(Area(bar)).ToList();
+        Layout(host.ExpandedActionCount, host.ExpandedHasSearch);
+        // Once collapsed, require a little spare room before expanding again.
+        var clearance = host.Collapsed ? 8 : 0;
+        var compact = !GlassButtonPlacement.IsClear(Area(search), safe, obstacles, clearance)
+            || !GlassButtonPlacement.IsClear(Area(actions), safe, obstacles, clearance);
+        host.SetCollapsed(compact);
+        if (compact)
         {
-            search = CGRect.Empty;
+            Layout(host.ActionCount, false);
+            if (!GlassButtonPlacement.IsClear(Area(actions), safe, obstacles))
+            {
+                if (GlassButtonPlacement.Find(Area(actions), safe, obstacles) is { } found)
+                    actions = Rect(found);
+                else
+                {
+                    // Try the other orientation before giving up on a narrow gap.
+                    host.Vertical = !host.Vertical;
+                    var size = host.RowHeight;
+                    var alternative = new CGRect(actions.Left, actions.Top,
+                        host.Vertical ? size : size * host.ActionCount,
+                        host.Vertical ? size * host.ActionCount : size);
+                    if (GlassButtonPlacement.Find(Area(alternative), safe, obstacles) is { } other)
+                        actions = Rect(other);
+                    else
+                    {
+                        // Keep a full 44pt touch target when the bar's own squares are too large.
+                        var minimum = new OccupiedArea(actions.Left, actions.Top,
+                            actions.Left + (host.Vertical ? 44 : 44 * host.ActionCount),
+                            actions.Top + (host.Vertical ? 44 * host.ActionCount : 44));
+                        actions = GlassButtonPlacement.Find(minimum, safe, obstacles, 0) is { } small ? Rect(small) : CGRect.Empty;
+                    }
+                }
+            }
+            // A relocated group may take more height above a bottom tab bar.
+            host.AboveBottomBar = bar.Width >= bar.Height && actions.Top < bar.Top;
+            if (host.AboveBottomBar) host.RowHeight = Math.Max(host.RowHeight, bar.Top - actions.Top - Gap);
         }
 
         var moved = host.Arrange(search, actions);
@@ -339,6 +383,9 @@ internal static class TabBarButtons
             Moved?.Invoke(null, EventArgs.Empty);
         }
     }
+
+    private static OccupiedArea Area(CGRect r) => new(r.Left, r.Top, r.Right, r.Bottom);
+    private static CGRect Rect(OccupiedArea r) => new(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
 
     /// <summary>
     /// The top of a vertical tab bar's column that's free: below the status
@@ -350,7 +397,7 @@ internal static class TabBarButtons
         double top = host.SafeAreaInsets.Top;
         if (OperatingSystem.IsIOSVersionAtLeast(27, 1))
         {
-            foreach (var area in ReservedRegions.Occupied(host).Where(a => a.Left < bar.Right && a.Right > bar.Left && a.Top < bar.Top))
+            foreach (var area in ((Host)host).Regions.Where(a => a.Left < bar.Right && a.Right > bar.Left && a.Top < bar.Top))
             {
                 top = Math.Max(top, area.Bottom);
             }
@@ -491,6 +538,28 @@ internal static class TabBarButtons
         private readonly List<Slot> _slots = [];
         private Action? _search;
         private IReadOnlyList<GlassAction> _actions = [];
+        private string _searchLabel = string.Empty;
+        private IReadOnlyList<GlassAction> _shown = [];
+        public bool Collapsed { get; private set; }
+        public IReadOnlyList<OccupiedArea> Regions { get; private set; } = [];
+        public bool ExpandedHasSearch => _search is not null;
+        public int ExpandedActionCount => _actions.Count;
+
+        public override void UpdateConstraints()
+        {
+            // UIKit tracks reserved regions read here and calls this again when they change.
+            var regions = OperatingSystem.IsIOSVersionAtLeast(27, 1) ? ReservedRegions.Occupied(this) : [];
+            var changed = !Regions.SequenceEqual(regions);
+            Regions = regions;
+            base.UpdateConstraints();
+            if (changed)
+            {
+                NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+                {
+                    if (_owner is not null && TabDots.FindTabs() is { } tabs) Relayout(tabs);
+                });
+            }
+        }
 
         public Host()
         {
@@ -505,12 +574,13 @@ internal static class TabBarButtons
             Search.AddGestureRecognizer(new UITapGestureRecognizer(() => _search?.Invoke()));
             AddSubview(Search);
 
-            Actions = new UIVisualEffectView(Glass()) { ClipsToBounds = true, Alpha = 0 };
-            Actions.AddGestureRecognizer(new UITapGestureRecognizer(tap =>
+            Actions = new UIVisualEffectView(Glass(false)) { ClipsToBounds = true, Alpha = 0 };
+            var actionsTap = new UITapGestureRecognizer(tap =>
             {
                 var point = tap.LocationInView(Actions.ContentView);
                 _slots.FirstOrDefault(slot => slot.Frame.Contains(point))?.Activate();
-            }));
+            }) { CancelsTouchesInView = false };
+            Actions.AddGestureRecognizer(actionsTap);
             AddSubview(Actions);
         }
 
@@ -518,12 +588,12 @@ internal static class TabBarButtons
 
         public UIVisualEffectView Actions { get; }
 
-        public int ActionCount => _actions.Count;
+        public int ActionCount => _shown.Count;
 
         public bool AboveBottomBar { get; set; }
 
         /// <summary>Whether the page showing has search; without it the magnifier stays hidden.</summary>
-        public bool HasSearch => _search is not null;
+        public bool HasSearch => !Collapsed && _search is not null;
 
         /// <summary>How tall a row of glass is: the pill's height, or its width with a vertical one.</summary>
         public double RowHeight { get; set; }
@@ -537,20 +607,33 @@ internal static class TabBarButtons
             Search.AccessibilityLabel = searchLabel;
             _actions = actions;
 
-            foreach (var slot in _slots)
-            {
-                slot.RemoveFromSuperview();
-            }
+            _searchLabel = searchLabel;
+            RebuildSlots();
+            SetNeedsUpdateConstraints();
+        }
 
+        public void SetCollapsed(bool collapsed)
+        {
+            if (Collapsed == collapsed) return;
+            Collapsed = collapsed;
+            RebuildSlots();
+        }
+
+        private void RebuildSlots()
+        {
+            foreach (var slot in _slots) slot.RemoveFromSuperview();
             _slots.Clear();
-            foreach (var action in actions)
+            var overflow = _actions.Where(a => !a.IsBack).ToList();
+            if (_search is { } search) overflow.Insert(0, new GlassAction("magnifyingglass", _searchLabel, search));
+            var shown = Collapsed ? _actions.Where(a => a.IsBack).ToList() : _actions.ToList();
+            if (Collapsed && overflow.Count > 0) shown.Add(new GlassAction("ellipsis", "More actions", () => { }));
+            _shown = shown;
+            for (var i = 0; i < shown.Count; i++)
             {
-                var slot = new Slot(action);
+                var slot = new Slot(shown[i], Collapsed && i == shown.Count - 1 && !shown[i].IsBack ? overflow : null);
                 _slots.Add(slot);
                 Actions.ContentView.AddSubview(slot);
             }
-
-            // In the group as it stands, so they show even before it's next placed.
             LayoutSlots();
         }
 
@@ -559,7 +642,7 @@ internal static class TabBarButtons
         {
             var moved = false;
             moved |= Put(Search, search);
-            moved |= Put(Actions, _actions.Count > 0 ? actions : CGRect.Empty);
+            moved |= Put(Actions, _shown.Count > 0 ? actions : CGRect.Empty);
             _searchIcon.Frame = Search.ContentView.Bounds;
             LayoutSlots();
             return moved;
@@ -604,7 +687,7 @@ internal static class TabBarButtons
             ContentMode = UIViewContentMode.Center,
         };
 
-        private static UIVisualEffect Glass()
+        private static UIVisualEffect Glass(bool interactive = true)
         {
             if (!OperatingSystem.IsIOSVersionAtLeast(26))
             {
@@ -614,7 +697,7 @@ internal static class TabBarButtons
             // Reacts to the finger as the tab bar's own glass does. By key, as
             // UIKit names it, whatever the binding calls the property.
             var glass = new UIGlassEffect();
-            glass.SetValueForKey(NSNumber.FromBoolean(true), new NSString("interactive"));
+            glass.SetValueForKey(NSNumber.FromBoolean(interactive), new NSString("interactive"));
             return glass;
         }
 
@@ -624,7 +707,7 @@ internal static class TabBarButtons
             private readonly GlassAction _action;
             private readonly UIImageView _icon;
 
-            public Slot(GlassAction action)
+            public Slot(GlassAction action, IReadOnlyList<GlassAction>? menu = null)
             {
                 _action = action;
                 _icon = Icon(action.Symbol);
@@ -633,6 +716,26 @@ internal static class TabBarButtons
                 IsAccessibilityElement = true;
                 AccessibilityLabel = action.Label;
                 AccessibilityTraits = UIAccessibilityTrait.Button;
+                if (menu is not null)
+                {
+                    var owner = _owner;
+                    var button = new UIButton(UIButtonType.System)
+                    {
+                        AutoresizingMask = UIViewAutoresizing.FlexibleDimensions,
+                        Menu = UIMenu.Create(menu.Select(item => UIAction.Create(item.Label,
+                            UIImage.GetSystemImage(item.Symbol), null, _ =>
+                            {
+                                if (ReferenceEquals(owner, _owner)) item.Tapped();
+                            })).ToArray()),
+                        ShowsMenuAsPrimaryAction = true,
+                        AccessibilityLabel = action.Label,
+                    };
+                    button.SetImage(UIImage.GetSystemImage("ellipsis"), UIControlState.Normal);
+                    button.TintColor = UIColor.Label;
+                    _icon.Hidden = true;
+                    AddSubview(button);
+                    IsAccessibilityElement = false;
+                }
             }
 
             public void Activate() => _action.Tapped();
@@ -641,6 +744,7 @@ internal static class TabBarButtons
             {
                 base.LayoutSubviews();
                 _icon.Frame = Bounds;
+                foreach (var button in Subviews.OfType<UIButton>()) button.Frame = Bounds;
             }
 
             public override bool AccessibilityActivate()
