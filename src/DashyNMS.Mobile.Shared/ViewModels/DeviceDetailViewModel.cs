@@ -7,6 +7,7 @@ using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Services;
 
 namespace DashyNMS.Mobile.ViewModels;
 
@@ -44,9 +45,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         INavigationService navigation,
         Graylog.GraylogSetup? graylog = null,
         DeviceSectionLoader? sections = null,
-        Unimus.UnimusSetup? unimus = null)
+        Unimus.UnimusSetup? unimus = null,
+        IDeviceLogoCache? logos = null)
     {
         _unimus = unimus;
+        _logos = logos;
         _client = client;
         _settings = settings;
         _launcher = launcher;
@@ -59,6 +62,23 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     }
 
     private readonly DeviceSectionLoader? _sectionLoader;
+    private readonly IDeviceLogoCache? _logos;
+
+    /// <summary>The icon <see cref="LogoPage"/> is for, or being fetched for, so each refresh doesn't fetch it again.</summary>
+    private string? _logoIcon;
+
+    /// <summary>
+    /// The device's logo from LibreNMS (its icon, such as a vendor's), as a
+    /// page for a small web view beside the name (#348), as desktop's header
+    /// shows it. Null until it arrives, when there's none, or when
+    /// ShowDeviceLogos is off, so the header simply has no logo.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLogo))]
+    private string? _logoPage;
+
+    public bool HasLogo => LogoPage is not null;
+
     private IReadOnlyList<DeviceSectionCard> _sectionCards = [];
     private CancellationTokenSource? _sectionsCts;
 
@@ -427,6 +447,34 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     public bool HasAlerts => Alerts.Count > 0;
 
+    /// <summary>
+    /// Fetches the logo for <paramref name="icon"/> once per icon. Core's
+    /// cache never throws: null is simply no logo.
+    /// </summary>
+    private async Task ShowLogoAsync(string? icon)
+    {
+        icon = string.IsNullOrWhiteSpace(icon) || _logos is null || !_settings.Current.ShowDeviceLogos ? null : icon;
+        if (string.Equals(icon, _logoIcon, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _logoIcon = icon;
+        LogoPage = null;
+        if (icon is null)
+        {
+            return;
+        }
+
+        var logo = await _logos!.GetAsync(icon);
+
+        // Another device (or icon) may have arrived while this one was fetched.
+        if (string.Equals(icon, _logoIcon, StringComparison.Ordinal))
+        {
+            LogoPage = logo is null ? null : DeviceLogoHtml.Page(logo);
+        }
+    }
+
     /// <summary>Loads (or reloads) <paramref name="deviceId"/>.</summary>
     public Task LoadAsync(int deviceId)
     {
@@ -443,6 +491,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         var unimusTask = _unimus?.EnsureConfiguredAsync() ?? Task.FromResult(false);
         await Task.WhenAll(deviceTask, alertsTask, graylogTask, unimusTask);
         Device = deviceTask.Result;
+        _ = ShowLogoAsync(Device?.Icon);
         OnPropertyChanged(nameof(MaintenanceRefusedText));
         if (Device is null)
         {

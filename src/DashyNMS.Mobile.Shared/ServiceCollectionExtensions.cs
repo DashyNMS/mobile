@@ -37,6 +37,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ILibreNmsClient>(sp => sp.GetRequiredService<LibreNmsClient>());
 
         services.AddSingleton<ISettingsStore, SettingsStore>();
+
+        // Device logos for the device's header (#348), kept on disk by Core as desktop's.
+        services.AddSingleton<DesktopNMS.Core.Services.IDeviceLogoCache, DesktopNMS.Core.Services.DeviceLogoCache>();
         services.AddSingleton<SecretCache>();
         services.AddSingleton<DesktopNMS.Core.SignIn.ICertificateProbe, DesktopNMS.Core.SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
