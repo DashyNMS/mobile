@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.Services;
 
@@ -12,6 +13,7 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		DashboardBackNavigation.Attach(this, TopBar);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)

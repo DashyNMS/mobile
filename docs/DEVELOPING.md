@@ -358,6 +358,20 @@ their position from them, so a page adds no top padding or margin above its
 header. A tab's own page puts its title on the line; a pushed page puts its
 "‹ Back" row there, with the title beneath.
 
+Dashboard editing, Add card, Choose sensors, Choose a graph and Top card
+set-up put Back in the glass action area on iOS 26 and later (#343), with
+no Back button in the header. Graph and Top card set-up keep their explicit
+Save buttons. Android and older iOS keep the header Back control.
+Check each route from Edit dashboard, and Add card from the empty dashboard:
+Back must return to the page it came from. Adding a single Sensors or Graph
+card opens its set-up after closing Add card; check Back there too. Repeat
+with bottom and side tab bars, after rotation and folding, and with the
+keyboard open. The last list item, Add button and Undo toast must stay clear
+of the glass. Dashboard and Sensor changes save immediately; Graph and Top
+card changes need Save, and ticking cards in Add card needs Add. Back must
+preserve these rules, and returning to an editor must restore its glass
+action without leaving another page's actions visible.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
