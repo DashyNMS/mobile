@@ -20,6 +20,19 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
 	private const uint SearchSlide = 220;
 
+	/// <summary>How long the Sort &amp; filter card takes to rise or go, and the list to dim, as Devices'.</summary>
+	private const uint CardMotion = 250;
+
+	/// <summary>How far the list fades back behind the Sort &amp; filter card.</summary>
+	private const double DimmedTo = 0.7;
+
+#if IOS
+	private bool _showing;
+
+	/// <summary>The glass last shown: the search label, and whether Ports' Sort &amp; filter is there and filled.</summary>
+	private (string Search, bool Filter, bool Filtered)? _glass;
+#endif
+
 	/// <summary>The narrowest a row goes before the list drops a column.</summary>
 	private const double MinRowWidth = 340;
 
@@ -49,11 +62,27 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
 		_viewModel.PropertyChanged += (_, e) =>
 		{
-			if (e.PropertyName == nameof(DeviceSectionViewModel.IsSearchOpen))
+			switch (e.PropertyName)
 			{
-				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+				case nameof(DeviceSectionViewModel.IsSearchOpen):
+					Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+					break;
+				case nameof(DeviceSectionViewModel.IsFilterPanelOpen):
+					Dispatcher.Dispatch(() =>
+					{
+						SlideCard(FilterCard, _viewModel.IsFilterPanelOpen);
+						FadeDim(_viewModel.IsFilterPanelOpen);
+					});
+					break;
+				case nameof(DeviceSectionViewModel.IsPorts) or nameof(DeviceSectionViewModel.HasPanelFilters) or nameof(DeviceSectionViewModel.SearchLabel):
+					Dispatcher.Dispatch(UpdateGlass);
+					break;
 			}
 		};
+
+		var tapOff = new TapGestureRecognizer();
+		tapOff.Tapped += (_, _) => _viewModel.IsFilterPanelOpen = false;
+		Dim.GestureRecognizers.Add(tapOff);
 
 		// Done with the keyboard - put away, or the list scrolled: done searching.
 		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
@@ -77,10 +106,10 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			}
 		};
 
-		// Search is the glass magnifier instead.
+		// Search and Sort & filter are glass by the tab bar instead.
 		if (TabBarButtons.IsAvailable)
 		{
-			HeaderSearch.IsVisible = false;
+			HeaderActions.IsVisible = false;
 		}
 #endif
 	}
@@ -117,14 +146,16 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		base.OnAppearing();
 		Header.Apply(this);
 #if IOS
-		if (TabBarButtons.IsAvailable)
-		{
-			TabBarButtons.Show(this, OpenSearch, _viewModel.SearchLabel,
-			[
-				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
-			]);
-		}
+		_showing = true;
+#endif
 
+		// As it was left, without sliding in again.
+		FilterCard.IsVisible = _viewModel.IsFilterPanelOpen;
+		Dim.IsVisible = _viewModel.IsFilterPanelOpen;
+		Dim.Opacity = _viewModel.IsFilterPanelOpen ? DimmedTo : 0;
+#if IOS
+		_glass = null;
+		UpdateGlass();
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
@@ -133,6 +164,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+#if IOS
+		_showing = false;
+#endif
 		KeyboardDismiss.Close(Search);
 #if IOS
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
@@ -163,8 +197,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			SearchField.Margin = field;
 		}
 
-		PortOptions.Margin = new Thickness(left, 4, right, 0);
+		FilterLine.Margin = new Thickness(left + 4, 4, right, 0);
 		ErrorLine.Margin = new Thickness(left, 8, right, 0);
+		FilterCard.Margin = new Thickness(left, 6, right, 12 + clear.Bottom);
 		Busy.Margin = new Thickness(left, 8, right, 0);
 		var list = new Thickness(left, 0, right, 0);
 		if (List.Margin != list)
@@ -189,6 +224,130 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		{
 			ListLayout.Span = span;
 		}
+	}
+
+	/// <summary>
+	/// Back, search and - on Ports - Sort &amp; filter, filled while the ports
+	/// are sorted or grouped, by the tab bar; shown again only when they change.
+	/// </summary>
+	private void UpdateGlass()
+	{
+#if IOS
+		var state = (Search: _viewModel.SearchLabel, Filter: _viewModel.IsPorts, Filtered: _viewModel.HasPanelFilters);
+		if (!_showing || !TabBarButtons.IsAvailable || _glass == state)
+		{
+			return;
+		}
+
+		_glass = state;
+		List<GlassAction> actions =
+		[
+			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
+		];
+		if (state.Filter)
+		{
+			actions.Add(new(
+				state.Filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
+				state.Filtered ? "Sort and filter, sorted or grouped" : "Sort and filter",
+				() => _viewModel.ToggleFilterPanelCommand.Execute(null)));
+		}
+
+		TabBarButtons.Show(this, OpenSearch, state.Search, actions);
+#endif
+	}
+
+	/// <summary>
+	/// Slides <paramref name="card"/> up from the foot of the screen, or back
+	/// down out of sight, as Devices' Sort &amp; filter. At once with Reduce Motion.
+	/// </summary>
+	private void SlideCard(View card, bool show)
+	{
+		const string name = "CardSlide";
+		double Travel() => (card.Height > 0 ? card.Height : 240) + card.Margin.Bottom + 8;
+
+		// Already up, or already gone: nothing to move.
+		if (show == card.IsVisible && !card.AnimationIsRunning(name) && card.TranslationY == 0)
+		{
+			return;
+		}
+
+		card.AbortAnimation(name);
+		if (ReducedMotion.IsOn || (!show && !card.IsVisible))
+		{
+			card.IsVisible = show;
+			card.TranslationY = 0;
+			card.Opacity = 1;
+			return;
+		}
+
+		if (show && !card.IsVisible)
+		{
+			// Out of sight before it shows, or it flashes in place first.
+			card.Opacity = 0;
+			card.TranslationY = Travel();
+			card.IsVisible = true;
+		}
+
+		// Once laid out, so it knows how far it has to come.
+		Dispatcher.Dispatch(() =>
+		{
+			var fromY = show && card.Opacity == 0 ? Travel() : card.TranslationY;
+			var fromOpacity = card.Opacity;
+			var toY = show ? 0 : Travel();
+			var toOpacity = show ? 1.0 : 0;
+			card.Animate(
+				name,
+				v =>
+				{
+					card.TranslationY = fromY + ((toY - fromY) * v);
+					card.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
+				},
+				length: CardMotion,
+				easing: show ? Easing.CubicOut : Easing.CubicIn,
+				finished: (_, cancelled) =>
+				{
+					if (!cancelled && !show)
+					{
+						card.IsVisible = false;
+						card.TranslationY = 0;
+						card.Opacity = 1;
+					}
+				});
+		});
+	}
+
+	/// <summary>Fades the list back behind the Sort &amp; filter card, and brings it back the same way.</summary>
+	private void FadeDim(bool dim)
+	{
+		const string name = "ListDim";
+		Dim.AbortAnimation(name);
+		var from = Dim.IsVisible ? Dim.Opacity : 0;
+		var to = dim ? DimmedTo : 0;
+		if (dim)
+		{
+			Dim.Opacity = from;
+			Dim.IsVisible = true;
+		}
+
+		if (ReducedMotion.IsOn || from == to)
+		{
+			Dim.Opacity = to;
+			Dim.IsVisible = dim;
+			return;
+		}
+
+		Dim.Animate(
+			name,
+			v => Dim.Opacity = from + ((to - from) * v),
+			length: CardMotion,
+			easing: Easing.CubicInOut,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled && !dim)
+				{
+					Dim.IsVisible = false;
+				}
+			});
 	}
 
 	// The keyboard's search key: the list is narrowed, so the field goes.

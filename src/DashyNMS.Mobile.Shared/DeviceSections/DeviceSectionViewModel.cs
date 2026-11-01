@@ -25,7 +25,69 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     /// Devices and Alerts. Every section has it, however short.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFiltersText))]
     private bool _isSearchOpen;
+
+    /// <summary>
+    /// Whether Ports' Sort &amp; filter card is up (#350): its sort and
+    /// grouping, opened from the glass button by the tab bar (or the
+    /// header's icon) as on the Devices tab. Search and the card are one at
+    /// a time.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasFiltersText))]
+    private bool _isFilterPanelOpen;
+
+    partial void OnIsSearchOpenChanged(bool value)
+    {
+        if (value)
+        {
+            IsFilterPanelOpen = false;
+        }
+    }
+
+    partial void OnIsFilterPanelOpenChanged(bool value)
+    {
+        if (value)
+        {
+            IsSearchOpen = false;
+        }
+    }
+
+    /// <summary>Ports sorted or grouped other than by port ID: the glass Sort &amp; filter icon shows it filled.</summary>
+    public bool HasPanelFilters => IsPorts
+        && (SelectedPortSort.Sort != PortArrangement.SortOptions[0].Sort || SelectedPortGrouping.Grouping != PortArrangement.GroupingOptions[0].Grouping);
+
+    /// <summary>
+    /// Once search and the card are put away, what narrows or orders the list:
+    /// Matching "ge-0" · Sorted by Speed (fastest first) · Grouped by VLAN - so
+    /// a short list always says why.
+    /// </summary>
+    public string FiltersText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (SearchText.Trim() is { Length: > 0 } term)
+            {
+                parts.Add($"Matching \u201c{term}\u201d");
+            }
+
+            if (IsPorts && SelectedPortSort.Sort != PortArrangement.SortOptions[0].Sort)
+            {
+                parts.Add("Sorted by " + SelectedPortSort.Label);
+            }
+
+            if (IsPorts && SelectedPortGrouping.Grouping != PortArrangement.GroupingOptions[0].Grouping)
+            {
+                parts.Add("Grouped " + char.ToLowerInvariant(SelectedPortGrouping.Label[0]) + SelectedPortGrouping.Label[1..]);
+            }
+
+            return string.Join(" \u00b7 ", parts);
+        }
+    }
+
+    public bool HasFiltersText => !IsSearchOpen && !IsFilterPanelOpen && FiltersText.Length > 0;
 
     [ObservableProperty]
     private string _title = string.Empty;
@@ -70,6 +132,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         }
 
         _preferences.Set(PortSortKey, value.Sort.ToString());
+        OnFiltersChanged();
         ApplyFilter();
     }
 
@@ -82,6 +145,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         }
 
         _preferences.Set(PortGroupingKey, value.Grouping.ToString());
+        OnFiltersChanged();
         ApplyFilter();
     }
 
@@ -107,7 +171,18 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         ? VisibleTotals.Describe(SourceOutcome.Empty, 0, DeviceSectionInfo.For(Section).Title.ToLowerInvariant())
         : "Nothing matches.";
 
-    partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
+    partial void OnSearchTextChanged(string value)
+    {
+        OnFiltersChanged();
+        WhenTypingPauses(ApplyFilter);
+    }
+
+    private void OnFiltersChanged()
+    {
+        OnPropertyChanged(nameof(HasPanelFilters));
+        OnPropertyChanged(nameof(FiltersText));
+        OnPropertyChanged(nameof(HasFiltersText));
+    }
 
     public Task LoadAsync(int deviceId, DeviceSection section, string? deviceName = null)
     {
@@ -121,6 +196,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         Section = section;
         OnPropertyChanged(nameof(IsPorts));
         OnPropertyChanged(nameof(SearchLabel));
+        OnFiltersChanged();
         _deviceName = deviceName;
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
@@ -155,6 +231,10 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
             IsSearchOpen = true;
         }
     }
+
+    /// <summary>The header's Sort &amp; filter icon and the card's Done, where there's no glass, and the glass button.</summary>
+    [RelayCommand]
+    private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
 
     /// <summary>
     /// Done searching - the keyboard's Search key, the keyboard put away, or
