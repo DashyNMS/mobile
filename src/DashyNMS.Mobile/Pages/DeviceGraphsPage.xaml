@@ -3,55 +3,53 @@
     x:Class="DashyNMS.Mobile.Pages.DeviceGraphsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:models="clr-namespace:DesktopNMS.Core.Models;assembly=DesktopNMS.Core"
     x:DataType="sections:DeviceGraphsViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="{Binding Title}">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*" SafeAreaEdges="None">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None" />
 
         <!-- As desktop's Graphs in cards (#158): the graph and range on top, the graph in the
-             app's colours, and our own legend under it - a row per series, tap to turn it off
+             app's colours, and our own legend beside or under it - a row per series, tap to turn it off
              or on, press and hold for only that one. -->
-        <ScrollView Grid.Row="1">
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,8,16,24" Spacing="12">
+        <ScrollView x:Name="GraphScroll" Grid.Row="1" SafeAreaEdges="None">
+            <VerticalStackLayout x:Name="ContentColumn" Padding="16,8,16,24" Spacing="12" SafeAreaEdges="None">
 
-                    <Picker Title="Graph"
-                            ItemsSource="{Binding Graphs}"
-                            SelectedItem="{Binding SelectedGraph}"
-                            ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
+                <Picker Title="Graph"
+                        ItemsSource="{Binding Graphs}"
+                        SelectedItem="{Binding SelectedGraph}"
+                        ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
 
-                    <FlexLayout Direction="Row" JustifyContent="SpaceBetween" BindableLayout.ItemsSource="{Binding RangeChips}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="sections:GraphRangeChip">
-                                <Button Style="{StaticResource Chip}" Text="{Binding Label}" Padding="0" Margin="0,0,6,0"
-                                        FlexLayout.Grow="1" FlexLayout.Basis="0"
-                                        Command="{Binding SelectRangeCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceGraphsViewModel}}, x:DataType=sections:DeviceGraphsViewModel}"
-                                        CommandParameter="{Binding Option}">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
-                                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </FlexLayout>
+                <FlexLayout Direction="Row" JustifyContent="SpaceBetween" BindableLayout.ItemsSource="{Binding RangeChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="sections:GraphRangeChip">
+                            <Button Style="{StaticResource Chip}" Text="{Binding Label}" Padding="0" Margin="0,0,6,0"
+                                    FlexLayout.Grow="1" FlexLayout.Basis="0"
+                                    Command="{Binding SelectRangeCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceGraphsViewModel}}, x:DataType=sections:DeviceGraphsViewModel}"
+                                    CommandParameter="{Binding Option}">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </FlexLayout>
 
-                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <Label Style="{StaticResource Caption}" Text="LibreNMS has no graphs for this device."
-                           IsVisible="{Binding HasNoGraphs}" HorizontalOptions="Center" Margin="0,24" />
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <Label Style="{StaticResource Caption}" Text="LibreNMS has no graphs for this device."
+                       IsVisible="{Binding HasNoGraphs}" HorizontalOptions="Center" Margin="0,24" />
 
+                <Grid x:Name="GraphAndSeries" RowDefinitions="Auto,Auto" ColumnDefinitions="*" RowSpacing="12" ColumnSpacing="16" SafeAreaEdges="None">
                     <!-- LibreNMS draws the graph as SVG, restyled by Core; a web view shows it, scaled to fit. -->
-                    <Border Style="{StaticResource Card}" Padding="8">
+                    <Border x:Name="GraphCard" Style="{StaticResource Card}" Padding="8" VerticalOptions="Start" SafeAreaEdges="None">
                         <Grid>
                             <WebView x:Name="GraphView" VerticalOptions="Start" BackgroundColor="Transparent" />
                             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" VerticalOptions="Center" />
@@ -59,7 +57,7 @@
                     </Border>
 
                     <!-- Our own legend; a graph Core can't name keeps LibreNMS's, so there's none of ours. -->
-                    <VerticalStackLayout Spacing="8" IsVisible="{Binding HasSeries}">
+                    <VerticalStackLayout x:Name="SeriesPanel" Grid.Row="1" Spacing="8" IsVisible="{Binding HasSeries}" SafeAreaEdges="None">
                         <Grid ColumnDefinitions="*,Auto" Padding="4,0">
                             <Label Style="{StaticResource SectionHeader}" Text="{Binding ShownCount, StringFormat='SERIES · {0}'}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show all" Command="{Binding ShowAllCommand}"
@@ -107,9 +105,17 @@
                         </Border>
                     </VerticalStackLayout>
 
-                </VerticalStackLayout>
-            </controls:ReadableColumn>
+                </Grid>
+            </VerticalStackLayout>
         </ScrollView>
+        <BoxView Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
     </Grid>
 
 </ContentPage>
