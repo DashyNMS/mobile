@@ -14,6 +14,43 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private IReadOnlyList<SectionGroup> _all = [];
     private bool _loaded;
+    private readonly HashSet<long> _collapsedInventory = [];
+
+    public bool IsInventory => Section == DeviceSection.Inventory;
+
+    [ObservableProperty]
+    private bool _showInventoryPorts;
+
+    partial void OnShowInventoryPortsChanged(bool value) => ApplyFilter();
+
+    public string ShowInventoryPortsText => $"Show ports ({_all.SelectMany(g => g).Count(r => r.IsInventoryPort)})";
+    public string InventorySummary => string.Join(" · ", _all.SelectMany(g => g)
+        .GroupBy(r => r.Value ?? "Unknown").OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}"));
+
+    [RelayCommand]
+    private void ExpandInventory()
+    {
+        _collapsedInventory.Clear();
+        ApplyFilter();
+    }
+
+    [RelayCommand]
+    private void CollapseInventory()
+    {
+        foreach (var row in _all.SelectMany(g => g))
+        {
+            if (row.InventoryIndex is { } index) _collapsedInventory.Add(index);
+        }
+        ApplyFilter();
+    }
+
+    [RelayCommand]
+    private void ToggleInventory(SectionRow? row)
+    {
+        if (row?.InventoryIndex is not { } index || !row.CanExpand) return;
+        if (!_collapsedInventory.Add(index)) _collapsedInventory.Remove(index);
+        ApplyFilter();
+    }
     private string? _deviceName;
 
     [ObservableProperty]
@@ -188,6 +225,8 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     {
         if (DeviceId != deviceId || Section != section)
         {
+            _collapsedInventory.Clear();
+            ShowInventoryPorts = false;
             _all = [];
             Groups.ReplaceAll([]);
             _loaded = false;
@@ -195,6 +234,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         DeviceId = deviceId;
         Section = section;
         OnPropertyChanged(nameof(IsPorts));
+        OnPropertyChanged(nameof(IsInventory));
         OnPropertyChanged(nameof(SearchLabel));
         OnFiltersChanged();
         _deviceName = deviceName;
@@ -208,6 +248,8 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     {
         _all = await _loader.LoadAsync(Section, DeviceId);
         _loaded = true;
+        OnPropertyChanged(nameof(InventorySummary));
+        OnPropertyChanged(nameof(ShowInventoryPortsText));
         ApplyFilter();
 
         // Kept readings after a slow sensor list say how old they are.
@@ -268,6 +310,16 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     private void ApplyFilter()
     {
         var term = SearchText.Trim();
+
+        if (IsInventory)
+        {
+            Groups.ReplaceAll(_all.Select(g => new SectionGroup(g.Name,
+                InventoryRows.Visible(g.ToList(), _collapsedInventory, ShowInventoryPorts, term)))
+                .Where(g => g.Count > 0));
+            OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(EmptyText));
+            return;
+        }
 
         // Ports in the order and groups chosen; everything else as loaded.
         var source = IsPorts

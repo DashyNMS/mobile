@@ -553,8 +553,11 @@ public sealed class DeviceSectionLoader
             .Select(node => new SectionRow(node.Entry.DisplayName)
             {
                 Depth = node.Depth,
-                Subtitle = string.Join(" · ", new[] { node.Entry.Model, node.Entry.Manufacturer }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()),
-                Detail = string.IsNullOrWhiteSpace(node.Entry.Serial) ? null : "Serial " + node.Entry.Serial,
+                InventoryIndex = node.Entry.Index,
+                IsInventoryPort = node.Entry.IsPort,
+                Serial = node.Entry.Serial,
+                Subtitle = string.Join(" · ", new[] { node.Entry.Description, node.Entry.Model, node.Entry.Manufacturer }.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct()),
+                Detail = string.Join(" · ", new[] { string.IsNullOrWhiteSpace(node.Entry.Serial) ? null : "Serial " + node.Entry.Serial, string.IsNullOrWhiteSpace(node.Entry.FirmwareRev) ? null : "Firmware " + node.Entry.FirmwareRev }.Where(s => !string.IsNullOrWhiteSpace(s))),
                 Value = node.Entry.Class,
             });
 
