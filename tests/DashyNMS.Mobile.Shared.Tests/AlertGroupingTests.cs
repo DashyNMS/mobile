@@ -40,9 +40,12 @@ public sealed class AlertGroupingTests
         Assert.Equal("1 alert group · 8 faults · visible to this account", vm.CountText);
         Assert.Equal(1, vm.CriticalCount);
         Assert.Contains("First seen", header.GroupTimesText);
+        Assert.StartsWith("8 faults · ", header.MetaText);
+        Assert.Equal("Show 8 faults", header.ExpansionText);
         Assert.Equal(faults[0].FirstSeen, header.Group!.FirstSeen);
         await vm.OpenAlertCommand.ExecuteAsync(header);
         Assert.Equal(9, vm.DisplayRows.Count);
+        Assert.Equal("Hide faults", vm.DisplayRows[0].ExpansionText);
         Assert.All(vm.DisplayRows.Skip(1), row => Assert.StartsWith("Processor ", row.RowRule));
         await vm.OpenAlertCommand.ExecuteAsync(vm.DisplayRows[0]);
         Assert.Single(vm.DisplayRows);
@@ -118,5 +121,29 @@ public sealed class AlertGroupingTests
             new AppSettings { ShowAlertTabBadge = true, AlertTabBadgeIncludesAcknowledged = false });
         Assert.Equal(1, dot.CriticalCount);
         Assert.Equal(AlertTabSeverity.Critical, dot.Severity);
+    }
+
+    [Fact]
+    public async Task Search_closes_when_done_keeping_its_text_and_the_button_clears_it()
+    {
+        var vm = await Load([Fault(1)]);
+        Assert.False(vm.IsSearchOpen);
+        Assert.False(vm.HasFiltersText);
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.True(vm.IsSearchOpen);
+
+        vm.SearchText = " nothing-matches ";
+        vm.DismissSearch();
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal("Matching \u201cnothing-matches\u201d", vm.FiltersText);
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.Equal(" nothing-matches ", vm.SearchText); // back with what was typed
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal(string.Empty, vm.SearchText);
+        Assert.False(vm.HasFiltersText);
     }
 }

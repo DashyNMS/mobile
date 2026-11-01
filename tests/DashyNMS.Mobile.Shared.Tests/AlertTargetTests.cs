@@ -106,9 +106,11 @@ public sealed class AlertTargetTests
         Assert.Equal(3, vm.DisplayRows.Count);
         Assert.True(vm.DisplayRows[0].IsExpanded);
         Assert.Equal(new[] { 1, 2 }, vm.DisplayRows.Skip(1).Select(a => a.Id).Order());
+        Assert.Equal($"Only {vm.DisplayRows[0].Rule} on {vm.DisplayRows[0].Device}", vm.FiltersText); // says why the list is short
         settings.DidNotReceive().Save();
         vm.ShowSavedFilter();
         Assert.Equal(2, vm.DisplayRows.Count(a => !a.IsFaultChild));
+        Assert.False(vm.HasFiltersText);
         vm.ShowGroup(new AlertGroupKey(99, 3));
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Empty(vm.DisplayRows);

@@ -12,11 +12,14 @@
     <!-- As the Alert detail mock-up: "‹ Alerts", a header card with the
          severity, rule, device and the actions, then a card per section -
          why it fired, the rule, and its history on the device. -->
-    <Grid>
-    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-        <ScrollView>
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,0,16,24" Spacing="12">
+    <!-- On iOS the cards scroll on down to the foot of the screen, under a
+         bottom tab bar, and the column is padded clear of the glass by the
+         page or pane showing it (PlaceContent). -->
+    <Grid x:Name="Root">
+    <RefreshView x:Name="Refresh" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView x:Name="Scroller">
+            <controls:ReadableColumn x:Name="Readable">
+                <VerticalStackLayout x:Name="Column" Padding="16,0,16,24" Spacing="12">
 
                     <controls:BackBar x:Name="TopBar" />
 
