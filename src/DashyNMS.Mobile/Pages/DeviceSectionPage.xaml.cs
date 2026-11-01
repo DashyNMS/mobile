@@ -215,7 +215,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
 		var span = 1;
 		var width = Width - left - right;
-		if (width > 0 && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
+		if (width > 0 && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
 		{
 			span = Math.Clamp((int)((width + ListLayout.HorizontalItemSpacing) / (MinRowWidth + ListLayout.HorizontalItemSpacing)), 1, MaxColumns);
 		}
@@ -348,6 +348,16 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 					Dim.IsVisible = false;
 				}
 			});
+	}
+
+	/// <summary>Copies only the selected inventory serial, on an explicit tap.</summary>
+	private async void OnCopySerial(object? sender, EventArgs e)
+	{
+		if (sender is Button { CommandParameter: string serial } && !string.IsNullOrWhiteSpace(serial))
+		{
+			await Clipboard.Default.SetTextAsync(serial);
+			await DisplayAlertAsync("Serial copied", "The serial number is on the clipboard.", "OK");
+		}
 	}
 
 	// The keyboard's search key: the list is narrowed, so the field goes.

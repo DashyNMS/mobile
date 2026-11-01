@@ -39,6 +39,16 @@ public sealed record SectionRow(string Title)
     /// <summary>Nesting level (inventory), for indenting.</summary>
     public int Depth { get; init; }
 
+    /// <summary>Inventory identity and metadata retained for tree controls and serial copying.</summary>
+    public long? InventoryIndex { get; init; }
+    public bool IsInventoryPort { get; init; }
+    public string? Serial { get; init; }
+    public bool HasSerial => !string.IsNullOrWhiteSpace(Serial);
+    public bool CanExpand { get; init; }
+    public bool IsExpanded { get; init; }
+    public string ExpansionGlyph => IsExpanded ? "⌄" : "›";
+    public string ExpansionLabel => (IsExpanded ? "Collapse " : "Expand ") + Title;
+
     /// <summary>Another LibreNMS device this row leads to (a neighbour).</summary>
     public int? LinkDeviceId { get; init; }
 

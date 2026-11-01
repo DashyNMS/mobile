@@ -380,7 +380,11 @@ their content from `CoveredEdges.ForScrolling`, so on iPhone Duo's
 landscape screen the rows reach from the camera to the side tab bar's glass
 rather than sitting in a narrow column in the middle. Section rows go two or
 three across when there's room, except Inventory, whose nesting reads down
-one column. Every section searches from the glass magnifier (#349), its
+one column. Inventory has expandable entries, Expand all / Collapse all,
+and a Show ports toggle with ports hidden initially (#351). Search reveals
+matching entries with their ancestors without changing saved expansion
+state. Check serial copying, firmware details, the type summary and refresh
+with a collapsed branch. Every section searches from the glass magnifier (#349), its
 field sliding down from beneath the title; Android and older iOS open it
 from the header's icon. Ports also opens Sort & filter from a glass button
 on iOS 26 and later, or a header icon elsewhere (#350). The bottom card
