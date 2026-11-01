@@ -28,4 +28,9 @@ public partial class SpotlightPickerPage : ContentPage, IQueryAttributable
 		base.OnAppearing();
 		Header.Apply(this);
 	}
+	private void OnSetupSearchCompleted(object? sender, EventArgs e)
+	{
+		if (sender is Entry entry) DashyNMS.Mobile.Controls.KeyboardDismiss.Close(entry);
+	}
+
 }

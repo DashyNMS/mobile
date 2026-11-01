@@ -51,7 +51,22 @@
             </Grid>
         </Border>
 
-        <SearchBar Grid.Row="3" Text="{Binding SearchText}" Placeholder="Search" Margin="-6,6,-6,0" />
+        <Border Grid.Row="3" Margin="0,4,0,8" Padding="14,0,4,0" HeightRequest="46" StrokeThickness="1"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="23" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2">
+                <Path Data="M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20" StrokeThickness="2" StrokeLineCap="Round"
+                      WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                      Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                <Entry Grid.Column="1" Text="{Binding SearchText}" Placeholder="Search"
+                       SemanticProperties.Description="Search" VerticalOptions="Center" MinimumHeightRequest="40"
+                       ReturnType="Search" ClearButtonVisibility="WhileEditing" Completed="OnSetupSearchCompleted"
+                       IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+            </Grid>
+        </Border>
 
         <Label Grid.Row="4" Style="{StaticResource Faint}" Text="{Binding HintText}" Margin="4,4,0,6" />
 

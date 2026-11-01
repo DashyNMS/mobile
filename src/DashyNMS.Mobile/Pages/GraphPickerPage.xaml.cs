@@ -33,4 +33,9 @@ public partial class GraphPickerPage : ContentPage, IQueryAttributable
 		base.OnAppearing();
 		TopBar.Apply(this);
 	}
+	private void OnSetupSearchCompleted(object? sender, EventArgs e)
+	{
+		if (sender is Entry entry) DashyNMS.Mobile.Controls.KeyboardDismiss.Close(entry);
+	}
+
 }

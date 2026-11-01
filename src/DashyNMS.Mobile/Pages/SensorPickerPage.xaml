@@ -17,7 +17,10 @@
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Choose sensors" SemanticProperties.HeadingLevel="Level1" />
 
         <!-- The card's own title (#87): "Core switch temps". -->
-        <Entry Grid.Row="2" Text="{Binding CardTitle}" Placeholder="Card title (optional)" Margin="0,0,0,8" />
+        <VerticalStackLayout Grid.Row="2" Spacing="4" Margin="0,0,0,8">
+            <Label Style="{StaticResource Caption}" Text="Card title (optional)" />
+            <Entry Text="{Binding CardTitle}" Placeholder="Card title" />
+        </VerticalStackLayout>
 
         <Border Grid.Row="3" Margin="0,4,0,8" Padding="14,0,4,0" HeightRequest="46" StrokeThickness="1"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
