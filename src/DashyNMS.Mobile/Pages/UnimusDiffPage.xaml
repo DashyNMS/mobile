@@ -3,18 +3,16 @@
     x:Class="DashyNMS.Mobile.Pages.UnimusDiffPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:unimus="clr-namespace:DashyNMS.Mobile.Unimus;assembly=DashyNMS.Mobile.Shared"
     x:DataType="unimus:UnimusDiffViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Changes">
 
     <!-- Two backups compared (#21): removed lines red with "-", added green
          with "+", unchanged stretches folded until tapped. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
-        <controls:PageHeader x:Name="Header" Title="Changes">
+    <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
+        <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="Changes">
             <controls:PageHeader.Actions>
                 <Button Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}" />
             </controls:PageHeader.Actions>
@@ -52,9 +50,9 @@
         <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
         <controls:BusyCard Grid.Row="4" Text="Comparing…" IsVisible="{Binding IsBusy}" ZIndex="1" />
-        <Border Grid.Row="4" Style="{StaticResource ListCard}" Margin="0,0,0,12" Padding="0,6"
+        <Border Grid.Row="4" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0" Padding="0,6"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
-            <CollectionView ItemsSource="{Binding Lines}" SelectionMode="None">
+            <CollectionView x:Name="Rows" ItemsSource="{Binding Lines}" SelectionMode="None">
                 <CollectionView.EmptyView>
                     <Label Style="{StaticResource Caption}" Text="These two backups are the same." IsVisible="{Binding IsEmpty}"
                            HorizontalTextAlignment="Center" Margin="20,32" />
@@ -99,8 +97,19 @@
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
+                <CollectionView.Footer>
+                    <BoxView x:Name="RowFoot" HeightRequest="24" Color="Transparent" InputTransparent="True" />
+                </CollectionView.Footer>
             </CollectionView>
         </Border>
+        <BoxView Grid.Row="4" HeightRequest="12" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
     </Grid>
 
 </ContentPage>

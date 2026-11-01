@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Unimus;
 
@@ -7,11 +8,13 @@ namespace DashyNMS.Mobile.Pages;
 public partial class UnimusBackupPage : ContentPage, IQueryAttributable
 {
 	private readonly UnimusBackupViewModel _viewModel;
+	private readonly PushedListLayout _layout;
 
 	public UnimusBackupPage(UnimusBackupViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -26,6 +29,12 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
+		_layout.Show();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_layout.Hide();
 	}
 }

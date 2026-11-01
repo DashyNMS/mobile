@@ -8,11 +8,13 @@ namespace DashyNMS.Mobile.Pages;
 public partial class UnimusBackupsPage : ContentPage, IQueryAttributable
 {
 	private readonly UnimusBackupsViewModel _viewModel;
+	private readonly PushedListLayout _layout;
 
 	public UnimusBackupsPage(UnimusBackupsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot, CompareButton);
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading backups…", "Refreshing backups…");
 	}
 
@@ -28,7 +30,13 @@ public partial class UnimusBackupsPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
+		_layout.Show();
 		_ = _viewModel.EnsureLoadedAsync();
+	}
+
+	protected override void OnDisappearing()
+	{
+		base.OnDisappearing();
+		_layout.Hide();
 	}
 }
