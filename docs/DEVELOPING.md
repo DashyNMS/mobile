@@ -430,6 +430,12 @@ on the keyboard Search key, lost focus or scrolling while typing, retaining
 the term. Check the device filter, Event/Alert log switch, split detail pane,
 auto-refresh, keyboard dismissal and the entry/device/alert return path.
 
+Graylog and standalone messages also use glass Back (#357), with no Back
+on a root Graylog tab. The glass magnifier or header icon opens themed
+search. The keyboard Search key submits the server query; dismissing the
+field keeps the typed term. Check a device-scoped feed, root tab, unconfigured
+Graylog, split detail, message return path and query submission.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
