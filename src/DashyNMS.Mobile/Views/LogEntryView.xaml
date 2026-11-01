@@ -13,7 +13,7 @@
          narrow the list to entries like it. -->
     <ScrollView>
         <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,0,16,24" Spacing="12" IsVisible="{Binding HasEntry}">
+            <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12" IsVisible="{Binding HasEntry}">
 
                 <controls:BackBar x:Name="TopBar" />
 

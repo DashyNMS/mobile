@@ -423,6 +423,13 @@ from Config backups. Check the full return path to a device opened from
 an alert, plus comparison selection, sharing, backup search and diff folding.
 Android and older iOS retain the header Back.
 
+Logs and standalone log entries put Back in the glass on iOS 26 and later
+(#356), returning to their actual opener. Logs opens its themed search from
+the glass magnifier, or a header icon on Android and older iOS. Search closes
+on the keyboard Search key, lost focus or scrolling while typing, retaining
+the term. Check the device filter, Event/Alert log switch, split detail pane,
+auto-refresh, keyboard dismissal and the entry/device/alert return path.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
