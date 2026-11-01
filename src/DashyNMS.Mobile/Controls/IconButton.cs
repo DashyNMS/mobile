@@ -24,6 +24,9 @@ public static class Icons
 
     /// <summary>A viewfinder's corners: fit the whole thing in view.</summary>
     public const string Fit = "M4 9V4H9 M15 4H20V9 M20 15V20H15 M9 20H4V15";
+
+    /// <summary>Three lines narrowing down: sort and filter.</summary>
+    public const string Filter = "M4 7H20 M7 12H17 M10 17H14";
 }
 
 /// <summary>How an <see cref="IconButton"/> draws.</summary>

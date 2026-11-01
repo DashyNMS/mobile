@@ -6,30 +6,71 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:DevicesViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Devices">
 
     <!-- On an iPad or a Mac, the device you tap shows beside the list (#88). -->
-    <controls:ListDetail x:Name="Split" Placeholder="Choose a device to see it here.">
+    <!-- On iOS the list runs on down to the foot of the tab bar, under a
+         bottom one, and the chips scroll in from under the camera, as the
+         Dashboard and the Network map do; what can be tapped is placed clear
+         of the camera and the glass from the page (see CoveredEdges), so
+         nothing here keeps clear of the safe area on its own. -->
+    <controls:ListDetail x:Name="Split" Placeholder="Choose a device to see it here." SafeAreaEdges="None">
 
-    <Grid RowDefinitions="Auto,*" Padding="16,0,16,0">
+    <Grid x:Name="ListColumn" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto" SafeAreaEdges="None">
 
-    <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Devices" />
+        <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Devices" Margin="16,0,16,0">
+            <controls:PageHeader.Actions>
+                <!-- Where there's no glass by the tab bar (Android, iOS before 26):
+                     icons only, so the title keeps its line on a narrow phone. -->
+                <HorizontalStackLayout Spacing="4" SafeAreaEdges="None">
+                    <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
+                                         IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="Search devices" />
+                    <controls:IconButton x:Name="FilterButton" Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
+                                         IsOn="{Binding HasPanelFilters}" SemanticProperties.Description="Sort and filter" />
+                </HorizontalStackLayout>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
-    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto">
-
-        <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
-             The gap below belongs to the chips, so it's the same with the box away (#83). -->
-        <Grid x:Name="SearchSlot" IsClippedToBounds="True">
-            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search devices" Margin="-6,2,-6,0" />
+        <!-- Search when asked for (the glass button by the tab bar, or the
+             header's icon): a field that slides down from beneath the title,
+             the chips and list easing down with it, and back up when done
+             (see the page). Clipped, so it comes from under the title. -->
+        <Grid x:Name="SearchSlot" Grid.Row="1" HeightRequest="0" IsClippedToBounds="True" SafeAreaEdges="None">
+            <!-- A text box rather than a SearchBar: UISearchBar draws its own
+                 grey field, which sat inside this one as a box in a box. -->
+            <Border x:Name="SearchField" Margin="16,4,16,8" Padding="14,0,4,0" VerticalOptions="Start" HeightRequest="46"
+                    IsVisible="False" StrokeThickness="1" SafeAreaEdges="None"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="23" />
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2" SafeAreaEdges="None">
+                    <!-- Icons.Search, in the placeholder's colour. -->
+                    <Path Data="M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20" StrokeThickness="2" StrokeLineCap="Round"
+                          WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                          Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                    <Entry x:Name="Search" Grid.Column="1" Text="{Binding SearchText}" Placeholder="Search devices" VerticalOptions="Center"
+                           ReturnType="Search" ClearButtonVisibility="Never" Completed="OnSearchCompleted"
+                           IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" MinimumHeightRequest="40" />
+                </Grid>
+            </Border>
         </Grid>
 
-        <!-- Desktop's state chips. Counts are of every device, whatever's filtered. -->
-        <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
-            <HorizontalStackLayout Spacing="8">
+        <VerticalStackLayout x:Name="Notices" Grid.Row="2" Padding="16,0,16,0" SafeAreaEdges="None">
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+            <!-- How the last bulk action went: "Rediscovery requested for 5 devices." -->
+            <Label Style="{StaticResource Caption}" Text="{Binding Selection.ResultText}" IsVisible="{Binding Selection.HasResult}"
+                   Margin="4,0,4,6" />
+        </VerticalStackLayout>
+
+        <!-- Desktop's state chips. Counts are of every device, whatever's filtered.
+             The strip reaches the screen's edge, so a chip scrolls in from under
+             the camera; its padding (from the page) lets the last one scroll clear. -->
+        <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
+            <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
                 <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
@@ -69,60 +110,25 @@
             </HorizontalStackLayout>
         </ScrollView>
 
-        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4" Margin="4,6,0,2" MinimumHeightRequest="30">
-            <Label Style="{StaticResource Caption}" Text="{Binding CountText}" VerticalOptions="Center" />
+        <!-- Its height kept while the count is still blank, so the chips never touch the list (#143).
+             Under the count, what the chips don't show: a search put away, a
+             location, the sort - so a shortened list always says why. -->
+        <Grid x:Name="CountLine" Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="4" Margin="20,6,16,2" MinimumHeightRequest="30" SafeAreaEdges="None">
+            <VerticalStackLayout VerticalOptions="Center" SafeAreaEdges="None">
+                <Label Style="{StaticResource Caption}" Text="{Binding CountText}" />
+                <Label Style="{StaticResource Faint}" Text="{Binding FiltersText}" IsVisible="{Binding HasFiltersText}" LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
             <Button Grid.Column="1"
                     Text="Clear"
                     Command="{Binding ClearFiltersCommand}"
                     IsVisible="{Binding HasActiveFilters}"
                     BackgroundColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" />
-            <Button Grid.Column="2"
-                    Style="{StaticResource Chip}"
-                    Text="Sort &amp; filter"
-                    Command="{Binding ToggleFilterPanelCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding HasPanelFilters}" Value="True">
-                        <Setter Property="BorderColor" Value="{StaticResource Primary}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
+                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" VerticalOptions="Center" />
         </Grid>
 
-        <!-- Sort, and desktop's Type / Location / Group filters, one choice each. -->
-        <Border Grid.Row="3" Style="{StaticResource Card}" IsVisible="{Binding IsFilterPanelOpen}" Margin="0,4,0,6">
-            <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="2" ColumnSpacing="8">
-                <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
-                <Picker Grid.Column="1" Title="Sort by"
-                        ItemsSource="{Binding SortOptions}"
-                        SelectedItem="{Binding SelectedSort}"
-                        ItemDisplayBinding="{Binding Label, x:DataType=vm:SortOption}" />
-
-                <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Type" VerticalOptions="Center" />
-                <Picker Grid.Row="1" Grid.Column="1" Title="Type"
-                        ItemsSource="{Binding TypeOptions}"
-                        SelectedItem="{Binding SelectedType}"
-                        ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
-
-                <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Location" VerticalOptions="Center" />
-                <Picker Grid.Row="2" Grid.Column="1" Title="Location"
-                        ItemsSource="{Binding LocationOptions}"
-                        SelectedItem="{Binding SelectedLocation}"
-                        ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
-
-                <Label Grid.Row="3" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
-                <Picker Grid.Row="3" Grid.Column="1" Title="Group"
-                        ItemsSource="{Binding GroupOptions}"
-                        SelectedItem="{Binding SelectedGroup}"
-                        ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
-            </Grid>
-        </Border>
-
         <!-- Desktop's "Recently viewed" strip. -->
-        <VerticalStackLayout Grid.Row="4" IsVisible="{Binding ShowRecentlyViewed}" Margin="0,2,0,6" Spacing="4">
+        <VerticalStackLayout x:Name="RecentStrip" Grid.Row="5" IsVisible="{Binding ShowRecentlyViewed}" Margin="16,2,16,6" Spacing="4" SafeAreaEdges="None">
             <Label Style="{StaticResource SectionHeader}" Text="RECENTLY VIEWED" Margin="4,4,0,0" />
             <CollectionView ItemsSource="{Binding RecentlyViewed}" SelectionMode="None" HeightRequest="40">
                 <CollectionView.ItemsLayout>
@@ -139,22 +145,21 @@
             </CollectionView>
         </VerticalStackLayout>
 
-        <VerticalStackLayout Grid.Row="5">
-            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-            <!-- How the last bulk action went: "Rediscovery requested for 5 devices." -->
-            <Label Style="{StaticResource Caption}" Text="{Binding Selection.ResultText}" IsVisible="{Binding Selection.HasResult}"
-                   Margin="4,0,4,6" />
-        </VerticalStackLayout>
-
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
-        <!-- The rows share one card, as the mock-ups group them (#69). -->
-        <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-        <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+        <!-- The rows share one card, as the mock-ups group them (#69). It runs
+             on down to the tab bar's foot (margin from the page), as the Network
+             map's device card does; under a bottom tab bar the rows scroll
+             beneath it, and the footer lets the last one scroll clear. -->
+        <Border x:Name="ListCard" Grid.Row="6" Grid.RowSpan="2" Style="{StaticResource ListCard}" Margin="16,0,16,12" SafeAreaEdges="None">
+        <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
             <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Devices}" SelectionMode="None" x:Name="List">
                 <CollectionView.EmptyView>
                     <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsNotBusy}" HorizontalOptions="Center" Margin="0,32" />
                 </CollectionView.EmptyView>
+                <CollectionView.Footer>
+                    <BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" />
+                </CollectionView.Footer>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:DeviceItem">
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
@@ -211,11 +216,17 @@
         </RefreshView>
         </Border>
 
-        <!-- Selecting (#85): how many, select all, and what to do with them. -->
-        <controls:BulkBar Grid.Row="7" Summary="{Binding Selection.Summary}" Progress="{Binding Selection.ProgressText}"
+        <!-- Behind the Sort &amp; filter card, the list fades back gradually, as
+             the Network map dims around a device; a tap on it puts the card away. -->
+        <BoxView x:Name="Dim" Grid.Row="2" Grid.RowSpan="6" IsVisible="False" Opacity="0"
+                 Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+
+        <!-- Selecting (#85): how many, select all, and what to do with them -
+             risen over the foot of the list, level with a side tab bar's (see the page). -->
+        <controls:BulkBar x:Name="Bulk" Grid.Row="7" Summary="{Binding Selection.Summary}" Progress="{Binding Selection.ProgressText}"
                           SelectAllText="{Binding SelectAllText}" SelectAllCommand="{Binding SelectAllCommand}"
-                          DoneCommand="{Binding StopSelectingCommand}" IsVisible="{Binding Selection.IsSelecting}">
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                          DoneCommand="{Binding StopSelectingCommand}" IsVisible="False" SafeAreaEdges="None">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8" SafeAreaEdges="None">
                 <!-- Gone once the token is refused maintenance (#144); the device page says why. -->
                 <Button Text="Maintenance" Command="{Binding ScheduleMaintenanceSelectedCommand}" IsEnabled="{Binding Selection.CanAct}"
                         IsVisible="{Binding MayScheduleMaintenance}" />
@@ -228,7 +239,43 @@
             </Grid>
         </controls:BulkBar>
 
-    </Grid>
+        <!-- Sort, and desktop's Type / Location / Group filters, one choice
+             each: a card that rises from the foot of the screen, near the glass
+             button that opens it, its foot level with a side tab bar's. -->
+        <Border x:Name="FilterCard" Grid.Row="7" Style="{StaticResource Card}" IsVisible="False" Margin="16,6,16,12" SafeAreaEdges="None">
+            <VerticalStackLayout Spacing="6" SafeAreaEdges="None">
+                <Grid ColumnDefinitions="*,Auto" SafeAreaEdges="None">
+                    <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
+                </Grid>
+                <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="2" ColumnSpacing="8" SafeAreaEdges="None">
+                    <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
+                    <Picker Grid.Column="1" Title="Sort by"
+                            ItemsSource="{Binding SortOptions}"
+                            SelectedItem="{Binding SelectedSort}"
+                            ItemDisplayBinding="{Binding Label, x:DataType=vm:SortOption}" />
+
+                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Type" VerticalOptions="Center" />
+                    <Picker Grid.Row="1" Grid.Column="1" Title="Type"
+                            ItemsSource="{Binding TypeOptions}"
+                            SelectedItem="{Binding SelectedType}"
+                            ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
+
+                    <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Location" VerticalOptions="Center" />
+                    <Picker Grid.Row="2" Grid.Column="1" Title="Location"
+                            ItemsSource="{Binding LocationOptions}"
+                            SelectedItem="{Binding SelectedLocation}"
+                            ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
+
+                    <Label Grid.Row="3" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
+                    <Picker Grid.Row="3" Grid.Column="1" Title="Group"
+                            ItemsSource="{Binding GroupOptions}"
+                            SelectedItem="{Binding SelectedGroup}"
+                            ItemDisplayBinding="{Binding Label, x:DataType=vm:FacetOption}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
     </Grid>
     </controls:ListDetail>
 

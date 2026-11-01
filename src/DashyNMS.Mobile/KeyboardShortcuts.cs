@@ -22,7 +22,11 @@ public static class KeyboardShortcuts
     /// <summary>The page's search box, brought out with the cursor in it.</summary>
     public static void Search()
     {
-        if (Current?.GetVisualTreeDescendants().OfType<SearchBar>().FirstOrDefault(box => IsShowing(box.Parent)) is { } search)
+        if (Current is Pages.ISearchHost host)
+        {
+            host.OpenSearch();
+        }
+        else if (Current?.GetVisualTreeDescendants().OfType<SearchBar>().FirstOrDefault(box => IsShowing(box.Parent)) is { } search)
         {
             SearchReveal.Reveal(search);
         }

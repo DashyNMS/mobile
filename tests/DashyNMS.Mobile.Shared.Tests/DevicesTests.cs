@@ -574,4 +574,62 @@ public sealed class DashboardBookmarkTests
         await vm.OpenPinnedCommand.ExecuteAsync(vm.PinnedDevices[0]);
         Assert.Equal(2, navigation.Visits.Single().Parameters![Routes.DeviceIdParameter]);
     }
+
+    [Fact]
+    public async Task Search_closes_when_done_keeping_its_text_and_the_button_clears_it()
+    {
+        var vm = await Loaded();
+        Assert.False(vm.IsSearchOpen);
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.True(vm.IsSearchOpen);
+
+        vm.SearchText = "core";
+        vm.DismissSearch();
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal(["core-sw"], Names(vm)); // still narrowed with the box away
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.Equal("core", vm.SearchText); // back with what was typed
+
+        vm.ToggleFilterPanelCommand.Execute(null); // one or the other
+        Assert.False(vm.IsSearchOpen);
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.False(vm.IsFilterPanelOpen);
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal(string.Empty, vm.SearchText);
+        Assert.Equal(5, vm.Devices.Count);
+    }
+
+    [Fact]
+    public async Task The_list_says_what_narrows_it_that_the_chips_dont_show()
+    {
+        var vm = await Loaded();
+        Assert.False(vm.HasFiltersText);
+
+        vm.SearchText = " sw ";
+        vm.SelectedLocation = vm.LocationOptions.Single(o => o.Key == "London");
+        vm.SelectedSort = vm.SortOptions.Single(o => o.Sort == DeviceSort.Status);
+
+        Assert.Equal("Matching \u201csw\u201d \u00b7 Location London \u00b7 Sorted by Status (down first)", vm.FiltersText);
+        Assert.True(vm.HasFiltersText);
+
+        vm.ClearFiltersCommand.Execute(null);
+        vm.SelectedSort = vm.SortOptions[0];
+        Assert.Equal(string.Empty, vm.FiltersText);
+    }
+
+    [Fact]
+    public async Task Arriving_from_groups_and_locations_leaves_the_filter_card_closed()
+    {
+        // The card would cover the list it opened; the line under the count names the filter instead.
+        var vm = await Loaded();
+
+        vm.ShowOnly(group: "Core");
+
+        Assert.False(vm.IsFilterPanelOpen);
+        Assert.Equal("Group Core", vm.FiltersText);
+    }
 }
