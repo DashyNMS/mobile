@@ -415,6 +415,14 @@ that port, graph and range. Check switching between two ports and back to
 the device, and a failed port listing: existing device graphs and a directly
 opened port must still work, with the port-list failure shown separately.
 
+Config backups, a single backup and Changes use `PushedListLayout` (#355)
+for glass Back and manual side/bottom clearances. Backup and diff lines
+scroll clear of the bottom glass, and Compare stays above it. Back returns
+to the page that opened the current page: Compare opens Changes directly
+from Config backups. Check the full return path to a device opened from
+an alert, plus comparison selection, sharing, backup search and diff folding.
+Android and older iOS retain the header Back.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

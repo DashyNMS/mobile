@@ -3,18 +3,16 @@
     x:Class="DashyNMS.Mobile.Pages.UnimusBackupsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:unimus="clr-namespace:DashyNMS.Mobile.Unimus;assembly=DashyNMS.Mobile.Shared"
     x:DataType="unimus:UnimusBackupsViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Config backups">
 
     <!-- A device's Unimus backups (#21), newest first, in one card. Compare
          turns taps into choices, and diffs the two chosen. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,0,16,0">
-        <controls:PageHeader x:Name="Header" Title="Config backups">
+    <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,0,16,0" SafeAreaEdges="None">
+        <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="Config backups">
             <controls:PageHeader.Actions>
                 <Button Style="{StaticResource LinkButton}" Text="{Binding CompareText}" Command="{Binding ToggleCompareCommand}"
                         IsVisible="{Binding CanCompare}" />
@@ -31,9 +29,9 @@
         </Border>
 
         <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
-        <Border Grid.Row="3" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Backups}" SelectionMode="None">
+        <Border Grid.Row="3" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0">
+            <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+                <CollectionView x:Name="Rows" Margin="0,-1,0,0" ItemsSource="{Binding Backups}" SelectionMode="None">
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
                             <Label Text="No backups" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
@@ -69,12 +67,23 @@
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
+                    <CollectionView.Footer>
+                        <BoxView x:Name="RowFoot" HeightRequest="24" Color="Transparent" InputTransparent="True" />
+                    </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
         </Border>
 
-        <Button Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
+        <Button x:Name="CompareButton" Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
                 IsVisible="{Binding IsComparing}" />
+        <BoxView Grid.Row="3" HeightRequest="12" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
     </Grid>
 
 </ContentPage>
