@@ -5,18 +5,16 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="logs:LogsViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="{Binding Title}">
 
     <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88). -->
-    <controls:ListDetail x:Name="Split" Placeholder="Choose an entry to see it here.">
+    <controls:ListDetail x:Name="Split" SafeAreaEdges="None" Placeholder="Choose an entry to see it here.">
 
     <!-- As the Logs mock-up (#118): Event log / Alert log, search, the filter
          chips, a summary, then the entries in one card - Graylog's layout. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+    <Grid x:Name="ListColumn" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
 
         <!-- Graylog has its own page in More, so it isn't repeated here. -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}">
@@ -220,8 +218,8 @@
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <!-- The rows share one card, as the other lists do (#69). -->
-        <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+        <Border x:Name="ListCard" Grid.Row="6" SafeAreaEdges="None" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
