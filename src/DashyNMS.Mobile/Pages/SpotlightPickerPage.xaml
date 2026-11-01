@@ -12,12 +12,8 @@
     Title="Spotlight">
 
     <!-- A log card's Spotlight (#270): the whole network, devices, a group or a location. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
-        <controls:PageHeader x:Name="Header" Title="Spotlight">
-            <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
+    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,0,16,0">
+        <controls:PageHeader x:Name="Header" Title="Spotlight" />
 
         <Button Grid.Row="1" Style="{StaticResource SecondaryButton}" Text="Whole network" Command="{Binding WholeNetworkCommand}"
                 HorizontalOptions="Fill" Margin="0,4,0,10" />
@@ -84,6 +80,7 @@
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </Border>
+        <Button Grid.Row="6" Text="Save" Command="{Binding SaveCommand}" HorizontalOptions="Fill" Margin="0,12,0,24" />
     </Grid>
 
 </ContentPage>
