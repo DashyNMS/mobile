@@ -409,6 +409,11 @@ as the device page (#353). At 800pt of usable width, named series sit in a
 300pt panel beside the graph; on phones they follow it. Graphs without a
 named series list keep the full width. Check rotation, side and bottom tab
 bars, graph/range selection, series toggles, Show all and long-press isolation.
+The Show picker switches between Device graphs and ports with an interface
+name (#354), retaining the chosen time range. A direct port link selects
+that port, graph and range. Check switching between two ports and back to
+the device, and a failed port listing: existing device graphs and a directly
+opened port must still work, with the port-list failure shown separately.
 
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
