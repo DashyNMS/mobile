@@ -1,6 +1,8 @@
 using Microsoft.Maui.Controls.Handlers.Compatibility;
 using Microsoft.Maui.Controls.Platform.Compatibility;
 using UIKit;
+using Foundation;
+using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile;
 
@@ -22,6 +24,10 @@ internal sealed class AppShellRenderer : ShellRenderer
 
     private sealed class AppShellItemRenderer : ShellItemRenderer
     {
+        private bool _appeared;
+        private bool _initialLayoutCompleted;
+        private bool _initialLayoutQueued;
+
         public AppShellItemRenderer(IShellContext context) : base(context)
         {
             // Set this before Shell creates the child controllers, so a cold
@@ -38,6 +44,52 @@ internal sealed class AppShellRenderer : ShellRenderer
         {
             base.ViewDidLayoutSubviews();
             TabBarButtons.Relayout(this);
+            QueueInitialLayout();
+        }
+
+        public override void ViewDidAppear(bool animated)
+        {
+            base.ViewDidAppear(animated);
+            _appeared = true;
+            QueueInitialLayout();
+        }
+
+        public override void ViewDidDisappear(bool animated)
+        {
+            _appeared = false;
+            base.ViewDidDisappear(animated);
+        }
+
+        /// <summary>
+        /// A wide-screen cold launch can lay out the tab controller before it
+        /// has its final window traits. Rotation repairs that layout; perform
+        /// one attached pass instead, without changing selection or rebuilding tabs.
+        /// </summary>
+        private void QueueInitialLayout()
+        {
+            if (!OperatingSystem.IsIOSVersionAtLeast(18) || !_appeared || _initialLayoutCompleted || _initialLayoutQueued)
+                return;
+
+            _initialLayoutQueued = true;
+            NSRunLoop.Main.BeginInvokeOnMainThread(() =>
+            {
+                _initialLayoutQueued = false;
+                if (!_appeared || _initialLayoutCompleted || View is not { Window: not null } view || ShellItem is null)
+                    return;
+
+                // Mark complete before laying out: that calls ViewDidLayoutSubviews again.
+                _initialLayoutCompleted = true;
+                TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
+                SetTabBarHidden(!ShellItemController.ShowTabs, false);
+                view.SetNeedsLayout();
+                view.LayoutIfNeeded();
+                TabBar.SetNeedsLayout();
+                TabBar.LayoutIfNeeded();
+                TabBarButtons.Relayout(this);
+
+                (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
+                    "Layout", $"Initial tabs: show={ShellItemController.ShowTabs}, hidden={TabBarHidden}, bounds={view.Bounds}, bar={TabBar.Frame}");
+            });
         }
     }
 }

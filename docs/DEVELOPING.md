@@ -340,7 +340,14 @@ In particular, force-quit and launch directly on the inner display with a
 saved session, then repeat from the outer display and unfold. Both paths
 must show the pinned tab bar without needing another launch. The iOS
 `AppShellRenderer` applies MAUI's compact tab-controller workaround to phones
-as well as tablets, before the child controllers are created.
+as well as tablets, before the child controllers are created. It also makes
+one non-animated layout pass after the controller appears in a window (#372),
+reapplying Shell's intended tab visibility before placing the glass actions.
+This addresses the reported missing tabs on inner-screen landscape cold
+launch, where rotating away and back made them appear. Confirm this exact
+path on a device: CI cannot reproduce the native display timing. Diagnostics
+records the initial tab visibility and bounds. Also check sign-in/out, saved
+sessions, outer-screen launch/unfolding and selection preservation.
 On the inner display in portrait, every page's top line (the Dashboard's
 logo and Customise, other pages' titles or "‹ Back") should sit level with
 the clock, its right-hand buttons stopping short of the status bar and
