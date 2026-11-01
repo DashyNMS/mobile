@@ -9,6 +9,9 @@ using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.DeviceSections;
 
+/// <summary>A device-wide graph or a port, identified by the interface name the graph API expects.</summary>
+public sealed record GraphTarget(string Label, string? IfName = null);
+
 public sealed record GraphRangeOption(GraphTimeRange Range, string Label);
 
 /// <summary>A range as a chip on the Graphs page (#158): Hour to Year, the chosen one on.</summary>
@@ -90,6 +93,25 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     private readonly Dictionary<(string Key, GraphTimeRange Range), string> _cache = new();
     private IReadOnlyList<Sensor>? _sensors;
     private bool _loadingList;
+    private int? _targetsDeviceId;
+    private string? _deviceName;
+    private IReadOnlyList<GraphType>? _deviceGraphs;
+
+    public BulkObservableCollection<GraphTarget> Targets { get; } = new();
+
+    [ObservableProperty]
+    private GraphTarget? _selectedTarget;
+
+    [ObservableProperty]
+    private string? _targetsError;
+
+    public bool HasTargetsError => !string.IsNullOrEmpty(TargetsError);
+    partial void OnTargetsErrorChanged(string? value) => OnPropertyChanged(nameof(HasTargetsError));
+
+    partial void OnSelectedTargetChanged(GraphTarget? value)
+    {
+        if (!_loadingList && value is not null) _ = SelectTargetAsync(value);
+    }
     private int _loadVersion;
     private string? _raw;
     private IReadOnlyList<GraphLegendEntry>? _entries;
@@ -188,7 +210,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             chip.IsSelected = chip.Option == value;
         }
 
-        _ = LoadGraphAsync();
+        if (!_loadingList) _ = LoadGraphAsync();
     }
 
     /// <param name="graph">
@@ -196,69 +218,104 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     /// graph), else the first. Opening on the first whatever was tapped was #119.
     /// </param>
     /// <param name="range">The range that graph was shown over, if any.</param>
-    public async Task LoadAsync(int deviceId, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null)
-    {
-        DeviceId = deviceId;
-        Title = deviceName is null ? "Graphs" : $"Graphs · {deviceName}";
-        if (range is { } preset && Ranges.FirstOrDefault(r => r.Range.Preset == preset) is { } shown)
-        {
-            SelectedRange = shown;
-        }
+    public Task LoadAsync(int deviceId, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null) =>
+        LoadContextAsync(deviceId, null, null, deviceName, graph, range);
 
+    /// <summary>A port deep link starts on that port while retaining the device and other ports in Show.</summary>
+    public Task LoadPortAsync(int deviceId, string ifName, string? portName = null, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null) =>
+        LoadContextAsync(deviceId, ifName, portName, deviceName, graph, range);
+
+    private async Task LoadContextAsync(int deviceId, string? ifName, string? portName, string? deviceName, string? graph, GraphTimeRangePreset? range)
+    {
+        ++_loadVersion;
         _loadingList = true;
+        SelectedTarget = null;
         try
         {
+            if (DeviceId != deviceId)
+            {
+                _cache.Clear();
+                _sensors = null;
+                _deviceGraphs = null;
+                _targetsDeviceId = null;
+            }
+            DeviceId = deviceId;
+            _deviceName = deviceName;
+            if (range is { } preset && Ranges.FirstOrDefault(r => r.Range.Preset == preset) is { } shown)
+                SelectedRange = shown;
+
             await RunAsync(async () =>
             {
-                // Desktop merges the same three listings: they never overlap,
-                // and all draw through /devices/{id}/{graph}.
-                var deviceWide = _client.Graphs.ListAsync(deviceId);
-                var health = _client.Graphs.ListHealthAsync(deviceId);
-                var wireless = WirelessGraphsAsync(deviceId);
-                await Task.WhenAll(deviceWide, health, wireless);
+                if (_targetsDeviceId != deviceId)
+                {
+                    TargetsError = null;
+                    var targets = new List<GraphTarget> { new("Device graphs") };
+                    try
+                    {
+                        var ports = await _client.Ports.ListForDeviceAsync(deviceId);
+                        targets.AddRange(ports.Where(p => !string.IsNullOrWhiteSpace(p.IfName))
+                            .GroupBy(p => p.IfName, StringComparer.Ordinal).Select(g => g.First())
+                            .OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
+                            .Select(p => new GraphTarget(p.DisplayName, p.IfName)));
+                        _targetsDeviceId = deviceId;
+                    }
+                    catch (LibreNmsApiException)
+                    {
+                        // The device's own graphs and a direct port link still work without a port listing.
+                        TargetsError = "The port list could not be loaded.";
+                    }
+                    Targets.ReplaceAll(targets);
+                }
 
-                Graphs.ReplaceAll(deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
-                    .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase));
+                if (ifName is not null && !Targets.Any(t => t.IfName == ifName))
+                    Targets.Add(new GraphTarget(portName ?? ifName, ifName));
+                SelectedTarget = Targets.First(t => t.IfName == ifName);
             });
         }
-        finally
-        {
-            _loadingList = false;
-        }
+        finally { _loadingList = false; }
 
-        OnPropertyChanged(nameof(HasNoGraphs));
-        SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs.FirstOrDefault();
-        await LoadGraphAsync();
+        if (SelectedTarget is { } target) await DisplayTargetAsync(target, graph);
     }
 
-    /// <summary>
-    /// One port's graphs, opened from Device View's ports - or from a
-    /// dashboard port graph (#172), on its graph and range.
-    /// </summary>
-    public async Task LoadPortAsync(int deviceId, string ifName, string? portName = null, string? deviceName = null, string? graph = null, GraphTimeRangePreset? range = null)
+    /// <summary>Changes the graph target while retaining the range and per-target hidden series.</summary>
+    [RelayCommand]
+    public Task SelectTargetAsync(GraphTarget? target) => target is null ? Task.CompletedTask : DisplayTargetAsync(target, null);
+
+    private async Task DisplayTargetAsync(GraphTarget target, string? graph)
     {
-        DeviceId = deviceId;
-        if (range is { } preset && Ranges.FirstOrDefault(r => r.Range.Preset == preset) is { } shown)
-        {
-            SelectedRange = shown;
-        }
-
-        PortIfName = ifName;
-        var port = string.IsNullOrWhiteSpace(portName) ? ifName : portName;
-        Title = string.IsNullOrWhiteSpace(deviceName) ? port : $"{port} · {deviceName}";
-
+        ++_loadVersion;
         _loadingList = true;
+        GraphPage = null;
+        SelectedGraph = null;
+        Graphs.ReplaceAll([]);
+        _raw = null;
+        _entries = null;
+        Series.ReplaceAll([]);
+        RaiseSeriesChanged();
         try
         {
-            Graphs.ReplaceAll(PortGraphs);
+            SelectedTarget = target;
+            PortIfName = target.IfName;
+            var name = target.IfName is null ? "Graphs" : target.Label;
+            Title = string.IsNullOrWhiteSpace(_deviceName) ? name : $"{name} · {_deviceName}";
+            await RunAsync(async () =>
+            {
+                if (target.IfName is null && _deviceGraphs is null)
+                {
+                    var deviceWide = _client.Graphs.ListAsync(DeviceId);
+                    var health = _client.Graphs.ListHealthAsync(DeviceId);
+                    var wireless = WirelessGraphsAsync(DeviceId);
+                    await Task.WhenAll(deviceWide, health, wireless);
+                    _deviceGraphs = deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
+                        .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase).ToList();
+                }
+                Graphs.ReplaceAll(target.IfName is null ? _deviceGraphs! : PortGraphs);
+                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs.FirstOrDefault();
+            });
         }
-        finally
-        {
-            _loadingList = false;
-        }
+        finally { _loadingList = false; }
 
         OnPropertyChanged(nameof(HasNoGraphs));
-        SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs[0];
         await LoadGraphAsync();
     }
 
