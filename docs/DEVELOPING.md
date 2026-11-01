@@ -396,6 +396,14 @@ after rotation, and on a small phone: the header card and first heading
 must start clear of the status bar, and the last row must scroll clear of
 the glass.
 
+The device's Neighbours section also shows a scrollable graph (#352).
+On phones it sits above the cards; at 800pt of usable width it sits beside
+them. A node highlights and scrolls to its card. Both use the same filtered
+rows. Links use the local port's state, or inactive/unknown when readings
+are unavailable. Cards include speed, traffic in/out and discovery direction.
+Check an unmonitored neighbour, a reverse-only link and a busy switch, with
+search, rotation, dark mode and VoiceOver/TalkBack.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

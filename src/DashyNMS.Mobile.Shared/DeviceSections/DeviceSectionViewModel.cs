@@ -16,6 +16,9 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     private bool _loaded;
     private readonly HashSet<long> _collapsedInventory = [];
 
+    public bool IsNeighbours => Section == DeviceSection.Neighbours;
+    public string GraphDeviceName => _deviceName ?? $"Device {DeviceId}";
+
     public bool IsInventory => Section == DeviceSection.Inventory;
 
     [ObservableProperty]
@@ -235,9 +238,11 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         Section = section;
         OnPropertyChanged(nameof(IsPorts));
         OnPropertyChanged(nameof(IsInventory));
+        OnPropertyChanged(nameof(IsNeighbours));
         OnPropertyChanged(nameof(SearchLabel));
         OnFiltersChanged();
         _deviceName = deviceName;
+        OnPropertyChanged(nameof(GraphDeviceName));
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
         return RefreshAsync();

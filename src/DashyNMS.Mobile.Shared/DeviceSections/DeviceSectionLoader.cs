@@ -309,14 +309,14 @@ public sealed class DeviceSectionLoader
     {
         var ownTask = _client.Links.ListForDeviceAsync(deviceId, ct);
         var fleetTask = _client.Links.ListAllAsync(ct);
-        var portsTask = PortNamesAsync(deviceId, ct);
+        var portsTask = NeighbourPortsAsync(deviceId, ct);
         await Task.WhenAll(ownTask, fleetTask, portsTask);
 
         var neighbours = DeviceNeighbours.Build(
             deviceId,
             ownTask.Result,
             fleetTask.Result,
-            portsTask.Result,
+            portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName),
             new Dictionary<int, (int, NeighbourMatchKind)>());
         var names = await SeenByNamesAsync(neighbours, ct);
 
@@ -324,7 +324,7 @@ public sealed class DeviceSectionLoader
             .Select(n => (Neighbour: n, Name: n.RemoteDeviceId is { } id && names.TryGetValue(id, out var name) ? name : n.RemoteName))
             .OrderBy(x => x.Neighbour.LocalPortName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(x => NeighbourRow(x.Neighbour, x.Name));
+            .Select(x => NeighbourRow(x.Neighbour, x.Name, portsTask.Result.FirstOrDefault(p => p.PortId == x.Neighbour.LocalPortId)));
 
         return Groups(("Neighbours", rows));
     }
@@ -333,7 +333,7 @@ public sealed class DeviceSectionLoader
     /// Readable whether or not LibreNMS monitors it (DashyNMS/desktop#448, #471):
     /// one it doesn't says so, and has nothing to open.
     /// </summary>
-    internal static SectionRow NeighbourRow(DeviceNeighbour neighbour, string name)
+    internal static SectionRow NeighbourRow(DeviceNeighbour neighbour, string name, Port? port = null)
     {
         var known = neighbour.RemoteDeviceId is > 0;
         return new SectionRow(name)
@@ -341,30 +341,37 @@ public sealed class DeviceSectionLoader
             Subtitle = $"{neighbour.LocalPortName ?? "Unknown port"} → {neighbour.RemotePortName ?? "Unknown port"}",
             Value = string.Join("/", neighbour.Protocols.Select(p => p.ToUpperInvariant())),
             Detail = known ? neighbour.Platform : string.Join(" · ", new[] { neighbour.Platform, NotMonitored }.Where(s => !string.IsNullOrWhiteSpace(s))),
-            Status = neighbour.Active ? RowStatus.None : RowStatus.Inactive,
+            Fields = NeighbourFields(neighbour, name, port),
+            Status = !neighbour.Active ? RowStatus.Inactive : string.IsNullOrWhiteSpace(port?.IfOperStatus) ? RowStatus.None : port!.IsUp ? RowStatus.Ok : RowStatus.Critical,
             LinkDeviceId = known ? neighbour.RemoteDeviceId : null,
         };
     }
 
-    internal const string NotMonitored = "Not monitored in LibreNMS";
+    /// <summary>Keep discovery direction and unknown port readings explicit, including reverse-only neighbours.</summary>
+    internal static IReadOnlyList<SectionField> NeighbourFields(DeviceNeighbour neighbour, string name, Port? port) =>
+    [
+        new("Link", !neighbour.Active ? "Not active" : string.IsNullOrWhiteSpace(port?.IfOperStatus) ? "State unknown" : port!.IsUp ? "Up" : "Down"),
+        new("Speed", port?.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : "Unknown"),
+        new("Traffic in", port?.IfInOctetsRate is { } incoming ? Units.Bits(incoming * 8) : "Unknown"),
+        new("Traffic out", port?.IfOutOctetsRate is { } outgoing ? Units.Bits(outgoing * 8) : "Unknown"),
+        new("Seen by", (neighbour.Source == NeighbourSource.ThisDevice ? "This device" : name)
+            + " via " + string.Join("/", neighbour.Protocols.Select(p => p.ToUpperInvariant()))),
+    ];
 
-    /// <summary>
-    /// This device's port names, for its end of each link. Optional: a device
-    /// with no ports (every ping-only device) still has the neighbours that
-    /// see it (DashyNMS/desktop#309), so a failed lookup falls back to the
-    /// port text on the links themselves rather than failing the section.
-    /// </summary>
-    private async Task<IReadOnlyDictionary<int, string>> PortNamesAsync(int deviceId, CancellationToken ct)
+    /// <summary>Port readings are optional: ping-only devices still have reverse-discovered neighbours.</summary>
+    private async Task<IReadOnlyList<Port>> NeighbourPortsAsync(int deviceId, CancellationToken ct)
     {
         try
         {
-            return (await _client.Ports.ListForDeviceAsync(deviceId, ct)).ToDictionary(p => p.PortId, p => p.DisplayName);
+            return await _client.Ports.ListForDeviceAsync(deviceId, ct);
         }
         catch (LibreNmsApiException ex) when (!ex.IsAuthenticationFailure)
         {
-            return new Dictionary<int, string>();
+            return [];
         }
     }
+
+    internal const string NotMonitored = "Not monitored in LibreNMS";
 
     /// <summary>
     /// Names for the devices that see this one but that it doesn't report

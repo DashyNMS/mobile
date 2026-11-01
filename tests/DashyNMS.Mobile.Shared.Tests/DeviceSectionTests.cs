@@ -172,7 +172,26 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("core-sw", row.Title);
         Assert.Equal("Gi0/1 → Gi1/0/48", row.Subtitle);
         Assert.Equal("LLDP", row.Value);
+        Assert.Equal("1 Gb/s", row.Fields.Single(f => f.Name == "Speed").Value);
+        Assert.Equal("This device via LLDP", row.Fields.Single(f => f.Name == "Seen by").Value);
+        Assert.Equal("Unknown", row.Fields.Single(f => f.Name == "Traffic in").Value);
         Assert.Equal(3, row.LinkDeviceId);
+    }
+
+    [Fact]
+    public async Task Neighbour_cards_expose_local_link_state_and_octets_as_bits()
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 1, LocalDeviceId = DeviceId, LocalPortId = 1, RemoteHostname = "example.net", Protocol = "lldp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "Gi0/1", oper: "down", inRate: 1250000, outRate: 125000)]);
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Down", row.Fields.Single(f => f.Name == "Link").Value);
+        Assert.Equal("10 Mb/s", row.Fields.Single(f => f.Name == "Traffic in").Value);
+        Assert.Equal("1 Mb/s", row.Fields.Single(f => f.Name == "Traffic out").Value);
+        Assert.True(row.Matches("Gi0/1"));
+        Assert.True(row.Matches("LLDP"));
     }
 
     private static LibreNmsApiException NoPortsFound() =>
@@ -192,6 +211,8 @@ public sealed class DeviceSectionLoaderTests
         var row = Assert.Single(Assert.Single(groups));
         Assert.Equal("access-sw", row.Title);
         Assert.Equal("eth0 → Unknown port", row.Subtitle);
+        Assert.Equal("access-sw via LLDP", row.Fields.Single(f => f.Name == "Seen by").Value);
+        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Link").Value);
         Assert.Equal(3, row.LinkDeviceId);
 
         var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Neighbours));
@@ -226,7 +247,7 @@ public sealed class DeviceSectionLoaderTests
 
         Assert.Equal("phone-42", row.Title);
         Assert.Equal("IP Phone · Not monitored in LibreNMS", row.Detail);
-        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal(RowStatus.Ok, row.Status);
         Assert.False(row.IsLink);
     }
 

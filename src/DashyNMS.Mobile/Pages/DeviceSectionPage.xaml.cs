@@ -58,7 +58,17 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		CoveredEdges.Watch(this, PlaceControls);
 
 		// An inventory's nesting reads down one column, so it never spreads across.
-		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(() =>
+		{
+			PlaceControls();
+			UpdateNeighbourGraph();
+		});
+		NeighbourGraph.Picked += row =>
+		{
+			List.SelectedItem = row;
+			var group = _viewModel.Groups.FirstOrDefault(g => g.Contains(row));
+			if (group is not null) List.ScrollTo(row, group, ScrollToPosition.Start, animate: !ReducedMotion.IsOn);
+		};
 
 		_viewModel.PropertyChanged += (_, e) =>
 		{
@@ -159,6 +169,16 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
+		UpdateNeighbourGraph();
+	}
+
+	private void UpdateNeighbourGraph()
+	{
+		List.SelectionMode = _viewModel.IsNeighbours ? SelectionMode.Single : SelectionMode.None;
+		if (_viewModel.IsNeighbours)
+		{
+			NeighbourGraph.Update(_viewModel.Groups.SelectMany(g => g).ToList(), _viewModel.GraphDeviceName);
+		}
 	}
 
 	protected override void OnDisappearing()
@@ -190,6 +210,21 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		var left = 16 + clear.Left;
 		var right = 16 + clear.Right;
 
+		var wideNeighbours = _viewModel.IsNeighbours && Width - left - right >= 800;
+		var columns = wideNeighbours ? 2 : 1;
+		if (SectionBody.ColumnDefinitions.Count != columns)
+		{
+			SectionBody.ColumnDefinitions.Clear();
+			for (var i = 0; i < columns; i++) SectionBody.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+		}
+		Grid.SetRow(Refresh, wideNeighbours ? 0 : 1);
+		Grid.SetColumn(Refresh, wideNeighbours ? 1 : 0);
+		Grid.SetRowSpan(Refresh, wideNeighbours ? 2 : 1);
+		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
+		NeighbourGraph.VerticalOptions = wideNeighbours ? LayoutOptions.Fill : LayoutOptions.Start;
+		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : 280;
+		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, 8);
+
 		Header.Margin = new Thickness(left, 0, right, 0);
 		var field = new Thickness(left, 4, right, 8);
 		if (SearchField.Margin != field)
@@ -215,7 +250,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
 		var span = 1;
 		var width = Width - left - right;
-		if (width > 0 && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
+		if (width > 0 && !_viewModel.IsNeighbours && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
 		{
 			span = Math.Clamp((int)((width + ListLayout.HorizontalItemSpacing) / (MinRowWidth + ListLayout.HorizontalItemSpacing)), 1, MaxColumns);
 		}
