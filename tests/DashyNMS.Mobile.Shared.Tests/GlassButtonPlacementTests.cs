@@ -34,6 +34,38 @@ public sealed class GlassButtonPlacementTests
     }
 
     [Fact]
+    public void Tab_column_controls_are_allowed_inside_the_side_content_inset()
+    {
+        var screen = new OccupiedArea(0, 24, 900, 600);
+        var content = new OccupiedArea(0, 24, 800, 580);
+        var actions = new OccupiedArea(820, 40, 880, 160);
+        OccupiedArea[] obstacles = [new(820, 350, 880, 580)];
+        Assert.False(GlassButtonPlacement.IsClear(actions, content, obstacles));
+        Assert.True(GlassButtonPlacement.IsClear(actions, screen, obstacles));
+    }
+
+    [Fact]
+    public void Overflow_cannot_relocate_into_the_middle_of_the_screen()
+    {
+        var bar = new OccupiedArea(820, 350, 880, 580);
+        OccupiedArea[] obstacles = [new(800, 24, 900, 345), bar];
+        Assert.Null(GlassButtonPlacement.FindByBar(new(820, 150, 880, 270), Safe, bar, obstacles));
+    }
+
+    [Fact]
+    public void Overflow_moves_below_activity_within_the_tab_column()
+    {
+        var bar = new OccupiedArea(820, 350, 880, 580);
+        OccupiedArea[] obstacles = [new(800, 24, 900, 180), bar];
+        var found = GlassButtonPlacement.FindByBar(new(820, 150, 880, 270), Safe, bar, obstacles);
+        Assert.NotNull(found);
+        Assert.Equal(820, found.Value.Left);
+        Assert.Equal(880, found.Value.Right);
+        Assert.True(found.Value.Top >= 180);
+        Assert.True(found.Value.Bottom <= 338);
+    }
+
+    [Fact]
     public void Hysteresis_requires_extra_clearance_before_expanding()
     {
         OccupiedArea[] regions = [new(800, 24, 900, 180)];
