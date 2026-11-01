@@ -164,12 +164,15 @@
                     <!-- What the device is and its state, as desktop's header. -->
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="4">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <!-- The device's logo from LibreNMS, as desktop's header (#348); no gap when there's none. -->
+                                <controls:LogoView WidthRequest="40" HeightRequest="40" Margin="0,0,12,0" VerticalOptions="Center"
+                                                   Html="{Binding LogoPage}" IsVisible="{Binding HasLogo}" />
                                 <!-- The whole name, wrapping: long hostnames lost their end beside the pill. -->
-                                <Label Text="{Binding Title}" FontSize="24" FontFamily="Display"
+                                <Label Grid.Column="1" Text="{Binding Title}" FontSize="24" FontFamily="Display"
                                        LineBreakMode="WordWrap" MaxLines="3" VerticalOptions="Center" />
                                 <!-- State pill: tinted, with a dot and the state in its readable colour. -->
-                                <Border Grid.Column="1" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="0,4,0,0"
+                                <Border Grid.Column="2" Style="{StaticResource Pill}" VerticalOptions="Start" Margin="12,4,0,0"
                                         BackgroundColor="{Binding State, Converter={StaticResource StatusTint}}">
                                     <HorizontalStackLayout Spacing="6">
                                         <Ellipse WidthRequest="7" HeightRequest="7" VerticalOptions="Center"

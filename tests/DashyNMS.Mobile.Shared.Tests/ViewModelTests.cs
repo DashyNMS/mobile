@@ -407,6 +407,57 @@ public sealed class DeviceDetailViewModelTests
         Assert.True(vm.HasError);
         Assert.False(vm.TogglePinCommand.CanExecute(null));
     }
+
+    [Fact]
+    public async Task Shows_the_device_logo_as_an_image_never_as_markup()
+    {
+        var file = Path.GetTempFileName();
+        await File.WriteAllTextAsync(file, "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>");
+        try
+        {
+            var device = Fakes.Device(7, "edge-rtr");
+            device.Icon = "example.svg";
+            var client = Fakes.Client();
+            client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(device);
+            var logos = Substitute.For<DesktopNMS.Core.Services.IDeviceLogoCache>();
+            logos.GetAsync("example.svg", Arg.Any<CancellationToken>())
+                .Returns(new DesktopNMS.Core.Services.DeviceLogo(file, DesktopNMS.Core.Services.DeviceLogoFormat.Svg));
+            var settings = Fakes.Settings();
+            var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System),
+                Substitute.For<IDialogService>(), new RecordingNavigation(), logos: logos);
+
+            await vm.LoadAsync(7);
+            await vm.RefreshCommand.ExecuteAsync(null);
+
+            Assert.True(vm.HasLogo);
+            Assert.Contains("src=\"data:image/svg+xml;base64,", vm.LogoPage);
+            Assert.DoesNotContain("<script>", vm.LogoPage);
+            Assert.Contains("default-src 'none'", vm.LogoPage);
+
+            // Refreshing the same device doesn't fetch its logo again.
+            await logos.Received(1).GetAsync("example.svg", Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public async Task A_device_with_no_logo_shows_none()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var logos = Substitute.For<DesktopNMS.Core.Services.IDeviceLogoCache>();
+        var settings = Fakes.Settings();
+        var vm = new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System),
+            Substitute.For<IDialogService>(), new RecordingNavigation(), logos: logos);
+
+        await vm.LoadAsync(7);
+
+        Assert.False(vm.HasLogo);
+        await logos.DidNotReceiveWithAnyArgs().GetAsync(default, default);
+    }
 }
 
 public sealed class SignInViewModelTests

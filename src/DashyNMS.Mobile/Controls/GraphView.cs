@@ -51,7 +51,7 @@ public sealed class GraphView : WebView
     /// with a blank, data: or local file: address. Anything else - http(s),
     /// tel:, a custom scheme - is a way out of the page.
     /// </summary>
-    private static bool IsOwnPage(string? url) =>
+    internal static bool IsOwnPage(string? url) =>
         string.IsNullOrEmpty(url)
         || url.StartsWith("about:", StringComparison.OrdinalIgnoreCase)
         || url.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
