@@ -197,10 +197,11 @@
                     </Border>
 
                     <!-- ==================== Stat tiles ==================== -->
-                    <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room.
+                    <!-- Desktop's four, each with a dot in its colour; two across on a phone, four with room,
+                         never three and one (#347).
                          The card's own padding, as every other card, and figures a step below
                          the device's name so the name stays the page's heading (#344). -->
-                    <controls:CardGrid MinColumnWidth="150" MaxColumns="4" Gap="12">
+                    <controls:CardGrid MinColumnWidth="150" MaxColumns="4" Gap="12" EvenRows="True">
                         <Border Style="{StaticResource Card}">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenTileCommand}" CommandParameter="Availability" />
