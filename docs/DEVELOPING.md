@@ -473,6 +473,11 @@ and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
 split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
+The ellipsis menu button itself has a capsule configuration and clipped,
+rounded bounds (#382), so UIKit's pressed/menu preview has the same shape
+as its surrounding glass. Check opening, selecting and cancelling the menu,
+including a Back + ellipsis group, both themes and VoiceOver on a device.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
