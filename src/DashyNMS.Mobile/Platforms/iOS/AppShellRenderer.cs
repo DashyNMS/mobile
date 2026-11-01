@@ -77,6 +77,9 @@ internal sealed class AppShellRenderer : ShellRenderer
                 if (!_appeared || _initialLayoutCompleted || View is not { Window: not null } view || ShellItem is null)
                     return;
 
+                if (ShellItemController.ShowTabs && (ViewControllers is null || ViewControllers.Length == 0))
+                    return; // Wait for a subsequent layout after MAUI supplies the tabs.
+
                 // Mark complete before laying out: that calls ViewDidLayoutSubviews again.
                 _initialLayoutCompleted = true;
                 TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
@@ -87,8 +90,27 @@ internal sealed class AppShellRenderer : ShellRenderer
                 TabBar.LayoutIfNeeded();
                 TabBarButtons.Relayout(this);
 
+                // Diagnostics from #372 show visible=true but an empty tab column
+                // until rotation. Refresh the native items once after attachment;
+                // do not recreate MAUI pages, change traits or simulate rotation.
+                var refreshed = false;
+                if (ShellItemController.ShowTabs && view.Bounds.Width > view.Bounds.Height
+                    && TabBarButtons.IsAwaitingPill(this) && ViewControllers is { Length: > 0 } controllers)
+                {
+                    var selected = SelectedViewController;
+                    SetViewControllers(controllers.ToArray(), false);
+                    if (selected is not null && !ReferenceEquals(SelectedViewController, selected))
+                        SelectedViewController = selected;
+                    view.SetNeedsLayout();
+                    view.LayoutIfNeeded();
+                    TabBar.SetNeedsLayout();
+                    TabBar.LayoutIfNeeded();
+                    TabBarButtons.Relayout(this);
+                    refreshed = true;
+                }
+
                 (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
-                    "Layout", $"Initial tabs: show={ShellItemController.ShowTabs}, hidden={TabBarHidden}, bounds={view.Bounds}, bar={TabBar.Frame}");
+                    "Layout", $"Initial tabs: show={ShellItemController.ShowTabs}, hidden={TabBarHidden}, bounds={view.Bounds}, bar={TabBar.Frame}, controllers={ViewControllers?.Length ?? 0}, items={TabBar.Items?.Length ?? 0}, refreshed={refreshed}, awaitingPill={TabBarButtons.IsAwaitingPill(this)}");
             });
         }
     }

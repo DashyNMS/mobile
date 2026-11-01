@@ -205,6 +205,11 @@ internal static class TabBarButtons
     public static CGRect? PillIn(UIView view) =>
         _host is { Window: not null, Hidden: false } host && !_pill.IsEmpty ? host.ConvertRectToView(_pill, view) : null;
 
+    /// <summary>The current controller has a visible bar container but no rendered tab pill yet.</summary>
+    public static bool IsAwaitingPill(UITabBarController tabs) =>
+        _host is { Hidden: false, Window: not null } host
+        && ReferenceEquals(host.Superview, tabs.View) && _pill.IsEmpty;
+
     /// <summary>
     /// The tab bar's pill and the buttons, in <paramref name="view"/>'s points,
     /// for what keeps clear of them across its own row (<c>CoveredEdges.Beside</c>);

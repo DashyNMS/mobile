@@ -343,8 +343,11 @@ must show the pinned tab bar without needing another launch. The iOS
 as well as tablets, before the child controllers are created. It also makes
 one non-animated layout pass after the controller appears in a window (#372),
 reapplying Shell's intended tab visibility before placing the glass actions.
-This addresses the reported missing tabs on inner-screen landscape cold
-launch, where rotating away and back made them appear. Confirm this exact
+The first visibility/layout pass did not resolve the device report. Logs
+showed visible tabs with an empty native column until rotation. If a landscape
+launch still has no tab pill, refresh the existing native controller array
+once, retaining the selected controller. Record controller/item counts and
+whether the pill remains absent. This attempt needs a device cold-launch check. Confirm this exact
 path on a device: CI cannot reproduce the native display timing. Diagnostics
 records the initial tab visibility and bounds. Also check sign-in/out, saved
 sessions, outer-screen launch/unfolding and selection preservation.
