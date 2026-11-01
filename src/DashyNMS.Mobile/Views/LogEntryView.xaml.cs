@@ -17,6 +17,9 @@ public partial class LogEntryView : ContentView
 
 	public LogEntryViewModel ViewModel { get; }
 
+	/// <summary>Extra clearance for glass above the page's normal bottom safe area.</summary>
+	public void SetGlassClearance(double bottom) => ContentColumn.Padding = new Thickness(16, 16, 16, 24 + bottom);
+
 	/// <summary>"‹ Logs"; beside the list, its back button is hidden.</summary>
 	public Controls.BackBar Bar => TopBar;
 
