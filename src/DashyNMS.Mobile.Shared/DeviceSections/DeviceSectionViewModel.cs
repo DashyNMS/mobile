@@ -19,6 +19,14 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _searchText = string.Empty;
 
+    /// <summary>
+    /// Whether the search field is down (#349): opened from the glass button
+    /// by the tab bar, or the header's icon where there's no glass, as on
+    /// Devices and Alerts. Every section has it, however short.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSearchOpen;
+
     [ObservableProperty]
     private string _title = string.Empty;
 
@@ -83,8 +91,15 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 
     public BulkObservableCollection<SectionGroup> Groups { get; } = new();
 
-    /// <summary>Long lists (ports, FDB, ARP) get a search box; short ones don't need it.</summary>
-    public bool ShowSearch => _all.Sum(g => g.Count) > 12;
+    /// <summary>What the search button and field say: "Search sensors", but "Search ARP" and "Search VLANs".</summary>
+    public string SearchLabel
+    {
+        get
+        {
+            var title = DeviceSectionInfo.For(Section).Title;
+            return "Search " + (title.Length > 1 && char.IsLower(title[1]) ? char.ToLowerInvariant(title[0]) + title[1..] : title);
+        }
+    }
 
     public bool IsEmpty => !HasError && _loaded && Groups.Count == 0 && !IsBusy;
 
@@ -105,6 +120,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         DeviceId = deviceId;
         Section = section;
         OnPropertyChanged(nameof(IsPorts));
+        OnPropertyChanged(nameof(SearchLabel));
         _deviceName = deviceName;
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
@@ -117,7 +133,6 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         _all = await _loader.LoadAsync(Section, DeviceId);
         _loaded = true;
         ApplyFilter();
-        OnPropertyChanged(nameof(ShowSearch));
 
         // Kept readings after a slow sensor list say how old they are.
         if (Section == DeviceSection.Sensors)
@@ -125,6 +140,27 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
             ErrorMessage = _loader.SensorStatus;
         }
     });
+
+    /// <summary>The header's search icon, where there's no glass: opens search, or closes it and clears it.</summary>
+    [RelayCommand]
+    private void ToggleSearch()
+    {
+        if (IsSearchOpen)
+        {
+            SearchText = string.Empty;
+            IsSearchOpen = false;
+        }
+        else
+        {
+            IsSearchOpen = true;
+        }
+    }
+
+    /// <summary>
+    /// Done searching - the keyboard's Search key, the keyboard put away, or
+    /// the list scrolled: the field goes, what was typed stays.
+    /// </summary>
+    public void DismissSearch() => IsSearchOpen = false;
 
     /// <summary>A neighbour that's a LibreNMS device opens that device; a port opens its graphs.</summary>
     [RelayCommand]

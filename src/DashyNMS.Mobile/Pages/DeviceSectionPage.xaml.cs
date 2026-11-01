@@ -11,10 +11,15 @@ namespace DashyNMS.Mobile.Pages;
 /// with the whole safe area on each side, iPhone Duo's landscape screen left
 /// the rows a narrow column in its middle (#344). On iOS 26 and later Back is
 /// glass by the tab bar, so the title takes the top line; before that, and on
-/// Android, "‹ Back" stays above it.
+/// Android, "‹ Back" stays above it. Search is the glass magnifier there too,
+/// sliding its field down from beneath the title (#349); without glass, the
+/// header's icon opens it.
 /// </remarks>
-public partial class DeviceSectionPage : ContentPage, IQueryAttributable
+public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearchHost
 {
+	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
+	private const uint SearchSlide = 220;
+
 	/// <summary>The narrowest a row goes before the list drops a column.</summary>
 	private const double MinRowWidth = 340;
 
@@ -41,6 +46,59 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 
 		// An inventory's nesting reads down one column, so it never spreads across.
 		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+
+		_viewModel.PropertyChanged += (_, e) =>
+		{
+			if (e.PropertyName == nameof(DeviceSectionViewModel.IsSearchOpen))
+			{
+				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+			}
+		};
+
+		// Done with the keyboard - put away, or the list scrolled: done searching.
+		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
+		List.Scrolled += (_, _) =>
+		{
+			if (Search.IsFocused)
+			{
+				KeyboardDismiss.Close(Search);
+			}
+		};
+#if IOS
+		// Nothing riding on the keyboard: tapping off the field or pressing
+		// Search already closes it.
+		Search.HandlerChanged += (_, _) =>
+		{
+			if (Search.Handler?.PlatformView is UIKit.UITextField field)
+			{
+				field.InputAccessoryView = new UIKit.UIView(CoreGraphics.CGRect.Empty);
+				field.InputAssistantItem.LeadingBarButtonGroups = [];
+				field.InputAssistantItem.TrailingBarButtonGroups = [];
+			}
+		};
+
+		// Search is the glass magnifier instead.
+		if (TabBarButtons.IsAvailable)
+		{
+			HeaderSearch.IsVisible = false;
+		}
+#endif
+	}
+
+	/// <summary>
+	/// The glass search button and ⌘F: opens search, or puts the cursor back
+	/// in the field if it's open.
+	/// </summary>
+	public void OpenSearch()
+	{
+		if (_viewModel.IsSearchOpen)
+		{
+			Search.Focus();
+		}
+		else
+		{
+			_viewModel.IsSearchOpen = true;
+		}
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -61,8 +119,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 #if IOS
 		if (TabBarButtons.IsAvailable)
 		{
-			// Nothing to search from the glass: the section's own box is on the page.
-			TabBarButtons.Show(this, null, string.Empty,
+			TabBarButtons.Show(this, OpenSearch, _viewModel.SearchLabel,
 			[
 				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
 			]);
@@ -76,6 +133,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		KeyboardDismiss.Close(Search);
 #if IOS
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Hide(this);
@@ -99,7 +157,12 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 		var right = 16 + clear.Right;
 
 		Header.Margin = new Thickness(left, 0, right, 0);
-		Search.Margin = new Thickness(left, 0, right, 0);
+		var field = new Thickness(left, 4, right, 8);
+		if (SearchField.Margin != field)
+		{
+			SearchField.Margin = field;
+		}
+
 		PortOptions.Margin = new Thickness(left, 4, right, 0);
 		ErrorLine.Margin = new Thickness(left, 8, right, 0);
 		Busy.Margin = new Thickness(left, 8, right, 0);
@@ -126,6 +189,78 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable
 		{
 			ListLayout.Span = span;
 		}
+	}
+
+	// The keyboard's search key: the list is narrowed, so the field goes.
+	private void OnSearchCompleted(object? sender, EventArgs e) => _viewModel.DismissSearch();
+
+	/// <summary>
+	/// Slides the search field down from beneath the title, the list easing
+	/// down to make room, and into typing - or back up out of sight. At once
+	/// with Reduce Motion.
+	/// </summary>
+	private void SlideSearch(bool open)
+	{
+		const string name = "SearchSlide";
+		var full = SearchField.HeightRequest + SearchField.Margin.VerticalThickness;
+		SearchSlot.AbortAnimation(name);
+		if (open)
+		{
+			// Out of sight before it shows, or it flashes in place first.
+			if (!SearchField.IsVisible && !ReducedMotion.IsOn)
+			{
+				SearchField.TranslationY = -full;
+				SearchField.Opacity = 0;
+			}
+
+			SearchField.IsVisible = true;
+			Dispatcher.Dispatch(() => Search.Focus());
+		}
+		else
+		{
+			KeyboardDismiss.Close(Search);
+		}
+
+		// Done: hidden once out of sight, unless opened again meanwhile.
+		void Finish()
+		{
+			var stillOpen = _viewModel.IsSearchOpen;
+			SearchField.IsVisible = stillOpen;
+			SearchSlot.HeightRequest = stillOpen ? full : 0;
+			SearchField.TranslationY = 0;
+			SearchField.Opacity = 1;
+		}
+
+		if (ReducedMotion.IsOn || (!open && !SearchField.IsVisible))
+		{
+			Finish();
+			return;
+		}
+
+		// From wherever it is now, so a quick open-close doesn't jump.
+		var fromHeight = Math.Max(0, SearchSlot.HeightRequest);
+		var fromY = SearchField.TranslationY;
+		var fromOpacity = SearchField.Opacity;
+		var toHeight = open ? full : 0;
+		var toY = open ? 0 : -full;
+		var toOpacity = open ? 1.0 : 0;
+		SearchSlot.Animate(
+			name,
+			v =>
+			{
+				SearchSlot.HeightRequest = fromHeight + ((toHeight - fromHeight) * v);
+				SearchField.TranslationY = fromY + ((toY - fromY) * v);
+				SearchField.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
+			},
+			length: SearchSlide,
+			easing: open ? Easing.CubicOut : Easing.CubicIn,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled)
+				{
+					Finish();
+				}
+			});
 	}
 
 #if IOS

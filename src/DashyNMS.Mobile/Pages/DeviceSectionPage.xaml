@@ -19,10 +19,38 @@
 
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142).
              On iOS 26 and later Back is glass by the tab bar instead. -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None">
+            <controls:PageHeader.Actions>
+                <!-- Where there's no glass by the tab bar (Android, iOS before 26): the search icon. -->
+                <controls:IconButton x:Name="HeaderSearch" Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
+                                     IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
-        <SearchBar x:Name="Search" Grid.Row="1" Margin="16,0,16,0" Text="{Binding SearchText}" Placeholder="Search"
-                   IsVisible="{Binding ShowSearch}" />
+        <!-- Search when asked for (#349), as on Devices and Alerts: a field that
+             slides down from beneath the title, the list easing down with it,
+             and back up when done. Clipped, so it comes from under the title. -->
+        <Grid x:Name="SearchSlot" Grid.Row="1" HeightRequest="0" IsClippedToBounds="True" SafeAreaEdges="None">
+            <!-- A text box rather than a SearchBar: UISearchBar draws its own
+                 grey field, which sat inside this one as a box in a box. -->
+            <Border x:Name="SearchField" Margin="16,4,16,8" Padding="14,0,4,0" VerticalOptions="Start" HeightRequest="46"
+                    IsVisible="False" StrokeThickness="1" SafeAreaEdges="None"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="23" />
+                </Border.StrokeShape>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2" SafeAreaEdges="None">
+                    <!-- Icons.Search, in the placeholder's colour. -->
+                    <Path Data="M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20" StrokeThickness="2" StrokeLineCap="Round"
+                          WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                          Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                    <Entry x:Name="Search" Grid.Column="1" Text="{Binding SearchText}" Placeholder="{Binding SearchLabel}" VerticalOptions="Center"
+                           ReturnType="Search" ClearButtonVisibility="Never" Completed="OnSearchCompleted"
+                           IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" MinimumHeightRequest="40" />
+                </Grid>
+            </Border>
+        </Grid>
 
         <!-- Ports only: the order and grouping, by port ID until chosen, then remembered (#92). -->
         <Grid x:Name="PortOptions" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" Margin="16,4,16,0"

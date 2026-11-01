@@ -380,8 +380,10 @@ their content from `CoveredEdges.ForScrolling`, so on iPhone Duo's
 landscape screen the rows reach from the camera to the side tab bar's glass
 rather than sitting in a narrow column in the middle. Section rows go two or
 three across when there's room, except Inventory, whose nesting reads down
-one column. Check a short section and a long one (search shows past 12
-rows), Ports with its pickers, and Inventory, with bottom and side tab bars,
+one column. Every section searches from the glass magnifier (#349), its
+field sliding down from beneath the title; Android and older iOS open it
+from the header's icon. Check a short section and a long one, Ports with
+its pickers, and Inventory, with bottom and side tab bars,
 after rotation, and on a small phone: the header card and first heading
 must start clear of the status bar, and the last row must scroll clear of
 the glass.
