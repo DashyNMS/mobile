@@ -49,7 +49,7 @@ internal sealed class TabAlignedListLayout
             sideBar = pill.Height > pill.Width;
             if (sideBar)
             {
-                if (pill.GetMidX() > width / 2) right = Math.Max(right, width - pill.Left + 12 - 16);
+                if (pill.Left + (pill.Width / 2) > width / 2) right = Math.Max(right, width - pill.Left + 12 - 16);
                 else left = Math.Max(left, pill.Right + 12 - 16);
             }
             if (sideBar || pill.Top > page.Bounds.Height / 2)
