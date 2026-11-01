@@ -462,11 +462,11 @@ rotation, root/pushed pages, filled action icons, menu callbacks, VoiceOver,
 and Reduce Motion. On systems without the reserved-region API, safe-area
 bounds remain the available fallback.
 
-Event log uses `TabAlignedListLayout` (#375) to match the Alerts/Devices
+Event log and Graylog use `TabAlignedListLayout` (#375, #376) to match the Alerts/Devices
 card base to the native tab pill. The scrolling footer keeps the final row
 and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
-split detail and the final row on iOS. Android keeps its existing layout.
+split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.

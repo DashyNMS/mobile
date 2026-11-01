@@ -14,6 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost
 {
 	private readonly GraylogViewModel _viewModel;
+	private readonly TabAlignedListLayout _listLayout;
 	private const uint SearchSlide = 220;
 	private bool _searchOpen;
 
@@ -21,6 +22,10 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
+		{
+			if (Split.Detail is GraylogMessageView detail) detail.PlaceContent(clear);
+		});
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		SearchButton.Command = new Command(() =>
 		{
@@ -132,8 +137,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
 	private void PlaceFooter()
 	{
-		ListFoot.HeightRequest = 24 + TabBarButtons.CoveredBottom;
-		if (Split.Detail is GraylogMessageView entry) entry.SetGlassClearance(TabBarButtons.CoveredBottom);
+		_listLayout.Place();
 	}
 #endif
 
