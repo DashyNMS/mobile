@@ -96,7 +96,7 @@ public sealed class DeviceDetailPage : ContentPage, IQueryAttributable
 		_glassPin = pin;
 		List<GlassAction> actions =
 		[
-			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")),
+			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
 		];
 		if (pin.Shown)
 		{

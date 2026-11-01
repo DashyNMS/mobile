@@ -50,7 +50,7 @@ internal sealed class PushedListLayout
         {
             TabBarButtons.Show(_page, null, string.Empty,
             [
-                new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page), () => _ = Shell.Current.GoToAsync("..")),
+                new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
             ]);
         }
         TabBarButtons.Moved += OnMoved;

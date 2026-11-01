@@ -35,7 +35,7 @@ internal static class ReservedRegions
             var frame = region.Frame;
             var margins = region.Margins;
             areas.Add(new OccupiedArea(
-                frame.Left - margins.Left, frame.Top, frame.Right + margins.Right, frame.Bottom));
+                frame.Left - margins.Left, frame.Top - margins.Top, frame.Right + margins.Right, frame.Bottom + margins.Bottom));
         }
 
         return areas;

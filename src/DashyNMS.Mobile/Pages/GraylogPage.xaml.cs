@@ -85,7 +85,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 			List<GlassAction> actions = [];
 			if (PageHeader.IsPushed(this))
 			{
-				actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync("..")));
+				actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
 			}
 			TabBarButtons.Show(this, _viewModel.IsConfigured ? OpenSearch : null, "Search messages", actions);
 		}
