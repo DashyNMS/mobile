@@ -384,12 +384,38 @@ public sealed class DeviceSectionViewModelTests
         await vm.LoadAsync(7, DeviceSection.Arp, "edge-rtr");
 
         Assert.Equal("ARP · edge-rtr", vm.Title);
-        Assert.True(vm.ShowSearch);
+        Assert.Equal("Search ARP", vm.SearchLabel);
         vm.SearchText = "10.0.0.2";
         Assert.Equal(["10.0.0.2", "10.0.0.20"], vm.Groups.Single().Select(r => r.Title));
         vm.SearchText = "nothing";
         Assert.True(vm.IsEmpty);
         Assert.Equal("Nothing matches.", vm.EmptyText);
+    }
+
+    [Fact]
+    public async Task A_short_section_searches_and_closing_search_keeps_what_was_typed()
+    {
+        var client = Fakes.Client();
+        client.Arp.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new ArpEntry { PortId = 1, Ipv4Address = "10.0.0.1", MacAddress = "001122334401" }, new ArpEntry { PortId = 1, Ipv4Address = "10.0.0.2", MacAddress = "001122334402" }]);
+        client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<Port>());
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation());
+        await vm.LoadAsync(7, DeviceSection.Arp, "edge-rtr");
+
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.True(vm.IsSearchOpen);
+        vm.SearchText = "10.0.0.2";
+        vm.DismissSearch();
+
+        Assert.False(vm.IsSearchOpen);
+        Assert.Equal("10.0.0.2", vm.SearchText);
+        Assert.Equal(["10.0.0.2"], vm.Groups.Single().Select(r => r.Title));
+
+        // The header's icon closes and clears it.
+        vm.ToggleSearchCommand.Execute(null);
+        vm.ToggleSearchCommand.Execute(null);
+        Assert.Equal(string.Empty, vm.SearchText);
+        Assert.Equal(2, vm.Groups.Single().Count);
     }
 
     [Fact]
