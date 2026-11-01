@@ -8,8 +8,8 @@ namespace DashyNMS.Mobile;
 
 /// <summary>
 /// Keeps Shell's tab layout consistent when a phone starts on a wide display.
-/// MAUI applies this workaround to iPads only, leaving a wide phone launch
-/// to initialise a different native tab layout from a narrow phone launch.
+/// Older systems retain the compact compatibility layout. Adaptive phones
+/// keep their native window traits so UIKit can initialise its tab presentation.
 /// </summary>
 internal sealed class AppShellRenderer : ShellRenderer
 {
@@ -32,11 +32,17 @@ internal sealed class AppShellRenderer : ShellRenderer
         {
             // Set this before Shell creates the child controllers, so a cold
             // launch and subsequent display changes use the same tab layout.
-            if (OperatingSystem.IsIOSVersionAtLeast(18))
+            if (OperatingSystem.IsIOSVersionAtLeast(18) && !UsesNativeAdaptiveTabs)
             {
                 TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
             }
         }
+
+        // On adaptive phones UIKit must see the real window traits from creation.
+        // Forcing Compact on the wide inner screen can select a bottom-tab group
+        // before UIKit lays out the vertical column (#372's diagnostics).
+        private static bool UsesNativeAdaptiveTabs => OperatingSystem.IsIOSVersionAtLeast(27, 1)
+            && UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Phone;
 
         // The tab bar may have moved - iPhone Duo folded, opened or turned -
         // so the search button by it moves too.
@@ -51,6 +57,11 @@ internal sealed class AppShellRenderer : ShellRenderer
         {
             base.ViewDidAppear(animated);
             _appeared = true;
+            if (UsesNativeAdaptiveTabs)
+            {
+                (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
+                    "Layout", $"Native adaptive tabs: horizontal={TraitCollection.HorizontalSizeClass}, vertical={TraitCollection.VerticalSizeClass}, show={ShellItemController.ShowTabs}, hidden={TabBarHidden}, controllers={ViewControllers?.Length ?? 0}, items={TabBar.Items?.Length ?? 0}, bar={TabBar.Frame}");
+            }
             QueueInitialLayout();
         }
 
@@ -67,7 +78,7 @@ internal sealed class AppShellRenderer : ShellRenderer
         /// </summary>
         private void QueueInitialLayout()
         {
-            if (!OperatingSystem.IsIOSVersionAtLeast(18) || !_appeared || _initialLayoutCompleted || _initialLayoutQueued)
+            if (UsesNativeAdaptiveTabs || !OperatingSystem.IsIOSVersionAtLeast(18) || !_appeared || _initialLayoutCompleted || _initialLayoutQueued)
                 return;
 
             _initialLayoutQueued = true;
