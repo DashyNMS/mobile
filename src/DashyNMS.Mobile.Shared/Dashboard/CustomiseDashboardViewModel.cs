@@ -60,8 +60,8 @@ public sealed partial class DashboardCardOption : ObservableObject
     /// <summary>Names the card for the same reason as <see cref="SetUpDescription"/>.</summary>
     public string MoreDescription => "More for " + Title;
 
-    /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
-    public bool CanSetUp => Kind.AllowsSeveral;
+    /// <summary>Only offer setup when this kind has a supported editor.</summary>
+    public bool CanSetUp => CustomiseDashboardViewModel.SetUpRoute(Widget.WidgetType) is not null;
 
     /// <summary>The kinds there can be several of can be copied, set-up and all (#145).</summary>
     public bool CanDuplicate => Kind.AllowsSeveral;
@@ -258,10 +258,10 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     [RelayCommand]
     private void SaveOrder() => Save();
 
-    /// <summary>A card's own set-up: its sensors, graph or ranking, and its title.</summary>
+    /// <summary>Open the card's sensor, graph, ranking or Spotlight setup.</summary>
     [RelayCommand]
-    private Task SetUpAsync(DashboardCardOption? card) => card is { CanSetUp: true }
-        ? _navigation.GoToAsync(SetUpRoute(card.Widget.WidgetType), new Dictionary<string, object> { [Routes.WidgetIdParameter] = card.Widget.Id })
+    private Task SetUpAsync(DashboardCardOption? card) => card is not null && SetUpRoute(card.Widget.WidgetType) is { } route
+        ? _navigation.GoToAsync(route, new Dictionary<string, object> { [Routes.WidgetIdParameter] = card.Widget.Id })
         : Task.CompletedTask;
 
     /// <summary>Off the dashboard straight away, its set-up with it - with Undo in the toast rather than asking first.</summary>
@@ -281,11 +281,13 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     }
 
     /// <summary>Where a card of <paramref name="type"/> is set up.</summary>
-    internal static string SetUpRoute(string type) => type switch
+    internal static string? SetUpRoute(string type) => type switch
     {
         DashboardLayout.Sensors => Routes.PickSensors,
         DashboardLayout.Graph => Routes.PickGraph,
-        _ => Routes.TopCardSetUp,
+        DashboardLayout.TopInterfaces or DashboardLayout.TopErrors or DashboardLayout.TopDevices => Routes.TopCardSetUp,
+        DashboardLayout.EventLog or DashboardLayout.Graylog => Routes.SpotlightPicker,
+        _ => null,
     };
 
     private void Save()

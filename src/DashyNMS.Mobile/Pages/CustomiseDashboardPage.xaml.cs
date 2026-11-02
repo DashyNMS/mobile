@@ -22,6 +22,11 @@ public partial class CustomiseDashboardPage : ContentPage
         Controls.TopBar.Fit(Heading);
         CoveredEdges.Watch(this, PlaceControls);
         List.SizeChanged += (_, _) => PlaceColumns();
+        Toast.SizeChanged += (_, _) => PlaceFooter();
+        Toast.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsVisible)) PlaceFooter();
+        };
 	}
 
 	/// <summary>Back from a card's set-up or the card picker: the cards may have changed (#87, #140).</summary>
@@ -57,14 +62,23 @@ public partial class CustomiseDashboardPage : ContentPage
         var edges = CoveredEdges.ForScrolling(this);
         Heading.Margin = TopBar.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
         List.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
-        Footer.Padding = new Thickness(0, 12, 0, 16 + edges.Bottom);
         double foot = 16 + edges.Bottom;
 #if IOS
         if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
             foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
 #endif
         Toast.Margin = new Thickness(12 + edges.Left, 0, 12 + edges.Right, foot);
+        PlaceFooter();
         PlaceColumns();
+    }
+
+    /// <summary>Keep Add reachable above the toast until its exit animation finishes.</summary>
+    private void PlaceFooter()
+    {
+        double bottom = 16 + CoveredEdges.ForScrolling(this).Bottom;
+        if (Toast.IsVisible)
+            bottom = Math.Max(bottom, Toast.Margin.Bottom + Math.Max(52, Toast.Height) + 12);
+        Footer.Padding = new Thickness(0, 12, 0, bottom);
     }
 
     private void PlaceColumns()
