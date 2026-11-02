@@ -339,18 +339,16 @@ Confirm the same pinned tabs and devices remain selected after resizing.
 In particular, force-quit and launch directly on the inner display with a
 saved session, then repeat from the outer display and unfold. Both paths
 must show the pinned tab bar without needing another launch. The iOS
-`AppShellRenderer` applies MAUI's compact tab-controller workaround to phones
-as well as tablets, before the child controllers are created. It also makes
-one non-animated layout pass after the controller appears in a window (#372),
-reapplying Shell's intended tab visibility before placing the glass actions.
-The first visibility/layout pass did not resolve the device report. Logs
-showed visible tabs with an empty native column until rotation. If a landscape
-launch still has no tab pill, refresh the existing native controller array
-once, retaining the selected controller. Record controller/item counts and
-whether the pill remains absent. This attempt needs a device cold-launch check. Confirm this exact
-path on a device: CI cannot reproduce the native display timing. Diagnostics
-records the initial tab visibility and bounds. Also check sign-in/out, saved
-sessions, outer-screen launch/unfolding and selection preservation.
+`AppShellRenderer` retains the compact compatibility layout for older
+systems and tablets. Phones on iOS 27.1 and later use native window traits
+from controller creation (#372). On the failing build, diagnostics showed
+five native items and a completed refresh, but no pill until rotation.
+The compact override is therefore disabled on adaptive phones, along with
+the ineffective one-shot recovery on that path. This remains a device-test
+candidate, not a confirmed resolution. Check inner-screen landscape cold
+launch without rotating, saved sessions, sign-in/out, outer-screen launch
+and unfolding, and selection preservation. Diagnostics records the native
+horizontal/vertical traits and tab-item count on appearance.
 On the inner display in portrait, every page's top line (the Dashboard's
 logo and Customise, other pages' titles or "‹ Back") should sit level with
 the clock, its right-hand buttons stopping short of the status bar and
