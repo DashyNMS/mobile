@@ -176,6 +176,26 @@ Apply these lessons to later setup pages:
   Change device followed by selection reloads graphs. Distinguish an empty
   server from an unmatched search, and suppress empty claims after failures.
 
+### Ranked-card setup acceptance
+
+On 2 November 2026 the user approved closing #397 and completing its entry
+on #405 after on-device testing of TestFlight **2.0.0 (216)**. The accepted
+implementation is PR #425, merged as
+`7f0e1f2217fa628209a63c89c2871e69108c9fcd`. Android, iOS simulator and shared
+unit-test PR checks passed. Individual device configurations and
+screen-reader results were not recorded with this acceptance.
+
+Apply these lessons to later setup pages:
+
+- A draft form with no choose step needs no step names. Its header is the card
+  kind's title, and the optional card title stays first, as in Graph setup.
+- Put labels above pickers with `SetupSection` rather than side-by-side
+  label/control rows, so large text cannot crowd a row. A switch row keeps
+  its wrapping text beside the switch and gives the switch its own
+  screen-reader description.
+- Reference a device-gated issue with `Refs #NN` in its PR, so merging does not
+  close it before device acceptance.
+
 ### Verified setup reference
 
 The user confirmed that manual checks passed for TestFlight **2.0.0 (212)**
