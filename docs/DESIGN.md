@@ -117,15 +117,42 @@ SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes are included. Sensors and the remaining pages
 retain their page layouts; their search appearance uses SearchField. #396 remains open for Graph-specific acceptance.
 
-The geometry regression tests verify placement decisions. They do not verify
-native rendering, focus behaviour, accessibility or glass ownership. Record
-those results against the TestFlight build in the PR's device checklist before
-calling the implementation device-verified. Build 211's device feedback
-confirmed that Graph used the shared layout and
-reported a small Save alignment offset and the old search appearance. The
-follow-up corrects those paths and adds the standard 20pt input-transparent
-top fade over Graph's device list. These corrections still need device
-verification; the feedback does not complete #406 acceptance.
+### Verified setup reference
+
+The user confirmed that manual checks passed for TestFlight **2.0.0 (212)**
+on 2 November 2026 and approved closing #406 and completing its entry on #405.
+The accepted implementation is PR #418, commit
+`b4fd1983c99cb06c25f8afe9d5a1d234a2262890`, following the foundation in #417.
+Use Graph setup as the first shared-layout consumer accepted on device.
+Individual device, OS and configuration results were not supplied; this
+acceptance does not establish separate Android, iPad or accessibility results.
+
+Apply these findings when migrating another screen:
+
+- Align the visible action with the measured pill, using the native view's
+  height and pill bounds in the same coordinate space. Match Devices/Alerts
+  with `max(0, height - pill bottom)` for a side pill. A native-bottom-inset
+  minimum can introduce the few-point offset reported during device testing.
+  Keep the action's own bottom margin at zero; let the shared layout own the
+  gap and let keyboard clearance take precedence.
+- Use `SearchField` for every search well. A styled native `SearchBar` still
+  renders the old UI. Keep the actual Entry and its compiled bindings inside
+  the shared control; animate the whole well and focus its Entry.
+- Put a themed, input-transparent 20pt top fade over a scrolling device
+  results list, as Graph setup and Device sections do. Keep the fade in the
+  list's viewport, below search, with matching list margins. It must not
+  intercept row taps or drags.
+- Keep the list in a finite star row, outside a wrapping ScrollView. Keep
+  draft fields inside the form's scrolling content and the primary action
+  outside it, so the final field/result clears the measured action height.
+- Reuse the helper's visible-page subscriptions and inset ownership. Do not
+  add the old `DashboardBackNavigation` helper, duplicate safe-area padding
+  or a second keyboard adjustment to a migrated page.
+
+Geometry tests and platform builds remain separate from device acceptance.
+Each later screen still needs its own navigation, keyboard, persistence and
+configuration checks; #406 acceptance does not complete the remaining page
+migration issues in #405.
 
 ## Placement and scrolling
 
