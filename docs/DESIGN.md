@@ -127,11 +127,43 @@ Graph setup is also the reference for a stepped setup page (#396). The
 header names the current step ("Choose a device", then "Choose a graph").
 After choosing, a labelled Device section shows the device's name and details
 with Change device beside them, and Change device's accessible description
-names the device it replaces. Devices and graph descriptions use
-`NaturalOrder`; ports keep interface order. A device with no graphs gets a
-caption explaining the empty picker. The draft, Save rules and persisted
+names the device it replaces. Devices and device-wide graph descriptions use
+`NaturalOrder`; ports keep interface order. Port graph descriptions still use
+the static list order, a gap against the natural-order rule below. A device
+with no graphs gets a caption explaining the empty picker. The draft, Save rules and persisted
 fields are unchanged. Ranked cards (#397) and Spotlight (#398) should follow
 this pattern where they have a choose-then-configure step.
+
+### Graph setup review and acceptance
+
+On 2 November 2026 the user approved closing #396 and completing its entry
+on #405 after reviewing PR #421, merged as
+`8259758dc1385d8258adac49097d1ff656d4092e`. Android, iOS simulator and shared
+unit-test PR checks passed. The review found that the shared layout, fixed
+Save, draft behaviour and title-first field order followed the approved plan.
+Individual device configurations and screen-reader results were not recorded
+with this acceptance. Keep the earlier #406 device evidence separate.
+
+Apply these lessons to later setup pages:
+
+- Name each step in the header and show the chosen device in a labelled
+  section with a Change device action that names the current device to
+  accessibility. Keep the optional card title first in Graph setup, as approved.
+- Check every graph source when applying natural order. Interface order
+  applies to the ports in Show; it does not exempt their graph descriptions.
+  PR #421 sorted device-wide graphs but left port graph descriptions in
+  static order. Its ordering test covered device graphs and port interfaces,
+  so it did not catch this gap. Include port graph descriptions in future
+  ordering checks.
+- Device rows in PR #421 gained an accessibility hint, but no explicit
+  combined name/details description or button semantics. Verify that
+  VoiceOver and TalkBack announce a meaningful device name and action and
+  can activate the row. A hint or passing view-model test alone does not
+  establish accessible operation.
+- State the existing retry route beneath an error rather than adding a
+  separate retry button. Verify that reopening reloads the device list and
+  Change device followed by selection reloads graphs. Distinguish an empty
+  server from an unmatched search, and suppress empty claims after failures.
 
 ### Verified setup reference
 
