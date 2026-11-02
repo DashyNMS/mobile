@@ -401,6 +401,12 @@ after rotation, and on a small phone: the header card and first heading
 must start clear of the status bar, and the last row must scroll clear of
 the glass.
 
+Device section searches keep the field and keyboard open while filtering
+or scrolling the rows. The keyboard Search key or a tap outside the field
+puts search away, retaining the filter. Check typing several letters into
+both short and long lists, including a search with no matches, then tapping
+the list and completing with the keyboard Search key on Android and iOS.
+
 The device's Neighbours section also shows a scrollable graph (#352).
 On phones it sits above the cards; at 800pt of usable width it sits beside
 them. A node highlights and scrolls to its card. Both use the same filtered
