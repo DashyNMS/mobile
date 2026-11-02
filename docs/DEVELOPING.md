@@ -339,16 +339,13 @@ Confirm the same pinned tabs and devices remain selected after resizing.
 In particular, force-quit and launch directly on the inner display with a
 saved session, then repeat from the outer display and unfold. Both paths
 must show the pinned tab bar without needing another launch. The iOS
-`AppShellRenderer` retains the compact compatibility layout for older
-systems and tablets. Phones on iOS 27.1 and later use native window traits
-from controller creation (#372). On the failing build, diagnostics showed
-five native items and a completed refresh, but no pill until rotation.
-The compact override is therefore disabled on adaptive phones, along with
-the ineffective one-shot recovery on that path. This remains a device-test
-candidate, not a confirmed resolution. Check inner-screen landscape cold
-launch without rotating, saved sessions, sign-in/out, outer-screen launch
-and unfolding, and selection preservation. Diagnostics records the native
-horizontal/vertical traits and tab-item count on appearance.
+`AppShellRenderer` uses the compact compatibility layout on phones and
+tablets. The native-trait experiment in #381 was reverted after device
+reports showed changed portrait tabs and no improvement to landscape launch.
+The earlier attached-layout/native-item refresh remains, but #372 is still
+unresolved: cold launch can have five native items with no visible pill
+until rotation. Keep that failure distinct from portrait presentation and
+verify both paths on the Duo. Simulator CI does not reproduce this timing.
 On the inner display in portrait, every page's top line (the Dashboard's
 logo and Customise, other pages' titles or "‹ Back") should sit level with
 the clock, its right-hand buttons stopping short of the status bar and
