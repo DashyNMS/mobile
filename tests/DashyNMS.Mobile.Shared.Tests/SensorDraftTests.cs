@@ -73,6 +73,7 @@ public sealed class SensorDraftTests
         settings.When(s => s.Save()).Do(_ => { if (fail) throw new IOException("Could not save settings"); });
         await vm.SaveCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
+        Assert.Equal("To retry, choose Save again.", vm.RecoveryText);
         Assert.Empty(navigation.Visits);
         Assert.Equal(existing ? 1 : 0, app.DashboardWidgets.Count);
         if (card is not null) Assert.Equal("Sensors", card.Title);
@@ -93,11 +94,14 @@ public sealed class SensorDraftTests
         var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
+        Assert.Equal("To retry, go back and open sensor setup again.", vm.RecoveryText);
+        Assert.Equal(string.Empty, vm.HintText); // no empty-state claim after a failure
         Assert.False(vm.SaveCommand.CanExecute(null));
         vm.CardTitle = "Keep this draft";
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns([]);
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.False(vm.HasError);
+        Assert.Null(vm.RecoveryText);
         Assert.True(vm.SaveCommand.CanExecute(null));
         Assert.Equal("Keep this draft", vm.CardTitle);
         Assert.Empty(settings.Current.DashboardWidgets);
@@ -130,5 +134,43 @@ public sealed class SensorDraftTests
         await vm.SaveCommand.ExecuteAsync(null);
         Assert.Equal([99, 10], card.Sensors.Select(s => s.SensorId));
         settings.Received(1).Save();
+    }
+
+    [Fact]
+    public async Task Toggling_search_results_keeps_the_list_and_unticking_drops_only_that_selected_row()
+    {
+        var app = new AppSettings();
+        var settings = Fakes.Settings(app);
+        var client = Fakes.Client(devices: [Fakes.Device(1, "switch-1.example.net")]);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { SensorId = 10, DeviceId = 1, Description = "Sensor 1" },
+            new Sensor { SensorId = 20, DeviceId = 1, Description = "Sensor 2" },
+        ]);
+        var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.SearchText = "Sensor";
+        var shown = vm.Sensors.ToList();
+        var resets = 0;
+        vm.Sensors.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) resets++;
+        };
+
+        vm.ToggleCommand.Execute(shown[0]);
+        vm.ToggleCommand.Execute(shown[1]);
+        Assert.Equal(shown, vm.Sensors); // the same rows, so the list keeps its scroll position
+        Assert.Equal(0, resets);
+        Assert.Equal("2 selected", vm.SelectedText);
+        Assert.EndsWith(", selected", shown[0].SelectionDescription);
+
+        vm.SearchText = string.Empty;
+        Assert.Equal("Selected for this card. Search to add more.", vm.HintText);
+        resets = 0;
+        vm.ToggleCommand.Execute(shown[0]);
+        Assert.Equal([20], vm.Sensors.Select(s => s.Sensor.SensorId));
+        Assert.Equal(0, resets);
+        Assert.EndsWith(", not selected", shown[0].SelectionDescription);
+        settings.DidNotReceive().Save();
     }
 }

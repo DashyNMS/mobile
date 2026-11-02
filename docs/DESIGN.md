@@ -120,7 +120,13 @@ draft form. Its optional title scrolls with the form, search uses the shared
 SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes were included in that Graph migration.
 Sensor setup now uses the same layout with a scrolling card-title header,
-a finite sensor list and a fixed Save. Other pages retain their page layouts;
+a finite sensor list and a fixed Save. Its title header starts below the 20pt
+fade so nothing is faded at rest. Each sensor row is one accessible element
+announcing name, device, reading and selected state; its checkbox is hidden
+from screen readers. Toggling a row updates it in place rather than rebuilding
+the list, so the scroll position holds. Like Graph, it states the retry route
+under an error instead of a Retry button: reopen setup after a failed load, or
+choose Save again after a failed save, which keeps the draft. Other pages retain their page layouts;
 their search appearance uses SearchField.
 
 Graph setup is also the reference for a stepped setup page (#396). The
@@ -324,8 +330,8 @@ appearance does not change filtering, query retention or selection contracts.
   commits them together on Save and discards changes on Back. Opening sensor
   setup without a card ID creates a card only on Save; an explicitly added
   card remains on the dashboard when its later setup is cancelled. Empty sensor
-  selections are supported. Reloading after an error retains draft edits and
-  saved sensors absent from the current server response. Sensor setup still
+  selections are supported. A failed save keeps the draft for another Save.
+  Saved sensors absent from the current server response are retained. Sensor setup still
   awaits its own device acceptance under #395.
 - Graph, ranked cards and Spotlight currently use explicit Save;
   Spotlight's Whole network action
