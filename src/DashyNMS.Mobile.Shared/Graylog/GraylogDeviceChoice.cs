@@ -52,7 +52,7 @@ public sealed class GraylogDeviceChoice
     /// <summary>One announcement for the whole tappable card, including the status dot's meaning.</summary>
     public string AccessibilityDescription => string.Join(", ", new[]
     {
-        Name, Details, Status is DeviceState state ? state.ToDisplayString() : "Unknown status",
+        Name, Details, Status is DeviceState state ? state.ToDisplayString() : string.Empty,
         Count > 0 ? $"{CountText} messages" : string.Empty,
     }.Where(part => part.Length > 0));
 

@@ -32,6 +32,9 @@
                 <Grid Grid.Row="1" SafeAreaEdges="None">
                 <CollectionView x:Name="DeviceList" ItemsSource="{Binding Groups}" IsGrouped="True"
                                 SelectionMode="None" controls:KeyboardDismiss.OnScroll="True">
+                    <CollectionView.Header>
+                        <BoxView HeightRequest="20" Color="Transparent" InputTransparent="True" />
+                    </CollectionView.Header>
                     <CollectionView.GroupHeaderTemplate>
                         <DataTemplate x:DataType="graylog:GraylogDeviceGroup">
                             <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" />
