@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Graylog;
 using DashyNMS.Mobile.Services;
 
@@ -6,16 +8,38 @@ namespace DashyNMS.Mobile.Pages;
 /// <summary>Shown via <see cref="Routes.GraylogSettings"/>, from Settings or an unset-up Graylog page.</summary>
 public partial class GraylogSettingsPage : ContentPage
 {
-	public GraylogSettingsPage(GraylogSettingsViewModel viewModel)
-	{
-		InitializeComponent();
-		BindingContext = viewModel;
-	}
+    private readonly GraylogSettingsViewModel _viewModel;
 
-	/// <summary>The app's own header, as every page (#142).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		Header.Apply(this);
-	}
+    public GraylogSettingsPage(GraylogSettingsViewModel viewModel)
+    {
+        InitializeComponent();
+        BindingContext = _viewModel = viewModel;
+        _ = new SetupPageLayout(this, Setup, Header, Form);
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        _viewModel.PropertyChanged += OnViewModelChanged;
+    }
+
+    protected override void OnDisappearing()
+    {
+        _viewModel.PropertyChanged -= OnViewModelChanged;
+        base.OnDisappearing();
+    }
+
+    /// <summary>Fixed Save can be far from validation feedback, so bring failures into view.</summary>
+    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(GraylogSettingsViewModel.ErrorMessage) || !_viewModel.HasError)
+            return;
+
+        Dispatcher.Dispatch(async () =>
+        {
+            if (!_viewModel.HasError) return;
+            await Form.ScrollToAsync(SaveError, ScrollToPosition.Start, false);
+            SemanticScreenReader.Default.Announce(_viewModel.ErrorMessage!);
+        });
+    }
 }
