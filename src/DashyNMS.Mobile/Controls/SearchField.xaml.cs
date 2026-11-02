@@ -31,7 +31,7 @@ public sealed partial class SearchField : Border
             value.IsTextPredictionEnabled = false;
             value.MinimumHeightRequest = 40;
             value.VerticalOptions = LayoutOptions.Center;
-            Grid.SetColumn((IView)value, 1);
+            FieldGrid.SetColumn((IView)value, 1);
             FieldGrid.Add(value);
             KeyboardDismiss.SetOnSearch(value, true);
             value.HandlerChanged += OnHandlerChanged;
