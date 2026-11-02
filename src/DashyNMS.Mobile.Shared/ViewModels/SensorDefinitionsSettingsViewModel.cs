@@ -43,22 +43,32 @@ public sealed partial class SensorDefinitionsSettingsViewModel : ViewModelBase
     public void Detach() => _store.Changed -= OnStoreChanged;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanUpdate))]
+    [NotifyPropertyChangedFor(nameof(CanUpdate), nameof(UpdateExplanation))]
     private bool _enabled;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SourceText), nameof(CanUpdate))]
+    [NotifyPropertyChangedFor(nameof(SourceText), nameof(CanUpdate), nameof(UpdateExplanation))]
     private bool _useCustomRepository;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(SourceText), nameof(CanUpdate))]
+    [NotifyPropertyChangedFor(nameof(SourceText), nameof(CanUpdate), nameof(UpdateExplanation))]
     private string _customRepository = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CanUpdate))]
+    [NotifyPropertyChangedFor(nameof(CanUpdate), nameof(UpdateExplanation))]
     private bool _isUpdating;
 
     public string SourceText => UseCustomRepository ? CustomRepository : SensorDefinitionOptions.OfficialRepository;
+
+    public string SavedSourceText => $"Saved source: {_store.Options.Repository}";
+
+    public string UpdateExplanation => IsUpdating
+        ? "Updating the catalogue from the saved source…"
+        : Draft != _store.Options
+            ? "Save your changes before updating the catalogue."
+            : !_store.Options.Enabled
+                ? "Enable sensor definitions and Save before updating."
+                : "Update now checks the saved source without changing your settings.";
 
     public string StatusText => _store.Status;
 
@@ -152,5 +162,7 @@ public sealed partial class SensorDefinitionsSettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(VersionText));
         OnPropertyChanged(nameof(LastCheckText));
         OnPropertyChanged(nameof(CanUpdate));
+        OnPropertyChanged(nameof(UpdateExplanation));
+        OnPropertyChanged(nameof(SavedSourceText));
     }
 }
