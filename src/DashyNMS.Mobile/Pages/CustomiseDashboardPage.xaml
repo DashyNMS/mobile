@@ -77,7 +77,7 @@
                     <!-- The free spot where the next card goes, as desktop's "+ Add widget" space (#145). -->
                     <Grid x:Name="Footer" Padding="0,12,0,24" SafeAreaEdges="None">
                         <Button Text="+ Add a card" Command="{Binding AddCardCommand}"
-                                Style="{StaticResource SecondaryButton}" MinimumHeightRequest="64"
+                                MinimumHeightRequest="64"
                                 SemanticProperties.Description="Add a card" />
                     </Grid>
                 </CollectionView.Footer>
