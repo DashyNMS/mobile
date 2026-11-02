@@ -2,6 +2,7 @@ using DashyNMS.Mobile.Dashboard;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using NSubstitute.ExceptionExtensions;
 
 namespace DashyNMS.Mobile.Tests;
 
@@ -88,7 +89,7 @@ public sealed class SensorDraftTests
     {
         var settings = Fakes.Settings();
         var client = Fakes.Client();
-        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(_ => throw new HttpRequestException());
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException());
         var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
