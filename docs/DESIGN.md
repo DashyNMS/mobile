@@ -114,8 +114,10 @@ page's data contract.
 Graph setup is the first consumer, covering a device list and a scrolling
 draft form. Its optional title scrolls with the form, search uses the shared
 SearchField, and Save still uses the existing draft command. No view-model
-or persistence contract changes are included. Sensors and the remaining pages
-retain their page layouts; their search appearance uses SearchField. #396 remains open for Graph-specific acceptance.
+or persistence contract changes were included in that Graph migration.
+Sensor setup now uses the same layout with a scrolling card-title header,
+a finite sensor list and a fixed Save. Other pages retain their page layouts;
+their search appearance uses SearchField. #396 remains open for Graph-specific acceptance.
 
 ### Verified setup reference
 
@@ -272,9 +274,15 @@ appearance does not change filtering, query retention or selection contracts.
 - Use the implicit primary `Button` style for the main Add or Save action.
   It supplies `ButtonPrimary`, text contrast and disabled states. Secondary
   buttons are for subordinate actions. Avoid local colour overrides.
-- Edit dashboard and Sensors currently save immediately; #395 will migrate
-  Sensors to a draft and explicit Save. Graph, ranked cards and
-  Spotlight currently use explicit Save; Spotlight's Whole network action
+- Edit dashboard saves immediately. Sensors drafts its title and selections,
+  commits them together on Save and discards changes on Back. Opening sensor
+  setup without a card ID creates a card only on Save; an explicitly added
+  card remains on the dashboard when its later setup is cancelled. Empty sensor
+  selections are supported. Reloading after an error retains draft edits and
+  saved sensors absent from the current server response. Sensor setup still
+  awaits its own device acceptance under #395.
+- Graph, ranked cards and Spotlight currently use explicit Save;
+  Spotlight's Whole network action
   currently saves and returns immediately. A unified visual layout must
   identify these contracts before changing their behaviour.
 
