@@ -11,6 +11,7 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="sections:DeviceSectionViewModel"
+    HideSoftInputOnTapped="True"
     SafeAreaEdges="Container"
     Title="{Binding Title}">
 
@@ -71,7 +72,7 @@
         <Grid x:Name="SectionBody" Grid.Row="4" RowDefinitions="Auto,*" ColumnDefinitions="*" SafeAreaEdges="None">
         <controls:DeviceNeighbourGraph x:Name="NeighbourGraph" HeightRequest="280" IsVisible="{Binding IsNeighbours}" Margin="16,8" />
         <RefreshView x:Name="Refresh" Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}" SafeAreaEdges="None">
-            <CollectionView x:Name="List" ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None">
+            <CollectionView x:Name="List" ItemsSource="{Binding Groups}" IsGrouped="True" SelectionMode="None" controls:KeyboardDismiss.OnScroll="False">
                 <CollectionView.ItemsLayout>
                     <GridItemsLayout x:Name="ListLayout" Orientation="Vertical" Span="1" HorizontalItemSpacing="8" VerticalItemSpacing="8" />
                 </CollectionView.ItemsLayout>

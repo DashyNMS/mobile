@@ -94,15 +94,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		tapOff.Tapped += (_, _) => _viewModel.IsFilterPanelOpen = false;
 		Dim.GestureRecognizers.Add(tapOff);
 
-		// Done with the keyboard - put away, or the list scrolled: done searching.
+		// Filtering also raises Scrolled as rows are replaced. Only explicit
+		// completion or tapping away from the field should put search away.
 		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
-		List.Scrolled += (_, _) =>
-		{
-			if (Search.IsFocused)
-			{
-				KeyboardDismiss.Close(Search);
-			}
-		};
 #if IOS
 		// Nothing riding on the keyboard: tapping off the field or pressing
 		// Search already closes it.
