@@ -1,3 +1,4 @@
+using NSubstitute.ExceptionExtensions;
 using AlertWatchState = DashyNMS.Mobile.Alerts.AlertWatchState;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Rules;
@@ -257,6 +258,7 @@ public sealed class NotifyRulesTests
         Assert.Equal(["Rule 2, on every device", "Rule 3, on every device"], _rules.Listed.Select(e => e.Description));
         Assert.Equal(Routes.Back, Assert.Single(navigation.Visits).Route);
     }
+
     [Fact]
     public async Task Rule_picker_distinguishes_loading_empty_search_and_failure()
     {
@@ -265,6 +267,7 @@ public sealed class NotifyRulesTests
         client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(response.Task);
         var vm = new NotifyRulePickerViewModel(client, _rules, new RecordingNavigation());
 
+        Assert.False(vm.IsEmpty);
         var loading = vm.LoadCommand.ExecuteAsync(null);
         Assert.True(vm.IsBusy);
         Assert.False(vm.IsEmpty);
@@ -283,7 +286,7 @@ public sealed class NotifyRulesTests
         Assert.False(vm.IsEmpty);
 
         client.Rules.ListAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => throw new HttpRequestException());
+            .ThrowsAsync(new HttpRequestException());
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
         Assert.False(vm.IsEmpty);
