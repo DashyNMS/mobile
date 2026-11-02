@@ -8,38 +8,42 @@ namespace DashyNMS.Mobile.Pages;
 /// <summary>Shown via <see cref="Routes.GraylogSettings"/>, from Settings or an unset-up Graylog page.</summary>
 public partial class GraylogSettingsPage : ContentPage
 {
-    private readonly GraylogSettingsViewModel _viewModel;
+	private readonly GraylogSettingsViewModel _viewModel;
 
-    public GraylogSettingsPage(GraylogSettingsViewModel viewModel)
-    {
-        InitializeComponent();
-        BindingContext = _viewModel = viewModel;
-        _ = new SetupPageLayout(this, Setup, Header, Form);
-    }
+	public GraylogSettingsPage(GraylogSettingsViewModel viewModel)
+	{
+		InitializeComponent();
+		BindingContext = _viewModel = viewModel;
+		_ = new SetupPageLayout(this, Setup, Header, Form);
+	}
 
-    protected override void OnAppearing()
-    {
-        base.OnAppearing();
-        _viewModel.PropertyChanged += OnViewModelChanged;
-    }
+	protected override void OnAppearing()
+	{
+		base.OnAppearing();
+		_viewModel.PropertyChanged -= OnViewModelChanged;
+		_viewModel.PropertyChanged += OnViewModelChanged;
+	}
 
-    protected override void OnDisappearing()
-    {
-        _viewModel.PropertyChanged -= OnViewModelChanged;
-        base.OnDisappearing();
-    }
+	protected override void OnDisappearing()
+	{
+		_viewModel.PropertyChanged -= OnViewModelChanged;
+		base.OnDisappearing();
+	}
 
-    /// <summary>Fixed Save can be far from validation feedback, so bring failures into view.</summary>
-    private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName != nameof(GraylogSettingsViewModel.ErrorMessage) || !_viewModel.HasError)
-            return;
+	/// <summary>Fixed Save can be far from validation feedback, so bring failures into view.</summary>
+	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName != nameof(GraylogSettingsViewModel.ErrorMessage) || !_viewModel.HasError)
+			return;
 
-        Dispatcher.Dispatch(async () =>
-        {
-            if (!_viewModel.HasError) return;
-            await Form.ScrollToAsync(SaveError, ScrollToPosition.Start, false);
-            SemanticScreenReader.Default.Announce(_viewModel.ErrorMessage!);
-        });
-    }
+		var message = _viewModel.ErrorMessage;
+		if (string.IsNullOrEmpty(message)) return;
+		Dispatcher.Dispatch(async () =>
+		{
+			if (_viewModel.ErrorMessage != message) return;
+			await Form.ScrollToAsync(SaveError, ScrollToPosition.Start, false);
+			if (_viewModel.ErrorMessage == message)
+				SemanticScreenReader.Default.Announce(message);
+		});
+	}
 }

@@ -40,7 +40,7 @@
                             </controls:SetupSection>
 
                             <controls:SetupSection Label="Version">
-                                <Picker Title="Version" ItemsSource="{Binding VersionLabels}" SelectedIndex="{Binding VersionIndex}" />
+                                <Picker SemanticProperties.Description="Version" Title="Version" ItemsSource="{Binding VersionLabels}" SelectedIndex="{Binding VersionIndex}" />
                             </controls:SetupSection>
 
                             <controls:SetupSection Label="Search API path" IsVisible="{Binding IsBaseUriVisible}">
@@ -98,7 +98,7 @@
                             <Label Style="{StaticResource Caption}" Text="{Binding TimezoneStatusText}" />
 
                             <controls:SetupSection Label="A device's messages start at">
-                                <Picker Title="Level" ItemsSource="{Binding LevelLabels}" SelectedIndex="{Binding DeviceLogLevel}" />
+                                <Picker SemanticProperties.Description="A device’s messages start at" Title="Level" ItemsSource="{Binding LevelLabels}" SelectedIndex="{Binding DeviceLogLevel}" />
                             </controls:SetupSection>
 
                             <controls:SetupSection Label="Field matched against device addresses">
