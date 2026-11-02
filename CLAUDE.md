@@ -11,4 +11,4 @@
 - Commits, PRs and release notes carry no AI attribution or Co-Authored-By lines.
 - Never put real device names, hostnames, addresses or other identifiable network data in issues, PRs, commits, screenshots or test fixtures.
 
-- For page layout, setup forms, pickers, safe areas or glass controls, read `docs/DESIGN.md` before editing. It distinguishes current implementations from the agreed setup migration target.
+- Page design: read `docs/DESIGN.md` before creating, changing or reviewing any mobile page, including layout, navigation, forms, pickers, accessibility and motion. It links page-specific contracts and acceptance evidence.
