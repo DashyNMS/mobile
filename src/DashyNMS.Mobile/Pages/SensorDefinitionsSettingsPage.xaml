@@ -15,7 +15,7 @@
             <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
                 <VerticalStackLayout Spacing="8">
                     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <Label Style="{StaticResource Caption}" Text="Save applies the settings below. Back discards changes." />
+                    <Label Style="{StaticResource Caption}" Text="Save applies the switch and source. Back discards changes." />
                     <controls:SetupSection Label="Sensor definitions">
                         <VerticalStackLayout Spacing="4">
                             <Switch IsToggled="{Binding Enabled}" HorizontalOptions="Start"
@@ -26,7 +26,7 @@
                     </controls:SetupSection>
                     <controls:SetupSection Label="Source">
                         <VerticalStackLayout Spacing="8">
-                            <Label Text="Use my own repository" />
+                            <Label Text="Use my own repository" AutomationProperties.IsInAccessibleTree="False" />
                             <Switch IsToggled="{Binding UseCustomRepository}" HorizontalOptions="Start"
                                     SemanticProperties.Description="Use my own repository" />
                             <Label Style="{StaticResource Caption}" Text="A public GitHub repository laid out like DashyNMS/sensor-definitions." />
@@ -48,7 +48,14 @@
                                 <Label Text="{Binding LastCheckText}" />
                             </controls:SetupSection>
                             <Button Style="{StaticResource SecondaryButton}" Text="Update now"
-                                    Command="{Binding UpdateNowCommand}" IsEnabled="{Binding CanUpdate}" />
+                                    Command="{Binding UpdateNowCommand}" IsEnabled="{Binding CanUpdate}">
+                                <Button.Triggers>
+                                    <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                                    </Trigger>
+                                </Button.Triggers>
+                            </Button>
                             <Label Style="{StaticResource Caption}" Text="{Binding UpdateExplanation}" />
                             <ActivityIndicator IsRunning="{Binding IsUpdating}" IsVisible="{Binding IsUpdating}" />
                             <Label Style="{StaticResource Caption}" Text="{Binding StatusText}" />
