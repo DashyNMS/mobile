@@ -471,6 +471,11 @@ and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
 split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
+The device-detail logo uses a 48pt rounded tile with 7pt padding (#388).
+Its light neutral background stays readable in both themes, with the dark
+colour matching desktop's logo tile. No tile is shown without a loaded logo.
+Check transparent SVG/PNG logos, proportions and long device titles.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
