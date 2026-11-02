@@ -1,4 +1,5 @@
 using Microsoft.Maui.Layouts;
+using DashyNMS.Mobile.Dashboard;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -65,7 +66,7 @@ public sealed class CardGrid : Layout
     /// <summary>How many columns fit <paramref name="width"/> for <paramref name="cards"/> cards, and how wide each is.</summary>
     private (int Columns, double ColumnWidth) Columns(double width, int cards)
     {
-        var columns = Math.Clamp((int)((width + Gap) / (MinColumnWidth + Gap)), 1, Math.Max(1, MaxColumns));
+        var columns = DashboardColumns.Count(width, MinColumnWidth, Gap, MaxColumns);
         if (EvenRows && cards > columns)
         {
             while (columns > 1 && cards % columns != 0)

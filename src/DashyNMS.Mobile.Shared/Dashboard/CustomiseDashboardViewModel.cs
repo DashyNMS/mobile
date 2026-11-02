@@ -160,7 +160,15 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
             return;
         }
 
-        var choice = await _dialogs.ChooseAsync(card.Title, card.CanDuplicate ? [DuplicateChoice, AddBelowChoice] : [AddBelowChoice]);
+        var index = Cards.IndexOf(card);
+        if (index < 0) return;
+        var choices = new List<string>();
+        if (card.CanDuplicate) choices.Add(DuplicateChoice);
+        choices.Add(AddBelowChoice);
+        if (index > 0) choices.Add("Move up");
+        if (index < Cards.Count - 1) choices.Add("Move down");
+        choices.Add("Remove");
+        var choice = await _dialogs.ChooseAsync(card.Title, choices);
         if (choice == DuplicateChoice)
         {
             Duplicate(card);
@@ -168,6 +176,21 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         else if (choice == AddBelowChoice)
         {
             await AddCardBelowAsync(card);
+        }
+        else if (choice == "Remove")
+        {
+            Remove(card);
+        }
+        else if (choice is "Move up" or "Move down")
+        {
+            // The menu can stay open while Undo replaces the collection.
+            var current = Cards.IndexOf(card);
+            var destination = current + (choice == "Move up" ? -1 : 1);
+            if (current >= 0 && destination >= 0 && destination < Cards.Count)
+            {
+                Cards.Move(current, destination);
+                Save();
+            }
         }
     }
 

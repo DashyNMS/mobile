@@ -278,7 +278,7 @@ public sealed class CustomiseDashboardViewModelTests
 
         await vm.MoreCommand.ExecuteAsync(vm.Cards[0]);
 
-        await dialogs.Received(1).ChooseAsync("Needs attention", Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Add a card below" })));
+        await dialogs.Received(1).ChooseAsync("Needs attention", Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Add a card below", "Move down", "Remove" })));
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.AddCard, visit.Route);
         Assert.Equal(1, visit.Parameters![Routes.PositionParameter]);
@@ -286,6 +286,36 @@ public sealed class CustomiseDashboardViewModelTests
         dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Duplicate");
         await vm.MoreCommand.ExecuteAsync(vm.Cards[1]);
         Assert.Equal(3, DashboardLayout.Current(_appSettings).Count);
+    }
+
+    [Theory]
+    [InlineData("Move up", 1, 0)]
+    [InlineData("Move down", 0, 1)]
+    public async Task Menu_moves_save_the_new_reading_order(string choice, int source, int destination)
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns(choice);
+        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation(), _toast, dialogs: dialogs);
+        var moved = vm.Cards[source].Widget.Id;
+        await vm.MoreCommand.ExecuteAsync(vm.Cards[source]);
+        Assert.Equal(moved, DashboardLayout.Current(_appSettings)[destination].Id);
+    }
+
+    [Fact]
+    public async Task Menu_removal_can_be_undone()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Remove");
+        var vm = new CustomiseDashboardViewModel(_settings, new RecordingNavigation(), _toast, dialogs: dialogs);
+        vm.Attach();
+        await vm.MoreCommand.ExecuteAsync(vm.Cards[0]);
+        Assert.Empty(vm.Cards);
+        _toast.UndoCommand.Execute(null);
+        Assert.Single(vm.Cards);
+        vm.Detach();
     }
 
     [Fact]
@@ -897,4 +927,17 @@ public sealed class DashboardCardSetUpTests
         await again.LoadCommand.ExecuteAsync(null);
         Assert.Equal("WAN traffic", again.CardTitle);
     }
+}
+
+public sealed class DashboardColumnsTests
+{
+    [Theory]
+    [InlineData(320, 1)]
+    [InlineData(691, 1)]
+    [InlineData(692, 2)]
+    [InlineData(900, 2)]
+    [InlineData(1044, 3)]
+    [InlineData(1600, 3)]
+    public void Editor_and_dashboard_share_column_breakpoints(double width, int expected) =>
+        Assert.Equal(expected, DashboardColumns.Count(width));
 }
