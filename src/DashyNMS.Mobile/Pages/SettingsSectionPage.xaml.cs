@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 
@@ -14,6 +15,7 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = viewModel;
+		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -29,12 +31,5 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable
 			LockScreen.IsVisible = section == SettingsSection.LockScreen;
 			Diagnostics.IsVisible = section == SettingsSection.Diagnostics;
 		}
-	}
-
-	/// <summary>The app's own header, as every page (#142).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		Header.Apply(this);
 	}
 }
