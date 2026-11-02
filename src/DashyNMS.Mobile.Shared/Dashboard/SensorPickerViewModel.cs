@@ -26,14 +26,17 @@ public sealed partial class PickableSensor : ObservableObject
 
     public SectionRow Row { get; }
 
+    public string SelectionDescription => $"{Row.Title}, {DeviceName}, {(IsPicked ? "selected" : "not selected")}";
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectionDescription))]
     private bool _isPicked;
 }
 
 /// <summary>
 /// Chooses a dashboard Sensors card's sensors and title, as desktop's widget picker:
 /// search every sensor by name or device, tap to add or remove. Kept in the
-/// card's own <see cref="DashboardWidget.Sensors"/>, and saved as it's tapped.
+/// card's own <see cref="DashboardWidget.Sensors"/> only when Save is chosen.
 /// </summary>
 public sealed partial class SensorPickerViewModel : ViewModelBase
 {
@@ -43,7 +46,11 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     private readonly ILibreNmsClient _client;
     private readonly ISettingsStore _settings;
     private IReadOnlyList<PickableSensor> _all = [];
-    private bool _showingTitle;
+    private readonly INavigationService _navigation;
+    private List<PinnedSensor> _draft = [];
+    private bool _initialised;
+    private bool _loaded;
+    private bool _saved;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -55,10 +62,11 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
     public string? WidgetId { get; set; }
 
-    public SensorPickerViewModel(ILibreNmsClient client, ISettingsStore settings, CorePolling? polling = null)
+    public SensorPickerViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, CorePolling? polling = null)
     {
         _client = client;
         _settings = settings;
+        _navigation = navigation;
         _polling = polling;
     }
 
@@ -81,22 +89,30 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     /// <summary>What's on the card now, then search results.</summary>
     public BulkObservableCollection<PickableSensor> Sensors { get; } = new();
 
-    public int PickedCount => _all.Count(s => s.IsPicked);
+    public int PickedCount => _draft.Count;
+
+    public string SelectedText => $"{PickedCount} selected";
 
     public string HintText => string.IsNullOrWhiteSpace(SearchText)
         ? PickedCount == 0 ? "Search for a sensor or device to add." : "On the card. Search to add more."
         : Sensors.Count == 0 ? "No sensors match." : string.Empty;
+
+    partial void OnCardTitleChanged(string value) => _saved = false;
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(ApplyFilter);
 
     [RelayCommand]
     private Task LoadAsync() => RunAsync(async () =>
     {
-        // The card's own title, shown without saving it straight back.
-        var card = Widget();
-        _showingTitle = true;
-        CardTitle = DashboardLayout.HasOwnTitle(card) ? card.Title : string.Empty;
-        _showingTitle = false;
+        // Retry a failed fetch without resetting edits or touching persisted settings.
+        if (!_initialised)
+        {
+            var card = Widget();
+            CardTitle = card is not null && DashboardLayout.HasOwnTitle(card) ? card.Title : string.Empty;
+            _draft = card?.Sensors.ToList() ?? [];
+            _initialised = true;
+            SelectionChanged();
+        }
 
         var sensorsTask = SensorListAsync();
         var devicesTask = _client.Devices.ListAsync();
@@ -104,7 +120,7 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
 
         var style = _settings.Current.DeviceNameStyle;
         var names = devicesTask.Result.ToDictionary(d => d.DeviceId, d => new DeviceItem(d, style).Name);
-        var picked = card.Sensors.Select(p => p.SensorId).ToHashSet();
+        var picked = _draft.Select(p => p.SensorId).ToHashSet();
         var settings = _settings.Current;
 
         _all = sensorsTask.Result
@@ -119,10 +135,12 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
                     Subtitle = device,
                 }, picked.Contains(s.SensorId));
             })
-            .OrderBy(s => s.DeviceName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(s => s.Row.Title, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(s => s.DeviceName, NaturalOrder.Instance)
+            .ThenBy(s => s.Row.Title, NaturalOrder.Instance)
             .ToList();
 
+        _loaded = true;
+        SaveCommand.NotifyCanExecuteChanged();
         ApplyFilter();
     });
 
@@ -134,11 +152,11 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
             return;
         }
 
-        var widget = Widget();
+        _saved = false;
         sensor.IsPicked = !sensor.IsPicked;
         if (sensor.IsPicked)
         {
-            widget.Sensors.Add(new PinnedSensor
+            _draft.Add(new PinnedSensor
             {
                 SensorId = sensor.Sensor.SensorId,
                 DeviceId = sensor.Sensor.DeviceId,
@@ -149,12 +167,11 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         }
         else
         {
-            widget.Sensors.RemoveAll(p => p.SensorId == sensor.Sensor.SensorId);
+            _draft.RemoveAll(p => p.SensorId == sensor.Sensor.SensorId);
         }
 
-        _settings.Save();
-        OnPropertyChanged(nameof(PickedCount));
-        OnPropertyChanged(nameof(HintText));
+        SelectionChanged();
+        ApplyFilter();
     }
 
     private void ApplyFilter()
@@ -166,28 +183,59 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         OnPropertyChanged(nameof(HintText));
     }
 
-    partial void OnCardTitleChanged(string value)
+    private void SelectionChanged()
     {
-        if (_showingTitle)
-        {
-            return;
-        }
-
-        var widget = Widget();
-        widget.Title = string.IsNullOrWhiteSpace(value) ? DashboardLayout.KindOf(DashboardLayout.Sensors).Title : value.Trim();
-        _settings.Save();
+        OnPropertyChanged(nameof(PickedCount));
+        OnPropertyChanged(nameof(SelectedText));
+        OnPropertyChanged(nameof(HintText));
     }
 
-    /// <summary>The card being set up - a new one if it has gone (or none was named).</summary>
-    private DashboardWidget Widget()
+    [RelayCommand(CanExecute = nameof(CanSave))]
+    private Task SaveAsync() => RunAsync(async () =>
     {
-        if (DashboardLayout.Find(_settings.Current, WidgetId) is { WidgetType: DashboardLayout.Sensors } widget)
+        if (!_saved)
         {
-            return widget;
+            var settings = _settings.Current;
+            var previousWidgets = settings.DashboardWidgets.ToList();
+            var widget = Widget();
+            var previousTitle = widget?.Title;
+            var previousSensors = widget?.Sensors;
+            try
+            {
+                widget ??= DashboardLayout.Add(settings, DashboardLayout.Sensors);
+                widget.Title = string.IsNullOrWhiteSpace(CardTitle)
+                    ? DashboardLayout.KindOf(DashboardLayout.Sensors).Title : CardTitle.Trim();
+                widget.Sensors = _draft.ToList();
+                _settings.Save();
+                WidgetId = widget.Id;
+                _saved = true;
+            }
+            catch
+            {
+                // A failed write must not leave a new card or half-applied edits in memory.
+                settings.DashboardWidgets = previousWidgets;
+                if (widget is not null && previousSensors is not null)
+                {
+                    widget.Title = previousTitle!;
+                    widget.Sensors = previousSensors;
+                }
+                throw;
+            }
         }
 
-        widget = DashboardLayout.Add(_settings.Current, DashboardLayout.Sensors);
-        WidgetId = widget.Id;
-        return widget;
+        // If navigation fails after persistence, retry Back without saving twice.
+        await _navigation.GoToAsync(Routes.Back);
+    }, isRead: false);
+
+    private bool CanSave() => _loaded && !IsBusy;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(IsBusy)) SaveCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>Opening or cancelling setup never creates a dashboard card.</summary>
+    private DashboardWidget? Widget() =>
+        DashboardLayout.Find(_settings.Current, WidgetId) is { WidgetType: DashboardLayout.Sensors } widget ? widget : null;
 }

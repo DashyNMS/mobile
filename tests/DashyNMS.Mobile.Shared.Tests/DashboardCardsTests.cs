@@ -808,7 +808,7 @@ public sealed class DashboardCardsTests
 public sealed class SensorPickerViewModelTests
 {
     [Fact]
-    public async Task Search_then_tap_adds_a_sensor_to_the_card_and_tapping_again_removes_it()
+    public async Task Search_and_toggle_edit_a_draft_until_save()
     {
         var appSettings = new AppSettings();
         var settings = Fakes.Settings(appSettings);
@@ -818,7 +818,7 @@ public sealed class SensorPickerViewModelTests
             new Sensor { SensorId = 10, DeviceId = 1, SensorClass = "temperature", Description = "Inlet", Current = 30 },
             new Sensor { SensorId = 20, DeviceId = 2, SensorClass = "dbm", Description = "Gi0/1 Rx", Current = -3 },
         ]);
-        var vm = new SensorPickerViewModel(client, settings);
+        var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.Empty(vm.Sensors); // nothing picked, nothing searched
 
@@ -826,13 +826,20 @@ public sealed class SensorPickerViewModelTests
         Assert.Equal(["Gi0/1 Rx"], vm.Sensors.Select(s => s.Row.Title));
 
         vm.ToggleCommand.Execute(vm.Sensors[0]);
+        Assert.Empty(appSettings.DashboardWidgets);
+        settings.DidNotReceive().Save();
+        await vm.SaveCommand.ExecuteAsync(null);
         var card = DashboardLayout.Current(appSettings).Single(w => w.WidgetType == DashboardLayout.Sensors);
         Assert.Equal(20, Assert.Single(card.Sensors).SensorId);
         Assert.Equal("dbm", card.Sensors[0].SensorClass);
 
-        vm.SearchText = string.Empty;
-        Assert.Single(vm.Sensors); // what's on the card
-        vm.ToggleCommand.Execute(vm.Sensors[0]);
+        var again = new SensorPickerViewModel(client, settings, new RecordingNavigation()) { WidgetId = card.Id };
+        await again.LoadCommand.ExecuteAsync(null);
+        Assert.Single(again.Sensors);
+        again.ToggleCommand.Execute(again.Sensors[0]);
+        Assert.Empty(again.Sensors);
+        Assert.Single(card.Sensors);
+        await again.SaveCommand.ExecuteAsync(null);
         Assert.Empty(card.Sensors);
         settings.Received(2).Save();
     }
@@ -891,7 +898,7 @@ public sealed class DashboardCardSetUpTests
     {
         var first = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         var second = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
-        var vm = new SensorPickerViewModel(_client, _settings) { WidgetId = second.Id };
+        var vm = new SensorPickerViewModel(_client, _settings, new RecordingNavigation()) { WidgetId = second.Id };
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.Equal(string.Empty, vm.CardTitle); // still the kind's
 
@@ -900,10 +907,17 @@ public sealed class DashboardCardSetUpTests
         vm.CardTitle = "  Core switch temps ";
 
         Assert.Empty(first.Sensors);
+        Assert.Empty(second.Sensors);
+        Assert.Equal("Sensors", second.Title);
+        _settings.DidNotReceive().Save();
+        await vm.SaveCommand.ExecuteAsync(null);
         Assert.Equal(10, Assert.Single(second.Sensors).SensorId);
         Assert.Equal("Core switch temps", second.Title);
 
-        vm.CardTitle = string.Empty; // back to the kind's
+        var again = new SensorPickerViewModel(_client, _settings, new RecordingNavigation()) { WidgetId = second.Id };
+        await again.LoadCommand.ExecuteAsync(null);
+        again.CardTitle = string.Empty;
+        await again.SaveCommand.ExecuteAsync(null);
         Assert.Equal("Sensors", second.Title);
     }
 

@@ -13,7 +13,15 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar, List);
+		_ = new SetupPageLayout(this, Setup, Header, List);
+	}
+
+	private void OnSensorCheckedChanged(object? sender, CheckedChangedEventArgs e)
+	{
+		if (sender is CheckBox { BindingContext: PickableSensor sensor } && sensor.IsPicked != e.Value)
+		{
+			_viewModel.ToggleCommand.Execute(sensor);
+		}
 	}
 
 	private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
@@ -27,12 +35,5 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable
 		}
 
 		_viewModel.LoadCommand.Execute(null);
-	}
-
-	/// <summary>The app's own top bar, as the other pushed pages (#140).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		TopBar.Apply(this);
 	}
 }
