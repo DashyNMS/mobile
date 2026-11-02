@@ -217,6 +217,31 @@ Apply these lessons to later setup pages:
 - Reference a device-gated issue with `Refs #NN` in its PR, so merging does not
   close it before device acceptance.
 
+### Spotlight setup acceptance
+
+On 2 November 2026 the user approved closing #398 and completing its entry
+on #405 after on-device testing of TestFlight **2.0.0 (217)**. The accepted
+implementation is PR #428, merged as
+`89eac7478bb70267e10d15b925fd7658193a6196`. Android, iOS simulator and shared
+unit-test PR checks passed. Individual device configurations and
+screen-reader results were not recorded with this acceptance.
+
+Apply these lessons to later setup pages:
+
+- Find every route into a page before testing it. Spotlight setup opens only
+  from the Spotlight line under an Event log or Graylog card's title on the
+  Dashboard. Edit dashboard's Set up does not reach it: `SetUpRoute` sends
+  every kind other than Sensors and Graph to ranked-card setup, which cannot
+  load a log card. State the entry point in the PR's device checks.
+- An immediate action on a draft page sits in its own labelled section with
+  a caption saying it applies straight away, apart from the choices that wait
+  for Save.
+- Give each segment of a segmented control a description that says whether
+  it is selected, and make each selection row one screen-reader element with
+  its state. A check box suits several choices; a tick suits one.
+- Disable Save until the draft's data has loaded, and ignore a slower earlier
+  load when the page reloads.
+
 ### Verified setup reference
 
 The user confirmed that manual checks passed for TestFlight **2.0.0 (212)**
