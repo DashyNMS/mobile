@@ -498,6 +498,15 @@ an unrelated 96pt gap. Check top labels and the last item/action in every
 orientation, both displays, keyboard use, reordering and return from setup.
 This change is scoped to dashboard editing, not other tab systems.
 
+DeviceSectionPage keeps its viewport above the bottom tab/glass clearance
+with a 12pt gap, rather than depending only on its virtualised footer (#392).
+Its last row retains a 24pt content gap. This shared path covers Availability,
+Sensors, Resources, Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and
+Inventory. Neighbours' wide graph pane uses the same bottom clearance.
+Graphs, logs and config backups have independent page layouts. Verify each
+shared section on inner/outer displays in portrait/landscape, including short
+and long lists, Ports filters, Inventory expansion and Neighbours' graph.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

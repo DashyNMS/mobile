@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    Any Device View section: its rows, in titled groups. On iOS it runs to
-    the screen's edges - under the tab bar, the camera and a side tab bar's
-    column - with every edge placed in PlaceControls (#344), so the rows use
-    the whole screen rather than a column in the middle of it.
+    Any Device View section: its rows, in titled groups. On iOS the page
+    places its edges in PlaceControls (#344), using the available width;
+    the list viewport stays clear of the tab bar and glass (#392).
 -->
 <ContentPage
     x:Class="DashyNMS.Mobile.Pages.DeviceSectionPage"
@@ -66,9 +65,9 @@
         <controls:BusyCard x:Name="Busy" Grid.Row="4" Margin="16,8,16,0" Text="Loading…" IsVisible="{Binding IsLoadingFirstTime}"
                            ZIndex="1" VerticalOptions="Start" />
 
-        <!-- The rows run on beneath a bottom tab bar to the screen's foot, the
-             footer letting the last one scroll clear of it; one column on a
-             phone, more across a wide screen (PlaceControls). -->
+        <!-- The viewport stays clear of the bottom tab bar and glass; the
+             footer adds a normal gap after the last row (#392). One column
+             on a phone, more across a wide screen (PlaceControls). -->
         <Grid x:Name="SectionBody" Grid.Row="4" RowDefinitions="Auto,*" ColumnDefinitions="*" SafeAreaEdges="None">
         <controls:DeviceNeighbourGraph x:Name="NeighbourGraph" HeightRequest="280" IsVisible="{Binding IsNeighbours}" Margin="16,8" />
         <RefreshView x:Name="Refresh" Grid.Row="1" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}" SafeAreaEdges="None">

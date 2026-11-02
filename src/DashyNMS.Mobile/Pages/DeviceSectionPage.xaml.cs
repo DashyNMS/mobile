@@ -223,7 +223,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
 		NeighbourGraph.VerticalOptions = wideNeighbours ? LayoutOptions.Fill : LayoutOptions.Start;
 		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : 280;
-		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, 8);
+		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? 12 + clear.Bottom : 8);
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		var field = new Thickness(left, 4, right, 8);
@@ -242,7 +242,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			List.Margin = list;
 		}
 
-		var foot = 24 + clear.Bottom;
+		// Keep the viewport itself above the tab/glass area. A grouped,
+		// virtualised list must not rely on its footer alone for clearance:
+		// rows at the viewport's bottom could still sit behind the menu (#392).
+		var viewport = new Thickness(0, 0, 0, 12 + clear.Bottom);
+		if (Refresh.Margin != viewport) Refresh.Margin = viewport;
+
+		const double foot = 24;
 		if (ListFoot.HeightRequest != foot)
 		{
 			ListFoot.HeightRequest = foot;
