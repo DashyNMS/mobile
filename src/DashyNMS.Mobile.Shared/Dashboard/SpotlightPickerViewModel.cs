@@ -17,6 +17,7 @@ public sealed partial class SpotlightChoice : ObservableObject
         Target = target;
         Detail = detail;
         IsMissing = missing;
+        AllowsSeveral = SpotlightPickerViewModel.KindOf(target) == SpotlightPickerViewModel.DevicesKind;
     }
 
     public SpotlightTarget Target { get; }
@@ -34,7 +35,24 @@ public sealed partial class SpotlightChoice : ObservableObject
     /// <summary>Saved, but the server no longer has it: kept unless unticked, as desktop keeps it.</summary>
     public bool IsMissing { get; }
 
+    /// <summary>
+    /// A device is one of several that can be ticked, so its row shows a check
+    /// box; a group or location is the single choice, so its row shows a tick.
+    /// </summary>
+    public bool AllowsSeveral { get; }
+
+    public bool IsSingle => !AllowsSeveral;
+
+    /// <summary>
+    /// The whole row is one screen-reader element (#398), so it says what the
+    /// tick or check box shows: a visual mark alone told VoiceOver and TalkBack
+    /// users nothing about what was chosen.
+    /// </summary>
+    public string SelectionDescription => string.Join(", ",
+        new[] { Name, Detail, IsSelected ? "selected" : "not selected" }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectionDescription))]
     private bool _isSelected;
 }
 
@@ -61,12 +79,14 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
     private readonly Dictionary<int, List<SpotlightChoice>> _choices = new();
     private string? _widgetId;
     private bool _loaded;
+    private int _loadGeneration;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AllowsSeveral), nameof(HintText), nameof(IsDevices), nameof(IsGroup), nameof(IsLocation))]
+    [NotifyPropertyChangedFor(nameof(AllowsSeveral), nameof(HintText), nameof(IsDevices), nameof(IsGroup), nameof(IsLocation),
+        nameof(DevicesDescription), nameof(GroupDescription), nameof(LocationDescription), nameof(SelectedText))]
     private int _kindIndex;
 
     public SpotlightPickerViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IDashboardLayoutService? layout = null)
@@ -88,10 +108,32 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
 
     public bool IsLocation => KindIndex == LocationKind;
 
+    /// <summary>Each segment says whether it's the chosen one, which its colour alone doesn't tell a screen reader.</summary>
+    public string DevicesDescription => SegmentDescription("Devices", IsDevices);
+
+    public string GroupDescription => SegmentDescription("Group", IsGroup);
+
+    public string LocationDescription => SegmentDescription("Location", IsLocation);
+
     /// <summary>Devices: several. A group or a location: one.</summary>
     public bool AllowsSeveral => KindIndex == DevicesKind;
 
-    public string HintText => AllowsSeveral ? "Choose one or more devices." : KindIndex == GroupKind ? "Choose a device group." : "Choose a location.";
+    /// <summary>No prompt after a failure: there is nothing to choose from until setup is reopened.</summary>
+    public string HintText => HasError ? string.Empty
+        : AllowsSeveral ? "Choose one or more devices." : KindIndex == GroupKind ? "Choose a device group." : "Choose a location.";
+
+    /// <summary>
+    /// How many devices are ticked, searched-out ones included, as Sensors counts
+    /// its draft. A group or location is a single choice its tick already shows.
+    /// </summary>
+    public string SelectedText => HasError || !_loaded || !AllowsSeveral ? string.Empty
+        : $"{(_choices.TryGetValue(KindIndex, out var choices) ? choices.Count(c => c.IsSelected) : 0)} selected";
+
+    /// <summary>
+    /// The existing route that loads again, stated under the error rather than a
+    /// separate retry button, as the other setup pages do.
+    /// </summary>
+    public string? RecoveryText => HasError ? "To retry, go back and open Spotlight again." : null;
 
     public bool IsEmpty => _loaded && !IsBusy && Choices.Count == 0 && !HasError;
 
@@ -106,6 +148,13 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
 
     public Task LoadAsync(string widgetId)
     {
+        // Reloading starts from what's saved, so nothing half-loaded can be saved,
+        // and an earlier load still in flight is ignored when it finishes.
+        var generation = ++_loadGeneration;
+        _loaded = false;
+        _choices.Clear();
+        Choices.ReplaceAll([]);
+        SaveCommand.NotifyCanExecuteChanged();
         _widgetId = widgetId;
         var saved = Widget?.Spotlight.Where(t => t.Kind is not null).ToList() ?? [];
         KindIndex = saved.FirstOrDefault()?.Kind switch
@@ -121,19 +170,23 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
             var groupsTask = _client.DeviceGroups.ListAsync();
             var locationsTask = _client.Locations.ListAsync();
             await Task.WhenAll(devicesTask, groupsTask, locationsTask);
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
 
             var style = _settings.Current.DeviceNameStyle;
             _choices[DevicesKind] = devicesTask.Result
                 .Select(d => new SpotlightChoice(SpotlightTarget.Device(d.DeviceId, new DeviceItem(d, style).Name), d.LocationName()))
-                .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(c => c.Name, NaturalOrder.Instance)
                 .ToList();
             _choices[GroupKind] = groupsTask.Result
                 .Select(g => new SpotlightChoice(SpotlightTarget.Group(g.Id, g.Name), g.Description))
-                .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(c => c.Name, NaturalOrder.Instance)
                 .ToList();
             _choices[LocationKind] = locationsTask.Result
                 .Select(l => new SpotlightChoice(SpotlightTarget.Location(l.Id, l.Name)))
-                .OrderBy(c => c.Name, StringComparer.CurrentCultureIgnoreCase)
+                .OrderBy(c => c.Name, NaturalOrder.Instance)
                 .ToList();
 
             // What's saved is ticked; what the server no longer has stays, at the top, until unticked.
@@ -151,8 +204,25 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
             }
 
             _loaded = true;
+            SaveCommand.NotifyCanExecuteChanged();
             Refilter();
         });
+    }
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName == nameof(IsBusy))
+        {
+            SaveCommand.NotifyCanExecuteChanged();
+        }
+
+        if (e.PropertyName == nameof(ErrorMessage))
+        {
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(HintText)));
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RecoveryText)));
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(SelectedText)));
+        }
     }
 
     partial void OnKindIndexChanged(int value)
@@ -195,12 +265,20 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
         }
 
         choice.IsSelected = !choice.IsSelected;
+        OnPropertyChanged(nameof(SelectedText));
     }
 
-    [RelayCommand]
+    /// <summary>
+    /// Only once the choices have loaded: after a failed load there's nothing
+    /// ticked, and saving that would quietly turn the card's saved Spotlight
+    /// into the whole network (#398).
+    /// </summary>
+    private bool CanSave() => _loaded && !IsBusy && !string.IsNullOrEmpty(_widgetId);
+
+    [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (_widgetId is null)
+        if (!CanSave())
         {
             return;
         }
@@ -224,7 +302,9 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
         await _navigation.GoToAsync(Routes.Back);
     }
 
-    private static int KindOf(SpotlightTarget target) => target.Kind switch
+    private static string SegmentDescription(string kind, bool chosen) => chosen ? $"{kind}, selected" : kind;
+
+    internal static int KindOf(SpotlightTarget target) => target.Kind switch
     {
         SpotlightKind.Group => GroupKind,
         SpotlightKind.Location => LocationKind,
@@ -241,5 +321,6 @@ public sealed partial class SpotlightPickerViewModel : ViewModelBase
             .ToList());
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        OnPropertyChanged(nameof(SelectedText));
     }
 }
