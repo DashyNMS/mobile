@@ -27,11 +27,11 @@
                     <GridItemsLayout x:Name="CardLayout" Orientation="Vertical" Span="1" HorizontalItemSpacing="12" VerticalItemSpacing="12" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.Header>
-                    <Label Style="{StaticResource Caption}" Margin="4,4,4,12"
+                    <Label Style="{StaticResource Caption}" Margin="4,20,4,12"
                            Text="Drag to reorder. Changes save automatically." />
                 </CollectionView.Header>
                 <CollectionView.EmptyView>
-                    <Border Style="{StaticResource Card}" Padding="20,28">
+                    <Border Style="{StaticResource Card}" Padding="20,28" Margin="0,20,0,0">
                         <VerticalStackLayout Spacing="8" SafeAreaEdges="None">
                             <Label Text="No cards" FontFamily="BodySemibold" FontSize="16" HorizontalTextAlignment="Center" />
                             <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center"
@@ -68,7 +68,7 @@
                                         <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap"
                                                AutomationProperties.IsInAccessibleTree="False" />
                                     </VerticalStackLayout>
-                                    <!-- Sensors, Graph and Top cards: their own set-up. -->
+                                    <!-- Each supported card opens its own setup, including Spotlight for logs. -->
                                     <Button Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" Text="Set up" Style="{StaticResource LinkButton}" IsVisible="{Binding CanSetUp}"
                                             VerticalOptions="Center" SemanticProperties.Description="{Binding SetUpDescription}"
                                             Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"

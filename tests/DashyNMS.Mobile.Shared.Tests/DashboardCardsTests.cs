@@ -208,7 +208,7 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Fact]
-    public async Task Sensors_graph_and_top_cards_have_a_set_up_others_dont()
+    public async Task Sensors_have_setup_and_alerts_do_not()
     {
         var sensors = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
         DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
@@ -224,6 +224,46 @@ public sealed class CustomiseDashboardViewModelTests
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.PickSensors, visit.Route);
         Assert.Equal(sensors.Id, visit.Parameters![Routes.WidgetIdParameter]);
+    }
+
+    [Theory]
+    [InlineData(DashboardLayout.Sensors, Routes.PickSensors)]
+    [InlineData(DashboardLayout.Graph, Routes.PickGraph)]
+    [InlineData(DashboardLayout.TopInterfaces, Routes.TopCardSetUp)]
+    [InlineData(DashboardLayout.TopErrors, Routes.TopCardSetUp)]
+    [InlineData(DashboardLayout.TopDevices, Routes.TopCardSetUp)]
+    [InlineData(DashboardLayout.EventLog, Routes.SpotlightPicker)]
+    [InlineData(DashboardLayout.Graylog, Routes.SpotlightPicker)]
+    public async Task Setup_opens_the_matching_editor_with_the_selected_widget(string type, string route)
+    {
+        DashboardLayout.Add(_appSettings, type);
+        var selected = DashboardLayout.Add(_appSettings, type);
+        var navigation = new RecordingNavigation();
+        var vm = NewViewModel(navigation);
+        var card = vm.Cards.Single(c => c.Widget.Id == selected.Id);
+
+        Assert.True(card.CanSetUp);
+        await vm.SetUpCommand.ExecuteAsync(card);
+
+        var visit = Assert.Single(navigation.Visits);
+        Assert.Equal(route, visit.Route);
+        Assert.Equal(selected.Id, visit.Parameters![Routes.WidgetIdParameter]);
+    }
+
+    [Fact]
+    public async Task Unsupported_cards_offer_no_setup_and_do_not_navigate()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = NewViewModel(navigation);
+        foreach (var type in new[] { DashboardLayout.AlertsGauge, DashboardLayout.Alerts, DashboardLayout.DeviceStatus,
+            DashboardLayout.PinnedDevices, DashboardLayout.RecentlyViewed, DashboardLayout.Wireless })
+        {
+            var card = new DashboardCardOption(new DashboardWidget { WidgetType = type });
+            Assert.False(card.CanSetUp);
+            await vm.SetUpCommand.ExecuteAsync(card);
+        }
+        await vm.SetUpCommand.ExecuteAsync(null);
+        Assert.Empty(navigation.Visits);
     }
 
     [Fact]

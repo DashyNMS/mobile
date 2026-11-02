@@ -229,10 +229,11 @@ public sealed partial class AddCardViewModel : ViewModelBase
         _toast.Show(what + (Position is null ? " added at the bottom" : " added"), before, added[0].Id);
 
         await _navigation.GoToAsync(Routes.Back);
-        if (added is [{ WidgetType: DashboardLayout.Sensors or DashboardLayout.Graph } widget])
+        if (added is [{ WidgetType: DashboardLayout.Sensors or DashboardLayout.Graph } widget]
+            && CustomiseDashboardViewModel.SetUpRoute(widget.WidgetType) is { } route)
         {
             await _navigation.GoToAsync(
-                CustomiseDashboardViewModel.SetUpRoute(widget.WidgetType),
+                route,
                 new Dictionary<string, object> { [Routes.WidgetIdParameter] = widget.Id });
         }
     }

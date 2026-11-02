@@ -228,11 +228,11 @@ screen-reader results were not recorded with this acceptance.
 
 Apply these lessons to later setup pages:
 
-- Find every route into a page before testing it. Spotlight setup opens only
-  from the Spotlight line under an Event log or Graylog card's title on the
-  Dashboard. Edit dashboard's Set up does not reach it: `SetUpRoute` sends
-  every kind other than Sensors and Graph to ranked-card setup, which cannot
-  load a log card. State the entry point in the PR's device checks.
+- Find every route into a page before testing it. At acceptance, Spotlight
+  setup opened only from the Spotlight line under a log card's Dashboard
+  title. The editor review in #430 corrects its Set up route to open the same
+  picker for Event log and Graylog. Check both entry points and their Back
+  paths; ranked-card setup cannot load log cards.
 - An immediate action on a draft page sits in its own labelled section with
   a caption saying it applies straight away, apart from the choices that wait
   for Save.
@@ -394,6 +394,15 @@ appearance does not change filtering, query retention or selection contracts.
 - Let card titles and summaries wrap. Put Set up below the title. More holds
   Duplicate where supported, Add a card after, Move earlier/later and Remove. Menu moves
   persist the same order as dragging; removal retains Undo.
+- Set up routes must name supported kinds explicitly. Sensors and Graph open
+  their pickers, Top cards open ranked-card setup, and Event log/Graylog open
+  Spotlight. Do not infer setup support from whether a kind can be duplicated.
+- Keep the introductory text and empty state below the 20pt heading fade at
+  rest. The fade covers content only as it scrolls beneath the heading.
+- While Undo is visible, the editor footer also reserves the toast's measured
+  height, bottom margin and a 12pt gap. Recompute after wrapping or resizing,
+  and retain clearance until the exit animation finishes. Add a card must
+  remain reachable above the toast at the final scroll position.
 - Use the implicit primary `Button` style for the main Add or Save action.
   It supplies `ButtonPrimary`, text contrast and disabled states. Secondary
   buttons are for subordinate actions. Avoid local colour overrides.

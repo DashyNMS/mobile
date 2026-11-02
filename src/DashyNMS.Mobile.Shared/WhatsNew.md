@@ -19,5 +19,6 @@
 - **About.** Lists the app, Core and sensor definition versions. Share diagnostics carries them for a bug report. {settings}
 
 ## Fixed
+- **Edit dashboard.** Set up opens Spotlight for log cards. The introduction stays clear of the heading fade, and Add a card scrolls above Undo. {dashboard}
 - **Devices with no ports.** Show the devices that see them, rather than an error. {neighbours}
 - **Missing readings.** A sensor with no reading shows a dash and no colour. {health}
