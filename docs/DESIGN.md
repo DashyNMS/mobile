@@ -314,7 +314,7 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
 | Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
 | Header fitting and native safe-area updates | `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
-| Search appearance and input policy | `Controls/SearchField.xaml` and `.xaml.cs`, `Controls/SearchReveal.cs` |
+| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/SearchReveal.cs` |
 | Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
 | Adaptive dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
