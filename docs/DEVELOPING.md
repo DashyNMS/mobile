@@ -478,6 +478,11 @@ widths that crowd small phones. Filtering and immediate saving remain unchanged;
 the keyboard Search key dismisses typing while retaining the filter. Check
 both themes, clearing the filter and sensor selection on a small screen.
 
+The device-detail logo uses a 48pt rounded tile with 7pt padding (#388).
+Its light neutral background stays readable in both themes, with the dark
+colour matching desktop's logo tile. No tile is shown without a loaded logo.
+Check transparent SVG/PNG logos, proportions and long device titles.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
