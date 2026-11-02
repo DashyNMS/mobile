@@ -707,7 +707,38 @@ public sealed class GraylogDevicePickerTests
     }
 
     [Fact]
-    public async Task Failed_load_has_retry_without_an_empty_status_and_retry_retains_query()
+    public async Task Pinned_suggestions_use_natural_order_independent_of_bookmark_order()
+    {
+        foreach (var id in new[] { 10, 2, 1 })
+            _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = id, DisplayName = $"switch-{id}" });
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(new[] { 10, 1, 2 }.Select(id => Fakes.Device(id, $"switch-{id}")).ToArray());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        await picker.LoadAsync(source);
+
+        Assert.Equal(["switch-1", "switch-2", "switch-10"],
+            picker.Groups.Single(g => g.Name == "Pinned").Select(c => c.Name));
+    }
+
+    [Fact]
+    public async Task Server_loaded_devices_use_natural_order_for_suggestions_and_search()
+    {
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(Array.Empty<Device>());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            new[] { 10, 1, 2 }.Select(id => Fakes.Device(id, $"switch-{id}")).ToArray());
+        await picker.LoadAsync(source);
+
+        Assert.Equal(["switch-1", "switch-2", "switch-10"], picker.Groups.Single().Select(c => c.Name));
+        picker.SearchText = "switch";
+        Assert.Equal(["switch-1", "switch-2", "switch-10"], picker.Groups.Single().Select(c => c.Name));
+    }
+
+    [Fact]
+    public async Task Failed_load_has_no_empty_status_and_reopening_retains_query()
     {
         var (_, picker) = await OpenAsync();
         var source = Substitute.For<IDeviceChipList>();
@@ -717,14 +748,14 @@ public sealed class GraylogDevicePickerTests
             .Returns(_ => Task.FromException<IReadOnlyList<Device>>(new HttpRequestException()));
         picker.SearchText = "retry";
         await picker.LoadAsync(source);
-        Assert.True(picker.CanRetry);
+        Assert.True(picker.HasError);
         Assert.False(picker.IsEmpty);
-        Assert.Equal(picker.ErrorMessage, picker.StatusText);
+        Assert.False(picker.HasStatus);
 
         _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(99, "retry-switch")]);
-        await picker.RetryCommand.ExecuteAsync(null);
+        await picker.LoadAsync(source);
         Assert.Equal("retry", picker.SearchText);
-        Assert.False(picker.CanRetry);
+        Assert.False(picker.HasError);
         Assert.Equal("retry-switch", picker.Groups.Single().Single().Name);
     }
 

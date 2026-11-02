@@ -49,6 +49,13 @@ public sealed class GraylogDeviceChoice
     /// <summary>How many of the messages on screen it sent; 0 outside "In these messages".</summary>
     public int Count { get; }
 
+    /// <summary>One announcement for the whole tappable card, including the status dot's meaning.</summary>
+    public string AccessibilityDescription => string.Join(", ", new[]
+    {
+        Name, Details, Status is DeviceState state ? state.ToDisplayString() : "Unknown status",
+        Count > 0 ? $"{CountText} messages" : string.Empty,
+    }.Where(part => part.Length > 0));
+
     public string CountText => Count > 0 ? Count.ToString("N0", System.Globalization.CultureInfo.CurrentCulture) : string.Empty;
 }
 

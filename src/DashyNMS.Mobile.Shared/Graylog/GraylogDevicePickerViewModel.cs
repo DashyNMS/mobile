@@ -59,24 +59,19 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
     private bool _isCapped;
 
     public string StatusText => IsBusy ? "Loading devices…"
-        : HasError ? ErrorMessage ?? "Couldn't load devices."
+        : HasError ? string.Empty
         : IsEmpty ? EmptyText
         : _isCapped ? $"Showing the first {MaxShown} devices. Refine your search to see more."
         : string.Empty;
 
     public bool HasStatus => StatusText.Length > 0;
-    public bool CanRetry => HasError && !IsBusy;
 
     private void NotifyStatus()
     {
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(HasStatus));
-        OnPropertyChanged(nameof(CanRetry));
     }
-
-    [RelayCommand]
-    private Task RetryAsync() => _list is { } list ? LoadAsync(list) : Task.CompletedTask;
 
     public string EmptyText => string.IsNullOrWhiteSpace(SearchText)
         ? "No devices to suggest yet. Search for one by name, hostname or IP."
