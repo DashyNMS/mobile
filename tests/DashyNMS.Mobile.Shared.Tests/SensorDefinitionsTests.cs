@@ -131,6 +131,56 @@ public sealed class SensorDefinitionsTests : IDisposable
         Assert.Equal("https://github.com/example/definitions", definitions.Store.Options.Repository);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task An_unsaved_draft_explains_why_update_is_blocked_and_fetches_nothing(bool changeSource)
+    {
+        var definitions = Open();
+        await definitions.StartAsync();
+        var vm = new SensorDefinitionsSettingsViewModel(definitions, new RecordingNavigation());
+        var savedSource = vm.SavedSourceText;
+        var notifications = new List<string?>();
+        vm.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        if (changeSource)
+        {
+            vm.UseCustomRepository = true;
+            vm.CustomRepository = "https://github.com/example/definitions";
+        }
+        else
+        {
+            vm.Enabled = false;
+        }
+
+        _github.Requests.Clear();
+        await vm.UpdateNowCommand.ExecuteAsync(null);
+
+        Assert.False(vm.CanUpdate);
+        Assert.Contains("Save", vm.UpdateExplanation);
+        Assert.Contains(nameof(vm.UpdateExplanation), notifications);
+        Assert.Equal(savedSource, vm.SavedSourceText);
+        Assert.Empty(_github.Requests);
+        Assert.True(definitions.Store.Options.Enabled);
+        Assert.False(definitions.Store.Options.UseCustomRepository);
+    }
+
+    [Fact]
+    public async Task A_saved_disabled_catalogue_explains_how_to_enable_updates()
+    {
+        var definitions = Open();
+        await definitions.StartAsync();
+        await definitions.Store.ConfigureAsync(definitions.Store.Options with { Enabled = false });
+        var vm = new SensorDefinitionsSettingsViewModel(definitions, new RecordingNavigation());
+        _github.Requests.Clear();
+
+        await vm.UpdateNowCommand.ExecuteAsync(null);
+
+        Assert.False(vm.CanUpdate);
+        Assert.Contains("Enable sensor definitions and Save", vm.UpdateExplanation);
+        Assert.Empty(_github.Requests);
+    }
+
     [Fact]
     public async Task Forgetting_everything_stops_requests_and_leaves_no_choice_behind()
     {

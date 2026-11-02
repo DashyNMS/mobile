@@ -3,72 +3,62 @@
     x:Class="DashyNMS.Mobile.Pages.SensorDefinitionsSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SensorDefinitionsSettingsViewModel"
-    ios:Page.UseSafeArea="True"
-    SafeAreaEdges="Container"
     Title="Sensor definitions">
-    <Grid RowDefinitions="Auto,*">
-        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Sensor definitions" Margin="16,0,16,0">
-            <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
-
-        <ScrollView Grid.Row="1">
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16" Spacing="4">
-
+    <controls:SetupLayout x:Name="Setup">
+        <controls:SetupLayout.Header>
+            <controls:PageHeader x:Name="Header" Title="Sensor definitions" />
+        </controls:SetupLayout.Header>
+        <controls:SetupLayout.Body>
+            <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="8">
                     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-
-                    <Border Style="{StaticResource Card}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <VerticalStackLayout>
-                                <Label Text="Sensor definitions" />
-                                <Label Style="{StaticResource Caption}"
-                                       Text="Names and colours for state sensors (&quot;Ready&quot;, &quot;Fan failed&quot;), from a catalogue on GitHub that updates without an app release. Checked at most once a day; the downloaded copy works offline. Turning this off deletes it." />
-                            </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
-                        </Grid>
-                    </Border>
-
-                    <Label Style="{StaticResource SectionHeader}" Text="SOURCE" />
-                    <Border Style="{StaticResource Card}">
+                    <Label Style="{StaticResource Caption}" Text="Save applies the settings below. Back discards changes." />
+                    <controls:SetupSection Label="Sensor definitions">
+                        <VerticalStackLayout Spacing="4">
+                            <Switch IsToggled="{Binding Enabled}" HorizontalOptions="Start"
+                                    SemanticProperties.Description="Enable sensor definitions" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Names and colours for state sensors (&quot;Ready&quot;, &quot;Fan failed&quot;), from a catalogue on GitHub that updates without an app release. Checked at most once a day; the downloaded copy works offline. Saving with this off deletes it." />
+                        </VerticalStackLayout>
+                    </controls:SetupSection>
+                    <controls:SetupSection Label="Source">
                         <VerticalStackLayout Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                <VerticalStackLayout>
-                                    <Label Text="Use my own repository" />
-                                    <Label Style="{StaticResource Caption}" Text="A public GitHub repository laid out like DashyNMS/sensor-definitions." />
-                                </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding UseCustomRepository}" VerticalOptions="Center" />
-                            </Grid>
-                            <Entry Text="{Binding CustomRepository}" Placeholder="https://github.com/owner/sensor-definitions" Keyboard="Url"
-                                   IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" IsVisible="{Binding UseCustomRepository}" />
+                            <Label Text="Use my own repository" />
+                            <Switch IsToggled="{Binding UseCustomRepository}" HorizontalOptions="Start"
+                                    SemanticProperties.Description="Use my own repository" />
+                            <Label Style="{StaticResource Caption}" Text="A public GitHub repository laid out like DashyNMS/sensor-definitions." />
+                            <Entry Text="{Binding CustomRepository}" Placeholder="https://github.com/owner/sensor-definitions"
+                                   Keyboard="Url" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False"
+                                   SemanticProperties.Description="Custom repository address"
+                                   IsVisible="{Binding UseCustomRepository}" />
                             <Label Style="{StaticResource Caption}" Text="{Binding SourceText}" LineBreakMode="CharacterWrap" />
                         </VerticalStackLayout>
-                    </Border>
-
-                    <Label Style="{StaticResource SectionHeader}" Text="CATALOGUE" />
-                    <Border Style="{StaticResource Card}">
+                    </controls:SetupSection>
+                    <controls:SetupSection Label="Installed catalogue">
                         <VerticalStackLayout Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="Version" />
-                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding VersionText}" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Text="Last checked" />
-                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding LastCheckText}" />
-                            </Grid>
+                            <Label Style="{StaticResource Caption}" Text="Read-only catalogue details. Update now applies straight away using the saved source." />
+                            <Label Style="{StaticResource Caption}" Text="{Binding SavedSourceText}" LineBreakMode="CharacterWrap" />
+                            <controls:SetupSection Label="Version">
+                                <Label Text="{Binding VersionText}" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="Last checked">
+                                <Label Text="{Binding LastCheckText}" />
+                            </controls:SetupSection>
+                            <Button Style="{StaticResource SecondaryButton}" Text="Update now"
+                                    Command="{Binding UpdateNowCommand}" IsEnabled="{Binding CanUpdate}" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding UpdateExplanation}" />
+                            <ActivityIndicator IsRunning="{Binding IsUpdating}" IsVisible="{Binding IsUpdating}" />
                             <Label Style="{StaticResource Caption}" Text="{Binding StatusText}" />
-                            <Button Text="Update now" Command="{Binding UpdateNowCommand}" IsEnabled="{Binding CanUpdate}" />
                         </VerticalStackLayout>
-                    </Border>
-
+                    </controls:SetupSection>
                 </VerticalStackLayout>
-            </controls:ReadableColumn>
-        </ScrollView>
-    </Grid>
+            </ScrollView>
+        </controls:SetupLayout.Body>
+        <controls:SetupLayout.PrimaryAction>
+            <Button Text="Save" Command="{Binding SaveCommand}" HorizontalOptions="Fill" Margin="0,12,0,0" />
+        </controls:SetupLayout.PrimaryAction>
+    </controls:SetupLayout>
 </ContentPage>
