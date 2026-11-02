@@ -26,7 +26,11 @@ public sealed partial class PickableSensor : ObservableObject
 
     public SectionRow Row { get; }
 
-    public string SelectionDescription => $"{Row.Title}, {DeviceName}, {(IsPicked ? "selected" : "not selected")}";
+    /// <summary>
+    /// The whole row is the one accessible element, so its reading and state are
+    /// announced once; the checkbox inside it is hidden from screen readers.
+    /// </summary>
+    public string SelectionDescription => $"{Row.Title}, {DeviceName}, {Row.Value}, {(IsPicked ? "selected" : "not selected")}";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SelectionDescription))]
@@ -51,6 +55,7 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     private bool _initialised;
     private bool _loaded;
     private bool _saved;
+    private bool _showingPicked;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -94,7 +99,7 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     public string SelectedText => $"{PickedCount} selected";
 
     public string HintText => string.IsNullOrWhiteSpace(SearchText)
-        ? PickedCount == 0 ? "Search for a sensor or device to add." : "On the card. Search to add more."
+        ? PickedCount == 0 ? "Search for a sensor or device to add." : "Selected for this card. Search to add more."
         : Sensors.Count == 0 ? "No sensors match." : string.Empty;
 
     partial void OnCardTitleChanged(string value) => _saved = false;
@@ -171,13 +176,20 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
         }
 
         SelectionChanged();
-        ApplyFilter();
+
+        // Rebuilding the list would reset its scroll position mid-search, so only
+        // drop a sensor that is no longer selected from the selected-only list.
+        if (_showingPicked && !sensor.IsPicked)
+        {
+            Sensors.Remove(sensor);
+        }
     }
 
     private void ApplyFilter()
     {
         var term = SearchText.Trim();
-        Sensors.ReplaceAll(term.Length == 0
+        _showingPicked = term.Length == 0;
+        Sensors.ReplaceAll(_showingPicked
             ? _all.Where(s => s.IsPicked).ToList()
             : _all.Where(s => s.Row.Matches(term)).Take(MaxResults).ToList());
         OnPropertyChanged(nameof(HintText));

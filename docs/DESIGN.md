@@ -120,7 +120,13 @@ draft form. Its optional title scrolls with the form, search uses the shared
 SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes were included in that Graph migration.
 Sensor setup now uses the same layout with a scrolling card-title header,
-a finite sensor list and a fixed Save. Other pages retain their page layouts;
+a finite sensor list and a fixed Save. Its title header starts below the 20pt
+fade so nothing is faded at rest. Each sensor row is one accessible element
+announcing name, device, reading and selected state; its checkbox is hidden
+from screen readers. Toggling a row updates it in place rather than rebuilding
+the list, so the scroll position holds. Because its draft holds selections,
+Sensors offers an in-page Retry that keeps the draft; Graph's recovery text
+remains under #396. Other pages retain their page layouts;
 their search appearance uses SearchField.
 
 Graph setup is also the reference for a stepped setup page (#396). The

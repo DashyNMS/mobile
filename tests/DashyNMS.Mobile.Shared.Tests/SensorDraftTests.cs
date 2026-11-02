@@ -131,4 +131,42 @@ public sealed class SensorDraftTests
         Assert.Equal([99, 10], card.Sensors.Select(s => s.SensorId));
         settings.Received(1).Save();
     }
+
+    [Fact]
+    public async Task Toggling_search_results_keeps_the_list_and_unticking_drops_only_that_selected_row()
+    {
+        var app = new AppSettings();
+        var settings = Fakes.Settings(app);
+        var client = Fakes.Client(devices: [Fakes.Device(1, "switch-1.example.net")]);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { SensorId = 10, DeviceId = 1, Description = "Sensor 1" },
+            new Sensor { SensorId = 20, DeviceId = 1, Description = "Sensor 2" },
+        ]);
+        var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.SearchText = "Sensor";
+        var shown = vm.Sensors.ToList();
+        var resets = 0;
+        vm.Sensors.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) resets++;
+        };
+
+        vm.ToggleCommand.Execute(shown[0]);
+        vm.ToggleCommand.Execute(shown[1]);
+        Assert.Equal(shown, vm.Sensors); // the same rows, so the list keeps its scroll position
+        Assert.Equal(0, resets);
+        Assert.Equal("2 selected", vm.SelectedText);
+        Assert.EndsWith(", selected", shown[0].SelectionDescription);
+
+        vm.SearchText = string.Empty;
+        Assert.Equal("Selected for this card. Search to add more.", vm.HintText);
+        resets = 0;
+        vm.ToggleCommand.Execute(shown[0]);
+        Assert.Equal([20], vm.Sensors.Select(s => s.Sensor.SensorId));
+        Assert.Equal(0, resets);
+        Assert.EndsWith(", not selected", shown[0].SelectionDescription);
+        settings.DidNotReceive().Save();
+    }
 }

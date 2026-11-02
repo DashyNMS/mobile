@@ -30,7 +30,8 @@
 
                 <CollectionView x:Name="List" Grid.Row="4" ItemsSource="{Binding Sensors}" SelectionMode="None">
                     <CollectionView.Header>
-                        <controls:SetupSection Label="Card title (optional)">
+                        <!-- Starts below the 20pt top fade, so only scrolled content passes beneath it. -->
+                        <controls:SetupSection Label="Card title (optional)" Margin="0,20,0,8">
                             <Entry Text="{Binding CardTitle}" Placeholder="Card title"
                                 SemanticProperties.Description="Card title (optional)" />
                         </controls:SetupSection>
@@ -40,7 +41,9 @@
                     </CollectionView.ItemsLayout>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="dash:PickableSensor">
-                            <Border Style="{StaticResource Card}">
+                            <Border Style="{StaticResource Card}"
+                                SemanticProperties.Description="{Binding SelectionDescription}"
+                                SemanticProperties.Hint="Adds or removes this sensor">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding ToggleCommand, Source={RelativeSource AncestorType={x:Type dash:SensorPickerViewModel}}, x:DataType=dash:SensorPickerViewModel}"
@@ -54,7 +57,7 @@
                                     <Label Grid.Column="1" Text="{Binding Row.Value}" VerticalOptions="Center"
                                            TextColor="{Binding Row.Status, Converter={StaticResource StatusText}}" />
                                     <CheckBox Grid.Column="2" IsChecked="{Binding IsPicked, Mode=OneWay}" CheckedChanged="OnSensorCheckedChanged"
-                                        SemanticProperties.Description="{Binding SelectionDescription}" VerticalOptions="Center" />
+                                        AutomationProperties.IsInAccessibleTree="False" VerticalOptions="Center" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
