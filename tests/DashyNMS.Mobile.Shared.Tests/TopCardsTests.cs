@@ -223,4 +223,103 @@ public sealed class TopCardsTests
         Assert.Equal("Core errors", widget.Title);
         Assert.True(DashboardLayout.HasOwnTitle(widget));
     }
+
+    [Theory]
+    [InlineData(DashboardLayout.TopInterfaces, RankBy.Total)]
+    [InlineData(DashboardLayout.TopInterfaces, RankBy.In)]
+    [InlineData(DashboardLayout.TopInterfaces, RankBy.Out)]
+    [InlineData(DashboardLayout.TopErrors, RankBy.Total)]
+    [InlineData(DashboardLayout.TopErrors, RankBy.In)]
+    [InlineData(DashboardLayout.TopErrors, RankBy.Out)]
+    [InlineData(DashboardLayout.TopDevices, RankBy.Total)]
+    [InlineData(DashboardLayout.TopDevices, RankBy.In)]
+    [InlineData(DashboardLayout.TopDevices, RankBy.Out)]
+    public async Task Set_up_offers_and_keeps_every_ranking_for_each_kind(string kind, RankBy rank)
+    {
+        var widget = DashboardLayout.Add(_appSettings, kind);
+        var vm = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        vm.Load();
+        Assert.Equal([RankBy.Total, RankBy.In, RankBy.Out], vm.Ranks.Select(r => r.RankBy));
+
+        vm.SelectedRank = vm.Ranks.Single(r => r.RankBy == rank);
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(rank, widget.TopRankBy);
+        var reopened = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        reopened.Load();
+        Assert.Equal(rank, reopened.SelectedRank.RankBy);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Top_errors_set_up_saves_the_quiet_port_option_either_way(bool hide)
+    {
+        var widget = DashboardLayout.Add(_appSettings, DashboardLayout.TopErrors);
+        widget.TopHideQuiet = !hide;
+        var vm = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        vm.Load();
+        Assert.True(vm.IsErrors);
+        Assert.Equal(!hide, vm.HideQuiet);
+
+        vm.HideQuiet = hide;
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(hide, widget.TopHideQuiet);
+    }
+
+    [Theory]
+    [InlineData(DashboardLayout.TopInterfaces)]
+    [InlineData(DashboardLayout.TopDevices)]
+    public async Task Other_ranked_cards_offer_no_quiet_port_option_and_keep_their_stored_value(string kind)
+    {
+        var widget = DashboardLayout.Add(_appSettings, kind);
+        widget.TopHideQuiet = false;
+        var vm = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        vm.Load();
+        Assert.False(vm.IsErrors);
+
+        vm.SelectedCount = 5;
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(5, widget.TopCount);
+        Assert.False(widget.TopHideQuiet);
+    }
+
+    [Fact]
+    public void Leaving_set_up_without_saving_keeps_the_card_as_it_was()
+    {
+        var widget = DashboardLayout.Add(_appSettings, DashboardLayout.TopInterfaces);
+        var vm = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        vm.Load();
+        var (count, rank, title) = (widget.TopCount, widget.TopRankBy, widget.Title);
+        _settings.ClearReceivedCalls();
+
+        vm.SelectedCount = 10;
+        vm.SelectedRank = vm.Ranks.Single(r => r.RankBy == RankBy.In);
+        vm.CardTitle = "Busiest links";
+
+        Assert.Equal(count, widget.TopCount);
+        Assert.Equal(rank, widget.TopRankBy);
+        Assert.Equal(title, widget.Title);
+        _settings.DidNotReceive().Save();
+    }
+
+    [Fact]
+    public async Task A_blank_title_is_the_kinds_and_an_unknown_row_count_shows_the_default()
+    {
+        var widget = DashboardLayout.Add(_appSettings, DashboardLayout.TopDevices);
+        widget.TopCount = 7;
+        var vm = new TopCardSetUpViewModel(_settings, new RecordingNavigation()) { WidgetId = widget.Id };
+        vm.Load();
+        Assert.Equal("Top devices", vm.KindTitle);
+        Assert.Equal(TopCards.DefaultCount, vm.SelectedCount);
+
+        vm.CardTitle = "   ";
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal("Top devices", widget.Title);
+        Assert.False(DashboardLayout.HasOwnTitle(widget));
+        Assert.Equal(TopCards.DefaultCount, widget.TopCount);
+    }
 }

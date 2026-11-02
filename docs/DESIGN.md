@@ -126,8 +126,13 @@ announcing name, device, reading and selected state; its checkbox is hidden
 from screen readers. Toggling a row updates it in place rather than rebuilding
 the list, so the scroll position holds. Like Graph, it states the retry route
 under an error instead of a Retry button: reopen setup after a failed load, or
-choose Save again after a failed save, which keeps the draft. Other pages retain their page layouts;
-their search appearance uses SearchField.
+choose Save again after a failed save, which keeps the draft.
+Ranked-card setup (#397) is a scrolling draft form with no choose step: its
+header is the card kind's title, and Card title, Rows, Rank by and, for Top
+errors only, Quiet ports are `SetupSection`s with labels above their controls,
+so large text does not crowd a row. Its draft, Save and stored fields are
+unchanged. Other pages retain their page layouts; their search appearance uses
+SearchField.
 
 Graph setup is also the reference for a stepped setup page (#396). The
 header names the current step ("Choose a device", then "Choose a graph").
@@ -333,9 +338,9 @@ appearance does not change filtering, query retention or selection contracts.
   selections are supported. A failed save keeps the draft for another Save.
   Saved sensors absent from the current server response are retained. Sensor setup still
   awaits its own device acceptance under #395.
-- Graph, ranked cards and Spotlight currently use explicit Save;
-  Spotlight's Whole network action
-  currently saves and returns immediately. A unified visual layout must
+- Graph, ranked cards and Spotlight currently use explicit Save; Graph and
+  ranked cards place it in the fixed setup action. Spotlight's Whole network
+  action currently saves and returns immediately. A unified visual layout must
   identify these contracts before changing their behaviour.
 
 ## Motion and selected-item cards
