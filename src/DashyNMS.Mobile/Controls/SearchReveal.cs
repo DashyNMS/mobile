@@ -28,13 +28,13 @@ public static class SearchReveal
     private const string AnimationName = "SearchReveal";
 
     /// <summary>Each attached box's slide, for <see cref="Reveal"/> - weakly, so it goes with its page.</summary>
-    private static readonly ConditionalWeakTable<SearchBar, Action<bool>> Slides = new();
+    private static readonly ConditionalWeakTable<Entry, Action<bool>> Slides = new();
 
     /// <summary>
     /// Brings the box out, wherever the list is, and puts the cursor in it -
     /// for ⌘F on an iPad or a Mac keyboard (#88).
     /// </summary>
-    public static void Reveal(SearchBar search)
+    public static void Reveal(Entry search)
     {
         if (Slides.TryGetValue(search, out var slide))
         {
@@ -48,10 +48,11 @@ public static class SearchReveal
     /// A Grid, clipped: a ContentView didn't clip on iOS, so at height 0 the
     /// box still drew over the chips below it rather than going away.
     /// </param>
-    public static void Attach(CollectionView list, Grid slot, SearchBar search)
+    public static void Attach(CollectionView list, Grid slot, Entry search)
     {
         slot.IsClippedToBounds = true;
-        search.VerticalOptions = LayoutOptions.Start;
+        View well = SearchField.Around(search) ?? (View)search;
+        well.VerticalOptions = LayoutOptions.Start;
 
         bool IsInUse() => search.IsFocused || !string.IsNullOrEmpty(search.Text);
 
@@ -64,14 +65,14 @@ public static class SearchReveal
 
         var shown = IsInUse();
         slot.HeightRequest = shown ? -1 : 0;
-        search.Opacity = shown ? 1 : 0;
-        search.IsVisible = shown;
+        well.Opacity = shown ? 1 : 0;
+        well.IsVisible = shown;
         var travelled = 0.0;
 
         double FullHeight()
         {
             var width = slot.Width > 0 ? slot.Width : list.Width;
-            return search.Measure(width > 0 ? width : 400, double.PositiveInfinity).Height;
+            return well.Measure(width > 0 ? width : 400, double.PositiveInfinity).Height;
         }
 
         void Slide(bool show)
@@ -88,7 +89,7 @@ public static class SearchReveal
             // Hidden, it measures as nothing: back in the layout first.
             if (show)
             {
-                search.IsVisible = true;
+                well.IsVisible = true;
             }
 
             var from = slot.Height >= 0 ? slot.Height : (show ? 0 : FullHeight());
@@ -101,7 +102,7 @@ public static class SearchReveal
                 value =>
                 {
                     slot.HeightRequest = value;
-                    search.Opacity = full > 0 ? value / full : (show ? 1 : 0);
+                    well.Opacity = full > 0 ? value / full : (show ? 1 : 0);
                 },
                 from,
                 to,
@@ -117,8 +118,8 @@ public static class SearchReveal
                     // Once out, let it size itself (larger text, rotation); once
                     // away, keep it unreachable for taps and VoiceOver as well.
                     slot.HeightRequest = show ? -1 : 0;
-                    search.Opacity = show ? 1 : 0;
-                    search.IsVisible = show;
+                    well.Opacity = show ? 1 : 0;
+                    well.IsVisible = show;
                 });
         }
 

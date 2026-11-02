@@ -16,7 +16,7 @@ public static class SetupActionPlacement
         {
             var vertical = bar.Bottom - bar.Top > bar.Right - bar.Left;
             if (vertical)
-                gap = Math.Max(safeBottom, height - bar.Bottom);
+                gap = Math.Max(0, height - bar.Bottom);
             else if (bar.Top > height / 2)
                 gap = Math.Max(gap, height - bar.Top + 12);
 

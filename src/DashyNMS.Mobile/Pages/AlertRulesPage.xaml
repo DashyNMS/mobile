@@ -21,7 +21,9 @@
 
         <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal. -->
         <Grid Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
-            <SearchBar x:Name="Search" Text="{Binding SearchText}" Placeholder="Search rules" Margin="-6,2,-6,0" />
+            <controls:SearchField Margin="0,2,0,0">
+                <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search rules" />
+            </controls:SearchField>
         </Grid>
 
         <!-- Alerting, a divider, then the severities and Disabled - on to start, tapped off to hide. -->

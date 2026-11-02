@@ -36,7 +36,9 @@
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Add card" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
 
-        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search cards" Margin="10,2,10,0" />
+        <controls:SearchField Grid.Row="2" Margin="16,2,16,0">
+            <Entry Text="{Binding SearchText}" Placeholder="Search cards" />
+        </controls:SearchField>
 
         <ScrollView Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="16,10,0,4">
             <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Categories}" Padding="0,0,16,0">

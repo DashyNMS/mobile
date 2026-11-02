@@ -16,7 +16,9 @@
     <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,0,16,0" RowSpacing="10">
         <controls:PageHeader x:Name="Header" Title="Add a rule" />
         <Label Grid.Row="1" Style="{StaticResource Caption}" FontSize="14" Text="{Binding Intro}" />
-        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Search alert rules" />
+        <controls:SearchField Grid.Row="2">
+            <Entry Text="{Binding SearchText}" Placeholder="Search alert rules" />
+        </controls:SearchField>
         <Grid Grid.Row="3">
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" VerticalOptions="Start" />
             <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" VerticalOptions="Start" />
