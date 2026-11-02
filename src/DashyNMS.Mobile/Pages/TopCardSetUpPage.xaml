@@ -15,11 +15,7 @@
         <controls:ReadableColumn>
             <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
 
-                <controls:BackBar x:Name="TopBar">
-                    <controls:BackBar.Actions>
-                        <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
-                    </controls:BackBar.Actions>
-                </controls:BackBar>
+                <controls:BackBar x:Name="TopBar" />
                 <Label Style="{StaticResource PageTitle}" Text="{Binding KindTitle}" SemanticProperties.HeadingLevel="Level1" Margin="0,-12,0,0" />
 
                 <!-- The card's own title (#103); blank, it's the kind's. -->
@@ -54,6 +50,8 @@
 
                 <Label Style="{StaticResource Caption}"
                        Text="The same options as the card on DashyNMS desktop, so it looks alike in both." />
+
+                <Button Text="Save" Command="{Binding SaveCommand}" HorizontalOptions="Fill" Margin="0,12,0,8" />
 
             </VerticalStackLayout>
         </controls:ReadableColumn>

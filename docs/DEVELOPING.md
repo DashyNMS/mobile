@@ -478,6 +478,12 @@ widths that crowd small phones. Filtering and immediate saving remain unchanged;
 the keyboard Search key dismisses typing while retaining the filter. Check
 both themes, clearing the filter and sensor selection on a small screen.
 
+Dashboard graph, ranked-card and Spotlight setup pages put their explicit
+Save action below the form as a full-width primary button (#384). Headers
+carry navigation only. Sensor selection retains its immediate-save behaviour.
+Check existing/new widgets, disabled Save states, small-screen scrolling,
+keyboard dismissal and bottom glass clearance.
+
 The ellipsis menu button itself has a capsule configuration and clipped,
 rounded bounds (#382), so UIKit's pressed/menu preview has the same shape
 as its surrounding glass. Check opening, selecting and cancelling the menu,

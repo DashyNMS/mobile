@@ -15,7 +15,7 @@ internal static class DashboardBackNavigation
         }
 
         bar.ShowsBack = false;
-        // Graph and Top card editors still need their explicit Save button.
+        // Keep any remaining header actions; editor Save buttons belong below their forms.
         bar.IsVisible = bar.Actions is not null;
         page.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         var padding = page.Padding;
