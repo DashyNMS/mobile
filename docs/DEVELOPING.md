@@ -477,6 +477,11 @@ carry navigation only. Sensor selection retains its immediate-save behaviour.
 Check existing/new widgets, disabled Save states, small-screen scrolling,
 keyboard dismissal and bottom glass clearance.
 
+The device-detail logo uses a 48pt rounded tile with 7pt padding (#388).
+Its light neutral background stays readable in both themes, with the dark
+colour matching desktop's logo tile. No tile is shown without a loaded logo.
+Check transparent SVG/PNG logos, proportions and long device titles.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
