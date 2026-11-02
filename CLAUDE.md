@@ -10,3 +10,5 @@
 - PR titles, commits and issue titles: `type(scope): what changes, in plain words`. One issue per PR, squash-merged, `Closes #NN` in the description, issue titles worded as the result the fix delivers. Full standard and scopes: docs/DEVELOPING.md, "Commits, pull requests and issues".
 - Commits, PRs and release notes carry no AI attribution or Co-Authored-By lines.
 - Never put real device names, hostnames, addresses or other identifiable network data in issues, PRs, commits, screenshots or test fixtures.
+
+- For page layout, setup forms, pickers, safe areas or glass controls, read `docs/DESIGN.md` before editing. It distinguishes current implementations from the agreed setup migration target.
