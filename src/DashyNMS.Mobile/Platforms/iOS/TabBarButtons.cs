@@ -714,9 +714,19 @@ internal static class TabBarButtons
                 if (menu is not null)
                 {
                     var owner = _owner;
+                    // UIKit also lifts/highlights the native menu button itself.
+                    // Rounding only its outer glass leaves that preview rectangular.
+                    var configuration = UIButtonConfiguration.PlainButtonConfiguration;
+                    configuration.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
+                    configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
+                    configuration.Image = UIImage.GetSystemImage("ellipsis");
+                    configuration.BaseForegroundColor = UIColor.Label;
                     var button = new UIButton(UIButtonType.System)
                     {
                         AutoresizingMask = UIViewAutoresizing.FlexibleDimensions,
+                        Configuration = configuration,
+                        ClipsToBounds = true,
+                        BackgroundColor = UIColor.Clear,
                         Menu = UIMenu.Create(menu.Select(item => UIAction.Create(item.Label,
                             UIImage.GetSystemImage(item.Symbol), null, _ =>
                             {
@@ -725,7 +735,6 @@ internal static class TabBarButtons
                         ShowsMenuAsPrimaryAction = true,
                         AccessibilityLabel = action.Label,
                     };
-                    button.SetImage(UIImage.GetSystemImage("ellipsis"), UIControlState.Normal);
                     button.TintColor = UIColor.Label;
                     _icon.Hidden = true;
                     AddSubview(button);
@@ -739,7 +748,11 @@ internal static class TabBarButtons
             {
                 base.LayoutSubviews();
                 _icon.Frame = Bounds;
-                foreach (var button in Subviews.OfType<UIButton>()) button.Frame = Bounds;
+                foreach (var button in Subviews.OfType<UIButton>())
+                {
+                    button.Frame = Bounds;
+                    button.Layer.CornerRadius = (nfloat)(Math.Min(Bounds.Width, Bounds.Height) / 2);
+                }
             }
 
             public override bool AccessibilityActivate()
