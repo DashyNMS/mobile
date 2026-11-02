@@ -491,12 +491,21 @@ Its light neutral background stays readable in both themes, with the dark
 colour matching desktop's logo tile. No tile is shown without a loaded logo.
 Check transparent SVG/PNG logos, proportions and long device titles.
 
-Edit dashboard and its setup/picker children keep native page safe areas
+Dashboard setup/picker children keep native page safe areas
 and add only the extra glass-row clearance (#391). Their scrolling controls
 disable duplicate native content insets; the editor footer no longer adds
 an unrelated 96pt gap. Check top labels and the last item/action in every
 orientation, both displays, keyboard use, reordering and return from setup.
-This change is scoped to dashboard editing, not other tab systems.
+Edit dashboard uses a scrolling viewport beneath the bottom bar, with measured
+side clearance and footer space for the glass controls. Its cards use the same
+340pt minimum column width, 12pt gap and three-column limit as the dashboard:
+two columns on a wide Duo display, one on a narrow display. Order is read across
+then down. Card titles and subtitles wrap, with Set up below and Remove in More.
+More also offers Move up/down for reordering without dragging. Changes still
+save immediately, and removal still offers Undo. The shared dashboard toast
+slides and fades, with Reduce Motion respected. Check drag reordering across
+columns, folding, rotation, large text, the final Add action and the full
+Dashboard → Edit → Add/Set up → Back chain on both platforms.
 
 DeviceSectionPage keeps its viewport above the bottom tab/glass clearance
 with a 12pt gap, rather than depending only on its virtualised footer (#392).
