@@ -471,6 +471,13 @@ and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
 split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
+Widget setup uses themed rounded search fields instead of native SearchBars
+for sensors, graph devices and Spotlight (#386). Card titles and graph
+choices keep visible labels, and ranked-card pickers avoid fixed minimum
+widths that crowd small phones. Filtering and immediate saving remain unchanged;
+the keyboard Search key dismisses typing while retaining the filter. Check
+both themes, clearing the filter and sensor selection on a small screen.
+
 Dashboard graph, ranked-card and Spotlight setup pages put their explicit
 Save action below the form as a full-width primary button (#384). Headers
 carry navigation only. Sensor selection retains its immediate-save behaviour.

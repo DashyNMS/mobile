@@ -19,14 +19,32 @@
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Choose a graph" SemanticProperties.HeadingLevel="Level1" />
 
         <!-- The card's own title (#87): "WAN traffic". Blank, it's named after the graph and device. -->
-        <Entry Grid.Row="2" Text="{Binding CardTitle}" Placeholder="Card title (optional)" Margin="0,0,0,8" />
+        <VerticalStackLayout Grid.Row="2" Spacing="4" Margin="0,0,0,8">
+            <Label Style="{StaticResource Caption}" Text="Card title (optional)" />
+            <Entry Text="{Binding CardTitle}" Placeholder="Card title" />
+        </VerticalStackLayout>
 
         <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         <ActivityIndicator Grid.Row="4" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 
         <!-- Step one: the device. -->
         <Grid Grid.Row="5" RowDefinitions="Auto,*" IsVisible="{Binding ChoosingDevice}">
-            <SearchBar Text="{Binding DeviceSearch}" Placeholder="Which device?" />
+        <Border Margin="0,4,0,8" Padding="14,0,4,0" HeightRequest="46" StrokeThickness="1"
+                BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
+                Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="23" />
+            </Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="2">
+                <Path Data="M10.5 4A6.5 6.5 0 1 0 10.5 17A6.5 6.5 0 1 0 10.5 4Z M15.5 15.5 20 20" StrokeThickness="2" StrokeLineCap="Round"
+                      WidthRequest="18" HeightRequest="18" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                      Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
+                <Entry Grid.Column="1" Text="{Binding DeviceSearch}" Placeholder="Which device?"
+                       SemanticProperties.Description="Which device?" VerticalOptions="Center" MinimumHeightRequest="40"
+                       ReturnType="Search" ClearButtonVisibility="WhileEditing" Completed="OnSetupSearchCompleted"
+                       IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+            </Grid>
+        </Border>
             <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None" Margin="0,6,0,0">
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
@@ -58,10 +76,13 @@
                         TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
             </Grid>
             <!-- Show: the device's own graphs or one of its ports (#172), as desktop's Graph widget. -->
+            <Label Style="{StaticResource Caption}" Text="Show" />
             <Picker Title="Show" ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource}"
                     ItemDisplayBinding="{Binding Label, x:DataType=dash:GraphSource}" />
+            <Label Style="{StaticResource Caption}" Text="Graph" />
             <Picker Title="Graph" ItemsSource="{Binding Graphs}" SelectedItem="{Binding SelectedGraph}"
                     ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
+            <Label Style="{StaticResource Caption}" Text="Time range" />
             <Picker Title="Time range" ItemsSource="{Binding Ranges}" SelectedItem="{Binding SelectedRange}"
                     ItemDisplayBinding="{Binding Label, x:DataType=dash:GraphRangeChoice}" />
         </VerticalStackLayout>

@@ -16,6 +16,8 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable
 		DashboardBackNavigation.Attach(this, TopBar);
 	}
 
+	private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
+
 	/// <summary>Loads once it knows which card - before then it would set up a new one.</summary>
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
