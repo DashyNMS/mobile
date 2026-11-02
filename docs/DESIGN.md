@@ -131,7 +131,21 @@ Ranked-card setup (#397) is a scrolling draft form with no choose step: its
 header is the card kind's title, and Card title, Rows, Rank by and, for Top
 errors only, Quiet ports are `SetupSection`s with labels above their controls,
 so large text does not crowd a row. Its draft, Save and stored fields are
-unchanged. Other pages retain their page layouts; their search appearance uses
+unchanged.
+Spotlight setup (#398) is a picker with no choose-then-configure step. Its
+header is "Spotlight". A Whole network section comes first: a caption saying
+it applies straight away, with a secondary "Use whole network" button that
+still saves and returns at once. Below it, an "Or keep it to" section holds
+the Devices/Group/Location segments, each announcing whether it is selected.
+Search, a selected count with the kind's prompt, then the error and its retry
+route and a loading indicator sit above the finite list, never over it. Rows
+are cards with one screen-reader description of name, detail and selected
+state. Devices show a check box because several can be ticked. A group or
+location shows a tick because it is the single choice. Devices, groups and
+locations use `NaturalOrder`, with saved choices the server no longer has kept
+at the top until unticked. The fixed Save stays disabled until every list has
+loaded, so a failed load cannot overwrite the saved Spotlight with an empty
+one. Other pages retain their page layouts; their search appearance uses
 SearchField.
 
 Graph setup is also the reference for a stepped setup page (#396). The
@@ -171,6 +185,9 @@ Apply these lessons to later setup pages:
   VoiceOver and TalkBack announce a meaningful device name and action and
   can activate the row. A hint or passing view-model test alone does not
   establish accessible operation.
+- Disable a fixed Save until the data its draft starts from has loaded. A
+  Save after a failed load must not write an empty selection over the saved
+  one; Spotlight setup did this before #398.
 - State the existing retry route beneath an error rather than adding a
   separate retry button. Verify that reopening reloads the device list and
   Change device followed by selection reloads graphs. Distinguish an empty
@@ -358,10 +375,11 @@ appearance does not change filtering, query retention or selection contracts.
   selections are supported. A failed save keeps the draft for another Save.
   Saved sensors absent from the current server response are retained. Sensor setup still
   awaits its own device acceptance under #395.
-- Graph, ranked cards and Spotlight currently use explicit Save; Graph and
-  ranked cards place it in the fixed setup action. Spotlight's Whole network
-  action currently saves and returns immediately. A unified visual layout must
-  identify these contracts before changing their behaviour.
+- Graph, ranked cards and Spotlight use explicit Save in the fixed setup
+  action. Spotlight's Whole network action still saves and returns
+  immediately and says so; making it a staged choice would be a separate
+  behaviour decision. A unified visual layout must identify these contracts
+  before changing their behaviour.
 
 ## Motion and selected-item cards
 
