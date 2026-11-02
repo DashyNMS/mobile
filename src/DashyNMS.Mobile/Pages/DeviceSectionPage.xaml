@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    Any Device View section: its rows, in titled groups. On iOS it runs to
-    the screen's edges - under the tab bar, the camera and a side tab bar's
-    column - with every edge placed in PlaceControls (#344), so the rows use
-    the whole screen rather than a column in the middle of it.
+    Any Device View section: its rows, in titled groups. On iOS the page
+    places its edges in PlaceControls (#344), using the available width;
+    the list viewport stays clear of the tab bar and glass (#392).
 -->
 <ContentPage
     x:Class="DashyNMS.Mobile.Pages.DeviceSectionPage"
