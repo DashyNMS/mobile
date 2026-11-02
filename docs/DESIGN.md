@@ -31,9 +31,10 @@ Paths in this table are under `src/DashyNMS.Mobile/`.
 | Searchable list with detail | `Pages/DevicesPage.xaml` and `.xaml.cs` | Virtualised list, footer clearance, optional detail column |
 | Pushed detail | `Pages/DeviceDetailPage.cs` | Back returns to the actual previous page; detail takes glass ownership |
 | Dashboard layout editor | `Pages/CustomiseDashboardPage.xaml` and `.xaml.cs` | Adaptive virtualised grid, measured side margins and footer clearance |
-| Dashboard setup form or picker | `Controls/DashboardBackNavigation.cs` and its callers | Currently keeps native page safe areas and adds only extra glass clearance |
+| Setup form or picker adopting #406 | `Controls/SetupLayout.cs`, `SetupPageLayout.cs`, `Pages/GraphPickerPage.xaml` | Fixed header, finite viewport, optional fixed action; explicit inset ownership |
+| Setup pages awaiting migration | `Controls/DashboardBackNavigation.cs` and its callers | Keeps native page safe areas and adds only extra glass clearance |
 
-The last row describes the existing form implementation after #391. The editor
+The final row describes the form implementation retained after #391. The editor
 moved to the scrolling pattern in #401. A form migration needs its own layout
 review; copying the editor's inset calculation into the form helper would count
 native safe areas twice. The agreed target for setup-page unification is recorded below and in #405.
@@ -60,8 +61,63 @@ layout belongs to #406; each page has its own migration issue.
   a real draft for title/selections and Back cancellation. Other persistence
   changes need an explicit decision in their issue.
 
-The existing helper still uses native page safe areas. Migrate its inset
-ownership deliberately and validate the #391 cases before replacing it.
+`DashboardBackNavigation` still uses native page safe areas. Pages adopting
+`SetupPageLayout` must remove that helper and their previous page padding and
+native-safe-area declaration together. Validate the #391 cases before migrating
+another page.
+
+### Shared setup implementation
+
+`SetupLayout` provides `Header`, `Body` and optional `PrimaryAction` slots.
+Its rows are Auto, star and Auto. Put a `PageHeader` in the header, a
+`ScrollView` or a grid containing a `CollectionView` in the body, and the real
+Save command in the action slot. A list must stay in a star row and outside
+any wrapping `ScrollView`. The action row reserves its measured height,
+including its margin, so the viewport and final scroll position clear it.
+Omit the action on immediate-save pages.
+
+Construct `SetupPageLayout(page, layout, header, scrollers)` once, passing each
+scroll or list view. It subscribes while the page is visible and disposes its
+safe-area watcher and native notification tokens on disappearing. It restores
+glass Back ownership on return and app resume. Existing callers of
+`CoveredEdges.Watch` may retain their lifetime behaviour; new helpers should
+retain and dispose the returned subscription.
+
+On iOS the native page owns only the top container inset. The layout owns
+16pt gutters plus `CoveredEdges` side clearance, and the bottom action gap.
+Native scroll inset adjustment is disabled on the supplied scrollers.
+`SetupActionPlacement` aligns the action with a measured side pill, clears a
+bottom pill and its actions, and treats a top pill separately. If measurement
+is unavailable, it falls back to native bottom and extra glass clearance.
+The action's own bottom margin must be zero to preserve alignment.
+
+Docked keyboard notifications lift the action and reduce the viewport;
+dismissal restores placement. The helper disables MAUI's iOS automatic page
+translation while visible so it cannot move the fixed header/action a second
+time, and restores it on exit. Focused fields inside native scroll views are
+scrolled into view after keyboard geometry changes. Android retains native
+safe-area and soft-input handling through `SafeAreaEdges.All` on the page.
+Floating iPad keyboard obstruction remains a device check.
+
+Use `SetupSection` for the shared label, 4pt field spacing and 8pt section
+margin. Use the existing styled `SearchBar`, `Error`, `Caption` and
+`ActivityIndicator` presentation rather than introducing another theme palette.
+Search submission and list scrolling use `KeyboardDismiss`. Selection remains
+owned by the page/view model; expose selected state to accessibility when a
+page adds selection rows. Supply meaningful empty and retry states for each
+page's data contract.
+
+Graph setup is the first consumer, covering a device list and a scrolling
+draft form. Its optional title scrolls with the form, search uses the shared
+SearchBar style, and Save still uses the existing draft command. No view-model
+or persistence contract changes are included. Sensors and the remaining pages
+are not migrated. #396 remains open for Graph-specific acceptance.
+
+The geometry regression tests verify placement decisions. They do not verify
+native rendering, focus behaviour, accessibility or glass ownership. Record
+those results against the TestFlight build in the PR's device checklist before
+calling the implementation device-verified. No device verification is recorded
+by this change.
 
 ## Placement and scrolling
 
@@ -225,6 +281,7 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
 | Adaptive dashboard columns | `Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
 | Primary button colours and states | `Resources/Styles/Styles.xaml` implicit Button style |
+| Shared setup slots, placement and sections | `Controls/SetupLayout.cs`, `SetupPageLayout.cs`, `SetupSection.cs`, `Mobile.Shared/Services/SetupActionPlacement.cs` |
 | Existing form Back and inset handling | `Controls/DashboardBackNavigation.cs` |
 | Human reading order | `Mobile.Shared/Services/NaturalOrder.cs` |
 | Device evidence | Settings diagnostics, "Tab bar buttons:" and "Top line on" entries |
