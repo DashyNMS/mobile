@@ -46,6 +46,33 @@ a group or location is a single choice. Missing saved choices remain at the
 top until unticked. Fixed Save waits for all sources to load. Whole network
 saves and returns immediately; other choices wait for Save.
 
+### Pending migrations, #407 to #414
+
+These contracts guide the authorised batch and are not yet accepted. Each page
+adopts `SetupLayout` and follows DESIGN.md's action hierarchy.
+
+- **Add card #407:** search uses `SearchField`; the catalogue uses the choice
+  grid breakpoint. Category counts, unavailable reasons, multi-selection,
+  add-below position and automatic setup of a single Sensors or Graph card are
+  unchanged. Add is the fixed primary action and names what it adds.
+- **Graylog #408 and Unimus #409:** one connection form shape: enablement,
+  server, login or token, then options. Save is fixed and drafts stay as now.
+  Test connection checks the draft, saves nothing and may add a trusted
+  certificate to the draft only. Forget saved password or token removes the
+  stored secret immediately after confirmation and stays subordinate.
+- **Sensor definitions #410:** the switch and source are the draft; installed
+  version, last check and status are read-only. Update now acts on the saved
+  source and explains when an unsaved draft disables it.
+- **Thresholds #411:** value rows stack when crowded. Reset to desktop's
+  defaults changes the draft only; Save validates and applies; Back discards.
+- **Settings sections #412:** all seven sections share one layout and save
+  automatically. Dependent visibility, permissions, privacy text and the
+  notification rule list remain unchanged.
+- **Rule picker #413 and Graylog device picker #414:** immediate choosers
+  with picker statuses. Already-added rules state why they cannot be added.
+  Any device becomes the scope choice above the results. Suggestions, group
+  headings, the result cap and natural order are retained.
+
 ## Dashboard editor contract
 
 `CustomiseDashboardPage` uses the dashboard's adaptive columns and saves
