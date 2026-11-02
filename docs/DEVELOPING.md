@@ -478,6 +478,11 @@ widths that crowd small phones. Filtering and immediate saving remain unchanged;
 the keyboard Search key dismisses typing while retaining the filter. Check
 both themes, clearing the filter and sensor selection on a small screen.
 
+The ellipsis menu button itself has a capsule configuration and clipped,
+rounded bounds (#382), so UIKit's pressed/menu preview has the same shape
+as its surrounding glass. Check opening, selecting and cancelling the menu,
+including a Back + ellipsis group, both themes and VoiceOver on a device.
+
 The device-detail logo uses a 48pt rounded tile with 7pt padding (#388).
 Its light neutral background stays readable in both themes, with the dark
 colour matching desktop's logo tile. No tile is shown without a loaded logo.
