@@ -48,7 +48,7 @@
                         <Border x:Name="Appearance" Style="{StaticResource Card}" IsVisible="False">
                             <VerticalStackLayout Spacing="8">
                                 <controls:SetupSection Label="Light or dark">
-                                    <Picker Title="Appearance" ItemsSource="{Binding AppearanceLabels}" SelectedIndex="{Binding AppearanceIndex}" />
+                                    <Picker SemanticProperties.Description="Appearance" Title="Appearance" ItemsSource="{Binding AppearanceLabels}" SelectedIndex="{Binding AppearanceIndex}" />
                                 </controls:SetupSection>
                                 <!-- Desktop's own setting, shared (#106). -->
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -68,7 +68,7 @@
                                         <VerticalStackLayout VerticalOptions="Center">
                                             <Label Style="{StaticResource Caption}" Text="Which name devices go by in lists and titles, as on desktop." />
                                         </VerticalStackLayout>
-                                        <Picker Title="Device names" ItemsSource="{Binding DeviceNameStyles}" SelectedIndex="{Binding DeviceNameStyleIndex}" />
+                                        <Picker SemanticProperties.Description="Device names" Title="Device names" ItemsSource="{Binding DeviceNameStyles}" SelectedIndex="{Binding DeviceNameStyleIndex}" />
                                     </VerticalStackLayout>
                                 </controls:SetupSection>
                             </Border>
@@ -82,7 +82,7 @@
                                         <Switch SemanticProperties.Description="Recently viewed" Grid.Column="1" IsToggled="{Binding ShowRecentlyViewed}" VerticalOptions="Center" />
                                     </Grid>
                                     <controls:SetupSection Label="How many to keep" IsVisible="{Binding ShowRecentlyViewed}">
-                                        <Picker Title="How many to keep" ItemsSource="{Binding RecentlyViewedCountLabels}" SelectedIndex="{Binding RecentlyViewedCountIndex}" />
+                                        <Picker SemanticProperties.Description="How many to keep" Title="How many to keep" ItemsSource="{Binding RecentlyViewedCountLabels}" SelectedIndex="{Binding RecentlyViewedCountIndex}" />
                                     </controls:SetupSection>
                                 </VerticalStackLayout>
                             </Border>
@@ -95,7 +95,7 @@
                                         <VerticalStackLayout VerticalOptions="Center">
                                             <Label Style="{StaticResource Caption}" Text="While DashyNMS is open. In the background, your phone decides how often." />
                                         </VerticalStackLayout>
-                                        <Picker Title="Check alerts every" ItemsSource="{Binding PollIntervalLabels}" SelectedIndex="{Binding PollIntervalIndex}" />
+                                        <Picker SemanticProperties.Description="Check alerts every" Title="Check alerts every" ItemsSource="{Binding PollIntervalLabels}" SelectedIndex="{Binding PollIntervalIndex}" />
                                     </VerticalStackLayout>
                                 </controls:SetupSection>
                             </Border>
@@ -118,7 +118,7 @@
                                             <VerticalStackLayout VerticalOptions="Center">
                                                 <Label Style="{StaticResource Caption}" Text="For the app icon and the Alerts tab's dot." />
                                             </VerticalStackLayout>
-                                            <Picker Title="Count alerts from" ItemsSource="{Binding BadgeThresholdLabels}" SelectedIndex="{Binding BadgeThresholdIndex}" VerticalOptions="Center" />
+                                            <Picker SemanticProperties.Description="Count alerts from" Title="Count alerts from" ItemsSource="{Binding BadgeThresholdLabels}" SelectedIndex="{Binding BadgeThresholdIndex}" VerticalOptions="Center" />
                                         </VerticalStackLayout>
                                     </controls:SetupSection>
                                 </VerticalStackLayout>
@@ -164,10 +164,10 @@
                                     </Grid>
                                     <VerticalStackLayout Spacing="8" IsVisible="{Binding QuietHoursEnabled}">
                                         <controls:SetupSection Label="From">
-                                            <Picker Title="Quiet hours start" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursStart}" />
+                                            <Picker SemanticProperties.Description="Quiet hours start" Title="Quiet hours start" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursStart}" />
                                         </controls:SetupSection>
                                         <controls:SetupSection Label="To">
-                                            <Picker Title="Quiet hours end" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursEnd}" />
+                                            <Picker SemanticProperties.Description="Quiet hours end" Title="Quiet hours end" ItemsSource="{Binding Hours}" SelectedIndex="{Binding QuietHoursEnd}" />
                                         </controls:SetupSection>
                                         <Grid ColumnDefinitions="*,Auto">
                                             <Label Text="Still notify critical alerts" VerticalOptions="Center" />
@@ -228,9 +228,9 @@
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="alerting:NotificationRuleEntry">
                                                         <VerticalStackLayout>
-                                                            <VerticalStackLayout MinimumHeightRequest="52" Spacing="4">
-                                                                <Label Text="{Binding Description}" VerticalOptions="Center" />
-                                                                <Button Style="{StaticResource LinkButton}" Text="Remove" Command="{Binding RemoveNotifyRuleCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}" CommandParameter="{Binding .}" VerticalOptions="Center" HorizontalOptions="Start" />
+                                                            <VerticalStackLayout MinimumHeightRequest="52" Spacing="4" Padding="0,10">
+                                                                <Label Text="{Binding Description}" />
+                                                                <Button Style="{StaticResource LinkButton}" Text="Remove" MinimumHeightRequest="44" Padding="0" SemanticProperties.Description="{Binding Description, StringFormat='Remove {0}'}" Command="{Binding RemoveNotifyRuleCommand, Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, x:DataType=vm:SettingsViewModel}" CommandParameter="{Binding .}" VerticalOptions="Center" HorizontalOptions="Start" />
                                                             </VerticalStackLayout>
                                                             <BoxView Style="{StaticResource Divider}" />
                                                         </VerticalStackLayout>
