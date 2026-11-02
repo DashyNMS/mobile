@@ -11,7 +11,7 @@
     SafeAreaEdges="Container"
     Title="Dashboard sensors">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:BackBar x:Name="TopBar" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Choose sensors" SemanticProperties.HeadingLevel="Level1" />
@@ -42,7 +42,7 @@
         <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
         <ActivityIndicator Grid.Row="5" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
 
-        <CollectionView Grid.Row="6" ItemsSource="{Binding Sensors}" SelectionMode="None">
+        <CollectionView x:Name="List" Grid.Row="6" ItemsSource="{Binding Sensors}" SelectionMode="None">
             <CollectionView.ItemsLayout>
                 <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
             </CollectionView.ItemsLayout>

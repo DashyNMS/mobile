@@ -17,7 +17,7 @@ public partial class AddCardPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar);
+		DashboardBackNavigation.Attach(this, TopBar, List);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query) =>

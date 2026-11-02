@@ -13,7 +13,7 @@ public partial class CustomiseDashboardPage : ContentPage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar);
+		DashboardBackNavigation.Attach(this, TopBar, List);
 	}
 
 	/// <summary>Back from a card's set-up or the card picker: the cards may have changed (#87, #140).</summary>

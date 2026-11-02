@@ -13,7 +13,7 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar);
+		DashboardBackNavigation.Attach(this, TopBar, List);
 	}
 
 	private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
