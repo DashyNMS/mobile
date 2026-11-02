@@ -34,6 +34,22 @@ reference for historical acceptance; keep reusable design rules here.
    acceptance; use non-closing PR references until then. Close only the
    accepted issues and tick their epic entries, leaving other work pending.
 
+### Batch delivery
+
+The user may authorise a batch of page issues for one device test; #407 to
+#414 were authorised this way on 2 November 2026. A batch changes only when
+device verification happens:
+
+- Keep one issue per PR with a non-closing `Refs #NN`. Each PR passes CI and
+  the step 5 review before squash-merging; a code-only machine runs no local
+  builds or tests.
+- Land a shared-control change before the pages using it, in its own PR or the
+  first consumer's. Name the accepted pages it affects and keep their contracts.
+- Build one TestFlight after the final merge. The user accepts or rejects each
+  issue separately; issues and epic boxes stay open until then.
+- A rejected page gets a follow-up PR referencing its issue. Record accepted
+  results in DESIGN-REFERENCES.md afterwards.
+
 ## Choose the page pattern
 
 Paths in this table are under `src/DashyNMS.Mobile/`.
@@ -76,6 +92,23 @@ in #405; each page retains its contract until its migration is accepted.
 - Use the implicit primary `Button` style for the main Add or Save action;
   it owns primary colours, contrast and disabled states. Use secondary
   buttons for subordinate actions.
+
+### Action hierarchy
+
+Each page has at most one primary action, in the fixed action slot. Remove
+any header or in-form copy of it. Other actions take the lowest role that fits:
+
+| Role | Examples | Placement and behaviour |
+| --- | --- | --- |
+| Primary commit | Save, Add 3 cards | Fixed action slot, implicit `Button` style; label names what it commits |
+| Draft check | Test connection | `SecondaryButton` after the fields it tests; tests the draft and saves nothing; busy and result text directly beneath |
+| Draft change | Reset to desktop's defaults | `SecondaryButton` after the fields; changes the draft only; caption says Save applies it |
+| Immediate action | Forget saved password, Update now, Use whole network | `SecondaryButton` beside text or in a section saying it applies straight away; confirm irreversible removal |
+| Scope choice | Any device | First option above the results, not in the header; selects and returns immediately |
+
+An immediate action acts on saved settings, never the unsaved draft. When a
+draft blocks it, disable it and say why, for example "Save first to update
+from this repository". State results in text as well as colour.
 
 `DashboardBackNavigation` still uses native page safe areas. Pages adopting
 `SetupPageLayout` must remove that helper and their previous page padding and
@@ -231,6 +264,10 @@ appearance does not change filtering, query retention or selection contracts.
   chips/list should move; overlay search only when the canvas pattern calls
   for it. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
 - Implement `ISearchHost` for Entry-based pages supporting Command-F.
+- Choosers whose rows come from the server use a `CollectionView`, grouped
+  where headings are needed, inside the finite viewport. `BindableLayout` is
+  for short fixed lists only. Choosing a row in an immediate chooser commits
+  and returns, with no Save.
 - Use `NaturalOrder.Instance` for human-facing device, graph, group and location
   choices across every source feeding a picker, including port graph
   descriptions. Ports themselves may retain interface order; that exception
@@ -245,6 +282,13 @@ appearance does not change filtering, query retention or selection contracts.
 - Let titles, summaries and field labels wrap. Put labels above pickers with
   `SetupSection`, which supplies 4pt field spacing and 8pt section margin.
   A switch may sit beside wrapping text and has its own accessible description.
+- Label/control rows put the control beside its label only when both fit at
+  the current width and text size; otherwise stack the label above. Use no
+  fixed label or value column widths. Numeric fields show their unit in the
+  label or section heading and keep the full value visible.
+- Choice grids such as Add card use their own breakpoint: 160pt minimum tiles,
+  10pt gaps and at most four columns, recomputed on resize and text-size
+  change. Dashboard column counts do not apply to catalogue previews.
 - Name a stepped form's current step in its header. Show the chosen entity
   in a labelled section with a Change action naming the entity it replaces.
   A form with no choose step uses its subject as the header.
@@ -274,6 +318,16 @@ appearance does not change filtering, query retention or selection contracts.
 - Separate immediate actions from draft fields in a labelled section with
   text saying they apply straight away. Save commits the draft together;
   Back discards it. Immediate-save pages preserve automatic saving.
+- An automatic-save page says "Changes save automatically." once, beneath its
+  heading. It has no Save, action slot or per-change confirmation. A setting
+  the system refuses, such as a denied permission, shows its actual state and why.
+- After a failed Save, scroll its error into view and announce it, because the
+  fixed action may be far from the error's position at the top.
+- Picker status sits between search and the list, one state at a time:
+  loading, load failure with its retry route, empty source, no matches for
+  the query, or a capped result count with a prompt to refine the search.
+  Rows that cannot be chosen stay visible with their reason in the row text
+  and accessible name; dimming alone is insufficient.
 
 ## Motion and selected-item cards
 
@@ -339,6 +393,7 @@ For each page change, record applicable results, including unverified items:
 - [ ] Search closes the keyboard correctly and preserves its query
 - [ ] Loading, empty, error and selected states remain readable and retryable
 - [ ] Save/automatic-save and Back cancellation follow the approved contract; failed loads cannot save an empty draft
+- [ ] One primary action; secondary and immediate actions follow the action hierarchy and say what they change
 - [ ] Screen-reader names, selection states and activation work; drag actions have an accessible alternative
 - [ ] Motion respects Reduce Motion; repeated transitions finish correctly
 - [ ] Relevant shared tests and Android/iOS builds pass
@@ -349,4 +404,5 @@ For each page change, record applicable results, including unverified items:
 
 Repository issue, PR and release conventions live in `docs/DEVELOPING.md`.
 Ship one coherent page change at a time and verify it on the Duo before
-expanding the rollout. CI success alone does not establish visual correctness.
+expanding the rollout, unless the user authorises a batch as described under
+Batch delivery. CI success alone does not establish visual correctness.
