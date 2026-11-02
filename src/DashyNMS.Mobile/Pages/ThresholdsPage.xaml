@@ -3,123 +3,115 @@
     x:Class="DashyNMS.Mobile.Pages.ThresholdsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:ThresholdsViewModel"
-    ios:Page.UseSafeArea="True"
-    SafeAreaEdges="Container"
     Title="Health thresholds">
-    <Grid RowDefinitions="Auto,*">
-        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Health thresholds" Margin="16,0,16,0">
-            <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Save" Command="{Binding SaveCommand}" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
-        <Grid Grid.Row="1">
+    <controls:SetupLayout x:Name="Setup">
+        <controls:SetupLayout.Header>
+            <controls:PageHeader x:Name="Header" Title="Health thresholds" />
+        </controls:SetupLayout.Header>
+        <controls:SetupLayout.Body>
+            <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="4">
+                    <Label x:Name="ValidationError" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-
-
-    <ScrollView>
-        <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16" Spacing="4">
-
-                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-
-                <Label Style="{StaticResource SectionHeader}" Text="OPTICAL POWER (dBm)" />
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource Caption}" Text="Weaker is more negative." />
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Warning at or below" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding DbmWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Critical at or below" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding DbmCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Label Style="{StaticResource SectionHeader}" Text="SIGNAL (dBm)" />
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource Caption}" Text="Wireless signal strength." />
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Warning at or below" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding SignalWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Critical at or below" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding SignalCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Label Style="{StaticResource SectionHeader}" Text="TEMPERATURE (°C)" />
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource Caption}" Text="Too cold or too hot." />
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Low critical" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding TemperatureLowCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Low warning" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding TemperatureLowWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="High warning" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding TemperatureHighWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="High critical" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding TemperatureHighCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Label Style="{StaticResource SectionHeader}" Text="FAN SPEED (RPM)" />
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Style="{StaticResource Caption}" Text="Too slow or too fast." />
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Low critical" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding FanLowCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="Low warning" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding FanLowWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="High warning" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding FanHighWarning}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="12">
-                            <Label Text="High critical" VerticalOptions="Center" />
-                            <Entry Grid.Column="1" Text="{Binding FanHighCritical}" Keyboard="Numeric" HorizontalTextAlignment="End" />
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Border Style="{StaticResource Card}" Margin="0,12,0,0">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout>
-                            <Label Text="Always use these thresholds" />
-                            <Label Style="{StaticResource Caption}"
-                                   Text="Off: a sensor's own limits set in LibreNMS win for the bounds they set, as on desktop. On: these apply everywhere." />
+                    <Label Style="{StaticResource SectionHeader}" Text="OPTICAL POWER (dBm)" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource Caption}" Text="Weaker is more negative." />
+                            <controls:SetupSection Label="Warning at or below (dBm)">
+                                <Entry Text="{Binding DbmWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Optical power: warning at or below (dBm)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="Critical at or below (dBm)">
+                                <Entry Text="{Binding DbmCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Optical power: critical at or below (dBm)" />
+                            </controls:SetupSection>
                         </VerticalStackLayout>
-                        <Switch Grid.Column="1" IsToggled="{Binding OverrideSensorLimits}" VerticalOptions="Center" />
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <Button Text="Reset to desktop's defaults" Command="{Binding ResetToDefaultsCommand}" Margin="0,16,0,0" />
+                    <Label Style="{StaticResource SectionHeader}" Text="SIGNAL (dBm)" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource Caption}" Text="Wireless signal strength." />
+                            <controls:SetupSection Label="Warning at or below (dBm)">
+                                <Entry Text="{Binding SignalWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Signal: warning at or below (dBm)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="Critical at or below (dBm)">
+                                <Entry Text="{Binding SignalCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Signal: critical at or below (dBm)" />
+                            </controls:SetupSection>
+                        </VerticalStackLayout>
+                    </Border>
 
-            </VerticalStackLayout>
-        </controls:ReadableColumn>
-    </ScrollView>
-        </Grid>
-    </Grid>
+                    <Label Style="{StaticResource SectionHeader}" Text="TEMPERATURE (°C)" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource Caption}" Text="Too cold or too hot." />
+                            <controls:SetupSection Label="Low critical (°C)">
+                                <Entry Text="{Binding TemperatureLowCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Temperature: low critical (°C)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="Low warning (°C)">
+                                <Entry Text="{Binding TemperatureLowWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Temperature: low warning (°C)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="High warning (°C)">
+                                <Entry Text="{Binding TemperatureHighWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Temperature: high warning (°C)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="High critical (°C)">
+                                <Entry Text="{Binding TemperatureHighCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Temperature: high critical (°C)" />
+                            </controls:SetupSection>
+                        </VerticalStackLayout>
+                    </Border>
 
+                    <Label Style="{StaticResource SectionHeader}" Text="FAN SPEED (RPM)" />
+                    <Border Style="{StaticResource Card}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource Caption}" Text="Too slow or too fast." />
+                            <controls:SetupSection Label="Low critical (RPM)">
+                                <Entry Text="{Binding FanLowCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Fan speed: low critical (RPM)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="Low warning (RPM)">
+                                <Entry Text="{Binding FanLowWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Fan speed: low warning (RPM)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="High warning (RPM)">
+                                <Entry Text="{Binding FanHighWarning}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Fan speed: high warning (RPM)" />
+                            </controls:SetupSection>
+                            <controls:SetupSection Label="High critical (RPM)">
+                                <Entry Text="{Binding FanHighCritical}" Keyboard="Numeric"
+                                       SemanticProperties.Description="Fan speed: high critical (RPM)" />
+                            </controls:SetupSection>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="Always use these thresholds" />
+                                <Label Style="{StaticResource Caption}"
+                                       Text="Off: a sensor's own limits set in LibreNMS win for the bounds they set, as on desktop. On: these apply everywhere." />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding OverrideSensorLimits}" VerticalOptions="Center"
+                                    SemanticProperties.Description="Always use these thresholds" />
+                        </Grid>
+                    </Border>
+
+                    <Button Style="{StaticResource SecondaryButton}" Text="Reset to desktop's defaults" Command="{Binding ResetToDefaultsCommand}" Margin="0,16,0,0" />
+
+                    <Label Style="{StaticResource Caption}" Text="Reset changes these fields only. Save applies them; Back discards changes." />
+                </VerticalStackLayout>
+            </ScrollView>
+        </controls:SetupLayout.Body>
+        <controls:SetupLayout.PrimaryAction>
+            <Button Text="Save" Clicked="OnSaveClicked" HorizontalOptions="Fill" Margin="0,12,0,0" />
+        </controls:SetupLayout.PrimaryAction>
+    </controls:SetupLayout>
 </ContentPage>
