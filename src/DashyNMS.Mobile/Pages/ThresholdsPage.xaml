@@ -21,11 +21,11 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Style="{StaticResource Caption}" Text="Weaker is more negative." />
                             <controls:SetupSection Label="Warning at or below (dBm)">
-                                <Entry Text="{Binding DbmWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding DbmWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Optical power: warning at or below (dBm)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="Critical at or below (dBm)">
-                                <Entry Text="{Binding DbmCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding DbmCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Optical power: critical at or below (dBm)" />
                             </controls:SetupSection>
                         </VerticalStackLayout>
@@ -36,11 +36,11 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Style="{StaticResource Caption}" Text="Wireless signal strength." />
                             <controls:SetupSection Label="Warning at or below (dBm)">
-                                <Entry Text="{Binding SignalWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding SignalWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Signal: warning at or below (dBm)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="Critical at or below (dBm)">
-                                <Entry Text="{Binding SignalCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding SignalCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Signal: critical at or below (dBm)" />
                             </controls:SetupSection>
                         </VerticalStackLayout>
@@ -51,19 +51,19 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Style="{StaticResource Caption}" Text="Too cold or too hot." />
                             <controls:SetupSection Label="Low critical (°C)">
-                                <Entry Text="{Binding TemperatureLowCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding TemperatureLowCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Temperature: low critical (°C)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="Low warning (°C)">
-                                <Entry Text="{Binding TemperatureLowWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding TemperatureLowWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Temperature: low warning (°C)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="High warning (°C)">
-                                <Entry Text="{Binding TemperatureHighWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding TemperatureHighWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Temperature: high warning (°C)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="High critical (°C)">
-                                <Entry Text="{Binding TemperatureHighCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding TemperatureHighCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Temperature: high critical (°C)" />
                             </controls:SetupSection>
                         </VerticalStackLayout>
@@ -74,19 +74,19 @@
                         <VerticalStackLayout Spacing="8">
                             <Label Style="{StaticResource Caption}" Text="Too slow or too fast." />
                             <controls:SetupSection Label="Low critical (RPM)">
-                                <Entry Text="{Binding FanLowCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding FanLowCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Fan speed: low critical (RPM)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="Low warning (RPM)">
-                                <Entry Text="{Binding FanLowWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding FanLowWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Fan speed: low warning (RPM)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="High warning (RPM)">
-                                <Entry Text="{Binding FanHighWarning}" Keyboard="Numeric"
+                                <Entry Text="{Binding FanHighWarning}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Fan speed: high warning (RPM)" />
                             </controls:SetupSection>
                             <controls:SetupSection Label="High critical (RPM)">
-                                <Entry Text="{Binding FanHighCritical}" Keyboard="Numeric"
+                                <Entry Text="{Binding FanHighCritical}" Keyboard="Numeric" HandlerChanged="OnNumericHandlerChanged"
                                        SemanticProperties.Description="Fan speed: high critical (RPM)" />
                             </controls:SetupSection>
                         </VerticalStackLayout>
@@ -111,7 +111,7 @@
             </ScrollView>
         </controls:SetupLayout.Body>
         <controls:SetupLayout.PrimaryAction>
-            <Button Text="Save" Clicked="OnSaveClicked" HorizontalOptions="Fill" Margin="0,12,0,0" />
+            <Button Text="Save" IsEnabled="{Binding SaveCommand.IsRunning, Converter={StaticResource Invert}}" Clicked="OnSaveClicked" HorizontalOptions="Fill" Margin="0,12,0,0" />
         </controls:SetupLayout.PrimaryAction>
     </controls:SetupLayout>
 </ContentPage>

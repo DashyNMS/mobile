@@ -166,7 +166,7 @@ public sealed class ThresholdsViewModelTests
 
     [Theory]
     [InlineData(nameof(ThresholdsViewModel.FanHighWarning), "fast", "must be a number")]
-    [InlineData(nameof(ThresholdsViewModel.DbmCritical), "-10", "dBm critical must be at or below")]
+    [InlineData(nameof(ThresholdsViewModel.DbmCritical), "-10", "Optical power critical must be at or below")]
     [InlineData(nameof(ThresholdsViewModel.TemperatureLowWarning), "80", "Temperature thresholds must go")]
     [InlineData(nameof(ThresholdsViewModel.SignalCritical), "-10", "Signal critical must be at or below")]
     [InlineData(nameof(ThresholdsViewModel.FanHighWarning), "30000", "Fan speed thresholds must go")]
