@@ -54,6 +54,8 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasDevice))]
     [NotifyPropertyChangedFor(nameof(ChoosingDevice))]
+    [NotifyPropertyChangedFor(nameof(StepTitle))]
+    [NotifyPropertyChangedFor(nameof(ChangeDeviceDescription))]
     private DeviceItem? _selectedDevice;
 
     [ObservableProperty]
@@ -77,6 +79,18 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
         _settings = settings;
         _navigation = navigation;
         _selectedRange = Ranges[1];
+
+        // The states below derive from busy, error and the graph list, which
+        // change in the base class and the collection rather than here.
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(IsBusy) or nameof(ErrorMessage) or nameof(SelectedDevice))
+            {
+                OnPropertyChanged(nameof(HasNoGraphs));
+                OnPropertyChanged(nameof(RecoveryText));
+            }
+        };
+        Graphs.CollectionChanged += (_, _) => OnPropertyChanged(nameof(HasNoGraphs));
     }
 
     /// <summary>Which card this sets up - from Customise or the card itself (#87).</summary>
@@ -122,6 +136,40 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
 
     public bool ChoosingDevice => SelectedDevice is null;
 
+    /// <summary>
+    /// The heading names the current step, so it's clear whether the page is
+    /// waiting for a device or for the graph itself (#396).
+    /// </summary>
+    public string StepTitle => ChoosingDevice ? "Choose a device" : "Choose a graph";
+
+    /// <summary>Says which device Change device replaces, as the button alone doesn't to a screen reader.</summary>
+    public string ChangeDeviceDescription => SelectedDevice is { } device ? $"Change device, currently {device.Name}" : "Change device";
+
+    /// <summary>
+    /// Why the device list is empty: a search that matches nothing reads
+    /// differently from a server with no devices. Blank after a failure, as
+    /// the error already explains the empty list.
+    /// </summary>
+    public string EmptyText => HasError ? string.Empty
+        : DeviceSearch.Trim() is { Length: > 0 } term ? $"No devices match \"{term}\""
+        : "No devices found";
+
+    /// <summary>
+    /// The device has loaded but LibreNMS lists no graphs for it, so the empty
+    /// Graph picker needs a reason rather than looking broken.
+    /// </summary>
+    public bool HasNoGraphs => HasDevice && !IsBusy && !HasError && Graphs.Count == 0;
+
+    /// <summary>
+    /// How to retry after a failure. The page has no retry control of its own
+    /// (none of the app's setup pages do), so the error says which route
+    /// loads again: reopening for the device list, choosing the device again
+    /// for its graphs.
+    /// </summary>
+    public string? RecoveryText => !HasError ? null
+        : ChoosingDevice ? "To retry, go back and open graph setup again."
+        : "To retry, use Change device and choose this device again.";
+
     partial void OnDeviceSearchChanged(string value) => FilterDevices();
 
     partial void OnSelectedRangeChanged(GraphRangeChoice value)
@@ -145,7 +193,7 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
         var style = _settings.Current.DeviceNameStyle;
         _devices = (await _client.Devices.ListAsync())
             .Select(d => new DeviceItem(d, style))
-            .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(d => d.Name, NaturalOrder.Instance)
             .ToList();
 
         // Carry on from the card's current set-up.
@@ -182,7 +230,7 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
             var ports = PortsAsync(device.DeviceId);
             await Task.WhenAll(deviceWide, health, ports);
             _deviceGraphs = deviceWide.Result.Concat(health.Result)
-                .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(g => g.Description, NaturalOrder.Instance)
                 .ToList();
 
             Sources.ReplaceAll([DeviceGraphs, .. ports.Result.Select(GraphSource.For)]);
@@ -208,7 +256,7 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
             return (await _client.Ports.ListForDeviceAsync(deviceId))
                 .Where(p => !p.Deleted && !string.IsNullOrEmpty(p.IfName))
                 .OrderBy(p => p.IfIndex ?? int.MaxValue)
-                .ThenBy(p => p.IfName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(p => p.IfName, NaturalOrder.Instance)
                 .ToList();
         }
         catch (LibreNmsApiException)
@@ -220,6 +268,8 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
     [RelayCommand]
     private void ChangeDevice()
     {
+        // A graph-list failure belongs to the device being left.
+        ErrorMessage = null;
         SelectedDevice = null;
         SelectedGraph = null;
         _deviceGraphs = [];
@@ -256,6 +306,7 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
             .Where(d => term.Length == 0 || d.Matches(term))
             .Take(MaxDevices)
             .ToList());
+        OnPropertyChanged(nameof(EmptyText));
     }
 
     /// <summary>"Traffic · core-sw-01" - what a card is called until it's given a title of its own.</summary>

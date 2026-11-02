@@ -6,6 +6,7 @@ using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using NSubstitute.ExceptionExtensions;
 
 namespace DashyNMS.Mobile.Tests;
 
@@ -873,6 +874,115 @@ public sealed class GraphPickerViewModelTests
         Assert.Equal((2, "device_bits", GraphTimeRangePreset.Week), (card.GraphDeviceId, card.GraphName, card.GraphTimeRangePreset));
         Assert.Equal("Traffic · edge-rtr", card.Title);
         Assert.Equal(Routes.Back, Assert.Single(navigation.Visits).Route);
+    }
+
+    [Fact]
+    public async Task Devices_and_graphs_are_in_reading_order_and_ports_in_interface_order()
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(1, "sw-10"), Fakes.Device(2, "sw-2"), Fakes.Device(3, "Sw-1")]);
+        client.Graphs.ListAsync(2, Arg.Any<CancellationToken>()).Returns(
+        [
+            new GraphType { Name = "b", Description = "Processor 10" },
+            new GraphType { Name = "a", Description = "Processor 2" },
+        ]);
+        client.Graphs.ListHealthAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+        client.Ports.ListForDeviceAsync(2, Arg.Any<CancellationToken>()).Returns(
+        [
+            new Port { PortId = 30, IfIndex = 10, IfName = "Gi0/10" },
+            new Port { PortId = 31, IfIndex = 2, IfName = "Gi0/2" },
+            new Port { PortId = 32, IfIndex = 1, IfName = "Te0/9" },
+        ]);
+        var vm = new GraphPickerViewModel(client, Fakes.Settings(), new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.Equal(["Sw-1", "sw-2", "sw-10"], vm.Devices.Select(d => d.Name));
+
+        await vm.ChooseDeviceCommand.ExecuteAsync(vm.Devices[1]);
+        Assert.Equal(["Processor 2", "Processor 10"], vm.Graphs.Select(g => g.Description));
+        Assert.Equal(["Te0/9", "Gi0/2", "Gi0/10"], vm.Sources.Skip(1).Select(s => s.IfName));
+    }
+
+    [Fact]
+    public async Task The_heading_and_device_labels_follow_the_step()
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(2, "edge-rtr")]);
+        client.Graphs.ListAsync(2, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "device_bits", Description = "Traffic" }]);
+        client.Graphs.ListHealthAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+        var vm = new GraphPickerViewModel(client, Fakes.Settings(), new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.Equal("Choose a device", vm.StepTitle);
+
+        await vm.ChooseDeviceCommand.ExecuteAsync(vm.Devices[0]);
+        Assert.Equal("Choose a graph", vm.StepTitle);
+        Assert.Equal("Change device, currently edge-rtr", vm.ChangeDeviceDescription);
+        Assert.False(vm.HasNoGraphs);
+
+        vm.ChangeDeviceCommand.Execute(null);
+        Assert.Equal("Choose a device", vm.StepTitle);
+    }
+
+    [Fact]
+    public async Task An_empty_device_list_says_whether_the_search_matched_nothing()
+    {
+        var vm = new GraphPickerViewModel(Fakes.Client(devices: [Fakes.Device(1, "core-sw")]), Fakes.Settings(), new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+        var changed = new List<string?>();
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        vm.DeviceSearch = " zzz ";
+        Assert.Empty(vm.Devices);
+        Assert.Equal("No devices match \"zzz\"", vm.EmptyText);
+        Assert.Contains(nameof(vm.EmptyText), changed);
+
+        var none = new GraphPickerViewModel(Fakes.Client(devices: []), Fakes.Settings(), new RecordingNavigation());
+        await none.LoadCommand.ExecuteAsync(null);
+        Assert.Equal("No devices found", none.EmptyText);
+    }
+
+    [Fact]
+    public async Task A_device_without_graphs_says_so()
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(2, "edge-rtr")]);
+        client.Graphs.ListAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+        client.Graphs.ListHealthAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+        var vm = new GraphPickerViewModel(client, Fakes.Settings(), new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.ChooseDeviceCommand.ExecuteAsync(vm.Devices[0]);
+        Assert.True(vm.HasNoGraphs);
+        Assert.False(vm.SaveCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task A_failed_device_list_says_how_to_retry_instead_of_claiming_no_devices()
+    {
+        var client = Fakes.Client();
+        client.Devices.ListAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException());
+        var vm = new GraphPickerViewModel(client, Fakes.Settings(), new RecordingNavigation());
+
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        Assert.True(vm.HasError);
+        Assert.Equal(string.Empty, vm.EmptyText);
+        Assert.Equal("To retry, go back and open graph setup again.", vm.RecoveryText);
+    }
+
+    [Fact]
+    public async Task A_failed_graph_list_points_to_change_device_and_clears_when_it_is_used()
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(2, "edge-rtr")]);
+        client.Graphs.ListAsync(2, Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException());
+        client.Graphs.ListHealthAsync(2, Arg.Any<CancellationToken>()).Returns([]);
+        var vm = new GraphPickerViewModel(client, Fakes.Settings(), new RecordingNavigation());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.ChooseDeviceCommand.ExecuteAsync(vm.Devices[0]);
+        Assert.Equal("To retry, use Change device and choose this device again.", vm.RecoveryText);
+        Assert.False(vm.HasNoGraphs); // the error explains the empty list
+
+        vm.ChangeDeviceCommand.Execute(null);
+        Assert.False(vm.HasError);
+        Assert.Null(vm.RecoveryText);
     }
 }
 
