@@ -1,28 +1,38 @@
-# DashyNMS Mobile design guide
+# DashyNMS Mobile page design spec
 
-Updated 2 November 2026. Applies when implementing or reviewing tab pages,
-pushed pages, dashboard editing, pickers and setup forms.
+Updated 2 November 2026. Use this spec when creating, changing or reviewing
+any mobile page, including tabs, pushed pages, forms, pickers, editors,
+canvases and detail panes. Rules describe the target design; the pattern
+table distinguishes existing implementations awaiting migration.
+
+For an existing setup page or dashboard editor, also read its contract in
+[Page contracts and acceptance evidence](DESIGN-REFERENCES.md). Consult that
+reference for historical acceptance; keep reusable design rules here.
 
 ## Implementation workflow
 
-1. Classify the page using the table below. Read its reference implementation,
-   the shared controls it uses and its view model before choosing a layout.
-   Finish when navigation, scrolling and save behaviour are accounted for.
+1. Classify the page using the pattern table. Read its reference, shared
+   controls and view model. Identify every entry route and whether changes
+   save immediately, on Save or through a separate immediate action.
+   Finish with each entry/return path and persistence contract accounted for.
 2. Identify the owner of each inset: native page safe area, native scroll inset,
    content padding or overlay margin. Choose one owner per edge. Finish when
    every tappable control and the final list item can clear system and glass UI.
 3. Implement the relevant rules below. Reuse shared controls and preserve the
    page's persistence contract. Finish when resizing, navigation and keyboard
    dismissal all update the layout without duplicate controls or insets.
-4. Run shared tests for changed behaviour and both platform builds. Inspect
-   layout diagnostics for placement failures. Finish when checks pass, or record
-   precisely which checks could not run.
+4. Validate changed behaviour with relevant shared tests and Android/iOS
+   builds through the PR process. On a code-only machine, use CI for these
+   checks. Inspect available layout diagnostics. Finish with each check
+   recorded as passed, failed or unavailable.
 5. Before merging, have the coding agent review the PR's full diff against
    this guide: `/code-review` in Claude Code, `/review` in Codex, or the same
    request in plain words elsewhere. Fix confirmed findings in the PR, or note
    in the PR why one stands. A review does not replace CI or device checks.
-6. Verify on a device before marking appearance verified. Use the acceptance
-   checklist below and report code review, CI and device results separately.
+6. Record the acceptance checklist with code review, CI and device results
+   separately. Finish device-gated work only after the user's explicit
+   acceptance; use non-closing PR references until then. Close only the
+   accepted issues and tick their epic entries, leaving other work pending.
 
 ## Choose the page pattern
 
@@ -42,12 +52,13 @@ The final row describes the form implementation retained after #391. The editor
 moved to the scrolling pattern in #401. A form migration needs its own layout
 review; copying the editor's inset calculation into the form helper would count
 native safe areas twice. The agreed target for setup-page unification is recorded below and in #405.
-The page migrations remain pending; this table describes current code.
+Remaining migrations are tracked in #405; this table is a pattern index,
+not a completion record.
 
-## Agreed setup layout
+## Forms and fixed primary actions
 
-Implement the approved review under epic #405 in milestone 2.0.0. The shared
-layout belongs to #406; each page has its own migration issue.
+Use this pattern for draft forms and pickers. Existing migrations are tracked
+in #405; each page retains its contract until its migration is accepted.
 
 - Forms fill the available width with 16pt gutters and measured camera/glass
   clearance. Remove form-only ReadableColumn/680pt caps.
@@ -61,9 +72,10 @@ layout belongs to #406; each page has its own migration issue.
 - Share heading, section, field, search and status presentation across forms
   and pickers. Keep virtualised lists height-constrained.
 - Immediate-save settings retain their behaviour and need no Save button.
-  Exception: #395 records the requirement for explicit sensor Save, including
-  a real draft for title/selections and Back cancellation. Other persistence
-  changes need an explicit decision in their issue.
+  Change persistence only with an explicit decision recorded in the issue.
+- Use the implicit primary `Button` style for the main Add or Save action;
+  it owns primary colours, contrast and disabled states. Use secondary
+  buttons for subordinate actions.
 
 `DashboardBackNavigation` still uses native page safe areas. Pages adopting
 `SetupPageLayout` must remove that helper and their previous page padding and
@@ -107,178 +119,6 @@ scrolled into view after keyboard geometry changes. Android retains native
 safe-area and soft-input handling through `SafeAreaEdges.All` on the page.
 Floating iPad keyboard obstruction remains a device check.
 
-Use `SetupSection` for the shared label, 4pt field spacing and 8pt section
-margin. Use `SearchField` and the existing `Error`, `Caption` and
-`ActivityIndicator` presentation rather than introducing another theme palette.
-Search submission and list scrolling use `KeyboardDismiss`. Selection remains
-owned by the page/view model; expose selected state to accessibility when a
-page adds selection rows. Supply meaningful empty and retry states for each
-page's data contract. A retry state can be a caption under the error naming
-the existing route that loads again, such as reopening the page or choosing
-the device again; setup pages have no Try again buttons. An empty list says
-whether a search matched nothing or there is nothing to show, and stays blank
-while an error explains it.
-
-Graph setup is the first consumer, covering a device list and a scrolling
-draft form. Its optional title scrolls with the form, search uses the shared
-SearchField, and Save still uses the existing draft command. No view-model
-or persistence contract changes were included in that Graph migration.
-Sensor setup now uses the same layout with a scrolling card-title header,
-a finite sensor list and a fixed Save. Its title header starts below the 20pt
-fade so nothing is faded at rest. Each sensor row is one accessible element
-announcing name, device, reading and selected state; its checkbox is hidden
-from screen readers. Toggling a row updates it in place rather than rebuilding
-the list, so the scroll position holds. Like Graph, it states the retry route
-under an error instead of a Retry button: reopen setup after a failed load, or
-choose Save again after a failed save, which keeps the draft.
-Ranked-card setup (#397) is a scrolling draft form with no choose step: its
-header is the card kind's title, and Card title, Rows, Rank by and, for Top
-errors only, Quiet ports are `SetupSection`s with labels above their controls,
-so large text does not crowd a row. Its draft, Save and stored fields are
-unchanged.
-Spotlight setup (#398) is a picker with no choose-then-configure step. Its
-header is "Spotlight". A Whole network section comes first: a caption saying
-it applies straight away, with a secondary "Use whole network" button that
-still saves and returns at once. Below it, an "Or keep it to" section holds
-the Devices/Group/Location segments, each announcing whether it is selected.
-Search, a selected count with the kind's prompt, then the error and its retry
-route and a loading indicator sit above the finite list, never over it. Rows
-are cards with one screen-reader description of name, detail and selected
-state. Devices show a check box because several can be ticked. A group or
-location shows a tick because it is the single choice. Devices, groups and
-locations use `NaturalOrder`, with saved choices the server no longer has kept
-at the top until unticked. The fixed Save stays disabled until every list has
-loaded, so a failed load cannot overwrite the saved Spotlight with an empty
-one. Other pages retain their page layouts; their search appearance uses
-SearchField.
-
-Graph setup is also the reference for a stepped setup page (#396). The
-header names the current step ("Choose a device", then "Choose a graph").
-After choosing, a labelled Device section shows the device's name and details
-with Change device beside them, and Change device's accessible description
-names the device it replaces. Devices and device-wide graph descriptions use
-`NaturalOrder`; ports keep interface order. Port graph descriptions still use
-the static list order, a gap against the natural-order rule below. A device
-with no graphs gets a caption explaining the empty picker. The draft, Save rules and persisted
-fields are unchanged. Ranked cards (#397) and Spotlight (#398) should follow
-this pattern where they have a choose-then-configure step.
-
-### Graph setup review and acceptance
-
-On 2 November 2026 the user approved closing #396 and completing its entry
-on #405 after reviewing PR #421, merged as
-`8259758dc1385d8258adac49097d1ff656d4092e`. Android, iOS simulator and shared
-unit-test PR checks passed. The review found that the shared layout, fixed
-Save, draft behaviour and title-first field order followed the approved plan.
-Individual device configurations and screen-reader results were not recorded
-with this acceptance. Keep the earlier #406 device evidence separate.
-
-Apply these lessons to later setup pages:
-
-- Name each step in the header and show the chosen device in a labelled
-  section with a Change device action that names the current device to
-  accessibility. Keep the optional card title first in Graph setup, as approved.
-- Check every graph source when applying natural order. Interface order
-  applies to the ports in Show; it does not exempt their graph descriptions.
-  PR #421 sorted device-wide graphs but left port graph descriptions in
-  static order. Its ordering test covered device graphs and port interfaces,
-  so it did not catch this gap. Include port graph descriptions in future
-  ordering checks.
-- Device rows in PR #421 gained an accessibility hint, but no explicit
-  combined name/details description or button semantics. Verify that
-  VoiceOver and TalkBack announce a meaningful device name and action and
-  can activate the row. A hint or passing view-model test alone does not
-  establish accessible operation.
-- Disable a fixed Save until the data its draft starts from has loaded. A
-  Save after a failed load must not write an empty selection over the saved
-  one; Spotlight setup did this before #398.
-- State the existing retry route beneath an error rather than adding a
-  separate retry button. Verify that reopening reloads the device list and
-  Change device followed by selection reloads graphs. Distinguish an empty
-  server from an unmatched search, and suppress empty claims after failures.
-
-### Ranked-card setup acceptance
-
-On 2 November 2026 the user approved closing #397 and completing its entry
-on #405 after on-device testing of TestFlight **2.0.0 (216)**. The accepted
-implementation is PR #425, merged as
-`7f0e1f2217fa628209a63c89c2871e69108c9fcd`. Android, iOS simulator and shared
-unit-test PR checks passed. Individual device configurations and
-screen-reader results were not recorded with this acceptance.
-
-Apply these lessons to later setup pages:
-
-- A draft form with no choose step needs no step names. Its header is the card
-  kind's title, and the optional card title stays first, as in Graph setup.
-- Put labels above pickers with `SetupSection` rather than side-by-side
-  label/control rows, so large text cannot crowd a row. A switch row keeps
-  its wrapping text beside the switch and gives the switch its own
-  screen-reader description.
-- Reference a device-gated issue with `Refs #NN` in its PR, so merging does not
-  close it before device acceptance.
-
-### Spotlight setup acceptance
-
-On 2 November 2026 the user approved closing #398 and completing its entry
-on #405 after on-device testing of TestFlight **2.0.0 (217)**. The accepted
-implementation is PR #428, merged as
-`89eac7478bb70267e10d15b925fd7658193a6196`. Android, iOS simulator and shared
-unit-test PR checks passed. Individual device configurations and
-screen-reader results were not recorded with this acceptance.
-
-Apply these lessons to later setup pages:
-
-- Find every route into a page before testing it. At acceptance, Spotlight
-  setup opened only from the Spotlight line under a log card's Dashboard
-  title. The editor review in #430 corrects its Set up route to open the same
-  picker for Event log and Graylog. Check both entry points and their Back
-  paths; ranked-card setup cannot load log cards.
-- An immediate action on a draft page sits in its own labelled section with
-  a caption saying it applies straight away, apart from the choices that wait
-  for Save.
-- Give each segment of a segmented control a description that says whether
-  it is selected, and make each selection row one screen-reader element with
-  its state. A check box suits several choices; a tick suits one.
-- Disable Save until the draft's data has loaded, and ignore a slower earlier
-  load when the page reloads.
-
-### Verified setup reference
-
-The user confirmed that manual checks passed for TestFlight **2.0.0 (212)**
-on 2 November 2026 and approved closing #406 and completing its entry on #405.
-The accepted implementation is PR #418, commit
-`b4fd1983c99cb06c25f8afe9d5a1d234a2262890`, following the foundation in #417.
-Use Graph setup as the first shared-layout consumer accepted on device.
-Individual device, OS and configuration results were not supplied; this
-acceptance does not establish separate Android, iPad or accessibility results.
-
-Apply these findings when migrating another screen:
-
-- Align the visible action with the measured pill, using the native view's
-  height and pill bounds in the same coordinate space. Match Devices/Alerts
-  with `max(0, height - pill bottom)` for a side pill. A native-bottom-inset
-  minimum can introduce the few-point offset reported during device testing.
-  Keep the action's own bottom margin at zero; let the shared layout own the
-  gap and let keyboard clearance take precedence.
-- Use `SearchField` for every search well. A styled native `SearchBar` still
-  renders the old UI. Keep the actual Entry and its compiled bindings inside
-  the shared control; animate the whole well and focus its Entry.
-- Put a themed, input-transparent 20pt top fade over a scrolling device
-  results list, as Graph setup and Device sections do. Keep the fade in the
-  list's viewport, below search, with matching list margins. It must not
-  intercept row taps or drags.
-- Keep the list in a finite star row, outside a wrapping ScrollView. Keep
-  draft fields inside the form's scrolling content and the primary action
-  outside it, so the final field/result clears the measured action height.
-- Reuse the helper's visible-page subscriptions and inset ownership. Do not
-  add the old `DashboardBackNavigation` helper, duplicate safe-area padding
-  or a second keyboard adjustment to a migrated page.
-
-Geometry tests and platform builds remain separate from device acceptance.
-Each later screen still needs its own navigation, keyboard, persistence and
-configuration checks; #406 acceptance does not complete the remaining page
-migration issues in #405.
-
 ## Placement and scrolling
 
 Content may move beneath glass as it scrolls. Controls at rest and the final
@@ -304,10 +144,15 @@ For pages adopting the edge-to-edge pattern:
 - Align header side clearance with the content. Use `TopBar.Fit` on a `Layout`
   after setting its padding; a `Label` is not a valid argument.
 - Overlay an input-transparent 20pt gradient at the content's top, from page
-  background to transparent. Content fades beneath the heading as it scrolls.
+  background to transparent. Keep initial text, fields and empty states below
+  its 20pt region at rest; content fades only as it scrolls under the heading.
 - Toast sides are 12pt plus side clearance. Its foot clears bottom glass, or
   aligns with the foot of a vertical pill. A wide pill is a bottom bar only if
   its top is below the page midpoint; iPad can put a wide pill at the top.
+- Reserve a visible overlay's measured height, bottom margin and gap in the
+  scrolling footer or viewport. Recompute after wrapping, large-text changes
+  and resizing; retain clearance through its exit animation. For editor Undo,
+  use a 12pt gap so the final Add action can scroll fully above the toast.
 
 Inside native scroll views, MAUI handles child safe areas differently from
 outer layouts. Check the actual control type and existing native inset code
@@ -319,8 +164,8 @@ XML alone does not validate MAUI properties or binding types.
 On iOS 26+, top-level page actions and optional search belong to `TabBarButtons`.
 Android and older iOS keep header icons through `IconButton` and `Icons`.
 Form submission follows the fixed primary-action layout above; preserve each
-form's save rules unless its issue explicitly changes them. Keep page actions to two to four and leave rare actions in
-context menus.
+form's save rules unless its issue explicitly changes them. Keep page actions
+to two to four and leave rare actions in context menus.
 
 - Call `TabBarButtons.Show` on appearing and `Hide` on disappearing. Subscribe
   and unsubscribe `Moved` with that lifecycle. Hide clears only its owner, so
@@ -329,8 +174,12 @@ context menus.
 - Pushed pages use `chevron.backward`, `BackBar.PreviousTitle(page)` for the
   accessible label and relative back navigation. Hide their header Back on
   iOS 26+; keep it on older iOS and Android.
-- Open descendants with relative routes so Back follows the full chain.
-  Check Dashboard → Edit → Add/Set up → Back and alert → device → backups.
+- Open descendants with relative routes so Back returns to the actual
+  caller. Test each entry path, child return and app resume for one glass
+  owner. Cover Dashboard → Edit → Add/Set up → Back and alert → device → backups.
+- Offer setup only for explicitly supported entity kinds, each routed to
+  an editor that can load that kind. Capabilities such as duplication do not
+  imply setup support. Test route and entity ID for every supported kind.
 - Show data-dependent actions only when their command can execute. Observe
   `CanExecuteChanged`; rebuild stateful glass actions only when state changes.
 
@@ -383,51 +232,48 @@ appearance does not change filtering, query retention or selection contracts.
   for it. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
 - Implement `ISearchHost` for Entry-based pages supporting Command-F.
 - Use `NaturalOrder.Instance` for human-facing device, graph, group and location
-  choices. Numeric interface indices can retain their domain order.
+  choices across every source feeding a picker, including port graph
+  descriptions. Ports themselves may retain interface order; that exception
+  does not apply to their graph descriptions. Test each source separately.
 
-## Dashboard editing and primary actions
+## Adaptive content and accessibility
 
-- Dashboard and editor use `DashboardColumns.Count` with the same available
-  content width, 340pt minimum, 12pt gaps and three-column limit. Wide Duo
-  displays get two half-width cards when space permits. Narrow displays get
-  one. Follow width, not device-name checks. Order reads across then down.
-- Let card titles and summaries wrap. Put Set up below the title. More holds
-  Duplicate where supported, Add a card after, Move earlier/later and Remove. Menu moves
-  persist the same order as dragging; removal retains Undo.
-- Set up routes must name supported kinds explicitly. Sensors and Graph open
-  their pickers, Top cards open ranked-card setup, and Event log/Graylog open
-  Spotlight. Do not infer setup support from whether a kind can be duplicated.
-- Keep the introductory text and empty state below the 20pt heading fade at
-  rest. The fade covers content only as it scrolls beneath the heading.
-- While Undo is visible, the editor footer also reserves the toast's measured
-  height, bottom margin and a 12pt gap. Recompute after wrapping or resizing,
-  and retain clearance until the exit animation finishes. Add a card must
-  remain reachable above the toast at the final scroll position.
-- Use the implicit primary `Button` style for the main Add or Save action.
-  It supplies `ButtonPrimary`, text contrast and disabled states. Secondary
-  buttons are for subordinate actions. Avoid local colour overrides.
-- Edit dashboard saves immediately. Sensors drafts its title and selections,
-  commits them together on Save and discards changes on Back. Opening sensor
-  setup without a card ID creates a card only on Save; an explicitly added
-  card remains on the dashboard when its later setup is cancelled. Empty sensor
-  selections are supported. A failed save keeps the draft for another Save.
-  Saved sensors absent from the current server response are retained. Sensor
-  setup was accepted on device under #395.
-- Edit dashboard cards show a six-dot grab handle drawn at its own size
-  (`Aspect="None"`) and hidden from screen readers. A `Path` with
-  `Aspect="Uniform"` scales its geometry's bounds to the box, which stretched
-  the earlier dashes into bars and clipped their outer strokes. Each card's
-  title and summary are one accessible element, with the labels inside
-  excluded, and its hint points to More: Move earlier/later replace dragging
-  for screen readers. Menu wording follows reading order, since a one-place
-  move across columns can be sideways. Set up and More name their card. Device checks for #399: both Duo displays, inner portrait
-  and landscape, folding, large text, the final Add a card, dragging across
-  columns, menu moves, Remove/Undo and returns from Add or Set up.
-- Graph, ranked cards and Spotlight use explicit Save in the fixed setup
-  action. Spotlight's Whole network action still saves and returns
-  immediately and says so; making it a staged choice would be a separate
-  behaviour decision. A unified visual layout must identify these contracts
-  before changing their behaviour.
+- Dashboard and editor share `DashboardColumns.Count`, with 340pt minimum
+  columns, 12pt gaps and a three-column limit. Use available content width
+  after clearances, and read across then down. Other page types use their
+  reference pattern's breakpoint; folding and rotation update without reopening.
+- Let titles, summaries and field labels wrap. Put labels above pickers with
+  `SetupSection`, which supplies 4pt field spacing and 8pt section margin.
+  A switch may sit beside wrapping text and has its own accessible description.
+- Name a stepped form's current step in its header. Show the chosen entity
+  in a labelled section with a Change action naming the entity it replaces.
+  A form with no choose step uses its subject as the header.
+- Present a row's name, details and selection state as one accessible element;
+  exclude duplicate child announcements and decorative handles/icons.
+  Segments announce selected state. Use a check box for several choices and
+  a tick for one choice. Verify meaningful names, action semantics and
+  activation with VoiceOver/TalkBack; a hint alone is insufficient evidence.
+- Repeated Set up, More and Change actions name their target. Offer menu
+  reordering alongside drag reordering, using Move earlier/later in reading
+  order. Keep titles and summaries together and Set up below them.
+
+## Data states and persistence
+
+- Reuse themed `Error`, `Caption`, `ActivityIndicator` and shared controls.
+  Keep loading/error/status content separate from a finite results viewport.
+- Distinguish an empty source from an unmatched search. Suppress empty claims
+  while loading or when an error explains missing data.
+- State an actionable retry route beneath a setup error, such as reopening
+  the page or choosing the device again. Setup pages use these existing
+  routes rather than separate retry buttons. A failed Save keeps its draft.
+- Enable Save only after every source required to initialise its draft has
+  loaded. A failed or superseded load must not overwrite saved choices with
+  empty data. Ignore slower earlier loads when a page reloads.
+- Retain saved selections missing from a response until explicitly cleared.
+  Update selection rows in place so toggling preserves scroll position.
+- Separate immediate actions from draft fields in a labelled section with
+  text saying they apply straight away. Save commits the draft together;
+  Back discards it. Immediate-save pages preserve automatic saving.
 
 ## Motion and selected-item cards
 
@@ -447,9 +293,8 @@ With `ReducedMotion.IsOn`, apply the final state immediately.
   list. Measure natural collapsed height before animating a size change.
 - Fade surrounding content and retain the selected reference until the fade
   finishes. Follow Network map's dimming implementation for canvas content.
-- Dashboard Undo toasts use the shared `DashboardToastView` transition. Bind
-  custom properties in code with an explicit `Binding` object; the two-argument
-  string call to `SetBinding` did not compile in #401.
+- Reuse `DashboardToastView` for dashboard Undo transitions. Its measured
+  clearance follows the placement and scrolling rules.
 
 ## Detail columns
 
@@ -468,15 +313,15 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Page/row/scroll clearance and resize callbacks | `Controls/CoveredEdges.cs`: `Of`, `Beside`, `ForScrolling`, `Watch` |
 | Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
 | Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
-| Header fitting and native safe-area updates | `Controls/TopBar.cs`, `TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
-| Search appearance and input policy | `Controls/SearchField.xaml` and `.xaml.cs`, `SearchReveal.cs` |
+| Header fitting and native safe-area updates | `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
+| Search appearance and input policy | `Controls/SearchField.xaml` and `.xaml.cs`, `Controls/SearchReveal.cs` |
 | Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
-| Adaptive dashboard columns | `Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
+| Adaptive dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
 | Primary button colours and states | `Resources/Styles/Styles.xaml` implicit Button style |
-| Shared setup slots, placement and sections | `Controls/SetupLayout.cs`, `SetupPageLayout.cs`, `SetupSection.cs`, `Mobile.Shared/Services/SetupActionPlacement.cs` |
+| Shared setup slots, placement and sections | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs`, `Controls/SetupSection.cs`, `../DashyNMS.Mobile.Shared/Services/SetupActionPlacement.cs` |
 | Existing form Back and inset handling | `Controls/DashboardBackNavigation.cs` |
-| Human reading order | `Mobile.Shared/Services/NaturalOrder.cs` |
+| Human reading order | `../DashyNMS.Mobile.Shared/Services/NaturalOrder.cs` |
 | Device evidence | Settings diagnostics, "Tab bar buttons:" and "Top line on" entries |
 
 For native geometry, use `nfloat` where CoreGraphics expects it. Use
@@ -486,13 +331,15 @@ For native geometry, use `nfloat` where CoreGraphics expects it. Use
 
 For each page change, record applicable results, including unverified items:
 
-- [ ] Navigation returns through the actual calling pages; glass has one owner
-- [ ] Insets have one owner per edge; last row, form field and primary action remain reachable
+- [ ] Each supported kind routes to a compatible editor with the selected ID; Back returns through every caller and glass has one owner
+- [ ] Insets have one owner per edge; final content and actions clear glass and visible overlays through transitions
+- [ ] Initial text and empty states are readable below fades at rest
 - [ ] Titles and controls fit narrow screens and larger text in both themes
 - [ ] Folding/rotation recomputes clearance and columns without reopening
 - [ ] Search closes the keyboard correctly and preserves its query
 - [ ] Loading, empty, error and selected states remain readable and retryable
-- [ ] Save/automatic-save behaviour is preserved or explicitly approved to change
+- [ ] Save/automatic-save and Back cancellation follow the approved contract; failed loads cannot save an empty draft
+- [ ] Screen-reader names, selection states and activation work; drag actions have an accessible alternative
 - [ ] Motion respects Reduce Motion; repeated transitions finish correctly
 - [ ] Relevant shared tests and Android/iOS builds pass
 - [ ] Device check covers Duo outer, inner portrait and inner landscape, app resume,
