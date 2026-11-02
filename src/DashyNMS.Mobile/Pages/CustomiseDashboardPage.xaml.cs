@@ -16,6 +16,8 @@ public partial class CustomiseDashboardPage : ContentPage
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         if (TabBarButtons.IsAvailable) TopBar.IsVisible = false;
+        List.HandlerChanged += (_, _) => StopInsetAdjustment();
+        List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
         Controls.TopBar.Fit(Heading);
         CoveredEdges.Watch(this, PlaceControls);
@@ -74,6 +76,16 @@ public partial class CustomiseDashboardPage : ContentPage
 
 #if IOS
     private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+
+    /// <summary>The footer supplies clearance; native insets would add it again.</summary>
+    private void StopInsetAdjustment()
+    {
+        if (List.Handler?.PlatformView is UIKit.UIView view && FindScroll(view) is { } scroll)
+            scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+    }
+
+    private static UIKit.UIScrollView? FindScroll(UIKit.UIView view) =>
+        view as UIKit.UIScrollView ?? view.Subviews.Select(FindScroll).FirstOrDefault(found => found is not null);
 #endif
 
 	private void OnReorderCompleted(object? sender, EventArgs e) => _viewModel.SaveOrderCommand.Execute(null);

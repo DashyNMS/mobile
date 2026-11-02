@@ -52,6 +52,6 @@ public partial class DashboardToastView : ContentView
 	public DashboardToastView()
 	{
 		InitializeComponent();
-        SetBinding(ShowingProperty, "IsShowing");
+        SetBinding(ShowingProperty, new Binding(nameof(Dashboard.DashboardToast.IsShowing)));
 	}
 }

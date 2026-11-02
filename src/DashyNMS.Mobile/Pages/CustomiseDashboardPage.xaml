@@ -21,7 +21,7 @@
 
         <!-- Not in a ReadableColumn: a CollectionView needs the page's height to scroll. -->
         <CollectionView Grid.Row="2" x:Name="List" ItemsSource="{Binding Cards}" SelectionMode="None"
-                        CanReorderItems="True" ReorderCompleted="OnReorderCompleted" Margin="16,0" SafeAreaEdges="None" ItemSizingStrategy="MeasureAllItems">
+                        CanReorderItems="True" ReorderCompleted="OnReorderCompleted" Margin="16,0" ItemSizingStrategy="MeasureAllItems">
                 <CollectionView.ItemsLayout>
                     <GridItemsLayout x:Name="CardLayout" Orientation="Vertical" Span="1" HorizontalItemSpacing="12" VerticalItemSpacing="12" />
                 </CollectionView.ItemsLayout>
