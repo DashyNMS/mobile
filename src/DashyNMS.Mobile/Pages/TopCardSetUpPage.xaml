@@ -11,12 +11,12 @@
     SafeAreaEdges="Container"
     Title="{Binding KindTitle}">
 
-    <ScrollView>
+    <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
         <controls:ReadableColumn>
             <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
 
                 <controls:BackBar x:Name="TopBar" />
-                <Label Style="{StaticResource PageTitle}" Text="{Binding KindTitle}" SemanticProperties.HeadingLevel="Level1" Margin="0,-12,0,0" />
+                <Label Style="{StaticResource PageTitle}" Text="{Binding KindTitle}" SemanticProperties.HeadingLevel="Level1" Margin="0" />
 
                 <!-- The card's own title (#103); blank, it's the kind's. -->
                 <VerticalStackLayout Spacing="4">

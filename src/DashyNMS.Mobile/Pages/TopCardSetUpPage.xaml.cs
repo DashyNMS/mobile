@@ -13,7 +13,7 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar);
+		DashboardBackNavigation.Attach(this, TopBar, FormScroll);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)

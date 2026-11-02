@@ -15,7 +15,7 @@
     <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
          reorder, removed with Undo, set up, duplicated or added below from ⋯;
          then the free spot at the end - desktop's "+" space (#145). -->
-    <Grid RowDefinitions="Auto,Auto,*">
+    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,*">
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" Margin="16,0" />
 
@@ -86,7 +86,7 @@
                 </CollectionView.ItemTemplate>
                 <CollectionView.Footer>
                     <!-- The free spot where the next card goes, as desktop's "+ Add widget" space (#145). -->
-                    <Grid Padding="0,0,0,96">
+                    <Grid Padding="0,0,0,24">
                         <Border StrokeThickness="1.5" StrokeDashArray="4,3" StrokeShape="RoundRectangle 16" MinimumHeightRequest="64"
                                 BackgroundColor="Transparent" Stroke="{StaticResource PrimaryStroke}"
                                 SemanticProperties.Description="Add a card">

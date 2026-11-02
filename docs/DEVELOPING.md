@@ -491,6 +491,13 @@ Its light neutral background stays readable in both themes, with the dark
 colour matching desktop's logo tile. No tile is shown without a loaded logo.
 Check transparent SVG/PNG logos, proportions and long device titles.
 
+Edit dashboard and its setup/picker children keep native page safe areas
+and add only the extra glass-row clearance (#391). Their scrolling controls
+disable duplicate native content insets; the editor footer no longer adds
+an unrelated 96pt gap. Check top labels and the last item/action in every
+orientation, both displays, keyboard use, reordering and return from setup.
+This change is scoped to dashboard editing, not other tab systems.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 

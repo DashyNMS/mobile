@@ -13,7 +13,7 @@ public partial class GraphPickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar);
+		DashboardBackNavigation.Attach(this, TopBar, DeviceList, FormScroll);
 	}
 
 	/// <summary>Loads once it knows which card - before then it would set up a new one.</summary>

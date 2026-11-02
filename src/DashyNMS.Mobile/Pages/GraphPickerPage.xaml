@@ -13,7 +13,7 @@
     SafeAreaEdges="Container"
     Title="Dashboard graph">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,0,16,0">
+    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto" Padding="16,0,16,0">
 
         <controls:BackBar x:Name="TopBar" />
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Choose a graph" SemanticProperties.HeadingLevel="Level1" />
@@ -45,7 +45,7 @@
                        IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
             </Grid>
         </Border>
-            <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None" Margin="0,6,0,0">
+            <CollectionView x:Name="DeviceList" Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None" Margin="0,6,0,0">
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
                 </CollectionView.ItemsLayout>
@@ -68,7 +68,7 @@
         </Grid>
 
         <!-- Step two: the graph and range. -->
-        <ScrollView Grid.Row="5" IsVisible="{Binding HasDevice}">
+        <ScrollView x:Name="FormScroll" SafeAreaEdges="None" Grid.Row="5" IsVisible="{Binding HasDevice}">
         <VerticalStackLayout Spacing="8">
             <Grid ColumnDefinitions="*,Auto">
                 <Label Text="{Binding SelectedDevice.Name}" FontFamily="BodySemibold" VerticalOptions="Center" />
