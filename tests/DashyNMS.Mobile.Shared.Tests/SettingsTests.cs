@@ -166,8 +166,10 @@ public sealed class ThresholdsViewModelTests
 
     [Theory]
     [InlineData(nameof(ThresholdsViewModel.FanHighWarning), "fast", "must be a number")]
-    [InlineData(nameof(ThresholdsViewModel.DbmCritical), "-10", "dBm critical must be at or below")]
+    [InlineData(nameof(ThresholdsViewModel.DbmCritical), "-10", "Optical power critical must be at or below")]
     [InlineData(nameof(ThresholdsViewModel.TemperatureLowWarning), "80", "Temperature thresholds must go")]
+    [InlineData(nameof(ThresholdsViewModel.SignalCritical), "-10", "Signal critical must be at or below")]
+    [InlineData(nameof(ThresholdsViewModel.FanHighWarning), "30000", "Fan speed thresholds must go")]
     public async Task Refuses_a_band_that_isnt_a_number_or_is_out_of_order(string field, string value, string error)
     {
         var vm = new ThresholdsViewModel(_settings, _navigation);
@@ -178,6 +180,28 @@ public sealed class ThresholdsViewModelTests
         Assert.Contains(error, vm.ErrorMessage);
         _settings.DidNotReceive().Save();
         Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task Reset_applies_defaults_and_override_only_after_save()
+    {
+        _appSettings.TemperatureThresholds.HighCritical = 99;
+        _appSettings.OverrideSensorLimitsWithAppThresholds = true;
+        var vm = new ThresholdsViewModel(_settings, _navigation);
+
+        vm.ResetToDefaultsCommand.Execute(null);
+
+        Assert.True(_appSettings.OverrideSensorLimitsWithAppThresholds);
+        Assert.False(vm.OverrideSensorLimits);
+        Assert.Empty(_navigation.Visits);
+        _settings.DidNotReceive().Save();
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Equal(75, _appSettings.TemperatureThresholds.HighCritical);
+        Assert.False(_appSettings.OverrideSensorLimitsWithAppThresholds);
+        _settings.Received(1).Save();
+        Assert.Equal(Routes.Back, Assert.Single(_navigation.Visits).Route);
     }
 
     [Fact]

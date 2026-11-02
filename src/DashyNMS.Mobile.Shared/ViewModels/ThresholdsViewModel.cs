@@ -98,8 +98,8 @@ public sealed partial class ThresholdsViewModel : ViewModelBase
         values = new Dictionary<string, double>();
         var fields = new (string Key, string Label, string Text)[]
         {
-            ("dbmWarning", "dBm warning", DbmWarning),
-            ("dbmCritical", "dBm critical", DbmCritical),
+            ("dbmWarning", "Optical power warning", DbmWarning),
+            ("dbmCritical", "Optical power critical", DbmCritical),
             ("signalWarning", "Signal warning", SignalWarning),
             ("signalCritical", "Signal critical", SignalCritical),
             ("temperatureLowCritical", "Temperature low critical", TemperatureLowCritical),
@@ -125,7 +125,7 @@ public sealed partial class ThresholdsViewModel : ViewModelBase
         // Weaker signal is more negative, so critical sits at or below warning.
         if (values["dbmCritical"] > values["dbmWarning"])
         {
-            return "dBm critical must be at or below dBm warning.";
+            return "Optical power critical must be at or below Optical power warning.";
         }
 
         if (values["signalCritical"] > values["signalWarning"])
