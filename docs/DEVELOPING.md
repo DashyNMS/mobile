@@ -471,6 +471,12 @@ and Load more clear of a bottom bar, and split detail keeps its own clearances.
 Check short/long logs, both bar orientations, rotation, keyboard dismissal,
 split detail, unconfigured Graylog and the final row on iOS. Android keeps its existing layout.
 
+Dashboard graph, ranked-card and Spotlight setup pages put their explicit
+Save action below the form as a full-width primary button (#384). Headers
+carry navigation only. Sensor selection retains its immediate-save behaviour.
+Check existing/new widgets, disabled Save states, small-screen scrolling,
+keyboard dismissal and bottom glass clearance.
+
 The ellipsis menu button itself has a capsule configuration and clipped,
 rounded bounds (#382), so UIKit's pressed/menu preview has the same shape
 as its surrounding glass. Check opening, selecting and cancelling the menu,
