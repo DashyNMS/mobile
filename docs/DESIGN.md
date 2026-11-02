@@ -373,8 +373,17 @@ appearance does not change filtering, query retention or selection contracts.
   setup without a card ID creates a card only on Save; an explicitly added
   card remains on the dashboard when its later setup is cancelled. Empty sensor
   selections are supported. A failed save keeps the draft for another Save.
-  Saved sensors absent from the current server response are retained. Sensor setup still
-  awaits its own device acceptance under #395.
+  Saved sensors absent from the current server response are retained. Sensor
+  setup was accepted on device under #395.
+- Edit dashboard cards show a six-dot grab handle drawn at its own size
+  (`Aspect="None"`) and hidden from screen readers. A `Path` with
+  `Aspect="Uniform"` scales its geometry's bounds to the box, which stretched
+  the earlier dashes into bars and clipped their outer strokes. Each card's
+  title and summary are one accessible element whose hint points to More,
+  where Move up/down replace dragging for screen readers. Set up and More
+  name their card. Device checks for #399: both Duo displays, inner portrait
+  and landscape, folding, large text, the final Add a card, dragging across
+  columns, menu moves, Remove/Undo and returns from Add or Set up.
 - Graph, ranked cards and Spotlight use explicit Save in the fixed setup
   action. Spotlight's Whole network action still saves and returns
   immediately and says so; making it a staged choice would be a separate

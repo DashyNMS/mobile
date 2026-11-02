@@ -44,6 +44,18 @@ public sealed partial class DashboardCardOption : ObservableObject
         _ => Kind.Description,
     };
 
+    /// <summary>
+    /// The card's title and summary read as one item, so a screen reader
+    /// does not announce them as two unrelated lines.
+    /// </summary>
+    public string AccessibleDescription => $"{Title}, {Subtitle}";
+
+    /// <summary>
+    /// Names the card, since every card's Set up looks alike and a bare
+    /// "Set up" does not say which one it opens.
+    /// </summary>
+    public string SetUpDescription => "Set up " + Title;
+
     /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
     public bool CanSetUp => Kind.AllowsSeveral;
 
@@ -59,19 +71,23 @@ public sealed partial class DashboardCardOption : ObservableObject
     {
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(AccessibleDescription));
+        OnPropertyChanged(nameof(SetUpDescription));
     }
 }
 
 /// <summary>
 /// Edit dashboard (#140): the cards on the dashboard, in order - dragged to
 /// reorder, removed with Undo, set up, duplicated - and Add card, desktop's
-/// widget picker. The phone's version of desktop's edit mode, without the
-/// resizing a one-column screen doesn't need. Changes save as they're made.
+/// widget picker. The phone's version of desktop's edit mode, in the
+/// dashboard's own columns but without desktop's resizing: cards take the
+/// column width. Changes save as they're made.
 /// </summary>
 /// <remarks>
-/// Desktop's free "+" space (its #277) is, in one column, the end of the
-/// list - or just below a card, from its ⋯ menu; a duplicate (its #279)
-/// goes just below the card it copies (#145).
+/// Desktop's free "+" space (its #277) is the end of the list - or just
+/// after a card, from its ⋯ menu; a duplicate (its #279) goes just after
+/// the card it copies (#145). Order reads across then down, as on the
+/// dashboard.
 /// </remarks>
 /// <remarks>
 /// Every card can be removed, not switched off as it used to be. Removing
@@ -211,7 +227,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         var title = card.Title;
 
         // Core's copy, so it takes a free spot on desktop's grid too; then
-        // under its original in the phone's one column.
+        // straight after its original in the phone's reading order.
         if (_layout.DuplicateWidget(card.Widget.Id) is not { } copy)
         {
             return;

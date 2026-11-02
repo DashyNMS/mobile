@@ -239,6 +239,26 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Fact]
+    public void A_cards_screen_reader_text_names_it_and_follows_a_new_title()
+    {
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        card.Title = "Core switch temps";
+        var option = NewViewModel().Cards.Single();
+        var changed = new List<string?>();
+        option.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+
+        Assert.Equal("Core switch temps, Sensors · none chosen yet", option.AccessibleDescription);
+        Assert.Equal("Set up Core switch temps", option.SetUpDescription);
+
+        card.Title = "Rack temps";
+        option.Refresh();
+
+        Assert.Equal("Set up Rack temps", option.SetUpDescription);
+        Assert.Contains(nameof(DashboardCardOption.AccessibleDescription), changed);
+        Assert.Contains(nameof(DashboardCardOption.SetUpDescription), changed);
+    }
+
+    [Fact]
     public void Duplicating_copies_the_set_up_just_below_and_Undo_removes_the_copy()
     {
         var graph = DashboardLayout.Add(_appSettings, DashboardLayout.Graph);
