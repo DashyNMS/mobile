@@ -12,7 +12,7 @@
 
 ## Improved
 - **Logs.** Entries sit under a heading for each day, with the time at the right. {logs}
-- **Edit dashboard.** Cards follow the dashboard's columns on wider displays, with more room for titles and Move up/down in the card menu. Tick several cards to add them together, add one below another, or duplicate a card with its set-up. Suggested picks out cards that fit your set-up. {dashboard}
+- **Edit dashboard.** Cards follow the dashboard's columns on wider displays, with more room for titles and Move earlier/later in the card menu. Tick several cards to add them together, add one after another, or duplicate a card with its set-up. Suggested picks out cards that fit your set-up. {dashboard}
 - **Notifications.** One per alert group, and a tap opens the alert or group it was for. {alerts}
 - **Slow sensor lists.** The last readings stay on screen, with their time, while LibreNMS answers. {health}
 - **Graylog.** Messages from a short host name link to their device. {graylog}

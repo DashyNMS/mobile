@@ -17,7 +17,11 @@ pushed pages, dashboard editing, pickers and setup forms.
 4. Run shared tests for changed behaviour and both platform builds. Inspect
    layout diagnostics for placement failures. Finish when checks pass, or record
    precisely which checks could not run.
-5. Verify on a device before marking appearance verified. Use the acceptance
+5. Before merging, have the coding agent review the PR's full diff against
+   this guide: `/code-review` in Claude Code, `/review` in Codex, or the same
+   request in plain words elsewhere. Fix confirmed findings in the PR, or note
+   in the PR why one stands. A review does not replace CI or device checks.
+6. Verify on a device before marking appearance verified. Use the acceptance
    checklist below and report code review, CI and device results separately.
 
 ## Choose the page pattern
@@ -120,18 +124,98 @@ draft form. Its optional title scrolls with the form, search uses the shared
 SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes were included in that Graph migration.
 Sensor setup now uses the same layout with a scrolling card-title header,
-a finite sensor list and a fixed Save. Other pages retain their page layouts;
-their search appearance uses SearchField.
+a finite sensor list and a fixed Save. Its title header starts below the 20pt
+fade so nothing is faded at rest. Each sensor row is one accessible element
+announcing name, device, reading and selected state; its checkbox is hidden
+from screen readers. Toggling a row updates it in place rather than rebuilding
+the list, so the scroll position holds. Like Graph, it states the retry route
+under an error instead of a Retry button: reopen setup after a failed load, or
+choose Save again after a failed save, which keeps the draft.
+Ranked-card setup (#397) is a scrolling draft form with no choose step: its
+header is the card kind's title, and Card title, Rows, Rank by and, for Top
+errors only, Quiet ports are `SetupSection`s with labels above their controls,
+so large text does not crowd a row. Its draft, Save and stored fields are
+unchanged.
+Spotlight setup (#398) is a picker with no choose-then-configure step. Its
+header is "Spotlight". A Whole network section comes first: a caption saying
+it applies straight away, with a secondary "Use whole network" button that
+still saves and returns at once. Below it, an "Or keep it to" section holds
+the Devices/Group/Location segments, each announcing whether it is selected.
+Search, a selected count with the kind's prompt, then the error and its retry
+route and a loading indicator sit above the finite list, never over it. Rows
+are cards with one screen-reader description of name, detail and selected
+state. Devices show a check box because several can be ticked. A group or
+location shows a tick because it is the single choice. Devices, groups and
+locations use `NaturalOrder`, with saved choices the server no longer has kept
+at the top until unticked. The fixed Save stays disabled until every list has
+loaded, so a failed load cannot overwrite the saved Spotlight with an empty
+one. Other pages retain their page layouts; their search appearance uses
+SearchField.
 
 Graph setup is also the reference for a stepped setup page (#396). The
 header names the current step ("Choose a device", then "Choose a graph").
 After choosing, a labelled Device section shows the device's name and details
 with Change device beside them, and Change device's accessible description
-names the device it replaces. Devices and graph descriptions use
-`NaturalOrder`; ports keep interface order. A device with no graphs gets a
-caption explaining the empty picker. The draft, Save rules and persisted
+names the device it replaces. Devices and device-wide graph descriptions use
+`NaturalOrder`; ports keep interface order. Port graph descriptions still use
+the static list order, a gap against the natural-order rule below. A device
+with no graphs gets a caption explaining the empty picker. The draft, Save rules and persisted
 fields are unchanged. Ranked cards (#397) and Spotlight (#398) should follow
 this pattern where they have a choose-then-configure step.
+
+### Graph setup review and acceptance
+
+On 2 November 2026 the user approved closing #396 and completing its entry
+on #405 after reviewing PR #421, merged as
+`8259758dc1385d8258adac49097d1ff656d4092e`. Android, iOS simulator and shared
+unit-test PR checks passed. The review found that the shared layout, fixed
+Save, draft behaviour and title-first field order followed the approved plan.
+Individual device configurations and screen-reader results were not recorded
+with this acceptance. Keep the earlier #406 device evidence separate.
+
+Apply these lessons to later setup pages:
+
+- Name each step in the header and show the chosen device in a labelled
+  section with a Change device action that names the current device to
+  accessibility. Keep the optional card title first in Graph setup, as approved.
+- Check every graph source when applying natural order. Interface order
+  applies to the ports in Show; it does not exempt their graph descriptions.
+  PR #421 sorted device-wide graphs but left port graph descriptions in
+  static order. Its ordering test covered device graphs and port interfaces,
+  so it did not catch this gap. Include port graph descriptions in future
+  ordering checks.
+- Device rows in PR #421 gained an accessibility hint, but no explicit
+  combined name/details description or button semantics. Verify that
+  VoiceOver and TalkBack announce a meaningful device name and action and
+  can activate the row. A hint or passing view-model test alone does not
+  establish accessible operation.
+- Disable a fixed Save until the data its draft starts from has loaded. A
+  Save after a failed load must not write an empty selection over the saved
+  one; Spotlight setup did this before #398.
+- State the existing retry route beneath an error rather than adding a
+  separate retry button. Verify that reopening reloads the device list and
+  Change device followed by selection reloads graphs. Distinguish an empty
+  server from an unmatched search, and suppress empty claims after failures.
+
+### Ranked-card setup acceptance
+
+On 2 November 2026 the user approved closing #397 and completing its entry
+on #405 after on-device testing of TestFlight **2.0.0 (216)**. The accepted
+implementation is PR #425, merged as
+`7f0e1f2217fa628209a63c89c2871e69108c9fcd`. Android, iOS simulator and shared
+unit-test PR checks passed. Individual device configurations and
+screen-reader results were not recorded with this acceptance.
+
+Apply these lessons to later setup pages:
+
+- A draft form with no choose step needs no step names. Its header is the card
+  kind's title, and the optional card title stays first, as in Graph setup.
+- Put labels above pickers with `SetupSection` rather than side-by-side
+  label/control rows, so large text cannot crowd a row. A switch row keeps
+  its wrapping text beside the switch and gives the switch its own
+  screen-reader description.
+- Reference a device-gated issue with `Refs #NN` in its PR, so merging does not
+  close it before device acceptance.
 
 ### Verified setup reference
 
@@ -283,7 +367,7 @@ appearance does not change filtering, query retention or selection contracts.
   displays get two half-width cards when space permits. Narrow displays get
   one. Follow width, not device-name checks. Order reads across then down.
 - Let card titles and summaries wrap. Put Set up below the title. More holds
-  Duplicate where supported, Add below, Move up/down and Remove. Menu moves
+  Duplicate where supported, Add a card after, Move earlier/later and Remove. Menu moves
   persist the same order as dragging; removal retains Undo.
 - Use the implicit primary `Button` style for the main Add or Save action.
   It supplies `ButtonPrimary`, text contrast and disabled states. Secondary
@@ -292,13 +376,24 @@ appearance does not change filtering, query retention or selection contracts.
   commits them together on Save and discards changes on Back. Opening sensor
   setup without a card ID creates a card only on Save; an explicitly added
   card remains on the dashboard when its later setup is cancelled. Empty sensor
-  selections are supported. Reloading after an error retains draft edits and
-  saved sensors absent from the current server response. Sensor setup still
-  awaits its own device acceptance under #395.
-- Graph, ranked cards and Spotlight currently use explicit Save;
-  Spotlight's Whole network action
-  currently saves and returns immediately. A unified visual layout must
-  identify these contracts before changing their behaviour.
+  selections are supported. A failed save keeps the draft for another Save.
+  Saved sensors absent from the current server response are retained. Sensor
+  setup was accepted on device under #395.
+- Edit dashboard cards show a six-dot grab handle drawn at its own size
+  (`Aspect="None"`) and hidden from screen readers. A `Path` with
+  `Aspect="Uniform"` scales its geometry's bounds to the box, which stretched
+  the earlier dashes into bars and clipped their outer strokes. Each card's
+  title and summary are one accessible element, with the labels inside
+  excluded, and its hint points to More: Move earlier/later replace dragging
+  for screen readers. Menu wording follows reading order, since a one-place
+  move across columns can be sideways. Set up and More name their card. Device checks for #399: both Duo displays, inner portrait
+  and landscape, folding, large text, the final Add a card, dragging across
+  columns, menu moves, Remove/Undo and returns from Add or Set up.
+- Graph, ranked cards and Spotlight use explicit Save in the fixed setup
+  action. Spotlight's Whole network action still saves and returns
+  immediately and says so; making it a staged choice would be a separate
+  behaviour decision. A unified visual layout must identify these contracts
+  before changing their behaviour.
 
 ## Motion and selected-item cards
 

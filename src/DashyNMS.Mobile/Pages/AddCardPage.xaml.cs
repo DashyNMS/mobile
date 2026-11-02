@@ -7,7 +7,7 @@ namespace DashyNMS.Mobile.Pages;
 /// <summary>
 /// Shown via <see cref="Routes.AddCard"/>, from Edit dashboard or the welcome
 /// card (#140) - with <see cref="Routes.PositionParameter"/> from a card's
-/// "Add a card below" (#145).
+/// "Add a card after" (#145).
 /// </summary>
 public partial class AddCardPage : ContentPage, IQueryAttributable
 {

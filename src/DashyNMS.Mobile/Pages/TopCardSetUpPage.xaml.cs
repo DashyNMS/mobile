@@ -13,7 +13,8 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar, FormScroll);
+		// The shared helper owns the header, insets, glass Back and keyboard while visible (#397).
+		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -24,12 +25,5 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable
 		}
 
 		_viewModel.Load();
-	}
-
-	/// <summary>The app's own top bar, as the other pushed pages (#140).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		TopBar.Apply(this);
 	}
 }
