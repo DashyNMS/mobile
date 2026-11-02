@@ -44,6 +44,22 @@ public sealed partial class DashboardCardOption : ObservableObject
         _ => Kind.Description,
     };
 
+    /// <summary>
+    /// The card's title and summary read as one item, so a screen reader
+    /// does not announce them as two unrelated lines. Commas replace the
+    /// summary's "·", which some screen readers read aloud as "dot".
+    /// </summary>
+    public string AccessibleDescription => $"{Title}, {Subtitle.Replace(" · ", ", ", StringComparison.Ordinal)}";
+
+    /// <summary>
+    /// Names the card, since every card's Set up looks alike and a bare
+    /// "Set up" does not say which one it opens.
+    /// </summary>
+    public string SetUpDescription => "Set up " + Title;
+
+    /// <summary>Names the card for the same reason as <see cref="SetUpDescription"/>.</summary>
+    public string MoreDescription => "More for " + Title;
+
     /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
     public bool CanSetUp => Kind.AllowsSeveral;
 
@@ -59,19 +75,24 @@ public sealed partial class DashboardCardOption : ObservableObject
     {
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(AccessibleDescription));
+        OnPropertyChanged(nameof(SetUpDescription));
+        OnPropertyChanged(nameof(MoreDescription));
     }
 }
 
 /// <summary>
 /// Edit dashboard (#140): the cards on the dashboard, in order - dragged to
 /// reorder, removed with Undo, set up, duplicated - and Add card, desktop's
-/// widget picker. The phone's version of desktop's edit mode, without the
-/// resizing a one-column screen doesn't need. Changes save as they're made.
+/// widget picker. The phone's version of desktop's edit mode, in the
+/// dashboard's own columns but without desktop's resizing: cards take the
+/// column width. Changes save as they're made.
 /// </summary>
 /// <remarks>
-/// Desktop's free "+" space (its #277) is, in one column, the end of the
-/// list - or just below a card, from its ⋯ menu; a duplicate (its #279)
-/// goes just below the card it copies (#145).
+/// Desktop's free "+" space (its #277) is the end of the list - or just
+/// after a card, from its ⋯ menu; a duplicate (its #279) goes just after
+/// the card it copies (#145). Order reads across then down, as on the
+/// dashboard.
 /// </remarks>
 /// <remarks>
 /// Every card can be removed, not switched off as it used to be. Removing
@@ -138,7 +159,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     [RelayCommand]
     private Task AddCardAsync() => _navigation.GoToAsync(Routes.AddCard);
 
-    /// <summary>The card picker, adding just below <paramref name="card"/> (#145).</summary>
+    /// <summary>The card picker, adding just after <paramref name="card"/> in reading order (#145).</summary>
     [RelayCommand]
     private Task AddCardBelowAsync(DashboardCardOption? card)
     {
@@ -149,9 +170,17 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     }
 
     internal const string DuplicateChoice = "Duplicate";
-    internal const string AddBelowChoice = "Add a card below";
+    internal const string AddBelowChoice = "Add a card after";
 
-    /// <summary>A card's ⋯: Duplicate, where it can be copied, and Add a card below.</summary>
+    // Earlier and later, not up and down: with several columns the order reads
+    // across then down, so a one-place move can be sideways.
+    internal const string MoveEarlierChoice = "Move earlier";
+    internal const string MoveLaterChoice = "Move later";
+
+    /// <summary>
+    /// A card's ⋯: Duplicate, where it can be copied, Add a card after, moves
+    /// in reading order (screen readers' way to reorder) and Remove.
+    /// </summary>
     [RelayCommand]
     private async Task MoreAsync(DashboardCardOption? card)
     {
@@ -165,8 +194,8 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         var choices = new List<string>();
         if (card.CanDuplicate) choices.Add(DuplicateChoice);
         choices.Add(AddBelowChoice);
-        if (index > 0) choices.Add("Move up");
-        if (index < Cards.Count - 1) choices.Add("Move down");
+        if (index > 0) choices.Add(MoveEarlierChoice);
+        if (index < Cards.Count - 1) choices.Add(MoveLaterChoice);
         choices.Add("Remove");
         var choice = await _dialogs.ChooseAsync(card.Title, choices);
         if (choice == DuplicateChoice)
@@ -181,11 +210,11 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         {
             Remove(card);
         }
-        else if (choice is "Move up" or "Move down")
+        else if (choice is MoveEarlierChoice or MoveLaterChoice)
         {
             // The menu can stay open while Undo replaces the collection.
             var current = Cards.IndexOf(card);
-            var destination = current + (choice == "Move up" ? -1 : 1);
+            var destination = current + (choice == MoveEarlierChoice ? -1 : 1);
             if (current >= 0 && destination >= 0 && destination < Cards.Count)
             {
                 Cards.Move(current, destination);
@@ -196,7 +225,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 
     /// <summary>
     /// A copy titled "… (copy)" with the same sensors, graph or options, just
-    /// below the original and outlined there - as desktop's Duplicate (its
+    /// after the original and outlined there - as desktop's Duplicate (its
     /// #279), with Undo in the toast.
     /// </summary>
     [RelayCommand]
@@ -211,7 +240,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         var title = card.Title;
 
         // Core's copy, so it takes a free spot on desktop's grid too; then
-        // under its original in the phone's one column.
+        // straight after its original in the phone's reading order.
         if (_layout.DuplicateWidget(card.Widget.Id) is not { } copy)
         {
             return;

@@ -10,9 +10,10 @@
     SafeAreaEdges="Container"
     Title="Edit dashboard">
 
-    <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
-         reorder, removed with Undo, set up, duplicated or added below from ⋯;
-         then the free spot at the end - desktop's "+" space (#145). -->
+    <!-- As the Edit dashboard mock-up (#140), in the dashboard's columns (#401):
+         cards dragged to reorder, removed with Undo, set up, duplicated, moved
+         or added after from ⋯; then the free spot at the end - desktop's "+"
+         space (#145). -->
     <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,*">
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Grid x:Name="Heading" Grid.Row="1" SafeAreaEdges="None" Margin="16,0" Padding="0,16,0,4">
@@ -50,22 +51,31 @@
                                     </DataTrigger>
                                 </Border.Triggers>
                                 <Grid ColumnDefinitions="32,*,44" RowDefinitions="Auto,Auto" ColumnSpacing="4" SafeAreaEdges="None" MinimumHeightRequest="64">
-                                    <Path Data="M7 7H9 M15 7H17 M7 12H9 M15 12H17 M7 17H9 M15 17H17"
-                                          Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
-                                          StrokeThickness="3" WidthRequest="24" HeightRequest="24" Aspect="Uniform"
-                                          HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" />
-                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4" Padding="0,8" SafeAreaEdges="None">
-                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="15" LineBreakMode="WordWrap" />
-                                        <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" />
+                                    <!-- Six 3pt dots in a 24pt box, drawn at their own size: Uniform
+                                         stretched the marks' 10pt bounds to fill the box and clipped the
+                                         outer strokes. Screen readers move cards from ⋯ instead. -->
+                                    <Path Data="M7.5 6A1.5 1.5 0 1 0 10.5 6A1.5 1.5 0 1 0 7.5 6Z M13.5 6A1.5 1.5 0 1 0 16.5 6A1.5 1.5 0 1 0 13.5 6Z M7.5 12A1.5 1.5 0 1 0 10.5 12A1.5 1.5 0 1 0 7.5 12Z M13.5 12A1.5 1.5 0 1 0 16.5 12A1.5 1.5 0 1 0 13.5 12Z M7.5 18A1.5 1.5 0 1 0 10.5 18A1.5 1.5 0 1 0 7.5 18Z M13.5 18A1.5 1.5 0 1 0 16.5 18A1.5 1.5 0 1 0 13.5 18Z"
+                                          Fill="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
+                                          WidthRequest="24" HeightRequest="24" Aspect="None"
+                                          HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True"
+                                          AutomationProperties.IsInAccessibleTree="False" />
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4" Padding="0,8" SafeAreaEdges="None"
+                                                         SemanticProperties.Description="{Binding AccessibleDescription}"
+                                                         SemanticProperties.Hint="Use More to move it">
+                                        <!-- Read once, through the stack's description, not again line by line. -->
+                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="15" LineBreakMode="WordWrap"
+                                               AutomationProperties.IsInAccessibleTree="False" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap"
+                                               AutomationProperties.IsInAccessibleTree="False" />
                                     </VerticalStackLayout>
                                     <!-- Sensors, Graph and Top cards: their own set-up. -->
                                     <Button Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" Text="Set up" Style="{StaticResource LinkButton}" IsVisible="{Binding CanSetUp}"
-                                            VerticalOptions="Center"
+                                            VerticalOptions="Center" SemanticProperties.Description="{Binding SetUpDescription}"
                                             Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
-                                    <!-- Duplicate (where it can be copied) and Add a card below (#145). -->
+                                    <!-- Duplicate (where it can be copied), Add a card after (#145), moves and Remove. -->
                                     <Button Grid.Column="2" Text="⋯" Style="{StaticResource LinkButton}" FontSize="20" WidthRequest="44"
-                                            VerticalOptions="Center" SemanticProperties.Description="{Binding Title, StringFormat='More for {0}'}"
+                                            VerticalOptions="Center" SemanticProperties.Description="{Binding MoreDescription}"
                                             Command="{Binding MoreCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
                                 </Grid>
