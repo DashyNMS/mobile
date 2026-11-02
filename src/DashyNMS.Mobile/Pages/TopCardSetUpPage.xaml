@@ -3,58 +3,53 @@
     x:Class="DashyNMS.Mobile.Pages.TopCardSetUpPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:dash="clr-namespace:DashyNMS.Mobile.Dashboard;assembly=DashyNMS.Mobile.Shared"
     x:DataType="dash:TopCardSetUpViewModel"
-    ios:Page.UseSafeArea="True"
-    SafeAreaEdges="Container"
     Title="{Binding KindTitle}">
 
-    <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
-        <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
-
-                <controls:BackBar x:Name="TopBar" />
-                <Label Style="{StaticResource PageTitle}" Text="{Binding KindTitle}" SemanticProperties.HeadingLevel="Level1" Margin="0" />
-
-                <!-- The card's own title (#103); blank, it's the kind's. -->
-                <VerticalStackLayout Spacing="4">
-                    <Label Style="{StaticResource Caption}" Text="Card title (optional)" />
-                    <Entry Text="{Binding CardTitle}" Placeholder="Card title" />
-                </VerticalStackLayout>
-
-                <Border Style="{StaticResource Card}">
-                    <VerticalStackLayout Spacing="12">
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="Rows" VerticalOptions="Center" />
-                            <Picker Grid.Column="1" Title="Rows" ItemsSource="{Binding Counts}" SelectedItem="{Binding SelectedCount}"
-                                     VerticalOptions="Center" />
-                        </Grid>
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                            <Label Text="Rank by" VerticalOptions="Center" />
-                            <Picker Grid.Column="1" Title="Rank by" ItemsSource="{Binding Ranks}" SelectedItem="{Binding SelectedRank}"
-                                    ItemDisplayBinding="{Binding Label, x:DataType=dash:RankChoice}"
-                                     VerticalOptions="Center" />
-                        </Grid>
-                        <!-- Top errors only: a healthy network says so rather than listing zeros. -->
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding IsErrors}">
+    <!-- The shared setup layout (#397): a fixed heading, full-width scrolling fields and Save fixed at the page base. -->
+    <controls:SetupLayout x:Name="Setup">
+        <controls:SetupLayout.Header>
+            <controls:PageHeader x:Name="Header" Title="{Binding KindTitle}" />
+        </controls:SetupLayout.Header>
+        <controls:SetupLayout.Body>
+            <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="8">
+                    <!-- The card's own title (#103); blank, it's the kind's. First, as in Graph setup. -->
+                    <controls:SetupSection Label="Card title (optional)">
+                        <Entry Text="{Binding CardTitle}" Placeholder="Card title"
+                            SemanticProperties.Description="Card title (optional)" />
+                    </controls:SetupSection>
+                    <!-- Labels sit above their pickers so large text never crowds a row. -->
+                    <controls:SetupSection Label="Rows">
+                        <Picker Title="Rows" ItemsSource="{Binding Counts}" SelectedItem="{Binding SelectedCount}"
+                            SemanticProperties.Description="Rows" />
+                    </controls:SetupSection>
+                    <controls:SetupSection Label="Rank by">
+                        <Picker Title="Rank by" ItemsSource="{Binding Ranks}" SelectedItem="{Binding SelectedRank}"
+                            ItemDisplayBinding="{Binding Label, x:DataType=dash:RankChoice}"
+                            SemanticProperties.Description="Rank by" />
+                    </controls:SetupSection>
+                    <!-- Top errors only: a healthy network says so rather than listing zeros. -->
+                    <controls:SetupSection Label="Quiet ports" IsVisible="{Binding IsErrors}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <VerticalStackLayout VerticalOptions="Center">
-                                <Label Text="Hide ports with no errors" />
-                                <Label Style="{StaticResource Caption}" Text="Off lists every port, errors or not." />
+                                <Label Text="Hide ports with no errors" LineBreakMode="WordWrap" />
+                                <Label Style="{StaticResource Caption}" Text="Off lists every port, errors or not." LineBreakMode="WordWrap" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding HideQuiet}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding HideQuiet}" VerticalOptions="Center"
+                                SemanticProperties.Description="Hide ports with no errors" />
                         </Grid>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Label Style="{StaticResource Caption}"
-                       Text="The same options as the card on DashyNMS desktop, so it looks alike in both." />
-
-                <Button Text="Save" Command="{Binding SaveCommand}" HorizontalOptions="Fill" Margin="0,12,0,8" />
-
-            </VerticalStackLayout>
-        </controls:ReadableColumn>
-    </ScrollView>
+                    </controls:SetupSection>
+                    <Label Style="{StaticResource Caption}"
+                           Text="The same options as the card on DashyNMS desktop, so it looks alike in both." />
+                </VerticalStackLayout>
+            </ScrollView>
+        </controls:SetupLayout.Body>
+        <controls:SetupLayout.PrimaryAction>
+            <Button Text="Save" Command="{Binding SaveCommand}" HorizontalOptions="Fill" Margin="0,12,0,0" />
+        </controls:SetupLayout.PrimaryAction>
+    </controls:SetupLayout>
 
 </ContentPage>
