@@ -12,6 +12,8 @@ namespace DashyNMS.Mobile.Pages;
 public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost
 {
     private readonly AddCardViewModel _viewModel;
+    private bool _isVisible;
+    private Window? _subscribedWindow;
 
     public AddCardPage(AddCardViewModel viewModel)
     {
@@ -26,7 +28,9 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost
 
     protected override void OnDisappearing()
     {
-        if (Window is { } window) window.Resumed -= OnResumed;
+        _isVisible = false;
+        if (_subscribedWindow is { } window) window.Resumed -= OnResumed;
+        _subscribedWindow = null;
 #if IOS
         _textSizeObserver?.Dispose();
         _textSizeObserver = null;
@@ -68,11 +72,14 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        if (_isVisible) return;
+        _isVisible = true;
 #if IOS
         _textSizeObserver = Foundation.NSNotificationCenter.DefaultCenter.AddObserver(
             new Foundation.NSString("UIContentSizeCategoryDidChangeNotification"), _ => Dispatcher.Dispatch(UpdateColumns));
 #endif
-        if (Window is { } window) window.Resumed += OnResumed;
+        _subscribedWindow = Window;
+        if (_subscribedWindow is { } window) window.Resumed += OnResumed;
         UpdateColumns();
         _viewModel.Load();
     }
