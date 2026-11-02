@@ -13,7 +13,7 @@ public partial class GraphPickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		DashboardBackNavigation.Attach(this, TopBar, DeviceList, FormScroll);
+		_ = new SetupPageLayout(this, Setup, Header, DeviceList, FormScroll);
 	}
 
 	/// <summary>Loads once it knows which card - before then it would set up a new one.</summary>
@@ -25,17 +25,6 @@ public partial class GraphPickerPage : ContentPage, IQueryAttributable
 		}
 
 		_viewModel.LoadCommand.Execute(null);
-	}
-
-	/// <summary>The app's own top bar, as the other pushed pages (#140).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		TopBar.Apply(this);
-	}
-	private void OnSetupSearchCompleted(object? sender, EventArgs e)
-	{
-		if (sender is Entry entry) DashyNMS.Mobile.Controls.KeyboardDismiss.Close(entry);
 	}
 
 }

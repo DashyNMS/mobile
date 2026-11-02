@@ -135,9 +135,10 @@ internal static class CoveredEdges
     /// folding or turning iPhone Duo doesn't always pair with a size change
     /// (#282).
     /// </summary>
-    public static void Watch(Page page, Action changed)
+    public static IDisposable Watch(Page page, Action changed)
     {
-        page.SizeChanged += (_, _) => changed();
+        void OnSizeChanged(object? sender, EventArgs e) => changed();
+        page.SizeChanged += OnSizeChanged;
 #if IOS
         SafeAreaWatcher? watcher = null;
         void Attach()
@@ -148,12 +149,32 @@ internal static class CoveredEdges
             }
 
             watcher?.RemoveFromSuperview();
+            watcher?.Dispose();
             watcher = new SafeAreaWatcher(() => page.Dispatcher.Dispatch(changed)) { Frame = view.Bounds };
             view.AddSubview(watcher);
         }
 
-        page.HandlerChanged += (_, _) => Attach();
-        page.Loaded += (_, _) => Attach();
+        void OnAttached(object? sender, EventArgs e) => Attach();
+        page.HandlerChanged += OnAttached;
+        page.Loaded += OnAttached;
+        Attach();
 #endif
+        return new Subscription(() =>
+        {
+            page.SizeChanged -= OnSizeChanged;
+#if IOS
+            page.HandlerChanged -= OnAttached;
+            page.Loaded -= OnAttached;
+            watcher?.RemoveFromSuperview();
+            watcher?.Dispose();
+#endif
+        });
+    }
+
+    private sealed class Subscription(Action unsubscribe) : IDisposable
+    {
+        private Action? _unsubscribe = unsubscribe;
+
+        public void Dispose() => Interlocked.Exchange(ref _unsubscribe, null)?.Invoke();
     }
 }
