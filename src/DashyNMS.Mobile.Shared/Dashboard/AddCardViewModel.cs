@@ -51,7 +51,11 @@ public sealed partial class CardChoice : ObservableObject
     /// <summary>The subtitle's in the accent: there are some already, or it's suggested.</summary>
     public bool IsAccented => HasSome || IsSuggested;
 
+    /// <summary>The whole choice announces its purpose, availability and current selection.</summary>
+    public string SelectionDescription => $"{Name}, {Subtitle}, {(IsSelected ? "selected" : "not selected")}";
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectionDescription))]
     private bool _isSelected;
 
     public bool Matches(string term) =>
@@ -77,7 +81,11 @@ public sealed partial class CardCategory : ObservableObject
     /// <summary>"Traffic 3" - the chip.</summary>
     public string Label => string.Create(CultureInfo.CurrentCulture, $"{Name} {Count}");
 
+    /// <summary>Includes the count and selection, so changing chips is announced.</summary>
+    public string SelectionDescription => $"{Label}, {(IsSelected ? "selected" : "not selected")}";
+
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SelectionDescription))]
     private bool _isSelected;
 }
 
