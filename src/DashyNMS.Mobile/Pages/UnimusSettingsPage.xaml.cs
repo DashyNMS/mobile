@@ -21,6 +21,7 @@ public partial class UnimusSettingsPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		_viewModel.PropertyChanged -= OnViewModelChanged;
 		_viewModel.PropertyChanged += OnViewModelChanged;
 	}
 
@@ -33,10 +34,13 @@ public partial class UnimusSettingsPage : ContentPage
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
 		if (e.PropertyName != nameof(UnimusSettingsViewModel.ErrorMessage) || !_viewModel.HasError) return;
+		var message = _viewModel.ErrorMessage;
+		if (string.IsNullOrEmpty(message)) return;
 		Dispatcher.Dispatch(async () =>
 		{
 			await FormScroll.ScrollToAsync(0, 0, false);
-			SemanticScreenReader.Default.Announce(_viewModel.ErrorMessage!);
+			if (_viewModel.ErrorMessage == message)
+				SemanticScreenReader.Default.Announce(message);
 		});
 	}
 }
