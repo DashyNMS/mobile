@@ -21,10 +21,11 @@
                 <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding SelectedText}" Margin="0,8,0,4" />
                 <Label Grid.Row="2" Style="{StaticResource Caption}" Text="{Binding HintText}" Margin="0,0,0,6" />
                 <VerticalStackLayout Grid.Row="3" Spacing="4">
-                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <Button Text="Retry loading sensors" Command="{Binding LoadCommand}" BackgroundColor="Transparent"
-                        TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                        IsVisible="{Binding HasError}" IsEnabled="{Binding IsNotBusy}" />
+                    <!-- A failure says how to retry; setup pages have no retry control of their own (#424). -->
+                    <VerticalStackLayout Spacing="2" Margin="0,0,0,8" IsVisible="{Binding HasError}">
+                        <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" />
+                        <Label Style="{StaticResource Caption}" Text="{Binding RecoveryText}" />
+                    </VerticalStackLayout>
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
                 </VerticalStackLayout>
 

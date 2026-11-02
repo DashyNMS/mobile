@@ -73,6 +73,7 @@ public sealed class SensorDraftTests
         settings.When(s => s.Save()).Do(_ => { if (fail) throw new IOException("Could not save settings"); });
         await vm.SaveCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
+        Assert.Equal("To retry, choose Save again.", vm.RecoveryText);
         Assert.Empty(navigation.Visits);
         Assert.Equal(existing ? 1 : 0, app.DashboardWidgets.Count);
         if (card is not null) Assert.Equal("Sensors", card.Title);
@@ -93,11 +94,14 @@ public sealed class SensorDraftTests
         var vm = new SensorPickerViewModel(client, settings, new RecordingNavigation());
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.True(vm.HasError);
+        Assert.Equal("To retry, go back and open sensor setup again.", vm.RecoveryText);
+        Assert.Equal(string.Empty, vm.HintText); // no empty-state claim after a failure
         Assert.False(vm.SaveCommand.CanExecute(null));
         vm.CardTitle = "Keep this draft";
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns([]);
         await vm.LoadCommand.ExecuteAsync(null);
         Assert.False(vm.HasError);
+        Assert.Null(vm.RecoveryText);
         Assert.True(vm.SaveCommand.CanExecute(null));
         Assert.Equal("Keep this draft", vm.CardTitle);
         Assert.Empty(settings.Current.DashboardWidgets);

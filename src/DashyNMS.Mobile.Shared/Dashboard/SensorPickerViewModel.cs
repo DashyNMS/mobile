@@ -98,9 +98,20 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
 
     public string SelectedText => $"{PickedCount} selected";
 
-    public string HintText => string.IsNullOrWhiteSpace(SearchText)
+    /// <summary>No empty-state claim after a failure: the list may just not have loaded.</summary>
+    public string HintText => HasError ? string.Empty
+        : string.IsNullOrWhiteSpace(SearchText)
         ? PickedCount == 0 ? "Search for a sensor or device to add." : "Selected for this card. Search to add more."
         : Sensors.Count == 0 ? "No sensors match." : string.Empty;
+
+    /// <summary>
+    /// The existing route that tries again, stated under the error rather than a
+    /// separate retry button: a failed load reloads when setup is reopened, while a
+    /// failed save keeps the draft so Save can simply be chosen again.
+    /// </summary>
+    public string? RecoveryText => !HasError ? null
+        : _loaded ? "To retry, choose Save again."
+        : "To retry, go back and open sensor setup again.";
 
     partial void OnCardTitleChanged(string value) => _saved = false;
 
@@ -245,6 +256,11 @@ public sealed partial class SensorPickerViewModel : ViewModelBase
     {
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(IsBusy)) SaveCommand.NotifyCanExecuteChanged();
+        if (e.PropertyName == nameof(ErrorMessage))
+        {
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(HintText)));
+            base.OnPropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(RecoveryText)));
+        }
     }
 
     /// <summary>Opening or cancelling setup never creates a dashboard card.</summary>
