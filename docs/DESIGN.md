@@ -109,7 +109,11 @@ margin. Use `SearchField` and the existing `Error`, `Caption` and
 Search submission and list scrolling use `KeyboardDismiss`. Selection remains
 owned by the page/view model; expose selected state to accessibility when a
 page adds selection rows. Supply meaningful empty and retry states for each
-page's data contract.
+page's data contract. A retry state can be a caption under the error naming
+the existing route that loads again, such as reopening the page or choosing
+the device again; setup pages have no Try again buttons. An empty list says
+whether a search matched nothing or there is nothing to show, and stays blank
+while an error explains it.
 
 Graph setup is the first consumer, covering a device list and a scrolling
 draft form. Its optional title scrolls with the form, search uses the shared
@@ -117,7 +121,17 @@ SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes were included in that Graph migration.
 Sensor setup now uses the same layout with a scrolling card-title header,
 a finite sensor list and a fixed Save. Other pages retain their page layouts;
-their search appearance uses SearchField. #396 remains open for Graph-specific acceptance.
+their search appearance uses SearchField.
+
+Graph setup is also the reference for a stepped setup page (#396). The
+header names the current step ("Choose a device", then "Choose a graph").
+After choosing, a labelled Device section shows the device's name and details
+with Change device beside them, and Change device's accessible description
+names the device it replaces. Devices and graph descriptions use
+`NaturalOrder`; ports keep interface order. A device with no graphs gets a
+caption explaining the empty picker. The draft, Save rules and persisted
+fields are unchanged. Ranked cards (#397) and Spotlight (#398) should follow
+this pattern where they have a choose-then-configure step.
 
 ### Verified setup reference
 
