@@ -26,9 +26,9 @@ public static class KeyboardShortcuts
         {
             host.OpenSearch();
         }
-        else if (Current?.GetVisualTreeDescendants().OfType<SearchBar>().FirstOrDefault(box => IsShowing(box.Parent)) is { } search)
+        else if (Current?.GetVisualTreeDescendants().OfType<SearchField>().FirstOrDefault(box => IsShowing(box.Parent)) is { } search)
         {
-            SearchReveal.Reveal(search);
+            if (search.Input is { } input) SearchReveal.Reveal(input);
         }
     }
 

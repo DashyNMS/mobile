@@ -40,7 +40,9 @@
             </Button>
         </Grid>
 
-        <SearchBar Grid.Row="1" Text="{Binding SearchText}" Placeholder="Search" Margin="0,6,0,0" />
+        <controls:SearchField Grid.Row="1" Margin="0,6,0,0">
+            <Entry Text="{Binding SearchText}" Placeholder="Search" />
+        </controls:SearchField>
 
         <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 

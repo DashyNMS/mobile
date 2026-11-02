@@ -90,6 +90,10 @@ Native scroll inset adjustment is disabled on the supplied scrollers.
 bottom pill and its actions, and treats a top pill separately. If measurement
 is unavailable, it falls back to native bottom and extra glass clearance.
 The action's own bottom margin must be zero to preserve alignment.
+Side-pill alignment uses `max(0, native height - pill bottom)`, matching
+Devices/Alerts in `TabAlignedListLayout`. Do not clamp this measured gap to
+the native bottom inset, which can lift the action a few points above the
+pill. Keyboard clearance still takes precedence.
 
 Docked keyboard notifications lift the action and reduce the viewport;
 dismissal restores placement. The helper disables MAUI's iOS automatic page
@@ -100,7 +104,7 @@ safe-area and soft-input handling through `SafeAreaEdges.All` on the page.
 Floating iPad keyboard obstruction remains a device check.
 
 Use `SetupSection` for the shared label, 4pt field spacing and 8pt section
-margin. Use the existing styled `SearchBar`, `Error`, `Caption` and
+margin. Use `SearchField` and the existing `Error`, `Caption` and
 `ActivityIndicator` presentation rather than introducing another theme palette.
 Search submission and list scrolling use `KeyboardDismiss`. Selection remains
 owned by the page/view model; expose selected state to accessibility when a
@@ -109,15 +113,19 @@ page's data contract.
 
 Graph setup is the first consumer, covering a device list and a scrolling
 draft form. Its optional title scrolls with the form, search uses the shared
-SearchBar style, and Save still uses the existing draft command. No view-model
+SearchField, and Save still uses the existing draft command. No view-model
 or persistence contract changes are included. Sensors and the remaining pages
-are not migrated. #396 remains open for Graph-specific acceptance.
+retain their page layouts; their search appearance uses SearchField. #396 remains open for Graph-specific acceptance.
 
 The geometry regression tests verify placement decisions. They do not verify
 native rendering, focus behaviour, accessibility or glass ownership. Record
 those results against the TestFlight build in the PR's device checklist before
-calling the implementation device-verified. No device verification is recorded
-by this change.
+calling the implementation device-verified. Build 211's device feedback
+confirmed that Graph used the shared layout and
+reported a small Save alignment offset and the old search appearance. The
+follow-up corrects those paths and adds the standard 20pt input-transparent
+top fade over Graph's device list. These corrections still need device
+verification; the feedback does not complete #406 acceptance.
 
 ## Placement and scrolling
 
@@ -199,19 +207,25 @@ These protect cold launch as well as tab switching:
 
 ## Search and choosers
 
-Tab/list search uses a magnifier and a sliding field. The field is an `Entry`
-in a 46pt-high rounded `Border`, radius 23, `SurfaceAlt` fill, themed chip
-stroke and `Icons.Search`. Reuse that appearance for setup search. The setup
-review must decide whether each picker needs an always-visible field or tab
-search behaviour; the current setup pages mix these patterns.
+All app search boxes use `Controls/SearchField.xaml`. It provides the
+46pt rounded well, radius 23, `SurfaceAlt` fill, themed stroke and magnifier.
+Put the page's `Entry` inside it so compiled text/placeholder bindings and
+page-specific focus callbacks remain on the actual input. The control sets
+Search return type, disables spell checking and prediction, removes clear
+buttons and iOS keyboard accessories, and opts the Entry into `KeyboardDismiss`.
+Do not use native `SearchBar` or copy the search Border markup into pages.
+
+Tab/list search retains its existing sliding slot. `SearchReveal` animates the
+whole SearchField and focuses its Entry; keyboard shortcuts reveal that same
+field. Setup pickers retain their always-visible search behaviour. Changing
+appearance does not change filtering, query retention or selection contracts.
 
 - Opening tab search focuses the field; tapping its magnifier again refocuses
   it. Close on Search, unfocus or a content touch, retaining the query. List
   scrolling also dismisses the keyboard. Use `KeyboardDismiss.Close` before
   hiding a focused field.
-- Use no clear/close X or keyboard accessory. On iOS, remove accessory and
-  assistant button groups in the entry handler. Current setup fields with
-  `ClearButtonVisibility="WhileEditing"` still need migration.
+- Use no clear/close X or keyboard accessory. `SearchField` owns this policy,
+  including on setup pickers.
 - Use a clipped search slot. Animate height and translation together when the
   chips/list should move; overlay search only when the canvas pattern calls
   for it. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
@@ -277,6 +291,7 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
 | Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
 | Header fitting and native safe-area updates | `Controls/TopBar.cs`, `TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
+| Search appearance and input policy | `Controls/SearchField.xaml` and `.xaml.cs`, `SearchReveal.cs` |
 | Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
 | Adaptive dashboard columns | `Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |

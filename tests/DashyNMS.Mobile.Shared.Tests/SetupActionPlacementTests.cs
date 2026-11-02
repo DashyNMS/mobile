@@ -42,8 +42,8 @@ public sealed class SetupActionPlacementTests
 
     [Theory]
     [InlineData(800, 720, 80)]
-    [InlineData(500, 470, 34)]
-    public void Resize_recomputes_alignment_and_preserves_home_indicator(double height, double bottom, double expected) =>
+    [InlineData(500, 470, 30)]
+    public void Resize_aligns_to_the_measured_pill_even_inside_the_native_bottom_inset(double height, double bottom, double expected) =>
         Assert.Equal(expected, SetupActionPlacement.BottomGap(height, 34,
             new(500, 200, 560, bottom), []));
 

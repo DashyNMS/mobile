@@ -21,8 +21,10 @@
 
                 <!-- Step one: the device. -->
                 <Grid Grid.Row="2" RowDefinitions="Auto,*" IsVisible="{Binding ChoosingDevice}">
-                    <SearchBar Text="{Binding DeviceSearch}" Placeholder="Which device?"
-                        SemanticProperties.Description="Which device?" />
+                    <controls:SearchField>
+                        <Entry Text="{Binding DeviceSearch}" Placeholder="Which device?"
+                            SemanticProperties.Description="Which device?" />
+                    </controls:SearchField>
                     <CollectionView x:Name="DeviceList" Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None" Margin="0,6,0,0">
                         <CollectionView.EmptyView>
                             <Label Text="No devices found" Style="{StaticResource Caption}"
@@ -47,6 +49,15 @@
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
+                    <BoxView Grid.Row="1" Margin="0,6,0,0" HeightRequest="20" VerticalOptions="Start"
+                             InputTransparent="True" ZIndex="1">
+                        <BoxView.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                                <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                            </LinearGradientBrush>
+                        </BoxView.Background>
+                    </BoxView>
                 </Grid>
 
                 <!-- Step two: the graph and range. -->

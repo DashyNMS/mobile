@@ -17,7 +17,9 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <SearchBar Grid.Row="1" Text="{Binding SearchText}" Placeholder="Search this backup" Margin="-6,2,-6,0" />
+        <controls:SearchField Grid.Row="1" Margin="0,2,0,0">
+            <Entry Text="{Binding SearchText}" Placeholder="Search this backup" />
+        </controls:SearchField>
 
         <Label Grid.Row="2" Style="{StaticResource Faint}" Margin="4,6,0,6">
             <Label.FormattedText>

@@ -22,7 +22,9 @@
         </controls:BackBar>
         <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Device" SemanticProperties.HeadingLevel="Level1" />
 
-        <SearchBar Grid.Row="2" Text="{Binding SearchText}" Placeholder="Name, hostname or IP" Margin="-6,2,-6,0" />
+        <controls:SearchField Grid.Row="2" Margin="0,2,0,0">
+            <Entry Text="{Binding SearchText}" Placeholder="Name, hostname or IP" />
+        </controls:SearchField>
 
         <ScrollView Grid.Row="3">
             <controls:ReadableColumn>

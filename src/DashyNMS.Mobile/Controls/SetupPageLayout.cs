@@ -146,7 +146,7 @@ internal sealed class SetupPageLayout
                 if (keyboard.Width >= view.Bounds.Width * .8 && keyboard.Bottom >= view.Bounds.Height)
                     keyboardTop = keyboard.Top;
             }
-            bottom = SetupActionPlacement.BottomGap(_layout.Height,
+            bottom = SetupActionPlacement.BottomGap(view.Bounds.Height,
                 CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0),
                 pill, glass, keyboardTop);
         }
