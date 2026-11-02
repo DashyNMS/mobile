@@ -18,13 +18,13 @@ public sealed class SetupLayout : Grid
     public View? Body { get => GetSlot(1); set => SetSlot(1, value); }
     public View? PrimaryAction { get => GetSlot(2); set => SetSlot(2, value); }
 
-    private View? GetSlot(int row) => Children.OfType<View>().FirstOrDefault(view => GetRow(view) == row);
+    private View? GetSlot(int row) => Children.OfType<View>().FirstOrDefault(view => GetRow((IView)view) == row);
 
     private void SetSlot(int row, View? value)
     {
         if (GetSlot(row) is { } previous) Remove(previous);
         if (value is null) return;
-        SetRow(value, row);
+        SetRow((IView)value, row);
         Add(value);
     }
 }
