@@ -476,6 +476,11 @@ rounded bounds (#382), so UIKit's pressed/menu preview has the same shape
 as its surrounding glass. Check opening, selecting and cancelling the menu,
 including a Back + ellipsis group, both themes and VoiceOver on a device.
 
+The device-detail logo uses a 48pt rounded tile with 7pt padding (#388).
+Its light neutral background stays readable in both themes, with the dark
+colour matching desktop's logo tile. No tile is shown without a loaded logo.
+Check transparent SVG/PNG logos, proportions and long device titles.
+
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
