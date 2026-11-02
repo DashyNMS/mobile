@@ -507,7 +507,7 @@ side clearance and footer space for the glass controls. Its cards use the same
 340pt minimum column width, 12pt gap and three-column limit as the dashboard:
 two columns on a wide Duo display, one on a narrow display. Order is read across
 then down. Card titles and subtitles wrap, with Set up below and Remove in More.
-More also offers Move up/down for reordering without dragging. Changes still
+More also offers Move earlier/later for reordering without dragging. Changes still
 save immediately, and removal still offers Undo. The shared dashboard toast
 slides and fades, with Reduce Motion respected. Check drag reordering across
 columns, folding, rotation, large text, the final Add action and the full

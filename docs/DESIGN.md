@@ -17,7 +17,11 @@ pushed pages, dashboard editing, pickers and setup forms.
 4. Run shared tests for changed behaviour and both platform builds. Inspect
    layout diagnostics for placement failures. Finish when checks pass, or record
    precisely which checks could not run.
-5. Verify on a device before marking appearance verified. Use the acceptance
+5. Before merging, have the coding agent review the PR's full diff against
+   this guide: `/code-review` in Claude Code, `/review` in Codex, or the same
+   request in plain words elsewhere. Fix confirmed findings in the PR, or note
+   in the PR why one stands. A review does not replace CI or device checks.
+6. Verify on a device before marking appearance verified. Use the acceptance
    checklist below and report code review, CI and device results separately.
 
 ## Choose the page pattern
@@ -363,7 +367,7 @@ appearance does not change filtering, query retention or selection contracts.
   displays get two half-width cards when space permits. Narrow displays get
   one. Follow width, not device-name checks. Order reads across then down.
 - Let card titles and summaries wrap. Put Set up below the title. More holds
-  Duplicate where supported, Add below, Move up/down and Remove. Menu moves
+  Duplicate where supported, Add a card after, Move earlier/later and Remove. Menu moves
   persist the same order as dragging; removal retains Undo.
 - Use the implicit primary `Button` style for the main Add or Save action.
   It supplies `ButtonPrimary`, text contrast and disabled states. Secondary
@@ -379,9 +383,10 @@ appearance does not change filtering, query retention or selection contracts.
   (`Aspect="None"`) and hidden from screen readers. A `Path` with
   `Aspect="Uniform"` scales its geometry's bounds to the box, which stretched
   the earlier dashes into bars and clipped their outer strokes. Each card's
-  title and summary are one accessible element whose hint points to More,
-  where Move up/down replace dragging for screen readers. Set up and More
-  name their card. Device checks for #399: both Duo displays, inner portrait
+  title and summary are one accessible element, with the labels inside
+  excluded, and its hint points to More: Move earlier/later replace dragging
+  for screen readers. Menu wording follows reading order, since a one-place
+  move across columns can be sideways. Set up and More name their card. Device checks for #399: both Duo displays, inner portrait
   and landscape, folding, large text, the final Add a card, dragging across
   columns, menu moves, Remove/Undo and returns from Add or Set up.
 - Graph, ranked cards and Spotlight use explicit Save in the fixed setup

@@ -46,15 +46,19 @@ public sealed partial class DashboardCardOption : ObservableObject
 
     /// <summary>
     /// The card's title and summary read as one item, so a screen reader
-    /// does not announce them as two unrelated lines.
+    /// does not announce them as two unrelated lines. Commas replace the
+    /// summary's "·", which some screen readers read aloud as "dot".
     /// </summary>
-    public string AccessibleDescription => $"{Title}, {Subtitle}";
+    public string AccessibleDescription => $"{Title}, {Subtitle.Replace(" · ", ", ", StringComparison.Ordinal)}";
 
     /// <summary>
     /// Names the card, since every card's Set up looks alike and a bare
     /// "Set up" does not say which one it opens.
     /// </summary>
     public string SetUpDescription => "Set up " + Title;
+
+    /// <summary>Names the card for the same reason as <see cref="SetUpDescription"/>.</summary>
+    public string MoreDescription => "More for " + Title;
 
     /// <summary>Sensors, Graph and Top cards have something to choose.</summary>
     public bool CanSetUp => Kind.AllowsSeveral;
@@ -73,6 +77,7 @@ public sealed partial class DashboardCardOption : ObservableObject
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(AccessibleDescription));
         OnPropertyChanged(nameof(SetUpDescription));
+        OnPropertyChanged(nameof(MoreDescription));
     }
 }
 
@@ -154,7 +159,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     [RelayCommand]
     private Task AddCardAsync() => _navigation.GoToAsync(Routes.AddCard);
 
-    /// <summary>The card picker, adding just below <paramref name="card"/> (#145).</summary>
+    /// <summary>The card picker, adding just after <paramref name="card"/> in reading order (#145).</summary>
     [RelayCommand]
     private Task AddCardBelowAsync(DashboardCardOption? card)
     {
@@ -165,9 +170,17 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
     }
 
     internal const string DuplicateChoice = "Duplicate";
-    internal const string AddBelowChoice = "Add a card below";
+    internal const string AddBelowChoice = "Add a card after";
 
-    /// <summary>A card's ⋯: Duplicate, where it can be copied, and Add a card below.</summary>
+    // Earlier and later, not up and down: with several columns the order reads
+    // across then down, so a one-place move can be sideways.
+    internal const string MoveEarlierChoice = "Move earlier";
+    internal const string MoveLaterChoice = "Move later";
+
+    /// <summary>
+    /// A card's ⋯: Duplicate, where it can be copied, Add a card after, moves
+    /// in reading order (screen readers' way to reorder) and Remove.
+    /// </summary>
     [RelayCommand]
     private async Task MoreAsync(DashboardCardOption? card)
     {
@@ -181,8 +194,8 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         var choices = new List<string>();
         if (card.CanDuplicate) choices.Add(DuplicateChoice);
         choices.Add(AddBelowChoice);
-        if (index > 0) choices.Add("Move up");
-        if (index < Cards.Count - 1) choices.Add("Move down");
+        if (index > 0) choices.Add(MoveEarlierChoice);
+        if (index < Cards.Count - 1) choices.Add(MoveLaterChoice);
         choices.Add("Remove");
         var choice = await _dialogs.ChooseAsync(card.Title, choices);
         if (choice == DuplicateChoice)
@@ -197,11 +210,11 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
         {
             Remove(card);
         }
-        else if (choice is "Move up" or "Move down")
+        else if (choice is MoveEarlierChoice or MoveLaterChoice)
         {
             // The menu can stay open while Undo replaces the collection.
             var current = Cards.IndexOf(card);
-            var destination = current + (choice == "Move up" ? -1 : 1);
+            var destination = current + (choice == MoveEarlierChoice ? -1 : 1);
             if (current >= 0 && destination >= 0 && destination < Cards.Count)
             {
                 Cards.Move(current, destination);
@@ -212,7 +225,7 @@ public sealed partial class CustomiseDashboardViewModel : ViewModelBase
 
     /// <summary>
     /// A copy titled "… (copy)" with the same sensors, graph or options, just
-    /// below the original and outlined there - as desktop's Duplicate (its
+    /// after the original and outlined there - as desktop's Duplicate (its
     /// #279), with Undo in the toast.
     /// </summary>
     [RelayCommand]

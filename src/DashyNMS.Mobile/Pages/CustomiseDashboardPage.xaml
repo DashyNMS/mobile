@@ -10,9 +10,10 @@
     SafeAreaEdges="Container"
     Title="Edit dashboard">
 
-    <!-- As the Edit dashboard mock-up (#140): the cards in one card, dragged to
-         reorder, removed with Undo, set up, duplicated or added below from ⋯;
-         then the free spot at the end - desktop's "+" space (#145). -->
+    <!-- As the Edit dashboard mock-up (#140), in the dashboard's columns (#401):
+         cards dragged to reorder, removed with Undo, set up, duplicated, moved
+         or added after from ⋯; then the free spot at the end - desktop's "+"
+         space (#145). -->
     <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,*">
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
         <Grid x:Name="Heading" Grid.Row="1" SafeAreaEdges="None" Margin="16,0" Padding="0,16,0,4">
@@ -60,18 +61,21 @@
                                           AutomationProperties.IsInAccessibleTree="False" />
                                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="4" Padding="0,8" SafeAreaEdges="None"
                                                          SemanticProperties.Description="{Binding AccessibleDescription}"
-                                                         SemanticProperties.Hint="Drag to reorder, or use More to move it">
-                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="15" LineBreakMode="WordWrap" />
-                                        <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" />
+                                                         SemanticProperties.Hint="Use More to move it">
+                                        <!-- Read once, through the stack's description, not again line by line. -->
+                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="15" LineBreakMode="WordWrap"
+                                               AutomationProperties.IsInAccessibleTree="False" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" LineBreakMode="WordWrap"
+                                               AutomationProperties.IsInAccessibleTree="False" />
                                     </VerticalStackLayout>
                                     <!-- Sensors, Graph and Top cards: their own set-up. -->
                                     <Button Grid.Row="1" Grid.Column="1" HorizontalOptions="Start" Text="Set up" Style="{StaticResource LinkButton}" IsVisible="{Binding CanSetUp}"
                                             VerticalOptions="Center" SemanticProperties.Description="{Binding SetUpDescription}"
                                             Command="{Binding SetUpCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
-                                    <!-- Duplicate (where it can be copied) and Add a card below (#145). -->
+                                    <!-- Duplicate (where it can be copied), Add a card after (#145), moves and Remove. -->
                                     <Button Grid.Column="2" Text="⋯" Style="{StaticResource LinkButton}" FontSize="20" WidthRequest="44"
-                                            VerticalOptions="Center" SemanticProperties.Description="{Binding Title, StringFormat='More for {0}'}"
+                                            VerticalOptions="Center" SemanticProperties.Description="{Binding MoreDescription}"
                                             Command="{Binding MoreCommand, Source={RelativeSource AncestorType={x:Type dash:CustomiseDashboardViewModel}}, x:DataType=dash:CustomiseDashboardViewModel}"
                                             CommandParameter="{Binding .}" />
                                 </Grid>

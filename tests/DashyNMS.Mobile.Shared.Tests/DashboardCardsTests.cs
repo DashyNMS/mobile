@@ -247,15 +247,18 @@ public sealed class CustomiseDashboardViewModelTests
         var changed = new List<string?>();
         option.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
 
-        Assert.Equal("Core switch temps, Sensors · none chosen yet", option.AccessibleDescription);
+        Assert.Equal("Core switch temps, Sensors, none chosen yet", option.AccessibleDescription);
         Assert.Equal("Set up Core switch temps", option.SetUpDescription);
 
         card.Title = "Rack temps";
         option.Refresh();
 
+        Assert.Equal("Rack temps, Sensors, none chosen yet", option.AccessibleDescription);
         Assert.Equal("Set up Rack temps", option.SetUpDescription);
+        Assert.Equal("More for Rack temps", option.MoreDescription);
         Assert.Contains(nameof(DashboardCardOption.AccessibleDescription), changed);
         Assert.Contains(nameof(DashboardCardOption.SetUpDescription), changed);
+        Assert.Contains(nameof(DashboardCardOption.MoreDescription), changed);
     }
 
     [Fact]
@@ -284,12 +287,12 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Fact]
-    public async Task A_cards_menu_duplicates_where_it_can_and_adds_below()
+    public async Task A_cards_menu_duplicates_where_it_can_and_adds_after()
     {
         DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
         DashboardLayout.Add(_appSettings, DashboardLayout.TopErrors);
         var dialogs = Substitute.For<IDialogService>();
-        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Add a card below");
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Add a card after");
         var navigation = new RecordingNavigation();
         var vm = new CustomiseDashboardViewModel(_settings, navigation, _toast, dialogs: dialogs);
         vm.Attach();
@@ -299,7 +302,7 @@ public sealed class CustomiseDashboardViewModelTests
 
         await vm.MoreCommand.ExecuteAsync(vm.Cards[0]);
 
-        await dialogs.Received(1).ChooseAsync("Needs attention", Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Add a card below", "Move down", "Remove" })));
+        await dialogs.Received(1).ChooseAsync("Needs attention", Arg.Is<IReadOnlyList<string>>(o => o.SequenceEqual(new[] { "Add a card after", "Move later", "Remove" })));
         var visit = Assert.Single(navigation.Visits);
         Assert.Equal(Routes.AddCard, visit.Route);
         Assert.Equal(1, visit.Parameters![Routes.PositionParameter]);
@@ -310,8 +313,8 @@ public sealed class CustomiseDashboardViewModelTests
     }
 
     [Theory]
-    [InlineData("Move up", 1, 0)]
-    [InlineData("Move down", 0, 1)]
+    [InlineData("Move earlier", 1, 0)]
+    [InlineData("Move later", 0, 1)]
     public async Task Menu_moves_save_the_new_reading_order(string choice, int source, int destination)
     {
         DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
