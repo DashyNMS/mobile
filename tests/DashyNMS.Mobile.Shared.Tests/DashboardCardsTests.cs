@@ -411,6 +411,71 @@ public sealed class AddCardViewModelTests
         new(_settings, _navigation, _toast, new DeviceBookmarks(_settings, TimeProvider.System));
 
     [Fact]
+    public void Category_changes_notify_both_chips_accessible_selection()
+    {
+        var vm = NewViewModel();
+        var all = vm.Categories[0];
+        var traffic = vm.Categories.Single(c => c.Name == "Traffic");
+        var notifications = new List<string>();
+        all.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CardCategory.SelectionDescription)) notifications.Add(all.SelectionDescription);
+        };
+        traffic.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CardCategory.SelectionDescription)) notifications.Add(traffic.SelectionDescription);
+        };
+
+        Assert.Equal("All 13, selected", all.SelectionDescription);
+        Assert.Equal("Traffic 3, not selected", traffic.SelectionDescription);
+        vm.ChooseCategoryCommand.Execute(traffic);
+        Assert.Equal(["All 13, not selected", "Traffic 3, selected"], notifications);
+        notifications.Clear();
+        vm.SearchText = "errors";
+        Assert.Empty(notifications); // Filtering does not announce a spurious selection change.
+        vm.ChooseCategoryCommand.Execute(all);
+        Assert.Equal(["All 13, selected", "Traffic 3, not selected"], notifications);
+    }
+
+    [Fact]
+    public void Card_accessible_selection_notifies_and_survives_search_and_category_changes()
+    {
+        var vm = NewViewModel();
+        var choice = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopErrors);
+        var descriptions = new List<string>();
+        choice.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(CardChoice.SelectionDescription)) descriptions.Add(choice.SelectionDescription);
+        };
+        var prefix = $"{choice.Name}, {choice.Subtitle}, ";
+        Assert.Equal(prefix + "not selected", choice.SelectionDescription);
+        vm.PickCommand.Execute(choice);
+        Assert.Equal(prefix + "selected", Assert.Single(descriptions));
+        vm.SearchText = "no matching card";
+        vm.ChooseCategoryCommand.Execute(vm.Categories.Single(c => c.Name == "Traffic"));
+        vm.SearchText = "";
+        Assert.Same(choice, vm.Cards.Single(c => c.Kind.Type == DashboardLayout.TopErrors));
+        Assert.Equal(prefix + "selected", choice.SelectionDescription);
+        Assert.Same(choice, Assert.Single(vm.Ticked));
+        vm.PickCommand.Execute(choice);
+        Assert.Equal([prefix + "selected", prefix + "not selected"], descriptions);
+        Assert.Empty(vm.Ticked);
+    }
+
+    [Fact]
+    public void Unavailable_card_announces_reason_and_cannot_be_selected()
+    {
+        _appSettings.EnablePinnedDevices = false;
+        var vm = NewViewModel();
+        var choice = vm.Cards.Single(c => c.Kind.Type == DashboardLayout.PinnedDevices);
+        Assert.Equal($"{choice.Name}, Turn on pinned devices in Settings, Devices first, not selected", choice.SelectionDescription);
+        vm.PickCommand.Execute(choice);
+        Assert.False(choice.IsSelected);
+        Assert.EndsWith(", not selected", choice.SelectionDescription);
+        Assert.Empty(vm.Ticked);
+    }
+
+    [Fact]
     public void Every_card_filed_by_category_with_counts()
     {
         var vm = NewViewModel();
