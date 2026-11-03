@@ -1,282 +1,87 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage
-    x:Class="DashyNMS.Mobile.Pages.SettingsPage"
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
-    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
-    xmlns:services="clr-namespace:DashyNMS.Mobile.Services;assembly=DashyNMS.Mobile.Shared"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
-    x:DataType="vm:SettingsViewModel"
-    ios:Page.UseSafeArea="True"
-    Title="Settings">
-
-    <!-- One row per section, each summarising its values and opening its
-         own page (#67), rather than every setting on one long page. -->
-    <Grid>
-        <ScrollView>
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,0,16,16" Spacing="12">
-
-                    <!-- Pinned to the tab bar, Settings has its own big title; from More, the navigation bar. -->
-                    <controls:PageHeader x:Name="Header" Title="Settings" />
-
-                    <!-- The server as a card of its own, as in the mock-ups. -->
-                    <Border Style="{StaticResource Card}">
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
-                        </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                            <Image Source="dashynms_logo.png" WidthRequest="40" HeightRequest="40" VerticalOptions="Center" />
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                <Label Style="{StaticResource RowTitle}" Text="{Binding ServerHost}" />
-                                <Label Style="{StaticResource Faint}" Text="{Binding ServerSummary}" />
-                                <!-- On the backup address (#114): said here as on the dashboard; tapped, the way back. -->
-                                <Label Text="{Binding Backup.ServerRowText}" FontSize="13" Margin="0,2,0,0" IsVisible="{Binding Backup.IsOnBackup}"
-                                       TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}">
-                                    <Label.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding Backup.ExplainCommand}" />
-                                    </Label.GestureRecognizers>
-                                </Label>
-                            </VerticalStackLayout>
-                            <Label Grid.Column="2" Style="{StaticResource Chevron}" />
-                        </Grid>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Padding="14,0">
-                        <VerticalStackLayout>
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Appearance" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding AppearanceSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Devices}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Devices" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding DevicesSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.AlertChecks}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Alert checks" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding AlertChecksSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Notifications}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Notifications" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding NotificationsSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenThresholdsCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Health thresholds" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="When dBm, signal, temperature and fan speed turn amber or red" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <Border Style="{StaticResource Card}" Padding="14,0">
-                        <VerticalStackLayout>
-                            <!-- Only where there are lock-screen widgets (iPhone). -->
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8" IsVisible="{Binding HasLockScreenWidgets}">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Lock screen widgets" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding LockScreenSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding HasLockScreenWidgets}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenGraylogSettingsCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Graylog" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding GraylogStatusText}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenUnimusSettingsCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Unimus" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding UnimusStatusText}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="60" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSensorDefinitionsCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Sensor definitions" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding SensorDefinitionsSummary}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <!-- About: the privacy policy has to be reachable in the app as
-                         well as on the store listing (App Store guideline 5.1.1). -->
-                    <Label Style="{StaticResource SectionHeader}" Text="About" Margin="4,4,0,-4" />
-                    <Border Style="{StaticResource Card}" Padding="14,0">
-                        <VerticalStackLayout>
-                            <!-- What's installed, for a bug report (#215): versions only, never the server or names. -->
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,10,0,10" Spacing="6">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="services:ComponentVersion">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                            <Label Text="{Binding Name}" FontSize="15" VerticalOptions="Center" />
-                                            <VerticalStackLayout Grid.Column="1" HorizontalOptions="End">
-                                                <Label Text="{Binding DisplayVersion}" FontSize="15" HorizontalTextAlignment="End" />
-                                                <Label Style="{StaticResource Faint}" Text="{Binding State}" HorizontalTextAlignment="End" />
-                                            </VerticalStackLayout>
-                                        </Grid>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
-                            </VerticalStackLayout>
-                            <!-- This release's notes again (#159). -->
-                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding HasWhatsNew}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding HasWhatsNew}">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenWhatsNewCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="What's new in this version" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding WhatsNewSummary}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
-                                </Grid.GestureRecognizers>
-                                <Label Text="Privacy policy" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
-                                </Grid.GestureRecognizers>
-                                <Label Text="Help and support" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Website}" />
-                                </Grid.GestureRecognizers>
-                                <Label Text="DashyNMS website" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <!-- What the app is built with, and each licence (#164). -->
-                            <BoxView Style="{StaticResource Divider}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLicencesCommand}" />
-                                </Grid.GestureRecognizers>
-                                <Label Text="Open-source licences" FontSize="15" FontFamily="BodySemibold" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <!-- Diagnostics (#215): what the app did lately, for a bug report (#107) - only ever sent by the user -
-                         and, in a build that can send them, the error reports and usage choices (#216). -->
-                    <Label Style="{StaticResource SectionHeader}" Text="Diagnostics" Margin="4,4,0,-4" IsVisible="{Binding HasDiagnosticsCard}" />
-                    <Border Style="{StaticResource Card}" Padding="14,0" IsVisible="{Binding HasDiagnosticsCard}">
-                        <VerticalStackLayout>
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanChooseSharing}">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Diagnostics}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Error reports and usage" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding SharingSummary}" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding CanChooseSharing}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanShareDiagnostics}">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding ShareDiagnosticsCommand}" />
-                                </Grid.GestureRecognizers>
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Share diagnostics" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Caption}" Text="What the app did lately, for a bug report" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="1" Style="{StaticResource Chevron}" />
-                            </Grid>
-                            <!-- Names and addresses as placeholders in what's shared (#126). -->
-                            <BoxView Style="{StaticResource Divider}" IsVisible="{Binding CanHideNamesInDiagnostics}" />
-                            <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="52" Padding="0,8" IsVisible="{Binding CanHideNamesInDiagnostics}">
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Text="Hide names" FontSize="15" FontFamily="BodySemibold" />
-                                    <Label Style="{StaticResource Caption}" Text="Server and device names and IP addresses as placeholders in diagnostics" />
-                                </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding HideNamesInDiagnostics}" VerticalOptions="Center" />
-                            </Grid>
-                        </VerticalStackLayout>
-                    </Border>
-
-                    <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" Margin="0,12,0,0" />
-
-                    <Label Style="{StaticResource Faint}"
-                           Text="{Binding AppVersion, StringFormat='DashyNMS mobile {0}'}"
-                           HorizontalOptions="Center"
-                           Margin="0,8,0,0">
-                        <Label.GestureRecognizers>
-                            <TapGestureRecognizer Tapped="OnSecretTap" />
-                        </Label.GestureRecognizers>
-                    </Label>
-                    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}"
-                           HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,0" />
-
-                </VerticalStackLayout>
-            </controls:ReadableColumn>
-        </ScrollView>
-
-        <!-- Hidden until the title - or, opened from More where the title is
-             the navigation bar's, the version line - is tapped three times
-             quickly: the penguins (#99). -->
-        <controls:SmileAndWaveOverlay x:Name="Penguins" />
-    </Grid>
-
+<ContentPage x:Class="DashyNMS.Mobile.Pages.SettingsPage"
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+ xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
+ xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+ xmlns:services="clr-namespace:DashyNMS.Mobile.Services;assembly=DashyNMS.Mobile.Shared"
+ x:DataType="vm:SettingsViewModel" Title="Settings">
+ <Grid x:Name="Root" RowDefinitions="Auto,*">
+  <controls:PageHeader x:Name="Header" Title="Settings" Note="Changes save automatically." Margin="16,0" />
+  <ScrollView x:Name="Scroller" Grid.Row="1">
+   <VerticalStackLayout x:Name="Body" Padding="16,20,16,16" Spacing="12">
+    <Border Style="{StaticResource Card}">
+     <VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="{Binding ServerHost}" Summary="{Binding ServerSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
+      <controls:SettingsOverviewRow Title="Backup address" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
+     </VerticalStackLayout>
+    </Border>
+    <Border Style="{StaticResource Card}" Padding="14,0">
+     <VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="Appearance" Summary="{Binding AppearanceSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
+      <controls:SettingsOverviewRow Title="Devices" Summary="{Binding DevicesSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Devices}" />
+      <controls:SettingsOverviewRow Title="Alert checks" Summary="{Binding AlertChecksSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.AlertChecks}" />
+      <controls:SettingsOverviewRow Title="Notifications" Summary="{Binding NotificationsSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Notifications}" />
+      <controls:SettingsOverviewRow Title="Health thresholds" Summary="When dBm, signal, temperature and fan speed turn amber or red" Command="{Binding OpenThresholdsCommand}" />
+     </VerticalStackLayout>
+    </Border>
+    <Border Style="{StaticResource Card}" Padding="14,0">
+     <VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="Lock screen widgets" Summary="{Binding LockScreenSummary}" IsVisible="{Binding HasLockScreenWidgets}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
+      <controls:SettingsOverviewRow Title="Graylog" Summary="{Binding GraylogStatusText}" Command="{Binding OpenGraylogSettingsCommand}" />
+      <controls:SettingsOverviewRow Title="Unimus" Summary="{Binding UnimusStatusText}" Command="{Binding OpenUnimusSettingsCommand}" />
+      <controls:SettingsOverviewRow Title="Sensor definitions" Summary="{Binding SensorDefinitionsSummary}" Command="{Binding OpenSensorDefinitionsCommand}" />
+     </VerticalStackLayout>
+    </Border>
+    <Label Style="{StaticResource SectionHeader}" Text="About" />
+    <Border Style="{StaticResource Card}" Padding="14,0">
+     <VerticalStackLayout>
+      <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,12" Spacing="12">
+       <BindableLayout.ItemTemplate>
+        <DataTemplate x:DataType="services:ComponentVersion">
+         <VerticalStackLayout Spacing="4">
+          <Label Text="{Binding Name}" FontSize="15" FontFamily="BodySemibold" />
+          <Label Text="{Binding DisplayVersion}" FontSize="15" LineBreakMode="CharacterWrap" />
+          <Label Text="{Binding State}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
+         </VerticalStackLayout>
+        </DataTemplate>
+       </BindableLayout.ItemTemplate>
+      </VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="What's new in this version" Summary="{Binding WhatsNewSummary}" IsVisible="{Binding HasWhatsNew}" Command="{Binding OpenWhatsNewCommand}" />
+      <controls:SettingsOverviewRow Title="Privacy policy" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
+      <controls:SettingsOverviewRow Title="Help and support" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
+      <controls:SettingsOverviewRow Title="DashyNMS website" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Website}" />
+      <controls:SettingsOverviewRow Title="Open-source licences" Command="{Binding OpenLicencesCommand}" />
+     </VerticalStackLayout>
+    </Border>
+    <Label Style="{StaticResource SectionHeader}" Text="Diagnostics" IsVisible="{Binding HasDiagnosticsCard}" />
+    <Border Style="{StaticResource Card}" Padding="14,0" IsVisible="{Binding HasDiagnosticsCard}">
+     <VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="Error reports and usage" Summary="{Binding SharingSummary}" IsVisible="{Binding CanChooseSharing}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Diagnostics}" />
+      <controls:SettingsOverviewRow Title="Share diagnostics" Summary="What the app did lately, for a bug report" IsVisible="{Binding CanShareDiagnostics}" Command="{Binding ShareDiagnosticsCommand}" />
+      <VerticalStackLayout Padding="0,10" IsVisible="{Binding CanHideNamesInDiagnostics}">
+       <Label Text="Hide names" FontFamily="BodySemibold" />
+       <Label Style="{StaticResource Caption}" Text="Server and device names and IP addresses as placeholders in diagnostics" />
+       <Switch IsToggled="{Binding HideNamesInDiagnostics}" HorizontalOptions="Start" SemanticProperties.Description="Hide names in diagnostics" MinimumHeightRequest="44" />
+      </VerticalStackLayout>
+     </VerticalStackLayout>
+    </Border>
+    <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" MinimumHeightRequest="44" />
+    <Label Style="{StaticResource Faint}" Text="{Binding AppVersion, StringFormat='DashyNMS mobile {0}'}" HorizontalTextAlignment="Center">
+     <Label.GestureRecognizers><TapGestureRecognizer Tapped="OnSecretTap" /></Label.GestureRecognizers>
+    </Label>
+    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}" HorizontalTextAlignment="Center" />
+    <BoxView x:Name="Foot" Color="Transparent" HeightRequest="16" />
+   </VerticalStackLayout>
+  </ScrollView>
+  <BoxView x:Name="Fade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" Margin="16,0">
+   <BoxView.Background>
+    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
+    </LinearGradientBrush>
+   </BoxView.Background>
+  </BoxView>
+  <controls:SmileAndWaveOverlay x:Name="Penguins" Grid.RowSpan="2" />
+ </Grid>
 </ContentPage>
