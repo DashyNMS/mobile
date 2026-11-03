@@ -20,6 +20,12 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Only resource readings use the wrapping usage presentation.</summary>
+    public bool ResourceLayout { get; init; }
+    public string? ResourceKind { get; init; }
+    public string ResourceStatusText => Status == RowStatus.None ? "Reading unavailable" : HealthStatusText;
+    public string ResourceDescription => string.Join(", ", new[] { Title, ResourceKind, Value, Subtitle, ResourceStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
@@ -129,6 +135,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>

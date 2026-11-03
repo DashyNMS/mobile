@@ -127,6 +127,43 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal(percent / 100, row.Bar);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public void Invalid_usage_never_implies_a_healthy_or_zero_reading(double? percent)
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net memory", percent, null, null, null);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Null(row.Bar);
+        Assert.Equal("—", row.Value);
+        Assert.True(row.Matches("unavailable"));
+        Assert.Contains("Reading unavailable", row.ResourceDescription);
+    }
+
+    [Theory]
+    [InlineData(-1, 100)]
+    [InlineData(101, 100)]
+    [InlineData(0, 0)]
+    public void Invalid_capacity_is_not_formatted_as_usage(long used, long total)
+    {
+        Assert.Null(DeviceSectionLoader.UsageRow("example.net storage", null, null, used, total).Subtitle);
+    }
+
+    [Fact]
+    public void Reported_zero_usage_remains_valid_and_resource_context_is_searchable()
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net processor", 0, null, null, null) with { ResourceKind = "CPU · Processors" };
+        Assert.Equal(RowStatus.Ok, row.Status);
+        Assert.Equal(0d, row.Bar);
+        Assert.True(row.Matches("CPU"));
+        Assert.True(row.Matches("OK"));
+        Assert.False(new SectionRow("example.net").Matches("unavailable"));
+    }
+
     [Fact]
     public async Task Resources_group_cpu_memory_and_storage()
     {

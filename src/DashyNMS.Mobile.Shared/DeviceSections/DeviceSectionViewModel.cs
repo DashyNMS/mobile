@@ -251,6 +251,12 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        // Resource endpoints have no freshness timestamp for retained bars.
+        if (Section == DeviceSection.Resources)
+        {
+            _all = [];
+            Groups.ReplaceAll([]);
+        }
         _all = await _loader.LoadAsync(Section, DeviceId);
         _loaded = true;
         OnPropertyChanged(nameof(InventorySummary));
