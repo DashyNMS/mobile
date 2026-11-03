@@ -31,6 +31,25 @@ public sealed class SignInWithLibreNmsTests
         return vm;
     }
 
+    [Theory]
+    [InlineData("://invalid")]
+    [InlineData("http://nms.example.net")]
+    public async Task Repeated_web_validation_failure_notifies_feedback_again(string address)
+    {
+        var vm = NewViewModel(address);
+        var errors = new List<string?>();
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(vm.ErrorMessage)) errors.Add(vm.ErrorMessage);
+        };
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        Assert.False(string.IsNullOrWhiteSpace(error));
+        errors.Clear();
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+        Assert.Equal(new string?[] { null, error }, errors);
+    }
+
     [Fact]
     public void Offers_LibreNMS_first()
     {
@@ -123,6 +142,29 @@ public sealed class SignInWithLibreNmsTests
         await _web.DidNotReceiveWithAnyArgs().SignInAsync(default!);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Web_return_preserves_draft_without_committing_a_session(bool failed)
+    {
+        _web.SignInAsync(default!).ReturnsForAnyArgs(failed
+            ? new WebSignInResult(WebSignInOutcome.Failed) : WebSignInResult.Cancelled);
+        var vm = NewViewModel("https://example.net/librenms");
+        vm.BackupAddress = "https://backup.example.net";
+        vm.RememberToken = false;
+
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://example.net/librenms", vm.ServerUrl);
+        Assert.Equal("https://backup.example.net", vm.BackupAddress);
+        Assert.False(vm.RememberToken);
+        Assert.Empty(vm.ApiToken);
+        Assert.Equal(failed, vm.ShowsTokenEntry);
+        Assert.Equal(failed, vm.HasError);
+        Assert.Empty(_navigation.Visits);
+        await _session.DidNotReceiveWithAnyArgs().SignInAsync(default!, default!, default, default, default, default);
+    }
+
     [Fact]
     public async Task Doesnt_open_the_page_when_the_server_cant_be_reached()
     {
@@ -167,6 +209,41 @@ public sealed class EasierTokenTests
     {
         ServerUrl = server,
     };
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Repeated_manual_validation_failure_notifies_feedback_again(bool paste)
+    {
+        _clipboard.GetTextAsync().Returns("not a token");
+        var vm = NewViewModel();
+        var errors = new List<string?>();
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(vm.ErrorMessage)) errors.Add(vm.ErrorMessage);
+        };
+        var command = paste ? vm.PasteTokenCommand : vm.SignInCommand;
+        await command.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        Assert.False(string.IsNullOrWhiteSpace(error));
+        errors.Clear();
+        await command.ExecuteAsync(null);
+        Assert.Equal(new string?[] { null, error }, errors);
+    }
+
+    [Fact]
+    public async Task Denied_clipboard_read_keeps_the_previous_failure()
+    {
+        var vm = NewViewModel();
+        await vm.SignInCommand.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        _clipboard.GetTextAsync().Returns(Task.FromException<string?>(new InvalidOperationException("Synthetic paste refusal")));
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Equal(error, vm.ErrorMessage);
+        Assert.Equal(SignInHelp.MissingToken, vm.ErrorMessage);
+    }
 
     [Fact]
     public void The_hint_is_Cores_as_desktop_says_it() =>
@@ -242,5 +319,28 @@ public sealed class EasierTokenTests
 
         Assert.Empty(vm.ApiToken);
         Assert.Contains("isn't an API token", vm.ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Invalid_clipboard_preserves_the_manual_draft_and_options()
+    {
+        _clipboard.GetTextAsync().Returns("not a token");
+        var vm = NewViewModel("  https://example.net/librenms  ");
+        vm.ApiToken = Token;
+        vm.BackupAddress = "  https://backup.example.net  ";
+        vm.RememberToken = false;
+        vm.AllowUntrustedCertificate = true;
+        vm.UseTokenCommand.Execute(null);
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Equal("  https://example.net/librenms  ", vm.ServerUrl);
+        Assert.Equal("  https://backup.example.net  ", vm.BackupAddress);
+        Assert.Equal(Token, vm.ApiToken);
+        Assert.False(vm.RememberToken);
+        Assert.True(vm.AllowUntrustedCertificate);
+        Assert.True(vm.ShowsTokenEntry);
+        Assert.True(vm.HasError);
+        await _session.DidNotReceiveWithAnyArgs().SignInAsync(default!, default!, default, default, default, default);
     }
 }
