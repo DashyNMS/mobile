@@ -91,3 +91,21 @@ Run against the eventual merged commit and TestFlight build; record both here.
 
 Keyboard is not applicable to this read-only view. User device acceptance is
 pending. Issue #460 and epic #442 remain open.
+
+## Claude review remediation
+
+Claude Opus 5.5 Medium reviewed d79886c against main a52994c. Pushed details
+now use central IActivePage activation without a Window resume hook, with
+idempotent subscriptions and visibility-guarded glass Back. Supporting root and
+content layouts explicitly opt out of native safe areas. Prose and narrowing
+actions word-wrap; the fade ends in a matching transparent background colour.
+The message is the primary accessible heading and Details is secondary.
+Open device now uses the same native secondary-button presentation as Open rule.
+
+Presentation decision: retain full available width and textual severity rather
+than the old pill and readable-width cap, following the merged full-width detail
+baseline. This does not change severity semantics; legacy unknown severity still
+uses Event as a generic event label, not claimed server severity.
+Unit tests and actions/C# analysis passed at reviewed head. Replacement CI is
+pending; no local builds/tests ran. All device results remain unverified,
+including long prose, narrow buttons, retained stacks and native action focus.

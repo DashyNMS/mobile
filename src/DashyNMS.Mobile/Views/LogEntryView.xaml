@@ -6,45 +6,40 @@
     xmlns:logs="clr-namespace:DashyNMS.Mobile.Logs;assembly=DashyNMS.Mobile.Shared"
     xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
     x:DataType="logs:LogEntryViewModel">
-    <Grid>
+    <Grid x:Name="Root" SafeAreaEdges="None">
         <ScrollView x:Name="Scroller">
-            <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12">
+            <VerticalStackLayout x:Name="ContentColumn" SafeAreaEdges="None" Padding="16,0,16,24" Spacing="12">
                 <controls:BackBar x:Name="TopBar" />
                 <Label Text="Entry unavailable. Go back and select an entry again." IsVisible="{Binding MissingEntry}" />
-                <VerticalStackLayout Spacing="12" IsVisible="{Binding HasEntry}">
+                <VerticalStackLayout SafeAreaEdges="None" Spacing="12" IsVisible="{Binding HasEntry}">
                     <Border Style="{StaticResource Card}" Padding="16">
                         <VerticalStackLayout Spacing="10">
                             <Label Text="{Binding Entry.StatusText}" FontFamily="BodySemibold" />
-                            <Label Text="{Binding Entry.FullText}" FontSize="18" TextType="Text" LineBreakMode="CharacterWrap" />
-                            <Label Text="{Binding Entry.DeviceName}" FontFamily="BodySemibold" LineBreakMode="CharacterWrap" />
-                            <Label Style="{StaticResource Faint}" Text="{Binding Entry.WhenText}" LineBreakMode="CharacterWrap" />
-                            <Border Style="{StaticResource ListCard}" Padding="14,12" MinimumHeightRequest="44"
-                                    IsVisible="{Binding HasDevice}" SemanticProperties.Description="{Binding DeviceActionDescription}"
-                                    AutomationProperties.IsInAccessibleTree="True">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenDeviceCommand}" />
-                                </Border.GestureRecognizers>
-                                <Label Text="Open device" LineBreakMode="CharacterWrap" AutomationProperties.IsInAccessibleTree="False" />
-                            </Border>
+                            <Label Text="{Binding Entry.FullText}" SemanticProperties.HeadingLevel="Level1" FontSize="18" TextType="Text" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding Entry.DeviceName}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                            <Label Style="{StaticResource Faint}" Text="{Binding Entry.WhenText}" LineBreakMode="WordWrap" />
+                            <Button Style="{StaticResource SecondaryButton}" Text="Open device" Command="{Binding OpenDeviceCommand}"
+                                    MinimumHeightRequest="44" IsVisible="{Binding HasDevice}"
+                                    SemanticProperties.Description="{Binding DeviceActionDescription}" LineBreakMode="WordWrap" />
                             <Button Style="{StaticResource SecondaryButton}" Text="Open rule" Command="{Binding OpenRuleCommand}" IsVisible="{Binding HasRule}" />
                         </VerticalStackLayout>
                     </Border>
-                    <Label Style="{StaticResource SectionHeader}" Text="Details" SemanticProperties.HeadingLevel="Level1" />
+                    <Label Style="{StaticResource SectionHeader}" Text="Details" SemanticProperties.HeadingLevel="Level2" />
                     <Border Style="{StaticResource ListCard}" Padding="14">
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Entry.Fields}" Spacing="12">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="sys:KeyValuePair(x:String,x:String)">
                                     <VerticalStackLayout Spacing="4">
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Key}" LineBreakMode="CharacterWrap" />
-                                        <Label Text="{Binding Value}" TextType="Text" LineBreakMode="CharacterWrap" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Key}" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Value}" TextType="Text" LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                     </Border>
                     <VerticalStackLayout Spacing="8" IsVisible="{Binding HasNarrowing}">
-                        <Button Text="{Binding ShowOnlyDeviceText}" Command="{Binding ShowOnlyDeviceCommand}" IsVisible="{Binding CanShowOnlyDevice}" Style="{StaticResource SecondaryButton}" />
-                        <Button Text="{Binding ShowOnlyKindText}" Command="{Binding ShowOnlyKindCommand}" IsVisible="{Binding CanShowOnlyKind}" Style="{StaticResource SecondaryButton}" />
+                        <Button Text="{Binding ShowOnlyDeviceText}" Command="{Binding ShowOnlyDeviceCommand}" IsVisible="{Binding CanShowOnlyDevice}" Style="{StaticResource SecondaryButton}" LineBreakMode="WordWrap" />
+                        <Button Text="{Binding ShowOnlyKindText}" Command="{Binding ShowOnlyKindCommand}" IsVisible="{Binding CanShowOnlyKind}" Style="{StaticResource SecondaryButton}" LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </VerticalStackLayout>
@@ -53,7 +48,7 @@
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
