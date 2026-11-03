@@ -19,6 +19,9 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
     private IReadOnlyList<UnimusLine> _all = [];
     private string? _content;
     private UnimusBackupRequest? _request;
+    private int _generation;
+    private byte[]? _rawBytes;
+    private bool _loaded;
 
     [ObservableProperty]
     private string? _searchText;
@@ -27,49 +30,99 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
     {
         _unimus = unimus;
         _share = share;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsBusy)) ShareCommand.NotifyCanExecuteChanged();
+        };
     }
 
     public BulkObservableCollection<UnimusLine> Lines { get; } = new();
 
-    public string Title => _request is null ? "Backup" : UnimusText.Date(_request.Backup.ValidSinceUtc);
+    public string Title => _request?.DeviceName ?? "Backup";
 
-    public string Subtitle => _request?.DeviceName ?? string.Empty;
+    public string Subtitle => _request is null ? string.Empty : $"Backup {_request.Backup.Id} · Unimus device {_request.UnimusDeviceId}";
+
+    public string VersionTime => _request?.Backup.ValidSinceUtc is { } time
+        ? time.ToLocalTime().ToString("d MMM yyyy HH:mm:ss zzz", System.Globalization.CultureInfo.CurrentCulture)
+        : "Backup time unavailable";
 
     /// <summary>"12 of 340 lines" while searching; "340 lines" otherwise.</summary>
     public string CountText => string.IsNullOrWhiteSpace(SearchText)
         ? $"{_all.Count} {(_all.Count == 1 ? "line" : "lines")}"
         : $"{Lines.Count} of {_all.Count} lines";
 
-    public bool IsEmpty => !IsBusy && Lines.Count == 0 && !HasError;
+    public bool IsEmpty => _loaded && !IsBusy && Lines.Count == 0 && !HasError;
 
     public string EmptyText => _content is null && _request is not null && !_request.Backup.IsText
         ? "This backup is stored as binary. Only Unimus can show it."
-        : "No lines match.";
+        : _content?.Length == 0 ? "This backup contains no configuration text." : "No lines match.";
 
-    public bool CanShare => _content is not null;
+    public bool CanShare => !IsBusy && _content is not null;
 
-    public Task LoadAsync(UnimusBackupRequest request)
+    public async Task LoadAsync(UnimusBackupRequest request)
     {
+        var generation = ++_generation;
         _request = request;
+        _content = null;
+        _rawBytes = null;
+        _loaded = false;
+        _all = [];
+        Lines.ReplaceAll([]);
+        ErrorMessage = null;
+        ShareCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(VersionTime));
 
-        return RunAsync(async () =>
+        IsBusy = true;
+        try
         {
             // The list usually carries the content; when it doesn't, Unimus
             // has no single-backup endpoint, so it's found on its page.
-            _content = request.Backup.Content;
-            if (_content is null && request.Backup.IsText)
+            var backup = request.Backup;
+            if (backup.IsText && backup.Bytes is null)
             {
-                _content = await _unimus.GetBackupContentAsync(request.UnimusDeviceId, request.Backup.Id, 0, UnimusBackupsViewModel.PageSize);
+                var page = await _unimus.GetBackupsAsync(request.UnimusDeviceId, 0, UnimusBackupsViewModel.PageSize);
+                backup = page.Backups.FirstOrDefault(b => b.Id == request.Backup.Id)
+                    ?? throw new InvalidOperationException("Backup unavailable");
             }
-
-            _all = _content is null ? [] : UnimusLine.FromContent(_content);
+            var content = backup.Content;
+            byte[]? raw = backup.Bytes == string.Empty ? [] : backup.RawBytes;
+            if (raw is { Length: 0 } && request.Backup.IsText) content = string.Empty;
+            if (content is null && request.Backup.IsText)
+            {
+                throw new InvalidOperationException("Backup unavailable");
+            }
+            if (generation != _generation) return;
+            _content = content;
+            _rawBytes = raw;
+            _loaded = true;
+            _all = string.IsNullOrEmpty(content) ? [] : UnimusLine.FromContent(content);
             ApplySearch();
-            OnPropertyChanged(nameof(CanShare));
-            ShareCommand.NotifyCanExecuteChanged();
-        });
+        }
+        catch (Exception) when (generation != _generation) { }
+        catch (Exception ex)
+        {
+            // Do not forward configuration-bearing exceptions to diagnostics.
+            ErrorMessage = ex is UnimusApiException { StatusCode: System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden }
+                ? "Access to this backup was denied. Check Unimus permissions, then retry."
+                : "Couldn't load this backup. Retry or return to backup history.";
+        }
+        finally
+        {
+            if (generation == _generation)
+            {
+                IsBusy = false;
+                OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(EmptyText));
+                OnPropertyChanged(nameof(CanShare));
+                ShareCommand.NotifyCanExecuteChanged();
+            }
+        }
     }
+
+    [RelayCommand]
+    private Task RetryAsync() => IsBusy || _request is null ? Task.CompletedTask : LoadAsync(_request);
 
     partial void OnSearchTextChanged(string? value) => WhenTypingPauses(ApplySearch);
 
@@ -86,14 +139,22 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
 
     /// <summary>The whole backup as a file, named for the device and the backup's time, through the share sheet.</summary>
     [RelayCommand(CanExecute = nameof(CanShare))]
-    private Task ShareAsync()
+    private async Task ShareAsync()
     {
-        if (_content is null || _request is null)
+        if (!CanShare || _request is null)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var name = UnimusExport.FileNameFor(_request.DeviceName, _request.Backup.ValidSinceUtc?.ToLocalTime(), ".cfg");
-        return _share.ShareTextFileAsync(name, _content, "text/plain", "Share backup");
+        try
+        {
+            if (_rawBytes is { } bytes)
+                await _share.ShareBytesFileAsync(name, bytes, "text/plain", "Share backup");
+        }
+        catch (Exception)
+        {
+            ErrorMessage = "Couldn't share this backup. Try Share again.";
+        }
     }
 }

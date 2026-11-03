@@ -15,6 +15,9 @@ internal sealed class PushedListLayout
 #endif
     private readonly View _foot;
     private readonly View? _bottomAction;
+    private IDisposable? _edges;
+    private Window? _window;
+    private bool _shown;
 
     public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
     {
@@ -32,7 +35,6 @@ internal sealed class PushedListLayout
         rows.HandlerChanged += (_, _) => StopInsetAdjustment();
         rows.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-        CoveredEdges.Watch(page, Place);
         if (bottomAction is not null)
         {
             bottomAction.PropertyChanged += (_, e) =>
@@ -44,6 +46,11 @@ internal sealed class PushedListLayout
 
     public void Show()
     {
+        if (_shown) return;
+        _shown = true;
+        _edges = CoveredEdges.Watch(_page, Place);
+        _window = _page.Window;
+        if (_window is not null) _window.Resumed += OnResumed;
         _header.Apply(_page);
 #if IOS
         if (TabBarButtons.IsAvailable)
@@ -60,10 +67,23 @@ internal sealed class PushedListLayout
 
     public void Hide()
     {
+        if (!_shown) return;
+        _shown = false;
+        _edges?.Dispose();
+        _edges = null;
+        if (_window is not null) _window.Resumed -= OnResumed;
+        _window = null;
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Hide(_page);
 #endif
+    }
+
+    private void OnResumed(object? sender, EventArgs e)
+    {
+        if (!_shown) return;
+        Hide();
+        Show();
     }
 
     private void Place()
@@ -72,7 +92,7 @@ internal sealed class PushedListLayout
         _body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         // When Compare is visible it already lifts the whole list clear of the glass.
         var hasAction = _bottomAction?.IsVisible == true;
-        _foot.HeightRequest = 24 + (hasAction ? 0 : clear.Bottom);
+        _foot.HeightRequest = 20 + (hasAction ? 0 : clear.Bottom);
         if (_bottomAction is not null) _bottomAction.Margin = new Thickness(0, 8, 0, 12 + clear.Bottom);
     }
 

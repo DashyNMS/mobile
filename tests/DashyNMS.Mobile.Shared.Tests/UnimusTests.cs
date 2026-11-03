@@ -293,9 +293,9 @@ public sealed class UnimusBackupsTests
         Assert.Equal("2 of 4 lines", vm.CountText);
 
         await vm.ShareCommand.ExecuteAsync(null);
-        await _share.Received(1).ShareTextFileAsync(
+        await _share.Received(1).ShareBytesFileAsync(
             Arg.Is<string>(n => n.StartsWith("edge-rtr-01_2026-09-", StringComparison.Ordinal) && n.EndsWith(".cfg", StringComparison.Ordinal)),
-            Arg.Is<string>(c => c.StartsWith("hostname edge-rtr-01", StringComparison.Ordinal)),
+            Arg.Is<byte[]>(c => Encoding.UTF8.GetString(c) == "hostname edge-rtr-01\r\ninterface ge-0/0/1\n description uplink\ninterface ge-0/0/2"),
             "text/plain",
             Arg.Any<string>());
     }
@@ -303,12 +303,66 @@ public sealed class UnimusBackupsTests
     [Fact]
     public async Task A_backup_listed_without_its_text_is_fetched()
     {
-        _api.GetBackupContentAsync(7, 3, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>()).Returns("hostname edge-rtr-01");
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(3, 18, "hostname edge-rtr-01")] });
         var vm = new UnimusBackupViewModel(_api, _share);
 
         await vm.LoadAsync(new UnimusBackupRequest("edge-rtr-01", 7, Backup(3, 18)));
 
         Assert.Equal("hostname edge-rtr-01", vm.Lines.Single().Text);
+    }
+
+    [Fact]
+    public async Task Backup_shares_original_bytes_despite_filtering_and_visual_line_splitting()
+    {
+        const string source = "\t leading  \r\n\r\nUnicode λ\0\tend \n";
+        var bytes = Encoding.UTF8.GetBytes(source).Concat(new byte[] { 0xff }).ToArray();
+        var backup = Backup(3, 18);
+        backup.Bytes = Convert.ToBase64String(bytes);
+        var vm = new UnimusBackupViewModel(_api, _share) { SearchDelay = TimeSpan.Zero };
+        await vm.LoadAsync(new UnimusBackupRequest("example.net", 7, backup));
+        Assert.Equal("\t leading  ", vm.Lines[0].Text);
+        Assert.Equal(string.Empty, vm.Lines[1].Text);
+        vm.SearchText = "Unicode";
+        Assert.Equal("3", vm.Lines.Single().NumberText);
+        await vm.ShareCommand.ExecuteAsync(null);
+        await _share.Received().ShareBytesFileAsync(Arg.Any<string>(),
+            Arg.Is<byte[]>(b => b.SequenceEqual(bytes)), "text/plain", "Share backup");
+    }
+
+    [Fact]
+    public async Task Earlier_backup_completion_cannot_replace_or_share_new_identity()
+    {
+        var pending = new TaskCompletionSource<UnimusBackupPage>();
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new UnimusBackupViewModel(_api, _share);
+        var old = vm.LoadAsync(new UnimusBackupRequest("old.example.net", 7, Backup(1, 3)));
+        Assert.False(vm.ShareCommand.CanExecute(null));
+        await vm.LoadAsync(new UnimusBackupRequest("new.example.net", 8, Backup(2, 10, "new\r\n")));
+        pending.SetResult(new UnimusBackupPage { Backups = [Backup(1, 3, "old")] });
+        await old;
+        Assert.Equal("new", vm.Lines[0].Text);
+        Assert.Contains("Backup 2", vm.Subtitle);
+        await vm.ShareCommand.ExecuteAsync(null);
+        await _share.Received().ShareBytesFileAsync(Arg.Is<string>(n => n.StartsWith("new.example.net")),
+            Arg.Is<byte[]>(b => Encoding.UTF8.GetString(b) == "new\r\n"), "text/plain", "Share backup");
+    }
+
+    [Fact]
+    public async Task Empty_and_missing_content_have_distinct_retryable_states()
+    {
+        var vm = new UnimusBackupViewModel(_api, _share);
+        var empty = Backup(3, 18, string.Empty);
+        await vm.LoadAsync(new UnimusBackupRequest("example.net", 7, empty));
+        Assert.True(vm.IsEmpty);
+        Assert.Contains("no configuration text", vm.EmptyText);
+        Assert.True(vm.CanShare);
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage());
+        await vm.LoadAsync(new UnimusBackupRequest("example.net", 7, Backup(4, 18)));
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        Assert.False(vm.CanShare);
     }
 
     [Fact]
