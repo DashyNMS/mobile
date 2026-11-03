@@ -24,6 +24,12 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     private int _deviceId;
     private int? _unimusDeviceId;
     private bool _checked;
+    private int _generation;
+    private int _loadedRevision;
+
+    public string DeviceIdentity => $"LibreNMS device {_deviceId}" + (_unimusDeviceId is { } id ? $" · Unimus device {id}" : string.Empty);
+    public string HistoryText => !_checked ? "Loading backup history…" : Backups.Count > 0
+        ? $"{Backups.Count} backups loaded · latest history page" : "Backup history";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CompareText), nameof(CompareHint))]
@@ -36,13 +42,17 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         _setup = setup;
         _unimus = unimus;
         _navigation = navigation;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsBusy)) CompareSelectedCommand.NotifyCanExecuteChanged();
+        };
     }
 
     public string DeviceName { get; private set; } = "Device";
 
     public BulkObservableCollection<UnimusBackupItem> Backups { get; } = new();
 
-    public bool IsEmpty => _checked && Backups.Count == 0 && !HasError;
+    public bool IsEmpty => !IsBusy && _checked && Backups.Count == 0 && !HasError;
 
     /// <summary>Why there's nothing: no match in Unimus, or a match with no backups yet.</summary>
     public string EmptyText => _unimusDeviceId is null
@@ -65,61 +75,85 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
 
     public void Initialise(int deviceId, string? deviceName)
     {
+        if (_deviceId != deviceId)
+        {
+            _generation++;
+            _checked = false;
+            _unimusDeviceId = null;
+            Backups.ReplaceAll([]);
+            IsComparing = false;
+        }
         _deviceId = deviceId;
         DeviceName = string.IsNullOrWhiteSpace(deviceName) ? "Device" : deviceName;
         OnPropertyChanged(nameof(DeviceName));
+        OnPropertyChanged(nameof(DeviceIdentity));
     }
 
-    public Task EnsureLoadedAsync() => _checked ? Task.CompletedTask : LoadAsync();
+    public Task EnsureLoadedAsync() => _checked && _loadedRevision == _setup.Revision ? Task.CompletedTask : LoadAsync();
 
     /// <summary>Pull to refresh: Unimus's device list too, in case the device was added since.</summary>
     [RelayCommand]
     private Task RefreshAsync()
     {
+        if (OpenCommand.IsRunning || CompareSelectedCommand.IsRunning) return Task.CompletedTask;
         _setup.ForgetDevices();
         return LoadAsync();
     }
 
-    private Task LoadAsync() => RunAsync(async () =>
+    private async Task LoadAsync()
     {
-        try
+        if (IsBusy) return;
+        var generation = _generation;
+        await RunAsync(async () =>
         {
-            IsComparing = false;
-            var device = await _client.Devices.GetAsync(_deviceId.ToString(CultureInfo.InvariantCulture))
-                ?? throw new InvalidOperationException("LibreNMS no longer has this device.");
+            try
+            {
+                await _setup.EnsureConfiguredAsync();
+                var revision = _setup.Revision;
+                var device = await _client.Devices.GetAsync(_deviceId.ToString(CultureInfo.InvariantCulture))
+                    ?? throw new InvalidOperationException("LibreNMS no longer has this device.");
 
-            var match = await _setup.FindAsync(device);
-            _unimusDeviceId = match?.Id;
+                var match = await _setup.FindAsync(device);
+                if (!_setup.IsConfigured)
+                    throw new InvalidOperationException("Unimus is unavailable. Check Settings › Unimus, then retry.");
 
-            var backups = match is null
-                ? []
-                : (await _unimus.GetBackupsAsync(match.Id, 0, PageSize)).Backups;
+                var backups = match is null
+                    ? []
+                    : (await _unimus.GetBackupsAsync(match.Id, 0, PageSize)).Backups;
 
-            // The newest is the current one: Unimus's validUntil isn't a
-            // "superseded at" time, as desktop found.
-            var ordered = backups.OrderByDescending(b => b.ValidSince).ToList();
-            Backups.ReplaceAll(ordered.Select((b, i) => new UnimusBackupItem(b, isCurrent: i == 0)));
-        }
-        catch (UnimusApiException)
-        {
-            Backups.ReplaceAll([]);
-            throw;
-        }
-        finally
-        {
-            _checked = true;
-            OnPropertyChanged(nameof(EmptyText));
-            OnPropertyChanged(nameof(IsEmpty));
-            OnPropertyChanged(nameof(CanCompare));
-            OnPropertyChanged(nameof(CompareHint));
-        }
-    });
+                // Unimus's validUntil is not a superseded-at time.
+                var ordered = backups.OrderByDescending(b => b.ValidSince).ToList();
+                if (generation != _generation || revision != _setup.Revision) return;
+                var selected = _unimusDeviceId == match?.Id ? Selected.ToDictionary(b => b.Backup.Id) : [];
+                _unimusDeviceId = match?.Id;
+                _loadedRevision = revision;
+                Backups.ReplaceAll(ordered.Select((b, i) => new UnimusBackupItem(b, isCurrent: i == 0 && b.ValidSince is not null)
+                {
+                    IsSelected = selected.ContainsKey(b.Id),
+                    SelectedAt = selected.TryGetValue(b.Id, out var previous) ? previous.SelectedAt : 0,
+                }));
+                if (!CanCompare) IsComparing = false;
+            }
+            finally
+            {
+                _checked = generation == _generation;
+                OnPropertyChanged(nameof(EmptyText));
+                OnPropertyChanged(nameof(IsEmpty));
+                OnPropertyChanged(nameof(CanCompare));
+                OnPropertyChanged(nameof(CompareHint));
+                OnPropertyChanged(nameof(DeviceIdentity));
+                OnPropertyChanged(nameof(HistoryText));
+                CompareSelectedCommand.NotifyCanExecuteChanged();
+            }
+        });
+        if (generation != _generation) await LoadAsync();
+    }
 
     /// <summary>Reads a backup, or in Compare mode chooses it - a third choice replaces the first.</summary>
     [RelayCommand]
     private Task OpenAsync(UnimusBackupItem? item)
     {
-        if (item is null || _unimusDeviceId is not { } unimusId)
+        if (IsBusy || _loadedRevision != _setup.Revision || item is null || !Backups.Contains(item) || _unimusDeviceId is not { } unimusId)
         {
             return Task.CompletedTask;
         }
@@ -155,6 +189,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ToggleCompare()
     {
+        if (IsBusy || OpenCommand.IsRunning || CompareSelectedCommand.IsRunning || (!IsComparing && !CanCompare)) return;
         foreach (var item in Backups)
         {
             item.IsSelected = false;
@@ -163,7 +198,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         IsComparing = !IsComparing;
     }
 
-    private bool CanCompareSelected() => IsComparing && Selected.Count == 2;
+    private bool CanCompareSelected() => !IsBusy && _loadedRevision == _setup.Revision && IsComparing && Selected.Count == 2;
 
     /// <summary>The older of the two on the left, as a diff reads.</summary>
     [RelayCommand(CanExecute = nameof(CanCompareSelected))]
@@ -179,7 +214,8 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         {
             [Routes.UnimusParameter] = new UnimusDiffRequest(DeviceName, pair[0].Backup, pair[1].Backup),
         });
-        ToggleCompare();
+        foreach (var item in Backups) item.IsSelected = false;
+        IsComparing = false;
     }
 }
 
@@ -200,14 +236,23 @@ public sealed partial class UnimusBackupItem : ObservableObject
     public bool IsCurrent { get; }
 
     /// <summary>When it was chosen in Compare mode, so a third choice replaces the earliest.</summary>
-    internal long SelectedAt { get; private set; }
+    internal long SelectedAt { get; set; }
 
     public string DateText => UnimusText.Date(Backup.ValidSinceUtc);
+    public string VersionText => $"Backup {Backup.Id}";
+    public string ExactDateText => Backup.ValidSinceUtc is { } date
+        ? date.ToLocalTime().ToString("d MMM yyyy HH:mm:ss zzz", CultureInfo.CurrentCulture) : "Unknown date";
+    public string ContentDescription => $"{VersionText}, {ExactDateText}, {StatusText}, {(IsSelected ? "selected" : "not selected")}";
 
     /// <summary>"Current", or "Binary" for one only Unimus can show.</summary>
-    public string StatusText => (IsCurrent ? "Current" : "Previous") + (Backup.IsText ? string.Empty : " · binary");
+    public string StatusText => (Backup.ValidSince is null ? "Date unavailable" : IsCurrent ? "Current" : "Previous")
+        + (Backup.IsText ? string.Empty : string.Equals(Backup.Type, "BINARY", StringComparison.OrdinalIgnoreCase) ? " · binary" : " · format unavailable");
 
-    partial void OnIsSelectedChanged(bool value) => SelectedAt = value ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+    partial void OnIsSelectedChanged(bool value)
+    {
+        SelectedAt = value ? System.Diagnostics.Stopwatch.GetTimestamp() : 0;
+        OnPropertyChanged(nameof(ContentDescription));
+    }
 }
 
 /// <summary>Where a backup or diff page is opened from.</summary>
