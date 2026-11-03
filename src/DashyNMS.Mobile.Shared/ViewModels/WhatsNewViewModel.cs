@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.ComponentModel;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Updates;
 
@@ -14,8 +15,15 @@ public sealed record WhatsNewRow(string Title, string Text, string? Image)
 public sealed record WhatsNewGroup(string Name, IReadOnlyList<WhatsNewRow> Rows);
 
 /// <summary>The What's new sheet (#159): the release, its date, and its New, Improved and Fixed changes.</summary>
-public sealed partial class WhatsNewViewModel
+public sealed partial class WhatsNewViewModel : ObservableObject
 {
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDismiss))]
+    [NotifyCanExecuteChangedFor(nameof(GotItCommand))]
+    private bool _isCompleting;
+
+    public bool CanDismiss => !IsCompleting;
+    public bool NotesUnavailable => Groups.Count == 0;
     private readonly WhatsNew _whatsNew;
     private readonly INavigationService _navigation;
     private readonly ILauncherService? _launcher;
@@ -42,11 +50,21 @@ public sealed partial class WhatsNewViewModel
     /// <summary>Every release's full notes, on GitHub.</summary>
     public static Uri ReleaseNotes { get; } = new("https://github.com/DashyNMS/mobile/releases");
 
-    [RelayCommand]
-    private Task GotItAsync()
+    [RelayCommand(CanExecute = nameof(CanDismiss))]
+    private async Task GotItAsync()
     {
-        _whatsNew.MarkShown();
-        return _navigation.GoToAsync(Routes.Back);
+        if (IsCompleting) return;
+        IsCompleting = true;
+        try
+        {
+            _whatsNew.MarkShown();
+            await _navigation.GoToAsync(Routes.Back);
+        }
+        catch
+        {
+            IsCompleting = false;
+            throw;
+        }
     }
 
     [RelayCommand]
