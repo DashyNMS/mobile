@@ -8,7 +8,6 @@ namespace DashyNMS.Mobile.Pages;
 public partial class DiagnosticsSharingPage : ContentPage, IActivePage
 {
     private IDisposable? _edges;
-    private Window? _activationWindow;
     private bool _showing;
 
 	public DiagnosticsSharingPage(DiagnosticsSharingViewModel viewModel)
@@ -27,16 +26,6 @@ public partial class DiagnosticsSharingPage : ContentPage, IActivePage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-        if (_showing) return;
-        _showing = true;
-        _edges = CoveredEdges.Watch(this, Place);
-        _activationWindow = Window;
-        if (_activationWindow is not null) _activationWindow.Resumed += OnResumed;
-        Scroller.HandlerChanged += OnChanged;
-        Scroller.Loaded += OnChanged;
-#if IOS
-        TabBarButtons.Moved += OnChanged;
-#endif
         Activate();
 	}
 
@@ -45,8 +34,6 @@ public partial class DiagnosticsSharingPage : ContentPage, IActivePage
         _showing = false;
         _edges?.Dispose();
         _edges = null;
-        if (_activationWindow is not null) _activationWindow.Resumed -= OnResumed;
-        _activationWindow = null;
         Scroller.HandlerChanged -= OnChanged;
         Scroller.Loaded -= OnChanged;
 #if IOS
@@ -59,7 +46,16 @@ public partial class DiagnosticsSharingPage : ContentPage, IActivePage
     /// <summary>Reclaims caller Back after returning to a retained Main stack.</summary>
     public void Activate()
     {
-        if (!_showing) return;
+        if (!_showing)
+        {
+            _showing = true;
+            _edges = CoveredEdges.Watch(this, Place);
+            Scroller.HandlerChanged += OnChanged;
+            Scroller.Loaded += OnChanged;
+#if IOS
+            TabBarButtons.Moved += OnChanged;
+#endif
+        }
 #if IOS
         Header.BackInGlass = TabBarButtons.IsAvailable;
         if (TabBarButtons.IsAvailable)
@@ -76,7 +72,6 @@ public partial class DiagnosticsSharingPage : ContentPage, IActivePage
         BindingContext is DiagnosticsSharingViewModel { CanChoose: false } || base.OnBackButtonPressed();
 
     private void OnChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(Place);
-    private void OnResumed(object? sender, EventArgs e) => Dispatcher.Dispatch(Activate);
 
     private void Place()
     {

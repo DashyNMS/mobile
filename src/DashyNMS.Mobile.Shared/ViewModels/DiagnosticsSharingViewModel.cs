@@ -60,6 +60,7 @@ public sealed partial class DiagnosticsSharingViewModel : ObservableObject
         }
         catch
         {
+            // Navigation failure leaves the recorded choice intact; retry may repeat Back.
             IsCompleting = false;
             throw;
         }

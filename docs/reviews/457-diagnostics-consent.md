@@ -1,6 +1,6 @@
 # Diagnostics consent assessment — #457
 
-Baseline: prepared main `83e9a39`; epic #442; read live #454/#455/#458,
+Baseline: main `bcd8ea8`; epic #442; read live #454/#455/#458,
 CLAUDE.md, DEVELOPING.md, DESIGN.md and DESIGN-REFERENCES.md, PRIVACY.md,
 consent service, reporter, AppShell, page/model, Settings callers and tests.
 
@@ -49,7 +49,7 @@ Core is pinned to 2.0.0-ci.52; these changes require no new Core API.
 
 Implementation self-inspection, CI, independent review and device acceptance
 are separate gates. Local builds/tests/scripts are prohibited for this task.
-Claude Opus 5.5 Medium review is pending quota reset and the sequential parent
+Claude Opus 5.5 Medium review completed at 6c7b53d after the sequential parent
 queue; no child attempt. No merge, watch, release, closure or epic ticks.
 TestFlight follows the #455–#459 batch. CI and device results remain unverified.
 
@@ -63,7 +63,7 @@ target and inherited themed disabled states, appears first and requires no
 selection. No fade or keyboard observer is needed. SetupPageLayout is not
 adopted: there is no draft form Save and both mutually exclusive consent
 actions must remain reachable on a short viewport. CoveredEdges subscription
-is disposed; Moved/handler/Loaded and the retained Window resume subscriptions
+is disposed; Moved/handler/Loaded subscriptions
 are removed on disappearance. AppShell #490 IActivePage restores retained entry.
 
 Full intended diff self-inspected and git diff --check passed. Added unexecuted
@@ -98,3 +98,20 @@ portrait/landscape. Fold/unfold, rotate scrolled and resume on each page.
 7. Saved-session upgrade with both notices due: consent first, then What's
    new after Allow/decline/Back; fresh install no What's new. Verify notes seen
    version unchanged and no early telemetry before explicit consent.
+
+## Review remediation
+
+Claude found an invalid XAML style base and retained-stack activation gap.
+DeclineChoice now derives from named SecondaryButton, with explicit sizing and
+the primary style's themed disabled colours. The obsolete iOS safe-area flag
+is removed; the explicit per-edge page ownership remains. Activate now installs
+visibility-scoped subscriptions when needed, and AppShell is the sole resume
+owner. Repeated activation retains one watcher and one set of handlers.
+Consent defaults, privacy text and service persistence are unchanged. Navigation
+failure can leave an already saved choice; this remains the existing contract.
+Back-then-Allow during a pop transition remains an unverified hardware race.
+
+Unit tests passed at the reviewed head; Android failed on the style key, now
+corrected. Replacement CI is pending. No local builds/tests ran. Check enabled
+and disabled choice colours in both themes and retained-stack return without
+Appearing. No device acceptance is claimed.
