@@ -1,8 +1,8 @@
 # More navigation and pinning assessment
 
-Refs #453 and #442. Baseline main `83e9a39`, including merged #490.
+Refs #453 and #442. Baseline main `ad42d71`, including merged predecessors through #494.
 Read live #453/#442/#454, CLAUDE.md, DEVELOPING.md, DESIGN.md and
-DESIGN-REFERENCES.md. FULLDESIGN.md and AGENTS.md are absent. This document
+DESIGN-REFERENCES.md. This document
 records source assessment, not hardware acceptance.
 
 ## Assessment before implementation
@@ -63,8 +63,8 @@ continue claiming their own glass.
 
 ## Dependency and overlap
 
-Queue remains #489, #491, #492, #493, #494, then this PR. None of those branches
-is changed. Parent updates only this PR after earlier queued PRs merge. Preserve
+Predecessors #489–#494 have merged; this PR is updated against main ad42d71.
+No other queued branch is changed. Preserve
 #490 AppShell/IActivePage/BackBar boundaries and #489's full pushed alert wrapper.
 No shared AppShell/TabPins change requires consumer migration. Existing route
 regressions cover relative alert descendants; native retained stacks still need
@@ -80,12 +80,15 @@ full/available/pinned feedback and notifications, pinned route selection and
 restored preferences. Existing tests cover fixed order, empty pins, unknown names,
 capacity rejection, query preservation and relative nested-alert/Back routes.
 No local builds, tests or scripts run by instruction. Core remains pinned at
-2.0.0-ci.49; no Core API or package changes.
+2.0.0-ci.52; no Core API or package changes.
 
-CI: shared tests, Android/iOS build and security results pending on the PR.
-CI is not device evidence. Mandatory parent Claude Opus 5.5 Medium full-diff
-review remains pending after quota resets, one PR at a time in queue order.
-This implementation child does not delegate, review, watch or merge.
+Claude Opus 5.5 Medium reviewed the full diff at 2946d88. Its medium finding
+was addressed by declaring the page's native Container safe area on Android;
+the existing iOS top-only override remains. Its low documentation finding was
+also corrected. Routes, pin storage, activation and glass ownership were confirmed.
+Unit tests and CodeQL C#/actions passed at that head; platform builds and Swift
+analysis were pending at review time. Replacement CI remains pending.
+CI is not device evidence.
 
 All device outcomes below are unverified. Record head/build/OS, each result and
 diagnostics separately. Use synthetic example.net data only. Run every row on
@@ -104,6 +107,7 @@ resume. No issue closure, epic ticks or release is authorised by these notes.
 | Nested actual caller | More to unpinned Alerts/rules, alert to rule/template/device, then Back through actual callers. Repeat with pinned Alerts and wide embedded detail. Preserve integer IDs, filters, query and selected tab. |
 | Long text/large text | Names, descriptions, state and capacity reasons wrap; Open fills its area; Pin/Unpin remains reachable and at least 44pt. No header-count collision. |
 | Screen readers | Each Open announces name, summary and pin state once, with correct route hint. Pin/Unpin names its target, activates once, and updates feedback. Section headings navigate correctly. |
+| Android safe areas/TalkBack | With gesture and three-button navigation, header and first caption clear the status bar, final Settings Pin clears the navigation bar, and TalkBack reaches and activates both actions. Repeat large text and rotation. |
 | Geometry/themes | First content clears 20pt fade; last Settings action scrolls above bottom glass. Side pill/camera clear both header and content. Fade matches viewport and background with no dark partial bar; taps pass through. |
 | Fold/rotate/resume | Recalculate gutters/footer without reopening; no duplicate insets, watchers or stale glass actions. More root resume reclaims action-free ownership; pushed pages keep their Back/search. |
 

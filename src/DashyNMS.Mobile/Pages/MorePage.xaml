@@ -6,7 +6,7 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:MoreViewModel"
-    Shell.NavBarIsVisible="False" Title="More">
+    Shell.NavBarIsVisible="False" Title="More" SafeAreaEdges="Container">
     <Grid x:Name="Body" RowDefinitions="Auto,*" SafeAreaEdges="None">
         <controls:PageHeader x:Name="Header" Title="More" />
         <ScrollView x:Name="Scroller" Grid.Row="1" SafeAreaEdges="None">
