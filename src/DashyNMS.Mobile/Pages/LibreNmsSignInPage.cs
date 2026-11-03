@@ -54,7 +54,13 @@ public sealed class LibreNmsSignInPage : ContentPage
         _request = request;
         _logger = logger;
         Title = "Sign in with LibreNMS";
+#if IOS
+        // WebKit owns keyboard avoidance; native page insets cover containers only.
+        SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.Container, SafeAreaRegions.Container,
+            SafeAreaRegions.Container, SafeAreaRegions.Container);
+#else
         SafeAreaEdges = SafeAreaEdges.All;
+#endif
         this.SetAppThemeColor(BackgroundColorProperty,
             (Color)Application.Current!.Resources["BackgroundLight"],
             (Color)Application.Current.Resources["BackgroundDark"]);
@@ -175,9 +181,10 @@ public sealed class LibreNmsSignInPage : ContentPage
             }
             while (_recheck && !_result.Task.IsCompleted && !_failed);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // Never log website/script exception text: it may contain secrets.
+            // The type identifies a failure without website/script text or secrets.
+            _logger.LogWarning("Web sign-in: page handling failed ({ExceptionType})", ex.GetType().Name);
             ShowLoadError();
         }
         finally
@@ -411,21 +418,13 @@ public sealed class LibreNmsSignInPage : ContentPage
     }
 
     /// <summary>
-    /// Start only with a real viewport. Keep WebKit's native frame aligned
-    /// with MAUI's finite star row after first layout and subsequent resizes;
-    /// its own scroll view must remain enabled for the server's form.
+    /// Starts once MAUI supplies a real finite viewport. MAUI owns native frame
+    /// placement; WebKit keeps its own scrolling for the server's form.
     /// </summary>
     private void PlaceWebView()
     {
         if (_web.Handler is null || !double.IsFinite(_web.Width) || !double.IsFinite(_web.Height)
             || _web.Width <= 0 || _web.Height <= 0 || _result.Task.IsCompleted || _failed) return;
-#if IOS
-        if (_web.Handler.PlatformView is WebKit.WKWebView native)
-        {
-            var frame = native.Frame;
-            native.Frame = new CoreGraphics.CGRect(frame.X, frame.Y, _web.Width, _web.Height);
-        }
-#endif
         if (_web.Source is null)
         {
             _logger.LogInformation("Web sign-in: starting at {Page}", Describe(_request.Flow.TokensPage.AbsoluteUri));

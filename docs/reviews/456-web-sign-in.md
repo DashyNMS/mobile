@@ -1,9 +1,9 @@
 # LibreNMS web sign-in, #456
 
-Refs #456 and epic #442. Baseline main `83e9a39`. Read live #456,
+Refs #456 and epic #442. Baseline main `5c989a8`. Read live #456,
 #442 and #455, CLAUDE.md, DEVELOPING.md, complete DESIGN.md and
 DESIGN-REFERENCES.md. There is no FULLDESIGN.md in this checkout.
-Read pending #497's full diff and assessment read-only; no queued branch
+Read merged #497's full diff and assessment read-only; no queued branch
 was changed. This page owns only the modal body, not #455's form or QR flow.
 
 ## Baseline assessment before changes
@@ -11,7 +11,7 @@ was changed. This page owns only the modal body, not #455's form or QR flow.
 | Concern, trigger and source | Assessment | Result |
 | --- | --- | --- |
 | LibreNmsSignInPage header: long host, narrow display | Fix required: Auto middle column competes with Cancel | Stack Cancel above full-width wrapping title/host; minimum 44pt Cancel |
-| Initial native web viewport | Fix required: load starts in HandlerChanged before positive geometry | Defer first source until Loaded/SizeChanged reports positive finite dimensions; align WKWebView frame to measured MAUI viewport |
+| Initial native web viewport | Fix required: load starts in HandlerChanged before positive geometry | Defer first source until Loaded/SizeChanged reports positive finite dimensions; MAUI retains native frame ownership |
 | Native form scrolling | Compliant | WebView remains finite in star row, never wrapped in ScrollView; native scrolling unchanged |
 | Opening and token creation | Compliant text plus BusyCard; fix required for invisible web hit testing | Hidden website cannot receive taps; shown website becomes interactive again |
 | Failure/timeout | Fix required: immediate unexplained modal dismissal; failure during script handling can hang | Scrollable explanatory recovery, announcement and Return to sign-in; invalidates pending callbacks |
@@ -19,7 +19,7 @@ was changed. This page owns only the modal body, not #455's form or QR flow.
 | Browser Back/Forward/reload | Compliant existing contract: none exposed | Android Back cancels modal rather than traversing web history. No new reload or POST replay; no controls to disable while loading |
 | Unsupported account/server, flow failure | Compliant | Existing NotAllowed/Failed outcome returns to manual token fallback |
 | URL validation/network probe | Compliant in source | Existing view model validation, HTTPS requirement, probe and certificate prompt retained |
-| Keyboard/insets | Unverified on device | Explicit native page SafeAreaEdges.All; no extra keyboard spacer, translation or observer introduced |
+| Keyboard/insets | Unverified on device | iOS Container safe areas leave keyboard avoidance to WebKit; Android retains All; no extra keyboard spacer, translation or observer introduced |
 | Theme and large text | Unverified rendering | Opaque themed page, wrapping host/recovery, minimum rather than fixed action heights |
 | Resume, fold and rotation | Unverified rendering | SizeChanged updates native viewport without starting another request once Source exists |
 | Screen reader | Fix required for Cancel context and failure feedback; device unverified | Named modal Cancel/web content, heading and error announcement, explained recovery action |
@@ -92,12 +92,17 @@ No local builds, tests or scripts were run, by instruction. Whitespace check
 is recorded in the PR. CI shared tests and Android/iOS builds are pending;
 native bindings and geometry are not proven by shared tests.
 
-Mandatory Claude Opus 5.5 Medium review is pending quota reset, one PR at a
-time, after #489 → #491 → #492 → #493 → #494 Map → #495 → #496 → #497 → this PR.
-No child review attempted. Only the parent updates this branch at its turn
-after the predecessor merges, then handles review, CI, merge and cleanup.
-No issue closure or epic ticks. TestFlight follows #455–#459. No device
-acceptance supplied; every matrix row below remains unverified.
+Claude Opus 5.5 Medium reviewed full diff df627ef against main 5c989a8 and
+found no blocking defects. Follow-ups use container-only native safe areas on
+iOS, remove ineffective frame assignment and record unexpected failure type
+without exception text or stack. A stale load failure can still terminate a
+newer load; check offline/timeout redirects on hardware before changing event
+identity policy. Hidden web content may remain exposed to TalkBack while busy
+or on the recovery screen; this pre-existing gap remains a device check.
+Unit tests and actions analysis passed at the reviewed head; platform builds
+and C#/Swift analysis were pending. Replacement CI remains pending.
+Sequential update after #497 is complete. No issue closure or epic ticks.
+TestFlight follows #455–#459; all device acceptance remains unverified.
 
 ## Exact pending device matrix
 
@@ -113,7 +118,7 @@ Record device/OS, commit/build, result and redacted evidence for each row.
 | First load with zero height, later valid layout, repeated Appearing | No premature load, no blank native viewport or duplicate request/subscription |
 | Long host/status, default/large/maximum text | Header wraps, Cancel remains usable, error/action scroll within finite recovery viewport |
 | Docked/floating keyboard, focus last website field, dismiss | Native web form scrolls; header stays reachable; no double translation/insets |
-| VoiceOver and TalkBack, opening/error/cancel/success | Context, progress and current error understood; action names and targets usable |
+| VoiceOver and TalkBack, opening/error/cancel/success | Context, progress and current error understood; action names and targets usable; hidden website/token content not exposed while busy or on recovery |
 | Light/dark, busy and recovery states | Opaque legible background and readable actions/status |
 | Duo outer/inner portrait/inner landscape | Actual web frame follows available body; no clipping or blank first load |
 | Duo fold/rotate/resume during login/creation/error, keyboard open/closed | Correct finite geometry, no duplicate submit or accumulated observers |
