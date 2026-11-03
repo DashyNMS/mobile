@@ -1,6 +1,6 @@
 # Backup diff assessment
 
-Baseline main `83e9a39`, 3 November 2026. Read live #464/#442/#462/#463,
+Baseline main `180eb4e`, 3 November 2026. Read live #464/#442/#462/#463,
 CLAUDE.md, docs/DEVELOPING.md, full docs/DESIGN.md and DESIGN-REFERENCES.md.
 There is no separate FULLDESIGN.md or AGENTS.md in this checkout. Applied
 repo-workflow and unslop. User direction authorises clearer device/version
@@ -79,9 +79,9 @@ spoken identity. #505's backup-only ContentDescription cannot describe removed
 and added lines correctly and is deliberately not used unchanged here.
 No new shared renderer or styles require a consumer migration.
 
-Parent must land #504 first, then #505, then update only this PR at its turn.
+The branch is updated after merged #504 and #505.
 Keep #504's idempotent activation and 20pt footer intent together with #505's
-retained/disposed CoveredEdges watcher, retained Window resume subscription
+retained/disposed CoveredEdges watcher and central AppShell activation
 and paired Moved/native observer lifetime. Do not replace their helper with
 this checkout's older PushedListLayout. Audit all three helper consumers:
 history, contents and diff. Preserve single native top inset, disabled native
@@ -127,7 +127,7 @@ CI or code inspection does not establish native accessibility or layout.
 | Duo | Outer portrait, inner portrait and inner landscape; fold/unfold, rotate and resume during loading, expanded context and final-line scroll; no duplicate insets/subscriptions; placement diagnostics |
 | iPhone | Ordinary iPhone portrait/landscape, current glass and older header Back where available; rotate/resume, actual history return, final-line clearance and share sheet |
 
-## Sequential integration
+## Completed integration
 
 Updated against main 180eb4e after #504/#505. Shared PushedListLayout now owns
 idempotent Activate and disposable edge watching; the diff page implements
@@ -135,3 +135,19 @@ IActivePage to use that path without local Window hooks. UnimusLine uses the
 merged #463 source/line description baseline. Full-diff Claude review must
 verify diff-specific accessibility still conveys added/removed/hidden semantics.
 No device acceptance is claimed.
+
+## Claude review remediation
+
+Claude Opus 5.5 Medium reviewed b475878 against main 180eb4e with no blockers.
+Hidden captions now describe hidden lines without instructing a non-responsive
+tap; the native action announces Show context plus the hidden count. Decorative
+switch labels are excluded from duplicate announcements. Blank lines are spoken
+as blank. Added/removed tint now covers each full-width padded row continuously.
+API errors use Core's user-facing reason; other failures use a fixed fallback.
+The dead Subtitle property is removed. Loading intentionally omits the base
+Failed event and currently first-load timing, consistent with backup contents;
+no configuration-bearing exception enters diagnostics.
+
+Replacement CI is pending. No local builds/tests ran. All hardware outcomes
+remain unverified, including screen-reader and Voice Control activation,
+continuous tint, large-text wrapping, performance, glass and safe areas.

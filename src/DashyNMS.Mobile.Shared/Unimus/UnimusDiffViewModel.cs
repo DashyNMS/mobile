@@ -46,10 +46,6 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
         : $"{side} · backup {backup.Id} · {(backup.ValidSinceUtc is { } date ? date.ToLocalTime().ToString("d MMM yyyy HH:mm:ss zzz") : "Unknown date")}";
 
     /// <summary>"3 Sep 2026 18:01 → 18 Sep 2026 18:01".</summary>
-    public string Subtitle => _request is null
-        ? string.Empty
-        : $"{UnimusText.Date(_request.Original.ValidSinceUtc)} → {UnimusText.Date(_request.Revised.ValidSinceUtc)}";
-
     public string DeviceName => _request?.DeviceName ?? string.Empty;
 
     /// <summary>"+12 −3", or that the two are the same.</summary>
@@ -76,7 +72,6 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
         RetryCommand.NotifyCanExecuteChanged();
         ErrorMessage = null;
         NotifyResult();
-        OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(DeviceName));
         OnPropertyChanged(nameof(OriginalIdentity));
         OnPropertyChanged(nameof(RevisedIdentity));
@@ -89,7 +84,9 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            if (generation == _generation) ErrorMessage = Describe(ex);
+            if (generation == _generation)
+                ErrorMessage = ex is UnimusApiException apiError ? apiError.ToUserMessage()
+                    : "Couldn't compare these backups. Retry or return to backup history.";
         }
         finally
         {
