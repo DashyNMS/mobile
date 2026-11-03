@@ -204,37 +204,34 @@ Duo geometry. No device acceptance is claimed.
 
 ## Corrective follow-up after #447 (before #448)
 
-This section supersedes the earlier search/geometry assessment without changing
-its historical evidence. User device evidence reports clipped Map title and
-mostly offscreen zoom controls; no corrected device result is claimed.
+User device evidence reported a clipped Map title and mostly offscreen zoom
+controls. Source inspection found PlaceControls overwriting TopLineSpace's
+dynamic padding. Header side clearance now uses Margin; a full-width opaque
+BoxView behind it fills the side gutters and safe-area band. The local Auto
+first row gives its children a TopBar.Height minimum, preserving the shared
+44pt line with hidden glass actions while allowing larger text to grow.
+The native page retains top container ownership; no second inset is added.
 
-Health and Groups & locations now start with hidden search on both platforms.
-Only header/glass search or Command-F opens it; repeated opening refocuses it.
-Search, unfocus, content tap and scrolling dismiss it without clearing query,
-category, mode or filters. ButtonSearch owns the clipped height/translation
-transition and honours Reduce Motion. Health no longer attaches SearchReveal;
-Groups no longer has permanent search. Shared SearchReveal and setup pickers
-are unchanged. Future list passes must remove legacy reveal handlers.
+WKWebView uses Never adjustment, zero content/indicator insets and offset,
+no bounce and no document scrolling. Leaflet retains pan/pinch ownership.
+This removes a separate translation path; devices must establish whether it
+caused the observed clipping and whether native gestures still work correctly.
 
-Map source diagnosis found PlaceControls overwriting PageHeader's TopBar.Fit
-padding with zero, defeating its dynamic status/camera placement. Horizontal
-clearance now uses Margin, leaving that top padding under TopLineSpace's control.
-The local first header row measures naturally for large text. The native page
-owns top container clearance (TopLineSpace may release it); Canvas opts out.
-WKWebView's separate UIScrollView previously retained automatic adjustment and
-document scrolling: neither was owned by the native overlay geometry. It now
-uses Never, zero content/indicator insets, zero offset, no bounce or document
-scrolling; HTML overflow is hidden. Leaflet still owns map pan/pinch. This fixes
-an independent translation path; whether it caused the observed device clipping
-requires device confirmation. There is no extra fixed top spacer or second inset.
-JS clearance remains in WebView CSS coordinates and camera offsets remain
-unchanged. Zoom control top is bounded by measured control height on short
-canvases independently of camera clearance. Full canvas, selected card, dimming,
-camera serialisation, picker, attribution, CSP, tiles, glass and routes remain.
+Review of `41a0a20` confirmed stale Leaflet size could misplace zoom on resize.
+Zoom now uses container.clientHeight and recomputes on clearance and resize.
+Both 44px targets retain top and bottom overlay clearance. If insufficient
+height remains, zoom is hidden until it fits again; pinch remains available.
+Camera clearance is unchanged. Node regression covers stale cached dimensions,
+short canvases, exact-fit bottom clearance, resize recovery and selection-camera
+preservation. Attribution, dimming, CSP, JSON and navigation remain unchanged.
 
-No local builds, tests or test scripts executed. CI and the parent's mandatory
-Claude Opus 5.5 Medium full-diff review remain pending. Node camera regressions
-are retained. Verify short/large-text displays, glass and camera variants,
-fold/rotate/resume, native frame/offset at rest, both zoom buttons, attribution,
-selection camera, search dismissal/refocus, Reduce Motion and accessibility on
-devices. All device outcomes remain unverified; #443/#444/#445 and #442 stay open.
+No local builds or tests were run. At reviewed head `41a0a20`, the supplied CI
+record had shared/Node tests, actions/csharp, both iOS jobs and one Android job
+passing; the other Android job and Swift analysis were pending. Those results
+do not validate this follow-up. New-head CI and the parent's fresh Claude Opus
+5.5 Medium full-diff review remain pending. No devices have been verified.
+
+Device gaps include opaque band edges, shared top-line alignment and title at
+large text, real pan/pinch with native WebView scrolling off, short canvases,
+folding/rotation, zoom restoration, selection camera, dimming, attribution and
+Reduce Motion. Issue #445 and its #442 entry await device acceptance.

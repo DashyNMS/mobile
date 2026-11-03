@@ -100,37 +100,28 @@ acceptance. Keep #444 and epic #442 open until that acceptance.
 
 ## Corrective follow-up after #447 (before #448)
 
-This section supersedes the earlier search/geometry assessment without changing
-its historical evidence. User device evidence reports clipped Map title and
-mostly offscreen zoom controls; no corrected device result is claimed.
+This supersedes the earlier search policy for Groups & locations; historical acceptance
+and evidence above remain unchanged. Search starts hidden on both platforms.
+Header/glass search and Command-F open or refocus it. Search, unfocus and user
+drag close it while retaining the query. Content taps use page unfocus handling.
+The clipped height/translation transition honours Reduce Motion.
 
-Health and Groups & locations now start with hidden search on both platforms.
-Only header/glass search or Command-F opens it; repeated opening refocuses it.
-Search, unfocus, content tap and scrolling dismiss it without clearing query,
-category, mode or filters. ButtonSearch owns the clipped height/translation
-transition and honours Reduce Motion. Health no longer attaches SearchReveal;
-Groups no longer has permanent search. Shared SearchReveal and setup pickers
-are unchanged. Future list passes must remove legacy reveal handlers.
+Review of `41a0a20` confirmed that filtering could raise Scrolled and dismiss
+search mid-word, as previously fixed in DeviceSectionPage #402. ButtonSearch
+now checks iOS Dragging/Tracking or Android RecyclerView dragging state, without
+native subscriptions or retained native views. Both lists explicitly disable
+the inherited KeyboardDismiss.OnScroll behaviour. The helper is constructed
+once per page; its managed handlers share the page lifetime. No shared
+SearchReveal or KeyboardDismiss behaviour changes.
 
-Map source diagnosis found PlaceControls overwriting PageHeader's TopBar.Fit
-padding with zero, defeating its dynamic status/camera placement. Horizontal
-clearance now uses Margin, leaving that top padding under TopLineSpace's control.
-The local first header row measures naturally for large text. The native page
-owns top container clearance (TopLineSpace may release it); Canvas opts out.
-WKWebView's separate UIScrollView previously retained automatic adjustment and
-document scrolling: neither was owned by the native overlay geometry. It now
-uses Never, zero content/indicator insets, zero offset, no bounce or document
-scrolling; HTML overflow is hidden. Leaflet still owns map pan/pinch. This fixes
-an independent translation path; whether it caused the observed device clipping
-requires device confirmation. There is no extra fixed top spacer or second inset.
-JS clearance remains in WebView CSS coordinates and camera offsets remain
-unchanged. Zoom control top is bounded by measured control height on short
-canvases independently of camera clearance. Full canvas, selected card, dimming,
-camera serialisation, picker, attribution, CSP, tiles, glass and routes remain.
+No local builds or tests were run. At reviewed head `41a0a20`, the supplied CI
+record had shared/Node tests, actions/csharp, both iOS jobs and one Android job
+passing; the other Android job and Swift analysis were pending. Those results
+do not validate this follow-up. New-head CI and the parent's fresh Claude Opus
+5.5 Medium full-diff review remain pending. No devices have been verified.
 
-No local builds, tests or test scripts executed. CI and the parent's mandatory
-Claude Opus 5.5 Medium full-diff review remain pending. Node camera regressions
-are retained. Verify short/large-text displays, glass and camera variants,
-fold/rotate/resume, native frame/offset at rest, both zoom buttons, attribution,
-selection camera, search dismissal/refocus, Reduce Motion and accessibility on
-devices. All device outcomes remain unverified; #443/#444/#445 and #442 stay open.
+Device gaps include multiword typing after scrolling on iOS and Android,
+filter-driven row replacement, real drag dismissal, query retention,
+Command-F refocus, Android outside-tap unfocus, rapid transitions and Reduce
+Motion. Check mode retention and exact group/location Devices navigation.
+Issue #444 and its #442 entry await device acceptance.

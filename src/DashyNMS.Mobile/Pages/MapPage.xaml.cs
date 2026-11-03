@@ -42,6 +42,10 @@ public partial class MapPage : ContentPage
             else SyncSelection();
         };
         Header.RowDefinitions[0].Height = GridLength.Auto;
+        // Auto permits wrapping, while every first-row child preserves the
+        // shared top line even when iOS glass hides the header actions.
+        foreach (var child in Header.Children.OfType<View>().Where(v => Grid.GetRow(v) == 0))
+            child.MinimumHeightRequest = TopBar.Height;
         Canvas.SizeChanged += (_, _) => PlaceControls();
         _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();

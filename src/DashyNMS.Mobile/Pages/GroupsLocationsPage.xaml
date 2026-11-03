@@ -53,7 +53,7 @@
 
         <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
         <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Grid.Row="3" Command="{Binding RefreshCommand}">
-            <CollectionView x:Name="List" ItemsSource="{Binding Places}" SelectionMode="None">
+            <CollectionView controls:KeyboardDismiss.OnScroll="False" x:Name="List" ItemsSource="{Binding Places}" SelectionMode="None">
                 <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
                 <CollectionView.Footer><BoxView x:Name="ListFoot" Color="Transparent" /></CollectionView.Footer>
                 <CollectionView.ItemsLayout>

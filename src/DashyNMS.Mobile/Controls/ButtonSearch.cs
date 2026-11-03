@@ -16,7 +16,24 @@ internal sealed class ButtonSearch
         slot.HeightRequest = 0;
         field.IsVisible = false;
         entry.Unfocused += (_, _) => Close();
-        list.Scrolled += (_, e) => { if (Math.Abs(e.VerticalDelta) >= 4) Close(); };
+        // #402: replacing filtered rows also raises Scrolled. Query native
+        // state at delivery time; do not retain native views across handlers.
+        list.Scrolled += (_, _) => { if (IsDragging(list)) Close(); };
+    }
+
+    private static bool IsDragging(CollectionView list)
+    {
+#if IOS
+        static UIKit.UIScrollView? Find(UIKit.UIView view) =>
+            view as UIKit.UIScrollView ?? view.Subviews.Select(Find).FirstOrDefault(v => v is not null);
+        return list.Handler?.PlatformView is UIKit.UIView view
+            && Find(view) is { } scroll && (scroll.Dragging || scroll.Tracking);
+#elif ANDROID
+        return list.Handler?.PlatformView is AndroidX.RecyclerView.Widget.RecyclerView recycler
+            && recycler.ScrollState == AndroidX.RecyclerView.Widget.RecyclerView.ScrollStateDragging;
+#else
+        return false;
+#endif
     }
 
     public void Open()

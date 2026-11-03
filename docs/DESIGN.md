@@ -278,7 +278,10 @@ and selection contracts remain unchanged.
 
 - Opening tab search focuses the field; tapping its magnifier again refocuses
   it. Close on Search, unfocus or a content touch, retaining the query. List
-  scrolling also hides the field and dismisses the keyboard. Use `KeyboardDismiss.Close` before
+  user dragging also hides the field and dismisses the keyboard. Filtering and
+  programmatic scrolling must retain focus, as established by DeviceSectionPage
+  in #402. ButtonSearch checks native drag state; its lists explicitly disable
+  `KeyboardDismiss.OnScroll`. Use `KeyboardDismiss.Close` before
   hiding a focused field.
 - Use no clear/close X or keyboard accessory. `SearchField` owns this policy,
   including on setup pickers.
@@ -417,7 +420,7 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
 | Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
 | Header fitting and native safe-area updates | `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
-| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/SearchReveal.cs` |
+| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/ButtonSearch.cs` for migrated button-only lists; `Controls/SearchReveal.cs` for legacy pages |
 | Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
 | Adaptive dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |

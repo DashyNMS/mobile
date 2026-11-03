@@ -162,15 +162,7 @@ public static class MapHtml
                 var previous = clearance;
                 hasClearance = true;
                 clearance = { top: top, right: right, bottom: bottom, left: left };
-                var controls = map.getContainer().querySelector('.leaflet-control-container');
-                controls.style.position = 'absolute';
-                // Camera clearance can exceed a short canvas; controls still need their full height.
-                var zoom = controls.querySelector('.leaflet-control-zoom');
-                var controlTop = Math.min(top, Math.max(0, map.getSize().y - (zoom ? zoom.offsetHeight : 90) - 20));
-                controls.style.top = controlTop + 'px'; controls.style.right = right + 'px';
-                controls.style.bottom = bottom + 'px'; controls.style.left = left + 'px';
-                controls.style.pointerEvents = 'none';
-                controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
+                placeControls();
                 if (!ready) initialise();
                 else if (fitWithoutClearance && !userMoved) {
                   // A selected pin already owns its zoom; only its safe offset needs repair.
@@ -187,6 +179,25 @@ public static class MapHtml
               };
               var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
               var target = null, hasClearance = false, fitWithoutClearance = false, userMoved = false, moving = 0;
+              function placeControls() {
+                var container = map.getContainer();
+                var controls = container.querySelector('.leaflet-control-container');
+                controls.style.position = 'absolute';
+                controls.style.top = clearance.top + 'px'; controls.style.right = clearance.right + 'px';
+                controls.style.bottom = clearance.bottom + 'px'; controls.style.left = clearance.left + 'px';
+                controls.style.pointerEvents = 'none';
+                controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
+                var zoom = controls.querySelector('.leaflet-control-zoom');
+                if (zoom) {
+                  // Measure while hidden too. Leaflet's cached size can lag native
+                  // resize. Keep both 44px targets clear of header AND bottom card;
+                  // when impossible, hide zoom (pinch remains available).
+                  zoom.style.visibility = '';
+                  var height = zoom.offsetHeight;
+                  var room = container.clientHeight - clearance.top - clearance.bottom - 20;
+                  zoom.style.visibility = height > 0 && room >= height ? '' : 'hidden';
+                }
+              }
               function programmatic(action) { moving++; try { action(); } finally { moving--; } }
               map.on('movestart zoomstart', function () { if (!moving && ready) userMoved = true; });
               function focusSelection() {
@@ -303,6 +314,7 @@ public static class MapHtml
               }
               function resized() {
                 programmatic(function () { map.invalidateSize(); });
+                placeControls();
                 initialise();
               }
               window.addEventListener('resize', resized);

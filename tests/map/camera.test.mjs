@@ -11,12 +11,14 @@ const pins = [0, 1].map(id => ({ id, name: `Site ${id}`, lat: 51 + id / 100, lng
 function harness(data = pins, size = { x: 800, y: 600 }) {
   const events = {}, timers = [], markers = [], fits = [], pending = [];
   const fire = name => (events[name] ?? []).forEach(fn => fn());
-  const controls = { style: {}, querySelector: () => ({ offsetHeight: 90 }), querySelectorAll: () => [] };
+  const zoom = { style: {}, offsetHeight: 90 };
+  const controls = { style: {}, querySelector: () => zoom, querySelectorAll: () => [] };
+  const container = { clientHeight: size.y, querySelector: () => controls };
   const map = {
     zoom: undefined, offset: [0, 0],
     on(names, fn) { names.split(' ').forEach(name => (events[name] ??= []).push(fn)); },
     getZoom() { return this.zoom; }, getSize() { return size; },
-    getContainer() { return { querySelector: () => controls }; },
+    getContainer() { return container; },
     setView(centre, zoom, options = {}) {
       assert.ok(Number.isFinite(zoom), 'focus cannot use an undefined zoom');
       const move = () => { fire('zoomstart'); fire('movestart'); this.centre = centre; this.zoom = zoom; this.offset = [0, 0]; fire('zoomend'); };
@@ -37,7 +39,7 @@ function harness(data = pins, size = { x: 800, y: 600 }) {
   const document = { getElementById: () => ({ classList: { toggle() {} } }), createElement: () => ({ style: {}, appendChild() {} }) };
   runInNewContext(bridge.replace('{{data}}', JSON.stringify({ pins: data, tiles: '', attribution: '' })).replace('{{ClusterRadius}}', '26').replace('{{PinScheme}}', 'dashynms-map'),
     { L, window, document, setTimeout: fn => timers.push(fn) });
-  return { window, map, fits, markers, timers, pending, fire, controls };
+  return { window, map, fits, markers, timers, pending, fire, controls, zoom, container };
 }
 
 test('merged zoom and safe offset have one owner, including rapid taps and native choices', () => {
@@ -141,13 +143,22 @@ test('overview padding leaves a usable viewport on short screens with large capt
 });
 
 
-test('short canvas keeps both zoom targets inside viewport without changing camera clearance', () => {
-  const h = harness(pins, { x: 800, y: 180 });
-  h.window.setMapClearance(150, 20, 100, 20);
-  assert.equal(h.controls.style.top, '70px');
-  assert.equal(h.controls.style.bottom, '100px');
-  h.window.setSelection([0], true, true, true);
-  assert.deepEqual(h.map.offset, [0, -25], 'camera retains the actual overlay clearance');
-  h.window.setMapClearance(40, 20, 10, 20);
+test('zoom uses live geometry, respects both overlays and hides when targets cannot fit', () => {
+  const h = harness(pins, { x: 800, y: 600 });
+  h.container.clientHeight = 180; // Leaflet still reports the old 600px size.
+  h.window.setMapClearance(40, 20, 40, 20);
+  assert.equal(h.zoom.style.visibility, 'hidden'); // only 80px for 90px controls
   assert.equal(h.controls.style.top, '40px');
+  assert.equal(h.controls.style.bottom, '40px');
+  h.container.clientHeight = 190;
+  h.fire('resize');
+  assert.equal(h.zoom.style.visibility, '', 'exact fit restores both 44px targets');
+  h.window.setMapClearance(150, 20, 100, 20);
+  assert.equal(h.zoom.style.visibility, 'hidden');
+  h.window.setSelection([0], true, true, true);
+  assert.deepEqual(h.map.offset, [0, -25], 'control fallback leaves camera clearance intact');
+  h.container.clientHeight = 400;
+  h.fire('resize');
+  assert.equal(h.zoom.style.visibility, '');
+  assert.deepEqual(h.map.offset, [0, -25], 'resize placement does not move selection');
 });

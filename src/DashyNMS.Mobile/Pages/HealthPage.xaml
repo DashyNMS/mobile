@@ -93,7 +93,7 @@
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
+                <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
                     <CollectionView.Footer><BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" /></CollectionView.Footer>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
