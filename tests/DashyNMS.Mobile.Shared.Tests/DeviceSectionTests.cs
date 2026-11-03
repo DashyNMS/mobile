@@ -11,6 +11,48 @@ namespace DashyNMS.Mobile.Tests;
 public sealed class DeviceSectionLoaderTests
 {
     [Fact]
+    public void Sensor_rows_expose_missing_readings_and_category_to_search()
+    {
+        var row = DeviceSectionLoader.SensorRow(new Sensor { SensorId = 7, SensorClass = "temperature" }, new AppSettings());
+        Assert.True(row.SensorLayout);
+        Assert.Equal("Reading unavailable", row.SensorStatusText);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.True(row.Matches("unavailable"));
+        Assert.True(row.Matches("temperature"));
+        Assert.Contains("Reading unavailable", row.SensorDescription);
+        Assert.DoesNotContain("–", row.SensorDescription);
+        Assert.DoesNotContain("—", row.SensorDescription);
+        Assert.False(new SectionRow("example").SensorLayout);
+    }
+
+    [Fact]
+    public void Unregistered_sensor_without_limits_does_not_claim_healthy_text()
+    {
+        var sensor = new Sensor { SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets" };
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+        Assert.Equal("No limits", row.SensorStatusText);
+        Assert.Contains("No limits", row.SensorDescription);
+        Assert.Equal(DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Status, row.Status);
+    }
+
+    [Fact]
+    public async Task Sensor_section_filters_device_ids_and_keeps_custom_units_and_limits()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new Sensor[]
+        {
+            new() { DeviceId = DeviceId, SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets", LimitHigh = 10 },
+            new() { DeviceId = 8, SensorId = 8, SensorClass = "temperature", Current = 20 },
+        });
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Sensors)));
+        Assert.Equal("12.3 widgets", row.Value);
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Critical", row.SensorStatusText);
+        Assert.True(row.Matches("critical"));
+        Assert.Contains("10", row.Subtitle);
+        Assert.Null(row.LinkDeviceId);
+    }
+
+    [Fact]
     public void Missing_sensor_reading_has_no_severity_or_widget_position()
     {
         var sensor = new Sensor { SensorId = 7, SensorClass = "temperature", Current = null, LimitLow = 0, LimitHigh = 100 };

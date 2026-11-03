@@ -20,6 +20,12 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Only Device Sensors opts into wrapping, vertically ordered reading facts.</summary>
+    public bool SensorLayout { get; init; }
+    public string? SensorKind { get; init; }
+    public string? SensorStatusText { get; init; }
+    public string SensorDescription => string.Join(", ", new[] { Title, SensorKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, SensorStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     /// <summary>Availability facts stack so dates and durations remain readable at large text sizes.</summary>
     public bool AvailabilityLayout { get; init; }
     public string? Subtitle { get; init; }
@@ -131,6 +137,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>

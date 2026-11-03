@@ -14,6 +14,10 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private IReadOnlyList<SectionGroup> _all = [];
     private bool _loaded;
+
+    /// <summary>Kept sensor readings remain visible while the fleet request completes.</summary>
+    [ObservableProperty]
+    private bool _isUpdatingSensors;
     private int _generation;
     private Task _pending = Task.CompletedTask;
     private readonly HashSet<long> _collapsedInventory = [];
@@ -269,8 +273,10 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         return _pending = RunAsync(async () =>
         {
         IReadOnlyList<SectionGroup> result;
+        IsUpdatingSensors = section == DeviceSection.Sensors && _all.Count > 0;
         try { result = await _loader.LoadAsync(section, deviceId); }
         catch when (generation != _generation) { return; }
+        finally { IsUpdatingSensors = false; }
         if (generation != _generation) return;
         _all = result;
         _loaded = true;
