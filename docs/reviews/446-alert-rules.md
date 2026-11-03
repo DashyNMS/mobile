@@ -49,15 +49,16 @@ their security/permission contracts are unchanged.
 | Whole-row accessibility | Child labels and gesture without joined name | Fix: nonblank joined description, hidden child announcements, whole-row tap; native activation unverified |
 | Selection in wide host | No visible selected state | Fix: ID-based highlight and Selected text/description, survives refresh/filter, hidden when narrow |
 | Search | Shared field/reveal already compliant; Command-F fallback existed | Preserve Android always-visible/iOS sliding policy; explicit ISearchHost, header/glass entry and keyboard dismissal |
-| Filters/counts | Source-wide counts and original predicates compliant | Preserve behaviour, enlarge Clear/chip tap targets; horizontal chip scroll retained |
+| Filters/counts | Source-wide counts and original predicates compliant | Preserve behaviour, enlarge Clear/chip tap targets with pill radii; add live count/inclusion descriptions after Claude found colour-only chip state; horizontal chip scroll retained |
 | Empty/loading/error | Distinct no source/no matches; error suppresses empty, shared busy overlay compliant | Preserve; add fade space and footer, pull-to-refresh remains retry route |
 | Insets/final rows | Legacy UseSafeArea plus Container, no glass clearance | Fix: top-only iOS native owner, None child layouts, native CollectionView adjustment Never on handler/load, measured margin/footer |
-| Fade at rest | Missing | Fix: input-transparent 20pt fade with header spacer; empty content retains 32pt padding |
+| Fade at rest | Missing | Fix: input-transparent 20pt surface-coloured fade inside the list Border, inset below its stroke, with header spacer; empty content retains 32pt padding |
 | Pinned versus pushed glass | No host glass lifecycle | Fix: search and pushed-only glass Back; Header.BackInGlass on supported iOS; native header elsewhere |
 | Embedded versus pushed detail | No explicit host inset contract | Fix: host supplies column-reaching occlusion, view pads scrolling content; pushed body/wrapper retained for #447 |
 | Rotation/fold/resume | Split adapts width already | Retain split; size/covered-edge/glass callbacks recompute clearance, appearance refreshes and reclaims glass; device outcome unverified |
 
-No global control changes. AlertRuleItem is also consumed by template-related
+No global control changes. Added transparent Surface colour resources consumed
+only by this list fade; existing resource values and consumers are unchanged. AlertRuleItem is also consumed by template-related
 rules, whose existing display properties and navigation stay unchanged. Its new
 selection/accessibility properties are consumed only by AlertRulesPage.
 PlaceContent is consumed only by this embedded host. No accepted setup,
@@ -73,10 +74,14 @@ nonblank accessible content with selection notification. Existing route,
 filter, ordering and detail tests remain. No local builds or tests executed,
 as instructed for this code machine.
 
-CI: not yet verified. Shared tests, Android/iOS builds and security workflows
-must validate the pushed head. Independent Claude Opus 5.5 Medium full-diff
-review is pending and arranged by the parent. These are separate gates;
-self-inspection is not independent review.
+Claude Opus 5.5 Medium reviewed the full diff at d1a17cd. Addressed its two
+medium and two low findings: restored bottom row padding; added filter state
+announcements and pill radii with toggle/clear notification tests; removed
+repeated Disabled text from row metadata; moved the surface-coloured fade
+inside the card. No findings are deferred. At that head unit tests, Android,
+iOS simulator and CodeQL actions/C# passed; Swift remained pending at review.
+Replacement CI is pending. No local tests/builds ran. Review and CI remain
+separate from device acceptance.
 
 Every device outcome is unverified. Execute against the eventual CI build:
 

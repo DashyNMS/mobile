@@ -89,8 +89,8 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
 
     public string Condition { get; } = RuleText.Condition(Rule);
 
-    /// <summary>"All devices · Device down alert" - the row's last line (#122): where it applies, its template, and Disabled.</summary>
-    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }
+    /// <summary>Targets and template; enabled state is announced once in StateText.</summary>
+    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName }
         .Where(p => !string.IsNullOrWhiteSpace(p)));
 
     public bool IsAlerting => Alerting > 0;
@@ -169,6 +169,18 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
     public int WarningCount => _all.Count(r => r.Severity == AlertSeverity.Warning);
 
     public int DisabledCount => _all.Count(r => r.IsDisabled);
+
+    /// <summary>Announces whether the optional alerting-only filter is active.</summary>
+    public string AlertingFilterDescription => $"Alerting, {RuleText.Count(AlertingCount, "rule")}, filter {(OnlyAlerting ? "on" : "off")}";
+
+    /// <summary>Announces inclusion independently of the Critical chip's colour.</summary>
+    public string CriticalFilterDescription => $"Critical, {RuleText.Count(CriticalCount, "rule")}, {(ShowCritical ? "included" : "excluded")}";
+
+    /// <summary>Announces inclusion independently of the Warning chip's colour.</summary>
+    public string WarningFilterDescription => $"Warning, {RuleText.Count(WarningCount, "rule")}, {(ShowWarning ? "included" : "excluded")}";
+
+    /// <summary>Announces inclusion independently of the Disabled chip's colour.</summary>
+    public string DisabledFilterDescription => $"Disabled, {RuleText.Count(DisabledCount, "rule")}, {(ShowDisabled ? "included" : "excluded")}";
 
     public bool IsEmpty => !HasError && _loaded && Rules.Count == 0 && !IsBusy;
 
@@ -276,6 +288,10 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(DisabledCount));
+        OnPropertyChanged(nameof(AlertingFilterDescription));
+        OnPropertyChanged(nameof(CriticalFilterDescription));
+        OnPropertyChanged(nameof(WarningFilterDescription));
+        OnPropertyChanged(nameof(DisabledFilterDescription));
     }
 
     /// <summary>Templates are an extra: without them the rules still list.</summary>

@@ -31,7 +31,7 @@
         <!-- Alerting, a divider, then the severities and Disabled - on to start, tapped off to hide. -->
         <ScrollView SafeAreaEdges="None" Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
-                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding AlertingCount, StringFormat='Alerting {0}'}" Command="{Binding ToggleAlertingCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" SemanticProperties.Description="{Binding AlertingFilterDescription}" Text="{Binding AlertingCount, StringFormat='Alerting {0}'}" Command="{Binding ToggleAlertingCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding OnlyAlerting}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
@@ -42,7 +42,7 @@
                 </Button>
                 <BoxView WidthRequest="1" HeightRequest="20" VerticalOptions="Center" Margin="2,0"
                          Color="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
-                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" SemanticProperties.Description="{Binding CriticalFilterDescription}" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
@@ -51,7 +51,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding WarningCount, StringFormat='Warning {0}'}" Command="{Binding ToggleWarningCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" SemanticProperties.Description="{Binding WarningFilterDescription}" Text="{Binding WarningCount, StringFormat='Warning {0}'}" Command="{Binding ToggleWarningCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
@@ -60,7 +60,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding DisabledCount, StringFormat='Disabled {0}'}" Command="{Binding ToggleDisabledCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" SemanticProperties.Description="{Binding DisabledFilterDescription}" Text="{Binding DisabledCount, StringFormat='Disabled {0}'}" Command="{Binding ToggleDisabledCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDisabled}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource InactiveTint}" />
@@ -90,6 +90,7 @@
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Grid.Row="5" ZIndex="1" IsVisible="False" />
         <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <Grid SafeAreaEdges="None">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Rules}" SelectionMode="None">
                     <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
@@ -106,7 +107,7 @@
                         <!-- Read-only (#22): severity, the rule and complete wrapping condition,
                              where it applies and its template, and what it has alerting. -->
                         <DataTemplate x:DataType="rules:AlertRuleItem">
-                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+                            <Grid Padding="14,11" Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*" ColumnSpacing="12"
                                   SemanticProperties.Description="{Binding AccessibleDescription}" SemanticProperties.Hint="Opens this alert rule">
                                 <Grid.Triggers>
                                     <DataTrigger TargetType="Grid" Binding="{Binding IsSelected}" Value="True">
@@ -130,11 +131,13 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </RefreshView>
+        <BoxView Margin="1,1,1,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" Offset="0" /><GradientStop Color="{AppThemeBinding Light={StaticResource SurfaceLightClear}, Dark={StaticResource SurfaceDarkClear}}" Offset="1" /></LinearGradientBrush></BoxView.Background>
+        </BoxView>
+            </Grid>
         </Border>
 
-        <BoxView Grid.Row="5" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
-            <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" /><GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" /></LinearGradientBrush></BoxView.Background>
-        </BoxView>
+
     </Grid>
 
     </controls:ListDetail>
