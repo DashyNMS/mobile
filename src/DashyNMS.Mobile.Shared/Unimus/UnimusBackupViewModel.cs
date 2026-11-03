@@ -82,6 +82,7 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
         OnPropertyChanged(nameof(VersionTime));
 
         IsBusy = true;
+        OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
         try

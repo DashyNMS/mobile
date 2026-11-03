@@ -81,7 +81,7 @@ Do not copy its old PushedListLayout over this implementation. Shared consumers
 are exactly history, contents and diff. #504 already proposes idempotent
 activation and a 20pt footer: when parent updates this PR after preceding queue
 merges, combine that baseline with the retained/disposed CoveredEdges watcher
-and retained Window resume lifecycle here. The duplicate guard/footer intent
+and central AppShell activation and disposable watcher lifecycle here. The duplicate guard/footer intent
 should remain once. No other branch was edited. Existing native single top
 inset, body side gutters, no additional top-line push, relative Back and footer
 clearance are retained. #464 must test its consumer after this helper lands.
@@ -137,3 +137,15 @@ Core user-facing API error reasons are retained. Starting loads notify empty
 bindings immediately. Source bytes, export and comparison semantics are unchanged.
 Replacement CI and fresh Claude review remain pending. No local builds/tests
 ran; hardware outcomes remain unverified.
+
+Claude re-reviewed c95a002: prior search, fade, sharing and retry fixes hold.
+CI exposed two children in the single-view PageHeader.Actions property. They
+are now wrapped in one horizontal layout and Search uses the standard icon.
+Load start also notifies CountText so stale counts cannot survive failed loads.
+
+Timing limitation: this request-specific loader deliberately does not use
+RunAsync or emit Failed, to keep configuration-bearing errors out of diagnostics.
+It currently also omits first-load timing events. Restoring timing without error
+reporting needs a separate base-helper change; no timing evidence is claimed.
+Cancellation still uses the generic retryable load error. All hardware checks
+remain unverified. Replacement CI is pending; no local builds/tests ran.
