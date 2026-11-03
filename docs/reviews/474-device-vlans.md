@@ -97,3 +97,12 @@ Use example.net/edge.example.net, IDs 7/8, VLANs 2/10/100, synthetic long names.
 
 Hardware and user acceptance remain pending. Do not close #474 or tick #442.
 Parent owns integration, review, merges and later TestFlight delivery.
+
+## Sequential integration
+
+Updated after #507–#511 against main a2f1e62. VLAN stacked facts coexist with
+neighbour, port, resource, sensor and availability layouts; each independently
+hides the legacy grid. The shared card-wide gesture, activation, ButtonSearch,
+Retry and generation guards remain from main. No old nested gesture or wrapper
+is reintroduced. Full-diff Claude review and CI must verify the integrated XAML.
+No hardware acceptance is inferred.

@@ -142,6 +142,8 @@ public sealed class LogEntryItem : CommunityToolkit.Mvvm.ComponentModel.Observab
     /// <summary>The entry page's details, by name.</summary>
     public IReadOnlyList<KeyValuePair<string, string>> Fields => Event is { } e
         ? Pairs(
+            ("Hostname", e.Hostname),
+            ("System name", e.SysName),
             ("Type", e.Type),
             ("Severity", StatusText),
             ("Logged", TimeText),

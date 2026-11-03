@@ -42,32 +42,41 @@ public sealed class DeviceNeighbourGraph : ContentView
         _lastWidth = Width;
         _layout.Children.Clear();
         _drawing.Links.Clear();
-        var height = Math.Max(240, Math.Ceiling(_rows.Count / 2.0) * 76 + 24);
+        var nodeWidth = Math.Max(70, Math.Min(140, Width * 0.29));
+        // Measure with the system font scale before allocating each node's lane.
+        var nodeHeight = Math.Max(60, _rows.Select(row => NodeHeight(row.Title)).Append(NodeHeight(_device)).Max());
+        var lane = nodeHeight + 16;
+        var height = Math.Max(240, Math.Ceiling(_rows.Count / 2.0) * lane + 24);
         _layout.HeightRequest = height;
         _layout.Children.Add(_lines);
         AbsoluteLayout.SetLayoutBounds(_lines, new Rect(0, 0, Width, height));
         var centre = new PointF((float)(Width / 2), (float)(height / 2));
-        var nodeWidth = Math.Max(70, Math.Min(140, Width * 0.29));
         var converter = new StatusColorConverter();
         var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
         var text = dark ? Colors.White : Colors.Black;
-        AddNode(_device, Width / 2 - nodeWidth / 2, height / 2 - 30, Colors.SlateGray, null);
+        AddNode(_device, Width / 2 - nodeWidth / 2, height / 2 - nodeHeight / 2, Colors.SlateGray, null);
         for (var i = 0; i < _rows.Count; i++)
         {
             var row = _rows[i];
             var x = i % 2 == 0 ? 0 : Width - nodeWidth;
-            var y = 12 + (i / 2) * 76;
+            var y = 12 + (i / 2) * lane;
             var color = converter.Convert(row.Status, typeof(Color), null, CultureInfo.InvariantCulture) as Color ?? Colors.Gray;
-            _drawing.Links.Add((centre, new PointF((float)(x + nodeWidth / 2), y + 30), color));
+            _drawing.Links.Add((centre, new PointF((float)(x + nodeWidth / 2), (float)(y + nodeHeight / 2)), color));
             AddNode(row.Title, x, y, color, row);
         }
         _lines.Invalidate();
+
+        double NodeHeight(string name)
+        {
+            var label = new Label { Text = name, FontSize = 12, LineBreakMode = LineBreakMode.CharacterWrap };
+            return ((Microsoft.Maui.IView)label).Measure(nodeWidth - 10, double.PositiveInfinity).Height + 24;
+        }
 
         void AddNode(string name, double x, double y, Color color, SectionRow? row)
         {
             var button = new Button
             {
-                Text = name, FontSize = 12, Padding = new Thickness(5),
+                Text = name, FontSize = 12, Padding = new Thickness(5), LineBreakMode = LineBreakMode.CharacterWrap,
                 TextColor = text, BackgroundColor = dark ? Color.FromArgb("#20252C") : Colors.White,
                 BorderColor = color, BorderWidth = 2, CornerRadius = 12,
             };
@@ -75,7 +84,7 @@ public sealed class DeviceNeighbourGraph : ContentView
                 : "Show neighbour card: " + name + ", " + row.Subtitle + ", " + row.Fields.FirstOrDefault()?.Value);
             if (row is not null) button.Clicked += (_, _) => Picked?.Invoke(row);
             _layout.Children.Add(button);
-            AbsoluteLayout.SetLayoutBounds(button, new Rect(x, y, nodeWidth, 60));
+            AbsoluteLayout.SetLayoutBounds(button, new Rect(x, y, nodeWidth, nodeHeight));
         }
     }
 

@@ -24,25 +24,48 @@ public sealed partial class LicenceItem : ObservableObject
 
     /// <summary>"MIT · github.com/dotnet/maui".</summary>
     public string LicenceLine => Notice.Licence + " · " + Notice.Link.Host + Notice.Link.AbsolutePath.TrimEnd('/');
+    public string LinkText => Notice.Link.AbsoluteUri;
+    public string LicenceName => Notice.Licence;
+    public string ToggleDescription => ToggleText + " for " + Name;
 
     public bool HasLicenceText => Notice.LicenceFile is not null;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ToggleText))]
+    [NotifyPropertyChangedFor(nameof(ToggleDescription))]
     private bool _isExpanded;
 
     [ObservableProperty]
     private string? _licenceText;
 
-    public string ToggleText => IsExpanded ? "Hide licence" : "Show licence";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ToggleText))]
+    [NotifyPropertyChangedFor(nameof(ToggleDescription))]
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
+    private string? _loadError;
+
+    /// <summary>Missing feedback must not reserve a blank line in every notice.</summary>
+    public bool HasLoadError => !string.IsNullOrWhiteSpace(LoadError);
+
+    public string ToggleText => LoadError is not null ? "Retry licence" : IsExpanded ? "Hide licence" : "Show licence";
 
     [RelayCommand]
     private void Toggle()
     {
         if (!IsExpanded && LicenceText is null && Notice.LicenceFile is { } file)
         {
-            LicenceText = OpenSourceNotices.ReadLicence(file)
-                ?? "The licence text couldn't be read. It's at " + Notice.Link + ".";
+            try
+            {
+                LicenceText = OpenSourceNotices.ReadLicence(file);
+            }
+            catch (IOException) { LicenceText = null; }
+            if (string.IsNullOrWhiteSpace(LicenceText))
+            {
+                LicenceText = null;
+                LoadError = "The embedded licence text couldn't be read. Retry or open the website below.";
+                return;
+            }
+            LoadError = null;
         }
 
         IsExpanded = !IsExpanded;

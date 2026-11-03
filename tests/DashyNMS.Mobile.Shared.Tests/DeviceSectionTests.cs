@@ -10,6 +10,136 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed class DeviceSectionLoaderTests
 {
+    [Theory]
+    [InlineData("lowerLayerDown")]
+    [InlineData("notPresent")]
+    public void Known_non_operational_ports_remain_down(string state)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = state });
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Down", row.Port!.StatusName);
+        Assert.DoesNotContain("Down, Down", row.PortSummary);
+    }
+
+    [Fact]
+    public void Missing_error_counters_do_not_claim_valid_traffic_is_unavailable()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "port1", IfOperStatus = "up", IfInOctetsRate = 10, IfOutOctetsRate = 20 });
+        Assert.Contains("Error readings unavailable", row.PortStatusText);
+        Assert.DoesNotContain("Unavailable", row.Value);
+    }
+
+    [Fact]
+    public void Invalid_rates_do_not_rank_above_valid_traffic_or_offset_errors()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = double.PositiveInfinity, IfOutOctetsRate = 10, IfInErrorsRate = 5, IfOutErrorsRate = -1 });
+        Assert.Equal(10, row.SortValue);
+        Assert.Equal(10, row.Port!.Traffic);
+        Assert.Contains("5 errors/s", row.Detail);
+        Assert.Equal(RowStatus.Warning, row.Status);
+    }
+
+    [Fact]
+    public async Task Unknown_ports_remain_in_loader_and_status_grouping_without_fabricated_graph_routes()
+    {
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Port { PortId = 7, IfDescr = "Synthetic interface", IfOperStatus = "testing" }]);
+        var groups = await Load(DeviceSection.Ports);
+        var row = Assert.Single(Assert.Single(groups));
+        Assert.Equal("Unknown", groups[0].Name);
+        Assert.Null(row.LinkPortIfName);
+        Assert.False(row.IsLink);
+        Assert.Contains("Interface graphs unavailable", row.PortDescription);
+        Assert.Equal("Unknown", Assert.Single(PortArrangement.Arrange([row], PortSort.Status, PortGrouping.Status)).Name);
+    }
+
+    [Fact]
+    public void Reported_zero_rates_are_available_and_ok()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = 0, IfOutOctetsRate = 0, IfInErrorsRate = 0, IfOutErrorsRate = 0 });
+        Assert.Equal(RowStatus.Ok, row.Status);
+        Assert.DoesNotContain("Unavailable", row.Value);
+        Assert.Contains("OK", row.PortStatusText);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("testing")]
+    [InlineData("unknown")]
+    public void Unknown_port_state_is_neutral_and_searchable(string? state)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = state });
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal("Unknown", row.Port!.StatusName);
+        Assert.True(row.Matches("unknown"));
+        Assert.Equal("Gi0/7", row.LinkPortIfName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(-1d)]
+    public void Invalid_port_traffic_is_explicitly_unavailable(double? rate)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = rate, IfOutOctetsRate = 0 });
+        Assert.Contains("In: Unavailable", row.Value);
+        Assert.Contains("Readings unavailable", row.PortStatusText);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.True(row.Matches("unavailable"));
+    }
+
+    [Fact]
+    public void Port_errors_keep_warning_and_graph_identity_independent_of_display_name()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfDescr = "Synthetic long interface", IfOperStatus = "up", IfInErrorsRate = 2, IfOutErrorsRate = 0 });
+        Assert.Equal(RowStatus.Warning, row.Status);
+        Assert.Contains("Warning", row.PortDescription);
+        Assert.Equal("Gi0/7", row.LinkPortIfName);
+    }
+
+    [Fact]
+    public void Sensor_rows_expose_missing_readings_and_category_to_search()
+    {
+        var row = DeviceSectionLoader.SensorRow(new Sensor { SensorId = 7, SensorClass = "temperature" }, new AppSettings());
+        Assert.True(row.SensorLayout);
+        Assert.Equal("Reading unavailable", row.SensorStatusText);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.True(row.Matches("unavailable"));
+        Assert.True(row.Matches("temperature"));
+        Assert.Contains("Reading unavailable", row.SensorDescription);
+        Assert.DoesNotContain("–", row.SensorDescription);
+        Assert.DoesNotContain("—", row.SensorDescription);
+        Assert.False(new SectionRow("example").SensorLayout);
+    }
+
+    [Fact]
+    public void Unregistered_sensor_without_limits_does_not_claim_healthy_text()
+    {
+        var sensor = new Sensor { SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets" };
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+        Assert.Equal("No limits", row.SensorStatusText);
+        Assert.Contains("No limits", row.SensorDescription);
+        Assert.Equal(DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Status, row.Status);
+    }
+
+    [Fact]
+    public async Task Sensor_section_filters_device_ids_and_keeps_custom_units_and_limits()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new Sensor[]
+        {
+            new() { DeviceId = DeviceId, SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets", LimitHigh = 10 },
+            new() { DeviceId = 8, SensorId = 8, SensorClass = "temperature", Current = 20 },
+        });
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Sensors)));
+        Assert.Equal("12.3 widgets", row.Value);
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Critical", row.SensorStatusText);
+        Assert.True(row.Matches("critical"));
+        Assert.Contains("10", row.Subtitle);
+        Assert.Null(row.LinkDeviceId);
+    }
+
     [Fact]
     public void Missing_sensor_reading_has_no_severity_or_widget_position()
     {
@@ -127,6 +257,56 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal(percent / 100, row.Bar);
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public void Invalid_usage_never_implies_a_healthy_or_zero_reading(double? percent)
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net memory", percent, null, null, null);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Null(row.Bar);
+        Assert.Equal("—", row.Value);
+        Assert.True(row.Matches("unavailable"));
+        Assert.Contains("Reading unavailable", row.ResourceDescription);
+        Assert.DoesNotContain("—", row.ResourceDescription);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public void Invalid_warning_thresholds_use_default_severity(double warning)
+    {
+        Assert.Equal(RowStatus.Warning, DeviceSectionLoader.UsageRow("Memory", 85, warning, null, null).Status);
+        Assert.Equal(RowStatus.Critical, DeviceSectionLoader.UsageRow("Memory", 99, warning, null, null).Status);
+    }
+
+    [Theory]
+    [InlineData(-1, 100)]
+    [InlineData(101, 100)]
+    [InlineData(0, 0)]
+    public void Invalid_capacity_is_not_formatted_as_usage(long used, long total)
+    {
+        Assert.Null(DeviceSectionLoader.UsageRow("example.net storage", null, null, used, total).Subtitle);
+    }
+
+    [Fact]
+    public void Reported_zero_usage_remains_valid_and_resource_context_is_searchable()
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net processor", 0, null, null, null) with { ResourceKind = "CPU · Processors" };
+        Assert.Equal(RowStatus.Ok, row.Status);
+        Assert.Equal(0d, row.Bar);
+        Assert.True(row.Matches("CPU"));
+        Assert.True(row.Matches("OK"));
+        Assert.False(new SectionRow("example.net").Matches("unavailable"));
+    }
+
     [Fact]
     public async Task Resources_group_cpu_memory_and_storage()
     {
@@ -154,7 +334,7 @@ public sealed class DeviceSectionLoaderTests
 
         Assert.Equal(["Down", "Up", "Shut down"], groups.Select(g => g.Name));
         Assert.Equal(RowStatus.Critical, groups[0][0].Status);
-        Assert.Equal("↓10 Mb/s  ↑1 Mb/s", groups[1][0].Value); // octets/s to bits/s
+        Assert.Equal("In: 10 Mb/s · Out: 1 Mb/s", groups[1][0].Value); // octets/s to bits/s
         Assert.Equal("1 Gb/s", groups[1][0].Detail);
         Assert.Equal(RowStatus.Inactive, groups[2][0].Status);
     }
@@ -187,7 +367,7 @@ public sealed class DeviceSectionLoaderTests
         _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "Gi0/1", oper: "down", inRate: 1250000, outRate: 125000)]);
         var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
         Assert.Equal(RowStatus.Critical, row.Status);
-        Assert.Equal("Down", row.Fields.Single(f => f.Name == "Link").Value);
+        Assert.Equal("Down", row.Fields.Single(f => f.Name == "Local port state").Value);
         Assert.Equal("10 Mb/s", row.Fields.Single(f => f.Name == "Traffic in").Value);
         Assert.Equal("1 Mb/s", row.Fields.Single(f => f.Name == "Traffic out").Value);
         Assert.True(row.Matches("Gi0/1"));
@@ -196,6 +376,42 @@ public sealed class DeviceSectionLoaderTests
 
     private static LibreNmsApiException NoPortsFound() =>
         new("No ports found", System.Net.HttpStatusCode.NotFound, "No ports found");
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Unmonitored_neighbours_do_not_announce_an_unavailable_action(int? deviceId)
+    {
+        var row = new SectionRow("edge.example.net") { NeighbourLayout = true, LinkDeviceId = deviceId, Detail = "Not monitored" };
+        Assert.False(row.CanOpenNeighbour);
+        Assert.Equal(row.NeighbourSummary, row.NeighbourAction);
+        Assert.DoesNotContain("Open neighbouring device", row.NeighbourAction);
+        var monitored = row with { LinkDeviceId = 7 };
+        Assert.True(monitored.CanOpenNeighbour);
+        Assert.Contains("Open neighbouring device", monitored.NeighbourAction);
+    }
+
+    [Theory]
+    [InlineData("testing", double.NaN)]
+    [InlineData("unknown", double.PositiveInfinity)]
+    [InlineData("", -1)]
+    public async Task Neighbours_do_not_invent_port_state_or_traffic(string state, double rate)
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 1, LocalDeviceId = DeviceId, LocalPortId = 1, RemoteHostname = "edge.example.net", RemoteDeviceId = 8, RemotePort = "eth0", Protocol = "lldp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "eth1", oper: state, inRate: rate, outRate: 0)]);
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Local port state").Value);
+        Assert.Equal("Unknown", row.Fields.Single(f => f.Name == "Traffic in").Value);
+        Assert.NotEqual("Unknown", row.Fields.Single(f => f.Name == "Traffic out").Value);
+        Assert.True(row.CanOpenNeighbour);
+        Assert.Contains("eth1 → eth0", row.NeighbourAction);
+        Assert.Contains("State unknown", row.NeighbourAction);
+        Assert.True(row.Matches("State unknown"));
+        Assert.Equal(8, row.LinkDeviceId);
+    }
 
     [Fact]
     public async Task A_ping_only_device_lists_the_switch_that_sees_it_by_name()
@@ -212,7 +428,7 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("access-sw", row.Title);
         Assert.Equal("eth0 → Unknown port", row.Subtitle);
         Assert.Equal("access-sw via LLDP", row.Fields.Single(f => f.Name == "Seen by").Value);
-        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Link").Value);
+        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Local port state").Value);
         Assert.Equal(3, row.LinkDeviceId);
 
         var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Neighbours));
@@ -412,6 +628,24 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public async Task Invalid_availability_is_unavailable_without_a_success_colour(double percent)
+    {
+        _client.Devices.GetAvailabilityAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 2592000, Percent = percent }]);
+        _client.Devices.GetOutagesAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Availability)));
+        Assert.Equal("—", row.Value);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Contains("unavailable", row.ContentDescription);
+        Assert.DoesNotContain("—", row.ContentDescription);
+        Assert.True(row.AvailabilityLayout);
+    }
+
+    [Theory]
     [InlineData("AABBCCDDEEFF", "aa:bb:cc:dd:ee:ff")]
     [InlineData("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff")]
     [InlineData("weird", "weird")]
@@ -427,6 +661,25 @@ public sealed class DeviceSectionLoaderTests
 
 public sealed class DeviceSectionViewModelTests
 {
+    [Fact]
+    public async Task Changing_device_during_availability_load_discards_the_old_result()
+    {
+        var client = Fakes.Client();
+        var old = new TaskCompletionSource<IReadOnlyList<AvailabilityWindow>>();
+        client.Devices.GetAvailabilityAsync(7, Arg.Any<CancellationToken>()).Returns(old.Task);
+        client.Devices.GetOutagesAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        client.Devices.GetAvailabilityAsync(8, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 86400, Percent = 95 }]);
+        client.Devices.GetOutagesAsync(8, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation());
+        var first = vm.LoadAsync(7, DeviceSection.Availability);
+        var second = vm.LoadAsync(8, DeviceSection.Availability);
+        Assert.Empty(vm.Groups);
+        old.SetResult([new AvailabilityWindow { DurationSeconds = 86400, Percent = 100 }]);
+        await Task.WhenAll(first, second);
+        Assert.Equal(8, vm.DeviceId);
+        Assert.Equal("95%", Assert.Single(Assert.Single(vm.Groups)).Value);
+    }
     [Fact]
     public async Task Search_narrows_rows_and_drops_empty_groups()
     {
