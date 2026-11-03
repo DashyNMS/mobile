@@ -243,4 +243,27 @@ public sealed class EasierTokenTests
         Assert.Empty(vm.ApiToken);
         Assert.Contains("isn't an API token", vm.ErrorMessage);
     }
+
+    [Fact]
+    public async Task Invalid_clipboard_preserves_the_manual_draft_and_options()
+    {
+        _clipboard.GetTextAsync().Returns("not a token");
+        var vm = NewViewModel("  https://example.net/librenms  ");
+        vm.ApiToken = Token;
+        vm.BackupAddress = "  https://backup.example.net  ";
+        vm.RememberToken = false;
+        vm.AllowUntrustedCertificate = true;
+        vm.UseTokenCommand.Execute(null);
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Equal("  https://example.net/librenms  ", vm.ServerUrl);
+        Assert.Equal("  https://backup.example.net  ", vm.BackupAddress);
+        Assert.Equal(Token, vm.ApiToken);
+        Assert.False(vm.RememberToken);
+        Assert.True(vm.AllowUntrustedCertificate);
+        Assert.True(vm.ShowsTokenEntry);
+        Assert.True(vm.HasError);
+        await _session.DidNotReceiveWithAnyArgs().SignInAsync(default!, default!, default, default, default, default);
+    }
 }

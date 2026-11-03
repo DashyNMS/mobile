@@ -3,10 +3,26 @@
     x:Class="DashyNMS.Mobile.Pages.SignInPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SignInViewModel"
-    Title="Sign in">
+    Title="Sign in" SafeAreaEdges="All">
+    <ContentPage.Resources>
+        <Style x:Key="SignInSecondary" TargetType="Button" BasedOn="{StaticResource LinkButton}">
+            <Setter Property="MinimumHeightRequest" Value="44" />
+            <Setter Property="VisualStateManager.VisualStateGroups">
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="Disabled">
+                            <VisualState.Setters>
+                                <Setter Property="Opacity" Value="0.6" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </Setter>
+        </Style>
+    </ContentPage.Resources>
 
     <!-- While signing back in, the page is the launch splash's colour
          (MauiSplashScreen in the csproj), whatever the theme. -->
@@ -32,9 +48,9 @@
 
     <!-- As the Sign in mock-up (#69): the logo as on the splash, the
          fields in one card, the switches in another, then Sign in. -->
-    <ScrollView IsVisible="{Binding ShowForm}">
-        <controls:ReadableColumn MaxContentWidth="520">
-            <VerticalStackLayout Padding="16,48,16,24" Spacing="14">
+    <Grid x:Name="FormLayout" RowDefinitions="*,Auto" IsVisible="{Binding ShowForm}">
+    <ScrollView x:Name="FormScroll">
+            <VerticalStackLayout Padding="16,16,16,24" Spacing="14" IsEnabled="{Binding IsNotBusy}">
 
                 <VerticalStackLayout Spacing="12" Padding="0,0,0,6">
                     <Image Source="dashynms_logo.png" WidthRequest="72" HeightRequest="72" HorizontalOptions="Center"
@@ -54,7 +70,8 @@
                     <VerticalStackLayout Spacing="14">
                         <VerticalStackLayout Spacing="6">
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Server address" />
-                            <Entry Text="{Binding ServerUrl}"
+                            <Entry Text="{Binding ServerUrl}" Focused="OnFieldFocused"
+                                   MinimumHeightRequest="44" SemanticProperties.Description="Server address"
                                    Placeholder="nms.example.com"
                                    Keyboard="Url"
                                    IsSpellCheckEnabled="False"
@@ -64,6 +81,8 @@
                         <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowsTokenEntry}">
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
                             <Entry x:Name="TokenEntry"
+                                   MinimumHeightRequest="44" SemanticProperties.Description="API token"
+                                   SemanticProperties.Hint="{Binding ErrorMessage}"
                                    Text="{Binding ApiToken}"
                                    Placeholder="Paste your API token"
                                    IsPassword="True"
@@ -74,16 +93,17 @@
                             <!-- Where a token comes from, in Core's words (#161), and the two ways to it:
                                  the server's API Tokens page, and the token just copied there. -->
                             <Label Style="{StaticResource Faint}" Text="{Binding TokenHint}" />
-                            <HorizontalStackLayout Spacing="16">
-                                <Button Style="{StaticResource LinkButton}" Text="Open the API Tokens page" Padding="0"
+                            <VerticalStackLayout Spacing="8">
+                                <Button Style="{StaticResource SignInSecondary}" Text="Open the API Tokens page" MinimumHeightRequest="44"
                                         Command="{Binding OpenTokensPageCommand}" IsVisible="{Binding CanOpenTokensPage}" />
-                                <Button Style="{StaticResource LinkButton}" Text="Use the token you copied" Padding="0"
+                                <Button Style="{StaticResource SignInSecondary}" Text="Use the token you copied" MinimumHeightRequest="44"
                                         Command="{Binding PasteTokenCommand}" IsVisible="{Binding CanPasteToken}" />
-                            </HorizontalStackLayout>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                         <VerticalStackLayout Spacing="6">
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Backup address (optional)" />
-                            <Entry Text="{Binding BackupAddress}"
+                            <Entry Text="{Binding BackupAddress}" Focused="OnFieldFocused"
+                                   MinimumHeightRequest="44" SemanticProperties.Description="Backup address, optional"
                                    Placeholder="Used when the server address doesn't answer"
                                    Keyboard="Url"
                                    IsSpellCheckEnabled="False"
@@ -96,7 +116,8 @@
                     <VerticalStackLayout>
                         <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="56">
                             <Label Text="Remember token on this device" VerticalOptions="Center" />
-                            <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding RememberToken}" VerticalOptions="Center"
+                                    SemanticProperties.Description="Remember token on this device" MinimumHeightRequest="44" />
                         </Grid>
                         <BoxView Style="{StaticResource Divider}" />
                         <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="64" Padding="0,8">
@@ -104,37 +125,44 @@
                                 <Label Text="Allow untrusted certificate" />
                                 <Label Style="{StaticResource Faint}" Text="Only for a self-signed server you trust." />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowUntrustedCertificate}" VerticalOptions="Center"
+                                    SemanticProperties.Description="Allow untrusted certificate" MinimumHeightRequest="44" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
 
-                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
+                <Label x:Name="SignInError" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <Label Style="{StaticResource Caption}" Text="Check the details above, then try signing in again."
+                       IsVisible="{Binding HasError}" />
+                <Button Style="{StaticResource SignInSecondary}" Text="Use an API token instead" MinimumHeightRequest="44"
+                        Command="{Binding UseTokenCommand}" IsVisible="{Binding ShowsWebSignIn}" />
+                <Button Style="{StaticResource SignInSecondary}" Text="Sign in with LibreNMS instead" MinimumHeightRequest="44"
+                        Command="{Binding UseLibreNmsCommand}" IsVisible="{Binding ShowsLibreNmsLink}" />
+                <Label Style="{StaticResource Caption}"
+                       Text="To use desktop's sign-in QR code, scan it with your phone's Camera app." />
+
+            </VerticalStackLayout>
+    </ScrollView>
+    <VerticalStackLayout Grid.Row="1" Padding="16,8,16,16" Spacing="8">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
+                <Label Style="{StaticResource Caption}" Text="Signing in…" IsVisible="{Binding IsBusy}" />
                 <Button Text="Sign in with LibreNMS"
                         Command="{Binding SignInWithLibreNmsCommand}"
                         IsVisible="{Binding ShowsWebSignIn}"
                         IsEnabled="{Binding IsNotBusy}"
-                        HeightRequest="50"
+                        MinimumHeightRequest="50"
                         FontSize="16"
                         AutomationId="SignInWithLibreNms" />
                 <Button Text="Sign in"
                         Command="{Binding SignInCommand}"
                         IsVisible="{Binding ShowsTokenEntry}"
                         IsEnabled="{Binding IsNotBusy}"
-                        HeightRequest="50"
+                        MinimumHeightRequest="50"
                         FontSize="16"
                         AutomationId="SignIn" />
-                <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" />
-
-                <Button Style="{StaticResource LinkButton}" Text="Use an API token instead" HorizontalOptions="Center"
-                        Command="{Binding UseTokenCommand}" IsVisible="{Binding ShowsWebSignIn}" />
-                <Button Style="{StaticResource LinkButton}" Text="Sign in with LibreNMS instead" HorizontalOptions="Center"
-                        Command="{Binding UseLibreNmsCommand}" IsVisible="{Binding ShowsLibreNmsLink}" />
-
-            </VerticalStackLayout>
-        </controls:ReadableColumn>
-    </ScrollView>
+    </VerticalStackLayout>
+    </Grid>
 
     </Grid>
 
