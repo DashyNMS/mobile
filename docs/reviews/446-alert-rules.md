@@ -1,5 +1,10 @@
 # Alert rules list assessment
 
+Queued correction after #489: see [button-only search and nested alert return
+findings and regression matrix](alert-navigation-correction.md). ButtonSearch
+supersedes the historical SearchReveal policy below for this page. CI, Claude
+review and every hardware outcome for the correction remain pending.
+
 Refs #446, epic #442. Baseline main 238f377a691a3ab1bf0e2ba8e096ac3825e274ea after #468.
 Read live #442/#446/#447/#448, CLAUDE.md, DEVELOPING.md, complete DESIGN.md
 and DESIGN-REFERENCES.md. Reviewed merged #466/#467/#468 descriptions and
