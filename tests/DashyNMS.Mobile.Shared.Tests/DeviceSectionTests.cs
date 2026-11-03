@@ -408,6 +408,24 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(-1)]
+    [InlineData(101)]
+    public async Task Invalid_availability_is_unavailable_without_a_success_colour(double percent)
+    {
+        _client.Devices.GetAvailabilityAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 2592000, Percent = percent }]);
+        _client.Devices.GetOutagesAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Availability)));
+        Assert.Equal("—", row.Value);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Contains("unavailable", row.ContentDescription);
+        Assert.DoesNotContain("—", row.ContentDescription);
+        Assert.True(row.AvailabilityLayout);
+    }
+
+    [Theory]
     [InlineData("AABBCCDDEEFF", "aa:bb:cc:dd:ee:ff")]
     [InlineData("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff")]
     [InlineData("weird", "weird")]
@@ -423,6 +441,25 @@ public sealed class DeviceSectionLoaderTests
 
 public sealed class DeviceSectionViewModelTests
 {
+    [Fact]
+    public async Task Changing_device_during_availability_load_discards_the_old_result()
+    {
+        var client = Fakes.Client();
+        var old = new TaskCompletionSource<IReadOnlyList<AvailabilityWindow>>();
+        client.Devices.GetAvailabilityAsync(7, Arg.Any<CancellationToken>()).Returns(old.Task);
+        client.Devices.GetOutagesAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        client.Devices.GetAvailabilityAsync(8, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 86400, Percent = 95 }]);
+        client.Devices.GetOutagesAsync(8, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation());
+        var first = vm.LoadAsync(7, DeviceSection.Availability);
+        var second = vm.LoadAsync(8, DeviceSection.Availability);
+        Assert.Empty(vm.Groups);
+        old.SetResult([new AvailabilityWindow { DurationSeconds = 86400, Percent = 100 }]);
+        await Task.WhenAll(first, second);
+        Assert.Equal(8, vm.DeviceId);
+        Assert.Equal("95%", Assert.Single(Assert.Single(vm.Groups)).Value);
+    }
     [Fact]
     public async Task Search_narrows_rows_and_drops_empty_groups()
     {

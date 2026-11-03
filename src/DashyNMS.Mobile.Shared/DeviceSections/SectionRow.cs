@@ -26,6 +26,8 @@ public sealed record SectionRow(string Title)
     public string? SensorStatusText { get; init; }
     public string SensorDescription => string.Join(", ", new[] { Title, SensorKind, Value, Subtitle, SensorStatusText }
         .Where(text => !string.IsNullOrWhiteSpace(text)));
+    /// <summary>Availability facts stack so dates and durations remain readable at large text sizes.</summary>
+    public bool AvailabilityLayout { get; init; }
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
@@ -53,7 +55,7 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Announces complete row facts without punctuation for absent fields.</summary>
     public string ContentDescription => string.Join(", ",
-        new[] { Title, Subtitle, Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
+        new[] { Title, Subtitle, AvailabilityLayout && Status == RowStatus.None && Value is "—" or "–" ? null : Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
 
     /// <summary>A third, smaller line.</summary>
     public string? Detail { get; init; }

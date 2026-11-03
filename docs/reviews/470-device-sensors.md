@@ -110,3 +110,13 @@ DeviceId 7 and edge.example.net, DeviceId 8; synthetic long sensor descriptions.
 
 No device result is inferred from CI. User acceptance remains required before
 closing #470 or ticking #442. Later TestFlight is parent-owned.
+
+## Sequential integration
+
+Updated after merged #507 against main 7d3b36c. SensorLayout and
+AvailabilityLayout retain separate full-page and overview templates. Both hide
+the legacy row layout independently. The generation-guarded serial refresh path
+is retained; Sensors updating status wraps that request and clears in finally.
+Shared ButtonSearch, Retry, fade and activation remain owned by the merged
+baseline. Sensors stale notes can offer Retry, which intentionally refreshes.
+Full-diff Claude review and CI must verify these integration choices.

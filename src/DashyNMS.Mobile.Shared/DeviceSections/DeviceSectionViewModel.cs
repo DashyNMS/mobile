@@ -18,6 +18,8 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     /// <summary>Kept sensor readings remain visible while the fleet request completes.</summary>
     [ObservableProperty]
     private bool _isUpdatingSensors;
+    private int _generation;
+    private Task _pending = Task.CompletedTask;
     private readonly HashSet<long> _collapsedInventory = [];
 
     public bool IsNeighbours => Section == DeviceSection.Neighbours;
@@ -228,8 +230,9 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(HasFiltersText));
     }
 
-    public Task LoadAsync(int deviceId, DeviceSection section, string? deviceName = null)
+    public async Task LoadAsync(int deviceId, DeviceSection section, string? deviceName = null)
     {
+        var generation = ++_generation;
         if (DeviceId != deviceId || Section != section)
         {
             _collapsedInventory.Clear();
@@ -249,21 +252,33 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(GraphDeviceName));
         var info = DeviceSectionInfo.For(section);
         Title = deviceName is null ? info.Title : $"{info.Title} · {deviceName}";
-        return RefreshAsync();
+        await _pending;
+        if (generation == _generation) await RefreshAsync();
     }
 
     [RelayCommand]
-    private Task RefreshAsync() => RunAsync(async () =>
+    private Task RefreshAsync()
     {
-        IsUpdatingSensors = Section == DeviceSection.Sensors && _all.Count > 0;
-        try
+        if (IsBusy) return _pending;
+        var generation = _generation;
+        var section = Section;
+        var deviceId = DeviceId;
+        // Availability has no last-updated timestamp. Do not present old
+        // percentages as current while retrying an unavailable source.
+        if (section == DeviceSection.Availability)
         {
-            _all = await _loader.LoadAsync(Section, DeviceId);
+            _all = [];
+            Groups.ReplaceAll([]);
         }
-        finally
+        return _pending = RunAsync(async () =>
         {
-            IsUpdatingSensors = false;
-        }
+        IReadOnlyList<SectionGroup> result;
+        IsUpdatingSensors = section == DeviceSection.Sensors && _all.Count > 0;
+        try { result = await _loader.LoadAsync(section, deviceId); }
+        catch when (generation != _generation) { return; }
+        finally { IsUpdatingSensors = false; }
+        if (generation != _generation) return;
+        _all = result;
         _loaded = true;
         OnPropertyChanged(nameof(InventorySummary));
         OnPropertyChanged(nameof(ShowInventoryPortsText));
@@ -274,7 +289,8 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         {
             ErrorMessage = _loader.SensorStatus;
         }
-    });
+        });
+    }
 
     /// <summary>The header's search icon, where there's no glass: opens search, or closes it and clears it.</summary>
     [RelayCommand]
