@@ -13,15 +13,15 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
     private IDisposable? _edges;
     private int? _detailId;
     private AlertRuleView? _detail;
+    private readonly ButtonSearch _search;
 
 	public AlertRulesPage(AlertRulesViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading rules…", "Refreshing rules…");
-		SearchReveal.Attach(List, SearchSlot, Search);
+        _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
-        List.Scrolled += (_, _) => { if (Search.IsFocused) KeyboardDismiss.Close(Search); };
         Body.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) => { _viewModel.Select(Split.IsSplit ? _detailId : null); PlaceControls(); };
 #if IOS
@@ -70,13 +70,13 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
 		_viewModel.RefreshCommand.Execute(null);
 	}
 
-    public void OpenSearch() => SearchReveal.Reveal(Search);
-    private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
+    public void OpenSearch() => _search.Open();
+    private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        KeyboardDismiss.Close(Search);
+        _search.Close();
         _edges?.Dispose();
         _edges = null;
 #if IOS

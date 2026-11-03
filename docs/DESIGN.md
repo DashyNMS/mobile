@@ -463,3 +463,15 @@ Repository issue, PR and release conventions live in `docs/DEVELOPING.md`.
 Ship one coherent page change at a time and verify it on the Duo before
 expanding the rollout, unless the user authorises a batch as described under
 Batch delivery. CI success alone does not establish visual correctness.
+
+## Pending corrective regression rules
+
+Implementation-grounded proposals, pending Claude review and device acceptance:
+button-only list search closes on actual native drag, completion or unfocus;
+filter replacement and programmatic Scrolled must retain focus. Opening is only
+through a search action or Command-F. Retained tab stacks must reclaim page
+glass on actual activation and resume without requiring Refresh. Pushed nested
+alerts must retain the selected tab and pop to their actual caller, with caller
+Back in glass or the header fallback. Fade endpoints must share the actual
+viewport surface RGB, span that viewport and reserve 20pt without blocking input.
+See [the corrective assessment and exact regression matrix](reviews/alert-navigation-correction.md).
