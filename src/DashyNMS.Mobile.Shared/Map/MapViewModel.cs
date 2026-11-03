@@ -48,6 +48,11 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
         _settings = settings;
         _navigation = navigation;
         _assets = assets;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(IsBusy) or nameof(HasError) or nameof(MapPage))
+                OnPropertyChanged(nameof(EmptyText));
+        };
     }
 
     /// <summary>Set by the page from the phone's theme.</summary>
@@ -55,6 +60,10 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
     /// <summary>The tapped pin's devices, down first.</summary>
     public BulkObservableCollection<DeviceItem> Devices { get; } = new();
+
+    public IReadOnlyList<MapPinData> Locations => _pins.Select(p => p.Pin).ToList();
+
+    public string EmptyText => IsBusy || HasError || MapPage is null || _pins.Count > 0 ? string.Empty : "No locations with coordinates. Choose Refresh to try again.";
 
     public bool HasSelection => SelectedLocation is not null;
 

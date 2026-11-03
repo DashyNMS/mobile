@@ -11,6 +11,20 @@ public sealed class MapHtmlTests
         MapHtml.Build([new MapPinData(0, name, 51.5, -0.12, 3, "down")], tiles, openStreetMapTiles: true, dark: false, "/*leaflet*/", "/*css*/");
 
     [Fact]
+    public void Overlay_clearance_moves_controls_without_refitting_the_camera()
+    {
+        var page = Page();
+        var start = page.IndexOf("window.setMapClearance =");
+        var end = page.IndexOf("var layer =", start);
+        var bridge = page[start..end];
+        Assert.Contains("controls.style.bottom", bridge);
+        Assert.Contains("controls.style.left", bridge);
+        Assert.DoesNotContain("fitBounds", bridge);
+        Assert.DoesNotContain("setView", bridge);
+        Assert.Contains("total + p.count", page); // Unknown-state members still count.
+    }
+
+    [Fact]
     public void Only_this_pages_own_scripts_run_and_images_come_only_from_the_tile_server()
     {
         var page = Page();
@@ -104,6 +118,19 @@ public sealed class MapViewModelTests
         var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
+    }
+
+    [Fact]
+    public async Task Native_location_choices_select_the_same_complete_membership_as_pins()
+    {
+        var vm = await Loaded();
+        var london = Assert.Single(vm.Locations, p => p.Name == "London");
+        Assert.Equal(2, london.Count);
+        vm.SelectPin(london.Id);
+        Assert.Equal("London", vm.SelectedLocation);
+        Assert.Equal(2, vm.Devices.Count);
+        Assert.True(vm.HasSingleLocation);
+        Assert.Empty(vm.EmptyText);
     }
 
     [Fact]

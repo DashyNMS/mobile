@@ -3,62 +3,50 @@
     x:Class="DashyNMS.Mobile.Pages.MapPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:map="clr-namespace:DashyNMS.Mobile.Map;assembly=DashyNMS.Mobile.Shared"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="map:MapViewModel"
-    ios:Page.UseSafeArea="True"
-    SafeAreaEdges="Container"
+    SafeAreaEdges="All"
     Title="Map">
-    <Grid RowDefinitions="Auto,*">
-        <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Map" Margin="16,0,16,0">
-            <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Refresh" Command="{Binding RefreshCommand}" />
-            </controls:PageHeader.Actions>
-        </controls:PageHeader>
-        <Grid Grid.Row="1">
-
-
-
-    <Grid RowDefinitions="Auto,Auto,*,Auto">
-
-        <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" Margin="16,8" />
-        <Label Grid.Row="1" Style="{StaticResource Caption}" Text="{Binding UnplacedText}"
-               IsVisible="{Binding UnplacedText, Converter={StaticResource IsNotNull}}" Margin="16,6" />
-
-        <!-- Leaflet and the pins; see MapHtml for how it's locked down. -->
-        <WebView Grid.Row="2" x:Name="MapView" />
-        <ActivityIndicator Grid.Row="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}" HorizontalOptions="Center" VerticalOptions="Center" />
-
+    <Grid x:Name="Canvas" SafeAreaEdges="None">
+        <WebView x:Name="MapView" />
+        <Grid x:Name="Overlay" RowDefinitions="Auto,Auto,*,Auto" SafeAreaEdges="None" InputTransparent="True" CascadeInputTransparent="False">
+            <controls:PageHeader x:Name="Header" Title="Map">
+                <controls:PageHeader.Actions>
+                    <HorizontalStackLayout Spacing="4">
+                        <controls:IconButton x:Name="LocationsButton" Kind="Plain" Icon="{x:Static controls:Icons.Pin}" SemanticProperties.Description="Choose a map location" />
+                        <controls:IconButton x:Name="RefreshButton" Kind="Plain" Icon="{x:Static controls:Icons.Rediscover}" Command="{Binding RefreshCommand}" SemanticProperties.Description="Refresh the map" />
+                    </HorizontalStackLayout>
+                </controls:PageHeader.Actions>
+            </controls:PageHeader>
+            <VerticalStackLayout x:Name="Status" Grid.Row="1" Spacing="4" SafeAreaEdges="None">
+                <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding UnplacedText}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" />
+            </VerticalStackLayout>
+            <controls:BusyCard Grid.Row="2" Text="Loading the map…" IsVisible="{Binding IsBusy}" />
+        </Grid>
         <!-- The tapped location's devices. -->
-        <Border Grid.Row="3" Style="{StaticResource Card}" Margin="8" IsVisible="{Binding HasSelection}" MaximumHeightRequest="320">
+        <Border x:Name="SelectionCard" VerticalOptions="End" Style="{StaticResource Card}" Margin="8" IsVisible="False">
             <Grid RowDefinitions="Auto,*">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
-                    <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                    <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="WordWrap" />
                     <!-- The whole location on the Devices tab, filtered to it (#84). -->
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}"
+                    <Button Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}"
                             IsVisible="{Binding HasSingleLocation}" />
-                    <Button Grid.Column="2" Style="{StaticResource LinkButton}" Text="Close" Command="{Binding ClearSelectionCommand}" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Close" Clicked="OnCloseSelection" />
                 </Grid>
-                <CollectionView Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
+                <CollectionView x:Name="DeviceList" Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceItem">
-                            <Grid ColumnDefinitions="12,*,Auto" ColumnSpacing="12" Padding="0,8">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer
+                            <VerticalStackLayout Padding="0,8" Spacing="4">
+                                <Button Style="{StaticResource LinkButton}" Text="{Binding Name}" LineBreakMode="WordWrap"
                                         Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type map:MapViewModel}}, x:DataType=map:MapViewModel}"
-                                        CommandParameter="{Binding .}" />
-                                </Grid.GestureRecognizers>
-                                <Ellipse Fill="{Binding State, Converter={StaticResource StatusColor}}" WidthRequest="12" HeightRequest="12" VerticalOptions="Center" />
-                                <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Name}" LineBreakMode="TailTruncation" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <Label Grid.Column="2" Text="{Binding StateText}" VerticalOptions="Center"
-                                       TextColor="{Binding State, Converter={StaticResource StatusText}}" />
-                            </Grid>
+                                        CommandParameter="{Binding .}" SemanticProperties.Hint="Open device details" />
+                                <Label Text="{Binding Details}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding StateText}" TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
@@ -66,7 +54,4 @@
         </Border>
 
     </Grid>
-        </Grid>
-    </Grid>
-
 </ContentPage>

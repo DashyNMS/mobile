@@ -137,6 +137,14 @@ public static class MapHtml
               var data = {{data}};
               var map = L.map('map', { worldCopyJump: true });
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
+              window.setMapClearance = function (top, right, bottom, left) {
+                var controls = map.getContainer().querySelector('.leaflet-control-container');
+                controls.style.position = 'absolute';
+                controls.style.top = top + 'px'; controls.style.right = right + 'px';
+                controls.style.bottom = bottom + 'px'; controls.style.left = left + 'px';
+                controls.style.pointerEvents = 'none';
+                controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
+              };
               var layer = L.layerGroup().addTo(map);
               var bounds = data.pins.map(function (p) { return [p.lat, p.lng]; });
               var radius = {{ClusterRadius}};
@@ -167,7 +175,7 @@ public static class MapHtml
                 groups().forEach(function (g) {
                   var up = 0, down = 0, maintenance = 0, off = 0;
                   g.pins.forEach(function (p) { up += p.up; down += p.down; maintenance += p.maintenance; off += p.off; });
-                  var count = up + down + maintenance + off;
+                  var count = g.pins.reduce(function (total, p) { return total + p.count; }, 0);
                   var size = Math.round(2 * Math.min(20, Math.max(10, 9 + Math.log2(Math.max(count, 1)) * 2)));
 
                   // The ring, in proportion, down first from twelve o'clock.
