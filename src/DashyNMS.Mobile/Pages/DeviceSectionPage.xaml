@@ -23,7 +23,7 @@
             <controls:PageHeader.Actions>
                 <!-- Where there's no glass by the tab bar (Android, iOS before 26): search, and Ports' Sort &amp; filter. -->
                 <HorizontalStackLayout x:Name="HeaderActions" Spacing="4" SafeAreaEdges="None">
-                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Search}" Command="{Binding ToggleSearchCommand}"
+                    <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}"
                                          IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
                                          IsOn="{Binding HasPanelFilters}" IsVisible="{Binding IsPorts}" SemanticProperties.Description="Sort and filter" />
@@ -44,8 +44,12 @@
         <Label x:Name="FilterLine" Grid.Row="2" Margin="20,4,16,0" Style="{StaticResource Faint}" Text="{Binding FiltersText}"
                IsVisible="{Binding HasFiltersText}" LineBreakMode="TailTruncation" />
 
-        <Label x:Name="ErrorLine" Grid.Row="3" Margin="16,8,16,0" Style="{StaticResource Error}" Text="{Binding ErrorMessage}"
-               IsVisible="{Binding HasError}" />
+        <Grid x:Name="ErrorLine" SafeAreaEdges="None" Grid.Row="3" Margin="16,8,16,0" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasError}">
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" />
+            <Button Grid.Column="1" Text="Retry" MinimumHeightRequest="44"
+                    IsEnabled="{Binding IsNotBusy}" Command="{Binding RefreshCommand}" />
+        </Grid>
+        <Label Grid.Row="3" Margin="{Binding Margin, Source={x:Reference ErrorLine}}" Style="{StaticResource Caption}" Text="Updating…" IsVisible="{Binding IsUpdatingSensors}" />
 
         <controls:BusyCard x:Name="Busy" Grid.Row="4" Margin="16,8,16,0" Text="Loading…" IsVisible="{Binding IsLoadingFirstTime}"
                            ZIndex="1" VerticalOptions="Start" />
@@ -62,7 +66,7 @@
                 </CollectionView.ItemsLayout>
                 <!-- Room for the fade above, so the first heading starts clear of it. -->
                 <CollectionView.Header>
-                    <VerticalStackLayout Padding="0,8,0,0" Spacing="6">
+                    <VerticalStackLayout Padding="0,20,0,0" Spacing="6">
                         <VerticalStackLayout IsVisible="{Binding IsInventory}" Spacing="6">
                             <Label Style="{StaticResource Caption}" Text="{Binding InventorySummary}" />
                             <HorizontalStackLayout Spacing="12">
@@ -88,6 +92,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
                         <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
                                     <VisualState Name="Normal" />
@@ -100,25 +107,71 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
-                            <Button Text="{Binding NeighbourAction}" IsVisible="{Binding CanOpenNeighbour}"
-                                    Style="{StaticResource LinkButton}" LineBreakMode="WordWrap" MinimumHeightRequest="44"
-                                    HorizontalOptions="Fill"
-                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding IsUnmonitoredNeighbour}" LineBreakMode="WordWrap" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding NeighbourLayout}"
+                                  SemanticProperties.Description="{Binding NeighbourAction}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding NeighbourSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True" />
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" IsVisible="{Binding CanOpenNeighbour}" AutomationProperties.ExcludedWithChildren="True" />
+                            </Grid>
+                            <VerticalStackLayout IsVisible="{Binding PortLayout}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
+                                      SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                    <Label Text="{Binding PortSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" AutomationProperties.ExcludedWithChildren="True" />
+                                </Grid>
+                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </VerticalStackLayout>
+                            <!-- No spacing after the indent: with none, the gap still pushed
+                                 every row's text in past its group's heading (#344). -->
+                            <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding ResourceLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding ResourceDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding ResourceKind}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding ResourceStatusText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding SensorLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding SensorDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding SensorStatusText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding AvailabilityLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+
                                 <Grid.Triggers>
                                     <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding ResourceLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding SensorLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding AvailabilityLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                 </Grid.Triggers>
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
-                            <!-- No spacing after the indent: with none, the gap still pushed
-                                 every row's text in past its group's heading (#344). -->
                                 <!-- Inventory nesting. -->
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
@@ -165,6 +218,7 @@
                                              ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                             </Grid>
                             </VerticalStackLayout>
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -173,6 +227,15 @@
                 </CollectionView.Footer>
             </CollectionView>
         </RefreshView>
+        <!-- Fade belongs to the list surface, including the neighbours split column. -->
+        <BoxView x:Name="ListFade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
         </Grid>
 
         <!-- Behind the Sort &amp; filter card the list fades back gradually; a tap on it puts the card away. -->
@@ -188,24 +251,15 @@
                     <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
                 </Grid>
-                <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="2" ColumnSpacing="8" SafeAreaEdges="None">
+                <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
                     <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
-                    <Picker Grid.Column="1" Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
-                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
-                    <Picker Grid.Row="1" Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+                    <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+                    <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
+                    <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
                 </Grid>
             </VerticalStackLayout>
         </Border>
 
-        <!-- The rows fade out as they scroll up under the header, as the Dashboard's cards. -->
-        <BoxView Grid.Row="4" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
-            <BoxView.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
-                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
-                </LinearGradientBrush>
-            </BoxView.Background>
-        </BoxView>
 
     </Grid>
 

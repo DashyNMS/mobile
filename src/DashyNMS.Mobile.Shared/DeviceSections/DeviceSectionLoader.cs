@@ -88,20 +88,31 @@ public sealed class DeviceSectionLoader
             .Select(w => new SectionRow(Units.Window(w.DurationSeconds))
             {
                 SortValue = w.DurationSeconds,
-                Value = Units.Percent(w.Percent),
-                Status = w.Percent >= 99.9 ? RowStatus.Ok : w.Percent >= 99 ? RowStatus.Warning : RowStatus.Critical,
+                Value = double.IsFinite(w.Percent) && w.Percent >= 0 && w.Percent <= 100 ? Units.Percent(w.Percent) : "—",
+                AvailabilityLayout = true,
+                Detail = AvailabilityState(w.Percent),
+                Status = !double.IsFinite(w.Percent) || w.Percent < 0 || w.Percent > 100 ? RowStatus.None
+                    : w.Percent >= 99.9 ? RowStatus.Ok : w.Percent >= 99 ? RowStatus.Warning : RowStatus.Critical,
             });
 
         var now = DateTime.Now;
         var outages = outagesTask.Result
-            .Where(o => o.GoingDown is not null)
             .OrderByDescending(o => o.GoingDown)
             .Select(o =>
             {
+                if (o.GoingDown is null)
+                    return new SectionRow("Outage time unavailable")
+                    {
+                        AvailabilityLayout = true,
+                        Subtitle = ServerTime.ToLocal(o.UpAgain, ServerUtc) is { } end
+                            ? "Back " + end.ToString("d MMM HH:mm", CultureInfo.CurrentCulture) : null,
+                        Detail = "Recorded outage; start time missing",
+                    };
                 var down = ServerTime.ToLocal(o.GoingDown!.Value, ServerUtc);
                 var up = ServerTime.ToLocal(o.UpAgain, ServerUtc);
                 return new SectionRow("Down " + down.ToString("d MMM HH:mm", CultureInfo.CurrentCulture))
                 {
+                    AvailabilityLayout = true,
                     Subtitle = up is { } back ? "Back " + back.ToString("d MMM HH:mm", CultureInfo.CurrentCulture) : "Still down",
                     Value = Units.Duration((up ?? now) - down),
                     Status = up is null ? RowStatus.Critical : RowStatus.None,
@@ -110,6 +121,11 @@ public sealed class DeviceSectionLoader
 
         return Groups(("Availability", windows), ("Outages", outages));
     }
+
+    /// <summary>State remains readable without relying on the percentage's colour.</summary>
+    internal static string AvailabilityState(double percent) =>
+        !double.IsFinite(percent) || percent < 0 || percent > 100 ? "Availability unavailable"
+        : percent >= 99.9 ? "OK" : percent >= 99 ? "Warning" : "Critical";
 
     // ------------------------------------------------------------ sensors
 
@@ -149,6 +165,20 @@ public sealed class DeviceSectionLoader
         var reading = ReadSensor(sensor, settings);
         return new SectionRow(reading.Name)
         {
+            SensorLayout = true,
+            SensorKind = SensorClassName(sensor.SensorClass),
+            SensorStatusText = !sensor.HasReading ? "Reading unavailable"
+                : SensorCategoryRegistry.Resolve(sensor.SensorClass) is null
+                    && sensor.LimitLow is null && sensor.LimitLowWarn is null
+                    && sensor.LimitHighWarn is null && sensor.LimitHigh is null ? "No limits"
+                : reading.Status switch
+            {
+                RowStatus.Ok => "OK",
+                RowStatus.Warning => "Warning",
+                RowStatus.Critical => "Critical",
+                RowStatus.Inactive => "Inactive",
+                _ => "Unknown",
+            },
             Value = reading.Value,
             Status = reading.Status,
             Subtitle = reading.Limits,
@@ -241,25 +271,29 @@ public sealed class DeviceSectionLoader
         var storageTask = _client.Health.ListStorageAsync(deviceId, ct);
         await Task.WhenAll(cpuTask, memoryTask, storageTask);
 
-        var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null));
-        var memory = memoryTask.Result.Select(m => UsageRow(m.Description ?? "Memory", m.UsagePercent, m.WarningPercent, m.UsedBytes, m.TotalBytes));
+        var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null) with { ResourceKind = "CPU · Processors" });
+        var memory = memoryTask.Result.Select(m => UsageRow(m.Description ?? "Memory", m.UsagePercent, m.WarningPercent, m.UsedBytes, m.TotalBytes) with { ResourceKind = "Memory" });
         var storage = storageTask.Result
             .OrderBy(s => s.Description, StringComparer.OrdinalIgnoreCase)
-            .Select(s => UsageRow(s.Description ?? "Storage", s.UsagePercent, s.WarningPercent, s.UsedBytes, s.TotalBytes));
+            .Select(s => UsageRow(s.Description ?? "Storage", s.UsagePercent, s.WarningPercent, s.UsedBytes, s.TotalBytes) with { ResourceKind = "Storage" });
 
         return Groups(("Processors", cpus), ("Memory", memory), ("Storage", storage));
     }
 
     internal static SectionRow UsageRow(string name, double? percent, double? warning, long? used, long? total) => new(name)
     {
-        Value = Units.Percent(percent),
-        Bar = percent is { } p ? Math.Clamp(p / 100, 0, 1) : null,
-        Status = percent is not { } value ? RowStatus.None
-            : value >= Math.Max(warning ?? 90, 95) ? RowStatus.Critical
-            : value >= (warning ?? 80) ? RowStatus.Warning
+        ResourceLayout = true,
+        Value = ValidUsage(percent) ? Units.Percent(percent) : "—",
+        Bar = ValidUsage(percent) ? percent / 100 : null,
+        Status = !ValidUsage(percent) || percent is not { } value ? RowStatus.None
+            : value >= Math.Max(ValidUsage(warning) ? warning!.Value : 90, 95) ? RowStatus.Critical
+            : value >= (ValidUsage(warning) ? warning!.Value : 80) ? RowStatus.Warning
             : RowStatus.Ok,
-        Subtitle = used is not null && total is > 0 ? $"{Units.Bytes(used)} of {Units.Bytes(total)}" : null,
+        Subtitle = used is >= 0 && total is > 0 && used <= total ? $"{Units.Bytes(used)} of {Units.Bytes(total)}" : null,
     };
+
+    /// <summary>Do not turn invalid server usage into an empty healthy bar.</summary>
+    private static bool ValidUsage(double? percent) => percent is { } value && double.IsFinite(value) && value >= 0 && value <= 100;
 
     // ------------------------------------------------------------ ports
 
@@ -268,14 +302,15 @@ public sealed class DeviceSectionLoader
         var ports = (await _client.Ports.ListForDeviceAsync(deviceId, ct)).Where(p => !p.Deleted).ToList();
 
         // Down but meant to be up first - the ones that need looking at.
-        var down = ports.Where(p => !p.IsUp && !IsAdminDown(p));
+        var down = ports.Where(p => PortState(p).State == "Down");
         var up = ports.Where(p => p.IsUp);
         var shut = ports.Where(p => !p.IsUp && IsAdminDown(p));
 
         return Groups(
             ("Down", down.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
             ("Up", up.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
-            ("Shut down", shut.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)));
+            ("Shut down", shut.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
+            ("Unknown", ports.Where(p => PortState(p).State == "Unknown").OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)));
     }
 
     private static bool IsAdminDown(Port port) =>
@@ -283,25 +318,38 @@ public sealed class DeviceSectionLoader
 
     internal static SectionRow PortRow(Port port)
     {
-        var errors = (port.IfInErrorsRate ?? 0) + (port.IfOutErrorsRate ?? 0);
-        var (rank, state) = port.IsUp ? (1, "Up") : IsAdminDown(port) ? (2, "Shut down") : (0, "Down");
+        var errors = PortFacts.SumValidRates(port.IfInErrorsRate, port.IfOutErrorsRate);
+        var (rank, state) = PortState(port);
+        var knownErrors = ValidRate(port.IfInErrorsRate) && ValidRate(port.IfOutErrorsRate)
+            && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
         return new SectionRow(port.DisplayName)
         {
             Port = PortFacts.From(port, rank, state),
+            PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate) ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
-            SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,
+            SortValue = port.IsUp ? PortFacts.SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
             Subtitle = port.IfAlias is { Length: > 0 } alias && alias != port.DisplayName ? alias : null,
-            Value = port.IsUp ? $"↓{Units.Bits(port.IfInOctetsRate * 8)}  ↑{Units.Bits(port.IfOutOctetsRate * 8)}" : IsAdminDown(port) ? "Shut down" : "Down",
-            Status = port.IsUp ? (errors > 0 ? RowStatus.Warning : RowStatus.Ok) : IsAdminDown(port) ? RowStatus.Inactive : RowStatus.Critical,
+            Value = port.IsUp ? $"In: {PortTraffic(port.IfInOctetsRate)} · Out: {PortTraffic(port.IfOutOctetsRate)}" : state,
+            Status = port.IsUp ? (errors > 0 && double.IsFinite(errors) ? RowStatus.Warning : knownErrors ? RowStatus.Ok : RowStatus.None) : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Critical : RowStatus.None,
             Detail = string.Join(" · ", new[]
             {
                 port.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : null,
                 port.IfVlan is { } vlan and > 0 ? $"VLAN {vlan}" : null,
-                errors > 0 ? $"{errors.ToString("0.##", CultureInfo.CurrentCulture)} errors/s" : null,
+                errors > 0 && double.IsFinite(errors) ? $"{errors.ToString("0.##", CultureInfo.CurrentCulture)} errors/s" : null,
             }.Where(s => s is not null)),
         };
     }
+
+    private static (int Rank, string State) PortState(Port port) => port.IsUp ? (1, "Up")
+        : IsAdminDown(port) ? (2, "Shut down")
+        : port.IfOperStatus?.ToLowerInvariant() is "down" or "lowerlayerdown" or "notpresent" ? (0, "Down")
+        : (3, "Unknown");
+
+    private static bool ValidRate(double? value) => value is { } rate && double.IsFinite(rate) && rate >= 0;
+
+    private static string PortTraffic(double? rate) => ValidRate(rate) && double.IsFinite(rate!.Value * 8)
+        ? Units.Bits(rate * 8) : "Unavailable";
 
     // ------------------------------------------------------------ neighbours
 

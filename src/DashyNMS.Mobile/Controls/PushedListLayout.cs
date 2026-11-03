@@ -15,6 +15,8 @@ internal sealed class PushedListLayout
 #endif
     private readonly View _foot;
     private readonly View? _bottomAction;
+    private IDisposable? _edges;
+    private bool _shown;
 
     public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
     {
@@ -32,7 +34,6 @@ internal sealed class PushedListLayout
         rows.HandlerChanged += (_, _) => StopInsetAdjustment();
         rows.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-        CoveredEdges.Watch(page, Place);
         if (bottomAction is not null)
         {
             bottomAction.PropertyChanged += (_, e) =>
@@ -42,8 +43,13 @@ internal sealed class PushedListLayout
         }
     }
 
-    public void Show()
+    public void Show() => Activate();
+
+    /// <summary>Reclaims controls even when Shell restores a retained stack without Appearing.</summary>
+    public void Activate()
     {
+        _shown = true;
+        _edges ??= CoveredEdges.Watch(_page, Place);
         _header.Apply(_page);
 #if IOS
         if (TabBarButtons.IsAvailable)
@@ -53,6 +59,7 @@ internal sealed class PushedListLayout
                 new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
             ]);
         }
+        TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Moved += OnMoved;
 #endif
         Place();
@@ -60,6 +67,10 @@ internal sealed class PushedListLayout
 
     public void Hide()
     {
+        if (!_shown) return;
+        _shown = false;
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Hide(_page);
@@ -72,7 +83,7 @@ internal sealed class PushedListLayout
         _body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         // When Compare is visible it already lifts the whole list clear of the glass.
         var hasAction = _bottomAction?.IsVisible == true;
-        _foot.HeightRequest = 24 + (hasAction ? 0 : clear.Bottom);
+        _foot.HeightRequest = 20 + (hasAction ? 0 : clear.Bottom);
         if (_bottomAction is not null) _bottomAction.Margin = new Thickness(0, 8, 0, 12 + clear.Bottom);
     }
 

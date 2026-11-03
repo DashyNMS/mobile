@@ -97,3 +97,14 @@ Use example.net and edge.example.net, IDs 7/8 and long synthetic interface names
 
 User acceptance remains required before #473 closure or #442 ticks. Parent owns
 integration, review, merge and any later TestFlight delivery.
+
+## Sequential integration
+
+Updated against main f220f15 after #507–#510. Neighbour presentation coexists
+with port/resource/sensor/availability templates and independently hides the
+legacy row. The merged card Border remains the single navigation gesture;
+neighbours use a described start-aligned readout and conditional chevron rather
+than a nested multiline Button. The retained lifecycle/watcher from #507 is
+preserved; only section-size observation is retained from this branch.
+Full-diff Claude review and CI must verify the integrated templates and routes.
+No device acceptance is inferred.

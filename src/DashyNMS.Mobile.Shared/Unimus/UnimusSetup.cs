@@ -35,6 +35,7 @@ public sealed class UnimusSetup
     private IReadOnlyList<UnimusDevice>? _devices;
     private DateTimeOffset _devicesFetched;
     private bool _tried;
+    internal int Revision { get; private set; }
 
     public UnimusSetup(
         IUnimusApi unimus,
@@ -90,6 +91,7 @@ public sealed class UnimusSetup
     /// <summary>Settings' "Forget token", and signing out with "forget everything".</summary>
     public void ForgetToken()
     {
+        Revision++;
         _tokens.Clear();
         _unimus.Clear();
         ForgetDevices();
@@ -109,8 +111,20 @@ public sealed class UnimusSetup
             return null;
         }
 
+        var revision = Revision;
         var devices = await DevicesAsync(cancellationToken).ConfigureAwait(false);
-        return UnimusDeviceMatcher.Match(devices, UnimusAddressCandidates.ForDevice(device, _settings.Current.Unimus.MyDomain));
+        if (revision != Revision) throw new OperationCanceledException();
+        foreach (var candidate in UnimusAddressCandidates.ForDevice(device, _settings.Current.Unimus.MyDomain))
+        {
+            var matches = devices.Where(d =>
+                string.Equals(d.Address, candidate, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(d.Description, candidate, StringComparison.OrdinalIgnoreCase))
+                .DistinctBy(d => d.Id).ToList();
+            if (matches.Count > 1)
+                throw new InvalidOperationException("Several Unimus devices match this device. Check its name and address in Unimus before opening backups.");
+            if (matches.Count == 1) return matches[0];
+        }
+        return null;
     }
 
     /// <summary>Unimus's device list is fetched again next time - a refresh, or new settings.</summary>
@@ -131,7 +145,10 @@ public sealed class UnimusSetup
                 return fresh;
             }
 
-            _devices = await _unimus.ListAllDevicesAsync(cancellationToken).ConfigureAwait(false);
+            var revision = Revision;
+            var devices = await _unimus.ListAllDevicesAsync(cancellationToken).ConfigureAwait(false);
+            if (revision != Revision) throw new OperationCanceledException();
+            _devices = devices;
             _devicesFetched = _time.GetUtcNow();
             return _devices;
         }
@@ -143,6 +160,7 @@ public sealed class UnimusSetup
 
     private void Configure(UnimusSettings settings, string? token)
     {
+        Revision++;
         ForgetDevices();
 
         if (!settings.Enabled || string.IsNullOrWhiteSpace(token)

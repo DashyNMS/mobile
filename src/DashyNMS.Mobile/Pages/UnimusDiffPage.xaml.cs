@@ -5,7 +5,7 @@ using DashyNMS.Mobile.Unimus;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.UnimusDiff"/>, from Compare on a device's Config backups (#21).</summary>
-public partial class UnimusDiffPage : ContentPage, IQueryAttributable
+public partial class UnimusDiffPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly UnimusDiffViewModel _viewModel;
 	private readonly PushedListLayout _layout;
@@ -25,16 +25,15 @@ public partial class UnimusDiffPage : ContentPage, IQueryAttributable
 		}
 	}
 
-	private void OnOnlyChangedClicked(object? sender, EventArgs e) => _viewModel.OnlyChanged = !_viewModel.OnlyChanged;
-
-	private void OnIgnoreEmptyLinesClicked(object? sender, EventArgs e) => _viewModel.IgnoreEmptyLines = !_viewModel.IgnoreEmptyLines;
-
 	/// <summary>The app's own header, as every page (#142).</summary>
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		_layout.Show();
+		Activate();
 	}
+
+    /// <summary>Restores diff controls through the shared retained-stack activation.</summary>
+    public void Activate() => _layout.Activate();
 
 	protected override void OnDisappearing()
 	{

@@ -121,9 +121,22 @@
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
                                             <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding NeighbourLayout}" LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding PortSummary}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" IsVisible="{Binding PortLayout}" LineBreakMode="WordWrap" FontSize="13" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Grid.Triggers>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding ResourceLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding SensorLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding AvailabilityLayout}" Value="True">
                                                         <Setter Property="IsVisible" Value="False" />
                                                     </DataTrigger>
                                                 </Grid.Triggers>
@@ -131,8 +144,29 @@
                                                 <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
                                                        TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                             </Grid>
+                                            <VerticalStackLayout IsVisible="{Binding ResourceLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding ResourceDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding ResourceKind}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding ResourceStatusText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout IsVisible="{Binding SensorLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding SensorDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding SensorStatusText}" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout IsVisible="{Binding AvailabilityLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                                <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
-                                                         ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
+                                                         ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
                                         </VerticalStackLayout>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>

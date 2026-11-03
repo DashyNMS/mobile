@@ -15,10 +15,11 @@ namespace DashyNMS.Mobile.Pages;
 /// sliding its field down from beneath the title (#349); without glass, the
 /// header's icon opens it.
 /// </remarks>
-public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearchHost
+public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearchHost, IActivePage
 {
+    private IDisposable? _edges;
+    private readonly ButtonSearch _search;
 	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
-	private const uint SearchSlide = 220;
 
 	/// <summary>How long the Sort &amp; filter card takes to rise or go, and the list to dim, as Devices'.</summary>
 	private const uint CardMotion = 250;
@@ -45,6 +46,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+        _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
+        SearchButton.Command = new Command(OpenSearch);
 #if IOS
 		// Keep clear of the status bar only; the other edges are placed in PlaceControls.
 		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
@@ -55,7 +58,6 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.HandlerChanged += (_, _) => StopInsetAdjustment();
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-		CoveredEdges.Watch(this, PlaceControls);
 		SectionBody.SizeChanged += (_, _) => PlaceControls();
 
 		// An inventory's nesting reads down one column, so it never spreads across.
@@ -76,11 +78,16 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			switch (e.PropertyName)
 			{
 				case nameof(DeviceSectionViewModel.IsSearchOpen):
-					Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+					Dispatcher.Dispatch(() => { if (_viewModel.IsSearchOpen) _search.Open(); else _search.Close(); });
 					break;
 				case nameof(DeviceSectionViewModel.IsFilterPanelOpen):
 					Dispatcher.Dispatch(() =>
 					{
+						if (_viewModel.IsPorts && _viewModel.IsFilterPanelOpen)
+						{
+							KeyboardDismiss.Close(Search);
+							_viewModel.DismissSearch();
+						}
 						SlideCard(FilterCard, _viewModel.IsFilterPanelOpen);
 						FadeDim(_viewModel.IsFilterPanelOpen);
 					});
@@ -125,6 +132,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	/// </summary>
 	public void OpenSearch()
 	{
+        _search.Open();
 		if (_viewModel.IsSearchOpen)
 		{
 			Search.Focus();
@@ -149,7 +157,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+        Activate();
+    }
+
+    public void Activate()
+    {
 		Header.Apply(this);
+        _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
 		_showing = true;
 #endif
@@ -161,6 +175,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 #if IOS
 		_glass = null;
 		UpdateGlass();
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
@@ -179,6 +194,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        _search.Close();
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
 		_showing = false;
 #endif
@@ -213,6 +231,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			for (var i = 0; i < columns; i++) SectionBody.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 		}
 		Grid.SetRow(Refresh, wideNeighbours ? 0 : 1);
+        Grid.SetRow(ListFade, wideNeighbours ? 0 : 1);
+        Grid.SetColumn(ListFade, wideNeighbours ? 1 : 0);
 		Grid.SetColumn(Refresh, wideNeighbours ? 1 : 0);
 		Grid.SetRowSpan(Refresh, wideNeighbours ? 2 : 1);
 		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
@@ -237,6 +257,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		{
 			List.Margin = list;
 		}
+        ListFade.Margin = list;
 
 		// Keep the viewport itself above the tab/glass area. A grouped,
 		// virtualised list must not rely on its footer alone for clearance:
@@ -398,76 +419,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	}
 
 	// The keyboard's search key: the list is narrowed, so the field goes.
-	private void OnSearchCompleted(object? sender, EventArgs e) => _viewModel.DismissSearch();
-
-	/// <summary>
-	/// Slides the search field down from beneath the title, the list easing
-	/// down to make room, and into typing - or back up out of sight. At once
-	/// with Reduce Motion.
-	/// </summary>
-	private void SlideSearch(bool open)
-	{
-		const string name = "SearchSlide";
-		var full = SearchField.HeightRequest + SearchField.Margin.VerticalThickness;
-		SearchSlot.AbortAnimation(name);
-		if (open)
-		{
-			// Out of sight before it shows, or it flashes in place first.
-			if (!SearchField.IsVisible && !ReducedMotion.IsOn)
-			{
-				SearchField.TranslationY = -full;
-				SearchField.Opacity = 0;
-			}
-
-			SearchField.IsVisible = true;
-			Dispatcher.Dispatch(() => Search.Focus());
-		}
-		else
-		{
-			KeyboardDismiss.Close(Search);
-		}
-
-		// Done: hidden once out of sight, unless opened again meanwhile.
-		void Finish()
-		{
-			var stillOpen = _viewModel.IsSearchOpen;
-			SearchField.IsVisible = stillOpen;
-			SearchSlot.HeightRequest = stillOpen ? full : 0;
-			SearchField.TranslationY = 0;
-			SearchField.Opacity = 1;
-		}
-
-		if (ReducedMotion.IsOn || (!open && !SearchField.IsVisible))
-		{
-			Finish();
-			return;
-		}
-
-		// From wherever it is now, so a quick open-close doesn't jump.
-		var fromHeight = Math.Max(0, SearchSlot.HeightRequest);
-		var fromY = SearchField.TranslationY;
-		var fromOpacity = SearchField.Opacity;
-		var toHeight = open ? full : 0;
-		var toY = open ? 0 : -full;
-		var toOpacity = open ? 1.0 : 0;
-		SearchSlot.Animate(
-			name,
-			v =>
-			{
-				SearchSlot.HeightRequest = fromHeight + ((toHeight - fromHeight) * v);
-				SearchField.TranslationY = fromY + ((toY - fromY) * v);
-				SearchField.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
-			},
-			length: SearchSlide,
-			easing: open ? Easing.CubicOut : Easing.CubicIn,
-			finished: (_, cancelled) =>
-			{
-				if (!cancelled)
-				{
-					Finish();
-				}
-			});
-	}
+	private void OnSearchCompleted(object? sender, EventArgs e) { _search.Close(); _viewModel.DismissSearch(); }
 
 #if IOS
 	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);

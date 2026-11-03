@@ -28,6 +28,28 @@ public sealed record SectionRow(string Title)
     public string NeighbourAction => NeighbourSummary + "\nOpen neighbouring device";
     public bool CanOpenNeighbour => NeighbourLayout && LinkDeviceId is > 0;
     public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
+    /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
+    public bool PortLayout => Port is not null;
+    public string? PortStatusText { get; init; }
+    public string PortSummary => string.Join(", ", new[] { ContentDescription, Value == PortStatusText ? null : PortStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    public string PortDescription => string.Join(", ", new[] { PortSummary,
+        LinkPortIfName is not null ? "Open interface graphs" : "Interface graphs unavailable" }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    /// <summary>Only resource readings use the wrapping usage presentation.</summary>
+    public bool ResourceLayout { get; init; }
+    public string? ResourceKind { get; init; }
+    public string ResourceStatusText => Status == RowStatus.None ? "Reading unavailable" : HealthStatusText;
+    public string ResourceDescription => string.Join(", ", new[] { Title, ResourceKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, ResourceStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    /// <summary>Only Device Sensors opts into wrapping, vertically ordered reading facts.</summary>
+    public bool SensorLayout { get; init; }
+    public string? SensorKind { get; init; }
+    public string? SensorStatusText { get; init; }
+    public string SensorDescription => string.Join(", ", new[] { Title, SensorKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, SensorStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    /// <summary>Availability facts stack so dates and durations remain readable at large text sizes.</summary>
+    public bool AvailabilityLayout { get; init; }
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
@@ -55,7 +77,7 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Announces complete row facts without punctuation for absent fields.</summary>
     public string ContentDescription => string.Join(", ",
-        new[] { Title, Subtitle, Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
+        new[] { Title, Subtitle, AvailabilityLayout && Status == RowStatus.None && Value is "—" or "–" ? null : Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
 
     /// <summary>A third, smaller line.</summary>
     public string? Detail { get; init; }
@@ -137,6 +159,9 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
+        || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
+        || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>

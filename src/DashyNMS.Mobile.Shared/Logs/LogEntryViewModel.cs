@@ -20,7 +20,8 @@ public sealed partial class LogEntryViewModel : ObservableObject
     public bool IsBesideList { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasEntry), nameof(HasDevice), nameof(HasRule), nameof(CanShowOnlyDevice), nameof(CanShowOnlyKind),
+    [NotifyCanExecuteChangedFor(nameof(OpenDeviceCommand), nameof(OpenRuleCommand))]
+    [NotifyPropertyChangedFor(nameof(HasEntry), nameof(MissingEntry), nameof(DeviceActionDescription), nameof(HasDevice), nameof(HasRule), nameof(CanShowOnlyDevice), nameof(CanShowOnlyKind),
         nameof(ShowOnlyDeviceText), nameof(ShowOnlyKindText), nameof(HasNarrowing))]
     private LogEntryItem? _entry;
 
@@ -30,6 +31,10 @@ public sealed partial class LogEntryViewModel : ObservableObject
     }
 
     public bool HasEntry => Entry is not null;
+    public bool MissingEntry => Entry is null;
+    public string DeviceActionDescription => Entry is { } entry
+        ? $"Open device {(!string.IsNullOrWhiteSpace(entry.DeviceName) ? entry.DeviceName : entry.DeviceId.ToString(CultureInfo.CurrentCulture))}, {entry.StatusText}"
+        : "Open device";
 
     /// <summary>LibreNMS knows the device - and it isn't the one whose Event log this came from.</summary>
     public bool HasDevice => Entry is { HasDevice: true } entry && entry.DeviceId != _list?.DeviceId;
@@ -58,18 +63,24 @@ public sealed partial class LogEntryViewModel : ObservableObject
     };
 
     /// <summary>The entry tapped, and the list it was tapped in.</summary>
-    public void Load(LogEntryItem entry, LogsViewModel? list)
+    public void Load(LogEntryItem? entry, LogsViewModel? list)
     {
         _list = list;
         Entry = entry;
+        // A host may reuse the same snapshot with a different originating list.
+        OnPropertyChanged(nameof(HasDevice));
+        OnPropertyChanged(nameof(CanShowOnlyDevice));
+        OnPropertyChanged(nameof(CanShowOnlyKind));
+        OnPropertyChanged(nameof(HasNarrowing));
+        OpenDeviceCommand.NotifyCanExecuteChanged();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasDevice))]
     private Task OpenDeviceAsync() => Entry is { } entry && HasDevice
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = entry.DeviceId })
         : Task.CompletedTask;
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasRule))]
     private Task OpenRuleAsync() => Entry is { } entry && HasRule
         ? _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = entry.RuleId })
         : Task.CompletedTask;

@@ -414,6 +414,38 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
+    public void Detail_keeps_raw_fields_and_missing_metadata_and_clears_stale_actions()
+    {
+        const string source = "  edge\t.example.net\r\n ";
+        const string text = "  <html>https://example.net/?a=1</html>\t\r\n\nlast  ";
+        var key = new string('k', 160);
+        var payload = new GraylogMessage(new Dictionary<string, JsonElement>
+        {
+            ["source"] = JsonSerializer.SerializeToElement(source),
+            ["full_message"] = JsonSerializer.SerializeToElement(text),
+            [key] = JsonSerializer.SerializeToElement(text),
+        });
+        var item = new GraylogMessageItem(payload, TimeZoneInfo.Utc, address => (address ?? "", 7));
+        Assert.Equal(text, item.FullText);
+        Assert.Contains(new KeyValuePair<string, string>("source", source), item.Fields);
+        Assert.Contains(new KeyValuePair<string, string>(key, text), item.Fields);
+        Assert.Null(item.TimeText);
+        Assert.Equal("Time unavailable", item.DetailTimeText);
+        Assert.Equal("Level unavailable", item.DetailLevelText);
+        var page = new GraylogMessageViewModel(_navigation);
+        page.Load(item, null);
+        Assert.True(page.OpenDeviceCommand.CanExecute(null));
+        Assert.Contains("7", page.DeviceActionDescription);
+        page.Load(null, null);
+        Assert.True(page.MissingMessage);
+        Assert.False(page.OpenDeviceCommand.CanExecute(null));
+        Assert.False(page.ShowOnlyCommand.CanExecute(null));
+        var invalid = new GraylogMessageItem(payload, null, address => (address ?? "", 0));
+        page.Load(invalid, null);
+        Assert.False(page.OpenDeviceCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Show_only_sets_the_Device_chip_to_a_known_device_and_searches_its_addresses()
     {
         var vm = NewViewModel();
