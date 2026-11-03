@@ -47,6 +47,141 @@ public sealed class AlertRulesTests
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_rule_refresh_keeps_pending_details_for_the_displayed_rule(bool missing)
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<Alert>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var firstExtras = vm.Extras;
+        Assert.Equal("Loading template…", vm.TemplateName);
+        if (missing)
+            _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(Task.FromResult<AlertRule?>(null));
+        else
+            _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns<AlertRule?>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.False(vm.HasSupplementaryStatus);
+        pending.SetResult([Fakes.Alert(2, 1, "warning")]);
+        await firstExtras;
+        Assert.Equal("Ports", vm.TemplateName);
+        Assert.True(vm.HasAlerts);
+        Assert.False(vm.HasSupplementaryStatus);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_names_describe_current_targets_and_combine_failures(bool loadFirst)
+    {
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        if (loadFirst)
+        {
+            await vm.RefreshCommand.ExecuteAsync(null);
+            await vm.Extras;
+        }
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, Devices = [1, 42], Groups = [8] });
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Device>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.DeviceGroups.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<DeviceGroup>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.AlertTemplates.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<AlertTemplate>>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Equal(loadFirst ? "Devices: core-sw, #42\nGroups: #8" : "Devices: #1, #42\nGroups: #8", vm.TargetNames);
+        Assert.Contains("Alerts could not be loaded", vm.SupplementaryStatus);
+        Assert.Contains("Template could not be loaded", vm.SupplementaryStatus);
+        Assert.Contains("target names", vm.SupplementaryStatus);
+        Assert.DoesNotContain("previously loaded", vm.SupplementaryStatus);
+    }
+
+    [Fact]
+    public async Task Older_extras_cannot_replace_newer_failed_target_lookup()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<Alert>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var olderExtras = vm.Extras;
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, Groups = [42] });
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<Alert>>([]));
+        _client.DeviceGroups.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<DeviceGroup>>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        var status = vm.SupplementaryStatus;
+        pending.SetResult([Fakes.Alert(2, 1, "warning")]);
+        await olderExtras;
+        Assert.Equal("Groups: #42", vm.TargetNames);
+        Assert.Equal(status, vm.SupplementaryStatus);
+        Assert.True(vm.HasNoAlerts);
+    }
+
+    [Theory]
+    [InlineData("  ports.ifOperStatus = 2  ")]
+    [InlineData("\n%devices.status = 0\n")]
+    public void Condition_list_trims_and_detail_preserves_legacy_source(string source)
+    {
+        var rule = new AlertRule { Rule = source };
+        Assert.Equal(source, RuleText.ConditionSource(rule));
+        Assert.Equal(source.Trim(), RuleText.Condition(rule));
+    }
+
+    [Fact]
+    public async Task Detail_preserves_complete_SQL_notes_and_procedure()
+    {
+        const string sql = "  SELECT *\r\nFROM devices WHERE devices.status = 0 AND devices.disabled = 0  ";
+        var rule = new AlertRule { Id = 20, Query = sql, Rule = "different legacy condition", Builder = PortDownBuilder, Extra = new AlertRuleExtra { Options = new AlertRuleExtraOptions { OverrideQuery = true } },
+            Notes = "  Keep leading spaces\r\nand trailing spaces  ", Procedure = "\n  Step one\nStep two  \n" };
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(rule);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Equal(sql, vm.Condition);
+        Assert.Equal(sql, RuleText.ConditionSource(rule));
+        Assert.Equal(sql.Trim(), RuleText.Condition(rule));
+        Assert.Equal(rule.Notes, vm.Notes);
+        Assert.Equal(rule.Procedure, vm.Procedure);
+    }
+
+    [Fact]
+    public async Task Failed_extras_keep_last_good_alerts_and_template_navigation()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), navigation) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.AlertTemplates.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertTemplate>>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Single(vm.Alerts);
+        Assert.False(vm.HasNoAlerts);
+        Assert.True(vm.HasSupplementaryStatus);
+        Assert.Equal("Ports", vm.TemplateName);
+        await vm.OpenTemplateCommand.ExecuteAsync(null);
+        Assert.Equal(7, Assert.Single(navigation.Visits).Parameters![Routes.TemplateIdParameter]);
+    }
+
+    [Fact]
+    public async Task Unavailable_initial_extras_do_not_claim_empty_or_default()
+    {
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.AlertTemplates.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertTemplate>>(_ => throw new LibreNmsApiException("Unavailable"));
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.False(vm.HasNoAlerts);
+        Assert.False(vm.HasTemplate);
+        Assert.Equal("Template unavailable", vm.TemplateName);
+        Assert.True(vm.HasSupplementaryStatus);
+    }
+
     [Fact]
     public async Task Filter_descriptions_announce_toggles_and_clear_with_source_counts()
     {
@@ -81,12 +216,12 @@ public sealed class AlertRulesTests
         var vm = new AlertRulesViewModel(_client, new RecordingNavigation());
         await vm.RefreshCommand.ExecuteAsync(null);
         vm.Select(20);
-        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        Assert.Equal(20, Assert.Single(vm.Rules, row => row.IsSelected).Id);
         vm.ToggleWarningCommand.Execute(null);
         Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
         await vm.RefreshCommand.ExecuteAsync(null);
         vm.ClearFiltersCommand.Execute(null);
-        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        Assert.Equal(20, Assert.Single(vm.Rules, row => row.IsSelected).Id);
         vm.Select(null);
         Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
     }
