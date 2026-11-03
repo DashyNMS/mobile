@@ -120,9 +120,9 @@
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
-                                            <VerticalStackLayout IsVisible="{Binding VlanLayout}" Spacing="4"
+                                            <VerticalStackLayout IsVisible="{Binding VlanLayout}" Spacing="3"
                                                                  SemanticProperties.Description="{Binding VlanDescription}" AutomationProperties.IsInAccessibleTree="True">
-                                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Text="{Binding VlanNameText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Text="{Binding VlanPortsText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                             </VerticalStackLayout>

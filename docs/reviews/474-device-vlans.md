@@ -12,7 +12,7 @@ scripts, delegates, Claude review, merge, watch, release, closure or epic ticks.
 | Modes | Grouped full VLAN list, local search and overview highlights. No VLAN editor, filter panel, graph or row destination. All assessed. |
 | Hierarchy/wrapping | Fix required: count occupies a capped side column, squeezing name at large text/narrow width. VLAN-only stack wraps identifier, name and count without line limits. |
 | Overview | Fix required: truncated ID beside count and no name. Same complete wrapping facts now appear in existing three highlights; selection and totals unchanged. |
-| Missing values | Fix required: absent name/count disappears. Explicit Name unavailable and Port count unavailable preserve raw nulls and do not imply zero. |
+| Missing values | Fix required: absent name/count disappears. Explicit Name unavailable and No member ports reported preserve raw nulls and do not imply zero. |
 | IDs/order/server text | Compliant: filter DeviceId, numeric VlanNumber order, raw VlanName. Preserved without trimming or renaming. |
 | Port meaning | Compliant: counts returned ports carrying the VLAN through membership or IfVlan, once per port per VLAN. No match remains null, not zero. No new deleted/admin/oper-state filtering or remote membership inference. |
 | Severity/actions | Compliant: neutral RowStatus.None and no links. No guessed health, new actions or navigation. Legacy gesture moved to legacy grid so VLAN readouts have none. |
@@ -46,7 +46,7 @@ it is not a claim that zero ports carry the VLAN.
 Read sibling review records 469–473 and relevant diffs in the supplied
 checkouts read-only. No sibling branch was modified or unmerged commit
 imported. Parent updates this branch only at its serial review turn after
-#511. Mandatory Claude Opus 5.5 Medium parent review waits for quota reset.
+#511. Mandatory Claude Opus 5.5 Medium parent review completed at f3f3151.
 
 1. In DeviceSectionPage.xaml combine VLAN stack and legacy hide trigger with
    AvailabilityLayout, SensorLayout, ResourceLayout, PortLayout and
@@ -106,3 +106,15 @@ hides the legacy grid. The shared card-wide gesture, activation, ButtonSearch,
 Retry and generation guards remain from main. No old nested gesture or wrapper
 is reintroduced. Full-diff Claude review and CI must verify the integrated XAML.
 No hardware acceptance is inferred.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed f3f3151 against main a2f1e62 with no blockers.
+The loader waits for both VLAN and port lists successfully, then derives counts
+from returned IfVlan and per-port membership. When no returned record carries a
+VLAN, No member ports reported describes that result without asserting a complete
+zero or a fetch error. Completeness of membership in the pinned API remains
+unverified. The regression expectation is updated. Overview title weight and
+spacing now match other stacked highlights. Card-wide gestures remain unchanged.
+Replacement CI is pending; no local builds/tests ran. All hardware outcomes and
+issue acceptance remain unverified.

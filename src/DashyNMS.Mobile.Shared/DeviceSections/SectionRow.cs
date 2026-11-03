@@ -25,7 +25,7 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Missing server fields remain unknown, rather than implying an empty name or zero ports.</summary>
     public string VlanNameText => HasSubtitle ? Subtitle! : "Name unavailable";
-    public string VlanPortsText => HasValue ? Value! : "Port count unavailable";
+    public string VlanPortsText => HasValue ? Value! : "No member ports reported";
     public string VlanDescription => string.Join(", ", Title, VlanNameText, VlanPortsText);
 
     /// <summary>Only device neighbours use the complete endpoint readout.</summary>
