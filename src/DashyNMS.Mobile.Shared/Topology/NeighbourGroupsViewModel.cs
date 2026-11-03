@@ -176,11 +176,11 @@ public sealed partial class NeighbourRuleRow : ObservableObject
     private readonly NeighbourRule _original;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(FieldText))]
+    [NotifyPropertyChangedFor(nameof(FieldText), nameof(RemovalDescription))]
     private int _fieldIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem), nameof(OperatorText))]
+    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem), nameof(OperatorText), nameof(RemovalDescription))]
     private int _operatorIndex;
 
     /// <summary>How many neighbours this rule alone matches (#121); null until they're known, or with no value yet.</summary>
@@ -189,7 +189,7 @@ public sealed partial class NeighbourRuleRow : ObservableObject
     private int? _matchCount;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem))]
+    [NotifyPropertyChangedFor(nameof(Problem), nameof(HasProblem), nameof(RemovalDescription))]
     private string _value;
 
     public NeighbourRuleRow(NeighbourRule rule)
@@ -227,6 +227,8 @@ public sealed partial class NeighbourRuleRow : ObservableObject
     public bool IsSupported => _original.IsSupported;
 
     public bool IsUnsupported => !IsSupported;
+
+    public string RemovalDescription => "Remove rule: " + (IsSupported ? Describe(ToRule()) : UnsupportedText);
 
     public string UnsupportedText => $"{_original.FieldName} {_original.OperatorName} \"{_original.Value}\" - made by a newer version, kept as it is.";
 
@@ -465,22 +467,35 @@ public sealed partial class NeighbourGroupEditorViewModel : ViewModelBase
             return;
         }
 
-        _draft.Name = Name.Trim();
-        _draft.MatchAll = MatchIndex == 0;
-        _draft.Rules = Rules.Where(r => r.IsUnsupported || !string.IsNullOrWhiteSpace(r.Value)).Select(r => r.ToRule()).ToList();
+        var saved = _draft.Clone();
+        saved.Name = Name.Trim();
+        saved.MatchAll = MatchIndex == 0;
+        saved.Rules = Rules.Where(r => r.IsUnsupported || !string.IsNullOrWhiteSpace(r.Value)).Select(r => r.ToRule()).ToList();
 
         var groups = _settings.Current.NeighbourViews;
         var index = groups.FindIndex(v => v.Id == _draft.Id);
+        var previous = index >= 0 ? groups[index] : null;
         if (index >= 0)
         {
-            groups[index] = _draft;
+            groups[index] = saved;
         }
         else
         {
-            groups.Add(_draft);
+            groups.Add(saved);
         }
 
-        _settings.Save();
+        try
+        {
+            _settings.Save();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Keep the shared settings snapshot consistent when persistence fails.
+            if (index >= 0) groups[index] = previous!;
+            else groups.Remove(saved);
+            ErrorMessage = "Could not save the neighbourhood. Your changes are still here. Try Save again.";
+            return;
+        }
         await _navigation.GoToAsync(Routes.Back);
     }
 
