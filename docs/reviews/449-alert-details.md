@@ -124,3 +124,18 @@ and one/many/unavailable counts. No local execution occurred. All seven device
 gaps above remain, especially background/resume confirmation, action feedback,
 prose wrapping and full-width Duo/iPad. Replacement CI and a fresh parent full
 review are required; earlier 839a63f check results do not validate this revision.
+
+
+## Follow-up review at 17fdd7c
+
+Claude confirmed the previous medium fixes. Stale refusal results now clear at
+new action entry and after a successful ordinary refresh; the Core result of a
+fault/group action remains visible through its own post-write refresh. Added
+refused-then-retry and confirmation-during-refresh cases and held the post-write
+reload in the busy-feedback regression. Retry explicitly says "Reload alert
+details" and follows CanRunAction; it reloads rather than repeating a write.
+The busy overlay uses measured left/right glass clearance and the actual BackBar
+height instead of a fixed 64pt offset. The unused condition-reformatting helper
+and its obsolete test are removed; full source condition fidelity remains covered.
+No local builds/tests ran. Replacement CI and all seven device checks remain
+pending; action feedback and overlay placement still require hardware checks.

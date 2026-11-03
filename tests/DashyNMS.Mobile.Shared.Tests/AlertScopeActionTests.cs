@@ -59,6 +59,31 @@ public sealed class AlertScopeActionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task Unacknowledge_confirmation_survives_a_same_identity_refresh(bool single)
+    {
+        _acknowledged.UnionWith([1, 2]);
+        _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = true, MaxEntities = 20 });
+        var confirm = new TaskCompletionSource<bool>();
+        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(confirm.Task);
+        _client.Alerts.UnmuteAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            if (single) _acknowledged.Remove(call.Arg<int>());
+            else _acknowledged.Clear();
+            return Task.CompletedTask;
+        });
+        var vm = await Detail();
+        var action = (single ? vm.UnacknowledgeFaultCommand : vm.UnacknowledgeCommand).ExecuteAsync(null);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        confirm.SetResult(true);
+        await action;
+        Assert.False(vm.Alert!.IsAcknowledged);
+        Assert.Equal(single, _acknowledged.Contains(2));
+        await _client.Alerts.Received().UnmuteAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task Confirmation_rechecks_current_group_or_fault_eligibility(bool single)
     {
         _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = true, MaxEntities = 20 });

@@ -27,6 +27,7 @@ public partial class AlertDetailView : ContentView
             if (e.PropertyName is nameof(viewModel.IsBusy) or nameof(viewModel.HasAlert) or nameof(viewModel.ActionBusyText)) UpdateBusy();
         };
         UpdateBusy();
+        TopBar.SizeChanged += (_, _) => PlaceContent(_clear);
         UndoOverlay.SizeChanged += (_, _) => PlaceContent(_clear);
         UndoOverlay.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceContent(_clear); };
 #if IOS
@@ -61,6 +62,9 @@ public partial class AlertDetailView : ContentView
 #if IOS
         StopInsets();
 #endif
+        Busy.Margin = new Thickness(16 + clear.Left,
+            TopBar.IsVisible ? Math.Max(0, TopBar.Height) + 12 : 20,
+            16 + clear.Right, 0);
         UndoOverlay.Margin = new Thickness(12 + clear.Left, 0, 12 + clear.Right, 16 + clear.Bottom);
         var overlay = UndoOverlay.IsVisible ? Math.Max(0, UndoOverlay.Height) + 28 : 0;
         Fade.IsVisible = !TopBar.IsVisible;

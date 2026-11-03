@@ -30,6 +30,27 @@ public sealed class AlertDetailViewModelTests
     private AlertDetailViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, _navigation, _selfActions);
 
     [Fact]
+    public async Task Confirmation_during_refresh_reports_updating_and_successful_refresh_clears_it()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        var pending = new TaskCompletionSource<Alert?>();
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        prompt.SetResult("note");
+        await action;
+        Assert.Contains("updating; nothing was changed", vm.ActionResult);
+        pending.SetResult(Fakes.Alert(5, 3, "critical"));
+        await refresh;
+        Assert.Null(vm.ActionResult);
+        await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Acknowledgement_prompt_cannot_write_after_target_changes()
     {
         GivenAlert(Fakes.Alert(5, 3, "critical"));
@@ -44,6 +65,10 @@ public sealed class AlertDetailViewModelTests
         await action;
         Assert.Contains("changed while you were confirming", vm.ActionResult);
         await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs("retry note");
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        await _client.Alerts.Received(1).AcknowledgeAsync(6, "retry note", true, Arg.Any<CancellationToken>());
+        Assert.Null(vm.ActionResult);
     }
 
     [Fact]
@@ -68,7 +93,18 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal("Acknowledging…", vm.ActionBusyText);
         Assert.False(vm.UnacknowledgeCommand.CanExecute(null));
         Assert.False(vm.AcknowledgeFaultCommand.CanExecute(null));
+        var reload = new TaskCompletionSource<Alert?>();
+        var reloading = new TaskCompletionSource();
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            reloading.SetResult();
+            return reload.Task;
+        });
         write.SetResult();
+        await reloading.Task;
+        Assert.Equal("Acknowledging…", vm.ActionBusyText);
+        Assert.False(vm.CanRunAction);
+        reload.SetResult(Fakes.Alert(5, 3, "critical", acknowledged: true));
         await action;
         Assert.Null(vm.ActionBusyText);
         Assert.True(vm.CanRunAction);
@@ -270,18 +306,6 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal("alert:5", visit.Parameters![Routes.AlertKeyParameter]);
         Assert.Equal(3, visit.Parameters[Routes.DeviceIdParameter]);
     }
-
-    [Theory]
-    [InlineData(
-        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\" AND sensors.sensor_alert = 1 AND (macros.a = 1 OR (b = 2 AND c = 3))",
-        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\"\nAND sensors.sensor_alert = 1\nAND (macros.a = 1 OR (b = 2 AND c = 3))")]
-    [InlineData(
-        "%bgpPeers.bgpPeerState != \"established\" && %macros.device_up = 1 || x = 'a OR b'",
-        "%bgpPeers.bgpPeerState != \"established\"\n&& %macros.device_up = 1\n|| x = 'a OR b'")]
-    [InlineData("ports.ifOperStatus = \"down\"", "ports.ifOperStatus = \"down\"")]
-    [InlineData("hostname = \"ANDROID\" and vendor = 'x'", "hostname = \"ANDROID\"\nand vendor = 'x'")]
-    public void Breaks_the_rule_condition_at_its_top_level_ands_and_ors(string condition, string expected) =>
-        Assert.Equal(expected, AlertDetailViewModel.BreakCondition(condition));
 }
 
 public sealed class AlertNotificationTargetTests

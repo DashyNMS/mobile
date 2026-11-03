@@ -44,7 +44,7 @@
                     <controls:BackBar x:Name="TopBar" />
 
                     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <Button Text="Retry" SemanticProperties.Description="Retry loading alert details" MinimumHeightRequest="44" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" IsVisible="{Binding HasError}" IsEnabled="{Binding IsNotBusy}" />
+                    <Button Text="Retry" SemanticProperties.Description="Reload alert details" MinimumHeightRequest="44" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" IsVisible="{Binding HasError}" IsEnabled="{Binding CanRunAction}" />
 
                     <!-- A recovery notification can point at an alert LibreNMS has since dropped. -->
                     <Border Style="{StaticResource Card}" IsVisible="{Binding IsGone}">

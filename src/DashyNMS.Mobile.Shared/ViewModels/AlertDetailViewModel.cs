@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
@@ -199,11 +198,14 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     private async Task RefreshAsync()
     {
         await _loads.WaitAsync();
-        try { await RefreshCoreAsync(); }
+        try
+        {
+            if (await RefreshCoreAsync() && ActionBusyText is null) ActionResult = null;
+        }
         finally { _loads.Release(); }
     }
 
-    private Task RefreshCoreAsync() => RunAsync(async () =>
+    private Task<bool> RefreshCoreAsync() => RunAsync(async () =>
     {
         _faultGroup = null;
         _faultScope = null;
@@ -399,6 +401,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        ActionResult = null;
         var note = await _dialogs.PromptAsync(
             "Acknowledge alert",
             $"{item.Rule} on {item.Device}. Add a note (optional):",
@@ -441,6 +444,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        ActionResult = null;
         // One alert, and acknowledging puts it back: no need to ask (#146).
         ActionBusyText = "Unacknowledging…";
         try
@@ -477,6 +481,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     private async Task ChangeFaultCoreAsync(bool acknowledge, bool single)
     {
         if (Alert is not { } item || (single ? !MayAcknowledgeSelected : !MayAcknowledge)) return;
+        ActionResult = null;
         var scope = single ? "fault" : "group";
         string? note = null;
         if (acknowledge)
@@ -661,68 +666,6 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         {
             yield return new SectionRow("Procedure") { Subtitle = rule.Procedure, IsStacked = true };
         }
-    }
-
-    /// <summary>
-    /// A rule's condition with each top-level AND / OR starting a line, as
-    /// the mock-up's rule card: one run-on line was hard to read (Batch 11).
-    /// Bracketed groups and quoted text ("(power|psu)") stay as they are.
-    /// </summary>
-    internal static string BreakCondition(string condition)
-    {
-        var text = new StringBuilder(condition.Length + 16);
-        var depth = 0;
-        char? quote = null;
-        for (var i = 0; i < condition.Length; i++)
-        {
-            var c = condition[i];
-            if (quote is not null)
-            {
-                if (c == quote)
-                {
-                    quote = null;
-                }
-            }
-            else if (c is '"' or '\'')
-            {
-                quote = c;
-            }
-            else if (c == '(')
-            {
-                depth++;
-            }
-            else if (c == ')')
-            {
-                depth = Math.Max(0, depth - 1);
-            }
-            else if (depth == 0 && c == ' ' && StartsOperator(condition, i + 1) is { } length)
-            {
-                // " AND x" -> "\nAND x": the operator leads its line.
-                text.Append('\n').Append(condition, i + 1, length);
-                i += length;
-                continue;
-            }
-
-            text.Append(c);
-        }
-
-        return text.ToString();
-    }
-
-    /// <summary>The length of an AND / OR / &amp;&amp; / || starting at <paramref name="at"/> and followed by a space.</summary>
-    private static int? StartsOperator(string text, int at)
-    {
-        foreach (var op in (string[])["AND", "OR", "&&", "||"])
-        {
-            if (at + op.Length < text.Length
-                && string.Compare(text, at, op, 0, op.Length, StringComparison.OrdinalIgnoreCase) == 0
-                && text[at + op.Length] == ' ')
-            {
-                return op.Length;
-            }
-        }
-
-        return null;
     }
 
     private static RowStatus StatusFor(AlertSeverity severity) => severity switch
