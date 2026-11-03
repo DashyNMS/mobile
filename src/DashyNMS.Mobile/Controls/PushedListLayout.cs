@@ -15,6 +15,7 @@ internal sealed class PushedListLayout
 #endif
     private readonly View _foot;
     private readonly View? _bottomAction;
+    private IDisposable? _edges;
     private bool _shown;
 
     public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
@@ -33,7 +34,6 @@ internal sealed class PushedListLayout
         rows.HandlerChanged += (_, _) => StopInsetAdjustment();
         rows.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-        CoveredEdges.Watch(page, Place);
         if (bottomAction is not null)
         {
             bottomAction.PropertyChanged += (_, e) =>
@@ -49,6 +49,7 @@ internal sealed class PushedListLayout
     public void Activate()
     {
         _shown = true;
+        _edges ??= CoveredEdges.Watch(_page, Place);
         _header.Apply(_page);
 #if IOS
         if (TabBarButtons.IsAvailable)
@@ -68,6 +69,8 @@ internal sealed class PushedListLayout
     {
         if (!_shown) return;
         _shown = false;
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Hide(_page);
