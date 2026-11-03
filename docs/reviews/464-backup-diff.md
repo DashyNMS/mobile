@@ -126,3 +126,12 @@ CI or code inspection does not establish native accessibility or layout.
 | Themes/text | Light/dark code contrast and exact fade colour; maximum text size and many-digit line numbers; initial header reserve and final-line glass clearance; fixed metadata/filters leave usable viewport |
 | Duo | Outer portrait, inner portrait and inner landscape; fold/unfold, rotate and resume during loading, expanded context and final-line scroll; no duplicate insets/subscriptions; placement diagnostics |
 | iPhone | Ordinary iPhone portrait/landscape, current glass and older header Back where available; rotate/resume, actual history return, final-line clearance and share sheet |
+
+## Sequential integration
+
+Updated against main 180eb4e after #504/#505. Shared PushedListLayout now owns
+idempotent Activate and disposable edge watching; the diff page implements
+IActivePage to use that path without local Window hooks. UnimusLine uses the
+merged #463 source/line description baseline. Full-diff Claude review must
+verify diff-specific accessibility still conveys added/removed/hidden semantics.
+No device acceptance is claimed.
