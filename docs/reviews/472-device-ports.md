@@ -139,3 +139,7 @@ Replacement CI is pending; no local builds/tests ran.
 CI at f335cad found the new overview assertion addressed section metadata rather
 than the displayed card. It now uses SectionCards and its SummaryText. Replacement
 CI remains pending; no local tests ran.
+
+Android CI at 18b286e exposed a missing closing wrapper in the merged port/reading
+template. The nesting is corrected; generated-control errors were consequences
+of that parse failure. Replacement platform CI remains pending.
