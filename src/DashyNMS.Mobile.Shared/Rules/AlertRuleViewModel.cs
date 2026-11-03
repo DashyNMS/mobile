@@ -463,6 +463,7 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        RulesStatus = string.Empty;
         var template = await _client.AlertTemplates.GetAsync(id);
         if (template is null)
         {
@@ -471,24 +472,28 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
         }
 
         var previousRules = Rules.ToDictionary(r => r.Id, r => r.Rule);
-        Show(template, previousRules.Values.ToArray());
+        Show(template, previousRules.Values.ToArray(), rulesAuthoritative: false);
         RulesStatus = string.Empty;
         if (template.AlertRules.Count == 0) return;
         RulesStatus = "Loading related rules…";
+        UsedBy += " · loading rule details";
+        var rulesLoaded = false;
         try
         {
             Show(template, await _client.Rules.ListAsync());
+            rulesLoaded = true;
             RulesStatus = string.Empty;
         }
         catch (LibreNmsApiException)
         {
-            UsedBy = "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule") + " · rule details unavailable";
             RulesStatus = Rules.Count > 0
                 ? "Related rules could not be refreshed. Showing previously loaded details for current assignments."
                 : "Related rule details could not be loaded.";
         }
         finally
         {
+            if (!rulesLoaded)
+                UsedBy = "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule") + " · rule details unavailable";
             if (RulesStatus == "Loading related rules…") RulesStatus = string.Empty;
         }
     });
@@ -498,7 +503,7 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
         ? Task.CompletedTask
         : _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = item.Id });
 
-    internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules)
+    internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules, bool rulesAuthoritative = true)
     {
         TemplateIdentity = $"Template ID {template.Id}";
         Title = string.IsNullOrWhiteSpace(template.Name) ? $"Template {template.Id}" : template.Name;
@@ -513,7 +518,7 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             .OrderBy(r => r.IsDisabled)
             .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase));
         UsedBy = template.AlertRules.Count == 0 ? "No explicit rule assignments. Default-template status is not reported." : "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule");
-        if (Rules.Count < template.AlertRules.Count)
+        if (rulesAuthoritative && Rules.Count < template.AlertRules.Count)
             UsedBy += $" · {Rules.Count} available to this account";
         HasLoaded = true;
         OnPropertyChanged(nameof(HasRules));

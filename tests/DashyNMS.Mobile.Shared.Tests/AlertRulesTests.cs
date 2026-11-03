@@ -47,6 +47,45 @@ public sealed class AlertRulesTests
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
     }
 
+    [Fact]
+    public async Task First_pending_related_lookup_does_not_claim_account_visibility()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<AlertRule>>();
+        _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new AlertTemplateViewModel(_client, new RecordingNavigation()) { TemplateId = 7 };
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("Assigned to 1 rule · loading rule details", vm.UsedBy);
+        Assert.DoesNotContain("available to this account", vm.UsedBy);
+        pending.SetResult([PortDown]);
+        await refresh;
+        Assert.Equal("Assigned to 1 rule", vm.UsedBy);
+    }
+
+    [Fact]
+    public void Related_rule_description_does_not_invent_alert_activity_or_repeat_the_template()
+    {
+        var row = new AlertRuleItem(PortDown, 0, "Template name must not be repeated");
+        Assert.Contains(row.Name, row.RelatedRuleDescription);
+        Assert.Contains(row.Condition, row.RelatedRuleDescription);
+        Assert.Contains("Warning", row.RelatedRuleDescription);
+        Assert.Contains("Enabled", row.RelatedRuleDescription);
+        Assert.DoesNotContain("alerting", row.RelatedRuleDescription);
+        Assert.DoesNotContain("Template name", row.RelatedRuleDescription);
+    }
+
+    [Fact]
+    public async Task A_main_template_failure_clears_an_earlier_related_failure_status()
+    {
+        _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<AlertRule>>(_ => throw new LibreNmsApiException("Unavailable"));
+        var vm = new AlertTemplateViewModel(_client, new RecordingNavigation()) { TemplateId = 7 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasRulesStatus);
+        _client.AlertTemplates.GetAsync(7, Arg.Any<CancellationToken>()).Returns<AlertTemplate?>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.False(vm.HasRulesStatus);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -518,7 +557,7 @@ public sealed class AlertRulesTests
         var pending = new TaskCompletionSource<IReadOnlyList<AlertRule>>();
         _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
         var refresh = vm.RefreshCommand.ExecuteAsync(null);
-        Assert.Equal("Assigned to 2 rules · 1 available to this account", vm.UsedBy);
+        Assert.Equal("Assigned to 2 rules · loading rule details", vm.UsedBy);
         Assert.True(vm.IsBusy);
         Assert.False(vm.CanRetryRules);
         pending.SetResult([PortDown]);
@@ -553,7 +592,7 @@ public sealed class AlertRulesTests
         var vm = new AlertTemplateViewModel(_client, new RecordingNavigation()) { TemplateId = 7 };
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal(!cancelled, vm.HasError);
-        Assert.DoesNotContain("rule details unavailable", vm.UsedBy);
+        Assert.Equal("Assigned to 1 rule · rule details unavailable", vm.UsedBy);
         if (!cancelled) Assert.Equal("Unexpected lookup failure", vm.ErrorMessage);
     }
 

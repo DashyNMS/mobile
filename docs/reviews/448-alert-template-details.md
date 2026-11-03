@@ -108,3 +108,19 @@ diagnostics for each check:
 #448 and #442 remain open. No epic ticks, device acceptance or release is claimed.
 The parent's ongoing TestFlight run 41618582199 is untouched. The next section
 TestFlight remains after #449.
+
+
+### Follow-up after Claude review at d51107c
+
+Claude confirmed all six prior fixes. Its two new medium findings are addressed:
+only an authoritative related-rule lookup reports account availability; pending
+lookups show loading and every unsuccessful exit shows unavailable details with
+the server's assignment count. Template-row descriptions now omit unknown alert
+counts and the redundant template name. Related status clears before each refresh
+so a new main failure cannot display an earlier lookup message. Regressions cover
+first pending lookup, interrupted lookup wording, row descriptions and stale status.
+The existing BestEffort diagnostics policy is retained: supplementary API failures
+are shown locally but are not raised through ViewModelBase.Failed. Cancellation
+and unexpected errors continue through base handling. This remains a diagnostics
+limitation rather than a claim that reporting was added. Final CI is pending; no
+local builds/tests ran, and every documented device check remains unverified.

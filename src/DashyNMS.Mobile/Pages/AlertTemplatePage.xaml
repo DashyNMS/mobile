@@ -71,7 +71,7 @@
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rules}" Margin="0,-1,0,0">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="rules:AlertRuleItem">
-                                    <Grid Style="{StaticResource ListRow}" MinimumHeightRequest="44" SemanticProperties.Description="{Binding AccessibleDescription}" SemanticProperties.Hint="Opens the read-only rule" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                                    <Grid Style="{StaticResource ListRow}" MinimumHeightRequest="44" SemanticProperties.Description="{Binding RelatedRuleDescription}" SemanticProperties.Hint="Opens the read-only rule" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                         <Grid.Triggers>
                                             <DataTrigger TargetType="Grid" Binding="{Binding IsDisabled}" Value="True">
                                                 <Setter Property="Opacity" Value="0.55" />
