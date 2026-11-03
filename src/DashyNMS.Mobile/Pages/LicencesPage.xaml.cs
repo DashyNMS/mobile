@@ -1,21 +1,85 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.Licences"/>, from Settings › About (#164).</summary>
-public partial class LicencesPage : ContentPage
+/// <summary>Read-only embedded notices, pushed relative to the actual Settings caller.</summary>
+public partial class LicencesPage : ContentPage, IActivePage
 {
-	public LicencesPage(LicencesViewModel viewModel)
-	{
-		InitializeComponent();
-		BindingContext = viewModel;
-	}
+    private IDisposable? _edges;
+    private bool _visible;
 
-	/// <summary>The app's own header, as every page (#142).</summary>
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		Header.Apply(this);
-	}
+    public LicencesPage(LicencesViewModel viewModel)
+    {
+        InitializeComponent();
+        BindingContext = viewModel;
+#if IOS
+        SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container,
+            SafeAreaRegions.None, SafeAreaRegions.None);
+        Root.SafeAreaEdges = SafeAreaEdges.None;
+        Scroller.SafeAreaEdges = SafeAreaEdges.None;
+#else
+        SafeAreaEdges = SafeAreaEdges.All;
+#endif
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        Activate();
+    }
+
+    /// <summary>Reclaims glass when More restores this retained stack, including resume.</summary>
+    public void Activate()
+    {
+        _visible = true;
+        _edges ??= CoveredEdges.Watch(this, Place);
+        Scroller.HandlerChanged -= OnChanged;
+        Scroller.HandlerChanged += OnChanged;
+        Scroller.Loaded -= OnChanged;
+        Scroller.Loaded += OnChanged;
+#if IOS
+        TabBarButtons.Moved -= OnChanged;
+        TabBarButtons.Moved += OnChanged;
+        Header.BackInGlass = TabBarButtons.IsAvailable;
+        if (TabBarButtons.IsAvailable)
+            TabBarButtons.Show(this, null, string.Empty,
+            [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => { if (_visible) _ = Shell.Current.GoToAsync(".."); }, IsBack: true)]);
+#endif
+        Header.Apply(this);
+        Place();
+    }
+
+    protected override void OnDisappearing()
+    {
+        _visible = false;
+        _edges?.Dispose();
+        _edges = null;
+        Scroller.HandlerChanged -= OnChanged;
+        Scroller.Loaded -= OnChanged;
+#if IOS
+        TabBarButtons.Moved -= OnChanged;
+        TabBarButtons.Hide(this);
+#endif
+        base.OnDisappearing();
+    }
+
+    private void OnChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(Place);
+
+    private void Place()
+    {
+        if (!_visible) return;
+        var edges = CoveredEdges.ForScrolling(this);
+        // The header scrolls with the notices. Only hidden header Back needs a fade.
+        Fade.IsVisible = Header.BackInGlass;
+        Body.Padding = new Thickness(16 + edges.Left, Header.BackInGlass ? 20 : 0,
+            16 + edges.Right, 24 + edges.Bottom);
+        Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+#if IOS
+        if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
+            scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+#endif
+    }
 }
