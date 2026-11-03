@@ -24,7 +24,7 @@ public sealed record SectionRow(string Title)
     public bool ResourceLayout { get; init; }
     public string? ResourceKind { get; init; }
     public string ResourceStatusText => Status == RowStatus.None ? "Reading unavailable" : HealthStatusText;
-    public string ResourceDescription => string.Join(", ", new[] { Title, ResourceKind, Value, Subtitle, ResourceStatusText }
+    public string ResourceDescription => string.Join(", ", new[] { Title, ResourceKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, ResourceStatusText }
         .Where(text => !string.IsNullOrWhiteSpace(text)));
     /// <summary>Only Device Sensors opts into wrapping, vertically ordered reading facts.</summary>
     public bool SensorLayout { get; init; }

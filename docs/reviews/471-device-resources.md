@@ -121,3 +121,13 @@ ButtonSearch, Retry and fade are retained. Resource clear-on-refresh is combined
 with Availability in the generation-guarded serial request path; sensor updating
 feedback remains unchanged. Full-diff Claude review and CI verify integration.
 No hardware outcome is inferred.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed 3458144 against main 3adc7fd. Its CI test
+failure is fixed by using double literals for nullable-double theory arguments.
+Missing resource descriptions omit dash placeholders. Non-finite or out-of-range
+warning thresholds now use existing 80/95 defaults, with regression coverage.
+The refresh comment covers both resource and availability freshness. Repeating
+the resource kind remains intentional context for overview and accessibility.
+Replacement CI is pending; no local builds/tests ran. Hardware is unverified.

@@ -174,8 +174,8 @@ public sealed class DeviceSectionLoaderTests
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
     [InlineData(double.NegativeInfinity)]
-    [InlineData(-1)]
-    [InlineData(101)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
     public void Invalid_usage_never_implies_a_healthy_or_zero_reading(double? percent)
     {
         var row = DeviceSectionLoader.UsageRow("example.net memory", percent, null, null, null);
@@ -184,6 +184,19 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("—", row.Value);
         Assert.True(row.Matches("unavailable"));
         Assert.Contains("Reading unavailable", row.ResourceDescription);
+        Assert.DoesNotContain("—", row.ResourceDescription);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public void Invalid_warning_thresholds_use_default_severity(double warning)
+    {
+        Assert.Equal(RowStatus.Warning, DeviceSectionLoader.UsageRow("Memory", 85, warning, null, null).Status);
+        Assert.Equal(RowStatus.Critical, DeviceSectionLoader.UsageRow("Memory", 99, warning, null, null).Status);
     }
 
     [Theory]
@@ -459,8 +472,8 @@ public sealed class DeviceSectionLoaderTests
     [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
-    [InlineData(-1)]
-    [InlineData(101)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
     public async Task Invalid_availability_is_unavailable_without_a_success_colour(double percent)
     {
         _client.Devices.GetAvailabilityAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(

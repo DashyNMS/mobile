@@ -286,8 +286,8 @@ public sealed class DeviceSectionLoader
         Value = ValidUsage(percent) ? Units.Percent(percent) : "—",
         Bar = ValidUsage(percent) ? percent / 100 : null,
         Status = !ValidUsage(percent) || percent is not { } value ? RowStatus.None
-            : value >= Math.Max(warning ?? 90, 95) ? RowStatus.Critical
-            : value >= (warning ?? 80) ? RowStatus.Warning
+            : value >= Math.Max(ValidUsage(warning) ? warning!.Value : 90, 95) ? RowStatus.Critical
+            : value >= (ValidUsage(warning) ? warning!.Value : 80) ? RowStatus.Warning
             : RowStatus.Ok,
         Subtitle = used is >= 0 && total is > 0 && used <= total ? $"{Units.Bytes(used)} of {Units.Bytes(total)}" : null,
     };
