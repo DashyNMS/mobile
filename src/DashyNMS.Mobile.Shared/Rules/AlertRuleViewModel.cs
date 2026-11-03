@@ -434,9 +434,18 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
 
     public int? TemplateId { get; set; }
 
-    public bool HasAlertTitle => !string.IsNullOrWhiteSpace(AlertTitle);
+    public bool HasAlertTitle => !string.IsNullOrEmpty(AlertTitle);
 
-    public bool HasRecoveryTitle => !string.IsNullOrWhiteSpace(RecoveryTitle);
+    public bool HasRecoveryTitle => !string.IsNullOrEmpty(RecoveryTitle);
+
+    [ObservableProperty]
+    private string _templateIdentity = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRulesStatus))]
+    private string _rulesStatus = string.Empty;
+
+    public bool HasRulesStatus => !string.IsNullOrEmpty(RulesStatus);
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -446,17 +455,29 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             return;
         }
 
-        var templateTask = _client.AlertTemplates.GetAsync(id);
-        var rulesTask = _client.Rules.ListAsync();
-        await Task.WhenAll(templateTask, rulesTask);
-
-        if (templateTask.Result is not { } template)
+        var template = await _client.AlertTemplates.GetAsync(id);
+        if (template is null)
         {
-            ErrorMessage = "This template is no longer in LibreNMS.";
+            ErrorMessage = HasLoaded ? "This template is no longer in LibreNMS. Showing the last loaded content." : "This template is no longer in LibreNMS.";
             return;
         }
 
-        Show(template, rulesTask.Result);
+        var previousRules = Rules.ToDictionary(r => r.Id, r => r.Rule);
+        Show(template, previousRules.Values.ToArray());
+        UsedBy = template.AlertRules.Count == 0
+            ? "No explicit rule assignments. Default-template status is not reported."
+            : "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule");
+        RulesStatus = "Loading related rules…";
+        try
+        {
+            Show(template, await _client.Rules.ListAsync());
+            RulesStatus = string.Empty;
+        }
+        catch (Exception)
+        {
+            UsedBy = "Related rules unavailable";
+            RulesStatus = "Related rules could not be refreshed. Any rows shown were loaded earlier. Pull to refresh to try again.";
+        }
     });
 
     [RelayCommand]
@@ -466,10 +487,11 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
 
     internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules)
     {
+        TemplateIdentity = $"Template ID {template.Id}";
         Title = string.IsNullOrWhiteSpace(template.Name) ? $"Template {template.Id}" : template.Name;
-        AlertTitle = template.Title?.Trim();
-        RecoveryTitle = template.TitleRec?.Trim();
-        Body = template.Template?.Replace("\r\n", "\n").TrimEnd() ?? string.Empty;
+        AlertTitle = template.Title;
+        RecoveryTitle = template.TitleRec;
+        Body = template.Template ?? string.Empty;
 
         var name = Title;
         Rules.ReplaceAll(rules
@@ -477,7 +499,9 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             .Select(r => new AlertRuleItem(r, 0, name))
             .OrderBy(r => r.IsDisabled)
             .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase));
-        UsedBy = Rules.Count == 0 ? "Used by no rules - LibreNMS uses it only if it's the default." : "Used by " + RuleText.Count(Rules.Count, "rule");
+        UsedBy = template.AlertRules.Count == 0 ? "No explicit rule assignments. Default-template status is not reported." : "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule");
+        if (Rules.Count < template.AlertRules.Count)
+            UsedBy += $" · {Rules.Count} available to this account";
         HasLoaded = true;
         OnPropertyChanged(nameof(HasRules));
 

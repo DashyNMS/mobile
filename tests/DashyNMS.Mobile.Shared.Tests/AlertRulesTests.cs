@@ -404,14 +404,79 @@ public sealed class AlertRulesTests
         Assert.Equal("Ports", vm.Title);
         Assert.Equal("Port {{ $alert->title }}", vm.AlertTitle);
         Assert.False(vm.HasRecoveryTitle);
-        Assert.Equal("Port down\n{{ $alert->hostname }}", vm.Body);
-        Assert.Equal("Used by 1 rule", vm.UsedBy);
+        Assert.Equal("Port down\r\n{{ $alert->hostname }}", vm.Body);
+        Assert.Equal("Assigned to 1 rule", vm.UsedBy);
         var rule = Assert.Single(vm.Rules);
         Assert.Equal(("Port down", "ports.ifOperStatus = \"down\""), (rule.Name, rule.Condition));
 
         // Each rule using it opens its own page (#122).
         await vm.OpenRuleCommand.ExecuteAsync(rule);
         Assert.Equal(20, navigation.Visits.Single().Parameters![Routes.RuleIdParameter]);
+        Assert.Equal(Routes.AlertRule, navigation.Visits.Single().Route);
+    }
+
+    [Fact]
+    public void Template_source_is_preserved_and_default_status_is_never_invented()
+    {
+        var vm = new AlertTemplateViewModel(_client, new RecordingNavigation());
+        var template = new AlertTemplate { Id = 8, Title = "  {{ $alert->title }} \r\n", TitleRec = "\tRecovery  ", Template = "<b>source</b>\r\n  \n\t" };
+        vm.Show(template, []);
+        Assert.Equal(template.Title, vm.AlertTitle);
+        Assert.Equal(template.TitleRec, vm.RecoveryTitle);
+        Assert.Equal(template.Template, vm.Body);
+        Assert.Contains("Default-template status is not reported", vm.UsedBy);
+        Assert.Empty(vm.Rules);
+    }
+
+    [Fact]
+    public async Task Initial_related_rule_failure_does_not_hide_template_or_claim_no_assignments()
+    {
+        _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<AlertRule>>(_ => throw new LibreNmsApiException("Unavailable"));
+        var vm = new AlertTemplateViewModel(_client, new RecordingNavigation()) { TemplateId = 7 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasLoaded);
+        Assert.Equal(Template.Template, vm.Body);
+        Assert.Empty(vm.Rules);
+        Assert.Equal("Related rules unavailable", vm.UsedBy);
+        Assert.True(vm.HasRulesStatus);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Failed_template_refresh_retains_last_source_and_related_navigation(bool missing)
+    {
+        var navigation = new RecordingNavigation();
+        var vm = new AlertTemplateViewModel(_client, navigation) { TemplateId = 7 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        if (missing)
+            _client.AlertTemplates.GetAsync(7, Arg.Any<CancellationToken>()).Returns(Task.FromResult<AlertTemplate?>(null));
+        else
+            _client.AlertTemplates.GetAsync(7, Arg.Any<CancellationToken>()).Returns<AlertTemplate?>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.Equal(Template.Template, vm.Body);
+        await vm.OpenRuleCommand.ExecuteAsync(Assert.Single(vm.Rules));
+        Assert.Equal(20, Assert.Single(navigation.Visits).Parameters![Routes.RuleIdParameter]);
+    }
+
+    [Fact]
+    public async Task Related_rule_failure_keeps_template_and_only_current_assignments()
+    {
+        var vm = new AlertTemplateViewModel(_client, new RecordingNavigation()) { TemplateId = 7 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        _client.AlertTemplates.GetAsync(7, Arg.Any<CancellationToken>()).Returns(new AlertTemplate { Id = 7, Name = "Changed", Template = "new source", AlertRules = [10] });
+        _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<AlertRule>>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("new source", vm.Body);
+        Assert.Empty(vm.Rules);
+        Assert.True(vm.HasRulesStatus);
+        Assert.Equal("Related rules unavailable", vm.UsedBy);
+        Assert.False(vm.HasError);
+        _client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns([DeviceDown]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(10, Assert.Single(vm.Rules).Id);
+        Assert.False(vm.HasRulesStatus);
     }
 
     [Fact]
