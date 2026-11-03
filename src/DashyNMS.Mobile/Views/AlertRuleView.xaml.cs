@@ -55,7 +55,7 @@ public partial class AlertRuleView : ContentView
     {
         UndoOverlay.Margin = new Thickness(12 + _clearance.Left, 0, 12 + _clearance.Right, 16 + _clearance.Bottom);
         var overlay = UndoOverlay.IsVisible ? Math.Max(0, UndoOverlay.Height) + 28 : 0;
-        ContentColumn.Padding = new Thickness(16 + _clearance.Left, 20, 16 + _clearance.Right, 24 + _clearance.Bottom + overlay);
+        ContentColumn.Padding = new Thickness(16 + _clearance.Left, TopBar.IsVisible ? 0 : 20, 16 + _clearance.Right, 24 + _clearance.Bottom + overlay);
     }
 
 	/// <summary>"‹ Alert rules"; beside the list, its back button is hidden.</summary>

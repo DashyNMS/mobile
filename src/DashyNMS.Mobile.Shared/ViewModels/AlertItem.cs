@@ -82,6 +82,9 @@ public sealed partial class AlertItem : ObservableObject
 
     public AlertState State => Group?.State ?? Alert.State;
 
+    /// <summary>Complete nonblank description for a whole alert action.</summary>
+    public string RuleActionDescription => string.Join(" · ", new[] { Device, SeverityText, StateText, ShortAge }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
     public string StateText => State.ToDisplayString();
 
     public bool IsAcknowledged => State == AlertState.Acknowledged;

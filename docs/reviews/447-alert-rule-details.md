@@ -35,8 +35,8 @@ There is no primary save action. All actions remain subordinate.
 | --- | --- |
 | Settings Grid auto value columns on narrow screens or large text | Fix required: full-width wrapping label-above-value sections, without fixed widths |
 | ReadableColumn cap in wide pane | Fix required: full-width Grid within the existing scrolling view |
-| Long template name TailTruncation and gesture-only row | Fix required: wrapping native button, full name, same template ID; default/unavailable text is not actionable |
-| Alert gesture rows, fragmented accessible content | Fix required: whole native button containing device, severity, state and age, wrapping and at least 44pt |
+| Long template name TailTruncation and gesture-only row | Fix required: whole tappable wrapping label row, full name, same template ID; default/unavailable text is not actionable |
+| Alert gesture rows, fragmented accessible content | Fix required: whole accessible ListRow with severity dot, wrapping device/state/age and joined nonblank description, wrapping and at least 44pt |
 | Condition BreakCondition and source trimming | Fix required: remove inserted display newlines and preserve SQL/legacy text, notes and procedure whitespace exactly; builder remains interpreted by Core |
 | Entity limits, unknown capability semantics, disabled/severity header | Compliant: unchanged values, one disabled header phrase and one severity pill, no invented capability |
 | Compatibility advice before/after upgrade | Compliant: unchanged Core advice, wrapping complete text |
@@ -47,7 +47,7 @@ There is no primary save action. All actions remain subordinate.
 | Top content under fade | Fix required: input-transparent themed 20pt fade with matching initial content reservation |
 | Busy/pull refresh | Compliant: retained shared BusyCard and hidden native spinner, no clearing or forced scroll |
 | Failed alerts/templates represented as empty/default | Fix required: explicit retry status, no false empty/default, last good rows/template retained; stale generations cannot overwrite newer supplementary content |
-| Failed target-name lookup | Fix required: explicit retry status and retain existing names; first load falls back to actual IDs |
+| Failed target-name lookup | Fix required: explicit retry status and rebuild current target IDs using last good lookup lists or ID fallback |
 | Initial/empty/error | Compliant after fixes: empty only after successful alerts response, main error has Retry, prior rule content retained on failure |
 | Descendant return, resume, folding, screen-reader activation, text fitting and contrast on hardware | Unverified: exact device matrix below |
 
@@ -87,7 +87,7 @@ for each of the following before user acceptance:
    notes/procedure, unknown per-entity flag, inherited limit, compatibility
    advice and long template name. Check no clipping, complete wrapping,
    readable code contrast and no duplicate disabled/severity announcements.
-4. VoiceOver and TalkBack: activate whole template/alert buttons and notification
+4. VoiceOver and TalkBack: activate whole template/alert rows and notification
    Change/Undo once, hear complete names/state and target, reach 44pt actions,
    confirm focus after return and complete source text reading.
 5. Slow first load, empty successful alerts, rule missing, denied/offline alerts,
@@ -100,3 +100,31 @@ for each of the following before user acceptance:
    Repeat with Reduce Motion; inspect diagnostics for placement loops/overlap.
 
 #447 and #442 remain open. No epic ticks or acceptance inferred from CI.
+
+## Review remediation after f0de435
+
+Resolved the supplied Claude findings: corrected the SQL fixture to use Core's
+settable Options.OverrideQuery and replaced filtered Assert.Single calls with
+predicate overloads. Centralised untrimmed condition selection in RuleText,
+retaining its trimmed list API. Added regression coverage for first and subsequent
+target lookup failures with changed IDs, combined supplementary failures, truthful
+initial wording, and old supplementary generations completing after a newer failed
+lookup. Tests are written but have not run locally.
+
+Restored settings dividers and alert ListRow presentation (dot, title, state,
+age and line), wrapping whole-row actions instead of multiline native buttons.
+Retry actions have distinct accessible descriptions. Visible BackBar uses zero
+top reservation, matching DeviceDetailView; hidden Back retains the 20pt fade
+reservation. Glass Moved subscription is idempotent. Host inset ownership,
+relative routes and immediate notification Change/Undo remain unchanged.
+
+At f0de435, unit CI failed with CS0200; iOS simulator and CodeQL actions/C#
+passed. Android and Swift were pending at the supplied review snapshot; a later
+takeover query showed Android passed and Swift still pending. Replacement CI is
+pending. No local builds or tests were run. Parent must obtain a fresh mandatory
+Claude 5.5 Medium full-diff review after this push; this self-inspection does not
+satisfy that review gate.
+
+No device acceptance: toast beside a side pill, whole-row screen-reader
+activation, real wrapping at largest text, Duo fold/rotate/resume, glass reclaim,
+and both themes/code contrast all remain unverified, along with the matrix above.

@@ -35,6 +35,7 @@ public sealed class AlertRulePage : ContentPage, IQueryAttributable
         TabBarButtons.Show(this, null, string.Empty,
             [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true)]);
+        TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();

@@ -17,9 +17,13 @@ public static class RuleText
     /// query, that being what actually runs.
     /// </summary>
     public static string Condition(AlertRule rule) =>
+        ConditionSource(rule).Trim();
+
+    /// <summary>The complete condition for detail reading, preserving source whitespace.</summary>
+    public static string ConditionSource(AlertRule rule) =>
         (rule.Extra?.OverrideQuery == true && !string.IsNullOrWhiteSpace(rule.Query)
             ? rule.Query
-            : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query ?? string.Empty).Trim();
+            : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query ?? string.Empty);
 
     /// <summary>
     /// "3 devices, 2 groups", "1 location", or "All devices" when nothing is

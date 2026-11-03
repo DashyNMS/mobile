@@ -127,6 +127,9 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
 
     public bool HasSupplementaryStatus => !string.IsNullOrEmpty(SupplementaryStatus);
     private int _generation;
+    private IReadOnlyDictionary<int, Device> _devices = new Dictionary<int, Device>();
+    private IReadOnlyList<DeviceGroup> _groups = [];
+    private IReadOnlyList<Location> _locations = [];
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -149,6 +152,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         }
 
         ShowRule(rule);
+        ShowTargets(rule, _devices, _groups, _locations, _settings.Current);
         HasLoaded = true;
         OnPropertyChanged(nameof(CanChangeNotifications));
         Extras = LoadExtrasAsync(rule, alertsTask, templatesTask, generation);
@@ -171,9 +175,9 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         var templates = await templatesTask;
         var reportedAlerts = await alertsTask;
         if (generation != _generation) return;
-        SupplementaryStatus = templates is null || reportedAlerts is null
-            ? "Some details could not be refreshed. Pull to refresh or use Retry; previously loaded details are retained." : null;
-        OnPropertyChanged(nameof(HasSupplementaryStatus));
+        var failures = new List<string>();
+        if (templates is null) failures.Add("Template could not be loaded.");
+        if (reportedAlerts is null) failures.Add("Alerts could not be loaded.");
         if (templates is not null) ShowTemplate(rule, templates);
         else if (!HasTemplate) TemplateName = "Template unavailable";
 
@@ -197,12 +201,14 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         var locations = await locationsTask;
         if (generation != _generation) return;
         if (groups is null || locations is null || (rule.Devices.Count > 0 && devices is null))
-        {
-            SupplementaryStatus = "Some target names could not be refreshed. Pull to refresh or use Retry.";
-            OnPropertyChanged(nameof(HasSupplementaryStatus));
-            if (HasTargetNames) return;
-        }
-        ShowTargets(rule, devices ?? new Dictionary<int, Device>(), groups ?? [], locations ?? [], settings);
+            failures.Add("Some target names could not be loaded; cached names or IDs are shown.");
+        if (devices is not null) _devices = devices;
+        if (groups is not null) _groups = groups;
+        if (locations is not null) _locations = locations;
+        ShowTargets(rule, _devices, _groups, _locations, settings);
+        SupplementaryStatus = failures.Count == 0 ? null
+            : string.Join(" ", failures) + " Pull to refresh or use Retry.";
+        OnPropertyChanged(nameof(HasSupplementaryStatus));
     }
 
     private void ShowAlerts(IReadOnlyList<Alert> alerts, AppSettings settings, IReadOnlyDictionary<int, Device>? devices)
@@ -244,9 +250,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         Severity = rule.Severity;
         SeverityText = rule.Severity.ToDisplayString();
         IsDisabled = rule.Disabled;
-        Condition = rule.Extra?.OverrideQuery == true && !string.IsNullOrWhiteSpace(rule.Query)
-            ? rule.Query
-            : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query ?? string.Empty;
+        Condition = RuleText.ConditionSource(rule);
         ConditionNote = string.Join(" ", new[]
         {
             rule.Extra?.OverrideQuery == true ? "Hand-written SQL, run exactly as written." : null,
