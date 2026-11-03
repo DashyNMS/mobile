@@ -158,13 +158,24 @@ public sealed class NeighboursViewModelTests
         Assert.False(page.OpenRemoteCommand.CanExecute(null));
         Assert.Equal("Port unknown", page.RemotePortText);
         Assert.Equal("State unknown", page.RemoteStateText);
+        Assert.Equal(RowStatus.Inactive, page.Status);
         Assert.Contains("example.net long remote endpoint", page.RemoteActionDescription);
         Assert.Contains("State unknown", page.RemoteActionDescription);
         Assert.Contains("Active", page.RemoteActionDescription);
         Assert.Equal(description, page.Fields.Single(f => f.Key == "Switch port description").Value);
+        page.Load(snapshot with { SwitchPortDescription = "  \t\n " });
+        Assert.DoesNotContain(page.Fields, f => f.Key == "Switch port description");
+        page.Load(snapshot with
+        {
+            IsProblem = false,
+            Local = new NeighbourEnd("local.example.net", 1, "port1", true, true),
+            Remote = new NeighbourEnd("remote.example.net", 2, "port2", true, true),
+        });
+        Assert.Equal(RowStatus.Ok, page.Status);
         page.Load(links[0]);
+        Assert.Equal(RowStatus.Critical, page.Status);
         Assert.True(page.OpenRemoteCommand.CanExecute(null));
-        Assert.Equal(2, changes);
+        Assert.Equal(4, changes);
         await page.OpenRemoteCommand.ExecuteAsync(null);
         Assert.Equal(Routes.DeviceDetail, Assert.Single(_navigation.Visits).Route);
         Assert.Equal(3, _navigation.Visits[0].Parameters![Routes.DeviceIdParameter]);

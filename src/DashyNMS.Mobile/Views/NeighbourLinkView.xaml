@@ -14,13 +14,13 @@
      <VerticalStackLayout Spacing="12" IsVisible="{Binding HasLink}">
       <Label Text="Link" Style="{StaticResource PageTitle}" SemanticProperties.HeadingLevel="Level1" />
       <Label Text="{Binding StatusText}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" />
-      <Label Text="{Binding SubtitleText}" Style="{StaticResource Faint}" LineBreakMode="CharacterWrap" />
+      <Label Text="{Binding SubtitleText}" Style="{StaticResource Faint}" LineBreakMode="WordWrap" />
       <Border Style="{StaticResource Card}">
        <VerticalStackLayout Spacing="12">
         <Label Text="Local endpoint" Style="{StaticResource SectionHeader}" SemanticProperties.HeadingLevel="Level2" />
         <Label Text="{Binding Link.Local.Name}" LineBreakMode="CharacterWrap" />
         <Label Text="{Binding LocalPortText}" FontFamily="Mono" LineBreakMode="CharacterWrap" />
-        <Label Text="{Binding LocalStateText}" Style="{StaticResource Caption}" />
+        <Label Text="{Binding LocalStateText}" Style="{StaticResource Caption}" TextColor="{Binding Link.Local.Status, Converter={StaticResource StatusText}}" />
         <Grid MinimumHeightRequest="44" Padding="0,8" AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Description="{Binding LocalActionDescription}" IsVisible="{Binding Link.Local.CanOpen}">
          <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenLocalCommand}" /></Grid.GestureRecognizers>
          <Label Text="{Binding Link.Local.OpenText}" LineBreakMode="CharacterWrap" AutomationProperties.IsInAccessibleTree="False" TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
@@ -32,7 +32,7 @@
         <Label Text="Remote endpoint" Style="{StaticResource SectionHeader}" SemanticProperties.HeadingLevel="Level2" />
         <Label Text="{Binding Link.Remote.Name}" LineBreakMode="CharacterWrap" />
         <Label Text="{Binding RemotePortText}" FontFamily="Mono" LineBreakMode="CharacterWrap" />
-        <Label Text="{Binding RemoteStateText}" Style="{StaticResource Caption}" />
+        <Label Text="{Binding RemoteStateText}" Style="{StaticResource Caption}" TextColor="{Binding Link.Remote.Status, Converter={StaticResource StatusText}}" />
         <Grid MinimumHeightRequest="44" Padding="0,8" AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Description="{Binding RemoteActionDescription}" IsVisible="{Binding Link.Remote.CanOpen}">
          <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenRemoteCommand}" /></Grid.GestureRecognizers>
          <Label Text="{Binding Link.Remote.OpenText}" LineBreakMode="CharacterWrap" AutomationProperties.IsInAccessibleTree="False" TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
@@ -46,7 +46,7 @@
         <DataTemplate x:DataType="sys:KeyValuePair(x:String,x:String)">
          <Border Style="{StaticResource Card}"><VerticalStackLayout Spacing="4">
           <Label Text="{Binding Key}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
-          <Label Text="{Binding Value}" LineBreakMode="CharacterWrap" />
+          <Label Text="{Binding Value}" LineBreakMode="WordWrap" />
          </VerticalStackLayout></Border>
         </DataTemplate>
        </BindableLayout.ItemTemplate>

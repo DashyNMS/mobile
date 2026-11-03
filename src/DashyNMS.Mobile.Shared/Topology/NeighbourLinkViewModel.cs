@@ -50,7 +50,15 @@ public sealed partial class NeighbourLinkViewModel : ObservableObject
         _ => "Active",
     };
 
-    public RowStatus Status => Link?.Row.Status ?? RowStatus.None;
+    /// <summary>Discovery alone is neutral unless both endpoint states are known to be up.</summary>
+    public RowStatus Status => Link switch
+    {
+        null => RowStatus.None,
+        { IsProblem: true } => RowStatus.Critical,
+        { Neighbour.Active: false } => RowStatus.Inactive,
+        { Local.Status: RowStatus.Ok, Remote.Status: RowStatus.Ok } => RowStatus.Ok,
+        _ => RowStatus.Inactive,
+    };
 
     /// <summary>"LLDP · Aruba AP-535".</summary>
     public string SubtitleText => Link is null ? string.Empty : string.Join(" · ", new[] { Link.Row.Value, Link.Platform }.Where(s => !string.IsNullOrWhiteSpace(s)));
@@ -65,7 +73,7 @@ public sealed partial class NeighbourLinkViewModel : ObservableObject
         Field("MAC address", Link.Neighbour.Mac),
         Field("Protocol", Link.Row.Value),
         Field("Switch port description", Link.SwitchPortDescription),
-    }.Where(f => f.Value.Length > 0).ToList();
+    }.Where(f => !string.IsNullOrWhiteSpace(f.Value)).ToList();
 
     public void Load(NeighbourLink link) => Link = link;
 

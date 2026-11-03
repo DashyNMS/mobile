@@ -1,8 +1,8 @@
 # Neighbour link details, #452
 
-Refs #452 and #442. Baseline main 38fa645bb4b97b83221c5437f545585f32089a48.
+Refs #452 and #442. Baseline main 95d50a6709b6caf1122412cae5d09c31be223aca.
 Read live #452/#442/#450/#451/#288, CLAUDE.md, DEVELOPING.md, complete
-DESIGN.md and DESIGN-REFERENCES.md. FULLDESIGN.md is absent. Inspected pending
+DESIGN.md and DESIGN-REFERENCES.md. Inspected
 #490 design/navigation lessons and #491/#492 scope and remote diffs read-only.
 No queued branch was edited. Repo-workflow applied with the user's explicit
 no-local-build/test/script and non-closing-reference overrides.
@@ -45,14 +45,14 @@ API is introduced.
 | Concern | Baseline finding | Outcome |
 | --- | --- | --- |
 | Identity, long names | Endpoint labels and navigation rows truncate; two endpoint columns squeeze narrow panes | Fix: complete character wrapping, stacked endpoint cards at every width; no multiline Button measurement |
-| Metadata | Fixed label/value columns crowd large text; Field trims source | Fix: label above wrapping value, preserve exact field source including whitespace/newlines |
+| Metadata | Fixed label/value columns crowd large text; Field trims source | Fix: label above wrapping value, preserve exact meaningful field source including whitespace/newlines; omit whitespace-only fields |
 | Missing data | Empty endpoint state and question-mark ports; no-payload page blank | Fix: explicit State unknown / Port unknown and no-link return guidance; missing metadata explains absence |
-| Status | Up could imply unobserved remote health | Fix: Active describes discovery; Down and Not active retain precedence; endpoint state remains source-based, unknown is explicit |
+| Status | Up could imply unobserved remote health | Fix: Active describes discovery and uses neutral colour unless both endpoints report up; Down and Not active retain precedence; endpoint state remains source-based, unknown is explicit |
 | Endpoint actions | Tap rows lack joined descriptions, names truncate | Fix: whole 44pt minimum wrapping action, joined side/name/port/state/discovery description, child label excluded; command availability notified on snapshot replacement |
 | Pushed navigation | No glass owner; legacy full safe-area flag | Fix: relative Back and actual caller label, iOS glass with header fallback, top-only native page owner; old flag removed |
 | Embedded navigation | Host already hides Back | Compliant: host ownership preserved, no embedded glass actions |
-| Insets/fade | Fixed 24pt foot, no glass/column-boundary clearance or fade | Fix: host-boundary side clearance, final-content bottom clearance, child None and native scroll Never on handler/load; matching Background RGB fade within viewport below visible BackBar, reserved 20pt |
-| Lifecycle | No pushed retained-stack restoration | Fix: page-local activation/resume hooks, retained Window/Shell unsubscribe, idempotent Moved; view edge watcher disposed on unload/replacement |
+| Insets/fade | Fixed 24pt foot, no glass/column-boundary clearance or fade | Fix: host-boundary side and bottom clearance, final-content bottom clearance, child None and native scroll Never on handler/load; matching Background RGB fade within viewport below visible BackBar, reserved 20pt |
+| Lifecycle | No pushed retained-stack restoration | Fix: central IActivePage activation, no local Window/Shell subscriptions or duplicate glass-move placement; view edge watcher disposed on unload/replacement |
 | Loading/error/stale/toast | No such detail capabilities | Compliant scope: preserve snapshot contract; freshness cannot be independently verified |
 | Native layout and assistive activation | No hardware evidence | Unverified; exact matrix below |
 
@@ -65,22 +65,24 @@ No shared helper/global edit or accepted-consumer migration is included.
 Queue #489 -> #490 -> #491 (#450) -> #492 (#451) -> this PR. Parent updates
 ONLY this branch when its turn arrives, after predecessors land. #490 owns the
 central AppShell activation and BackBar root-title fallback. This PR does not
-copy or edit that central fix; local pushed activation can be aligned with its
-merged IActivePage hook during the parent's sequential update. #491 owns saved
-list and #492 editor and shared setup changes. No root-list/search expansion.
+copy or edit that central fix; pushed activation now implements its IActivePage
+hook. #491 owns the saved list and #492 the editor and shared setup changes.
+No root-list/search expansion.
 #288 still owns Neighbours mock-ups and global light-theme acceptance.
 
 ## Validation and remaining evidence
 
-Full intended diff self-inspection and whitespace inspection are distinct from
-independent review. Regression coverage added for source fidelity, unknown
-ports/state, action availability replacement and relative device identity;
-existing endpoint navigation assertions retained. Tests were not run. No local
-builds, tests, scripts, review delegates, watch, merge or release were performed.
-CI (shared tests, Android and iOS compilation) remains pending, not a device
-result. Parent Claude Opus 5.5 Medium review is mandatory once quota returns,
-after the sequential update; no child Claude attempt or independent Codex
-review substitutes for it. Issues remain open and epic boxes untouched.
+Claude Opus 5.5 Medium reviewed the full diff at 551d647 against main 95d50a6.
+One medium, three low and two nit findings were addressed: central activation,
+host-relative bottom clearance, honest status colours, omission of blank-only
+fields, prose word wrapping and removal of duplicate glass-move placement.
+Regression assertions cover neutral unknown state, known-up state and blank-only
+fields while retaining exact meaningful field text and endpoint navigation.
+Full intended diff and whitespace were inspected. Unit tests passed in both CI
+runs at the reviewed head, confirming pinned Core compatibility. Android, iOS
+and Swift analysis were pending at review time; replacement CI remains pending.
+No local builds or tests ran. All device results remain unverified.
+Issues remain open and epic boxes untouched.
 
 Run every row below in light and dark themes, default and large text. Record
 commit/build, OS/device, actual outcome and diagnostics separately; all are

@@ -60,7 +60,7 @@ public sealed partial class NeighbourLinkView : ContentView
 #endif
         if (_page is null) return;
         var edges = CoveredEdges.ForScrolling(_page);
-        double left = edges.Left, right = edges.Right;
+        double left = edges.Left, right = edges.Right, bottom = edges.Bottom;
 #if IOS
         // Insets belong only to the part of the host that reaches this column.
         if (_page.Handler?.PlatformView is UIView host && Handler?.PlatformView is UIView detail)
@@ -68,12 +68,13 @@ public sealed partial class NeighbourLinkView : ContentView
             var bounds = detail.ConvertRectToView(detail.Bounds, host);
             left = Math.Max(0, left - bounds.Left);
             right = Math.Max(0, right - (host.Bounds.Width - bounds.Right));
+            bottom = Math.Max(0, bottom - (host.Bounds.Height - bounds.Bottom));
         }
 #endif
         TopBar.IsVisible = TopBar.ShowsBack;
         TopBar.Margin = new Thickness(16 + left, 0, 16 + right, 0);
         Viewport.Margin = new Thickness(16 + left, 0, 16 + right, 0);
-        Column.Padding = new Thickness(0, 20, 0, 24 + edges.Bottom);
+        Column.Padding = new Thickness(0, 20, 0, 24 + bottom);
     }
 
     public void Load(IDictionary<string, object>? parameters)
