@@ -44,7 +44,11 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         _navigation = navigation;
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(IsBusy)) CompareSelectedCommand.NotifyCanExecuteChanged();
+            if (e.PropertyName == nameof(IsBusy))
+            {
+                OnPropertyChanged(nameof(IsEmpty));
+                CompareSelectedCommand.NotifyCanExecuteChanged();
+            }
         };
     }
 

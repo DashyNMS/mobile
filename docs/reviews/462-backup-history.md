@@ -122,3 +122,10 @@ deduplicates Moved. History implements IActivePage; contents and diff adopt it
 under #463/#464. All three consumers retain inset/footer contracts. Refresh no
 longer forgets device cache while busy. Replacement CI and fresh Claude review
 remain pending. No local builds/tests ran; all device results are unverified.
+
+Claude re-reviewed de51335 and confirmed all prior medium findings and tests.
+The remaining fade is moved inside the card with a 1pt stroke inset, and IsBusy
+changes immediately notify IsEmpty. Activation after a failed first load is an
+intentional automatic retry. Unit tests passed at the re-reviewed head;
+replacement CI remains pending. Native rendering and timeout behaviour remain
+device checks, with no acceptance claimed.

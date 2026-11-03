@@ -38,6 +38,7 @@
 
         <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
         <Border Grid.Row="3" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0">
+            <Grid SafeAreaEdges="None">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView x:Name="Rows" Margin="0,-1,0,0" ItemsSource="{Binding Backups}" SelectionMode="None">
                     <CollectionView.EmptyView>
@@ -86,11 +87,7 @@
                     </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
-        </Border>
-
-        <Button x:Name="CompareButton" Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
-                IsVisible="{Binding IsComparing}" />
-        <BoxView Grid.Row="3" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+        <BoxView Margin="1,1,1,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
@@ -98,6 +95,12 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+            </Grid>
+        </Border>
+
+        <Button x:Name="CompareButton" Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
+                IsVisible="{Binding IsComparing}" />
+
     </Grid>
 
 </ContentPage>
