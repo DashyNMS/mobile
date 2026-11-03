@@ -2,59 +2,74 @@ using DashyNMS.Mobile.Graylog;
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Views;
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>
-/// Shown via <see cref="Routes.GraylogMessage"/>, with the entry and its list
-/// (#117). The entry itself is <see cref="GraylogMessageView"/>, which the Graylog
-/// list also shows beside itself on a larger screen (#88).
-/// </summary>
-public sealed class GraylogMessagePage : ContentPage, IQueryAttributable
+/// <summary>Pushed message host; embedded messages retain their list's glass owner.</summary>
+public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActivePage
 {
-	private readonly GraylogMessageView _view;
+    private readonly GraylogMessageView _view;
+    private IDisposable? _edges;
+    private bool _showing;
 
-	public GraylogMessagePage(GraylogMessageViewModel viewModel)
-	{
-		BindingContext = viewModel;
-		Title = "Message";
-		On<iOS>().SetUseSafeArea(true);
-		Content = _view = new GraylogMessageView(viewModel);
-	}
-
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		_view.Bar.Apply(this);
+    public GraylogMessagePage(GraylogMessageViewModel viewModel)
+    {
+        BindingContext = viewModel;
+        Title = "Message";
 #if IOS
-		_view.Bar.IsVisible = !TabBarButtons.IsAvailable;
-		if (TabBarButtons.IsAvailable)
-		{
-			TabBarButtons.Show(this, null, string.Empty,
-			[
-				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
-			]);
-		}
-		TabBarButtons.Moved += OnGlassMoved;
-		PlaceFooter();
+        SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
 #endif
-	}
+        Content = _view = new GraylogMessageView(viewModel);
+    }
 
-	protected override void OnDisappearing()
-	{
-		base.OnDisappearing();
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        Activate();
+    }
+
+    /// <summary>Restores retained message controls through AppShell's single activation owner.</summary>
+    public void Activate()
+    {
+        _showing = true;
+        _view.Bar.Apply(this);
+        _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-		TabBarButtons.Moved -= OnGlassMoved;
-		TabBarButtons.Hide(this);
+        TabBarButtons.Moved -= OnGlassMoved;
+        TabBarButtons.Moved += OnGlassMoved;
 #endif
-	}
+        RestoreGlass();
+        PlaceControls();
+    }
 
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _showing = false;
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
-	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
-	private void PlaceFooter() => _view.SetGlassClearance(TabBarButtons.CoveredBottom);
+        TabBarButtons.Moved -= OnGlassMoved;
+        TabBarButtons.Hide(this);
 #endif
+    }
 
-	public void ApplyQueryAttributes(IDictionary<string, object> query) => _view.Load(query);
+    private void RestoreGlass()
+    {
+#if IOS
+        _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
+        if (TabBarButtons.IsAvailable)
+            TabBarButtons.Show(this, null, string.Empty,
+            [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => { if (_showing) _ = Shell.Current.GoToAsync(".."); }, IsBack: true)]);
+#endif
+    }
+
+    private void PlaceControls()
+    {
+        if (_showing) _view.PlaceContent(CoveredEdges.ForScrolling(this));
+    }
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+#endif
+    public void ApplyQueryAttributes(IDictionary<string, object> query) => _view.Load(query);
 }

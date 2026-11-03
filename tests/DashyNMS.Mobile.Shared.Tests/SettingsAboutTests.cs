@@ -11,6 +11,91 @@ namespace DashyNMS.Mobile.Tests;
 public sealed class SettingsAboutTests
 {
     [Fact]
+    public void Service_summaries_describe_enablement_without_exposing_url_credentials()
+    {
+        var settings = new AppSettings();
+        settings.Graylog.Enabled = true;
+        settings.Graylog.Server = "https://example-user:synthetic-password@logs.example.net/private?token=synthetic";
+        settings.Unimus.Enabled = true;
+        settings.Unimus.Url = "";
+        var vm = NewViewModel(appSettings: settings);
+        Assert.Equal("On · logs.example.net", vm.GraylogStatusText);
+        Assert.Equal("On · server address unavailable", vm.UnimusStatusText);
+    }
+
+    [Theory]
+    [InlineData("logs.example.net", "logs.example.net")]
+    [InlineData("logs.example.net:9000", "logs.example.net")]
+    [InlineData("https://example-user:synthetic-password@logs.example.net/private?token=synthetic", "logs.example.net")]
+    public void Enabled_service_summaries_accept_saved_address_forms_and_show_only_hosts(string address, string host)
+    {
+        var settings = new AppSettings();
+        settings.Graylog.Enabled = settings.Unimus.Enabled = true;
+        settings.Graylog.Server = settings.Unimus.Url = address;
+        var vm = NewViewModel(appSettings: settings);
+        Assert.Equal("On · " + host, vm.GraylogStatusText);
+        Assert.Equal("On · " + host, vm.UnimusStatusText);
+    }
+
+    [Fact]
+    public void Unsupported_service_schemes_are_not_presented_as_valid_sources()
+    {
+        var settings = new AppSettings();
+        settings.Graylog.Enabled = settings.Unimus.Enabled = true;
+        settings.Graylog.Server = settings.Unimus.Url = "ftp://logs.example.net";
+        var vm = NewViewModel(appSettings: settings);
+        Assert.Equal("On · server address unavailable", vm.GraylogStatusText);
+        Assert.Equal("On · server address unavailable", vm.UnimusStatusText);
+    }
+
+    [Fact]
+    public async Task Cancelling_sign_out_keeps_the_session_and_does_not_navigate()
+    {
+        var session = Substitute.For<ISessionService>();
+        var navigation = new RecordingNavigation();
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<string>()).Returns((string?)null);
+        var vm = NewViewModel(session: session, navigation: navigation, dialogs: dialogs);
+        await vm.SignOutCommand.ExecuteAsync(null);
+        session.DidNotReceive().SignOut(Arg.Any<bool>());
+        Assert.Empty(navigation.Visits);
+    }
+
+    [Fact]
+    public void Disconnected_summary_does_not_claim_a_secure_connection()
+    {
+        var vm = NewViewModel();
+        Assert.Equal("Not signed in", vm.ServerHost);
+        Assert.Equal("No active connection", vm.ServerSummary);
+    }
+
+    [Fact]
+    public void Unknown_server_version_is_explicit_and_does_not_change_transport_warning()
+    {
+        var session = Substitute.For<ISessionService>();
+        session.Connection.Returns(new LibreNmsConnection(new Uri("http://nms.example.net/"), "synthetic-token"));
+        var vm = NewViewModel(session);
+        Assert.Equal("LibreNMS unknown · not secure (http)", vm.ServerSummary);
+    }
+
+    [Theory]
+    [InlineData(SettingsSection.Server)]
+    [InlineData(SettingsSection.Appearance)]
+    [InlineData(SettingsSection.Devices)]
+    [InlineData(SettingsSection.AlertChecks)]
+    [InlineData(SettingsSection.Notifications)]
+    [InlineData(SettingsSection.LockScreen)]
+    [InlineData(SettingsSection.Diagnostics)]
+    public async Task Sections_keep_their_relative_route_and_section_identity(SettingsSection section)
+    {
+        var navigation = new RecordingNavigation();
+        var vm = NewViewModel(navigation: navigation);
+        await vm.OpenSectionCommand.ExecuteAsync(section);
+        Assert.Equal(Routes.SettingsSection, navigation.Visits.Single().Route);
+        Assert.Equal(section, navigation.Visits.Single().Parameters![Routes.SettingsSectionParameter]);
+    }
+
+    [Fact]
     public async Task The_about_card_opens_the_privacy_policy_and_support_pages_in_the_browser()
     {
         var settings = Fakes.Settings(new AppSettings());
@@ -32,7 +117,8 @@ public sealed class SettingsAboutTests
 
     internal static SettingsViewModel NewViewModel(
         ISessionService? session = null, AppSettings? appSettings = null, SensorDefinitions? definitions = null,
-        WhatsNew? whatsNew = null, RecordingNavigation? navigation = null, DiagnosticsConsent? consent = null)
+        WhatsNew? whatsNew = null, RecordingNavigation? navigation = null, DiagnosticsConsent? consent = null,
+        IDialogService? dialogs = null)
     {
         var settings = Fakes.Settings(appSettings ?? new AppSettings());
         session ??= Substitute.For<ISessionService>();
@@ -40,7 +126,7 @@ public sealed class SettingsAboutTests
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
         return new SettingsViewModel(
-            session, settings, Substitute.For<IDialogService>(), navigation ?? new RecordingNavigation(), new RecordingNotifier(), coordinator,
+            session, settings, dialogs ?? Substitute.For<IDialogService>(), navigation ?? new RecordingNavigation(), new RecordingNotifier(), coordinator,
             new NoAppBadge(), new InMemoryAppearance(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(),
             whatsNew: whatsNew,
             diagnostics: new DiagnosticsLog(null, TimeProvider.System, "2.0.0 (412)", "Apple iPhone16,1 · iOS 26.1"),

@@ -7,7 +7,10 @@ public sealed class ShareService : IShareService
     /// <summary>A folder of its own, so clearing old exports can't touch anything else in the cache.</summary>
     private static string ExportsFolder => Path.Combine(FileSystem.CacheDirectory, "exports");
 
-    public async Task ShareTextFileAsync(string fileName, string contents, string contentType, string title)
+    public Task ShareTextFileAsync(string fileName, string contents, string contentType, string title) =>
+        ShareBytesFileAsync(fileName, System.Text.Encoding.UTF8.GetBytes(contents), contentType, title);
+
+    public async Task ShareBytesFileAsync(string fileName, byte[] contents, string contentType, string title)
     {
         // The share sheet needs a real file, but nothing here needs keeping
         // once it's been handed over - the last export goes when the next is
@@ -16,7 +19,7 @@ public sealed class ShareService : IShareService
         Directory.CreateDirectory(ExportsFolder);
 
         var path = Path.Combine(ExportsFolder, Path.GetFileName(fileName));
-        await File.WriteAllTextAsync(path, contents);
+        await File.WriteAllBytesAsync(path, contents);
 
         await MainThread.InvokeOnMainThreadAsync(() =>
             Share.Default.RequestAsync(new ShareFileRequest(title, new ShareFile(path, contentType))));
