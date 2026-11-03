@@ -534,7 +534,7 @@ public sealed class DeviceSectionLoaderTests
         Assert.Null(rows[0].Value);
         Assert.Equal("Name unavailable", rows[0].VlanNameText);
         Assert.Equal("No member ports reported", rows[0].VlanPortsText);
-        Assert.True(rows[0].Matches("count unavailable"));
+        Assert.True(rows[0].Matches("member ports reported"));
         Assert.Equal(name, rows[1].Subtitle);
         Assert.Equal("1 port", rows[1].Value);
         Assert.Equal($"VLAN 100, {name}, 1 port", rows[1].VlanDescription);

@@ -118,3 +118,7 @@ unverified. The regression expectation is updated. Overview title weight and
 spacing now match other stacked highlights. Card-wide gestures remain unchanged.
 Replacement CI is pending; no local builds/tests ran. All hardware outcomes and
 issue acceptance remain unverified.
+
+CI at c85d73c passed 1,218 tests and exposed one stale search assertion for the
+old count wording. The regression now checks member ports reported. Replacement
+CI is pending; no local tests ran.
