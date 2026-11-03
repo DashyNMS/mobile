@@ -13,25 +13,37 @@ function harness(data = pins, size = { x: 800, y: 600 }) {
   const fire = name => (events[name] ?? []).forEach(fn => fn());
   const zoom = { style: {}, offsetHeight: 90 };
   const controls = { style: {}, querySelector: () => zoom, querySelectorAll: () => [] };
-  const container = { clientHeight: size.y, querySelector: () => controls };
+  const container = { clientWidth: size.x, clientHeight: size.y, querySelector: () => controls };
+  // Leaflet 1.9.4 getSize caches client geometry; invalidateSize returns before
+  // touching that cache when !_loaded. A live-size stub concealed the deadlock.
+  let cachedSize = { ...size }, loaded = false, tileViews = 0;
   const map = {
     zoom: undefined, offset: [0, 0],
     on(names, fn) { names.split(' ').forEach(name => (events[name] ??= []).push(fn)); },
-    getZoom() { return this.zoom; }, getSize() { return size; },
+    getZoom() { return this.zoom; }, getSize() { return { ...cachedSize }; },
     getContainer() { return container; },
     setView(centre, zoom, options = {}) {
       assert.ok(Number.isFinite(zoom), 'focus cannot use an undefined zoom');
-      const move = () => { fire('zoomstart'); fire('movestart'); this.centre = centre; this.zoom = zoom; this.offset = [0, 0]; fire('zoomend'); };
+      const move = () => { fire('zoomstart'); fire('movestart'); loaded = true; this.centre = centre; this.zoom = zoom; this.offset = [0, 0]; fire('zoomend'); fire('viewreset'); };
       if (options.animate === false || this.zoom === undefined) move(); else pending.push(move);
     },
     fitBounds(bounds, options) { fits.push(options); this.setView(bounds[0], 12, { animate: false }); },
     panBy(delta) { fire('movestart'); this.offset = this.offset.map((n, i) => n + delta[i]); },
-    stop() { pending.length = 0; }, invalidateSize() {},
+    stop() { pending.length = 0; },
+    invalidateSize() { if (loaded) cachedSize = { x: container.clientWidth, y: container.clientHeight }; },
     latLngToLayerPoint(at) { return { x: at[0], y: at[1] }; }, layerPointToLatLng(at) { return at; },
   };
   const layer = { addTo: () => layer, clearLayers() { markers.length = 0; }, addLayer(marker) { markers.push(marker); }, eachLayer(fn) { markers.forEach(fn); } };
   const L = {
-    map: () => map, tileLayer: () => ({ addTo() {} }), layerGroup: () => layer, divIcon: x => x,
+    map: () => map,
+    tileLayer: () => ({ addTo(target) {
+      assert.equal(target, map);
+      target.on('viewreset', () => {
+        const size = target.getSize();
+        if (size.x > 0 && size.y > 0 && Number.isFinite(target.getZoom())) tileViews++;
+      });
+    } }),
+    layerGroup: () => layer, divIcon: x => x,
     marker: () => ({ events: {}, element: { style: {} }, on(name, fn) { this.events[name] = fn; }, getElement() { return this.element; } }),
     latLngBounds: points => ({ getCenter: () => [points.reduce((n, p) => n + p[0], 0) / points.length, points[0][1]] }),
   };
@@ -39,8 +51,34 @@ function harness(data = pins, size = { x: 800, y: 600 }) {
   const document = { getElementById: () => ({ classList: { toggle() {} } }), createElement: () => ({ style: {}, appendChild() {} }) };
   runInNewContext(bridge.replace('{{data}}', JSON.stringify({ pins: data, tiles: '', attribution: '' })).replace('{{ClusterRadius}}', '26').replace('{{PinScheme}}', 'dashynms-map'),
     { L, window, document, setTimeout: fn => timers.push(fn) });
-  return { window, map, fits, markers, timers, pending, fire, controls, zoom, container };
+  return { window, map, fits, markers, timers, pending, fire, controls, zoom, container, tileViews: () => tileViews };
 }
+
+test('zero-size document load recovers on native clearance or resize, with pins or empty source', () => {
+  for (const data of [pins, []]) {
+    for (const trigger of ['native', 'resize']) {
+      const h = harness(data, { x: 0, y: 0 });
+      h.window.setSelection(data.length ? [0] : [], true, true, true);
+      h.window.setMapClearance(60, 20, 100, 20);
+      h.timers[0](); // document loaded; layout still absent
+      assert.equal(h.map.zoom, undefined);
+      assert.equal(h.tileViews(), 0);
+      h.container.clientWidth = 800;
+      h.container.clientHeight = 600;
+      assert.equal(h.map.getSize().y, 0, 'Leaflet cache remains stale before a view');
+      if (trigger === 'native') h.window.setMapClearance(60, 20, 100, 20);
+      else h.fire('resize');
+      assert.equal(h.map.getSize().y, 600);
+      assert.equal(h.map.zoom, data.length ? 12 : 2);
+      assert.ok(h.tileViews() > 0, 'tile layer receives an initial camera');
+      assert.equal(h.markers.length, data.length ? 1 : 0, 'actual bridge draws clustered pins');
+      assert.equal(h.zoom.style.visibility, '');
+      const fits = h.fits.length;
+      h.fire('resize');
+      assert.equal(h.fits.length, fits, 'later resize does not refit');
+    }
+  }
+});
 
 test('merged zoom and safe offset have one owner, including rapid taps and native choices', () => {
   const h = harness();

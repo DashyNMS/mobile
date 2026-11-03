@@ -306,8 +306,16 @@ public static class MapHtml
               // Native geometry normally starts the map. A timed fallback also makes
               // it usable when the first bridge call is lost during document load.
               function initialise() {
-                if (ready || map.getSize().y <= 0 || map.getSize().x <= 0) return;
-                programmatic(function () { fit(); });
+                var container = map.getContainer();
+                if (ready || container.clientHeight <= 0 || container.clientWidth <= 0) return;
+                programmatic(function () {
+                  // Leaflet caches getSize(), even before layout, and invalidateSize
+                  // is a no-op until a view exists. Seed that view before invalidating
+                  // so a document loaded at zero size can fit its eventual viewport.
+                  map.setView([20, 0], 2, { animate: false });
+                  map.invalidateSize({ pan: false });
+                  fit();
+                });
                 fitWithoutClearance = !hasClearance;
                 ready = true;
                 if (pendingFocus) focusSelection();

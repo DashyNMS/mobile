@@ -475,3 +475,14 @@ alerts must retain the selected tab and pop to their actual caller, with caller
 Back in glass or the header fallback. Fade endpoints must share the actual
 viewport surface RGB, span that viewport and reserve 20pt without blocking input.
 See [the corrective assessment and exact regression matrix](reviews/alert-navigation-correction.md).
+
+Geographic-map startup proposals, pending Claude Opus 5.5 Medium review and
+hardware acceptance: use live DOM viewport dimensions to gate first layout.
+Leaflet's cached getSize and pre-view invalidateSize cannot establish readiness;
+seed a view before invalidating and fitting. CI must execute the embedded bridge
+with document load before geometry, cached zero size, later native clearance and
+resize, normal/empty pins and pending selection, requiring camera and draw
+activity rather than source substrings. Keep fitting zoom controls visible and
+retain the defined insufficient-space pinch fallback. Real tiles, native clips,
+gestures, glass and fold/rotation still require the device matrix in
+[the map correction assessment](reviews/map-loading-correction.md).
