@@ -31,7 +31,9 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IMapAssets _assets;
+    private readonly IDialogService _dialogs;
     private int _deviceCount;
+    public long SelectionVersion { get; private set; }
     public IReadOnlyList<int> SelectedPinIds { get; private set; } = [];
 
     private IReadOnlyList<(MapPinData Pin, IReadOnlyList<DeviceItem> Devices)> _pins = [];
@@ -45,19 +47,22 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _unplacedText = string.Empty;
 
-    public MapViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IMapAssets assets)
+    public MapViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IMapAssets assets, IDialogService dialogs)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
         _assets = assets;
+        _dialogs = dialogs;
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(IsBusy) or nameof(HasError) or nameof(MapPage))
             {
                 OnPropertyChanged(nameof(EmptyText));
                 OnPropertyChanged(nameof(HasEmptyText));
+                OnPropertyChanged(nameof(HasUnplacedText));
                 OnPropertyChanged(nameof(CanChooseLocation));
+                ChooseLocationCommand.NotifyCanExecuteChanged();
             }
         };
     }
@@ -71,7 +76,7 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     public IReadOnlyList<MapPinData> Locations => _pins.Select(p => p.Pin).ToList();
 
     public bool HasEmptyText => !string.IsNullOrEmpty(EmptyText);
-    public bool HasUnplacedText => !string.IsNullOrEmpty(UnplacedText);
+    public bool HasUnplacedText => !HasEmptyText && !string.IsNullOrEmpty(UnplacedText);
     partial void OnUnplacedTextChanged(string value) => OnPropertyChanged(nameof(HasUnplacedText));
     public bool CanChooseLocation => !IsBusy && _pins.Count > 0;
 
@@ -123,6 +128,7 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
         OnPropertyChanged(nameof(Locations));
         OnPropertyChanged(nameof(CanChooseLocation));
+        ChooseLocationCommand.NotifyCanExecuteChanged();
         var unplaced = placement.UnplacedDeviceIds.Count;
         UnplacedText = unplaced == 0 ? string.Empty
             : $"{unplaced} {(unplaced == 1 ? "device has" : "devices have")} no location with coordinates, so {(unplaced == 1 ? "isn't" : "aren't")} on the map.";
@@ -151,6 +157,33 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public bool HasSingleLocation => _selectedNames.Count == 1;
 
+    /// <summary>Snapshot choices retain their pin IDs even when display names repeat.</summary>
+    [RelayCommand(CanExecute = nameof(CanChooseLocation))]
+    private async Task ChooseLocationAsync()
+    {
+        if (!CanChooseLocation) return;
+        var locations = Locations;
+        var duplicates = locations.GroupBy(p => (p.Name, p.Count)).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+        var choices = locations.OrderBy(p => p.Name, NaturalOrder.Instance).Select(p =>
+        {
+            var label = $"{p.Name} ({p.Count} {(p.Count == 1 ? "device" : "devices")})";
+            if (duplicates.Contains((p.Name, p.Count)))
+                label += FormattableString.Invariant($" · {p.Latitude:G17}, {p.Longitude:G17}");
+            return (Pin: p, Label: label);
+        }).ToList();
+        // Protect against labels which themselves contain another choice's suffix.
+        var used = new HashSet<string>(StringComparer.Ordinal);
+        choices = choices.Select(choice =>
+        {
+            var label = choice.Label;
+            while (!used.Add(label)) label += $" · location ID {choice.Pin.Id}";
+            return (choice.Pin, Label: label);
+        }).ToList();
+        var selected = await _dialogs.ChooseAsync("Choose a map location", choices.Select(c => c.Label).ToList());
+        var match = choices.FindIndex(c => c.Label == selected);
+        if (match >= 0 && Locations.Any(p => p == choices[match].Pin)) SelectPin(choices[match].Pin.Id);
+    }
+
     /// <summary>A pin was tapped on the map.</summary>
     public void SelectPin(int id) => SelectPins([id]);
 
@@ -167,7 +200,7 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
         }
 
         SelectedPinIds = chosen.Select(p => p.Pin.Id).ToList();
-        OnPropertyChanged(nameof(SelectedPinIds));
+        SelectionVersion++;
         _selectedNames = chosen.Select(p => p.Pin.Name).ToList();
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = chosen.Count == 1 ? chosen[0].Pin.Name : $"{chosen.Count} locations";
@@ -175,17 +208,27 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             .SelectMany(p => p.Devices)
             .OrderByDescending(d => d.State == DeviceState.Down)
             .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase));
+        OnPropertyChanged(nameof(SelectedPinIds));
+    }
+
+    /// <summary>A departing card must not clear a choice made during its exit.</summary>
+    public bool ClearSelectionIfCurrent(long version)
+    {
+        if (version != SelectionVersion) return false;
+        ClearSelection();
+        return true;
     }
 
     [RelayCommand]
     private void ClearSelection()
     {
         SelectedPinIds = [];
-        OnPropertyChanged(nameof(SelectedPinIds));
+        SelectionVersion++;
         _selectedNames = [];
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = null;
         Devices.ReplaceAll([]);
+        OnPropertyChanged(nameof(SelectedPinIds));
     }
 
     /// <summary>

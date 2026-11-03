@@ -34,27 +34,30 @@
             </BoxView>
             <controls:BusyCard Grid.Row="2" Text="Loading the map…" IsVisible="{Binding IsBusy}" />
         </Grid>
+        <ContentView x:Name="RowMeasure" Opacity="0" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True" />
         <!-- The tapped location's devices. -->
         <Border x:Name="SelectionCard" VerticalOptions="End" Style="{StaticResource Card}" Margin="8" IsVisible="False">
-            <Grid RowDefinitions="Auto,*">
-                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="4">
-                    <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="WordWrap" />
-                    <!-- The whole location on the Devices tab, filtered to it (#84). -->
-                    <Button Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}"
+            <Grid RowDefinitions="Auto,Auto,Auto">
+                <Button x:Name="CloseSelection" HorizontalOptions="End" Style="{StaticResource LinkButton}" Text="Close" Clicked="OnCloseSelection" />
+                <ScrollView x:Name="HeadingScroll" Grid.Row="1" SafeAreaEdges="None">
+                    <VerticalStackLayout x:Name="SelectionHeading">
+                        <Label Text="{Binding SelectedLocation}" FontFamily="BodySemibold" FontSize="16" VerticalOptions="Center" LineBreakMode="WordWrap" />
+                        <!-- The whole location on the Devices tab, filtered to it (#84). -->
+                        <Button Style="{StaticResource LinkButton}" Text="Show in Devices" Command="{Binding ShowInDevicesCommand}"
                             IsVisible="{Binding HasSingleLocation}" />
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Close" Clicked="OnCloseSelection" />
-                </Grid>
-                <CollectionView x:Name="DeviceList" Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
+                    </VerticalStackLayout>
+                </ScrollView>
+                <CollectionView x:Name="DeviceList" Grid.Row="2" ItemsSource="{Binding Devices}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceItem">
                             <Grid Padding="0,8" MinimumHeightRequest="44" RowDefinitions="Auto,Auto,Auto"
                                   AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Hint="Open device details">
-                                <SemanticProperties.Description><MultiBinding StringFormat="{0}, {1}, {2}"><Binding Path="Name" /><Binding Path="StateText" /><Binding Path="Details" /></MultiBinding></SemanticProperties.Description>
+                                <SemanticProperties.Description><Binding Path="Description" /></SemanticProperties.Description>
                                 <Grid.GestureRecognizers><TapGestureRecognizer
                                     Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type map:MapViewModel}}, x:DataType=map:MapViewModel}"
                                     CommandParameter="{Binding .}" /></Grid.GestureRecognizers>
                                 <Label Text="{Binding Name}" LineBreakMode="WordWrap" HorizontalTextAlignment="Start" AutomationProperties.IsInAccessibleTree="False" />
-                                <Label Grid.Row="1" Text="{Binding Details}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Grid.Row="1" Text="{Binding Details}" IsVisible="{Binding HasDetails}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                 <Label Grid.Row="2" Text="{Binding StateText}" LineBreakMode="WordWrap" TextColor="{Binding State, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
                             </Grid>
                         </DataTemplate>

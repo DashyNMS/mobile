@@ -50,10 +50,13 @@ and very large text on short landscape displays require device verification.
 
 ## Implemented contracts and limits
 
-Only MapPage consumes the changed MapHtml/MapViewModel APIs; no shared control
-or accepted consumer was edited. NetworkMapPage is unchanged. Cards use a finite
-list viewport capped at 200pt below 740pt canvas height, otherwise 300pt, further
-limited by available space. Entrance and exit use named motion and Reduce Motion;
+Only MapPage consumes the changed MapHtml/MapViewModel APIs. DeviceItem gains
+additive details/announcement properties; existing consumers keep their bindings.
+No shared control or accepted page was edited. NetworkMapPage is unchanged. Cards
+use natural row height up to a 200pt target below 740pt canvas height, otherwise
+300pt, further limited by available space. A measured Close row and a 44pt title
+viewport take precedence over that cap on very small displays. The list remains
+finite and the title can scroll independently. Entrance and exit use named motion and Reduce Motion;
 Close hides the card before resetting transforms and clearing selection. Switching
 selection keeps a stationary card in place.
 
@@ -87,3 +90,45 @@ Claude Opus 5.5 Medium full-diff review. CI and all device outcomes remain pendi
 In particular, verify Navigated-to-clearance ordering after refresh, native glass
 versus Leaflet controls, huge text on short landscape screens, chooser long names
 and large catalogues, Duo orientations/folding/rotation/resume and both themes.
+
+## Follow-up review after 11b5667
+
+The fresh Claude full-diff review confirmed M1–M6, then identified one medium
+and seven low findings. This implementation addresses all eight:
+
+- Camera centring occurs only for an explicit selection notification. Resize
+  invalidates Leaflet geometry without centring; changed clearances pan only by
+  the change in uncovered centre, preserving the user's pan. Close queues empty
+  IDs before the smaller clearance. Bridge calls are serialised.
+- Each selection has a version, including repeated selection of the same pin.
+  A new selection aborts/reverses the named transition from its current position;
+  stale close completion cannot clear it. Entrance travel uses measured height
+  with a fallback and starts after dispatch, following NetworkMap's pattern.
+- The card measures row-template content only until its available list cap is
+  filled. The CollectionView keeps a finite HeightRequest; it is never put in
+  a ScrollView. Small selections use their natural content height. Close remains
+  outside the separately bounded scrolling heading and list; huge text cannot
+  reduce the card to zero. Native measurements remain device-unverified.
+- Focus waits until Leaflet has a view; a timed fallback supplies an initial fit
+  if native clearance is lost. Initialisation happens once, including an empty
+  coordinate source, and later native clearance does not reset the view.
+- The chooser now uses IDialogService.ChooseAsync in MapViewModel. Natural order
+  and units remain; colliding name/count labels gain coordinate context and a
+  final ID suffix only if necessary. Snapshot labels map directly to pin IDs.
+  Constructor consumers were updated; DI resolves the existing dialog service.
+- Empty-state text suppresses the redundant all-unlocated caption. DeviceItem
+  supplies HasDetails and a description joining nonblank fields; the row hides
+  an empty details caption and has no trailing spoken comma.
+
+Added behavioural tests cover stale-close versions, natural chooser order,
+unique duplicate-name labels selecting/opening the correct device, empty device
+speech/details, and mutually exclusive unlocated/empty status. Existing ring,
+membership and security tests remain. No local builds or tests were run.
+
+Prior CI at 11b5667: unit/platform and CodeQL actions/C# passed, Swift pending,
+as reported in the dispatch. That evidence does not validate these follow-up
+changes. New CI and the parent's fresh Claude review are pending. No device
+acceptance is claimed. Check merged-pin +2 zoom through centring, redraw opacity
+flashes, whole-row VoiceOver/TalkBack, long-name/large choosers, Leaflet/glass/side
+pill clearance including 12pt card margins, refresh ordering, huge text on short
+landscape, Duo fold/rotate/resume, themes and Reduce Motion.

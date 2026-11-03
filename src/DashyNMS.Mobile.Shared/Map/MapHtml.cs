@@ -159,7 +159,7 @@ public static class MapHtml
               var map = L.map('map', { worldCopyJump: true });
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
               window.setMapClearance = function (top, right, bottom, left) {
-                var changed = top !== clearance.top || right !== clearance.right || bottom !== clearance.bottom || left !== clearance.left;
+                var previous = clearance;
                 clearance = { top: top, right: right, bottom: bottom, left: left };
                 var controls = map.getContainer().querySelector('.leaflet-control-container');
                 controls.style.position = 'absolute';
@@ -167,18 +167,24 @@ public static class MapHtml
                 controls.style.bottom = bottom + 'px'; controls.style.left = left + 'px';
                 controls.style.pointerEvents = 'none';
                 controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
-                if (!ready) { ready = true; fit(); fitted = map.getSize().y > 0; }
-                else if (changed && selected.length) focusSelection();
+                if (!ready) initialise();
+                else if (dimming) {
+                  // Preserve the user's pan, moving only by the change in uncovered centre.
+                  map.panBy([((right - left) - (previous.right - previous.left)) / 2,
+                    ((bottom - top) - (previous.bottom - previous.top)) / 2], { animate: false });
+                }
               };
-              var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false;
+              var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
               function focusSelection() {
+                if (!ready) { pendingFocus = true; return; }
+                pendingFocus = false;
                 var pins = data.pins.filter(function (p) { return selected.indexOf(p.id) >= 0; });
                 if (!pins.length) return;
                 var centre = L.latLngBounds(pins.map(function (p) { return [p.lat, p.lng]; })).getCenter();
                 map.setView(centre, map.getZoom(), { animate: false });
                 map.panBy([(clearance.right - clearance.left) / 2, (clearance.bottom - clearance.top) / 2], { animate: false });
               }
-              window.setSelection = function (ids, immediate, dim) {
+              window.setSelection = function (ids, immediate, dim, focus) {
                 selected = ids;
                 dimming = dim !== false && ids.length > 0;
                 document.getElementById('map').classList.toggle('immediate', immediate);
@@ -186,7 +192,8 @@ public static class MapHtml
                   var el = marker.getElement();
                   if (el) el.style.opacity = !dimming || marker.pinIds.some(function (id) { return selected.indexOf(id) >= 0; }) ? '1' : '0.25';
                 });
-                if (dimming) focusSelection();
+                if (!dimming) pendingFocus = false;
+                if (focus && dimming) focusSelection();
               };
               var layer = L.layerGroup().addTo(map);
               var bounds = data.pins.map(function (p) { return [p.lat, p.lng]; });
@@ -258,16 +265,17 @@ public static class MapHtml
                 draw();
               }
               map.on('zoomend', draw);
-              // The page can load before the web view has its final size, and the
-              // size changes again when the location panel opens: Leaflet then
-              // draws only part of the map and fits the pins to the wrong area
-              // (#84). Re-measure on every resize, and fit again the first time
-              // there's a real size.
-              var fitted = false;
+              // Native geometry normally starts the map. A timed fallback also makes
+              // it usable when the first bridge call is lost during document load.
+              function initialise() {
+                if (ready || map.getSize().y <= 0 || map.getSize().x <= 0) return;
+                fit();
+                ready = true;
+                if (pendingFocus) focusSelection();
+              }
               function resized() {
                 map.invalidateSize();
-                if (ready && !fitted && map.getSize().y > 0) { fitted = true; fit(); }
-                else if (selected.length) focusSelection();
+                initialise();
               }
               window.addEventListener('resize', resized);
               setTimeout(resized, 250);

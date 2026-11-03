@@ -14,6 +14,9 @@ public partial class MapPage : ContentPage
 	private IDisposable? _edges;
     private bool _visible;
     private bool? _chooserShown;
+    private long _transition;
+    private bool _placing;
+    private Task _mapScript = Task.CompletedTask;
 
 	public MapPage(MapViewModel viewModel)
 	{
@@ -21,13 +24,15 @@ public partial class MapPage : ContentPage
 		BindingContext = _viewModel = viewModel;
 		_viewModel.PropertyChanged += OnViewModelChanged;
 
-		LocationsButton.Command = new Command(async () => await ChooseLocationAsync());
+		LocationsButton.Command = _viewModel.ChooseLocationCommand;
         MapView.Navigated += (_, _) => { PlaceControls(); SyncSelection(); };
         Canvas.SizeChanged += (_, _) => PlaceControls();
         _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();
         Status.SizeChanged += (_, _) => PlaceControls();
         SelectionCard.SizeChanged += (_, _) => PlaceControls();
+        CloseSelection.SizeChanged += (_, _) => PlaceControls();
+        SelectionHeading.SizeChanged += (_, _) => PlaceControls();
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         Header.BackInGlass = TabBarButtons.IsAvailable;
@@ -103,69 +108,98 @@ public partial class MapPage : ContentPage
     private void AnimateSelection(bool show)
     {
         const string name = "MapSelection";
+        var transition = ++_transition;
+        var selection = _viewModel.SelectionVersion;
         if (show && SelectionCard.IsVisible && !SelectionCard.AnimationIsRunning(name) && SelectionCard.TranslationY == 0) return;
         SelectionCard.AbortAnimation(name);
         if (!show) SendSelection(false);
+        double Travel() => (SelectionCard.Height > 0 ? SelectionCard.Height : Math.Max(SelectionCard.HeightRequest, 240)) + SelectionCard.Margin.Bottom + 8;
         if (show && !SelectionCard.IsVisible)
         {
             SelectionCard.Opacity = 0;
-            SelectionCard.TranslationY = Canvas.Height;
+            SelectionCard.TranslationY = Travel();
             SelectionCard.IsVisible = true;
         }
-        var travel = Math.Max(0, SelectionCard.Height) + SelectionCard.Margin.Bottom + 8;
         void Finish()
         {
-            if (!show) SelectionCard.IsVisible = false;
+            if (transition != _transition || selection != _viewModel.SelectionVersion) return;
+            if (!show)
+            {
+                SelectionCard.IsVisible = false;
+                _viewModel.ClearSelectionIfCurrent(selection);
+                // Queue empty IDs now, before PlaceControls, even if notification dispatch is deferred.
+                SendSelection(false);
+            }
             SelectionCard.TranslationY = 0;
             SelectionCard.Opacity = 1;
-            if (!show) _viewModel.ClearSelectionCommand.Execute(null);
             PlaceControls();
         }
         if (ReducedMotion.IsOn) { Finish(); return; }
-        SelectionCard.Animate(name, progress =>
+        Dispatcher.Dispatch(() =>
         {
-            SelectionCard.TranslationY = travel * (show ? 1 - progress : progress);
-            SelectionCard.Opacity = show ? progress : 1 - progress;
-        }, length: 250, easing: show ? Easing.CubicOut : Easing.CubicIn,
-        finished: (_, cancelled) => { if (!cancelled) Finish(); });
-    }
-
-    private async Task ChooseLocationAsync()
-    {
-        if (!_viewModel.CanChooseLocation) return;
-        var locations = _viewModel.Locations.OrderBy(p => p.Name, NaturalOrder.Instance).ToList();
-        if (locations.Count == 0) return;
-        var names = locations.Select(p => $"{p.Name} ({p.Count} {(p.Count == 1 ? "device" : "devices")})").ToArray();
-        var chosen = await DisplayActionSheetAsync("Choose a map location", "Cancel", null, names);
-        var index = Array.IndexOf(names, chosen);
-        if (index >= 0) _viewModel.SelectPin(locations[index].Id);
+            if (transition != _transition) return;
+            var fromY = show && SelectionCard.Opacity == 0 ? Travel() : SelectionCard.TranslationY;
+            var fromOpacity = SelectionCard.Opacity;
+            var toY = show ? 0 : Travel();
+            SelectionCard.Animate(name, progress =>
+            {
+                SelectionCard.TranslationY = fromY + (toY - fromY) * progress;
+                SelectionCard.Opacity = fromOpacity + ((show ? 1 : 0) - fromOpacity) * progress;
+            }, length: 250, easing: show ? Easing.CubicOut : Easing.CubicIn,
+            finished: (_, cancelled) => { if (!cancelled) Finish(); });
+        });
     }
 
     private void PlaceControls()
     {
-        var clear = CoveredEdges.ForScrolling(this);
-        Overlay.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
-        Header.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
-        Status.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
-        var foot = 12 + clear.Bottom;
+        if (_placing || Canvas.Width <= 0 || Canvas.Height <= 0) return;
+        _placing = true;
+        try
+        {
+            var clear = CoveredEdges.ForScrolling(this);
+            Overlay.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
+            Header.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+            Status.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+            var foot = 12 + clear.Bottom;
 #if IOS
-        if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
-            foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
+            if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
+                foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
 #endif
-        SelectionCard.Margin = new Thickness(12 + clear.Left, 6, 12 + clear.Right, foot);
-        var available = Math.Max(0, Canvas.Height - Header.Height - Status.Height - foot - 110);
-        var height = Math.Min(available, Canvas.Height < 740 ? 200 : 300);
-        if (SelectionCard.HeightRequest != height) SelectionCard.HeightRequest = height;
-        UpdateMapClearance(clear, foot);
+            SelectionCard.Margin = new Thickness(12 + clear.Left, 6, 12 + clear.Right, foot);
+            var width = Math.Max(1, Canvas.Width - SelectionCard.Margin.HorizontalThickness - SelectionCard.Padding.HorizontalThickness - 2);
+            var close = ((IView)CloseSelection).Measure(width, double.PositiveInfinity).Height;
+            var title = ((IView)SelectionHeading).Measure(width, double.PositiveInfinity).Height;
+            var padding = SelectionCard.Padding.VerticalThickness + 2;
+            // Close stays outside the scrolling title and list, including at huge text sizes.
+            var minimum = close + 44 + padding;
+            var available = Math.Max(minimum, Canvas.Height - Header.Height - Status.Height - foot - 110);
+            var cap = Math.Max(minimum, Math.Min(available, Canvas.Height < 740 ? 200 : 300));
+            var titleHeight = Math.Min(title, Math.Max(44, (cap - close - padding) / 2));
+            HeadingScroll.HeightRequest = titleHeight;
+            var listCap = Math.Max(0, cap - close - titleHeight - padding);
+            double natural = 0;
+            foreach (var device in _viewModel.Devices)
+            {
+                var row = (View)DeviceList.ItemTemplate.CreateContent();
+                row.BindingContext = device;
+                RowMeasure.Content = row;
+                natural += Math.Max(44, ((IView)row).Measure(width, double.PositiveInfinity).Height);
+                if (natural >= listCap) break;
+            }
+            RowMeasure.Content = null;
+            DeviceList.HeightRequest = Math.Min(listCap, natural);
+            SelectionCard.HeightRequest = -1;
+            UpdateMapClearance(clear, foot);
+        }
+        finally { _placing = false; }
     }
 
     private void SyncSelection() => SendSelection(true);
 
-    private async void SendSelection(bool dim)
+    private void SendSelection(bool dim, bool focus = false)
     {
         var ids = System.Text.Json.JsonSerializer.Serialize(_viewModel.SelectedPinIds);
-        try { await MapView.EvaluateJavaScriptAsync($"window.setSelection && window.setSelection({ids}, {(ReducedMotion.IsOn ? "true" : "false")}, {(dim ? "true" : "false")})"); }
-        catch (Exception) { /* Navigated reapplies selection to a replaced document. */ }
+        QueueScript($"window.setSelection && window.setSelection({ids}, {(ReducedMotion.IsOn ? "true" : "false")}, {(dim ? "true" : "false")}, {(focus ? "true" : "false")})");
     }
 
     private void UpdateActions()
@@ -178,22 +212,31 @@ public partial class MapPage : ContentPage
         if (PageHeader.IsPushed(this))
             actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
         if (_viewModel.CanChooseLocation)
-            actions.Add(new("mappin", "Choose a map location", () => _ = ChooseLocationAsync()));
+            actions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
         actions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
         TabBarButtons.Show(this, null, string.Empty, actions);
 #endif
     }
 
     // Keep controls and the selected camera target inside the uncovered canvas.
-    private async void UpdateMapClearance(Thickness clear, double foot)
+    private void UpdateMapClearance(Thickness clear, double foot)
     {
         if (!_loaded) return;
         var top = Math.Max(0, Header.Height + Status.Height + 20);
         var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }
             .Select(n => Math.Max(0, n).ToString(CultureInfo.InvariantCulture)));
-        try { await MapView.EvaluateJavaScriptAsync($"window.setMapClearance && window.setMapClearance({args})"); }
-        catch (Exception) { /* A replaced document may not yet have its script; Navigated retries. */ }
+        QueueScript($"window.setMapClearance && window.setMapClearance({args})");
+    }
+
+    // Serialise bridge updates so empty selection precedes the closing clearance.
+    private void QueueScript(string script) => _mapScript = EvaluateAfterAsync(_mapScript, script);
+
+    private async Task EvaluateAfterAsync(Task previous, string script)
+    {
+        await previous;
+        try { await MapView.EvaluateJavaScriptAsync(script); }
+        catch (Exception) { /* Navigated reapplies state after document replacement. */ }
     }
 
 #if IOS
@@ -210,13 +253,16 @@ public partial class MapPage : ContentPage
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
         if (e.PropertyName is nameof(MapViewModel.CanChooseLocation) or nameof(MapViewModel.IsBusy)) Dispatcher.Dispatch(UpdateActions);
-        if (e.PropertyName == nameof(MapViewModel.SelectedPinIds)) Dispatcher.Dispatch(SyncSelection);
-		if (e.PropertyName == nameof(MapViewModel.HasSelection)) Dispatcher.Dispatch(() =>
+        if (e.PropertyName == nameof(MapViewModel.SelectedPinIds)) Dispatcher.Dispatch(() =>
         {
-            if (_viewModel.HasSelection) AnimateSelection(true);
-            else SelectionCard.IsVisible = false;
+            if (!_viewModel.HasSelection)
+            {
+                SendSelection(false);
+                SelectionCard.IsVisible = false;
+            }
+            else AnimateSelection(true);
             PlaceControls();
-            SyncSelection();
+            if (_viewModel.HasSelection) SendSelection(true, focus: true);
         });
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{

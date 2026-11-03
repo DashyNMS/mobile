@@ -87,6 +87,7 @@ public sealed class MapViewModelTests
 
     private readonly IMapAssets _assets = Substitute.For<IMapAssets>();
     private readonly RecordingNavigation _navigation = new();
+    private readonly Services.IDialogService _dialogs = Substitute.For<Services.IDialogService>();
 
     public MapViewModelTests()
     {
@@ -101,9 +102,74 @@ public sealed class MapViewModelTests
 
     private async Task<MapViewModel> Loaded(AppSettings? settings = null)
     {
-        var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets);
+        var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets, _dialogs);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
+    }
+
+    [Fact]
+    public async Task A_close_cannot_clear_a_new_choice_even_when_the_same_pin_is_reselected()
+    {
+        var vm = await Loaded();
+        vm.SelectPin(vm.Locations[0].Id);
+        var closing = vm.SelectionVersion;
+        vm.SelectPin(vm.Locations[0].Id);
+        Assert.False(vm.ClearSelectionIfCurrent(closing));
+        Assert.True(vm.HasSelection);
+        var nextClose = vm.SelectionVersion;
+        vm.SelectPin(vm.Locations[1].Id);
+        Assert.False(vm.ClearSelectionIfCurrent(nextClose));
+        Assert.Equal([vm.Locations[1].Id], vm.SelectedPinIds);
+        Assert.True(vm.ClearSelectionIfCurrent(vm.SelectionVersion));
+        Assert.False(vm.HasSelection);
+    }
+
+    [Fact]
+    public async Task Chooser_orders_naturally_and_duplicate_labels_select_the_correct_pin()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Location { Id = 1, Name = "Site 10", Latitude = 51, Longitude = -1 },
+            new Location { Id = 2, Name = "Site 2", Latitude = 52, Longitude = -2 },
+            new Location { Id = 3, Name = "Site 2", Latitude = 53, Longitude = -3 },
+        ]);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            At(Fakes.Device(1, "first.example.net", location: "Site 10"), 1),
+            At(Fakes.Device(2, "second.example.net", location: "Site 2"), 2),
+            At(Fakes.Device(3, "third.example.net", location: "Site 2"), 3),
+        ]);
+        var vm = await Loaded();
+        var expected = vm.Locations.Where(p => p.Name == "Site 2").Skip(1).Single();
+        IReadOnlyList<string> labels = [];
+        _dialogs.ChooseAsync("Choose a map location", Arg.Any<IReadOnlyList<string>>()).Returns(call =>
+        {
+            labels = call.ArgAt<IReadOnlyList<string>>(1);
+            return Task.FromResult<string?>(labels[1]);
+        });
+        await vm.ChooseLocationCommand.ExecuteAsync(null);
+        Assert.Equal(3, labels.Count);
+        Assert.StartsWith("Site 2 (1 device)", labels[0]);
+        Assert.StartsWith("Site 2 (1 device)", labels[1]);
+        Assert.Equal("Site 10 (1 device)", labels[2]);
+        Assert.Equal(3, labels.Distinct().Count());
+        var selected = Assert.Single(vm.SelectedPinIds);
+        Assert.Equal(expected.Id, selected);
+        await vm.OpenDeviceCommand.ExecuteAsync(Assert.Single(vm.Devices));
+        Assert.Equal(expected.Latitude == 52 ? 2 : 3, Assert.Single(_navigation.Visits).Parameters![Services.Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public void Device_rows_omit_empty_details_from_layout_and_speech()
+    {
+        var row = new ViewModels.DeviceItem(new Device { DeviceId = 9, Hostname = "example.net" });
+        Assert.False(row.HasDetails);
+        Assert.Equal("example.net, Unknown", row.Description);
+        row.Device.Hardware = "Example switch";
+        Assert.True(row.HasDetails);
+        Assert.Equal("example.net, Unknown, Example switch", row.Description);
+        row.IsUnderMaintenance = true;
+        Assert.Contains(row.StateText, row.Description);
     }
 
     [Fact]
@@ -154,7 +220,7 @@ public sealed class MapViewModelTests
         _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(9, "unlocated.example.net")]);
         await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal("No devices have locations with coordinates.", vm.EmptyText);
-        Assert.True(vm.HasUnplacedText);
+        Assert.False(vm.HasUnplacedText);
         Assert.False(vm.CanChooseLocation);
         Assert.Contains(nameof(MapViewModel.Locations), changed);
         Assert.Contains(nameof(MapViewModel.HasUnplacedText), changed);
