@@ -56,6 +56,102 @@ public sealed class AlertScopeActionTests
         return vm;
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Unacknowledge_confirmation_survives_a_same_identity_refresh(bool single)
+    {
+        _acknowledged.UnionWith([1, 2]);
+        _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = true, MaxEntities = 20 });
+        var confirm = new TaskCompletionSource<bool>();
+        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(confirm.Task);
+        _client.Alerts.UnmuteAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(call =>
+        {
+            if (single) _acknowledged.Remove(call.Arg<int>());
+            else _acknowledged.Clear();
+            return Task.CompletedTask;
+        });
+        var vm = await Detail();
+        var action = (single ? vm.UnacknowledgeFaultCommand : vm.UnacknowledgeCommand).ExecuteAsync(null);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        confirm.SetResult(true);
+        await action;
+        Assert.False(vm.Alert!.IsAcknowledged);
+        Assert.Equal(single, _acknowledged.Contains(2));
+        await _client.Alerts.Received().UnmuteAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Confirmation_rechecks_current_group_or_fault_eligibility(bool single)
+    {
+        _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = true, MaxEntities = 20 });
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(prompt.Task);
+        var vm = await Detail();
+        var action = (single ? vm.AcknowledgeFaultCommand : vm.AcknowledgeCommand).ExecuteAsync(null);
+        if (single)
+            _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = false });
+        else
+            _acknowledged.UnionWith([1, 2]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        prompt.SetResult("note");
+        await action;
+        Assert.Contains("changed while you were confirming", vm.ActionResult);
+        await _client.Alerts.DidNotReceiveWithAnyArgs().AcknowledgeAsync(default);
+    }
+
+    [Fact]
+    public async Task Pending_fault_prompt_blocks_group_prompt_and_releases_gate_after_cancellation()
+    {
+        _client.Rules.GetAsync(10, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 10, NotifyPerEntity = true, MaxEntities = 20 });
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs(prompt.Task);
+        var vm = await Detail();
+        var action = vm.AcknowledgeFaultCommand.ExecuteAsync(null);
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        await _dialogs.Received(1).PromptAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>());
+        prompt.SetResult(null);
+        await action;
+        _dialogs.PromptAsync(default!, default!, default!, default!).ReturnsForAnyArgs("retry");
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        Assert.Equal("Acknowledged 2 faults", vm.ActionResult);
+    }
+
+    [Fact]
+    public async Task Failed_fault_write_releases_action_gate_for_retry()
+    {
+        var vm = await Detail();
+        _client.Alerts.AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new HttpRequestException("offline")));
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.Null(vm.ActionBusyText);
+        Assert.True(vm.CanRunAction);
+        _client.Alerts.AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string?>(), Arg.Any<bool>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            _acknowledged.UnionWith([1, 2]);
+            return Task.CompletedTask;
+        });
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        Assert.Equal("Acknowledged 2 faults", vm.ActionResult);
+    }
+
+    [Fact]
+    public async Task Group_status_distinguishes_one_many_and_unavailable()
+    {
+        var vm = await Detail();
+        Assert.Contains("2 open faults", vm.GroupStatusText);
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns([Fault(1)]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Contains("1 open fault,", vm.GroupStatusText);
+        _client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns<Task<IReadOnlyList<Alert>>>(_ => throw new HttpRequestException("offline"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Contains("unavailable", vm.GroupStatusText);
+        Assert.DoesNotContain("0 open", vm.GroupStatusText);
+    }
+
     [Fact]
     public async Task Group_swipe_reads_back_both_faults_after_one_write()
     {
