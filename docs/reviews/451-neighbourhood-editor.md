@@ -1,8 +1,8 @@
 # Neighbourhood editor assessment
 
-Refs #451, epic #442. Baseline main 38fa645. Read live #442/#450/#451/#452,
+Refs #451, epic #442. Baseline main da65c6b. Read live #442/#450/#451/#452,
 CLAUDE.md, docs/DEVELOPING.md, full DESIGN.md and DESIGN-REFERENCES.md,
-#490 diff/assessment and #491 diff/assessment read-only. FULLDESIGN.md is absent.
+#490 diff/assessment and #491 diff/assessment read-only.
 
 ## Scope and contracts
 
@@ -29,12 +29,12 @@ No credentials, permissions, schema, matching implementation or server data chan
 | New/edit fields and name | Fix required: ReadableColumn capped width. SetupLayout now fills width with shared 16pt/measured gutters. SetupSection and Field reuse shared presentation; nonblank accessible descriptions supplied. |
 | Match and field/operator selection | Fix required: side-by-side chips clipped long text. Stacked native pickers expose the existing ordered labels and indexes; all/any semantics preserved. Native large-text picker rendering remains unverified. |
 | Rule text and removal | Fix required: 32pt Remove and horizontal layout. Wrapping status, stacked controls, 44pt secondary Remove with rule-specific description; Add secondary, 44pt. Unsupported rule remains read-only/removable. |
-| Validation | Compliant: name/regex refusal and inline regex error retained, no new minimum-rule/name uniqueness constraint. |
+| Validation | Fix required: fixed Save now scrolls to the named error and announces the captured message; name/regex refusal and inline regex error retained, no new minimum-rule/name uniqueness constraint. |
 | Save and failure | Fix required: duplicate header/scrolling Save. One implicit-primary Save outside finite viewport; async command disables concurrent Save. Persistence failure restores in-memory definition and retains draft for retry, with non-sensitive error. IO/access failures covered; underlying store atomicity remains its existing contract. |
-| Delete | Compliant: immediate saved-definition confirmation retained; DangerButton remains subordinate. No new Undo or delayed persistence. |
+| Delete | Compliant: immediate saved-definition confirmation retained; DangerButton remains subordinate in a labelled saved-neighbourhood section with an immediate-action caption. No new Undo or delayed persistence. |
 | Back/header | Fix required: scrolling Back. Shared PageHeader gives visible Back on shared top line on Android/older iOS and one glass Back on modern iOS, labelled from actual caller. #490 supplies root-title fallback. |
 | Insets/keyboard | Fix required: adopt SetupPageLayout in one step; no old safe-area/helper remains on this page. Native iOS top only, shared sides/bottom, native scroll adjustment disabled; measured pill/keyboard Save placement and focused-field scrolling reused. Android native safe areas/resize retained. Hardware results unverified. |
-| Lifetime/reentry | Fix required: retained More stack must reclaim controls. Local Loaded/Unloaded Shell/window subscriptions retain exact instances; active-page check restores helper without reloading draft. Helper activation idempotent; subscriptions/tokens dispose on disappearance. Dynamic form size changes rescan focus handlers without duplication. |
+| Lifetime/reentry | Fix required: retained More stack must reclaim controls. IActivePage restores the helper through AppShell’s central navigation/resume hook without reloading the draft. Helper activation is idempotent; subscriptions/tokens dispose on disappearance. Dynamic form size changes rescan focus handlers without duplication. |
 | Search/drag | Compliant/not applicable: editor has no search/list; no SearchReveal added. Setup pickers elsewhere remain unchanged. |
 | Themes/accessibility | Primary uses shared themed disabled style; secondary actions use SecondaryButton. Wrapping text and named native inputs/actions supplied. Both themes, screen readers, largest text and floating keyboard remain unverified. |
 
@@ -61,12 +61,17 @@ CI must verify compatibility. No package restore or local script was run.
 ## Review and validation evidence
 
 Full intended diff self-inspected against the scope and DESIGN; whitespace
-check recorded at handoff. Added unexecuted new/edit failed-save/rollback/retry
-regression asserting draft, saved ID, rule and Back behaviour. Existing tests
-cover regex refusal, imported-rule retention and matching. No local build,
-test, script, independent Codex review or review delegate ran. CI is pending.
-Claude Opus 5.5 Medium review is mandatory once quota returns, after the parent's
-sequential branch update. Self-inspection is not that review.
+checks passed. Claude Opus 5.5 Medium reviewed head 1466017 against main da65c6b:
+Save rollback, IDs and imported rules were confirmed; two medium and three low
+findings were addressed. Failed Save now scrolls and announces errors, activation
+uses IActivePage, Delete is labelled as immediate, and regression assertions
+verify the original saved name and rules remain untouched.
+
+Unit tests passed in both CI runs at the reviewed head; one iOS simulator run
+passed while remaining platform/security jobs were pending at review time.
+Replacement CI for these fixes remains pending. No local builds, tests or scripts
+ran. Existing tests cover regex refusal, imported-rule retention and matching;
+failed-save tests cover draft, rollback, identity, retry and Back behaviour.
 
 ## Device evidence required
 
@@ -85,7 +90,7 @@ fold/unfold, rotation in both directions, background/resume and keyboard dismiss
    same ID/order and list refresh shows changes. Return to Neighbours retains
    selection/match semantics. Remove unsupported rule only on Save.
 3. Inject persistence failure for new and edit: no navigation or in-memory
-   change, draft remains, error readable, retry Save succeeds once. Rapid Save
+   change, draft remains, error scrolls into view and is announced even from the final rule, retry Save succeeds once. Rapid Save
    taps do not duplicate. Confirm/cancel immediate Delete separately.
 4. Docked keyboard on name and final newly added value: final field and fixed
    Save reachable; dismiss restores vertical-pill bottom alignment. Bottom bar

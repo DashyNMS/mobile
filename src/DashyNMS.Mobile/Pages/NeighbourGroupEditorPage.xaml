@@ -10,8 +10,8 @@
   <controls:SetupLayout.Body>
    <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
     <VerticalStackLayout Spacing="12" Padding="0,8,0,12">
-     <Label Style="{StaticResource Caption}" Text="Save applies the name and rules. Back discards these changes. Deleting a saved neighbourhood applies straight away." />
-     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+     <Label Style="{StaticResource Caption}" Text="Save applies the name and rules. Back discards these changes." />
+     <Label x:Name="ValidationError" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
      <controls:SetupSection Label="Name">
       <Border Style="{StaticResource Field}"><Entry Text="{Binding Name}" Placeholder="Wireless APs" SemanticProperties.Description="Neighbourhood name" /></Border>
      </controls:SetupSection>
@@ -42,10 +42,15 @@
       </BindableLayout.ItemTemplate>
      </VerticalStackLayout>
      <Button Style="{StaticResource SecondaryButton}" Text="Add a rule" MinimumHeightRequest="44" Command="{Binding AddRuleCommand}" />
-     <Button Style="{StaticResource DangerButton}" Text="Delete neighbourhood" MinimumHeightRequest="44" Command="{Binding DeleteCommand}" IsVisible="{Binding IsExisting}" />
+     <controls:SetupSection Label="Saved neighbourhood" IsVisible="{Binding IsExisting}">
+      <VerticalStackLayout Spacing="8">
+       <Label Style="{StaticResource Caption}" Text="Applies straight away." />
+       <Button Style="{StaticResource DangerButton}" Text="Delete neighbourhood" MinimumHeightRequest="44" Command="{Binding DeleteCommand}" />
+      </VerticalStackLayout>
+     </controls:SetupSection>
     </VerticalStackLayout>
    </ScrollView>
   </controls:SetupLayout.Body>
-  <controls:SetupLayout.PrimaryAction><Button Text="Save" Command="{Binding SaveCommand}" Margin="0,12,0,0" /></controls:SetupLayout.PrimaryAction>
+  <controls:SetupLayout.PrimaryAction><Button Text="Save" IsEnabled="{Binding SaveCommand.IsRunning, Converter={StaticResource Invert}}" Clicked="OnSaveClicked" Margin="0,12,0,0" /></controls:SetupLayout.PrimaryAction>
  </controls:SetupLayout>
 </ContentPage>

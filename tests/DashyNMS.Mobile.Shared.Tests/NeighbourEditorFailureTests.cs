@@ -32,6 +32,9 @@ public sealed class NeighbourEditorFailureTests
         if (existing) Assert.Same(original, Assert.Single(settings.NeighbourViews));
         else Assert.Empty(settings.NeighbourViews);
 
+        Assert.Equal("Lab", original.Name);
+        Assert.Empty(original.Rules);
+
         fail = false;
         await editor.SaveCommand.ExecuteAsync(null);
         var saved = Assert.Single(settings.NeighbourViews);
