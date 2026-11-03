@@ -33,6 +33,9 @@ public sealed class UnimusLine
 
     public bool IsHidden => Row.Kind == UnimusDiffRowKind.Hidden;
 
+    /// <summary>Retains source order and line identity when a line wraps visually.</summary>
+    public string ContentDescription => $"Line {NumberText}: {Text}";
+
     /// <summary>A backup's text as numbered lines.</summary>
     public static IReadOnlyList<UnimusLine> FromContent(string content) =>
         content.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n')
