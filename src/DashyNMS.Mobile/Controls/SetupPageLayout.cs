@@ -55,6 +55,7 @@ internal sealed class SetupPageLayout
         {
             scroller.HandlerChanged += OnChanged;
             scroller.Loaded += OnChanged;
+            if (scroller is ScrollView { Content: { } content }) content.SizeChanged += OnChanged;
             StopInsets(scroller);
         }
 #if IOS
@@ -81,6 +82,17 @@ internal sealed class SetupPageLayout
         Place();
     }
 
+    /// <summary>Reclaims controls when Shell selects a retained setup stack.</summary>
+    internal void Activate()
+    {
+        if (!_showing) OnAppearing(_page, EventArgs.Empty);
+        _header.Apply(_page);
+#if IOS
+        ShowBack();
+#endif
+        Place();
+    }
+
     private void OnDisappearing(object? sender, EventArgs e)
     {
         _showing = false;
@@ -93,6 +105,7 @@ internal sealed class SetupPageLayout
         {
             scroller.HandlerChanged -= OnChanged;
             scroller.Loaded -= OnChanged;
+            if (scroller is ScrollView { Content: { } content }) content.SizeChanged -= OnChanged;
         }
 #if IOS
         TabBarButtons.Moved -= OnChanged;
@@ -125,6 +138,10 @@ internal sealed class SetupPageLayout
     private void OnChanged(object? sender, EventArgs e)
     {
         if (sender is View scroller) StopInsets(scroller);
+        // Draft forms can add fields after Appearing. Refresh without duplicate handlers.
+        foreach (var target in _focusTargets) target.Focused -= OnFocused;
+        _focusTargets.Clear();
+        if (_showing) WatchFocus(_layout);
         _page.Dispatcher.Dispatch(Place);
     }
 
