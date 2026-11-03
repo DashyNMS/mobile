@@ -14,7 +14,7 @@
                 <Label Text="Message unavailable. Go back and select a message again." IsVisible="{Binding MissingMessage}" LineBreakMode="CharacterWrap" />
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding HasMessage}">
                     <Label Text="{Binding Message.DetailLevelText}" FontFamily="BodySemibold" LineBreakMode="CharacterWrap"
-                           TextColor="{Binding Message.Status, Converter={StaticResource StatusColor}}" />
+                           TextColor="{Binding Message.Status, Converter={StaticResource StatusText}}" />
                     <Label Style="{StaticResource Faint}" Text="{Binding Message.DetailTimeText}" LineBreakMode="CharacterWrap" />
                     <Border Style="{StaticResource Card}" Padding="16">
                         <VerticalStackLayout Spacing="8">
@@ -53,7 +53,7 @@
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>

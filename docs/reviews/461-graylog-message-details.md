@@ -111,3 +111,16 @@ visual acceptance.
 
 No issue closure, epic ticks, merge or release. User acceptance remains pending.
 TestFlight belongs to the parent after #460–#464.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed full diff 9e1467f against main c25b71c.
+All three findings are addressed: the pushed page implements IActivePage and
+uses AppShell activation without a local Window hook; Moved subscriptions and
+edge watching are idempotent; glass Back is visibility guarded. The fade ends
+in the matching transparent background RGB, and severity uses StatusText's
+readable themed text colours rather than dot colours.
+Unit tests passed at reviewed head; replacement platform/security CI is pending.
+Full intended/staged diffs and whitespace inspected. No local builds/tests ran.
+All device outcomes remain unverified, including retained More return, resume,
+light-theme severity contrast and the fade. No issue closure or epic ticks.
