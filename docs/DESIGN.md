@@ -335,11 +335,15 @@ appearance does not change filtering, query retention or selection contracts.
 - Offer menu reordering alongside drag reordering, using Move earlier/later
   in reading order. Keep titles and summaries together and Set up below them.
 
-- Show severity and unavailable state in text as well as colour, including in each actionable row’s accessible description. Unknown readings must not be presented as OK.
+- Show severity and unavailable state in text as well as colour, including in
+  each actionable row's accessible description. Unknown readings must not be
+  presented as OK.
 
 ## Data states and persistence
 
-- Preserve complete server-provided messages, expressions, configuration and licence content. Presentation wrapping must not change copied, shared or compared source text. Truncated previews must lead to the complete content.
+- Preserve complete server-provided messages, expressions, configuration and
+  licence content. Presentation wrapping must not change copied, shared or
+  compared source text. Truncated previews must lead to the complete content.
 - Reuse themed `Error`, `Caption`, `ActivityIndicator` and shared controls.
   Keep loading/error/status content separate from a finite results viewport.
 - Distinguish an empty source from an unmatched search. Suppress empty claims

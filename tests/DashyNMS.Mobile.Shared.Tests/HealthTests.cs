@@ -111,6 +111,13 @@ public sealed class HealthViewModelTests
         Assert.Equal("–", Assert.Single(vm.Sensors).Value);
     }
 
+    [Fact]
+    public void Unavailable_description_omits_placeholder()
+    {
+        var row = new SectionRow("Synthetic inlet") { Value = "–", Status = RowStatus.None };
+        Assert.Equal("Synthetic inlet, Unavailable", row.HealthDescription);
+    }
+
     [Theory]
     [InlineData(RowStatus.Critical, "Critical")]
     [InlineData(RowStatus.Warning, "Warning")]

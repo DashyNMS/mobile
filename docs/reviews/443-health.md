@@ -15,12 +15,12 @@ work: #257 (unknown), #258 (cached readings), #295 (offline), #437
 | Long names, units, narrow/large text | Fix required | HealthPage fixes four segments to equal widths, uses a non-wrapping chip strip, truncates device names and reserves an Auto reading column. Allow category/chip wrapping and stack full row text. |
 | Whole-row activation and announcements | Fix required | Tap covers the grid, but there is no combined accessible description. Preserve navigation; combine name, device, value, limits and severity. Describe selected categories and filters. |
 | Clear target | Fix required | HealthPage explicitly sets 30pt. Use minimum 44pt. |
-| Search, Command-F, keyboard | Fix required | Shared SearchField is used but HealthPage lacks ISearchHost and glass search. Reuse shared search appearance and the Devices transition/input pattern. |
+| Search, Command-F, keyboard | Fix required | Shared SearchField and Command-F fallback already work. Add ISearchHost for consistency and glass search while retaining SearchReveal: always visible on Android, scroll-revealed on iOS. |
 | Finite viewport | Compliant | CollectionView is in a star Grid row, outside any ScrollView. |
 | Final row and glass | Fix required | Native safe area alone does not account for extra glass actions. Reuse CoveredEdges and Devices pill/footer placement. |
 | First load, refresh, empty source, no matches, failure, cached/stale/offline | Compliant | Existing busy/error/empty gates and SensorRefreshStatus retain last readings and timestamp; keep them. Visual operation unverified. |
 | Threshold return | Compliant | Only Settings opens Thresholds; Save validates and persists, Back discards; settings Changed rebuilds loaded Health rows immediately without refetch. No new entry route needed. |
-| Entry/return routes | Compliant | Default pinned Health tab, repinned tab and unpinned More page use AppShell page factory; sensor pushes DeviceSection.Sensors with ID/name, Back returns to Health. Switching tabs and returning calls RefreshIfStaleAsync (one minute). |
+| Entry/return routes | Compliant | Default pinned Health tab, repinned tab and unpinned More page use AppShell page factory; the unpinned route now supplies glass Back and hides header Back on iOS 26+; sensor pushes DeviceSection.Sensors with ID/name, Back returns to Health. Switching tabs and returning calls RefreshIfStaleAsync (one minute). |
 | Persistence/security | Compliant | Read-only sensor/device requests use existing session and offline stores; no credential, permissions, cache format or settings schema changes. No Health write except existing severity preferences. |
 | Runtime fit, accessibility, insets, motion, navigation | Unverified | Requires devices; source inspection establishes no device outcome. |
 
@@ -30,10 +30,19 @@ All visual changes follow existing guide rules; no new visual policy proposed.
 
 Implementation self-inspection: complete intended diff inspected; git diff --check passed.
 CI: initial unit-test job caught an incorrectly typed event raise in the new
-regression test; corrected to EventHandler<AppSettings>. Replacement CI pending;
+regression test; corrected to EventHandler<AppSettings>. CI at 2e913e2 passed shared tests,
+Android, iOS simulator and CodeQL actions/csharp; Swift was still pending at review.
+Replacement CI after review fixes is pending;
 no builds or tests run on this code machine. Regression tests
-are added for severity text, unknown visibility, counts and threshold return.
-Mandatory independent review: parent to arrange Claude Opus 5.5 medium.
+are added for severity text, unknown visibility, counts and threshold changes
+without refetch (the page return itself remains a device check).
+Claude Opus 5.5 medium reviewed 2e913e2. Addressed missing glass Back,
+explicit child safe-area ownership, equal-fill wrapping segments, pill radii,
+missing-value speech, search alignment and assessment inaccuracies. Restored
+SearchReveal to preserve existing Android visibility and iOS scroll reveal;
+Command-F previously worked through its fallback. A fresh review is pending.
+Segments retain equal growth without a zero basis so they can wrap. Severity
+chips retain pill geometry with a 22pt radius at the accessible 44pt minimum.
 Every device outcome remains unverified.
 
 ## Remaining device steps
@@ -43,12 +52,13 @@ Every device outcome remains unverified.
    Check light/dark and largest text on Duo outer, inner portrait and inner
    landscape, folding/rotation without reopening, plus ordinary iPhone and Android.
 2. Open pinned Health, unpin and open from More, repin, switch tabs and resume;
-   verify one glass owner, header actions on older iOS/Android, and final row
+   verify glass Back returns to More on iOS 26+, one glass owner, header actions on older iOS/Android, and final row
    clears bottom/side/top pills. Inspect placement diagnostics for overlap/loops.
 3. Toggle all severities off: unknown remains visible and says unavailable;
    check category totals, search/no matches, Clear and relaunch filter memory.
 4. Open search from glass/header and Command-F after scrolling; type, refocus,
-   Search, unfocus, touch content and scroll to dismiss; query must remain.
+   Search and scroll to dismiss the keyboard; query must remain. Android search
+   stays visible; iOS search reveals on upward scroll and remains while in use.
    Repeat rapidly with Reduce Motion enabled and disabled.
 5. VoiceOver/TalkBack: hear complete row name/device/reading/limits/severity
    once, activate the whole row once, confirm device Sensors and Back; hear

@@ -40,8 +40,9 @@ public sealed record SectionRow(string Title)
         _ => "Unavailable",
     };
 
+    /// <summary>Announces Health readings without speaking a missing-value placeholder.</summary>
     public string HealthDescription => string.Join(", ",
-        new[] { Title, Subtitle, Value, Detail, HealthStatusText }
+        new[] { Title, Subtitle, Status == RowStatus.None && Value == "–" ? null : Value, Detail, HealthStatusText }
             .Where(text => !string.IsNullOrWhiteSpace(text)));
 
     /// <summary>A third, smaller line.</summary>
