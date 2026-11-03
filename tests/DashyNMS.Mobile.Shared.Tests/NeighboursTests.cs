@@ -130,11 +130,43 @@ public sealed class NeighboursViewModelTests
 
         page.Load(vm.Links[2]);
 
-        Assert.Equal("Up", page.StatusText);
+        Assert.Equal("Active", page.StatusText);
         Assert.False(page.Link!.Remote.CanOpen);
         Assert.Equal("CDP · Cisco IP Phone", page.SubtitleText);
         Assert.Contains(new KeyValuePair<string, string>("System name", "SEP001122"), page.Fields);
         Assert.Contains(new KeyValuePair<string, string>("Port ID", "Port 1"), page.Fields);
         Assert.DoesNotContain(page.Fields, f => f.Key == "MAC address");
+    }
+
+    [Fact]
+    public async Task Snapshot_replacement_updates_actions_and_preserves_full_source_text()
+    {
+        var links = (await Loaded()).Links;
+        var page = new NeighbourLinkViewModel(_navigation);
+        Assert.True(page.HasNoLink);
+        Assert.False(page.OpenLocalCommand.CanExecute(null));
+        var changes = 0;
+        page.OpenRemoteCommand.CanExecuteChanged += (_, _) => changes++;
+        const string description = "  First line\nSecond line with a long announcement  ";
+        var snapshot = links[2] with
+        {
+            SwitchPortDescription = description,
+            Remote = new NeighbourEnd("example.net long remote endpoint", null, "?", null, null),
+        };
+        page.Load(snapshot);
+        Assert.False(page.HasNoLink);
+        Assert.False(page.OpenRemoteCommand.CanExecute(null));
+        Assert.Equal("Port unknown", page.RemotePortText);
+        Assert.Equal("State unknown", page.RemoteStateText);
+        Assert.Contains("example.net long remote endpoint", page.RemoteActionDescription);
+        Assert.Contains("State unknown", page.RemoteActionDescription);
+        Assert.Contains("Active", page.RemoteActionDescription);
+        Assert.Equal(description, page.Fields.Single(f => f.Key == "Switch port description").Value);
+        page.Load(links[0]);
+        Assert.True(page.OpenRemoteCommand.CanExecute(null));
+        Assert.Equal(2, changes);
+        await page.OpenRemoteCommand.ExecuteAsync(null);
+        Assert.Equal(Routes.DeviceDetail, Assert.Single(_navigation.Visits).Route);
+        Assert.Equal(3, _navigation.Visits[0].Parameters![Routes.DeviceIdParameter]);
     }
 }

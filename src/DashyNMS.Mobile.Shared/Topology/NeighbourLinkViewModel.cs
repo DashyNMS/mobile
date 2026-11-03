@@ -17,7 +17,8 @@ public sealed partial class NeighbourLinkViewModel : ObservableObject
     private readonly INavigationService _navigation;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasLink), nameof(StatusText), nameof(Status), nameof(SubtitleText), nameof(Fields))]
+    [NotifyCanExecuteChangedFor(nameof(OpenLocalCommand), nameof(OpenRemoteCommand))]
+    [NotifyPropertyChangedFor(nameof(HasLink), nameof(HasNoLink), nameof(StatusText), nameof(Status), nameof(SubtitleText), nameof(Fields), nameof(HasNoFields), nameof(LocalPortText), nameof(RemotePortText), nameof(LocalStateText), nameof(RemoteStateText), nameof(LocalActionDescription), nameof(RemoteActionDescription))]
     private NeighbourLink? _link;
 
     public NeighbourLinkViewModel(INavigationService navigation)
@@ -26,14 +27,27 @@ public sealed partial class NeighbourLinkViewModel : ObservableObject
     }
 
     public bool HasLink => Link is not null;
+    public bool HasNoLink => !HasLink;
+    public bool HasNoFields => Fields.Count == 0;
+    public string LocalPortText => PortText(Link?.Local);
+    public string RemotePortText => PortText(Link?.Remote);
+    public string LocalStateText => StateText(Link?.Local);
+    public string RemoteStateText => StateText(Link?.Remote);
+    public string LocalActionDescription => ActionDescription("local", Link?.Local);
+    public string RemoteActionDescription => ActionDescription("remote", Link?.Remote);
 
-    /// <summary>The badge: "Down" when either end is, "Not active" when LibreNMS has stopped seeing it, else "Up".</summary>
+    private static string PortText(NeighbourEnd? end) => string.IsNullOrWhiteSpace(end?.Port) || end.Port == "?" ? "Port unknown" : end.Port;
+    private static string StateText(NeighbourEnd? end) => string.IsNullOrWhiteSpace(end?.StateText) ? "State unknown" : end.StateText;
+    private string ActionDescription(string side, NeighbourEnd? end) => string.Join(" · ",
+        new[] { $"Open {side} device", end?.Name, PortText(end), StateText(end), StatusText }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    /// <summary>Active describes discovery, without claiming unknown endpoint health is up.</summary>
     public string StatusText => Link switch
     {
         null => string.Empty,
         { IsProblem: true } => "Down",
         { Neighbour.Active: false } => "Not active",
-        _ => "Up",
+        _ => "Active",
     };
 
     public RowStatus Status => Link?.Row.Status ?? RowStatus.None;
@@ -55,15 +69,18 @@ public sealed partial class NeighbourLinkViewModel : ObservableObject
 
     public void Load(NeighbourLink link) => Link = link;
 
-    [RelayCommand]
+    private bool CanOpenLocal() => Link?.Local.CanOpen == true;
+    private bool CanOpenRemote() => Link?.Remote.CanOpen == true;
+
+    [RelayCommand(CanExecute = nameof(CanOpenLocal))]
     private Task OpenLocalAsync() => OpenAsync(Link?.Local);
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanOpenRemote))]
     private Task OpenRemoteAsync() => OpenAsync(Link?.Remote);
 
     private Task OpenAsync(NeighbourEnd? end) => end?.DeviceId is { } id
         ? _navigation.GoToAsync(Routes.DeviceDetail, new Dictionary<string, object> { [Routes.DeviceIdParameter] = id })
         : Task.CompletedTask;
 
-    private static KeyValuePair<string, string> Field(string name, string? value) => new(name, value?.Trim() ?? string.Empty);
+    private static KeyValuePair<string, string> Field(string name, string? value) => new(name, value ?? string.Empty);
 }
