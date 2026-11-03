@@ -1,0 +1,141 @@
+# Alert details review
+
+Refs #449, epic #442. Baseline 38fa645 after #488. Read live #449/#442,
+#447/#448, CLAUDE.md, DEVELOPING.md, DESIGN.md and DESIGN-REFERENCES.md,
+and the linked 447/448 review evidence. FULLDESIGN.md is absent; DESIGN.md
+is the current guide. No agents or review delegates used.
+
+## Scope and contracts
+
+AlertDetailPage wraps AlertDetailView; AlertsPage is the sole embedded host.
+ShellNavigationService offers relative alert routes to IDetailHost first.
+Alerts list, device active alerts, dashboard and rule alerts use GoToAlertAsync
+with a qualified source key and device ID. NotificationRouter handles notification
+and widget targets, including moved legacy targets and group-list routing.
+Pushed detail opens device/rule descendants relatively; rule opens template,
+template opens related rule. Back pops to the actual caller in both pushed and
+embedded origins. #447/#448 content and routes are unchanged. Alerts/Devices
+root lists are outside scope; their IDs, selection and inset ownership remain.
+
+The pinned Core package is 2.0.0-ci.52. Existing calls to AlertActions retain
+single-fault scope verification, group readback, per-resource/global permission
+refusals, partial failures and result.Summary. Only verified Changed entries feed
+self-action tracking. Embedded group events trigger a server group refresh,
+not an optimistic acknowledgement of every sibling. No permission policy,
+credentials, API or package changes. Local Core source was inspected for the
+scope/result contract; no installed ci.52 package is present on this machine,
+so exact package compilation remains CI verification.
+
+Notification Change/Undo still apply/restore NotifyRules immediately. Back does
+not discard those changes. Notes entered for acknowledgement retain the existing
+trim-on-submit contract. Server notes, procedure and condition render as plain
+text with source whitespace preserved; no HTML or timeline features were added.
+
+## Findings assessed before implementation
+
+| Concern | Baseline assessment and disposition |
+| --- | --- |
+| Fault/group scope and permissions | Compliant contract: distinct group and verified fault controls. Added explicit group scope and confirmed counts; unavailable never invents zero. |
+| Header status | Fix required: state omitted from visible header; now explicit beside severity. |
+| History | Fault history matching and incomplete recurrence are compliant. Fix required: legacy unreadable log silently omitted; now unavailable with no invented empty history. |
+| Long notes, source and multiple entities | Fix required: condition trimmed/reformatted; shared RuleText.ConditionSource preserves source. Full-width stacked wrapping field labels/values remove constrained columns. Fault selection and Show all fields unchanged. |
+| Missing rule | Fix required: silent omission; now unavailable with pull-refresh retry guidance. |
+| Busy/error | Detail-local overlay suppresses the native spinner and shows loading, updating or acknowledging/unacknowledging through write and post-write refresh, with explicit Retry. The global helper is unchanged. |
+| Actions and races | Fix required: independent commands remained executable during other work. Busy CanExecute notifications added; pending fault dialogs share a gate and recheck displayed item/permissions before writing. Legacy acknowledge rechecks after prompt. Loads serialise to prevent interleaved source keys/payloads. |
+| Notification persistence | Compliant immediate behaviour; now explains automatic local saving. Change target raised from 32pt to 44pt. |
+| Hierarchy/accessibility | One primary acknowledge group/legacy action, subordinate unacknowledge/fault/device/notification controls. Removed duplicate gesture-only device link; full device text plus explicit Open device remains. Action semantics on hardware unverified. |
+| Pushed glass/insets | Native top-only iOS page, relative caller-labelled Back and retained/disposed edge watcher; Moved removes before adding. AppShell alone owns resume activation. |
+| Embedded glass/insets | Compliant host boundary retained; no new embedded glass owner. Native scroll adjustment disabled on handler/load. |
+| Fade and final item | Fix required: 20pt input-transparent fade reserved only with hidden BackBar, absent with visible BackBar. Measured Undo height, bottom margin and gap reserved in scrolling content. |
+| Theme contrast, wrapping, folding/rotation/resume | Unverified on hardware. No acceptance inferred from static inspection. |
+
+Affected consumers are only pushed AlertDetailPage and embedded AlertsPage;
+shared model changes feed those views. No global helper/resource changes.
+
+## Validation evidence
+
+Full-diff implementation self-inspection and git diff --check only. No local
+builds, tests or scripts run. Regression tests cover exact condition/notes/
+procedure whitespace and honest unavailable legacy history; existing read-failure
+expectations updated. Existing AlertScopeActionTests cover scope/refusal contracts.
+CI shared tests, Android, iOS simulator and CodeQL remain pending at handoff.
+Parent Claude Opus 5.5 Medium full-diff review is separate and required; this
+self-inspection does not satisfy it. No review approval or merge claimed.
+
+## Exact device gaps
+
+All hardware evidence remains unverified. Record head/build, device/OS and
+diagnostics per result, using synthetic example.net devices and documentation IPs.
+
+1. Duo outer, inner portrait and inner landscape: each list/dashboard/device/
+   rule/notification/widget entry; pushed and embedded detail to device, rule,
+   template and related rule, then all Back returns. Confirm IDs/selection and
+   actual caller labels, one glass owner and Android/older-iOS header fallback.
+2. Ordinary iPhone: repeat entry/return, native inset and glass reclamation after
+   resume on each descendant. Confirm top content and final field reachability.
+3. Both themes, largest text: long unbroken rule/device/field names, CRLF/tabs/
+   trailing spaces, literal markup, long notes/procedure and many entities. Check
+   complete wrapping, code contrast and no clipped status/actions.
+4. VoiceOver/TalkBack: hear severity/state/scope, activate every 44pt action once,
+   read complete source, Change and Undo, Retry and Back; check focus on return.
+5. Slow first load/refresh, gone/recovered alert, denied rule/log/group, partial
+   history, incomplete group reads, partial writes and per-resource refusal.
+   Verify unavailable wording, Core result text and no optimistic sibling state.
+6. Concurrent fault/group taps, refresh while prompt open, changed selection while
+   prompt open, retry after write/read failure. Confirm no wrong-target write.
+7. Fold/rotate/resume while loading, on descendants and with wrapping Undo visible;
+   final content must clear measured toast and both bar orientations. Repeat with
+   Reduce Motion and inspect diagnostics for overlap/placement loops.
+
+Parent owns full review, CI, merge/cleanup and only then section TestFlight.
+If review quota is exhausted, retain the unmerged PR for later sequential review.
+#449/#442 stay open with no checklist ticks. TestFlight 41618582199 and the
+previous uploaded build are untouched.
+
+
+## Integration with the user-authorised navigation correction
+
+Updated only this queued branch after PR #490 merged. AlertDetailPage retains
+IActivePage activation and actual-caller Back recovery, and combines it with this
+PR's edge watcher, measured content placement and idempotent Moved subscription.
+AppShell is the sole resume owner and calls the page's Activate path. The merged
+central Shell activation and route behaviour are retained. Replacement CI and
+mandatory Claude review remain pending; no device acceptance is implied.
+
+## Confirmed review corrections
+
+M1/M2: confirmation accepts a fresh instance of the same identity only while its
+device/rule and current action eligibility still match. Single-fault eligibility
+is checked again before Core independently verifies scope. An ongoing refresh
+blocks explicitly with retry feedback rather than waiting while holding a load
+gate. Core result verification, refusal and partial-change reporting are retained.
+One detail-local overlay covers initial and reused-target loads, refreshes and
+action work through post-write refresh; commands remain disabled during action work.
+
+L1–L5: ordinary prose uses word wrapping; code and field values retain character
+wrapping. Full-width detail is deliberate, following DeviceDetail's scrolling
+detail reference with measured gutters rather than the setup-form width rule.
+Wide Duo/iPad prose readability remains a device check; no layout redesign is
+claimed. Central AppShell owns resume; page edge/Moved cleanup and Activate/Back
+remain. Group counts use singular/plural and unavailable reads do not invent zero.
+Added CI-only regressions for refreshed confirmation, changed targets, fault/group
+eligibility, pending action exclusion, cancellation/failure cleanup, busy guards
+and one/many/unavailable counts. No local execution occurred. All seven device
+gaps above remain, especially background/resume confirmation, action feedback,
+prose wrapping and full-width Duo/iPad. Replacement CI and a fresh parent full
+review are required; earlier 839a63f check results do not validate this revision.
+
+
+## Follow-up review at 17fdd7c
+
+Claude confirmed the previous medium fixes. Stale refusal results now clear at
+new action entry and after a successful ordinary refresh; the Core result of a
+fault/group action remains visible through its own post-write refresh. Added
+refused-then-retry and confirmation-during-refresh cases and held the post-write
+reload in the busy-feedback regression. Retry explicitly says "Reload alert
+details" and follows CanRunAction; it reloads rather than repeating a write.
+The busy overlay uses measured left/right glass clearance and the actual BackBar
+height instead of a fixed 64pt offset. The unused condition-reformatting helper
+and its obsolete test are removed; full source condition fidelity remains covered.
+No local builds/tests ran. Replacement CI and all seven device checks remain
+pending; action feedback and overlay placement still require hardware checks.

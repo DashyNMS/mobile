@@ -92,7 +92,9 @@ public sealed class BackBar : Grid
         var title = previous?.Title;
         if (string.IsNullOrWhiteSpace(title))
         {
-            title = Shell.Current?.CurrentItem?.CurrentItem?.Title;
+            var tab = Shell.Current?.CurrentItem?.CurrentItem;
+            title = (tab?.CurrentItem as IShellContentController)?.Page?.Title;
+            if (string.IsNullOrWhiteSpace(title)) title = tab?.Title;
         }
 
         return string.IsNullOrWhiteSpace(title) ? "Back" : title;

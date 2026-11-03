@@ -7,12 +7,13 @@
     xmlns:rules="clr-namespace:DashyNMS.Mobile.Rules;assembly=DashyNMS.Mobile.Shared"
     x:DataType="rules:AlertRulesViewModel"
     SafeAreaEdges="All"
+    HideSoftInputOnTapped="True"
     Title="Alert rules">
 
     <!-- On an iPad or a Mac, the rule you tap shows beside the list (#88, #122). -->
     <controls:ListDetail SafeAreaEdges="None" x:Name="Split" Placeholder="Choose a rule to see it here.">
 
-    <!-- As the other lists (#122): search that slides away, the chips, a count, then the rules in one card. -->
+    <!-- Button-only search, chips, count, then rules in one card. -->
     <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
         <controls:PageHeader x:Name="Header" Title="Alert rules">
@@ -21,9 +22,9 @@
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal. -->
+        <!-- Opens only from search actions; filtering must keep keyboard focus. -->
         <Grid SafeAreaEdges="None" Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
-            <controls:SearchField Margin="0,2,0,0">
+            <controls:SearchField x:Name="SearchField" Margin="0,2,0,0">
                 <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search rules" Completed="OnSearchCompleted" />
             </controls:SearchField>
         </Grid>
@@ -92,7 +93,7 @@
         <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <Grid SafeAreaEdges="None">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Rules}" SelectionMode="None">
+                <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Rules}" SelectionMode="None">
                     <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
                     <CollectionView.Footer><BoxView x:Name="ListFoot" Color="Transparent" /></CollectionView.Footer>
                     <CollectionView.EmptyView>
