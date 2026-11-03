@@ -12,7 +12,7 @@
   <VerticalStackLayout Grid.Row="2" Spacing="6">
    <Label Style="{StaticResource Caption}" Text="Group neighbours by their announced name, description, port or protocol, or the switch and port they use. These use desktop's neighbour view definitions. Reordering and deletion save immediately." />
    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-   <Button Text="Retry neighbour counts" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCountsCommand}" IsVisible="{Binding HasError}" />
+   <Button Text="Retry neighbour counts" MinimumHeightRequest="44" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCountsCommand}" IsVisible="{Binding HasError}" />
   </VerticalStackLayout>
   <Grid Grid.Row="3" SafeAreaEdges="None">
    <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Command="{Binding RetryCountsCommand}">
@@ -45,7 +45,7 @@
      <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
     </LinearGradientBrush></BoxView.Background>
    </BoxView>
-   <controls:BusyCard x:Name="Busy" IsVisible="False" VerticalOptions="Center" />
+   <controls:BusyCard x:Name="Busy" Text="Loading neighbour counts…" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
   </Grid>
  </Grid>
 </ContentPage>

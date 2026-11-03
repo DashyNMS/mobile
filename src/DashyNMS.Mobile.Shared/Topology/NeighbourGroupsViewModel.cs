@@ -24,7 +24,7 @@ public sealed record NeighbourGroupRow(NeighbourViewDefinition Group, int? Count
             1 => NeighbourRuleRow.Describe(Group.Rules[0]),
             var n => string.Create(CultureInfo.CurrentCulture, $"{n} rules, {(Group.MatchAll ? "all" : "any")} must match"),
         },
-        Count is { } count ? string.Create(CultureInfo.CurrentCulture, $"{count:N0} neighbours (cached snapshot)") : "Neighbour count unavailable",
+        Count is { } count ? string.Create(CultureInfo.CurrentCulture, $"{count:N0} {(count == 1 ? "neighbour" : "neighbours")}") : "Neighbour count unavailable",
     }.Where(s => s is not null));
 }
 
@@ -83,6 +83,8 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
         if (IsBusy) return;
         if (_neighbours.Links is not null)
         {
+            ErrorMessage = null;
+            Refresh();
             return;
         }
 
@@ -93,7 +95,11 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task RetryCountsAsync() => LoadCountsAsync();
+    private async Task RetryCountsAsync()
+    {
+        if (IsBusy) return;
+        if (await RunAsync(() => _neighbours.LoadAsync())) Refresh();
+    }
 
     [RelayCommand]
     private Task AddAsync() => _navigation.GoToAsync(Routes.NeighbourGroupEditor);
@@ -117,9 +123,13 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
             return;
         }
 
-        _settings.Current.NeighbourViews.RemoveAll(v => v.Id == row.Group.Id);
+        var index = _settings.Current.NeighbourViews.FindIndex(v => v.Id == row.Group.Id);
+        if (index < 0) return;
+        _settings.Current.NeighbourViews.RemoveAt(index);
         _settings.Save();
-        Refresh();
+        var visibleIndex = Groups.ToList().FindIndex(v => v.Group.Id == row.Group.Id);
+        if (visibleIndex >= 0) Groups.RemoveAt(visibleIndex);
+        OnPropertyChanged(nameof(HasNone));
     }
 
     private void Move(NeighbourGroupRow? row, int by)
@@ -134,6 +144,9 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
 
         (groups[from], groups[to]) = (groups[to], groups[from]);
         _settings.Save();
+        var visibleFrom = Groups.ToList().FindIndex(v => v.Group.Id == row!.Group.Id);
+        var visibleTo = Groups.ToList().FindIndex(v => v.Group.Id == groups[from].Id);
+        if (visibleFrom >= 0 && visibleTo >= 0) Groups.Move(visibleFrom, visibleTo);
         Refresh();
     }
 }

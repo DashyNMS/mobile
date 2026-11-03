@@ -5,50 +5,22 @@ using DashyNMS.Mobile.Topology;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Saved definitions; editor return reloads settings without changing their schema.</summary>
-public partial class NeighbourGroupsPage : ContentPage
+public partial class NeighbourGroupsPage : ContentPage, IActivePage
 {
     private readonly NeighbourGroupsViewModel _viewModel;
     private IDisposable? _edges;
-    private Shell? _shell;
-    private Window? _window;
 
     public NeighbourGroupsPage(NeighbourGroupsViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        PullToRefresh.ShowBusyCard(PullRefresh, Busy, viewModel, "Loading neighbour counts…", "Loading neighbour counts…");
-        Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
+        PullToRefresh.HideSpinner(PullRefresh);
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         List.HandlerChanged += (_, _) => StopInsets();
         List.Loaded += (_, _) => StopInsets();
 #endif
     }
-
-    private void OnLoaded(object? sender, EventArgs e)
-    {
-        OnUnloaded(sender, e);
-        _shell = Shell.Current;
-        _window = Window;
-        if (_shell is not null) _shell.Navigated += OnNavigated;
-        if (_window is not null) _window.Resumed += OnResumed;
-    }
-
-    private void OnUnloaded(object? sender, EventArgs e)
-    {
-        if (_shell is not null) _shell.Navigated -= OnNavigated;
-        if (_window is not null) _window.Resumed -= OnResumed;
-        _shell = null;
-        _window = null;
-    }
-
-    private void OnNavigated(object? sender, ShellNavigatedEventArgs e) => RestoreActive();
-    private void OnResumed(object? sender, EventArgs e) => RestoreActive();
-    private void RestoreActive() => Dispatcher.Dispatch(() =>
-    {
-        if (Shell.Current?.CurrentPage == this) Activate();
-    });
 
     protected override void OnAppearing()
     {
@@ -58,7 +30,7 @@ public partial class NeighbourGroupsPage : ContentPage
         _ = _viewModel.LoadCountsAsync();
     }
 
-    private void Activate()
+    public void Activate()
     {
         TopBar.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
@@ -94,8 +66,13 @@ public partial class NeighbourGroupsPage : ContentPage
     private async void OnMore(object? sender, EventArgs e)
     {
         if (sender is not Button { BindingContext: NeighbourGroupRow row }) return;
-        var choice = await DisplayActionSheetAsync("Actions for " + row.Name, "Cancel", null,
-            "Move earlier", "Move later", "Delete neighbourhood");
+        var index = _viewModel.Groups.ToList().FindIndex(item => item.Group.Id == row.Group.Id);
+        if (index < 0) return;
+        var options = new List<string>();
+        if (index > 0) options.Add("Move earlier");
+        if (index < _viewModel.Groups.Count - 1) options.Add("Move later");
+        options.Add("Delete neighbourhood");
+        var choice = await DisplayActionSheetAsync("Actions for " + row.Name, "Cancel", null, options.ToArray());
         if (choice == "Move earlier") _viewModel.MoveUpCommand.Execute(row);
         else if (choice == "Move later") _viewModel.MoveDownCommand.Execute(row);
         else if (choice == "Delete neighbourhood") await _viewModel.DeleteCommand.ExecuteAsync(row);

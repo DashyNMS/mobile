@@ -1,6 +1,7 @@
 # Neighbourhoods assessment — #450
 
-Refs #450, epic #442. Baseline main 38fa645. Read live #450/#442/#451/#452,
+Refs #450, epic #442. Integration baseline main 8f6dc2a (included in
+43c22f9e00187d091997e901e65da67f5e0dba05). Read live #450/#442/#451/#452,
 CLAUDE.md, DEVELOPING.md, full DESIGN.md and DESIGN-REFERENCES.md, and PR #490
 read-only. FULLDESIGN.md is absent. No queued branch is edited.
 
@@ -12,7 +13,7 @@ read-only. FULLDESIGN.md is absent. No queued branch is edited.
 | Entry/actions | Fix required: 36pt arrows, small chevron, no list delete entry | Named 44pt Edit and More actions; existing commands |
 | Ordering | Compliant: saved order, bounded adjacent swaps | Preserve, including imported IDs/definitions |
 | Empty | Compliant: empty saved definitions distinct from network data | Keep saved-source empty text |
-| Loading/error | Fix required: count fetch failures invisible | Shared busy helper, error and retry; definitions remain usable |
+| Loading/error | Fix required: count fetch failures invisible | One busy card for every count request, error and explicit fresh retry; definitions remain usable |
 | Layout | Fix required: unbounded BindableLayout in ScrollView | Finite virtualised CollectionView, reserved matching fade/footer |
 | Navigation/glass | Fix required: BackBar only, no glass ownership | Restore on appearing, retained navigation and resume |
 | Native/accessibility | Unverified on device | Explicit matrix below; no acceptance inferred |
@@ -41,9 +42,22 @@ retains selected ID unless deleted, then falls back to All. No schema migration.
 
 Code: full-diff self-inspection and whitespace checks at handoff. Regression tests
 added but not run. No local builds/tests/scripts, external review or delegation.
-CI: shared tests, Android and iOS builds pending. Parent reviews sequentially with
-Claude Opus 5.5 Medium after quota reset and after #489 then #490; no review here.
-Parent updates only this PR when its queue turn arrives. No merge or release.
+Claude review of 43c22f9 confirmed M1–M3 and L1–L4: stale cache errors/no-op
+retry, collection resets, duplicate activation ownership, count wording, retry
+progress, boundary menu actions and outdated evidence. This revision clears
+errors on valid-cache reuse, explicitly reloads on Retry/pull, retains last-good
+rows on failure, emits Move/Remove without Reset, delegates activation to #490's
+IActivePage owner, uses singular/plural counts, displays one busy overlay for
+all requests and omits boundary moves. Commands re-resolve saved IDs after sheets.
+Regression coverage added for cache recovery, forced reload, busy state, retained
+rows and collection events; not executed locally.
+
+At the 43c22f9 review, unit/iOS/CodeQL actions and C# passed; Android and Swift
+were pending. At this revision's preparation, Android also passed and Swift
+remained pending. New pushed-head CI is unknown until CI runs. Parent owns the
+fresh full-diff Claude 5.5 Medium review and CI/merge handling. No merge or release.
+Editor #451/future PR #492 retains the Clone ID and Save/Delete Routes.Back
+dependency; this revision does not edit the shared editor.
 
 Device evidence: ALL UNVERIFIED. For each case run Duo outer, inner portrait,
 inner landscape and ordinary iPhone, both themes, largest text, TalkBack/VoiceOver,
@@ -63,5 +77,9 @@ fold/rotate and resume. Record exact build/head, OS, result and diagnostics:
    One glass owner; relative Back/actual caller, no refresh needed to restore glass.
 6. Scroll first/final row below matching 20pt fade; camera, side and bottom pill
    clearance, no dark partial bar/double inset/placement loop. No toast to measure.
+7. Far down a long list, move and confirmed delete preserve viewport and focus;
+   no empty flash. Retained More tab return restores glass Back and Add.
+8. Offline count failure -> editor successfully loads links -> Back clears the
+   old error. Retry/pull with cached links fetches again; failure retains counts.
 
 No closure or epic ticks. TestFlight only after #450–#452; acceptance remains pending.

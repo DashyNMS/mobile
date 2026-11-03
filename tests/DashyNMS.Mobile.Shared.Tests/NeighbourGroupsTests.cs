@@ -3,6 +3,7 @@ using DashyNMS.Mobile.Topology;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
+using NSubstitute.ExceptionExtensions;
 
 namespace DashyNMS.Mobile.Tests;
 
@@ -14,7 +15,8 @@ public sealed class NeighbourGroupsTests
     {
         var definition = new NeighbourViewDefinition { Name = "Lab" };
         Assert.Contains("Neighbour count unavailable", new NeighbourGroupRow(definition).Summary);
-        Assert.Contains("0 neighbours (cached snapshot)", new NeighbourGroupRow(definition, 0).Summary);
+        Assert.Contains("0 neighbours", new NeighbourGroupRow(definition, 0).Summary);
+        Assert.EndsWith("1 neighbour", new NeighbourGroupRow(definition, 1).Summary);
     }
 
     [Fact]
@@ -34,6 +36,40 @@ public sealed class NeighbourGroupsTests
     }
 
     private readonly AppSettings _appSettings = new();
+    [Fact]
+    public async Task Editor_loaded_cache_clears_failure_and_explicit_retry_fetches_again()
+    {
+        _appSettings.NeighbourViews = [Group("APs", true, (NeighbourRuleField.SystemName, NeighbourRuleOperator.StartsWith, "ap-"))];
+        var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException());
+        await list.LoadCountsAsync();
+        Assert.True(list.HasError);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns([new NetworkLink { LocalDeviceId = 1, RemoteHostname = "ap-example" }]);
+        await _directory.LoadAsync();
+        _client.Links.ClearReceivedCalls();
+        await list.LoadCountsAsync();
+        Assert.False(list.HasError);
+        Assert.Equal(1, list.Groups[0].Count);
+        await _client.Links.DidNotReceive().ListAllAsync(Arg.Any<CancellationToken>());
+
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        {
+            await Task.Yield();
+            Assert.True(list.IsBusy);
+            Assert.False(list.IsNotBusy);
+            return [];
+        });
+        await list.RetryCountsCommand.ExecuteAsync(null);
+        Assert.False(list.IsBusy);
+        Assert.Equal(0, list.Groups[0].Count);
+        var savedRow = list.Groups[0];
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException());
+        await list.RetryCountsCommand.ExecuteAsync(null);
+        Assert.True(list.HasError);
+        Assert.Same(savedRow, list.Groups[0]);
+        Assert.Equal(0, list.Groups[0].Count);
+    }
+
     private readonly ISettingsStore _settings;
     private readonly ILibreNmsClient _client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr")]);
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
@@ -204,10 +240,16 @@ public sealed class NeighbourGroupsTests
         _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
         var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
 
+        var events = new List<System.Collections.Specialized.NotifyCollectionChangedAction>();
+        list.Groups.CollectionChanged += (_, e) => events.Add(e.Action);
         list.MoveUpCommand.Execute(list.Groups[2]);
         Assert.Equal(["A", "C", "B"], _appSettings.NeighbourViews.Select(v => v.Name));
+        Assert.Contains(System.Collections.Specialized.NotifyCollectionChangedAction.Move, events);
+        Assert.DoesNotContain(System.Collections.Specialized.NotifyCollectionChangedAction.Reset, events);
 
+        events.Clear();
         await list.DeleteCommand.ExecuteAsync(list.Groups[0]);
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Remove], events);
         Assert.Equal(["C", "B"], _appSettings.NeighbourViews.Select(v => v.Name));
         Assert.Equal(["C", "B"], list.Groups.Select(g => g.Name));
 
@@ -228,8 +270,8 @@ public sealed class NeighbourGroupsTests
 
         await list.LoadCountsAsync();
 
-        Assert.Equal("System name starts with \"ap-\" · 2 neighbours (cached snapshot)", list.Groups[0].Summary);
-        Assert.Equal("2 rules, any must match · 3 neighbours (cached snapshot)", list.Groups[1].Summary);
+        Assert.Equal("System name starts with \"ap-\" · 2 neighbours", list.Groups[0].Summary);
+        Assert.Equal("2 rules, any must match · 3 neighbours", list.Groups[1].Summary);
     }
 
     [Fact]
