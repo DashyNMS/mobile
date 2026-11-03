@@ -3,23 +3,46 @@
     x:Class="DashyNMS.Mobile.Pages.DiagnosticsSharingPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:DiagnosticsSharingViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Help improve DashyNMS">
-    <Grid RowDefinitions="Auto,*,Auto">
+    <ContentPage.Resources>
+        <!-- Retain the primary style's themed disabled states for this equal-size rejection action. -->
+        <Style x:Key="DeclineChoice" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="MinimumHeightRequest" Value="44" />
+            <Setter Property="VisualStateManager.VisualStateGroups">
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="Disabled">
+                            <VisualState.Setters>
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="PointerOver" />
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </Setter>
+            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
+            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
+        </Style>
+    </ContentPage.Resources>
+    <Grid x:Name="Root" RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="Help improve DashyNMS" Margin="16,0,16,0" />
 
         <!-- Desktop's choices (desktop#62, #498), worded for the phone. Both
              start unticked; going Back records nothing and asks next launch. -->
-        <ScrollView Grid.Row="1">
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16" Spacing="12">
+        <ScrollView x:Name="Scroller" Grid.Row="1">
+                <VerticalStackLayout x:Name="Body" Padding="16" Spacing="12">
                     <Label Text="Choose what to share with DashyNMS through Sentry. They're separate choices, both optional, and you can change them in Settings › Diagnostics." />
+                    <Label Style="{StaticResource Caption}" Text="The switches select what Allow selected will share. Don't share turns both off. Back leaves without recording a choice." />
 
                     <Border Style="{StaticResource Card}">
                         <VerticalStackLayout Spacing="12">
@@ -29,7 +52,9 @@
                                     <Label Style="{StaticResource Caption}"
                                            Text="When something goes wrong: the app version, the phone's operating system and its version, the processor type, and where in the app's code it happened." />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding ShareErrors}" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareErrors}" IsEnabled="{Binding CanChoose}" MinimumHeightRequest="44" VerticalOptions="Center"
+                                        SemanticProperties.Description="Share error reports"
+                                        SemanticProperties.Hint="Selects error reports for Allow selected. Does not share until you confirm." />
                             </Grid>
                             <BoxView Style="{StaticResource Divider}" />
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -38,7 +63,9 @@
                                     <Label Style="{StaticResource Caption}"
                                            Text="How often the app starts and which features are used, how long pages and requests take, responsiveness and memory. With both on, how each time it was open ended, under a random ID that's new each time. No user or install ID." />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding ShareUsage}" VerticalOptions="Center" />
+                                <Switch Grid.Column="1" IsToggled="{Binding ShareUsage}" IsEnabled="{Binding CanChoose}" MinimumHeightRequest="44" VerticalOptions="Center"
+                                        SemanticProperties.Description="Share usage and performance"
+                                        SemanticProperties.Hint="Selects usage and performance for Allow selected. Does not share until you confirm." />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -48,13 +75,10 @@
 
                     <Button Style="{StaticResource LinkButton}" Text="Privacy policy" Command="{Binding OpenPrivacyPolicyCommand}"
                             HorizontalOptions="Start" />
+                    <!-- Both choices scroll into view even when large text fills a short display. -->
+                    <Button Style="{StaticResource DeclineChoice}" Text="Don't share" Command="{Binding DeclineCommand}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
+                    <Button Text="Allow selected" Command="{Binding AllowSelectedCommand}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
-            </controls:ReadableColumn>
         </ScrollView>
-
-        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="12" Margin="16,8,16,16">
-            <Button Style="{StaticResource SecondaryButton}" Text="Don't share" Command="{Binding DeclineCommand}" />
-            <Button Grid.Column="1" Text="Allow selected" Command="{Binding AllowSelectedCommand}" />
-        </Grid>
     </Grid>
 </ContentPage>
