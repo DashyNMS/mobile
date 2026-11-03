@@ -3,14 +3,12 @@
     x:Class="DashyNMS.Mobile.Pages.WhatsNewPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:WhatsNewViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="What's new">
-    <Grid x:Name="Root" RowDefinitions="Auto,*">
+    <Grid x:Name="Root" RowDefinitions="Auto,*,Auto">
         <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="What's new" Margin="16,0,16,0" />
 
@@ -49,7 +47,6 @@
 
                     <Button Style="{StaticResource LinkButton}" Text="Full release notes" Command="{Binding OpenReleaseNotesCommand}"
                             MinimumHeightRequest="44" LineBreakMode="WordWrap" Margin="0,8,0,0" SemanticProperties.Hint="Opens GitHub in your browser" />
-                    <Button Text="Got it" Command="{Binding GotItCommand}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
         </ScrollView>
         <BoxView x:Name="Fade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
@@ -60,5 +57,6 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+        <Button x:Name="GotIt" Grid.Row="2" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
     </Grid>
 </ContentPage>

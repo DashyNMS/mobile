@@ -8,7 +8,6 @@ namespace DashyNMS.Mobile.Pages;
 public partial class WhatsNewPage : ContentPage, IActivePage
 {
     private IDisposable? _edges;
-    private Window? _resumeWindow;
     private bool _visible;
 
     public WhatsNewPage(WhatsNewViewModel viewModel)
@@ -37,12 +36,6 @@ public partial class WhatsNewPage : ContentPage, IActivePage
     {
         _visible = true;
         _edges ??= CoveredEdges.Watch(this, Place);
-        if (!ReferenceEquals(_resumeWindow, Window))
-        {
-            if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-            _resumeWindow = Window;
-            if (_resumeWindow is not null) _resumeWindow.Resumed += OnResumed;
-        }
         Scroller.HandlerChanged -= OnChanged;
         Scroller.HandlerChanged += OnChanged;
         Scroller.Loaded -= OnChanged;
@@ -68,8 +61,6 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         _visible = false;
         _edges?.Dispose();
         _edges = null;
-        if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-        _resumeWindow = null;
         Scroller.HandlerChanged -= OnChanged;
         Scroller.Loaded -= OnChanged;
 #if IOS
@@ -79,10 +70,13 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         base.OnDisappearing();
     }
 
-    private void OnResumed(object? sender, EventArgs e) => Dispatcher.Dispatch(() =>
+    /// <summary>Ignores a queued tap after Back has begun removing the page.</summary>
+    private async void OnGotItClicked(object? sender, EventArgs e)
     {
-        if (_visible) Activate();
-    });
+        if (!_visible || BindingContext is not WhatsNewViewModel { CanDismiss: true } viewModel) return;
+        await viewModel.GotItCommand.ExecuteAsync(null);
+    }
+
     private void OnChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(Place);
 
     private void Place()
@@ -90,8 +84,8 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         if (!_visible) return;
         var edges = CoveredEdges.ForScrolling(this);
         Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
-        TopBar.Fit(Header);
-        Body.Padding = new Thickness(16 + edges.Left, 20, 16 + edges.Right, 24 + edges.Bottom);
+        Body.Padding = new Thickness(16 + edges.Left, 20, 16 + edges.Right, 24);
+        GotIt.Margin = new Thickness(16 + edges.Left, 12, 16 + edges.Right, 16 + edges.Bottom);
         Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 #if IOS
         if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)

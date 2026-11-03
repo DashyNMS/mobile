@@ -52,7 +52,7 @@ server data, credentials, extra network fetching or telemetry is added.
 | Release headings and sections | Fix required | Semantic release/section headings, complete ordered content retained |
 | Icons and themes | Compliant in code | Existing Glyph strokes retained; decorative instance excluded from accessibility tree; device contrast unverified |
 | Long notes and links | Fix required | Removed ReadableColumn cap; character wrapping permits long URLs/paragraphs; browser action full width and minimum 44pt |
-| Scroll and final dismissal | Fix required | Finite star viewport; single primary Got it scrolls with content, minimum 44pt and wrapping; footer clears glass |
+| Scroll and final dismissal | Fix required | Finite star viewport; single primary Got it remains in a fixed Auto row outside the scrolling viewport, minimum 44pt and wrapping; footer clears glass |
 | Insets and fade | Fix required | Native top only on iOS; page owns content sides/bottom once, Android native safe areas; 20pt input-transparent background fade matches content width and has 20pt reserved space |
 | Header/glass ownership | Fix required | Shared PageHeader/TopBar line, caller Back in glass on supported iOS; IActivePage restores retained More entry/resume |
 | Lifecycle | Fix required | Idempotent edge/handler/Loaded/Moved subscriptions, retained Window unsubscribed on disappearance; no native observers added |
@@ -107,3 +107,20 @@ switch tabs away/back and background/resume; inspect diagnostics for loops.
 | Resize/fold/rotate/resume at final item | Finite viewport, 20pt fade reserved on matching surface, no floating Back or overlap, final action clears glass | Unverified |
 
 No screenshots or customer data collected. All added fixtures are synthetic.
+
+## Claude review remediation
+
+Full-diff Claude Opus 5.5 Medium review at d50f767 against main 3ac10df found
+no blockers. Its two medium findings are fixed: AppShell alone owns resume
+activation, and Got it is restored to the fixed action slot with measured side
+and bottom clearance. The scroll viewport ends above it. The page ignores queued
+Got it taps after disappearance; the command still owns its completion latch.
+Repeated TopBar.Fit is removed because PageHeader already installs it once.
+The obsolete legacy iOS safe-area flag is removed in favour of explicit edges.
+
+Unit tests passed at reviewed head; replacement platform CI remains pending.
+No local builds/tests ran. NotesUnavailable is defensive for direct construction;
+normal production entry requires parsed notes and does not expose an empty state.
+Device checks must include rapid Got it with header/system/glass Back and iOS
+edge swipe, including a swipe during completion. Gesture-transition ordering
+cannot be established by code inspection; all hardware outcomes are unverified.
