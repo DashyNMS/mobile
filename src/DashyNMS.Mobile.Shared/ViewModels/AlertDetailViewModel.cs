@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.DeviceSections;
@@ -44,6 +43,10 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private readonly ISelfActionTracker _selfActions;
     private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
+    private bool _actionPending;
+    [ObservableProperty]
+    private string? _actionBusyText;
+    private readonly SemaphoreSlim _loads = new(1, 1);
 
     /// <summary>
     /// Raised after you acknowledge or unacknowledge the alert here. Beside
@@ -86,6 +89,14 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         _navigation = navigation;
         _selfActions = selfActions;
         _rules = rules;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is not (nameof(IsBusy) or nameof(ActionBusyText))) return;
+            AcknowledgeCommand.NotifyCanExecuteChanged();
+            UnacknowledgeCommand.NotifyCanExecuteChanged();
+            AcknowledgeFaultCommand.NotifyCanExecuteChanged();
+            UnacknowledgeFaultCommand.NotifyCanExecuteChanged();
+        };
     }
 
     public int AlertId => Key.Id;
@@ -95,6 +106,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public int? DeviceId { get; private set; }
 
     public bool HasAlert => Alert is not null;
+    public bool CanRunAction => !IsBusy && ActionBusyText is null;
 
     [ObservableProperty]
     private string? _actionResult;
@@ -104,6 +116,9 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public string AcknowledgeLabel => Alert?.Alert.Source == AlertSource.Fault ? "Acknowledge group" : "Acknowledge";
     public string UnacknowledgeLabel => Alert?.Alert.Source == AlertSource.Fault ? "Unacknowledge group" : "Unacknowledge";
     public string? FaultScopeText => Alert?.Alert.Source == AlertSource.Fault ? _faultScope?.Explanation : null;
+    public string? GroupStatusText => Alert?.Alert.Source != AlertSource.Fault ? null
+        : _faultGroup is { } group ? $"Device/rule group: {group.FaultCount} open {(group.FaultCount == 1 ? "fault" : "faults")}, {group.AcknowledgedCount} acknowledged, {group.UnacknowledgedCount} active. Group actions apply to every open fault for this device and rule."
+        : "Device/rule group status is unavailable. Group actions apply to every open fault for this device and rule.";
     public bool CanAcknowledgeFault => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
     public bool CanUnacknowledgeFault => Alert is { IsAcknowledged: true } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
     public bool CanAcknowledge => (_faultGroup is { } group ? group.UnacknowledgedCount > 0 : Alert is { IsAcknowledged: false, State: not AlertState.Recovered }) && MayAcknowledge;
@@ -132,6 +147,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CanAcknowledgeFault));
         OnPropertyChanged(nameof(CanUnacknowledgeFault));
         OnPropertyChanged(nameof(FaultScopeText));
+        OnPropertyChanged(nameof(GroupStatusText));
     }
 
     public bool HasDevice => DeviceId is not null;
@@ -160,16 +176,36 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public Task OpenMovedAlertListAsync() => _navigation.GoToAsync(Routes.Alerts,
         new Dictionary<string, object> { [Routes.AlertNoticeParameter] = DashyNMS.Mobile.Alerts.AlertTargets.MovedNotice });
 
-    public Task LoadAsync(AlertKey key, int? deviceId = null)
+    public async Task LoadAsync(AlertKey key, int? deviceId = null)
     {
-        Key = key;
-        DeviceId = deviceId;
-        OnPropertyChanged(nameof(HasDevice));
-        return RefreshAsync();
+        await _loads.WaitAsync();
+        try
+        {
+            Key = key;
+            DeviceId = deviceId;
+            OnPropertyChanged(nameof(HasDevice));
+            Alert = null;
+            IsGone = false;
+            Groups.ReplaceAll([]);
+            OnPropertyChanged(nameof(CardGroups));
+            ActionResult = null;
+            await RefreshCoreAsync();
+        }
+        finally { _loads.Release(); }
     }
 
     [RelayCommand]
-    private Task RefreshAsync() => RunAsync(async () =>
+    private async Task RefreshAsync()
+    {
+        await _loads.WaitAsync();
+        try
+        {
+            if (await RefreshCoreAsync() && ActionBusyText is null) ActionResult = null;
+        }
+        finally { _loads.Release(); }
+    }
+
+    private Task<bool> RefreshCoreAsync() => RunAsync(async () =>
     {
         _faultGroup = null;
         _faultScope = null;
@@ -268,7 +304,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
         // The rule card opens the whole rule: where it applies, its template,
         // what else it has alerting (#22).
-        foreach (var group in groups.Where(g => g.Name == RuleGroupName))
+        foreach (var group in groups.Where(g => g.Name == RuleGroupName && _rule is not null))
         {
             group.FooterText = "Open rule";
             group.FooterCommand = OpenRuleCommand;
@@ -351,7 +387,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         : Task.CompletedTask;
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private async Task AcknowledgeAsync()
     {
         if (Alert is not { } item || !CanAcknowledge)
@@ -365,28 +401,36 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        ActionResult = null;
         var note = await _dialogs.PromptAsync(
             "Acknowledge alert",
             $"{item.Rule} on {item.Device}. Add a note (optional):",
             "Acknowledge",
             "Note");
-        if (note is null)
+        if (note is null) return;
+        if (!ConfirmCurrentTarget(item, CanAcknowledge))
         {
             return;
         }
 
-        if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
+        item = Alert!;
+        ActionBusyText = "Acknowledging…";
+        try
         {
-            // So the next alert check doesn't notify you about your own acknowledgement.
-            _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
-            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
-            await RefreshAsync();
+            if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
+            {
+                // So the next alert check doesn't notify you about your own acknowledgement.
+                _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+                AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
+                await RefreshAsync();
+            }
         }
+        finally { ActionBusyText = null; }
 
         ShowPermissions();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private async Task UnacknowledgeAsync()
     {
         if (Alert is not { } item || !CanUnacknowledge)
@@ -400,26 +444,44 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        ActionResult = null;
         // One alert, and acknowledging puts it back: no need to ask (#146).
-        if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
+        ActionBusyText = "Unacknowledging…";
+        try
         {
-            _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
-            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
-            await RefreshAsync();
+            if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
+            {
+                _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+                AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
+                await RefreshAsync();
+            }
         }
+        finally { ActionBusyText = null; }
 
         ShowPermissions();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private Task AcknowledgeFaultAsync() => CanAcknowledgeFault ? ChangeFaultAsync(true, true) : Task.CompletedTask;
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private Task UnacknowledgeFaultAsync() => CanUnacknowledgeFault ? ChangeFaultAsync(false, true) : Task.CompletedTask;
 
     private async Task ChangeFaultAsync(bool acknowledge, bool single)
     {
+        if (_actionPending || IsBusy) return;
+        _actionPending = true;
+        try
+        {
+            await ChangeFaultCoreAsync(acknowledge, single);
+        }
+        finally { _actionPending = false; ActionBusyText = null; }
+    }
+
+    private async Task ChangeFaultCoreAsync(bool acknowledge, bool single)
+    {
         if (Alert is not { } item || (single ? !MayAcknowledgeSelected : !MayAcknowledge)) return;
+        ActionResult = null;
         var scope = single ? "fault" : "group";
         string? note = null;
         if (acknowledge)
@@ -429,6 +491,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         }
         else if (!await _dialogs.ConfirmAsync($"Unacknowledge {scope}", single ? "Return only this fault to active?" : $"Return every acknowledged fault for {item.Rule} on {item.Device} to active?", $"Unacknowledge {scope}", "Cancel")) return;
 
+        var eligible = single
+            ? acknowledge ? CanAcknowledgeFault : CanUnacknowledgeFault
+            : acknowledge ? CanAcknowledge : CanUnacknowledge;
+        if (!ConfirmCurrentTarget(item, eligible)) return;
+        item = Alert!;
+        ActionBusyText = acknowledge ? "Acknowledging…" : "Unacknowledging…";
         var key = new AlertGroupKey(item.Alert.DeviceId, item.Alert.RuleId);
         var completed = await RunAsync(async () =>
         {
@@ -443,6 +511,21 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         });
         if (completed) await RefreshAsync();
         ShowPermissions();
+    }
+
+    /// <summary>A refreshed instance is valid; a different identity or device/rule is never retargeted.</summary>
+    private bool ConfirmCurrentTarget(AlertItem confirmed, bool eligible)
+    {
+        if (IsBusy || _loads.CurrentCount == 0)
+        {
+            ActionResult = "The alert is updating; nothing was changed. Try again when it finishes.";
+            return false;
+        }
+        if (Alert?.Alert.Identity == confirmed.Alert.Identity
+            && Alert.Alert.DeviceId == confirmed.Alert.DeviceId
+            && Alert.Alert.RuleId == confirmed.Alert.RuleId && eligible) return true;
+        ActionResult = "The alert changed while you were confirming; nothing was changed. Try again.";
+        return false;
     }
 
     [RelayCommand]
@@ -490,6 +573,10 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         {
             yield return new SectionGroup(RuleGroupName, RuleRows(rule));
         }
+        else
+        {
+            yield return new SectionGroup(RuleGroupName, [new SectionRow("Rule details unavailable") { Subtitle = "Pull to refresh to try loading the rule again." }]);
+        }
 
         var history = AlertFaultDetails.History(ruleLog, alert.Alert).Take(HistoryRows).Select(e => new SectionRow(e.State.ToDisplayString())
         {
@@ -518,7 +605,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
                 history.Insert(1, new SectionRow("History incomplete") { Subtitle = "The retained log cannot establish every start and recovery; the occurrence count may be a minimum." });
         }
 
-        if (now is null && alert.Alert.Source == AlertSource.Fault)
+        if (now is null)
             history.Insert(0, new SectionRow("History unavailable") { Subtitle = "The alert log could not be read, so earlier occurrences cannot be counted." });
 
         if (history.Count > 0)
@@ -557,12 +644,6 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
 
     private static IEnumerable<SectionRow> RuleRows(AlertRule rule)
     {
-        // The builder's condition in LibreNMS's own SQL-ish form; the legacy
-        // text, or the hand-written query, when there's no builder.
-        var condition = rule.Extra?.OverrideQuery == true
-            ? rule.Query
-            : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query;
-
         // As the mock-up: the rule's name over its condition, and notes and
         // procedure below, without lines between - one card, not a list. The
         // severity is in the header already; only "Disabled" is news here.
@@ -570,7 +651,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         {
             Value = rule.Disabled ? "Disabled" : null,
             Status = rule.Disabled ? RowStatus.Inactive : RowStatus.None,
-            Subtitle = string.IsNullOrWhiteSpace(condition) ? null : BreakCondition(condition.Trim()),
+            Subtitle = DashyNMS.Mobile.Rules.RuleText.ConditionSource(rule),
             IsCode = true,
             IsStacked = true,
             Detail = rule.Extra?.Invert == true ? "Inverted: alerts when the condition doesn't match" : null,
@@ -585,68 +666,6 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         {
             yield return new SectionRow("Procedure") { Subtitle = rule.Procedure, IsStacked = true };
         }
-    }
-
-    /// <summary>
-    /// A rule's condition with each top-level AND / OR starting a line, as
-    /// the mock-up's rule card: one run-on line was hard to read (Batch 11).
-    /// Bracketed groups and quoted text ("(power|psu)") stay as they are.
-    /// </summary>
-    internal static string BreakCondition(string condition)
-    {
-        var text = new StringBuilder(condition.Length + 16);
-        var depth = 0;
-        char? quote = null;
-        for (var i = 0; i < condition.Length; i++)
-        {
-            var c = condition[i];
-            if (quote is not null)
-            {
-                if (c == quote)
-                {
-                    quote = null;
-                }
-            }
-            else if (c is '"' or '\'')
-            {
-                quote = c;
-            }
-            else if (c == '(')
-            {
-                depth++;
-            }
-            else if (c == ')')
-            {
-                depth = Math.Max(0, depth - 1);
-            }
-            else if (depth == 0 && c == ' ' && StartsOperator(condition, i + 1) is { } length)
-            {
-                // " AND x" -> "\nAND x": the operator leads its line.
-                text.Append('\n').Append(condition, i + 1, length);
-                i += length;
-                continue;
-            }
-
-            text.Append(c);
-        }
-
-        return text.ToString();
-    }
-
-    /// <summary>The length of an AND / OR / &amp;&amp; / || starting at <paramref name="at"/> and followed by a space.</summary>
-    private static int? StartsOperator(string text, int at)
-    {
-        foreach (var op in (string[])["AND", "OR", "&&", "||"])
-        {
-            if (at + op.Length < text.Length
-                && string.Compare(text, at, op, 0, op.Length, StringComparison.OrdinalIgnoreCase) == 0
-                && text[at + op.Length] == ' ')
-            {
-                return op.Length;
-            }
-        }
-
-        return null;
     }
 
     private static RowStatus StatusFor(AlertSeverity severity) => severity switch
