@@ -20,6 +20,11 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>FDB facts wrap independently so VLAN context cannot crowd the MAC or interface.</summary>
+    public bool FdbLayout { get; init; }
+    public string FdbVlanText => HasValue ? Value! : "VLAN not reported";
+    public string FdbDescription => string.Join(", ", Title, Subtitle, FdbVlanText);
+
     /// <summary>VLAN facts stack so counts cannot crowd names at large text sizes.</summary>
     public bool VlanLayout { get; init; }
 
@@ -170,6 +175,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
+        || (FdbLayout && Contains(FdbVlanText, term))
         || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 

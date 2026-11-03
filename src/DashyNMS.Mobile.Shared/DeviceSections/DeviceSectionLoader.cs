@@ -507,6 +507,7 @@ public sealed class DeviceSectionLoader
             .ThenBy(e => e.MacAddress, StringComparer.OrdinalIgnoreCase)
             .Select(e => new SectionRow(Mac(e.MacAddress))
             {
+                FdbLayout = true,
                 Subtitle = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
                 Value = e.VlanId is > 0 ? $"VLAN {e.VlanId}" : null,
             });
