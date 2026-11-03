@@ -53,8 +53,24 @@ public static class RuleText
 }
 
 /// <summary>One rule in the list.</summary>
-public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? TemplateName)
+public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? TemplateName) : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsSelected)));
+            PropertyChanged?.Invoke(this, new(nameof(AccessibleDescription)));
+        }
+    }
+    public string StateText => $"{Severity.ToDisplayString()} · {(IsDisabled ? "Disabled" : "Enabled")} · {AlertingText}";
+    public string AccessibleDescription => string.Join(". ", new[] { Name, Condition, DetailText, StateText, IsSelected ? "Selected" : null }
+        .Where(part => !string.IsNullOrWhiteSpace(part)));
     public int Id => Rule.Id;
 
     public string Name => RuleText.Name(Rule);
@@ -73,10 +89,9 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
 
     public string Condition { get; } = RuleText.Condition(Rule);
 
-    /// <summary>"All devices · Device down alert" - the row's last line (#122): where it applies, its template, and Disabled.</summary>
-    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }
+    /// <summary>Targets and template; enabled state is announced once in StateText.</summary>
+    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName }
         .Where(p => !string.IsNullOrWhiteSpace(p)));
-/// <summary>"All devices · Device down alert" - the row's last line: where it applies and its template.</summary>    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }.Where(p => !string.IsNullOrWhiteSpace(p)));
 
     public bool IsAlerting => Alerting > 0;
 
@@ -101,6 +116,15 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private IReadOnlyList<AlertRuleItem> _all = [];
     private bool _loaded;
+    private int? _selectedId;
+
+    /// <summary>Keep the embedded choice when filtering hides its row or refresh replaces it.</summary>
+    public void Select(int? id)
+    {
+        _selectedId = id;
+        foreach (var row in _all) row.IsSelected = row.Id == id;
+    }
+
 
     /// <summary>Clearing every chip filters once, not once per chip.</summary>
     private bool _clearing;
@@ -145,6 +169,18 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
     public int WarningCount => _all.Count(r => r.Severity == AlertSeverity.Warning);
 
     public int DisabledCount => _all.Count(r => r.IsDisabled);
+
+    /// <summary>Announces whether the optional alerting-only filter is active.</summary>
+    public string AlertingFilterDescription => $"Alerting, {RuleText.Count(AlertingCount, "rule")}, filter {(OnlyAlerting ? "on" : "off")}";
+
+    /// <summary>Announces inclusion independently of the Critical chip's colour.</summary>
+    public string CriticalFilterDescription => $"Critical, {RuleText.Count(CriticalCount, "rule")}, {(ShowCritical ? "included" : "excluded")}";
+
+    /// <summary>Announces inclusion independently of the Warning chip's colour.</summary>
+    public string WarningFilterDescription => $"Warning, {RuleText.Count(WarningCount, "rule")}, {(ShowWarning ? "included" : "excluded")}";
+
+    /// <summary>Announces inclusion independently of the Disabled chip's colour.</summary>
+    public string DisabledFilterDescription => $"Disabled, {RuleText.Count(DisabledCount, "rule")}, {(ShowDisabled ? "included" : "excluded")}";
 
     public bool IsEmpty => !HasError && _loaded && Rules.Count == 0 && !IsBusy;
 
@@ -201,6 +237,7 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(rulesTask, alertsTask, templatesTask);
 
         _all = Build(rulesTask.Result, alertsTask.Result, templatesTask.Result ?? []);
+        Select(_selectedId);
         _loaded = true;
         var alerting = _all.Count(r => r.IsAlerting);
         Summary = $"{RuleText.Count(_all.Count, "rule")}{(alerting > 0 ? $" · {alerting} alerting" : string.Empty)}";
@@ -251,6 +288,10 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(DisabledCount));
+        OnPropertyChanged(nameof(AlertingFilterDescription));
+        OnPropertyChanged(nameof(CriticalFilterDescription));
+        OnPropertyChanged(nameof(WarningFilterDescription));
+        OnPropertyChanged(nameof(DisabledFilterDescription));
     }
 
     /// <summary>Templates are an extra: without them the rules still list.</summary>

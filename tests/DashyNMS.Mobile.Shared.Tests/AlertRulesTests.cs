@@ -47,6 +47,65 @@ public sealed class AlertRulesTests
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
     }
 
+    [Fact]
+    public async Task Filter_descriptions_announce_toggles_and_clear_with_source_counts()
+    {
+        var vm = new AlertRulesViewModel(_client, new RecordingNavigation());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var changes = new List<string?>();
+        vm.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        Assert.Equal("Critical, 2 rules, included", vm.CriticalFilterDescription);
+        Assert.Equal("Alerting, 3 rules, filter off", vm.AlertingFilterDescription);
+        vm.ToggleCriticalCommand.Execute(null);
+        vm.ToggleWarningCommand.Execute(null);
+        vm.ToggleDisabledCommand.Execute(null);
+        vm.ToggleAlertingCommand.Execute(null);
+        Assert.Equal("Critical, 2 rules, excluded", vm.CriticalFilterDescription);
+        Assert.Equal("Warning, 1 rule, excluded", vm.WarningFilterDescription);
+        Assert.Equal("Disabled, 1 rule, excluded", vm.DisabledFilterDescription);
+        Assert.Equal("Alerting, 3 rules, filter on", vm.AlertingFilterDescription);
+        Assert.Contains(nameof(vm.CriticalFilterDescription), changes);
+        Assert.Contains(nameof(vm.WarningFilterDescription), changes);
+        Assert.Contains(nameof(vm.DisabledFilterDescription), changes);
+        Assert.Contains(nameof(vm.AlertingFilterDescription), changes);
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.EndsWith("included", vm.CriticalFilterDescription);
+        Assert.EndsWith("included", vm.WarningFilterDescription);
+        Assert.EndsWith("included", vm.DisabledFilterDescription);
+        Assert.EndsWith("off", vm.AlertingFilterDescription);
+    }
+
+    [Fact]
+    public async Task Embedded_selection_survives_filters_and_replacement_rows()
+    {
+        var vm = new AlertRulesViewModel(_client, new RecordingNavigation());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.Select(20);
+        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        vm.ToggleWarningCommand.Execute(null);
+        Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        vm.Select(null);
+        Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
+    }
+
+    [Fact]
+    public void Row_description_preserves_source_and_announces_state_changes()
+    {
+        var row = new AlertRuleItem(new AlertRule { Id = 81, Name = " ", Rule = "ports.ifOperStatus = 2", Disabled = true, SeverityText = "warning" }, 0, " ");
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        Assert.StartsWith("Rule 81. ports.ifOperStatus = 2. All devices.", row.AccessibleDescription);
+        Assert.Contains("Warning · Disabled · 0 alerting", row.AccessibleDescription);
+        Assert.DoesNotContain(". .", row.AccessibleDescription);
+        row.IsSelected = true;
+        Assert.Contains("Selected", row.AccessibleDescription);
+        Assert.Contains(nameof(AlertRuleItem.AccessibleDescription), changes);
+        Assert.Equal("ports.ifOperStatus = 2", row.Condition);
+    }
+
     [Theory]
     [InlineData(true, 8, "On", "8")]
     [InlineData(false, null, "Off", "Inherited (server default)")]
@@ -241,7 +300,7 @@ public sealed class AlertRulesTests
 
         vm.ClearFiltersCommand.Execute(null);
         Assert.Equal(4, vm.Rules.Count);
-        Assert.Equal("All devices · Disabled", vm.Rules.Single(r => r.Id == 30).DetailText);
+        Assert.Equal("All devices", vm.Rules.Single(r => r.Id == 30).DetailText);
         Assert.Equal("2 devices, 1 group · Ports", vm.Rules.Single(r => r.Id == 20).DetailText);
     }
 
