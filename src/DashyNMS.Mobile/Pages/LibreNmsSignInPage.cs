@@ -32,6 +32,8 @@ public sealed class LibreNmsSignInPage : ContentPage
     private readonly TaskCompletionSource<WebSignInResult> _result = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly WebView _web;
     private readonly Controls.BusyCard _busy;
+    private readonly VerticalStackLayout _error;
+    private bool _failed;
 
     // One page is handled at a time; one that finishes loading meanwhile is
     // picked up straight after, not dropped.
@@ -52,8 +54,13 @@ public sealed class LibreNmsSignInPage : ContentPage
         _request = request;
         _logger = logger;
         Title = "Sign in with LibreNMS";
+        SafeAreaEdges = SafeAreaEdges.All;
+        this.SetAppThemeColor(BackgroundColorProperty,
+            (Color)Application.Current!.Resources["BackgroundLight"],
+            (Color)Application.Current.Resources["BackgroundDark"]);
 
-        var cancel = new Button { Text = "Cancel", Style = (Style)Application.Current!.Resources["LinkButton"], HorizontalOptions = LayoutOptions.Start };
+        var cancel = new Button { Text = "Cancel", MinimumHeightRequest = 44, MinimumWidthRequest = 44, Style = (Style)Application.Current!.Resources["LinkButton"], HorizontalOptions = LayoutOptions.Start };
+        SemanticProperties.SetDescription(cancel, "Cancel LibreNMS sign-in");
         cancel.Clicked += (_, _) => Finish(WebSignInResult.Cancelled);
 
         var title = new Label { Text = "Sign in with LibreNMS", FontFamily = "BodySemibold", FontSize = 16, HorizontalTextAlignment = TextAlignment.Center };
@@ -62,34 +69,57 @@ public sealed class LibreNmsSignInPage : ContentPage
         // The server's name under the title, so it's clear whose page this is.
         var heading = new VerticalStackLayout
         {
-            HorizontalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Fill,
             Children =
             {
                 title,
-                new Label { Text = request.Flow.TokensPage.Host, Style = (Style)Application.Current.Resources["Faint"], HorizontalTextAlignment = TextAlignment.Center },
+                new Label { Text = request.Flow.TokensPage.Host, LineBreakMode = LineBreakMode.CharacterWrap, Style = (Style)Application.Current.Resources["Faint"], HorizontalTextAlignment = TextAlignment.Center },
             },
         };
 
         var header = new Grid
         {
-            ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto), new ColumnDefinition(GridLength.Star)],
+            RowDefinitions = [new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)],
             Padding = new Thickness(12, 8),
             MinimumHeightRequest = 52,
         };
         header.Add(cancel, 0);
-        header.Add(heading, 1);
+        header.Add(heading, 0, 1);
 
         // The tokens page is opened once the platform hooks are in (HookWebView),
         // so the first page is counted too.
-        _web = new WebView { Opacity = 0 };
+        _web = new WebView { Opacity = 0, InputTransparent = true };
+        SemanticProperties.SetDescription(_web, "LibreNMS website sign-in");
         _web.Navigated += OnNavigated;
         _web.HandlerChanged += (_, _) => HookWebView();
+        _web.SizeChanged += (_, _) => PlaceWebView();
+        _web.Loaded += (_, _) => PlaceWebView();
 
         _busy = new Controls.BusyCard { Text = "Opening LibreNMS…", VerticalOptions = LayoutOptions.Start, Margin = new Thickness(16, 24, 16, 0) };
+
+        var retry = new Button { Text = "Return to sign-in", MinimumHeightRequest = 44 };
+        retry.Clicked += (_, _) => Finish(new WebSignInResult(WebSignInOutcome.Failed));
+        SemanticProperties.SetHint(retry, "Retry from the sign-in form, or use an API token.");
+        _error = new VerticalStackLayout
+        {
+            IsVisible = false, Spacing = 12, Padding = 16,
+            Children =
+            {
+                new Label { Text = "LibreNMS could not finish loading. Check your connection, then return to sign-in to try again or use an API token.", LineBreakMode = LineBreakMode.WordWrap },
+                retry,
+            },
+        };
 
         var body = new Grid();
         body.Add(_web);
         body.Add(_busy);
+        // Only recovery text scrolls here; never wrap the native web form.
+        var recovery = new ScrollView { Content = _error, IsVisible = false };
+        _error.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsVisible)) recovery.IsVisible = _error.IsVisible;
+        };
+        body.Add(recovery);
 
         var page = new Grid { RowDefinitions = [new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Star)] };
         page.Add(header, 0, 0);
@@ -108,7 +138,7 @@ public sealed class LibreNmsSignInPage : ContentPage
 
     private async void OnNavigated(object? sender, WebNavigatedEventArgs e)
     {
-        if (_result.Task.IsCompleted)
+        if (_result.Task.IsCompleted || _failed)
         {
             return;
         }
@@ -116,10 +146,7 @@ public sealed class LibreNmsSignInPage : ContentPage
         if (e.Result is WebNavigationResult.Failure or WebNavigationResult.Timeout)
         {
             _logger.LogInformation("Web sign-in: {Page} didn't load ({Result})", Describe(e.Url), e.Result);
-            if (!_handling)
-            {
-                Finish(new WebSignInResult(WebSignInOutcome.Failed));
-            }
+            ShowLoadError();
 
             return;
         }
@@ -146,7 +173,12 @@ public sealed class LibreNmsSignInPage : ContentPage
                 _recheck = false;
                 await HandlePageAsync(_navigation, _loadedUrl);
             }
-            while (_recheck && !_result.Task.IsCompleted);
+            while (_recheck && !_result.Task.IsCompleted && !_failed);
+        }
+        catch (Exception)
+        {
+            // Never log website/script exception text: it may contain secrets.
+            ShowLoadError();
         }
         finally
         {
@@ -169,7 +201,7 @@ public sealed class LibreNmsSignInPage : ContentPage
         }
 
         // Another page is already on its way - it reports in when it's loaded.
-        if (navigation != _navigation)
+        if (_result.Task.IsCompleted || _failed || navigation != _navigation)
         {
             _logger.LogDebug("Web sign-in: the page changed while it was being checked");
             return;
@@ -229,7 +261,7 @@ public sealed class LibreNmsSignInPage : ContentPage
         Working("Creating a token for DashyNMS…");
         await Task.Delay(SettleTime);
 
-        if (_result.Task.IsCompleted)
+        if (_result.Task.IsCompleted || _failed)
         {
             return;
         }
@@ -245,6 +277,7 @@ public sealed class LibreNmsSignInPage : ContentPage
         _awaitingPost = true;
 
         var submitted = WebTokenSignIn.Unwrap(await RunScriptAsync(_request.Flow.SubmitScript));
+        if (_result.Task.IsCompleted || _failed) return;
         _logger.Log(submitted == "submitted" ? LogLevel.Debug : LogLevel.Information, "Web sign-in: submit script answered {Answer}", Classify(submitted));
 
         if (submitted != "submitted")
@@ -263,6 +296,7 @@ public sealed class LibreNmsSignInPage : ContentPage
     /// <summary>A page started loading - from the platform hooks, on the main thread.</summary>
     private void PageStarted(string? url)
     {
+        if (_result.Task.IsCompleted || _failed) return;
         _navigation++;
         _logger.LogDebug("Web sign-in: loading {Page} (page {Navigation})", Describe(url), _navigation);
     }
@@ -312,8 +346,10 @@ public sealed class LibreNmsSignInPage : ContentPage
 
     private void ShowPage()
     {
+        if (_result.Task.IsCompleted || _failed) return;
         _busy.IsVisible = false;
         _web.Opacity = 1;
+        _web.InputTransparent = false;
     }
 
     private void Working(string text)
@@ -321,12 +357,26 @@ public sealed class LibreNmsSignInPage : ContentPage
         _busy.Text = text;
         _busy.IsVisible = true;
         _web.Opacity = 0;
+        _web.InputTransparent = true;
+    }
+
+    private void ShowLoadError()
+    {
+        if (_result.Task.IsCompleted || _failed) return;
+        _failed = true;
+        _navigation++;
+        _web.Opacity = 0;
+        _web.InputTransparent = true;
+        _busy.IsVisible = false;
+        _error.IsVisible = true;
+        SemanticScreenReader.Default.Announce("LibreNMS could not finish loading. Return to sign-in to retry.");
     }
 
     private void Finish(WebSignInResult result)
     {
         if (_result.TrySetResult(result))
         {
+            _error.IsVisible = false;
             _logger.LogInformation("Web sign-in: finished - {Outcome}", result.Outcome);
             Working(result.Outcome == WebSignInOutcome.Token ? "Signing in…" : "Closing…");
         }
@@ -357,6 +407,25 @@ public sealed class LibreNmsSignInPage : ContentPage
         }
 #endif
 
+        PlaceWebView();
+    }
+
+    /// <summary>
+    /// Start only with a real viewport. Keep WebKit's native frame aligned
+    /// with MAUI's finite star row after first layout and subsequent resizes;
+    /// its own scroll view must remain enabled for the server's form.
+    /// </summary>
+    private void PlaceWebView()
+    {
+        if (_web.Handler is null || !double.IsFinite(_web.Width) || !double.IsFinite(_web.Height)
+            || _web.Width <= 0 || _web.Height <= 0 || _result.Task.IsCompleted || _failed) return;
+#if IOS
+        if (_web.Handler.PlatformView is WebKit.WKWebView native)
+        {
+            var frame = native.Frame;
+            native.Frame = new CoreGraphics.CGRect(frame.X, frame.Y, _web.Width, _web.Height);
+        }
+#endif
         if (_web.Source is null)
         {
             _logger.LogInformation("Web sign-in: starting at {Page}", Describe(_request.Flow.TokensPage.AbsoluteUri));
