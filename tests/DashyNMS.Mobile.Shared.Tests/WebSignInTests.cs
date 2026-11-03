@@ -142,6 +142,29 @@ public sealed class SignInWithLibreNmsTests
         await _web.DidNotReceiveWithAnyArgs().SignInAsync(default!);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Web_return_preserves_draft_without_committing_a_session(bool failed)
+    {
+        _web.SignInAsync(default!).ReturnsForAnyArgs(failed
+            ? new WebSignInResult(WebSignInOutcome.Failed) : WebSignInResult.Cancelled);
+        var vm = NewViewModel("https://example.net/librenms");
+        vm.BackupAddress = "https://backup.example.net";
+        vm.RememberToken = false;
+
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+
+        Assert.Equal("https://example.net/librenms", vm.ServerUrl);
+        Assert.Equal("https://backup.example.net", vm.BackupAddress);
+        Assert.False(vm.RememberToken);
+        Assert.Empty(vm.ApiToken);
+        Assert.Equal(failed, vm.ShowsTokenEntry);
+        Assert.Equal(failed, vm.HasError);
+        Assert.Empty(_navigation.Visits);
+        await _session.DidNotReceiveWithAnyArgs().SignInAsync(default!, default!, default, default, default, default);
+    }
+
     [Fact]
     public async Task Doesnt_open_the_page_when_the_server_cant_be_reached()
     {
