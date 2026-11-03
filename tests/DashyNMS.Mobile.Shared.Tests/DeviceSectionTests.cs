@@ -10,6 +10,27 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed class DeviceSectionLoaderTests
 {
+    [Theory]
+    [InlineData("lowerLayerDown")]
+    [InlineData("notPresent")]
+    public void Known_non_operational_ports_remain_down(string state)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = state });
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Down", row.Port!.StatusName);
+        Assert.DoesNotContain("Down, Down", row.PortSummary);
+    }
+
+    [Fact]
+    public void Invalid_rates_do_not_rank_above_valid_traffic_or_offset_errors()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = double.PositiveInfinity, IfOutOctetsRate = 10, IfInErrorsRate = 5, IfOutErrorsRate = -1 });
+        Assert.Equal(10, row.SortValue);
+        Assert.Equal(10, row.Port!.Traffic);
+        Assert.Contains("5 errors/s", row.Detail);
+        Assert.Equal(RowStatus.Warning, row.Status);
+    }
+
     [Fact]
     public async Task Unknown_ports_remain_in_loader_and_status_grouping_without_fabricated_graph_routes()
     {

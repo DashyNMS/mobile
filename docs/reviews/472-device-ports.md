@@ -116,3 +116,15 @@ legacy row independently. Both sides' regression tests are retained. Shared
 activation, ButtonSearch, Retry, fade and generation-guarded refresh are unchanged.
 Full-diff Claude review and CI must verify the combined XAML and contracts.
 No hardware outcome is claimed.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed 071ded2 against main 5661748. Known
+lowerLayerDown/notPresent states remain Down; traffic ranking and error totals
+sum only finite nonnegative inputs. Repeated non-up state text is omitted.
+Ports use a start-aligned wrapping readout rather than a multiline Button;
+card-wide activation is restored for ports and other links without a duplicate
+inner gesture. Native action traits still require device verification.
+Regressions cover known-down states and invalid-rate ranking/error totals.
+Replacement CI and fresh review are pending. No local builds/tests ran;
+all hardware outcomes remain unverified, including missing error-rate behaviour.

@@ -23,7 +23,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
     public bool PortLayout => Port is not null;
     public string? PortStatusText { get; init; }
-    public string PortSummary => string.Join(", ", new[] { ContentDescription, PortStatusText }
+    public string PortSummary => string.Join(", ", new[] { ContentDescription, Value == PortStatusText ? null : PortStatusText }
         .Where(text => !string.IsNullOrWhiteSpace(text)));
     public string PortDescription => string.Join(", ", new[] { PortSummary,
         LinkPortIfName is not null ? "Open interface graphs" : "Interface graphs unavailable" }

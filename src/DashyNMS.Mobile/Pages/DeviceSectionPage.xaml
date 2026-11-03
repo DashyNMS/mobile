@@ -92,6 +92,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
                         <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
                                     <VisualState Name="Normal" />
@@ -105,11 +108,11 @@
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding PortLayout}">
-                                <Button Text="{Binding PortDescription}" IsVisible="{Binding IsLink}"
-                                        Style="{StaticResource LinkButton}" LineBreakMode="WordWrap"
-                                        MinimumHeightRequest="44" HorizontalOptions="Fill"
-                                        Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                        CommandParameter="{Binding .}" />
+                                <Grid MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
+                                      SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                    <Label Text="{Binding PortSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                </Grid>
                                 <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap">
                                     <Label.Triggers>
                                         <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
@@ -145,9 +148,7 @@
                                 <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
                             </VerticalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
-                                </Grid.GestureRecognizers>
+
                                 <Grid.Triggers>
                                     <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />

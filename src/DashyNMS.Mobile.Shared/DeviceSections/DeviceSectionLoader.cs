@@ -318,7 +318,7 @@ public sealed class DeviceSectionLoader
 
     internal static SectionRow PortRow(Port port)
     {
-        var errors = (port.IfInErrorsRate ?? 0) + (port.IfOutErrorsRate ?? 0);
+        var errors = PortFacts.SumValidRates(port.IfInErrorsRate, port.IfOutErrorsRate);
         var (rank, state) = PortState(port);
         var knownErrors = ValidRate(port.IfInErrorsRate) && ValidRate(port.IfOutErrorsRate)
             && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
@@ -328,7 +328,7 @@ public sealed class DeviceSectionLoader
             PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
-            SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,
+            SortValue = port.IsUp ? PortFacts.SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
             Subtitle = port.IfAlias is { Length: > 0 } alias && alias != port.DisplayName ? alias : null,
             Value = port.IsUp ? $"In: {PortTraffic(port.IfInOctetsRate)} · Out: {PortTraffic(port.IfOutOctetsRate)}" : state,
             Status = port.IsUp ? (errors > 0 && double.IsFinite(errors) ? RowStatus.Warning : knownErrors ? RowStatus.Ok : RowStatus.None) : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Critical : RowStatus.None,
@@ -343,7 +343,7 @@ public sealed class DeviceSectionLoader
 
     private static (int Rank, string State) PortState(Port port) => port.IsUp ? (1, "Up")
         : IsAdminDown(port) ? (2, "Shut down")
-        : string.Equals(port.IfOperStatus, "down", StringComparison.OrdinalIgnoreCase) ? (0, "Down")
+        : port.IfOperStatus?.ToLowerInvariant() is "down" or "lowerlayerdown" or "notpresent" ? (0, "Down")
         : (3, "Unknown");
 
     private static bool ValidRate(double? value) => value is { } rate && double.IsFinite(rate) && rate >= 0;
