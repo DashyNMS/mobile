@@ -25,10 +25,6 @@ public partial class UnimusDiffPage : ContentPage, IQueryAttributable
 		}
 	}
 
-	private void OnOnlyChangedClicked(object? sender, EventArgs e) => _viewModel.OnlyChanged = !_viewModel.OnlyChanged;
-
-	private void OnIgnoreEmptyLinesClicked(object? sender, EventArgs e) => _viewModel.IgnoreEmptyLines = !_viewModel.IgnoreEmptyLines;
-
 	/// <summary>The app's own header, as every page (#142).</summary>
 	protected override void OnAppearing()
 	{

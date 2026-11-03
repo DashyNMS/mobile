@@ -22,6 +22,7 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
     private UnimusDiffRequest? _request;
     private UnimusBackupDiff? _diff;
     private UnimusDiffResult? _result;
+    private int _generation;
 
     /// <summary>On by default, as Unimus's and desktop's diffs start.</summary>
     [ObservableProperty]
@@ -36,7 +37,13 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
         _share = share;
     }
 
-    public BulkObservableCollection<UnimusLine> Lines { get; } = new();
+    public BulkObservableCollection<UnimusDiffItem> Lines { get; } = new();
+
+    public string OriginalIdentity => Identity("Original", _request?.Original);
+    public string RevisedIdentity => Identity("Revised", _request?.Revised);
+
+    private static string Identity(string side, UnimusBackup? backup) => backup is null ? string.Empty
+        : $"{side} · backup {backup.Id} · {(backup.ValidSinceUtc is { } date ? date.ToLocalTime().ToString("d MMM yyyy HH:mm:ss zzz") : "Unknown date")}";
 
     /// <summary>"3 Sep 2026 18:01 → 18 Sep 2026 18:01".</summary>
     public string Subtitle => _request is null
@@ -53,24 +60,50 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
         { } r => $"+{r.AddedCount} −{r.RemovedCount}",
     };
 
-    public bool HasDifferences => _result?.HasDifferences == true;
+    public bool HasDifferences => !IsBusy && !HasError && _result?.HasDifferences == true;
 
     public bool IsEmpty => !IsBusy && _result is { HasDifferences: false } && !HasError;
 
-    public Task LoadAsync(UnimusDiffRequest request)
+    public async Task LoadAsync(UnimusDiffRequest request)
     {
+        var generation = ++_generation;
         _request = request;
+        _diff = null;
+        _result = null;
+        Lines.Clear();
+        _expanded.Clear();
+        IsBusy = true;
+        RetryCommand.NotifyCanExecuteChanged();
+        ErrorMessage = null;
+        NotifyResult();
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(DeviceName));
-
-        return RunAsync(async () =>
+        OnPropertyChanged(nameof(OriginalIdentity));
+        OnPropertyChanged(nameof(RevisedIdentity));
+        try
         {
-            _diff = await _unimus.GetDiffAsync(request.Original.Id, request.Revised.Id)
-                ?? new UnimusBackupDiff();
-            _expanded.Clear();
+            var diff = await _unimus.GetDiffAsync(request.Original.Id, request.Revised.Id);
+            if (generation != _generation) return;
+            _diff = diff ?? throw new InvalidOperationException("Comparison unavailable. Retry to load these backups.");
             Render();
-        });
+        }
+        catch (Exception ex)
+        {
+            if (generation == _generation) ErrorMessage = Describe(ex);
+        }
+        finally
+        {
+            if (generation == _generation)
+            {
+                IsBusy = false;
+                NotifyResult();
+                RetryCommand.NotifyCanExecuteChanged();
+            }
+        }
     }
+
+    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    private Task RetryAsync() => _request is { } request ? LoadAsync(request) : Task.CompletedTask;
 
     partial void OnOnlyChangedChanged(bool value) => Render();
 
@@ -83,7 +116,7 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
 
     /// <summary>A folded run, tapped: its lines shown in place.</summary>
     [RelayCommand]
-    private void Expand(UnimusLine? line)
+    private void Expand(UnimusDiffItem? line)
     {
         if (line is { IsHidden: true } && _expanded.Add(line.Row.HiddenStart))
         {
@@ -104,7 +137,12 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
             IgnoreEmptyLines = IgnoreEmptyLines,
             ExpandedHiddenStarts = _expanded,
         });
-        Lines.ReplaceAll(_result.Rows.Select(r => new UnimusLine(r)).ToList());
+        Lines.ReplaceAll(_result.Rows.Select(r => new UnimusDiffItem(r)).ToList());
+        NotifyResult();
+    }
+
+    private void NotifyResult()
+    {
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(HasDifferences));
         OnPropertyChanged(nameof(IsEmpty));
@@ -118,7 +156,7 @@ public sealed partial class UnimusDiffViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(HasDifferences))]
     private Task ShareAsync()
     {
-        if (_diff is null || _request is null)
+        if (!HasDifferences || _diff is null || _request is null)
         {
             return Task.CompletedTask;
         }

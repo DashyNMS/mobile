@@ -6,110 +6,87 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:unimus="clr-namespace:DashyNMS.Mobile.Unimus;assembly=DashyNMS.Mobile.Shared"
     x:DataType="unimus:UnimusDiffViewModel"
-    SafeAreaEdges="Container"
-    Title="Changes">
-
-    <!-- Two backups compared (#21): removed lines red with "-", added green
-         with "+", unchanged stretches folded until tapped. -->
+    SafeAreaEdges="Container" Title="Changes">
     <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
         <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="Changes">
             <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}" />
+                <Button Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}" MinimumHeightRequest="44" />
             </controls:PageHeader.Actions>
         </controls:PageHeader>
-
-        <VerticalStackLayout Grid.Row="1" Margin="4,0,0,8" Spacing="2">
-            <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" />
-            <Label Style="{StaticResource Faint}" Text="{Binding Subtitle}" />
-            <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" />
+        <VerticalStackLayout Grid.Row="1" Margin="4,0,4,8" Spacing="4">
+            <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" />
+            <Label Style="{StaticResource Caption}" Text="{Binding OriginalIdentity}" LineBreakMode="WordWrap" />
+            <Label Style="{StaticResource Caption}" Text="{Binding RevisedIdentity}" LineBreakMode="WordWrap" />
+            <Label Style="{StaticResource Caption}" Text="{Binding SummaryText}" />
         </VerticalStackLayout>
-
-        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,0,0,8">
-            <HorizontalStackLayout Spacing="8">
-                <Button Style="{StaticResource Chip}" Text="Only changes" Clicked="OnOnlyChangedClicked">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding OnlyChanged}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Style="{StaticResource Chip}" Text="Ignore blank lines" Clicked="OnIgnoreEmptyLinesClicked">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding IgnoreEmptyLines}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-            </HorizontalStackLayout>
-        </ScrollView>
-
-        <Label Grid.Row="3" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-
+        <VerticalStackLayout Grid.Row="2" Spacing="4" Margin="0,0,0,8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" MinimumHeightRequest="44">
+                <Switch IsToggled="{Binding OnlyChanged}" SemanticProperties.Description="Only changes" />
+                <Label Grid.Column="1" Text="Only changes" Style="{StaticResource Caption}" VerticalOptions="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" MinimumHeightRequest="44">
+                <Switch IsToggled="{Binding IgnoreEmptyLines}" SemanticProperties.Description="Ignore blank lines" />
+                <Label Grid.Column="1" Text="Ignore blank lines" Style="{StaticResource Caption}" VerticalOptions="Center" />
+            </Grid>
+        </VerticalStackLayout>
+        <VerticalStackLayout Grid.Row="3" IsVisible="{Binding HasError}" Spacing="8">
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" />
+            <Button Text="Retry" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCommand}" MinimumHeightRequest="44" />
+        </VerticalStackLayout>
         <controls:BusyCard Grid.Row="4" Text="Comparing…" IsVisible="{Binding IsBusy}" ZIndex="1" />
-        <Border Grid.Row="4" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0" Padding="0,6"
+        <Border Grid.Row="4" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0" Padding="0"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
-            <CollectionView x:Name="Rows" ItemsSource="{Binding Lines}" SelectionMode="None">
-                <CollectionView.EmptyView>
-                    <Label Style="{StaticResource Caption}" Text="These two backups are the same." IsVisible="{Binding IsEmpty}"
-                           HorizontalTextAlignment="Center" Margin="20,32" />
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="unimus:UnimusLine">
-                        <Grid ColumnDefinitions="40,14,*" ColumnSpacing="6" Padding="8,1" BackgroundColor="Transparent">
-                            <Grid.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding ExpandCommand, Source={RelativeSource AncestorType={x:Type unimus:UnimusDiffViewModel}}, x:DataType=unimus:UnimusDiffViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            </Grid.GestureRecognizers>
-                            <Grid.Triggers>
-                                <DataTrigger TargetType="Grid" Binding="{Binding IsAdded}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
-                                </DataTrigger>
-                                <DataTrigger TargetType="Grid" Binding="{Binding IsRemoved}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
-                                </DataTrigger>
-                            </Grid.Triggers>
-                            <Label Text="{Binding NumberText}" FontFamily="Mono" FontSize="11" HorizontalTextAlignment="End"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
-                            <Label Grid.Column="1" Text="{Binding Prefix}" FontFamily="Mono" FontSize="12">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsAdded}" Value="True">
-                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
-                                    </DataTrigger>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsRemoved}" Value="True">
-                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
-                            <Label Grid.Column="2" Text="{Binding Text}" FontFamily="Mono" FontSize="12" LineBreakMode="CharacterWrap"
-                                   TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}">
-                                <Label.Triggers>
-                                    <DataTrigger TargetType="Label" Binding="{Binding IsHidden}" Value="True">
-                                        <Setter Property="TextColor" Value="{StaticResource ButtonPrimary}" />
-                                        <Setter Property="FontFamily" Value="BodyRegular" />
-                                    </DataTrigger>
-                                </Label.Triggers>
-                            </Label>
-                        </Grid>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-                <CollectionView.Footer>
-                    <BoxView x:Name="RowFoot" HeightRequest="24" Color="Transparent" InputTransparent="True" />
-                </CollectionView.Footer>
-            </CollectionView>
+            <Grid>
+                <CollectionView x:Name="Rows" ItemsSource="{Binding Lines}" SelectionMode="None">
+                    <CollectionView.Header>
+                        <BoxView HeightRequest="20" Color="Transparent" InputTransparent="True" />
+                    </CollectionView.Header>
+                    <CollectionView.EmptyView>
+                        <Label Style="{StaticResource Caption}" Text="No differences with the current comparison options."
+                               IsVisible="{Binding IsEmpty}" HorizontalTextAlignment="Center" Margin="20,32" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="unimus:UnimusDiffItem">
+                            <VerticalStackLayout Padding="8,4" Spacing="4">
+                                <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8" IsVisible="{Binding IsContent}"
+                                      SemanticProperties.Description="{Binding ContentDescription}">
+                                    <Grid.Triggers>
+                                        <DataTrigger TargetType="Grid" Binding="{Binding IsAdded}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Grid" Binding="{Binding IsRemoved}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
+                                        </DataTrigger>
+                                    </Grid.Triggers>
+                                    <Label Text="{Binding NumberText}" FontFamily="Mono" FontSize="12" AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                    <Label Grid.Column="1" Text="{Binding Prefix}" FontFamily="Mono" FontSize="14" AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                    <Label Grid.Column="2" Text="{Binding Text}" FontFamily="Mono" FontSize="14" LineBreakMode="CharacterWrap"
+                                           AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
+                                </Grid>
+                                <Label Text="{Binding Text}" Style="{StaticResource Caption}" IsVisible="{Binding IsHidden}" AutomationProperties.ExcludedWithChildren="True" />
+                                <Button Text="Show context" Style="{StaticResource SecondaryButton}" IsVisible="{Binding IsHidden}" MinimumHeightRequest="44"
+                                        SemanticProperties.Description="{Binding ContentDescription}"
+                                        Command="{Binding ExpandCommand, Source={RelativeSource AncestorType={x:Type unimus:UnimusDiffViewModel}}, x:DataType=unimus:UnimusDiffViewModel}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                    <CollectionView.Footer>
+                        <BoxView x:Name="RowFoot" HeightRequest="20" Color="Transparent" InputTransparent="True" />
+                    </CollectionView.Footer>
+                </CollectionView>
+                <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+                    <BoxView.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                            <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}" />
+                            <GradientStop Offset="1" Color="{AppThemeBinding Light='#00EEF1F5', Dark='#000D1015'}" />
+                        </LinearGradientBrush>
+                    </BoxView.Background>
+                </BoxView>
+            </Grid>
         </Border>
-        <BoxView Grid.Row="4" HeightRequest="12" VerticalOptions="Start" InputTransparent="True">
-            <BoxView.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
-                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
-                </LinearGradientBrush>
-            </BoxView.Background>
-        </BoxView>
     </Grid>
-
 </ContentPage>

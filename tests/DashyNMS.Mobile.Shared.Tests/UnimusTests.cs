@@ -380,6 +380,102 @@ public sealed class UnimusBackupsTests
     }
 
     [Fact]
+    public async Task Missing_diff_is_retryable_and_never_claims_identical()
+    {
+        _api.GetDiffAsync(1, 2, Arg.Any<CancellationToken>()).Returns((UnimusBackupDiff?)null);
+        var vm = new UnimusDiffViewModel(_api, _share);
+        await vm.LoadAsync(new UnimusDiffRequest("example.net", Backup(1, 3), Backup(2, 3)));
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        Assert.Empty(vm.Lines);
+        Assert.False(vm.ShareCommand.CanExecute(null));
+        Assert.Contains("backup 1", vm.OriginalIdentity);
+        Assert.Contains("backup 2", vm.RevisedIdentity);
+
+        _api.GetDiffAsync(1, 2, Arg.Any<CancellationToken>()).Returns(new UnimusBackupDiff());
+        await vm.RetryCommand.ExecuteAsync(null);
+        Assert.False(vm.HasError);
+        Assert.True(vm.IsEmpty);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Slower_pair_cannot_replace_new_pair_or_its_failure_state(bool fails)
+    {
+        var pending = new TaskCompletionSource<UnimusBackupDiff?>();
+        _api.GetDiffAsync(1, 2, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        _api.GetDiffAsync(3, 4, Arg.Any<CancellationToken>()).Returns(new UnimusBackupDiff());
+        var vm = new UnimusDiffViewModel(_api, _share);
+        var earlier = vm.LoadAsync(new UnimusDiffRequest("old.example.net", Backup(1, 3), Backup(2, 10)));
+        await vm.LoadAsync(new UnimusDiffRequest("new.example.net", Backup(3, 3), Backup(4, 10)));
+        if (fails) pending.SetException(new HttpRequestException("synthetic failure"));
+        else pending.SetResult(new UnimusBackupDiff
+        {
+            LineGroups = [new UnimusDiffLineGroup { Type = "INSERTED", RevisedLines = [new UnimusDiffLine { Number = 1, Text = "stale" }] }],
+        });
+        await earlier;
+        Assert.Equal("new.example.net", vm.DeviceName);
+        Assert.Contains("backup 4", vm.RevisedIdentity);
+        Assert.False(vm.IsBusy);
+        Assert.False(vm.HasError);
+        Assert.True(vm.IsEmpty);
+    }
+
+    [Fact]
+    public async Task Changing_pair_clears_previous_rows_and_share_before_completion()
+    {
+        _api.GetDiffAsync(1, 2, Arg.Any<CancellationToken>()).Returns(new UnimusBackupDiff
+        {
+            LineGroups = [new UnimusDiffLineGroup { Type = "INSERTED", RevisedLines = [new UnimusDiffLine { Number = 1, Text = "hostname example.net" }] }],
+        });
+        var vm = new UnimusDiffViewModel(_api, _share);
+        await vm.LoadAsync(new UnimusDiffRequest("example.net", Backup(1, 3), Backup(2, 10)));
+        Assert.True(vm.ShareCommand.CanExecute(null));
+        var pending = new TaskCompletionSource<UnimusBackupDiff?>();
+        _api.GetDiffAsync(3, 4, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var loading = vm.LoadAsync(new UnimusDiffRequest("other.example.net", Backup(3, 3), Backup(4, 10)));
+        Assert.Empty(vm.Lines);
+        Assert.Empty(vm.SummaryText);
+        Assert.False(vm.ShareCommand.CanExecute(null));
+        Assert.False(vm.IsEmpty);
+        pending.SetResult(null);
+        await loading;
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+    }
+
+    [Theory]
+    [InlineData("\t interface 雪  \r")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Diff_display_and_export_preserve_source_text_across_options(string text)
+    {
+        var diff = new UnimusBackupDiff
+        {
+            LineGroups =
+            [
+                new UnimusDiffLineGroup { Type = "DELETED", OriginalLines = [new UnimusDiffLine { Number = 1, Text = text }] },
+                new UnimusDiffLineGroup { Type = "INSERTED", RevisedLines = [new UnimusDiffLine { Number = 2, Text = text + "!" }] },
+            ],
+        };
+        _api.GetDiffAsync(1, 2, Arg.Any<CancellationToken>()).Returns(diff);
+        var vm = new UnimusDiffViewModel(_api, _share);
+        await vm.LoadAsync(new UnimusDiffRequest("example.net", Backup(1, 3), Backup(2, 10)));
+        Assert.Equal(text, vm.Lines[0].Text);
+        Assert.Equal("-", vm.Lines[0].Prefix);
+        Assert.Contains("Removed, original line 1", vm.Lines[0].ContentDescription);
+        Assert.Contains("Added, original line none, revised line 2", vm.Lines[1].ContentDescription);
+        vm.IgnoreEmptyLines = true;
+        vm.OnlyChanged = false;
+        await vm.ShareCommand.ExecuteAsync(null);
+        var expected = DesktopNMS.Core.Alerting.UnimusExport.ToUnifiedDiff(diff,
+            DesktopNMS.Core.Alerting.UnimusExport.FileHeader("example.net", Backup(1, 3).ValidSinceUtc),
+            DesktopNMS.Core.Alerting.UnimusExport.FileHeader("example.net", Backup(2, 10).ValidSinceUtc));
+        await _share.Received().ShareTextFileAsync(Arg.Any<string>(), expected, "text/x-diff", "Share changes");
+    }
+
+    [Fact]
     public async Task Device_detail_lists_Config_backups_only_once_Unimus_is_set_up()
     {
         var settings = Fakes.Settings(_appSettings);
