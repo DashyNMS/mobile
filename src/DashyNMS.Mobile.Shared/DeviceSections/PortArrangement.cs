@@ -16,7 +16,7 @@ public sealed record PortFacts(
     string? Alias,
     string Type)
 {
-    /// <summary>A port's facts, as LibreNMS reports them; <paramref name="statusRank"/> 0 is down, 1 up, 2 shut down.</summary>
+    /// <summary>A port's facts, as LibreNMS reports them; <paramref name="statusRank"/> 0 is down, 1 up, 2 shut down, 3 unknown.</summary>
     public static PortFacts From(Port port, int statusRank, string statusName)
     {
         // The port's own (untagged) VLAN, from ifVlan or its untagged
@@ -32,10 +32,18 @@ public sealed record PortFacts(
             statusName,
             vlan,
             tagged > 0,
-            port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,
+            port.IsUp ? SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
             port.IfSpeed is > 0 ? port.IfSpeed : null,
             string.IsNullOrWhiteSpace(port.IfAlias) || port.IfAlias == port.DisplayName ? null : port.IfAlias.Trim(),
             TypeName(port.IfType));
+    }
+
+    /// <summary>Invalid counters must not dominate traffic ranking or offset valid errors.</summary>
+    internal static double SumValidRates(double? first, double? second)
+    {
+        static double Valid(double? rate) => rate is { } value && double.IsFinite(value) && value >= 0 ? value : 0;
+        var sum = Valid(first) + Valid(second);
+        return double.IsFinite(sum) ? sum : double.MaxValue;
     }
 
     /// <summary>ifType as a person would say it.</summary>

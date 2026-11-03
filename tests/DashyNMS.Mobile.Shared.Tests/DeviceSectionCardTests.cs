@@ -9,6 +9,28 @@ public sealed class DeviceSectionCardTests
 
     private static SectionGroup Group(params SectionRow[] rows) => new("Group", rows);
 
+    [Theory]
+    [InlineData(false, RowStatus.None)]
+    [InlineData(true, RowStatus.Warning)]
+    public async Task Unknown_ports_are_counted_and_down_takes_tile_priority(bool includeDown, RowStatus expected)
+    {
+        var client = Fakes.Client(devices: [Fakes.Device(7, "edge.example.net")]);
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge.example.net"));
+        var ports = new List<DesktopNMS.Core.Models.Port> { new() { PortId = 1, IfName = "port1", IfOperStatus = "unknown" } };
+        if (includeDown) ports.Add(new() { PortId = 2, IfName = "port2", IfOperStatus = "down" });
+        client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(ports);
+        var settings = Fakes.Settings();
+        var vm = new DashyNMS.Mobile.ViewModels.DeviceDetailViewModel(
+            client, settings, Substitute.For<DashyNMS.Mobile.Services.ILauncherService>(),
+            new DashyNMS.Mobile.Services.DeviceBookmarks(settings, TimeProvider.System),
+            Substitute.For<DashyNMS.Mobile.Services.IDialogService>(), new RecordingNavigation(),
+            sections: new DeviceSectionLoader(client, settings));
+        await vm.LoadAsync(7);
+        await vm.SectionsLoaded;
+        Assert.Equal(expected, vm.PortsTileStatus);
+        Assert.Contains("1 unknown", vm.SectionCards.Single(c => c.Info.Section == DeviceSection.Ports).SummaryText);
+    }
+
     [Fact]
     public void Summarises_the_count_and_what_needs_attention_with_the_worst_rows_first()
     {

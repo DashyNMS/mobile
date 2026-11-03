@@ -92,6 +92,9 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
                         <Border Style="{StaticResource Card}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
+                                </Border.GestureRecognizers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
                                     <VisualState Name="Normal" />
@@ -103,11 +106,22 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            </Border.GestureRecognizers>
+                            <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding PortLayout}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
+                                      SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                    <Label Text="{Binding PortSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True"
+                                           TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" AutomationProperties.ExcludedWithChildren="True" />
+                                </Grid>
+                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </VerticalStackLayout>
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
                             <VerticalStackLayout>
@@ -135,7 +149,11 @@
                                 <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
                             </VerticalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+
                                 <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                     <DataTrigger TargetType="Grid" Binding="{Binding ResourceLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>
@@ -192,6 +210,7 @@
                                              ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                             </Grid>
                             </VerticalStackLayout>
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -224,11 +243,11 @@
                     <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
                 </Grid>
-                <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="2" ColumnSpacing="8" SafeAreaEdges="None">
+                <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
                     <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
-                    <Picker Grid.Column="1" Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
-                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
-                    <Picker Grid.Row="1" Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+                    <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+                    <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
+                    <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
                 </Grid>
             </VerticalStackLayout>
         </Border>

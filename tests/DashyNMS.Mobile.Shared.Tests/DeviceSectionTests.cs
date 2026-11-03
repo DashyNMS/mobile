@@ -10,6 +10,94 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed class DeviceSectionLoaderTests
 {
+    [Theory]
+    [InlineData("lowerLayerDown")]
+    [InlineData("notPresent")]
+    public void Known_non_operational_ports_remain_down(string state)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = state });
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Down", row.Port!.StatusName);
+        Assert.DoesNotContain("Down, Down", row.PortSummary);
+    }
+
+    [Fact]
+    public void Missing_error_counters_do_not_claim_valid_traffic_is_unavailable()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "port1", IfOperStatus = "up", IfInOctetsRate = 10, IfOutOctetsRate = 20 });
+        Assert.Contains("Error readings unavailable", row.PortStatusText);
+        Assert.DoesNotContain("Unavailable", row.Value);
+    }
+
+    [Fact]
+    public void Invalid_rates_do_not_rank_above_valid_traffic_or_offset_errors()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = double.PositiveInfinity, IfOutOctetsRate = 10, IfInErrorsRate = 5, IfOutErrorsRate = -1 });
+        Assert.Equal(10, row.SortValue);
+        Assert.Equal(10, row.Port!.Traffic);
+        Assert.Contains("5 errors/s", row.Detail);
+        Assert.Equal(RowStatus.Warning, row.Status);
+    }
+
+    [Fact]
+    public async Task Unknown_ports_remain_in_loader_and_status_grouping_without_fabricated_graph_routes()
+    {
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Port { PortId = 7, IfDescr = "Synthetic interface", IfOperStatus = "testing" }]);
+        var groups = await Load(DeviceSection.Ports);
+        var row = Assert.Single(Assert.Single(groups));
+        Assert.Equal("Unknown", groups[0].Name);
+        Assert.Null(row.LinkPortIfName);
+        Assert.False(row.IsLink);
+        Assert.Contains("Interface graphs unavailable", row.PortDescription);
+        Assert.Equal("Unknown", Assert.Single(PortArrangement.Arrange([row], PortSort.Status, PortGrouping.Status)).Name);
+    }
+
+    [Fact]
+    public void Reported_zero_rates_are_available_and_ok()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = 0, IfOutOctetsRate = 0, IfInErrorsRate = 0, IfOutErrorsRate = 0 });
+        Assert.Equal(RowStatus.Ok, row.Status);
+        Assert.DoesNotContain("Unavailable", row.Value);
+        Assert.Contains("OK", row.PortStatusText);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("testing")]
+    [InlineData("unknown")]
+    public void Unknown_port_state_is_neutral_and_searchable(string? state)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = state });
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal("Unknown", row.Port!.StatusName);
+        Assert.True(row.Matches("unknown"));
+        Assert.Equal("Gi0/7", row.LinkPortIfName);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(-1d)]
+    public void Invalid_port_traffic_is_explicitly_unavailable(double? rate)
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = rate, IfOutOctetsRate = 0 });
+        Assert.Contains("In: Unavailable", row.Value);
+        Assert.Contains("Readings unavailable", row.PortStatusText);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.True(row.Matches("unavailable"));
+    }
+
+    [Fact]
+    public void Port_errors_keep_warning_and_graph_identity_independent_of_display_name()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfDescr = "Synthetic long interface", IfOperStatus = "up", IfInErrorsRate = 2, IfOutErrorsRate = 0 });
+        Assert.Equal(RowStatus.Warning, row.Status);
+        Assert.Contains("Warning", row.PortDescription);
+        Assert.Equal("Gi0/7", row.LinkPortIfName);
+    }
+
     [Fact]
     public void Sensor_rows_expose_missing_readings_and_category_to_search()
     {
@@ -246,7 +334,7 @@ public sealed class DeviceSectionLoaderTests
 
         Assert.Equal(["Down", "Up", "Shut down"], groups.Select(g => g.Name));
         Assert.Equal(RowStatus.Critical, groups[0][0].Status);
-        Assert.Equal("↓10 Mb/s  ↑1 Mb/s", groups[1][0].Value); // octets/s to bits/s
+        Assert.Equal("In: 10 Mb/s · Out: 1 Mb/s", groups[1][0].Value); // octets/s to bits/s
         Assert.Equal("1 Gb/s", groups[1][0].Detail);
         Assert.Equal(RowStatus.Inactive, groups[2][0].Status);
     }

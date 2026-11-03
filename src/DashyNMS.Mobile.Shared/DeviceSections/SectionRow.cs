@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
+    public bool PortLayout => Port is not null;
+    public string? PortStatusText { get; init; }
+    public string PortSummary => string.Join(", ", new[] { ContentDescription, Value == PortStatusText ? null : PortStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    public string PortDescription => string.Join(", ", new[] { PortSummary,
+        LinkPortIfName is not null ? "Open interface graphs" : "Interface graphs unavailable" }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     /// <summary>Only resource readings use the wrapping usage presentation.</summary>
     public bool ResourceLayout { get; init; }
     public string? ResourceKind { get; init; }
@@ -143,6 +151,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
