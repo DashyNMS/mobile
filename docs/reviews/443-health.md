@@ -40,7 +40,9 @@ Claude Opus 5.5 medium reviewed 2e913e2. Addressed missing glass Back,
 explicit child safe-area ownership, equal-fill wrapping segments, pill radii,
 missing-value speech, search alignment and assessment inaccuracies. Restored
 SearchReveal to preserve existing Android visibility and iOS scroll reveal;
-Command-F previously worked through its fallback. A fresh review is pending.
+Command-F previously worked through its fallback. Claude re-reviewed the full diff at 4ffd249 with no blocking findings.
+Removed the remaining legacy iOS safe-area flag as requested and added the
+optional accessibility property summaries. Final CI is pending.
 Segments retain equal growth without a zero basis so they can wrap. Severity
 chips retain pill geometry with a 22pt radius at the accessible 44pt minimum.
 Every device outcome remains unverified.
@@ -53,7 +55,7 @@ Every device outcome remains unverified.
    landscape, folding/rotation without reopening, plus ordinary iPhone and Android.
 2. Open pinned Health, unpin and open from More, repin, switch tabs and resume;
    verify glass Back returns to More on iOS 26+, one glass owner, header actions on older iOS/Android, and final row
-   clears bottom/side/top pills. Inspect placement diagnostics for overlap/loops.
+   clears bottom/side/top pills without doubled side or bottom insets. Inspect placement diagnostics for overlap/loops.
 3. Toggle all severities off: unknown remains visible and says unavailable;
    check category totals, search/no matches, Clear and relaunch filter memory.
 4. Open search from glass/header and Command-F after scrolling; type, refocus,
