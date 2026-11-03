@@ -12,7 +12,7 @@ namespace DashyNMS.Mobile.Pages;
 /// id, from a notification). The alert itself is <see cref="AlertDetailView"/>,
 /// which the Alerts list also shows beside itself on a larger screen (#88).
 /// </summary>
-public sealed class AlertDetailPage : ContentPage, IQueryAttributable
+public sealed class AlertDetailPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly AlertDetailView _view;
     private IDisposable? _edges;
@@ -29,10 +29,9 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable
 		Content = _view = new AlertDetailView(viewModel);
 	}
 
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		_view.Bar.Apply(this);
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
         if (!ReferenceEquals(_resumeWindow, Window))
         {
@@ -41,13 +40,22 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable
             if (_resumeWindow is not null) _resumeWindow.Resumed += OnResumed;
         }
 #if IOS
-        _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
-        ShowBack();
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Moved += OnMoved;
 #endif
+        Activate();
+    }
+
+    /// <summary>Reclaims pushed Back when Shell reactivates a retained stack.</summary>
+    public void Activate()
+    {
+        _view.Bar.Apply(this);
+#if IOS
+        _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
+        ShowBack();
+#endif
         PlaceControls();
-	}
+    }
 
     protected override void OnDisappearing()
     {
@@ -63,13 +71,7 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable
     }
 
     private void PlaceControls() => _view.PlaceContent(CoveredEdges.ForScrolling(this));
-    private void OnResumed(object? sender, EventArgs e)
-    {
-#if IOS
-        ShowBack();
-#endif
-        Dispatcher.Dispatch(PlaceControls);
-    }
+    private void OnResumed(object? sender, EventArgs e) => Dispatcher.Dispatch(Activate);
 #if IOS
     private void ShowBack() => TabBarButtons.Show(this, null, string.Empty,
         [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),

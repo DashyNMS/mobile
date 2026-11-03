@@ -75,6 +75,17 @@ public sealed class NavigationTests
     }
 
     [Fact]
+    public void Nested_alert_and_back_routes_never_switch_tabs_when_pins_change()
+    {
+        foreach (var page in new[] { AppPage.Alerts, AppPage.Devices, AppPage.Health })
+        {
+            _pins.Toggle(page);
+            foreach (var route in new[] { Routes.AlertDetail, Routes.AlertRule, Routes.AlertTemplate, Routes.Back })
+                Assert.Equal(route, AppPages.Resolve(route, _pins));
+        }
+    }
+
+    [Fact]
     public void An_unpinned_tab_keeps_its_query_when_pushed_onto_More()
     {
         _pins.Toggle(AppPage.Alerts);

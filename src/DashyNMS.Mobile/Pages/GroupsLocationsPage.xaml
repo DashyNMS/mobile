@@ -94,7 +94,7 @@
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
-                    <GradientStop Color="Transparent" Offset="1" />
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>

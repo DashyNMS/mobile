@@ -91,3 +91,13 @@ Parent owns full review, CI, merge/cleanup and only then section TestFlight.
 If review quota is exhausted, retain the unmerged PR for later sequential review.
 #449/#442 stay open with no checklist ticks. TestFlight 41618582199 and the
 previous uploaded build are untouched.
+
+
+## Integration with the user-authorised navigation correction
+
+Updated only this queued branch after PR #490 merged. AlertDetailPage retains
+IActivePage activation and actual-caller Back recovery, and combines it with this
+PR's edge watcher, measured content placement, retained-window resume cleanup and
+idempotent Moved subscription. Resume uses the same activation path. The merged
+central Shell activation and route behaviour are retained. Replacement CI and
+mandatory Claude review remain pending; no device acceptance is implied.
