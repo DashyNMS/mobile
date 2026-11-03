@@ -133,8 +133,8 @@
                                             <VerticalStackLayout IsVisible="{Binding AvailabilityLayout}" Spacing="3"
                                                                  SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
-                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
-                                                <Label Text="{Binding Detail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                                <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
                                             </VerticalStackLayout>
                                             <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
                                                          ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />

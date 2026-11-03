@@ -44,7 +44,7 @@
         <Label x:Name="FilterLine" Grid.Row="2" Margin="20,4,16,0" Style="{StaticResource Faint}" Text="{Binding FiltersText}"
                IsVisible="{Binding HasFiltersText}" LineBreakMode="TailTruncation" />
 
-        <Grid x:Name="ErrorLine" Grid.Row="3" Margin="16,8,16,0" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasError}">
+        <Grid x:Name="ErrorLine" SafeAreaEdges="None" Grid.Row="3" Margin="16,8,16,0" ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasError}">
             <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" />
             <Button Grid.Column="1" Text="Retry" MinimumHeightRequest="44"
                     IsEnabled="{Binding IsNotBusy}" Command="{Binding RefreshCommand}" />

@@ -101,7 +101,13 @@ public sealed class DeviceSectionLoader
             .Select(o =>
             {
                 if (o.GoingDown is null)
-                    return new SectionRow("Outage time unavailable") { AvailabilityLayout = true, Detail = "Recorded outage; start time missing" };
+                    return new SectionRow("Outage time unavailable")
+                    {
+                        AvailabilityLayout = true,
+                        Subtitle = ServerTime.ToLocal(o.UpAgain, ServerUtc) is { } end
+                            ? "Back " + end.ToString("d MMM HH:mm", CultureInfo.CurrentCulture) : null,
+                        Detail = "Recorded outage; start time missing",
+                    };
                 var down = ServerTime.ToLocal(o.GoingDown!.Value, ServerUtc);
                 var up = ServerTime.ToLocal(o.UpAgain, ServerUtc);
                 return new SectionRow("Down " + down.ToString("d MMM HH:mm", CultureInfo.CurrentCulture))

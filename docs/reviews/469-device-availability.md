@@ -117,3 +117,19 @@ below to the final commit and CI build before acceptance.
 
 No acceptance boxes are ticked. TestFlight remains parent-owned after the
 #469–#484 Device-section sequence, not an action of this implementation PR.
+
+## Claude review remediation
+
+Claude Opus 5.5 Medium reviewed full diff 6024fe6 against main 8f29e13 with
+no blocking defects. ErrorLine explicitly opts out of native safe areas; invalid
+availability descriptions omit placeholder dashes; overview values retain status
+text colours; missing-start outages keep any known end time. Dead page-local
+search animation is removed in favour of ButtonSearch. The view-model search
+command remains for compatibility pending consumer review.
+
+Device changes intentionally wait for the prior request before fetching the
+new device; stale rows/errors are discarded. Cancellation and first-load timing
+for that uncommon reused-instance handoff remain a recorded limitation. Sensors
+status-note Retry is harmless refresh behaviour and must be checked under #470.
+Replacement CI is pending. No local builds/tests ran; all hardware outcomes
+remain unverified and no issues or epic checkboxes are closed.

@@ -49,7 +49,7 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Announces complete row facts without punctuation for absent fields.</summary>
     public string ContentDescription => string.Join(", ",
-        new[] { Title, Subtitle, Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
+        new[] { Title, Subtitle, AvailabilityLayout && Status == RowStatus.None && Value is "—" or "–" ? null : Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
 
     /// <summary>A third, smaller line.</summary>
     public string? Detail { get; init; }

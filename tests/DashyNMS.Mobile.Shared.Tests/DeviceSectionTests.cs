@@ -391,6 +391,7 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("—", row.Value);
         Assert.Equal(RowStatus.None, row.Status);
         Assert.Contains("unavailable", row.ContentDescription);
+        Assert.DoesNotContain("—", row.ContentDescription);
         Assert.True(row.AvailabilityLayout);
     }
 

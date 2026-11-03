@@ -20,7 +20,6 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
     private IDisposable? _edges;
     private readonly ButtonSearch _search;
 	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
-	private const uint SearchSlide = 220;
 
 	/// <summary>How long the Sort &amp; filter card takes to rise or go, and the list to dim, as Devices'.</summary>
 	private const uint CardMotion = 250;
@@ -414,75 +413,6 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
 	// The keyboard's search key: the list is narrowed, so the field goes.
 	private void OnSearchCompleted(object? sender, EventArgs e) { _search.Close(); _viewModel.DismissSearch(); }
-
-	/// <summary>
-	/// Slides the search field down from beneath the title, the list easing
-	/// down to make room, and into typing - or back up out of sight. At once
-	/// with Reduce Motion.
-	/// </summary>
-	private void SlideSearch(bool open)
-	{
-		const string name = "SearchSlide";
-		var full = SearchField.HeightRequest + SearchField.Margin.VerticalThickness;
-		SearchSlot.AbortAnimation(name);
-		if (open)
-		{
-			// Out of sight before it shows, or it flashes in place first.
-			if (!SearchField.IsVisible && !ReducedMotion.IsOn)
-			{
-				SearchField.TranslationY = -full;
-				SearchField.Opacity = 0;
-			}
-
-			SearchField.IsVisible = true;
-			Dispatcher.Dispatch(() => Search.Focus());
-		}
-		else
-		{
-			KeyboardDismiss.Close(Search);
-		}
-
-		// Done: hidden once out of sight, unless opened again meanwhile.
-		void Finish()
-		{
-			var stillOpen = _viewModel.IsSearchOpen;
-			SearchField.IsVisible = stillOpen;
-			SearchSlot.HeightRequest = stillOpen ? full : 0;
-			SearchField.TranslationY = 0;
-			SearchField.Opacity = 1;
-		}
-
-		if (ReducedMotion.IsOn || (!open && !SearchField.IsVisible))
-		{
-			Finish();
-			return;
-		}
-
-		// From wherever it is now, so a quick open-close doesn't jump.
-		var fromHeight = Math.Max(0, SearchSlot.HeightRequest);
-		var fromY = SearchField.TranslationY;
-		var fromOpacity = SearchField.Opacity;
-		var toHeight = open ? full : 0;
-		var toY = open ? 0 : -full;
-		var toOpacity = open ? 1.0 : 0;
-		SearchSlot.Animate(
-			name,
-			v =>
-			{
-				SearchSlot.HeightRequest = fromHeight + ((toHeight - fromHeight) * v);
-				SearchField.TranslationY = fromY + ((toY - fromY) * v);
-				SearchField.Opacity = fromOpacity + ((toOpacity - fromOpacity) * v);
-			},
-			length: SearchSlide,
-			easing: open ? Easing.CubicOut : Easing.CubicIn,
-			finished: (_, cancelled) =>
-			{
-				if (!cancelled)
-				{
-					Finish();
-				}
-			});
-	}
 
 #if IOS
 	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
