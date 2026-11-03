@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>VLAN facts stack so counts cannot crowd names at large text sizes.</summary>
+    public bool VlanLayout { get; init; }
+
+    /// <summary>Missing server fields remain unknown, rather than implying an empty name or zero ports.</summary>
+    public string VlanNameText => HasSubtitle ? Subtitle! : "Name unavailable";
+    public string VlanPortsText => HasValue ? Value! : "Port count unavailable";
+    public string VlanDescription => string.Join(", ", Title, VlanNameText, VlanPortsText);
+
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
@@ -129,7 +137,8 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
-        || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
+        || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term))
+        || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)));
 
     private static bool Contains(string? field, string term) =>
         field?.Contains(term, StringComparison.OrdinalIgnoreCase) == true;
