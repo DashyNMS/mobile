@@ -30,6 +30,20 @@ public sealed record SectionRow(string Title)
 
     public RowStatus Status { get; init; }
 
+    /// <summary>Health rows state unavailable readings explicitly, independently of colour.</summary>
+    public string HealthStatusText => Status switch
+    {
+        RowStatus.Critical => "Critical",
+        RowStatus.Warning => "Warning",
+        RowStatus.Ok => "OK",
+        RowStatus.Inactive => "Inactive",
+        _ => "Unavailable",
+    };
+
+    public string HealthDescription => string.Join(", ",
+        new[] { Title, Subtitle, Value, Detail, HealthStatusText }
+            .Where(text => !string.IsNullOrWhiteSpace(text)));
+
     /// <summary>A third, smaller line.</summary>
     public string? Detail { get; init; }
 
