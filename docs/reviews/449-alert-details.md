@@ -40,11 +40,11 @@ text with source whitespace preserved; no HTML or timeline features were added.
 | History | Fault history matching and incomplete recurrence are compliant. Fix required: legacy unreadable log silently omitted; now unavailable with no invented empty history. |
 | Long notes, source and multiple entities | Fix required: condition trimmed/reformatted; shared RuleText.ConditionSource preserves source. Full-width stacked wrapping field labels/values remove constrained columns. Fault selection and Show all fields unchanged. |
 | Missing rule | Fix required: silent omission; now unavailable with pull-refresh retry guidance. |
-| Busy/error | Fix required: native spinner and first-load-only busy card; shared busy overlay now handles initial/refresh/action work, with explicit Retry. |
+| Busy/error | Detail-local overlay suppresses the native spinner and shows loading, updating or acknowledging/unacknowledging through write and post-write refresh, with explicit Retry. The global helper is unchanged. |
 | Actions and races | Fix required: independent commands remained executable during other work. Busy CanExecute notifications added; pending fault dialogs share a gate and recheck displayed item/permissions before writing. Legacy acknowledge rechecks after prompt. Loads serialise to prevent interleaved source keys/payloads. |
 | Notification persistence | Compliant immediate behaviour; now explains automatic local saving. Change target raised from 32pt to 44pt. |
 | Hierarchy/accessibility | One primary acknowledge group/legacy action, subordinate unacknowledge/fault/device/notification controls. Removed duplicate gesture-only device link; full device text plus explicit Open device remains. Action semantics on hardware unverified. |
-| Pushed glass/insets | Fix required: legacy safe area without pushed glass lifecycle. Native top-only iOS page, relative caller-labelled Back, retained/disposed edge watcher and Window resume; Moved removes before adding. |
+| Pushed glass/insets | Native top-only iOS page, relative caller-labelled Back and retained/disposed edge watcher; Moved removes before adding. AppShell alone owns resume activation. |
 | Embedded glass/insets | Compliant host boundary retained; no new embedded glass owner. Native scroll adjustment disabled on handler/load. |
 | Fade and final item | Fix required: 20pt input-transparent fade reserved only with hidden BackBar, absent with visible BackBar. Measured Undo height, bottom margin and gap reserved in scrolling content. |
 | Theme contrast, wrapping, folding/rotation/resume | Unverified on hardware. No acceptance inferred from static inspection. |
@@ -97,7 +97,30 @@ previous uploaded build are untouched.
 
 Updated only this queued branch after PR #490 merged. AlertDetailPage retains
 IActivePage activation and actual-caller Back recovery, and combines it with this
-PR's edge watcher, measured content placement, retained-window resume cleanup and
-idempotent Moved subscription. Resume uses the same activation path. The merged
+PR's edge watcher, measured content placement and idempotent Moved subscription.
+AppShell is the sole resume owner and calls the page's Activate path. The merged
 central Shell activation and route behaviour are retained. Replacement CI and
 mandatory Claude review remain pending; no device acceptance is implied.
+
+## Confirmed review corrections
+
+M1/M2: confirmation accepts a fresh instance of the same identity only while its
+device/rule and current action eligibility still match. Single-fault eligibility
+is checked again before Core independently verifies scope. An ongoing refresh
+blocks explicitly with retry feedback rather than waiting while holding a load
+gate. Core result verification, refusal and partial-change reporting are retained.
+One detail-local overlay covers initial and reused-target loads, refreshes and
+action work through post-write refresh; commands remain disabled during action work.
+
+L1–L5: ordinary prose uses word wrapping; code and field values retain character
+wrapping. Full-width detail is deliberate, following DeviceDetail's scrolling
+detail reference with measured gutters rather than the setup-form width rule.
+Wide Duo/iPad prose readability remains a device check; no layout redesign is
+claimed. Central AppShell owns resume; page edge/Moved cleanup and Activate/Back
+remain. Group counts use singular/plural and unavailable reads do not invent zero.
+Added CI-only regressions for refreshed confirmation, changed targets, fault/group
+eligibility, pending action exclusion, cancellation/failure cleanup, busy guards
+and one/many/unavailable counts. No local execution occurred. All seven device
+gaps above remain, especially background/resume confirmation, action feedback,
+prose wrapping and full-width Duo/iPad. Replacement CI and a fresh parent full
+review are required; earlier 839a63f check results do not validate this revision.

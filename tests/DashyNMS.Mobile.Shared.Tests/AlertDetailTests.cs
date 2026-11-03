@@ -42,7 +42,37 @@ public sealed class AlertDetailViewModelTests
         await vm.LoadAsync(6);
         prompt.SetResult("synthetic note");
         await action;
+        Assert.Contains("changed while you were confirming", vm.ActionResult);
         await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Same_identity_refresh_keeps_confirmed_note_and_action_busy_until_reload_finishes()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        var prompt = new TaskCompletionSource<string?>();
+        var write = new TaskCompletionSource();
+        var writing = new TaskCompletionSource();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        _client.Alerts.AcknowledgeAsync(5, Arg.Any<string>(), true, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            writing.SetResult();
+            return write.Task;
+        });
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        prompt.SetResult(" retained note ");
+        await writing.Task;
+        Assert.Equal("Acknowledging…", vm.ActionBusyText);
+        Assert.False(vm.UnacknowledgeCommand.CanExecute(null));
+        Assert.False(vm.AcknowledgeFaultCommand.CanExecute(null));
+        write.SetResult();
+        await action;
+        Assert.Null(vm.ActionBusyText);
+        Assert.True(vm.CanRunAction);
+        await _client.Alerts.Received(1).AcknowledgeAsync(5, "retained note", true, Arg.Any<CancellationToken>());
     }
 
     [Fact]

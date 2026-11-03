@@ -16,7 +16,6 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable, IActivePa
 {
 	private readonly AlertDetailView _view;
     private IDisposable? _edges;
-    private Window? _resumeWindow;
 
 	public AlertDetailPage(AlertDetailViewModel viewModel)
 	{
@@ -33,12 +32,6 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable, IActivePa
     {
         base.OnAppearing();
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
-        if (!ReferenceEquals(_resumeWindow, Window))
-        {
-            if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-            _resumeWindow = Window;
-            if (_resumeWindow is not null) _resumeWindow.Resumed += OnResumed;
-        }
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Moved += OnMoved;
@@ -62,8 +55,6 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable, IActivePa
         base.OnDisappearing();
         _edges?.Dispose();
         _edges = null;
-        if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-        _resumeWindow = null;
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Hide(this);
@@ -71,7 +62,6 @@ public sealed class AlertDetailPage : ContentPage, IQueryAttributable, IActivePa
     }
 
     private void PlaceControls() => _view.PlaceContent(CoveredEdges.ForScrolling(this));
-    private void OnResumed(object? sender, EventArgs e) => Dispatcher.Dispatch(Activate);
 #if IOS
     private void ShowBack() => TabBarButtons.Show(this, null, string.Empty,
         [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),

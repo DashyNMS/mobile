@@ -15,7 +15,18 @@ public partial class AlertDetailView : ContentView
 	{
 		InitializeComponent();
 		BindingContext = ViewModel = viewModel;
-        Controls.PullToRefresh.ShowBusyCard(Refresh, Busy, viewModel, "Loading the alert…", "Updating the alert…");
+        // Detail has writes and can be reused for a new target after its first load.
+        Controls.PullToRefresh.HideSpinner(Refresh);
+        void UpdateBusy()
+        {
+            Busy.Text = viewModel.ActionBusyText ?? (viewModel.HasAlert ? "Updating the alert…" : "Loading the alert…");
+            Busy.IsVisible = viewModel.IsBusy || viewModel.ActionBusyText is not null;
+        }
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(viewModel.IsBusy) or nameof(viewModel.HasAlert) or nameof(viewModel.ActionBusyText)) UpdateBusy();
+        };
+        UpdateBusy();
         UndoOverlay.SizeChanged += (_, _) => PlaceContent(_clear);
         UndoOverlay.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceContent(_clear); };
 #if IOS

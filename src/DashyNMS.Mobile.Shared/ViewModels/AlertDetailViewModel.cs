@@ -45,6 +45,8 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     private readonly ISelfActionTracker _selfActions;
     private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
     private bool _actionPending;
+    [ObservableProperty]
+    private string? _actionBusyText;
     private readonly SemaphoreSlim _loads = new(1, 1);
 
     /// <summary>
@@ -90,7 +92,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         _rules = rules;
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName != nameof(IsBusy)) return;
+            if (e.PropertyName is not (nameof(IsBusy) or nameof(ActionBusyText))) return;
             AcknowledgeCommand.NotifyCanExecuteChanged();
             UnacknowledgeCommand.NotifyCanExecuteChanged();
             AcknowledgeFaultCommand.NotifyCanExecuteChanged();
@@ -105,6 +107,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public int? DeviceId { get; private set; }
 
     public bool HasAlert => Alert is not null;
+    public bool CanRunAction => !IsBusy && ActionBusyText is null;
 
     [ObservableProperty]
     private string? _actionResult;
@@ -115,7 +118,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public string UnacknowledgeLabel => Alert?.Alert.Source == AlertSource.Fault ? "Unacknowledge group" : "Unacknowledge";
     public string? FaultScopeText => Alert?.Alert.Source == AlertSource.Fault ? _faultScope?.Explanation : null;
     public string? GroupStatusText => Alert?.Alert.Source != AlertSource.Fault ? null
-        : _faultGroup is { } group ? $"Device/rule group: {group.FaultCount} open faults, {group.AcknowledgedCount} acknowledged, {group.UnacknowledgedCount} active. Group actions apply to every open fault for this device and rule."
+        : _faultGroup is { } group ? $"Device/rule group: {group.FaultCount} open {(group.FaultCount == 1 ? "fault" : "faults")}, {group.AcknowledgedCount} acknowledged, {group.UnacknowledgedCount} active. Group actions apply to every open fault for this device and rule."
         : "Device/rule group status is unavailable. Group actions apply to every open fault for this device and rule.";
     public bool CanAcknowledgeFault => Alert is { IsAcknowledged: false, State: not AlertState.Recovered } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
     public bool CanUnacknowledgeFault => Alert is { IsAcknowledged: true } && _faultScope?.IsSingleFault == true && MayAcknowledgeSelected;
@@ -382,7 +385,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         : Task.CompletedTask;
 
     /// <summary>Acknowledges until the alert clears, with an optional note - as the list does.</summary>
-    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private async Task AcknowledgeAsync()
     {
         if (Alert is not { } item || !CanAcknowledge)
@@ -401,23 +404,30 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             $"{item.Rule} on {item.Device}. Add a note (optional):",
             "Acknowledge",
             "Note");
-        if (note is null || !ReferenceEquals(Alert, item) || IsBusy || !CanAcknowledge)
+        if (note is null) return;
+        if (!ConfirmCurrentTarget(item, CanAcknowledge))
         {
             return;
         }
 
-        if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
+        item = Alert!;
+        ActionBusyText = "Acknowledging…";
+        try
         {
-            // So the next alert check doesn't notify you about your own acknowledgement.
-            _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
-            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
-            await RefreshAsync();
+            if (await RunAsync(() => _client.Alerts.AcknowledgeAsync(item.Id, note.Trim())))
+            {
+                // So the next alert check doesn't notify you about your own acknowledgement.
+                _selfActions.Record(item.Id, AlertChangeKind.Acknowledged);
+                AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: true, string.IsNullOrWhiteSpace(note) ? null : note.Trim()));
+                await RefreshAsync();
+            }
         }
+        finally { ActionBusyText = null; }
 
         ShowPermissions();
     }
 
-    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private async Task UnacknowledgeAsync()
     {
         if (Alert is not { } item || !CanUnacknowledge)
@@ -432,20 +442,25 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         }
 
         // One alert, and acknowledging puts it back: no need to ask (#146).
-        if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
+        ActionBusyText = "Unacknowledging…";
+        try
         {
-            _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
-            AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
-            await RefreshAsync();
+            if (await RunAsync(() => _client.Alerts.UnmuteAsync(item.Id)))
+            {
+                _selfActions.Record(item.Id, AlertChangeKind.Unacknowledged);
+                AlertChanged?.Invoke(this, new AlertStateChange(item.Id, Acknowledged: false, Note: null));
+                await RefreshAsync();
+            }
         }
+        finally { ActionBusyText = null; }
 
         ShowPermissions();
     }
 
-    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private Task AcknowledgeFaultAsync() => CanAcknowledgeFault ? ChangeFaultAsync(true, true) : Task.CompletedTask;
 
-    [RelayCommand(CanExecute = nameof(IsNotBusy))]
+    [RelayCommand(CanExecute = nameof(CanRunAction))]
     private Task UnacknowledgeFaultAsync() => CanUnacknowledgeFault ? ChangeFaultAsync(false, true) : Task.CompletedTask;
 
     private async Task ChangeFaultAsync(bool acknowledge, bool single)
@@ -456,7 +471,7 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         {
             await ChangeFaultCoreAsync(acknowledge, single);
         }
-        finally { _actionPending = false; }
+        finally { _actionPending = false; ActionBusyText = null; }
     }
 
     private async Task ChangeFaultCoreAsync(bool acknowledge, bool single)
@@ -471,7 +486,12 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         }
         else if (!await _dialogs.ConfirmAsync($"Unacknowledge {scope}", single ? "Return only this fault to active?" : $"Return every acknowledged fault for {item.Rule} on {item.Device} to active?", $"Unacknowledge {scope}", "Cancel")) return;
 
-        if (!ReferenceEquals(Alert, item) || IsBusy || (single ? !MayAcknowledgeSelected : !MayAcknowledge)) return;
+        var eligible = single
+            ? acknowledge ? CanAcknowledgeFault : CanUnacknowledgeFault
+            : acknowledge ? CanAcknowledge : CanUnacknowledge;
+        if (!ConfirmCurrentTarget(item, eligible)) return;
+        item = Alert!;
+        ActionBusyText = acknowledge ? "Acknowledging…" : "Unacknowledging…";
         var key = new AlertGroupKey(item.Alert.DeviceId, item.Alert.RuleId);
         var completed = await RunAsync(async () =>
         {
@@ -486,6 +506,21 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
         });
         if (completed) await RefreshAsync();
         ShowPermissions();
+    }
+
+    /// <summary>A refreshed instance is valid; a different identity or device/rule is never retargeted.</summary>
+    private bool ConfirmCurrentTarget(AlertItem confirmed, bool eligible)
+    {
+        if (IsBusy || _loads.CurrentCount == 0)
+        {
+            ActionResult = "The alert is updating; nothing was changed. Try again when it finishes.";
+            return false;
+        }
+        if (Alert?.Alert.Identity == confirmed.Alert.Identity
+            && Alert.Alert.DeviceId == confirmed.Alert.DeviceId
+            && Alert.Alert.RuleId == confirmed.Alert.RuleId && eligible) return true;
+        ActionResult = "The alert changed while you were confirming; nothing was changed. Try again.";
+        return false;
     }
 
     [RelayCommand]
