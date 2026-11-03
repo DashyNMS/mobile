@@ -27,9 +27,11 @@ uses the guide-authorised NetworkMap reference, and does not complete #288.
 
 ## Evidence
 
-Code: implementation and full diff inspected by implementation agent; no independent
-review claimed. Parent arranges mandatory Claude Opus 5.5 Medium full-diff review.
-CI: pending PR shared tests and Android/iOS builds. No local builds/tests executed.
+Code: independent Claude Opus 5.5 Medium full-diff reviews completed through
+50f55c7. That review confirmed prior fixes and found four low cleanups, addressed
+below. CI at 50f55c7 passed unit tests (including the Node camera bridge), Android,
+iOS simulator and CodeQL actions/C#; Swift remained pending at review. Final CI
+after the cleanup is pending. No local builds/tests executed.
 Device: all outcomes unverified; no screenshots/build acceptance claimed.
 
 ## Remaining device steps
@@ -159,7 +161,7 @@ fixes the remaining merged-focus race and the five low findings:
   the search keyboard; disappearing explicitly closes it. The fixed search/status
   rows sit above a finite CollectionView with a 20pt fade/spacer. All locations
   remain searchable and naturally ordered, including hundreds of rows. Names
-  remain intact; units/coordinates are details and exact-coordinate duplicates
+  remain intact; units/coordinates are details and duplicate names with identical coordinates
   gain a neutral choice ordinal. Row objects carry identity independently of text.
   Choosing selects on the original map and pops one page. MapPage defers the
   camera/selection update until Appearing restores its glass and usable WebView.
@@ -186,3 +188,15 @@ and first-frame travel, TalkBack/VoiceOver whole-row activation, side-pill margi
 and glass/44px Leaflet controls, new large-chooser search/keyboard/accessibility,
 Duo folds/rotation/resume, themes/Reduce Motion and refresh camera fit while
 selected. No chooser deferral, device acceptance, merge or issue closure is claimed.
+
+
+## Cleanup after review at 50f55c7
+
+Claude confirmed every earlier finding fixed with no medium-or-higher findings.
+The four low cleanups now use shortest round-trip coordinate text, constrain fit
+padding to leave at least a quarter of each canvas axis usable, remove repeated
+stale-picker instructions and correct this evidence. Added regressions cover
+51.1 coordinate formatting and oversized clearance on a short canvas. Final CI
+is pending; all device checks above remain unverified. The review cannot settle
+real Leaflet user-zoom animation timing, handler measurement, accessibility or
+Duo geometry. No device acceptance is claimed.

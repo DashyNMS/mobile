@@ -37,7 +37,7 @@ public sealed partial class MapLocationPickerViewModel(INavigationService naviga
             var key = (pin.Name, pin.Latitude, pin.Longitude);
             occurrences.TryGetValue(key, out var ordinal);
             occurrences[key] = ++ordinal;
-            var details = FormattableString.Invariant($"{pin.Count} {(pin.Count == 1 ? "device" : "devices")} · {pin.Latitude:G17}, {pin.Longitude:G17}");
+            var details = FormattableString.Invariant($"{pin.Count} {(pin.Count == 1 ? "device" : "devices")} · {pin.Latitude:R}, {pin.Longitude:R}");
             // Only identical names/coordinates need an ordinal. This is not a server ID.
             if (ordinal > 1) details += $" · choice {ordinal}";
             return new MapLocationChoice(pin, details, source.SelectedPinIds.Contains(pin.Id));
@@ -64,7 +64,7 @@ public sealed partial class MapLocationPickerViewModel(INavigationService naviga
         if (choice is null || !_all.Any(row => ReferenceEquals(row, choice)) || _source is null) return;
         if (_source.IsBusy || !_source.Locations.Any(pin => ReferenceEquals(pin, choice.Pin)))
         {
-            ErrorMessage = "Map locations changed. Go back and reopen the location picker.";
+            ErrorMessage = "Map locations changed.";
             OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(HasStatus));
             return;

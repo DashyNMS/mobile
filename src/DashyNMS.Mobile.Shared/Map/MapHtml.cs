@@ -278,7 +278,14 @@ public static class MapHtml
               }
 
               function fit() {
-                if (bounds.length) { map.fitBounds(bounds, { paddingTopLeft: [clearance.left + 30, clearance.top + 30], paddingBottomRight: [clearance.right + 30, clearance.bottom + 30], maxZoom: 12, animate: false }); } else { map.setView([20, 0], 2, { animate: false }); }
+                // Keep at least a quarter of each axis usable, even when large
+                // captions or glass cover most of a short landscape canvas.
+                var size = map.getSize();
+                var left = clearance.left + 30, right = clearance.right + 30;
+                var top = clearance.top + 30, bottom = clearance.bottom + 30;
+                var horizontal = Math.min(1, size.x * 0.75 / (left + right));
+                var vertical = Math.min(1, size.y * 0.75 / (top + bottom));
+                if (bounds.length) { map.fitBounds(bounds, { paddingTopLeft: [left * horizontal, top * vertical], paddingBottomRight: [right * horizontal, bottom * vertical], maxZoom: 12, animate: false }); } else { map.setView([20, 0], 2, { animate: false }); }
                 draw();
               }
               map.on('zoomend', draw);

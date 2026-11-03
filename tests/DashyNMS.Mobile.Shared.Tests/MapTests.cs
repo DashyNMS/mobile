@@ -107,6 +107,17 @@ public sealed class MapViewModelTests
     }
 
     [Fact]
+    public async Task Picker_coordinates_use_short_round_trip_text()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            [new Location { Id = 1, Name = "Example site", Latitude = 51.1, Longitude = -1.1 }]);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.EndsWith(" · 51.1, -1.1", Assert.Single(picker.Choices).Details);
+    }
+
+    [Fact]
     public async Task A_close_cannot_clear_a_new_choice_even_when_the_same_pin_is_reselected()
     {
         var vm = await Loaded();

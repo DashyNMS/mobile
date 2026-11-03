@@ -8,13 +8,13 @@ import assert from 'node:assert/strict';
 const source = readFileSync(new URL('../../src/DashyNMS.Mobile.Shared/Map/MapHtml.cs', import.meta.url), 'utf8');
 const bridge = source.slice(source.indexOf('(function () {'), source.indexOf('})();') + 5);
 const pins = [0, 1].map(id => ({ id, name: `Site ${id}`, lat: 51 + id / 100, lng: 1, count: 1, ring: [{ count: 1, colour: '#2EA043' }] }));
-function harness(data = pins) {
+function harness(data = pins, size = { x: 800, y: 600 }) {
   const events = {}, timers = [], markers = [], fits = [], pending = [];
   const fire = name => (events[name] ?? []).forEach(fn => fn());
   const map = {
     zoom: undefined, offset: [0, 0],
     on(names, fn) { names.split(' ').forEach(name => (events[name] ??= []).push(fn)); },
-    getZoom() { return this.zoom; }, getSize() { return { x: 800, y: 600 }; },
+    getZoom() { return this.zoom; }, getSize() { return size; },
     getContainer() { return { querySelector: () => ({ style: {}, querySelectorAll: () => [] }) }; },
     setView(centre, zoom, options = {}) {
       assert.ok(Number.isFinite(zoom), 'focus cannot use an undefined zoom');
@@ -127,4 +127,14 @@ test('rapid taps on different groups apply the latest group target, not a stale 
   assert.equal(h.map.centre[0], 10);
   assert.deepEqual(h.map.offset, [10, 70]);
   assert.equal(h.pending.length, 0);
+});
+
+test('overview padding leaves a usable viewport on short screens with large captions', () => {
+  const h = harness(pins, { x: 300, y: 120 });
+  h.window.setMapClearance(180, 240, 200, 240);
+  const fit = h.fits[0];
+  assert.ok(fit.paddingTopLeft[0] + fit.paddingBottomRight[0] <= 225);
+  assert.ok(fit.paddingTopLeft[1] + fit.paddingBottomRight[1] <= 90);
+  assert.ok(fit.paddingTopLeft[1] > 0);
+  assert.ok(fit.paddingBottomRight[1] > 0);
 });
