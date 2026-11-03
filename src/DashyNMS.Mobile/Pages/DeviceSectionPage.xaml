@@ -107,6 +107,12 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding VlanLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding VlanDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding VlanNameText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding VlanPortsText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding NeighbourLayout}"
                                   SemanticProperties.Description="{Binding NeighbourAction}" AutomationProperties.IsInAccessibleTree="True">
                                 <Label Text="{Binding NeighbourSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True" />
@@ -156,6 +162,9 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
 
                                 <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding VlanLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                     <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>

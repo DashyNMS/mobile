@@ -509,6 +509,40 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Vlans_keep_numeric_order_names_and_unknown_counts_without_duplicate_memberships()
+    {
+        const string name = "Example research and development VLAN with a long server-provided name";
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Vlan { DeviceId = DeviceId, VlanNumber = 100, VlanName = name },
+            new Vlan { DeviceId = DeviceId, VlanNumber = 2 },
+            new Vlan { DeviceId = 99, VlanNumber = 1 },
+        ]);
+        var port = Port(1, "Gi0/1");
+        port.IfVlan = 100;
+        port.Vlans = [new PortVlanMembership { Vlan = 100 }, new PortVlanMembership { Vlan = 100 }];
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([port]);
+
+        var rows = Assert.Single(await Load(DeviceSection.Vlans));
+        Assert.Equal(["VLAN 2", "VLAN 100"], rows.Select(r => r.Title));
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.VlanLayout);
+            Assert.Equal(RowStatus.None, row.Status);
+            Assert.False(row.IsLink);
+        });
+        Assert.Null(rows[0].Value);
+        Assert.Equal("Name unavailable", rows[0].VlanNameText);
+        Assert.Equal("No member ports reported", rows[0].VlanPortsText);
+        Assert.True(rows[0].Matches("member ports reported"));
+        Assert.Equal(name, rows[1].Subtitle);
+        Assert.Equal("1 port", rows[1].Value);
+        Assert.Equal($"VLAN 100, {name}, 1 port", rows[1].VlanDescription);
+        Assert.True(rows[1].Matches("research"));
+        Assert.False(new SectionRow("Other section").Matches("unavailable"));
+    }
+
+    [Fact]
     public async Task Arp_sorts_addresses_numerically_and_tidies_macs()
     {
         _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(

@@ -487,6 +487,7 @@ public sealed class DeviceSectionLoader
             .OrderBy(v => v.VlanNumber)
             .Select(v => new SectionRow($"VLAN {v.VlanNumber}")
             {
+                VlanLayout = true,
                 Subtitle = v.VlanName,
                 Value = portsPerVlan.TryGetValue(v.VlanNumber, out var count) ? $"{count} {(count == 1 ? "port" : "ports")}" : null,
             });

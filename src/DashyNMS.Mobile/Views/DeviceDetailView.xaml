@@ -120,10 +120,19 @@
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
+                                            <VerticalStackLayout IsVisible="{Binding VlanLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding VlanDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding VlanNameText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding VlanPortsText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding NeighbourLayout}" LineBreakMode="WordWrap" />
                                             <Label Text="{Binding PortSummary}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" IsVisible="{Binding PortLayout}" LineBreakMode="WordWrap" FontSize="13" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Grid.Triggers>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding VlanLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
                                                         <Setter Property="IsVisible" Value="False" />
                                                     </DataTrigger>

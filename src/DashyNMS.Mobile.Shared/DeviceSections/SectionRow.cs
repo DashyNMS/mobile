@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>VLAN facts stack so counts cannot crowd names at large text sizes.</summary>
+    public bool VlanLayout { get; init; }
+
+    /// <summary>Missing server fields remain unknown, rather than implying an empty name or zero ports.</summary>
+    public string VlanNameText => HasSubtitle ? Subtitle! : "Name unavailable";
+    public string VlanPortsText => HasValue ? Value! : "No member ports reported";
+    public string VlanDescription => string.Join(", ", Title, VlanNameText, VlanPortsText);
+
     /// <summary>Only device neighbours use the complete endpoint readout.</summary>
     public bool NeighbourLayout { get; init; }
     public string NeighbourSummary => string.Join("\n", new[] { Title, Subtitle, Value, Detail }
@@ -162,6 +170,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
+        || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>
