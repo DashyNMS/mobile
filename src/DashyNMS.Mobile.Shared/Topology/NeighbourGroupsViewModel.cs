@@ -24,7 +24,7 @@ public sealed record NeighbourGroupRow(NeighbourViewDefinition Group, int? Count
             1 => NeighbourRuleRow.Describe(Group.Rules[0]),
             var n => string.Create(CultureInfo.CurrentCulture, $"{n} rules, {(Group.MatchAll ? "all" : "any")} must match"),
         },
-        Count?.ToString("N0", CultureInfo.CurrentCulture),
+        Count is { } count ? string.Create(CultureInfo.CurrentCulture, $"{count:N0} {(count == 1 ? "neighbour" : "neighbours")}") : "Neighbour count unavailable",
     }.Where(s => s is not null));
 }
 
@@ -39,6 +39,7 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
     private readonly NeighbourDirectory _neighbours;
+    private IReadOnlyList<NeighbourLink>? _failedLinks;
 
     public NeighbourGroupsViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs, NeighbourDirectory neighbours)
     {
@@ -57,6 +58,18 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     public void Refresh()
     {
         var links = _neighbours.Links;
+        if (Groups.Select(row => row.Group.Id).SequenceEqual(_settings.Current.NeighbourViews.Select(group => group.Id)))
+        {
+            // Count completion must not reset the viewport beneath the reader.
+            for (var i = 0; i < Groups.Count; i++)
+            {
+                var group = _settings.Current.NeighbourViews[i];
+                var next = new NeighbourGroupRow(group, links?.Count(link => NeighboursViewModel.InGroup(group, link)));
+                if (!Groups[i].Equals(next)) Groups[i] = next;
+            }
+            OnPropertyChanged(nameof(HasNone));
+            return;
+        }
         Groups.Clear();
         foreach (var group in _settings.Current.NeighbourViews)
         {
@@ -69,15 +82,32 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     /// <summary>Fetches the neighbours if the Neighbours page hasn't, for the counts. Not fatal - the groups still show.</summary>
     public async Task LoadCountsAsync()
     {
+        if (IsBusy) return;
         if (_neighbours.Links is not null)
         {
+            if (!ReferenceEquals(_neighbours.Links, _failedLinks)) ErrorMessage = null;
+            Refresh();
             return;
         }
 
         if (await RunAsync(() => _neighbours.GetAsync()))
         {
+            _failedLinks = null;
             Refresh();
         }
+        else _failedLinks = _neighbours.Links;
+    }
+
+    [RelayCommand]
+    private async Task RetryCountsAsync()
+    {
+        if (IsBusy) return;
+        if (await RunAsync(() => _neighbours.LoadAsync()))
+        {
+            _failedLinks = null;
+            Refresh();
+        }
+        else _failedLinks = _neighbours.Links;
     }
 
     [RelayCommand]
@@ -102,9 +132,13 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
             return;
         }
 
-        _settings.Current.NeighbourViews.RemoveAll(v => v.Id == row.Group.Id);
+        var index = _settings.Current.NeighbourViews.FindIndex(v => v.Id == row.Group.Id);
+        if (index < 0) return;
+        _settings.Current.NeighbourViews.RemoveAt(index);
         _settings.Save();
-        Refresh();
+        var visibleIndex = Groups.ToList().FindIndex(v => v.Group.Id == row.Group.Id);
+        if (visibleIndex >= 0) Groups.RemoveAt(visibleIndex);
+        OnPropertyChanged(nameof(HasNone));
     }
 
     private void Move(NeighbourGroupRow? row, int by)
@@ -119,7 +153,9 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
 
         (groups[from], groups[to]) = (groups[to], groups[from]);
         _settings.Save();
-        Refresh();
+        var visibleFrom = Groups.ToList().FindIndex(v => v.Group.Id == row!.Group.Id);
+        var visibleTo = Groups.ToList().FindIndex(v => v.Group.Id == groups[from].Id);
+        if (visibleFrom >= 0 && visibleTo >= 0) Groups.Move(visibleFrom, visibleTo);
     }
 }
 

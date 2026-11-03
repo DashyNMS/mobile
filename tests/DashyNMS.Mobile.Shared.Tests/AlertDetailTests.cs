@@ -29,6 +29,108 @@ public sealed class AlertDetailViewModelTests
 
     private AlertDetailViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, _navigation, _selfActions);
 
+    [Fact]
+    public async Task Confirmation_during_refresh_reports_updating_and_successful_refresh_clears_it()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        var pending = new TaskCompletionSource<Alert?>();
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        prompt.SetResult("note");
+        await action;
+        Assert.Contains("updating; nothing was changed", vm.ActionResult);
+        pending.SetResult(Fakes.Alert(5, 3, "critical"));
+        await refresh;
+        Assert.Null(vm.ActionResult);
+        await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Acknowledgement_prompt_cannot_write_after_target_changes()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        GivenAlert(Fakes.Alert(6, 3, "warning"));
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        await vm.LoadAsync(6);
+        prompt.SetResult("synthetic note");
+        await action;
+        Assert.Contains("changed while you were confirming", vm.ActionResult);
+        await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs("retry note");
+        await vm.AcknowledgeCommand.ExecuteAsync(null);
+        await _client.Alerts.Received(1).AcknowledgeAsync(6, "retry note", true, Arg.Any<CancellationToken>());
+        Assert.Null(vm.ActionResult);
+    }
+
+    [Fact]
+    public async Task Same_identity_refresh_keeps_confirmed_note_and_action_busy_until_reload_finishes()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        var prompt = new TaskCompletionSource<string?>();
+        var write = new TaskCompletionSource();
+        var writing = new TaskCompletionSource();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        _client.Alerts.AcknowledgeAsync(5, Arg.Any<string>(), true, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            writing.SetResult();
+            return write.Task;
+        });
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        prompt.SetResult(" retained note ");
+        await writing.Task;
+        Assert.Equal("Acknowledging…", vm.ActionBusyText);
+        Assert.False(vm.UnacknowledgeCommand.CanExecute(null));
+        Assert.False(vm.AcknowledgeFaultCommand.CanExecute(null));
+        var reload = new TaskCompletionSource<Alert?>();
+        var reloading = new TaskCompletionSource();
+        _client.Alerts.GetAsync(5, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            reloading.SetResult();
+            return reload.Task;
+        });
+        write.SetResult();
+        await reloading.Task;
+        Assert.Equal("Acknowledging…", vm.ActionBusyText);
+        Assert.False(vm.CanRunAction);
+        reload.SetResult(Fakes.Alert(5, 3, "critical", acknowledged: true));
+        await action;
+        Assert.Null(vm.ActionBusyText);
+        Assert.True(vm.CanRunAction);
+        await _client.Alerts.Received(1).AcknowledgeAsync(5, "retained note", true, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void Rule_source_and_notes_keep_exact_whitespace()
+    {
+        const string source = "  ports.ifAlias = '<example>' AND ports.ifOperStatus = 2\r\n\t ";
+        var rule = new AlertRule { Id = 7, Rule = source, Notes = " notes\r\n\t ", Procedure = " step\n  " };
+        var groups = AlertDetailViewModel.BuildGroups(new AlertItem(Fakes.Alert(5, 3, "critical"), false), rule, [], false).ToList();
+        var rows = Assert.Single(groups, g => g.Name == "Rule");
+        Assert.Equal(source, rows[0].Subtitle);
+        Assert.Equal(rule.Notes, rows[1].Subtitle);
+        Assert.Equal(rule.Procedure, rows[2].Subtitle);
+    }
+
+    [Fact]
+    public void Unreadable_legacy_history_is_unavailable_not_empty()
+    {
+        var groups = AlertDetailViewModel.BuildGroups(new AlertItem(Fakes.Alert(5, 3, "critical"), false), null, [], false).ToList();
+        var history = Assert.Single(groups, g => g.Name == "History");
+        Assert.Equal("History unavailable", Assert.Single(history).Title);
+    }
+
     private static AlertLogEntry LogEntry(int ruleId, int state, DateTime at, string rowJson = "{}") =>
         JsonSerializer.Deserialize<AlertLogEntry>(
             $$"""{ "id": 1, "rule_id": {{ruleId}}, "device_id": 3, "state": {{state}}, "time_logged": "{{at:yyyy-MM-dd HH:mm:ss}}", "details": { "rule": [ {{rowJson}} ] } }""",
@@ -117,7 +219,7 @@ public sealed class AlertDetailViewModelTests
 
         await vm.LoadAsync(5);
 
-        Assert.DoesNotContain(vm.Groups, g => g.Name == "History");
+        Assert.Equal("History unavailable", Assert.Single(Assert.Single(vm.Groups, g => g.Name == "History")).Title);
     }
 
     [Fact]
@@ -134,7 +236,7 @@ public sealed class AlertDetailViewModelTests
         await vm.LoadAsync(5);
 
         Assert.False(vm.HasError);
-        Assert.Equal(["Alert"], vm.Groups.Select(g => g.Name));
+        Assert.Equal(["Alert", "Rule", "History"], vm.Groups.Select(g => g.Name));
         Assert.Equal("host3", vm.Groups[0][0].Value);
     }
 
@@ -204,18 +306,6 @@ public sealed class AlertDetailViewModelTests
         Assert.Equal("alert:5", visit.Parameters![Routes.AlertKeyParameter]);
         Assert.Equal(3, visit.Parameters[Routes.DeviceIdParameter]);
     }
-
-    [Theory]
-    [InlineData(
-        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\" AND sensors.sensor_alert = 1 AND (macros.a = 1 OR (b = 2 AND c = 3))",
-        "sensors.sensor_descr REGEXP \"(?i)(power|psu) AND x\"\nAND sensors.sensor_alert = 1\nAND (macros.a = 1 OR (b = 2 AND c = 3))")]
-    [InlineData(
-        "%bgpPeers.bgpPeerState != \"established\" && %macros.device_up = 1 || x = 'a OR b'",
-        "%bgpPeers.bgpPeerState != \"established\"\n&& %macros.device_up = 1\n|| x = 'a OR b'")]
-    [InlineData("ports.ifOperStatus = \"down\"", "ports.ifOperStatus = \"down\"")]
-    [InlineData("hostname = \"ANDROID\" and vendor = 'x'", "hostname = \"ANDROID\"\nand vendor = 'x'")]
-    public void Breaks_the_rule_condition_at_its_top_level_ands_and_ors(string condition, string expected) =>
-        Assert.Equal(expected, AlertDetailViewModel.BreakCondition(condition));
 }
 
 public sealed class AlertNotificationTargetTests

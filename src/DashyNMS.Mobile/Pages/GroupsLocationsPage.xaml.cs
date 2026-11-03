@@ -5,7 +5,7 @@ using DashyNMS.Mobile.ViewModels;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.GroupsLocations"/>, pinned or pushed from More.</summary>
-public partial class GroupsLocationsPage : ContentPage, ISearchHost
+public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 {
 	private readonly GroupsLocationsViewModel _viewModel;
 	private bool _loaded;
@@ -32,6 +32,16 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+        Activate();
+		if (!_loaded)
+		{
+			_loaded = true;
+			_viewModel.RefreshCommand.Execute(null);
+		}
+	}
+
+    public void Activate()
+    {
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -45,11 +55,6 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-		if (!_loaded)
-		{
-			_loaded = true;
-			_viewModel.RefreshCommand.Execute(null);
-		}
 	}
 
     public void OpenSearch() => _search.Open();
