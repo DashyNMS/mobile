@@ -314,6 +314,33 @@ public sealed class LogsViewModelTests
     }
 
     [Fact]
+    public void Detail_preserves_server_text_and_clears_stale_route_data()
+    {
+        const string message = "  port\tstate=down\r\n\n<html>plain text</html>  ";
+        var payload = new EventLogEntry
+        {
+            Id = 42, DeviceId = 7, Message = message, Type = " interface ",
+            Hostname = " example.net ", SysName = " edge\tname ", Timestamp = Noon,
+        };
+        var item = LogEntryItem.ForEvent(payload, "", false, Noon);
+        Assert.Same(payload, item.Event);
+        Assert.Equal(message, item.FullText);
+        Assert.Contains(new KeyValuePair<string, string>("Type", " interface "), item.Fields);
+        Assert.Contains(new KeyValuePair<string, string>("Hostname", " example.net "), item.Fields);
+        Assert.Contains(new KeyValuePair<string, string>("System name", " edge\tname "), item.Fields);
+        Assert.NotEqual("OK", item.StatusText);
+        var detail = new LogEntryViewModel(_navigation);
+        detail.Load(item, null);
+        Assert.True(detail.OpenDeviceCommand.CanExecute(null));
+        Assert.Contains("7", detail.DeviceActionDescription);
+        detail.Load(null, null);
+        Assert.True(detail.MissingEntry);
+        Assert.False(detail.HasEntry);
+        Assert.False(detail.OpenDeviceCommand.CanExecute(null));
+        Assert.False(detail.OpenRuleCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task An_alert_entry_opens_its_rule()
     {
         Returns([]);
