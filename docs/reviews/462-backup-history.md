@@ -105,3 +105,20 @@ tested commit and build separately from CI before claiming acceptance.
 No device acceptance, issue closure, epic tick, release or TestFlight is claimed.
 Parent updates only this PR at its turn after preceding PRs merge, then owns
 Claude review, CI, merge and cleanup. TestFlight follows the #460 to #464 batch.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed full diff 1d694c2 against main e817e62.
+Revision-discarded and cancelled loads are no longer marked checked; a changed
+revision triggers another load after busy clears. Replaced connections clear
+history, matched identity and Compare selection before loading; same-revision
+refresh failures retain good rows. Regressions cover revision changes during
+lookup and revoked-connection history clearing. History count pluralisation,
+initialisation notifications and conditional retained-history caption are fixed.
+The list fade and matching header spacer are 20pt.
+
+PushedListLayout now exposes idempotent Activate, always reapplies controls and
+deduplicates Moved. History implements IActivePage; contents and diff adopt it
+under #463/#464. All three consumers retain inset/footer contracts. Refresh no
+longer forgets device cache while busy. Replacement CI and fresh Claude review
+remain pending. No local builds/tests ran; all device results are unverified.

@@ -31,7 +31,7 @@
             <VerticalStackLayout Spacing="8">
                 <Label Text="{Binding ErrorMessage}" FontSize="13"
                        TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                <Label Text="Previously loaded history remains visible, if available." Style="{StaticResource Caption}" />
+                <Label Text="Previously loaded history remains visible." IsVisible="{Binding HasBackups}" Style="{StaticResource Caption}" />
                 <Button Text="Retry" Style="{StaticResource SecondaryButton}" Command="{Binding RefreshCommand}" MinimumHeightRequest="44" />
             </VerticalStackLayout>
         </Border>
@@ -46,6 +46,7 @@
                             <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                     </CollectionView.EmptyView>
+                    <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="unimus:UnimusBackupItem">
                             <Grid Style="{StaticResource ListRow}" MinimumHeightRequest="44" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
@@ -81,7 +82,7 @@
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                     <CollectionView.Footer>
-                        <BoxView x:Name="RowFoot" HeightRequest="24" Color="Transparent" InputTransparent="True" />
+                        <BoxView x:Name="RowFoot" HeightRequest="20" Color="Transparent" InputTransparent="True" />
                     </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
@@ -89,7 +90,7 @@
 
         <Button x:Name="CompareButton" Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
                 IsVisible="{Binding IsComparing}" />
-        <BoxView Grid.Row="3" HeightRequest="12" VerticalOptions="Start" InputTransparent="True">
+        <BoxView Grid.Row="3" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />

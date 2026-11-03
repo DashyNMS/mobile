@@ -43,9 +43,11 @@ internal sealed class PushedListLayout
         }
     }
 
-    public void Show()
+    public void Show() => Activate();
+
+    /// <summary>Reclaims controls even when Shell restores a retained stack without Appearing.</summary>
+    public void Activate()
     {
-        if (_shown) return;
         _shown = true;
         _header.Apply(_page);
 #if IOS
@@ -56,6 +58,7 @@ internal sealed class PushedListLayout
                 new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
             ]);
         }
+        TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Moved += OnMoved;
 #endif
         Place();

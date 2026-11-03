@@ -29,7 +29,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
 
     public string DeviceIdentity => $"LibreNMS device {_deviceId}" + (_unimusDeviceId is { } id ? $" · Unimus device {id}" : string.Empty);
     public string HistoryText => !_checked ? "Loading backup history…" : Backups.Count > 0
-        ? $"{Backups.Count} backups loaded · latest history page" : "Backup history";
+        ? $"{Backups.Count} {(Backups.Count == 1 ? "backup" : "backups")} loaded" + (Backups.Count == PageSize ? $" · latest {PageSize}" : string.Empty) : "Backup history";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CompareText), nameof(CompareHint))]
@@ -51,6 +51,8 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     public string DeviceName { get; private set; } = "Device";
 
     public BulkObservableCollection<UnimusBackupItem> Backups { get; } = new();
+
+    public bool HasBackups => Backups.Count > 0;
 
     public bool IsEmpty => !IsBusy && _checked && Backups.Count == 0 && !HasError;
 
@@ -85,6 +87,8 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         }
         _deviceId = deviceId;
         DeviceName = string.IsNullOrWhiteSpace(deviceName) ? "Device" : deviceName;
+        OnPropertyChanged(nameof(HistoryText));
+        OnPropertyChanged(nameof(HasBackups));
         OnPropertyChanged(nameof(DeviceName));
         OnPropertyChanged(nameof(DeviceIdentity));
     }
@@ -95,7 +99,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync()
     {
-        if (OpenCommand.IsRunning || CompareSelectedCommand.IsRunning) return Task.CompletedTask;
+        if (IsBusy || OpenCommand.IsRunning || CompareSelectedCommand.IsRunning) return Task.CompletedTask;
         _setup.ForgetDevices();
         return LoadAsync();
     }
@@ -104,12 +108,16 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     {
         if (IsBusy) return;
         var generation = _generation;
+        var revision = _setup.Revision;
+        var cancelled = false;
+        ClearReplacedConnection();
         await RunAsync(async () =>
         {
             try
             {
                 await _setup.EnsureConfiguredAsync();
-                var revision = _setup.Revision;
+                revision = _setup.Revision;
+                ClearReplacedConnection();
                 var device = await _client.Devices.GetAsync(_deviceId.ToString(CultureInfo.InvariantCulture))
                     ?? throw new InvalidOperationException("LibreNMS no longer has this device.");
 
@@ -134,9 +142,15 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
                 }));
                 if (!CanCompare) IsComparing = false;
             }
+            catch (OperationCanceledException)
+            {
+                cancelled = true;
+                throw;
+            }
             finally
             {
-                _checked = generation == _generation;
+                _checked = !cancelled && generation == _generation && revision == _setup.Revision;
+                OnPropertyChanged(nameof(HasBackups));
                 OnPropertyChanged(nameof(EmptyText));
                 OnPropertyChanged(nameof(IsEmpty));
                 OnPropertyChanged(nameof(CanCompare));
@@ -146,7 +160,22 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
                 CompareSelectedCommand.NotifyCanExecuteChanged();
             }
         });
-        if (generation != _generation) await LoadAsync();
+        if (generation != _generation || revision != _setup.Revision) await LoadAsync();
+    }
+
+    /// <summary>History from replaced credentials must never appear as current data.</summary>
+    private void ClearReplacedConnection()
+    {
+        if (_loadedRevision == _setup.Revision) return;
+        Backups.ReplaceAll([]);
+        _unimusDeviceId = null;
+        _checked = false;
+        IsComparing = false;
+        OnPropertyChanged(nameof(HasBackups));
+        OnPropertyChanged(nameof(DeviceIdentity));
+        OnPropertyChanged(nameof(HistoryText));
+        OnPropertyChanged(nameof(CanCompare));
+        CompareSelectedCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Reads a backup, or in Compare mode chooses it - a third choice replaces the first.</summary>
