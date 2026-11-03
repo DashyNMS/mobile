@@ -45,6 +45,10 @@ public sealed record SectionRow(string Title)
         new[] { Title, Subtitle, Status == RowStatus.None && Value == "–" ? null : Value, Detail, HealthStatusText }
             .Where(text => !string.IsNullOrWhiteSpace(text)));
 
+    /// <summary>Announces complete row facts without punctuation for absent fields.</summary>
+    public string ContentDescription => string.Join(", ",
+        new[] { Title, Subtitle, Value, Detail }.Where(text => !string.IsNullOrWhiteSpace(text)));
+
     /// <summary>A third, smaller line.</summary>
     public string? Detail { get; init; }
 

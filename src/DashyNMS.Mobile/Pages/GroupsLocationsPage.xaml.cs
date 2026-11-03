@@ -15,6 +15,8 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+        PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel,
+            "Loading groups and locations…", "Refreshing groups and locations…");
         List.Scrolled += (_, _) => { if (Search.IsFocused) KeyboardDismiss.Close(Search); };
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);

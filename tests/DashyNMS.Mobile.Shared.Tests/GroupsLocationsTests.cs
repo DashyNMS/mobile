@@ -32,6 +32,14 @@ public sealed class GroupsLocationsViewModelTests
             .Returns([new Location { Id = 1, Name = "London", Latitude = 51.5074, Longitude = -0.1278 }, new Location { Id = 2, Name = "Bristol" }]);
     }
 
+    [Fact]
+    public void Row_description_omits_absent_metadata()
+    {
+        var row = new SectionRow("Branch 2") { Subtitle = " ", Value = "3 devices", Detail = "" };
+        Assert.Equal("Branch 2, 3 devices", row.ContentDescription);
+        Assert.Equal("Branch 2, 3 devices, 1 down", (row with { Detail = "1 down" }).ContentDescription);
+    }
+
     private async Task<GroupsLocationsViewModel> Loaded()
     {
         var vm = new GroupsLocationsViewModel(_client, _navigation);

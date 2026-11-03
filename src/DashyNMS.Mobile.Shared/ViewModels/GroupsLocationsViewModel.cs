@@ -41,11 +41,6 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
     {
         _client = client;
         _navigation = navigation;
-        PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName is nameof(IsBusy) or nameof(HasError))
-                OnPropertyChanged(nameof(IsEmpty));
-        };
     }
 
     public bool ShowingLocations => !ShowingGroups;

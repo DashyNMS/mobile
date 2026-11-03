@@ -26,8 +26,8 @@ detail. Counts include disabled/ignored and unknown devices with their existing
 labels. Down groups come first, then the existing case-insensitive name order
 and ungrouped tie-break. Empty groups and coordinate-only locations remain.
 The location-list API failure fallback is unchanged. No global helper or other
-accepted page is edited. Shared-project changes affect only this view model;
-SectionRow and other consumers are unchanged.
+accepted page is edited. Shared-project changes add an optional ContentDescription property to SectionRow;
+only this page binds it, so existing consumers are unchanged.
 
 ## Scope assessment and findings
 
@@ -35,13 +35,13 @@ SectionRow and other consumers are unchanged.
 | --- | --- |
 | Groups/Locations modes | Compliant commands/query retention; fixed accessible selected-state descriptions that previously depended on colour. |
 | Search/filter controls | Compliant SearchField appearance and always-visible behaviour on both platforms retained. Added ISearchHost, Search-key and scroll keyboard dismissal; no SearchReveal migration. |
-| Counts/status | Compliant existing totals and down/disabled/unknown text retained. No fabricated OK text for empty/unknown rows. |
+| Counts/status | Existing totals and down/disabled/unknown text retained. Removed the aggregate dot: its green state implied health for disabled members, and otherwise conveyed state only through colour. No new status classification or all-up claim is introduced. |
 | Ordering | Compliant preservation of existing list order; this is not a picker-order migration. |
 | Row activation/Devices | Existing whole-card command and exact route keys retained; combined accessible facts and action hint added. Native activation remains unverified. |
 | Long names/descriptions | Fix required: TailTruncation and competing count columns hid source text. Wrapping name, subtitle, count and status now share one flexible column. |
 | Empty groups | Compliant zero-device rows remain actionable with their original key. |
-| Loading | Fix required: no explicit loading text. Shared BusyCard now occupies its own fixed status row; pull refresh remains available. |
-| Errors/empty lists | Fix required: IsEmpty was not notified after IsBusy cleared. Added notifications and regression coverage. Error suppresses empty claim; pull refresh retries, glass also offers refresh. Last good rows remain on failure. |
+| Loading | Fix required: no explicit loading text. Shared PullToRefresh.ShowBusyCard now overlays the finite list viewport on first load or pull, suppressing the native spinner and preventing viewport jumps; pull refresh remains available. |
+| Errors/empty lists | Compliant: ViewModelBase already notifies IsEmpty after loading. Added regression coverage; removed redundant page-model notifications after review. Error suppresses empty claim; pull refresh retries, glass also offers refresh. Last good rows remain on failure. |
 | Insets/footer | Fix required: legacy UseSafeArea plus container safe area, no glass footer/native collection policy. Removed legacy flag; iOS page owns top only, supporting layouts/RefreshView opt out, native collection adjustment is Never on handler/load. CoveredEdges owns sides and footer bottom; Android retains page container handling. |
 | Fade | Fix required by scrolling pattern: 20pt input-transparent fade within list viewport and matching header space. Empty text has 32pt margin. |
 | Glass/lifecycle | Fix required: Show/Hide paired, Moved handler paired, retained edge watcher disposed on exit. Pushed Back only, Header.BackInGlass only when iOS glass available, matching Logs/Graylog. Pinned root has no Back. |
@@ -58,7 +58,10 @@ selection/query retention. Existing tests cover count/order, empty groups,
 coordinates, search and exact Devices route parameters.
 No local build or test was executed, as instructed. CI shared tests,
 Android/iOS compilation and security checks are pending PR execution.
-Mandatory independent Claude review is pending parent coordination.
+Claude Opus 5.5 medium reviewed 8771128. Addressed its loading/spinner
+finding with the shared overlay; omitted blank spoken row fields with regression
+coverage; corrected the empty-state assessment; removed colour-only aggregate
+dots while retaining source status text and all counts/filtering. Final CI pending.
 CI and review are not device outcomes. All device outcomes below are unverified.
 
 ## Exact device acceptance steps
@@ -79,7 +82,7 @@ up/down/disabled/unknown members.
    confirm query survives keyboard dismissal and search stays visible.
 4. Test first loading, empty sources, failed initial fetch and failed refresh.
    Confirm no misleading empty claim while busy/error, last good rows survive,
-   and pull refresh retries. Check glass refresh on iOS 26+.
+   and pull refresh retries with one busy overlay and no list jump. Check glass refresh on iOS 26+.
 5. In light/dark and largest practical text, inspect all long names,
    descriptions, counts and state text. Scroll to the final row and activate
    it above bottom/side glass. Confirm first row/empty text clear the fade.

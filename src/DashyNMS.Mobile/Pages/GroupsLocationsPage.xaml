@@ -15,7 +15,7 @@
         <Grid SafeAreaEdges="None" Grid.Row="1">
 
 
-    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="0,8,0,0">
+    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,*" Padding="0,8,0,0">
 
         <Grid SafeAreaEdges="None" ColumnDefinitions="*,*" ColumnSpacing="8">
             <Button Style="{StaticResource Chip}" Text="Groups" HeightRequest="-1" MinimumHeightRequest="44" SemanticProperties.Description="{Binding GroupsDescription}" Command="{Binding ShowGroupsCommand}">
@@ -44,8 +44,8 @@
 
         <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-        <controls:BusyCard Grid.Row="3" Text="Loading groups and locations…" IsVisible="{Binding IsBusy}" />
-        <RefreshView SafeAreaEdges="None" Grid.Row="4" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
+        <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Grid.Row="3" Command="{Binding RefreshCommand}">
             <CollectionView x:Name="List" ItemsSource="{Binding Places}" SelectionMode="None">
                 <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
                 <CollectionView.Footer><BoxView x:Name="ListFoot" Color="Transparent" /></CollectionView.Footer>
@@ -58,23 +58,14 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
-                        <Border Style="{StaticResource Card}" SemanticProperties.Hint="Opens Devices filtered to this group or location">
-                            <SemanticProperties.Description>
-                                <MultiBinding StringFormat="{}{0}, {1}, {2}, {3}">
-                                    <Binding Path="Title" />
-                                    <Binding Path="Subtitle" />
-                                    <Binding Path="Value" />
-                                    <Binding Path="Detail" />
-                                </MultiBinding>
-                            </SemanticProperties.Description>
+                        <Border Style="{StaticResource Card}" SemanticProperties.Description="{Binding ContentDescription}" SemanticProperties.Hint="Opens Devices filtered to this group or location">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:GroupsLocationsViewModel}}, x:DataType=vm:GroupsLocationsViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid SafeAreaEdges="None" AutomationProperties.ExcludedWithChildren="True" ColumnDefinitions="10,*,Auto" ColumnSpacing="12">
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
-                                <VerticalStackLayout SafeAreaEdges="None" Grid.Column="1">
+                            <Grid SafeAreaEdges="None" AutomationProperties.ExcludedWithChildren="True" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout SafeAreaEdges="None" Grid.Column="0">
                                     <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" />
 
@@ -82,14 +73,14 @@
                                     <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="12" LineBreakMode="WordWrap"
                                            TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                 </VerticalStackLayout>
-                                <Label Grid.Column="2" Text="›" FontSize="20" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="1" Text="›" FontSize="20" VerticalOptions="Center" Style="{StaticResource Caption}" />
                             </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>
-        <BoxView Grid.Row="4" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+        <BoxView Grid.Row="3" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
