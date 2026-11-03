@@ -273,6 +273,11 @@ During future list-page passes, remove legacy `SearchReveal.Attach` and swipe
 handlers from the scoped page rather than preserving the old platform policy.
 Migrate pages individually; do not change shared SearchReveal underneath pages
 that have not been reviewed. Health and Groups & locations use `ButtonSearch`.
+Known follow-ups for future scoped passes: Devices still dismisses search on
+any Scrolled event; Alert rules and Neighbours still inherit scroll dismissal.
+Migrate those handlers to real user-drag checks rather than treating row
+replacement during filtering as a gesture. This does not claim those pages have
+already been migrated.
 Setup pickers retain their always-visible search. Filtering, query retention
 and selection contracts remain unchanged.
 

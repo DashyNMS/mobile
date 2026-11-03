@@ -125,3 +125,9 @@ filter-driven row replacement, real drag dismissal, query retention,
 Command-F refocus, Android outside-tap unfocus, rapid transitions and Reduce
 Motion. Check mode retention and exact group/location Devices navigation.
 Issue #444 and its #442 entry await device acceptance.
+
+
+Follow-up Claude review at 7f3ab26 confirmed native user-drag-only dismissal.
+A wrapping "Filtered by" caption now states the retained query even when the
+field is closed; no query, filter or persistence semantics change. Replacement
+CI is pending. Typing while filtering and actual user drags remain device checks.

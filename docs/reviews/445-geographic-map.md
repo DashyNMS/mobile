@@ -207,9 +207,10 @@ Duo geometry. No device acceptance is claimed.
 User device evidence reported a clipped Map title and mostly offscreen zoom
 controls. Source inspection found PlaceControls overwriting TopLineSpace's
 dynamic padding. Header side clearance now uses Margin; a full-width opaque
-BoxView behind it fills the side gutters and safe-area band. The local Auto
-first row gives its children a TopBar.Height minimum, preserving the shared
-44pt line with hidden glass actions while allowing larger text to grow.
+BoxView behind it fills the side gutters and the status band where the top
+line moves up. The local Auto first row contains an invisible TopBar.Height
+spacer, preserving the shared 44pt line without stretching a title that moves
+to the second row. Larger text can still grow.
 The native page retains top container ownership; no second inset is added.
 
 WKWebView uses Never adjustment, zero content/indicator insets and offset,
@@ -235,3 +236,9 @@ Device gaps include opaque band edges, shared top-line alignment and title at
 large text, real pan/pinch with native WebView scrolling off, short canvases,
 folding/rotation, zoom restoration, selection camera, dimming, attribution and
 Reduce Motion. Issue #445 and its #442 entry await device acceptance.
+
+
+Follow-up Claude review at 7f3ab26 confirmed the earlier high and medium fixes.
+Its remaining title-alignment cleanup replaces per-child minimum heights with an
+invisible 44pt first-row spacer, so pushed titles keep their natural second-row
+height. Final replacement CI is pending; all device geometry remains unverified.

@@ -49,7 +49,10 @@
         </controls:SearchField>
         </Grid>
 
-        <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        <VerticalStackLayout Grid.Row="2" SafeAreaEdges="None" Spacing="4">
+            <Label Style="{StaticResource Caption}" Text="{Binding SearchText, StringFormat='Filtered by: {0}'}" IsVisible="{Binding HasSearchQuery}" LineBreakMode="WordWrap" />
+            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+        </VerticalStackLayout>
 
         <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
         <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Grid.Row="3" Command="{Binding RefreshCommand}">
