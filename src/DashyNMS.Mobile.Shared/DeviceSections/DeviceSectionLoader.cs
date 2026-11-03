@@ -386,11 +386,12 @@ public sealed class DeviceSectionLoader
         var known = neighbour.RemoteDeviceId is > 0;
         return new SectionRow(name)
         {
+            NeighbourLayout = true,
             Subtitle = $"{neighbour.LocalPortName ?? "Unknown port"} → {neighbour.RemotePortName ?? "Unknown port"}",
             Value = string.Join("/", neighbour.Protocols.Select(p => p.ToUpperInvariant())),
             Detail = known ? neighbour.Platform : string.Join(" · ", new[] { neighbour.Platform, NotMonitored }.Where(s => !string.IsNullOrWhiteSpace(s))),
             Fields = NeighbourFields(neighbour, name, port),
-            Status = !neighbour.Active ? RowStatus.Inactive : string.IsNullOrWhiteSpace(port?.IfOperStatus) ? RowStatus.None : port!.IsUp ? RowStatus.Ok : RowStatus.Critical,
+            Status = !neighbour.Active ? RowStatus.Inactive : NeighbourPortStatus(port),
             LinkDeviceId = known ? neighbour.RemoteDeviceId : null,
         };
     }
@@ -398,13 +399,28 @@ public sealed class DeviceSectionLoader
     /// <summary>Keep discovery direction and unknown port readings explicit, including reverse-only neighbours.</summary>
     internal static IReadOnlyList<SectionField> NeighbourFields(DeviceNeighbour neighbour, string name, Port? port) =>
     [
-        new("Link", !neighbour.Active ? "Not active" : string.IsNullOrWhiteSpace(port?.IfOperStatus) ? "State unknown" : port!.IsUp ? "Up" : "Down"),
+        new("Local port state", !neighbour.Active ? "Not active" : NeighbourPortStatus(port) switch
+        {
+            RowStatus.Ok => "Up",
+            RowStatus.Critical => "Down",
+            _ => "State unknown",
+        }),
         new("Speed", port?.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : "Unknown"),
-        new("Traffic in", port?.IfInOctetsRate is { } incoming ? Units.Bits(incoming * 8) : "Unknown"),
-        new("Traffic out", port?.IfOutOctetsRate is { } outgoing ? Units.Bits(outgoing * 8) : "Unknown"),
+        new("Traffic in", NeighbourTraffic(port?.IfInOctetsRate)),
+        new("Traffic out", NeighbourTraffic(port?.IfOutOctetsRate)),
         new("Seen by", (neighbour.Source == NeighbourSource.ThisDevice ? "This device" : name)
             + " via " + string.Join("/", neighbour.Protocols.Select(p => p.ToUpperInvariant()))),
     ];
+
+    private static RowStatus NeighbourPortStatus(Port? port) => port?.IfOperStatus?.Trim().ToLowerInvariant() switch
+    {
+        "up" => RowStatus.Ok,
+        "down" => RowStatus.Critical,
+        _ => RowStatus.None,
+    };
+
+    private static string NeighbourTraffic(double? rate) => rate is { } value && value >= 0 && double.IsFinite(value * 8)
+        ? Units.Bits(value * 8) : "Unknown";
 
     /// <summary>Port readings are optional: ping-only devices still have reverse-discovered neighbours.</summary>
     private async Task<IReadOnlyList<Port>> NeighbourPortsAsync(int deviceId, CancellationToken ct)

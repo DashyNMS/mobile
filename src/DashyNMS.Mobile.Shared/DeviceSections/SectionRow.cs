@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Only device neighbours use the complete endpoint readout.</summary>
+    public bool NeighbourLayout { get; init; }
+    public string NeighbourSummary => string.Join("\n", new[] { Title, Subtitle, Value, Detail }
+        .Where(text => !string.IsNullOrWhiteSpace(text))
+        .Concat(Fields.Select(f => f.Name + ": " + f.Value)));
+    public string NeighbourAction => CanOpenNeighbour ? NeighbourSummary + "\nOpen neighbouring device" : NeighbourSummary;
+    public bool CanOpenNeighbour => NeighbourLayout && LinkDeviceId is > 0;
+    public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
     /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
     public bool PortLayout => Port is not null;
     public string? PortStatusText { get; init; }

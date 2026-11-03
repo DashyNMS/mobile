@@ -107,6 +107,11 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding NeighbourLayout}"
+                                  SemanticProperties.Description="{Binding NeighbourAction}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding NeighbourSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True" />
+                                <Label Grid.Column="1" Style="{StaticResource Chevron}" IsVisible="{Binding CanOpenNeighbour}" AutomationProperties.ExcludedWithChildren="True" />
+                            </Grid>
                             <VerticalStackLayout IsVisible="{Binding PortLayout}">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
                                       SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
@@ -151,6 +156,9 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
 
                                 <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                     <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>

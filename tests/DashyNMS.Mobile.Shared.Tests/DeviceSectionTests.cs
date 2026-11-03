@@ -367,7 +367,7 @@ public sealed class DeviceSectionLoaderTests
         _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "Gi0/1", oper: "down", inRate: 1250000, outRate: 125000)]);
         var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
         Assert.Equal(RowStatus.Critical, row.Status);
-        Assert.Equal("Down", row.Fields.Single(f => f.Name == "Link").Value);
+        Assert.Equal("Down", row.Fields.Single(f => f.Name == "Local port state").Value);
         Assert.Equal("10 Mb/s", row.Fields.Single(f => f.Name == "Traffic in").Value);
         Assert.Equal("1 Mb/s", row.Fields.Single(f => f.Name == "Traffic out").Value);
         Assert.True(row.Matches("Gi0/1"));
@@ -376,6 +376,42 @@ public sealed class DeviceSectionLoaderTests
 
     private static LibreNmsApiException NoPortsFound() =>
         new("No ports found", System.Net.HttpStatusCode.NotFound, "No ports found");
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Unmonitored_neighbours_do_not_announce_an_unavailable_action(int? deviceId)
+    {
+        var row = new SectionRow("edge.example.net") { NeighbourLayout = true, LinkDeviceId = deviceId, Detail = "Not monitored" };
+        Assert.False(row.CanOpenNeighbour);
+        Assert.Equal(row.NeighbourSummary, row.NeighbourAction);
+        Assert.DoesNotContain("Open neighbouring device", row.NeighbourAction);
+        var monitored = row with { LinkDeviceId = 7 };
+        Assert.True(monitored.CanOpenNeighbour);
+        Assert.Contains("Open neighbouring device", monitored.NeighbourAction);
+    }
+
+    [Theory]
+    [InlineData("testing", double.NaN)]
+    [InlineData("unknown", double.PositiveInfinity)]
+    [InlineData("", -1)]
+    public async Task Neighbours_do_not_invent_port_state_or_traffic(string state, double rate)
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 1, LocalDeviceId = DeviceId, LocalPortId = 1, RemoteHostname = "edge.example.net", RemoteDeviceId = 8, RemotePort = "eth0", Protocol = "lldp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "eth1", oper: state, inRate: rate, outRate: 0)]);
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Local port state").Value);
+        Assert.Equal("Unknown", row.Fields.Single(f => f.Name == "Traffic in").Value);
+        Assert.NotEqual("Unknown", row.Fields.Single(f => f.Name == "Traffic out").Value);
+        Assert.True(row.CanOpenNeighbour);
+        Assert.Contains("eth1 → eth0", row.NeighbourAction);
+        Assert.Contains("State unknown", row.NeighbourAction);
+        Assert.True(row.Matches("State unknown"));
+        Assert.Equal(8, row.LinkDeviceId);
+    }
 
     [Fact]
     public async Task A_ping_only_device_lists_the_switch_that_sees_it_by_name()
@@ -392,7 +428,7 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("access-sw", row.Title);
         Assert.Equal("eth0 → Unknown port", row.Subtitle);
         Assert.Equal("access-sw via LLDP", row.Fields.Single(f => f.Name == "Seen by").Value);
-        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Link").Value);
+        Assert.Equal("State unknown", row.Fields.Single(f => f.Name == "Local port state").Value);
         Assert.Equal(3, row.LinkDeviceId);
 
         var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Neighbours));
