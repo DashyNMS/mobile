@@ -156,6 +156,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => services.GetRequiredService<Topology.ResettableMapLayoutStore>());
 		builder.Services.AddSingleton<ILocalDataWipe, MauiLocalDataWipe>();
 		builder.Services.AddTransient<MapPage>();
+		builder.Services.AddTransient<MapLocationPickerPage>();
 		builder.Services.AddTransient<GraylogPage>();
 		builder.Services.AddTransient<GraylogSettingsPage>();
 		builder.Services.AddTransient<SensorDefinitionsSettingsPage>();

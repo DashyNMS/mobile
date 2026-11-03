@@ -16,6 +16,8 @@ public partial class MapPage : ContentPage
     private bool? _chooserShown;
     private long _transition;
     private bool _placing;
+    private bool _pendingSelection;
+    private bool _replaySelectionAfterNavigation;
     private Task _mapScript = Task.CompletedTask;
 
 	public MapPage(MapViewModel viewModel)
@@ -25,7 +27,17 @@ public partial class MapPage : ContentPage
 		_viewModel.PropertyChanged += OnViewModelChanged;
 
 		LocationsButton.Command = _viewModel.ChooseLocationCommand;
-        MapView.Navigated += (_, _) => { PlaceControls(); SyncSelection(); };
+        MapView.Navigated += (_, _) =>
+        {
+            PlaceControls();
+            if (_replaySelectionAfterNavigation)
+            {
+                _replaySelectionAfterNavigation = false;
+                _pendingSelection = true;
+                if (_visible) ApplySelection();
+            }
+            else SyncSelection();
+        };
         Canvas.SizeChanged += (_, _) => PlaceControls();
         _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();
@@ -83,6 +95,7 @@ public partial class MapPage : ContentPage
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
+        if (_pendingSelection) ApplySelection();
 		if (!_loaded)
 		{
 			_loaded = true;
@@ -171,7 +184,7 @@ public partial class MapPage : ContentPage
             var title = ((IView)SelectionHeading).Measure(width, double.PositiveInfinity).Height;
             var padding = SelectionCard.Padding.VerticalThickness + 2;
             // Close stays outside the scrolling title and list, including at huge text sizes.
-            var minimum = close + 44 + padding;
+            var minimum = close + 44 + 44 + padding;
             var available = Math.Max(minimum, Canvas.Height - Header.Height - Status.Height - foot - 110);
             var cap = Math.Max(minimum, Math.Min(available, Canvas.Height < 740 ? 200 : 300));
             var titleHeight = Math.Min(title, Math.Max(44, (cap - close - padding) / 2));
@@ -221,7 +234,7 @@ public partial class MapPage : ContentPage
     // Keep controls and the selected camera target inside the uncovered canvas.
     private void UpdateMapClearance(Thickness clear, double foot)
     {
-        if (!_loaded) return;
+        if (!_loaded || Header.Height <= 0) return;
         var top = Math.Max(0, Header.Height + Status.Height + 20);
         var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }
@@ -250,22 +263,33 @@ public partial class MapPage : ContentPage
         view as UIKit.UIScrollView ?? view.Subviews.Select(FindScroll).FirstOrDefault(found => found is not null);
 #endif
 
+    // A picker commits while this page is hidden. Apply its camera change only
+    // after returning, when this page owns glass and the WebView can evaluate it.
+    private void ApplySelection()
+    {
+        _pendingSelection = false;
+        if (!_viewModel.HasSelection)
+        {
+            SendSelection(false);
+            SelectionCard.IsVisible = false;
+        }
+        else AnimateSelection(true);
+        PlaceControls();
+        if (_viewModel.HasSelection) SendSelection(true, focus: true);
+    }
+
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
         if (e.PropertyName is nameof(MapViewModel.CanChooseLocation) or nameof(MapViewModel.IsBusy)) Dispatcher.Dispatch(UpdateActions);
         if (e.PropertyName == nameof(MapViewModel.SelectedPinIds)) Dispatcher.Dispatch(() =>
         {
-            if (!_viewModel.HasSelection)
-            {
-                SendSelection(false);
-                SelectionCard.IsVisible = false;
-            }
-            else AnimateSelection(true);
-            PlaceControls();
-            if (_viewModel.HasSelection) SendSelection(true, focus: true);
+            _pendingSelection = true;
+            if (_visible) ApplySelection();
         });
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{
+			// A selection sent to the replaced document must be replayed after load.
+            _replaySelectionAfterNavigation = true;
 			// Loaded as the website's address, so tile requests carry a Referer (#164).
 			MapView.Source = _viewModel.MapPage is { } html ? new HtmlWebViewSource { Html = html, BaseUrl = MapHtml.BaseUrl.AbsoluteUri } : null;
 		}

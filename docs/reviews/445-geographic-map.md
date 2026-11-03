@@ -13,7 +13,7 @@ DESIGN-REFERENCES.md; inspected NetworkMapPage before selecting this approach.
 | Canvas / zoom / pan / selection | Fix required | Keep WebView geometry stable beneath overlays; relocate Leaflet controls and attribution into unobscured area |
 | Single pin / merged cluster / selected devices | Fix required | Wrapping heading/actions and device text, bounded scrolling card; preserve single-location-only Devices action |
 | Narrow / large text / folding | Fix required | Recompute card height and control clearance on size/safe-area/glass changes |
-| Accessible alternative to pin tapping | Fix required | Native location chooser uses same pin IDs; whole device rows expose full names, details and state |
+| Accessible alternative to pin tapping | Fix required | Searchable finite location picker uses stable pin objects; whole device rows expose full names, details and state |
 | Counts / unlocated devices | Fix required | Preserve counts; include unknown devices in pin total and explicit grey ring segment; explicit no-coordinate state |
 | Initial loading / refresh / error / empty | Fix required | One overlay BusyCard, visible Retry on error, no viewport row insertion |
 | Tile settings / attribution / security | Compliant; geometry needs fix | Preserve bundled Leaflet, nonce CSP, JSON escaping, bridge allowlist, external browser, UA/Referer and custom tile setting |
@@ -45,17 +45,17 @@ merged pins, identical coordinates, long location/device names, last device row,
 VoiceOver/TalkBack chooser and device activation. Exercise empty server, all
 unlocated, mixed unlocated, failed initial load and failed refresh then Refresh;
 old map must survive failure. Check default/custom HTTP(S) tile settings,
-external attribution navigation and Reduce Motion. Native chooser scalability
+external attribution navigation and Reduce Motion. Searchable chooser operation with a large catalogue
 and very large text on short landscape displays require device verification.
 
 ## Implemented contracts and limits
 
-Only MapPage consumes the changed MapHtml/MapViewModel APIs. DeviceItem gains
+MapPage and its location picker consume the changed MapHtml/MapViewModel APIs. DeviceItem gains
 additive details/announcement properties; existing consumers keep their bindings.
 No shared control or accepted page was edited. NetworkMapPage is unchanged. Cards
 use natural row height up to a 200pt target below 740pt canvas height, otherwise
-300pt, further limited by available space. A measured Close row and a 44pt title
-viewport take precedence over that cap on very small displays. The list remains
+300pt, further limited by available space. A measured Close row plus separate 44pt title and 44pt list
+reserves take precedence over that cap on very small displays. The list remains
 finite and the title can scroll independently. Entrance and exit use named motion and Reduce Motion;
 Close hides the card before resetting transforms and clearing selection. Switching
 selection keeps a stationary card in place.
@@ -68,8 +68,10 @@ and resize. Leaflet retains geographic clustering, tiles and attribution.
 
 The chooser uses natural location order and device-count units, and is disabled
 in the header or omitted from glass while busy or without pins. Glass is rebuilt
-only when chooser availability changes. A native action sheet still needs long-name
-and large-catalogue device checks. Header/status use page-background surfaces and
+only when chooser availability changes. It pushes a SearchField/SetupLayout page
+with a finite CollectionView. Long names wrap; choices use pin object identity,
+not label lookup. Cancelling returns without changing selection. Large-catalogue
+search, keyboard and accessibility remain device checks. Header/status use page-background surfaces and
 a 20pt fade. Zoom targets are 44px, correcting Leaflet's 30px touch default.
 
 ## Review fixes after 83e8ed4
@@ -112,10 +114,9 @@ and seven low findings. This implementation addresses all eight:
 - Focus waits until Leaflet has a view; a timed fallback supplies an initial fit
   if native clearance is lost. Initialisation happens once, including an empty
   coordinate source, and later native clearance does not reset the view.
-- The chooser now uses IDialogService.ChooseAsync in MapViewModel. Natural order
-  and units remain; colliding name/count labels gain coordinate context and a
-  final ID suffix only if necessary. Snapshot labels map directly to pin IDs.
-  Constructor consumers were updated; DI resolves the existing dialog service.
+- This pass moved the chooser behind IDialogService; the final pass below
+  supersedes that action sheet with the guide's searchable finite picker.
+  No action-sheet deviation or misleading server-ID label remains.
 - Empty-state text suppresses the redundant all-unlocated caption. DeviceItem
   supplies HasDetails and a description joining nonblank fields; the row hides
   an empty details caption and has no trailing spoken comma.
@@ -132,3 +133,56 @@ acceptance is claimed. Check merged-pin +2 zoom through centring, redraw opacity
 flashes, whole-row VoiceOver/TalkBack, long-name/large choosers, Leaflet/glass/side
 pill clearance including 12pt card margins, refresh ordering, huge text on short
 landscape, Duo fold/rotate/resume, themes and Reduce Motion.
+
+## Final review fixes after f1b40a4
+
+The fresh Claude review confirmed seven of eight earlier findings. This pass
+fixes the remaining merged-focus race and the five low findings:
+
+- Marker clicks store a keyed target zoom and start no camera animation.
+  Focus exclusively applies that zoom synchronously with the uncovered-centre
+  offset. Single-pin and picker choices retain zoom; subsequent rapid taps
+  cannot leave a competing animation to overwrite the offset.
+- The 250ms fallback records that its fit lacked native clearance. First native
+  clearance repairs that fit if the user has not moved the map. Programmatic
+  camera calls are guarded separately from user movement. A focused selection
+  keeps its zoom and receives the safe offset instead of another full-map fit.
+  Actual user movement prevents the repair. Later clearance changes pan only
+  by a delta while selection is dimming; without selection the view deliberately
+  stays where the user left it. Resizes never repeatedly fit or centre the map.
+- The whole-card minimum is measured Close + 44pt title + 44pt list + padding.
+  This separately guarantees a nonzero device viewport; natural row measurement
+  can shrink small selections while the CollectionView remains finitely bounded.
+- Map → Choose a location pushes a registered, transient picker with the calling
+  map as its owner. SetupPageLayout supplies pushed Back/glass, safe clearances,
+  rotation/resume placement and paired lifecycle cleanup. SearchField handles
+  the search keyboard; disappearing explicitly closes it. The fixed search/status
+  rows sit above a finite CollectionView with a 20pt fade/spacer. All locations
+  remain searchable and naturally ordered, including hundreds of rows. Names
+  remain intact; units/coordinates are details and exact-coordinate duplicates
+  gain a neutral choice ordinal. Row objects carry identity independently of text.
+  Choosing selects on the original map and pops one page. MapPage defers the
+  camera/selection update until Appearing restores its glass and usable WebView.
+  Document replacement replays selection after Navigated, so refresh cannot lose
+  a focus request sent to the previous document.
+  Back selects nothing.
+  A refreshed snapshot is rejected with a reopen route rather than selecting
+  a reassigned pin index. DI, route registrations and constructor consumers match.
+
+Regression coverage: shared tests exercise picker owner/return routes, duplicate
+names choosing the right device, 300 locations, natural ordering, search reset,
+no matches and refreshed/stale object identity. The Unit tests CI job now also
+executes the actual embedded camera bridge using Node's built-in test runner
+and a small Leaflet camera model. It checks merged/single/native choices, rapid
+taps, the absence of competing animation, safe offsets, fallback repair versus
+user movement, pending focus, empty sources and close/resize pan preservation.
+These tests were authored and inspected but were not run locally.
+
+At f1b40a4, unit/platform and CodeQL actions/C# passed; Swift was pending at
+review, as reported in the dispatch. New CI and the parent's fresh Claude
+full-diff re-review are pending. Full implementation diff and whitespace were
+inspected. All device outcomes remain unverified: real handlers for row measure
+and first-frame travel, TalkBack/VoiceOver whole-row activation, side-pill margins
+and glass/44px Leaflet controls, new large-chooser search/keyboard/accessibility,
+Duo folds/rotation/resume, themes/Reduce Motion and refresh camera fit while
+selected. No chooser deferral, device acceptance, merge or issue closure is claimed.

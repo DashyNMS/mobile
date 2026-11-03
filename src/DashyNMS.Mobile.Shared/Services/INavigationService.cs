@@ -57,6 +57,10 @@ public static class Routes
     /// <summary>The geographical map of locations and their devices.</summary>
     public const string Map = "map";
 
+    /// <summary>Searchable immediate location chooser, with its calling map instance.</summary>
+    public const string MapLocations = "maplocations";
+    public const string MapOwnerParameter = "mapowner";
+
     /// <summary>The network map: devices and the links between them, as a diagram (#86).</summary>
     public const string NetworkMap = "networkmap";
 

@@ -160,6 +160,7 @@ public static class MapHtml
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
               window.setMapClearance = function (top, right, bottom, left) {
                 var previous = clearance;
+                hasClearance = true;
                 clearance = { top: top, right: right, bottom: bottom, left: left };
                 var controls = map.getContainer().querySelector('.leaflet-control-container');
                 controls.style.position = 'absolute';
@@ -168,21 +169,37 @@ public static class MapHtml
                 controls.style.pointerEvents = 'none';
                 controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
                 if (!ready) initialise();
-                else if (dimming) {
-                  // Preserve the user's pan, moving only by the change in uncovered centre.
-                  map.panBy([((right - left) - (previous.right - previous.left)) / 2,
-                    ((bottom - top) - (previous.bottom - previous.top)) / 2], { animate: false });
+                else if (fitWithoutClearance && !userMoved) {
+                  // A selected pin already owns its zoom; only its safe offset needs repair.
+                  if (dimming) focusSelection();
+                  else programmatic(function () { fit(); });
+                } else if (dimming) {
+                  // Only a dimming selection follows the uncovered-centre delta.
+                  programmatic(function () {
+                    map.panBy([((right - left) - (previous.right - previous.left)) / 2,
+                      ((bottom - top) - (previous.bottom - previous.top)) / 2], { animate: false });
+                  });
                 }
+                fitWithoutClearance = false;
               };
               var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
+              var target = null, hasClearance = false, fitWithoutClearance = false, userMoved = false, moving = 0;
+              function programmatic(action) { moving++; try { action(); } finally { moving--; } }
+              map.on('movestart zoomstart', function () { if (!moving && ready) userMoved = true; });
               function focusSelection() {
                 if (!ready) { pendingFocus = true; return; }
                 pendingFocus = false;
                 var pins = data.pins.filter(function (p) { return selected.indexOf(p.id) >= 0; });
                 if (!pins.length) return;
                 var centre = L.latLngBounds(pins.map(function (p) { return [p.lat, p.lng]; })).getCenter();
-                map.setView(centre, map.getZoom(), { animate: false });
-                map.panBy([(clearance.right - clearance.left) / 2, (clearance.bottom - clearance.top) / 2], { animate: false });
+                var zoom = target && target.ids === selected.join(',') ? target.zoom : map.getZoom();
+                if (target && target.ids === selected.join(',')) target = null;
+                programmatic(function () {
+                  // One synchronous camera operation owns both merged-pin zoom and safe offset.
+                  map.stop();
+                  map.setView(centre, zoom, { animate: false });
+                  map.panBy([(clearance.right - clearance.left) / 2, (clearance.bottom - clearance.top) / 2], { animate: false });
+                });
               }
               window.setSelection = function (ids, immediate, dim, focus) {
                 selected = ids;
@@ -192,7 +209,7 @@ public static class MapHtml
                   var el = marker.getElement();
                   if (el) el.style.opacity = !dimming || marker.pinIds.some(function (id) { return selected.indexOf(id) >= 0; }) ? '1' : '0.25';
                 });
-                if (!dimming) pendingFocus = false;
+                if (!dimming) { pendingFocus = false; if (!ids.length) target = null; }
                 if (focus && dimming) focusSelection();
               };
               var layer = L.layerGroup().addTo(map);
@@ -251,8 +268,8 @@ public static class MapHtml
                   var marker = L.marker(where, { icon: L.divIcon({ html: el, className: '', iconSize: [size, size] }), title: title });
                   marker.pinIds = g.pins.map(function (p) { return p.id; });
                   marker.on('click', function () {
-                    // A merged pin also zooms in until its locations separate.
-                    if (g.pins.length > 1) { map.setView(where, Math.min(map.getZoom() + 2, 18)); }
+                    // Defer the zoom until the native card has supplied its clearance.
+                    target = { ids: marker.pinIds.join(','), zoom: g.pins.length > 1 ? Math.min(map.getZoom() + 2, 18) : map.getZoom() };
                     window.location.href = '{{PinScheme}}://pins/' + g.pins.map(function (p) { return p.id; }).join(',');
                   });
                   layer.addLayer(marker);
@@ -261,7 +278,7 @@ public static class MapHtml
               }
 
               function fit() {
-                if (bounds.length) { map.fitBounds(bounds, { paddingTopLeft: [clearance.left + 30, clearance.top + 30], paddingBottomRight: [clearance.right + 30, clearance.bottom + 30], maxZoom: 12 }); } else { map.setView([20, 0], 2); }
+                if (bounds.length) { map.fitBounds(bounds, { paddingTopLeft: [clearance.left + 30, clearance.top + 30], paddingBottomRight: [clearance.right + 30, clearance.bottom + 30], maxZoom: 12, animate: false }); } else { map.setView([20, 0], 2, { animate: false }); }
                 draw();
               }
               map.on('zoomend', draw);
@@ -269,12 +286,13 @@ public static class MapHtml
               // it usable when the first bridge call is lost during document load.
               function initialise() {
                 if (ready || map.getSize().y <= 0 || map.getSize().x <= 0) return;
-                fit();
+                programmatic(function () { fit(); });
+                fitWithoutClearance = !hasClearance;
                 ready = true;
                 if (pendingFocus) focusSelection();
               }
               function resized() {
-                map.invalidateSize();
+                programmatic(function () { map.invalidateSize(); });
                 initialise();
               }
               window.addEventListener('resize', resized);

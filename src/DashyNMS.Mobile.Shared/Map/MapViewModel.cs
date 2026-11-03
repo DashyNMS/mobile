@@ -31,7 +31,6 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IMapAssets _assets;
-    private readonly IDialogService _dialogs;
     private int _deviceCount;
     public long SelectionVersion { get; private set; }
     public IReadOnlyList<int> SelectedPinIds { get; private set; } = [];
@@ -47,13 +46,12 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _unplacedText = string.Empty;
 
-    public MapViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IMapAssets assets, IDialogService dialogs)
+    public MapViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, IMapAssets assets)
     {
         _client = client;
         _settings = settings;
         _navigation = navigation;
         _assets = assets;
-        _dialogs = dialogs;
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(IsBusy) or nameof(HasError) or nameof(MapPage))
@@ -157,32 +155,10 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public bool HasSingleLocation => _selectedNames.Count == 1;
 
-    /// <summary>Snapshot choices retain their pin IDs even when display names repeat.</summary>
+    /// <summary>Push the searchable chooser with this map as its selection owner.</summary>
     [RelayCommand(CanExecute = nameof(CanChooseLocation))]
-    private async Task ChooseLocationAsync()
-    {
-        if (!CanChooseLocation) return;
-        var locations = Locations;
-        var duplicates = locations.GroupBy(p => (p.Name, p.Count)).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
-        var choices = locations.OrderBy(p => p.Name, NaturalOrder.Instance).Select(p =>
-        {
-            var label = $"{p.Name} ({p.Count} {(p.Count == 1 ? "device" : "devices")})";
-            if (duplicates.Contains((p.Name, p.Count)))
-                label += FormattableString.Invariant($" · {p.Latitude:G17}, {p.Longitude:G17}");
-            return (Pin: p, Label: label);
-        }).ToList();
-        // Protect against labels which themselves contain another choice's suffix.
-        var used = new HashSet<string>(StringComparer.Ordinal);
-        choices = choices.Select(choice =>
-        {
-            var label = choice.Label;
-            while (!used.Add(label)) label += $" · location ID {choice.Pin.Id}";
-            return (choice.Pin, Label: label);
-        }).ToList();
-        var selected = await _dialogs.ChooseAsync("Choose a map location", choices.Select(c => c.Label).ToList());
-        var match = choices.FindIndex(c => c.Label == selected);
-        if (match >= 0 && Locations.Any(p => p == choices[match].Pin)) SelectPin(choices[match].Pin.Id);
-    }
+    private Task ChooseLocationAsync() => !CanChooseLocation ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.MapLocations, new Dictionary<string, object> { [Routes.MapOwnerParameter] = this });
 
     /// <summary>A pin was tapped on the map.</summary>
     public void SelectPin(int id) => SelectPins([id]);

@@ -87,7 +87,6 @@ public sealed class MapViewModelTests
 
     private readonly IMapAssets _assets = Substitute.For<IMapAssets>();
     private readonly RecordingNavigation _navigation = new();
-    private readonly Services.IDialogService _dialogs = Substitute.For<Services.IDialogService>();
 
     public MapViewModelTests()
     {
@@ -102,7 +101,7 @@ public sealed class MapViewModelTests
 
     private async Task<MapViewModel> Loaded(AppSettings? settings = null)
     {
-        var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets, _dialogs);
+        var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
     }
@@ -125,7 +124,7 @@ public sealed class MapViewModelTests
     }
 
     [Fact]
-    public async Task Chooser_orders_naturally_and_duplicate_labels_select_the_correct_pin()
+    public async Task Searchable_chooser_orders_naturally_and_duplicate_names_select_the_correct_pin()
     {
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
         [
@@ -141,22 +140,87 @@ public sealed class MapViewModelTests
         ]);
         var vm = await Loaded();
         var expected = vm.Locations.Where(p => p.Name == "Site 2").Skip(1).Single();
-        IReadOnlyList<string> labels = [];
-        _dialogs.ChooseAsync("Choose a map location", Arg.Any<IReadOnlyList<string>>()).Returns(call =>
-        {
-            labels = call.ArgAt<IReadOnlyList<string>>(1);
-            return Task.FromResult<string?>(labels[1]);
-        });
-        await vm.ChooseLocationCommand.ExecuteAsync(null);
-        Assert.Equal(3, labels.Count);
-        Assert.StartsWith("Site 2 (1 device)", labels[0]);
-        Assert.StartsWith("Site 2 (1 device)", labels[1]);
-        Assert.Equal("Site 10 (1 device)", labels[2]);
-        Assert.Equal(3, labels.Distinct().Count());
-        var selected = Assert.Single(vm.SelectedPinIds);
-        Assert.Equal(expected.Id, selected);
+        var picker = new MapLocationPickerViewModel(_navigation) { SearchDelay = TimeSpan.Zero };
+        picker.Load(vm);
+        Assert.Equal(["Site 2", "Site 2", "Site 10"], picker.Choices.Select(c => c.Name));
+        Assert.All(picker.Choices, c => Assert.StartsWith("1 device · ", c.Details));
+        picker.SearchText = "Site 2";
+        Assert.Equal(2, picker.Choices.Count);
+        await picker.ChooseCommand.ExecuteAsync(picker.Choices[1]);
+        Assert.Equal(expected.Id, Assert.Single(vm.SelectedPinIds));
+        Assert.Equal(Services.Routes.Back, Assert.Single(_navigation.Visits).Route);
         await vm.OpenDeviceCommand.ExecuteAsync(Assert.Single(vm.Devices));
-        Assert.Equal(expected.Latitude == 52 ? 2 : 3, Assert.Single(_navigation.Visits).Parameters![Services.Routes.DeviceIdParameter]);
+        Assert.Equal(expected.Latitude == 52 ? 2 : 3, _navigation.Visits.Last().Parameters![Services.Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public async Task Identical_location_text_and_coordinates_still_choose_by_object_identity()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Location { Id = 1, Name = "Same place", Latitude = 51, Longitude = 1 },
+            new Location { Id = 2, Name = "Same place", Latitude = 51, Longitude = 1 },
+        ]);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [At(Fakes.Device(1, "one.example.net"), 1), At(Fakes.Device(2, "two.example.net"), 2)]);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.Equal(2, picker.Choices.Count);
+        Assert.All(picker.Choices, row => Assert.Equal("Same place", row.Name));
+        Assert.EndsWith("choice 2", picker.Choices[1].Details);
+        Assert.DoesNotContain("location ID", picker.Choices[1].Details);
+        var chosen = picker.Choices[1];
+        await picker.ChooseCommand.ExecuteAsync(chosen);
+        Assert.Equal([chosen.Pin.Id], vm.SelectedPinIds);
+        Assert.Equal(2, Assert.Single(vm.Devices).DeviceId);
+        picker.Load(vm);
+        Assert.True(picker.Choices[1].IsSelected);
+        Assert.EndsWith(", selected", picker.Choices[1].Description);
+    }
+
+    [Fact]
+    public async Task Picker_route_retains_the_owner_and_back_without_choosing_does_not_select()
+    {
+        var vm = await Loaded();
+        await vm.ChooseLocationCommand.ExecuteAsync(null);
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Services.Routes.MapLocations, visit.Route);
+        Assert.Same(vm, visit.Parameters![Services.Routes.MapOwnerParameter]);
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.False(vm.HasSelection);
+        Assert.Empty(vm.SelectedPinIds);
+    }
+
+    [Fact]
+    public async Task Large_picker_search_keeps_all_rows_and_rejects_stale_identity_after_refresh()
+    {
+        var devices = Enumerable.Range(1, 300).Select(id => At(Fakes.Device(id, $"device-{id}.example.net"), id)).ToList();
+        var locations = Enumerable.Range(1, 300).Select(id => new Location { Id = id, Name = $"Site {id}", Latitude = 51, Longitude = id / 10.0 }).ToList();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(devices);
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(locations);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation) { SearchDelay = TimeSpan.Zero };
+        picker.Load(vm);
+        Assert.Equal(300, picker.Choices.Count);
+        Assert.Equal("Site 2", picker.Choices[1].Name);
+        picker.SearchText = "Site 300";
+        var stale = Assert.Single(picker.Choices);
+        picker.SearchText = "no such place";
+        Assert.Empty(picker.Choices);
+        Assert.True(picker.HasStatus);
+        picker.SearchText = "";
+        Assert.Equal(300, picker.Choices.Count);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await picker.ChooseCommand.ExecuteAsync(stale);
+        Assert.True(picker.HasError);
+        Assert.False(vm.HasSelection);
+        Assert.Empty(_navigation.Visits);
+        picker.Load(vm);
+        picker.SearchText = "Site 300";
+        await picker.ChooseCommand.ExecuteAsync(Assert.Single(picker.Choices));
+        Assert.Equal("Site 300", vm.SelectedLocation);
     }
 
     [Fact]
