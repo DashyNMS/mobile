@@ -112,6 +112,61 @@ public sealed class HealthViewModelTests
     }
 
     [Fact]
+    public void Unavailable_description_omits_placeholder()
+    {
+        var row = new SectionRow("Synthetic inlet") { Value = "–", Status = RowStatus.None };
+        Assert.Equal("Synthetic inlet, Unavailable", row.HealthDescription);
+    }
+
+    [Theory]
+    [InlineData(RowStatus.Critical, "Critical")]
+    [InlineData(RowStatus.Warning, "Warning")]
+    [InlineData(RowStatus.Ok, "OK")]
+    [InlineData(RowStatus.None, "Unavailable")]
+    [InlineData(RowStatus.Inactive, "Inactive")]
+    public void Row_description_preserves_reading_limits_and_textual_severity(RowStatus status, string text)
+    {
+        var row = new SectionRow("Synthetic inlet")
+        {
+            Subtitle = "example.net", Value = "30 °C", Detail = "High 70 °C", Status = status,
+        };
+        Assert.Equal(text, row.HealthStatusText);
+        Assert.Equal($"Synthetic inlet, example.net, 30 °C, High 70 °C, {text}", row.HealthDescription);
+    }
+
+    [Fact]
+    public async Task Unknown_stays_visible_when_all_severities_are_excluded_and_counts_stay_category_wide()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [Inlet(30), new Sensor { DeviceId = 1, SensorClass = "temperature", Description = "Missing", Current = null }]);
+        var vm = await Loaded("temperature");
+        vm.ShowCritical = vm.ShowWarning = vm.ShowOk = false;
+        Assert.Equal("Unavailable", Assert.Single(vm.Sensors).HealthStatusText);
+        Assert.Equal((0, 0, 1), (vm.CriticalCount, vm.WarningCount, vm.OkCount));
+        Assert.Equal("OK 1, excluded", vm.OkFilterDescription);
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.Equal(2, vm.Sensors.Count);
+        Assert.Equal("OK 1, included", vm.OkFilterDescription);
+    }
+
+    [Fact]
+    public async Task Returning_after_threshold_save_rebuilds_descriptions_and_counts_without_a_fetch()
+    {
+        var settings = Fakes.Settings();
+        var vm = new HealthViewModel(_client, settings, _navigation);
+        vm.SelectCategoryCommand.Execute(vm.Categories.Single(c => c.SensorClass == "temperature"));
+        await vm.RefreshIfStaleAsync();
+        settings.Current.OverrideSensorLimitsWithAppThresholds = true;
+        settings.Current.TemperatureThresholds.HighCritical = 25;
+        settings.Current.TemperatureThresholds.HighWarning = 20;
+        settings.Changed += Raise.Event<EventHandler<DesktopNMS.Core.Configuration.AppSettings>>(settings, settings.Current);
+        await vm.RefreshIfStaleAsync();
+        Assert.Equal(3, vm.CriticalCount);
+        Assert.All(vm.Sensors, row => Assert.Contains("Critical", row.HealthDescription));
+        await _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public void Has_desktops_four_categories_in_its_order()
     {
         var vm = new HealthViewModel(_client, Fakes.Settings(), _navigation);

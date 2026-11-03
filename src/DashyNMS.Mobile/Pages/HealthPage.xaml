@@ -6,26 +6,29 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="vm:HealthViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Health">
 
     <!-- As the Health mock-up (#69): the four sensor types as a segmented
          control, then search, severity chips and the sensors in one card. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+    <Grid SafeAreaEdges="None" x:Name="Body" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
 
-        <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Health" />
+        <controls:PageHeader x:Name="Header" Note="{Binding Offline.OfflineText}" Title="Health">
+            <controls:PageHeader.Actions>
+                <controls:IconButton x:Name="SearchButton" Icon="{x:Static controls:Icons.Search}" Kind="Plain"
+                    SemanticProperties.Description="Search sensors" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <!-- Desktop's four Health categories. -->
         <Border Grid.Row="1" Style="{StaticResource SegmentBar}">
-            <FlexLayout BindableLayout.ItemsSource="{Binding Categories}" Direction="Row" JustifyContent="SpaceBetween">
+            <FlexLayout SafeAreaEdges="None" BindableLayout.ItemsSource="{Binding Categories}" Direction="Row" Wrap="Wrap">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:HealthCategoryOption">
-                        <Button Style="{StaticResource Segment}" Text="{Binding Label}" FlexLayout.Grow="1" FlexLayout.Basis="0"
+                        <Button FlexLayout.Grow="1" Style="{StaticResource Segment}" Text="{Binding Label}" HeightRequest="-1" MinimumHeightRequest="44" Padding="10,8"
                                 Command="{Binding SelectCategoryCommand, Source={RelativeSource AncestorType={x:Type vm:HealthViewModel}}, x:DataType=vm:HealthViewModel}"
-                                CommandParameter="{Binding .}">
+                                CommandParameter="{Binding .}" SemanticProperties.Description="{Binding SelectionDescription}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
                                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
@@ -38,17 +41,16 @@
             </FlexLayout>
         </Border>
 
-        <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal.
-             The gap below belongs to the chips, so it's the same with the box away (#83). -->
-        <Grid Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
-            <controls:SearchField Margin="0,6,0,0">
-                <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" />
+        <!-- Retain scroll-reveal on iOS and always-visible search on Android. -->
+        <Grid SafeAreaEdges="None" Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
+            <controls:SearchField x:Name="SearchField" VerticalOptions="Start" Margin="0,6,0,0">
+                <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" SemanticProperties.Description="Search sensors" Completed="OnSearchCompleted" />
             </controls:SearchField>
         </Grid>
 
         <!-- Severity chips, as desktop's; counts are of the whole category. -->
-        <HorizontalStackLayout Grid.Row="3" Spacing="8" Margin="0,10,0,0">
-            <Button Style="{StaticResource Chip}" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}">
+        <FlexLayout SafeAreaEdges="None" Wrap="Wrap" Grid.Row="3" Margin="0,10,0,0">
+            <Button CornerRadius="22" Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding CriticalCount, StringFormat='Critical {0}'}" Command="{Binding ToggleCriticalCommand}" Margin="0,0,8,8" SemanticProperties.Description="{Binding CriticalFilterDescription}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
                         <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
@@ -57,7 +59,7 @@
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
-            <Button Style="{StaticResource Chip}" Text="{Binding WarningCount, StringFormat='Warning {0}'}" Command="{Binding ToggleWarningCommand}">
+            <Button CornerRadius="22" Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding WarningCount, StringFormat='Warning {0}'}" Command="{Binding ToggleWarningCommand}" Margin="0,0,8,8" SemanticProperties.Description="{Binding WarningFilterDescription}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
                         <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
@@ -66,7 +68,7 @@
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
-            <Button Style="{StaticResource Chip}" Text="{Binding OkCount, StringFormat='OK {0}'}" Command="{Binding ToggleOkCommand}">
+            <Button CornerRadius="22" Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" Text="{Binding OkCount, StringFormat='OK {0}'}" Command="{Binding ToggleOkCommand}" Margin="0,0,8,8" SemanticProperties.Description="{Binding OkFilterDescription}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
                         <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
@@ -75,49 +77,47 @@
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
-        </HorizontalStackLayout>
+        </FlexLayout>
 
         <!-- Its height kept while the count is still blank, so the chips never touch the list (#143). -->
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
+        <Grid SafeAreaEdges="None" Grid.Row="4" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
             <Label Style="{StaticResource Faint}" Text="{Binding CountText}" VerticalOptions="Center" />
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear" Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
-                    HeightRequest="30" MinimumHeightRequest="30" />
+                    MinimumHeightRequest="44" />
         </Grid>
 
         <Label Grid.Row="5" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
-        <Border Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+            <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
+                    <CollectionView.Footer><BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" /></CollectionView.Footer>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" Margin="16,32" />
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="sections:SectionRow">
-                            <Grid Style="{StaticResource ListRow}" ColumnDefinitions="10,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid Style="{StaticResource ListRow}" Padding="14,11" ColumnDefinitions="10,*" ColumnSpacing="12"
+                                  SemanticProperties.Description="{Binding HealthDescription}"
+                                  SemanticProperties.Hint="Opens this device’s Sensors">
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding OpenSensorCommand, Source={RelativeSource AncestorType={x:Type vm:HealthViewModel}}, x:DataType=vm:HealthViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
-                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                    <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <!-- The reading, and the limit it's measured against under it. -->
-                                <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                    <Label Text="{Binding Value}" FontFamily="BodySemibold" HorizontalOptions="End"
+                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="4" AutomationProperties.ExcludedWithChildren="True">
+                                    <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" LineBreakMode="WordWrap" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding Value}" FontFamily="BodySemibold" LineBreakMode="WordWrap"
                                            TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
-                                    <Label Style="{StaticResource Faint}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="11"
-                                           HorizontalOptions="End" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding HealthStatusText}" />
+                                    <Label Style="{StaticResource Faint}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="WordWrap" />
                                 </VerticalStackLayout>
-                                <!-- The bottom padding; the line itself is at the top of the row (#120). -->
-                                <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
-                                <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
+                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" InputTransparent="True" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

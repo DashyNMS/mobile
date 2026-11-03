@@ -24,6 +24,11 @@ public sealed partial class HealthCategoryOption : ObservableObject
 
     [ObservableProperty]
     private bool _isSelected;
+
+    /// <summary>Announces selection without relying on the segment fill.</summary>
+    public string SelectionDescription => $"{Label}, {(IsSelected ? "selected" : "not selected")}";
+
+    partial void OnIsSelectedChanged(bool value) => OnPropertyChanged(nameof(SelectionDescription));
 }
 
 /// <summary>
@@ -118,6 +123,13 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     public string CountText => IsBusy && _all.Count > 0 ? SensorRefreshStatus.Updating : ReadFailureText ?? (Sensors.Count == InCategory.Count()
         ? $"{Sensors.Count} {SelectedCategory.Label.ToLowerInvariant()} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
         : $"{Sensors.Count} of {InCategory.Count()} {SelectedCategory.Label.ToLowerInvariant()} sensors");
+
+    /// <summary>Announces the category count and whether this severity is included.</summary>
+    public string CriticalFilterDescription => $"Critical {CriticalCount}, {(ShowCritical ? "included" : "excluded")}";
+    /// <summary>Announces the category count and whether this severity is included.</summary>
+    public string WarningFilterDescription => $"Warning {WarningCount}, {(ShowWarning ? "included" : "excluded")}";
+    /// <summary>Announces the category count and whether this severity is included.</summary>
+    public string OkFilterDescription => $"OK {OkCount}, {(ShowOk ? "included" : "excluded")}";
 
     public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !string.IsNullOrWhiteSpace(SearchText);
 
@@ -324,6 +336,9 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
             .Select(s => s.Row)
             .ToList());
 
+        OnPropertyChanged(nameof(CriticalFilterDescription));
+        OnPropertyChanged(nameof(WarningFilterDescription));
+        OnPropertyChanged(nameof(OkFilterDescription));
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));
