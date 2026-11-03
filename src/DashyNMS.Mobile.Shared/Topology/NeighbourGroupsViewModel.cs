@@ -24,7 +24,7 @@ public sealed record NeighbourGroupRow(NeighbourViewDefinition Group, int? Count
             1 => NeighbourRuleRow.Describe(Group.Rules[0]),
             var n => string.Create(CultureInfo.CurrentCulture, $"{n} rules, {(Group.MatchAll ? "all" : "any")} must match"),
         },
-        Count?.ToString("N0", CultureInfo.CurrentCulture),
+        Count is { } count ? string.Create(CultureInfo.CurrentCulture, $"{count:N0} neighbours (cached snapshot)") : "Neighbour count unavailable",
     }.Where(s => s is not null));
 }
 
@@ -57,6 +57,17 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     public void Refresh()
     {
         var links = _neighbours.Links;
+        if (Groups.Select(row => row.Group.Id).SequenceEqual(_settings.Current.NeighbourViews.Select(group => group.Id)))
+        {
+            // Count completion must not reset the viewport beneath the reader.
+            for (var i = 0; i < Groups.Count; i++)
+            {
+                var group = _settings.Current.NeighbourViews[i];
+                Groups[i] = new NeighbourGroupRow(group, links?.Count(link => NeighboursViewModel.InGroup(group, link)));
+            }
+            OnPropertyChanged(nameof(HasNone));
+            return;
+        }
         Groups.Clear();
         foreach (var group in _settings.Current.NeighbourViews)
         {
@@ -69,6 +80,7 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     /// <summary>Fetches the neighbours if the Neighbours page hasn't, for the counts. Not fatal - the groups still show.</summary>
     public async Task LoadCountsAsync()
     {
+        if (IsBusy) return;
         if (_neighbours.Links is not null)
         {
             return;
@@ -79,6 +91,9 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
             Refresh();
         }
     }
+
+    [RelayCommand]
+    private Task RetryCountsAsync() => LoadCountsAsync();
 
     [RelayCommand]
     private Task AddAsync() => _navigation.GoToAsync(Routes.NeighbourGroupEditor);

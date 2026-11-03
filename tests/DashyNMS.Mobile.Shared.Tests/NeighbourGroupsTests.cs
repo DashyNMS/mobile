@@ -9,6 +9,30 @@ namespace DashyNMS.Mobile.Tests;
 /// <summary>Desktop's neighbour views as the phone's groups (#98).</summary>
 public sealed class NeighbourGroupsTests
 {
+    [Fact]
+    public void Summary_distinguishes_unavailable_counts_from_a_known_zero()
+    {
+        var definition = new NeighbourViewDefinition { Name = "Lab" };
+        Assert.Contains("Neighbour count unavailable", new NeighbourGroupRow(definition).Summary);
+        Assert.Contains("0 neighbours (cached snapshot)", new NeighbourGroupRow(definition, 0).Summary);
+    }
+
+    [Fact]
+    public async Task Returning_from_editor_refreshes_saved_name_and_preserves_id_and_order()
+    {
+        var first = new NeighbourViewDefinition { Name = "Lab 2" };
+        var second = new NeighbourViewDefinition { Name = "Lab 10" };
+        _appSettings.NeighbourViews.AddRange([first, second]);
+        var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
+        await list.EditCommand.ExecuteAsync(list.Groups[1]);
+        var renamed = second.Clone();
+        renamed.Name = "Lab 10 renamed";
+        _appSettings.NeighbourViews[1] = renamed;
+        list.Refresh();
+        Assert.Equal(new[] { first.Id, second.Id }, list.Groups.Select(row => row.Group.Id));
+        Assert.Equal("Lab 10 renamed", list.Groups[1].Name);
+    }
+
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
     private readonly ILibreNmsClient _client = Fakes.Client(devices: [Fakes.Device(1, "core-sw"), Fakes.Device(2, "edge-rtr")]);
@@ -200,12 +224,12 @@ public sealed class NeighbourGroupsTests
             Group("Kit", false, (NeighbourRuleField.SystemDescription, NeighbourRuleOperator.Contains, "Aruba"), (NeighbourRuleField.SystemDescription, NeighbourRuleOperator.Contains, "Phone")),
         ];
         var list = new NeighbourGroupsViewModel(_settings, _navigation, _dialogs, _directory);
-        Assert.Equal("System name starts with \"ap-\"", list.Groups[0].Summary);
+        Assert.Equal("System name starts with \"ap-\" · Neighbour count unavailable", list.Groups[0].Summary);
 
         await list.LoadCountsAsync();
 
-        Assert.Equal("System name starts with \"ap-\" · 2", list.Groups[0].Summary);
-        Assert.Equal("2 rules, any must match · 3", list.Groups[1].Summary);
+        Assert.Equal("System name starts with \"ap-\" · 2 neighbours (cached snapshot)", list.Groups[0].Summary);
+        Assert.Equal("2 rules, any must match · 3 neighbours (cached snapshot)", list.Groups[1].Summary);
     }
 
     [Fact]
