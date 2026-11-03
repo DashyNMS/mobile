@@ -109,7 +109,7 @@
                             <VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding FdbLayout}" Spacing="4"
                                                  SemanticProperties.Description="{Binding FdbDescription}" AutomationProperties.IsInAccessibleTree="True">
-                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding FdbMacText}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                 <Label Style="{StaticResource Caption}" Text="{Binding FdbVlanText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                             </VerticalStackLayout>

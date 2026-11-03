@@ -22,8 +22,13 @@ public sealed record SectionRow(string Title)
 {
     /// <summary>FDB facts wrap independently so VLAN context cannot crowd the MAC or interface.</summary>
     public bool FdbLayout { get; init; }
+    /// <summary>Names unavailable MAC data without changing the raw title used by other sections.</summary>
+    public string FdbMacText => string.IsNullOrWhiteSpace(Title) || Title is "—" or "–" ? "MAC address not reported" : Title;
+
+    /// <summary>Missing VLAN data must not imply untagged membership.</summary>
     public string FdbVlanText => HasValue ? Value! : "VLAN not reported";
-    public string FdbDescription => string.Join(", ", Title, Subtitle, FdbVlanText);
+    /// <summary>Announces complete FDB facts, including named unavailable values, once.</summary>
+    public string FdbDescription => string.Join(", ", FdbMacText, Subtitle, FdbVlanText);
 
     /// <summary>VLAN facts stack so counts cannot crowd names at large text sizes.</summary>
     public bool VlanLayout { get; init; }
@@ -175,7 +180,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
-        || (FdbLayout && Contains(FdbVlanText, term))
+        || (FdbLayout && (Contains(FdbMacText, term) || Contains(FdbVlanText, term)))
         || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 

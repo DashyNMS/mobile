@@ -578,6 +578,21 @@ public sealed class DeviceSectionLoaderTests
         Assert.Contains(card.Highlights, row => row.FdbDescription == rows[2].FdbDescription);
     }
 
+    [Theory]
+    [InlineData("—")]
+    [InlineData("–")]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Fdb_names_missing_mac_without_changing_raw_title_or_other_search(string title)
+    {
+        var row = new SectionRow(title) { FdbLayout = true, Subtitle = "port 99" };
+        Assert.Equal(title, row.Title);
+        Assert.Equal("MAC address not reported", row.FdbMacText);
+        Assert.Equal("MAC address not reported, port 99, VLAN not reported", row.FdbDescription);
+        Assert.True(row.Matches("MAC address not reported"));
+        Assert.False(new SectionRow(title).Matches("MAC address not reported"));
+    }
+
     [Fact]
     public async Task Arp_sorts_addresses_numerically_and_tidies_macs()
     {

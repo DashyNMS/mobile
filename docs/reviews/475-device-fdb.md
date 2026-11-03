@@ -2,8 +2,7 @@
 
 Refs #475 and #442. Baseline current main 0416232438241593489c83ec9acb370b52eb31ba.
 Read live issue/epic, CLAUDE.md, DEVELOPING.md, DESIGN.md,
-DESIGN-REFERENCES.md and prior section assessments #469–#474. #442 is the
-review epic; #422 is a dependency PR, not this epic.
+DESIGN-REFERENCES.md and prior section assessments #469–#474.
 
 ## Assessment and changes
 
@@ -12,7 +11,7 @@ review epic; #422 is a dependency PR, not this epic.
 | Modes | Compliant: grouped MAC table, local search and three overview highlights. No FDB editor, row destination, graph, sort or filter panel. Adaptive list supports one to three columns. |
 | MAC/interface/VLAN hierarchy | Fix: DeviceSectionPage legacy grid truncates MAC and caps VLAN to 180pt/two lines beside interface. FDB-only stack wraps each fact. Overview formerly omits interface and truncates MAC; now uses the same complete stack. |
 | Missing context | Fix: absent/nonpositive VLAN silently disappears. Display VLAN not reported without changing raw Value or guessing untagged membership. Unknown interface retains existing port-ID fallback. |
-| Ordering and server facts | Compliant: endpoint is scoped by selected device, join ports by PortId, order by interface display name then raw MAC, ordinal ignore case. Preserve MAC formatting, exact interface display name, positive VLAN label, duplicate entries and neutral status. No inferred health or port navigation. |
+| Ordering and server facts | Compliant: endpoint is scoped by selected device, join ports by PortId, order by looked-up interface name then raw MAC, ordinal ignore case, with unmapped ports first. Preserve MAC formatting, exact interface display name, positive VLAN label, duplicate entries and neutral status. No inferred health or port navigation. |
 | Search | Compliant title/interface/VLAN matching, now also matches the displayed missing-VLAN label only for FDB. ButtonSearch retains query, opens from header/glass/Command-F and closes on actual drag/completion/unfocus. Programmatic row replacement must retain focus. |
 | Loading/empty/error | Compliant source: BusyCard, finite CollectionView, Retry, successful empty distinguished from unmatched query, error suppresses empty. Both FDB and ports reads must succeed. Loader treats 404 as empty, other failures propagate. |
 | Refresh/offline | Compliant existing contract: pull refresh retains last loaded FDB rows on failure; no persistent FDB cache or freshness claim. Generation guard prevents old device results from replacing new scope. Actual timing/offline sequences unverified. |
@@ -72,3 +71,13 @@ Use synthetic example.net/edge.example.net, device IDs 7/8 and documentation
 MAC samples. Hardware acceptance is pending. No issue closure or #442 ticks;
 parent owns CI, cross-review, merge, cleanup and the authorised final-batch
 TestFlight. This PR does not merge, release or watch.
+
+## Cross-review follow-up
+
+Claude Opus 5.5 Medium found no blockers at 923902c. Low findings addressed:
+FDB-only missing-MAC text now says MAC address not reported in both templates
+and speech, retaining raw Title and other sections. Scoped search includes
+this displayed label; regression coverage checks placeholders and section isolation.
+New properties explain unavailable-value semantics in XML comments. Ordering
+documentation now explicitly records unmapped ports first. Final review and
+replacement CI pending; no local tests/builds or hardware acceptance claimed.
