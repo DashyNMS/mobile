@@ -10,11 +10,29 @@ namespace DashyNMS.Mobile.Views;
 /// </summary>
 public partial class AlertDetailView : ContentView
 {
+    private Thickness _clear;
 	public AlertDetailView(AlertDetailViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = ViewModel = viewModel;
+        // Detail has writes and can be reused for a new target after its first load.
+        Controls.PullToRefresh.HideSpinner(Refresh);
+        void UpdateBusy()
+        {
+            Busy.Text = viewModel.ActionBusyText ?? (viewModel.HasAlert ? "Updating the alert…" : "Loading the alert…");
+            Busy.IsVisible = viewModel.IsBusy || viewModel.ActionBusyText is not null;
+        }
+        viewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(viewModel.IsBusy) or nameof(viewModel.HasAlert) or nameof(viewModel.ActionBusyText)) UpdateBusy();
+        };
+        UpdateBusy();
+        TopBar.SizeChanged += (_, _) => PlaceContent(_clear);
+        UndoOverlay.SizeChanged += (_, _) => PlaceContent(_clear);
+        UndoOverlay.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceContent(_clear); };
 #if IOS
+        Scroller.HandlerChanged += (_, _) => StopInsets();
+        Scroller.Loaded += (_, _) => StopInsets();
 		// The page or pane showing it keeps the column clear of the camera
 		// and the glass (PlaceContent); left to themselves these would add
 		// the safe area again, stopping the cards short of the screen's foot.
@@ -40,12 +58,30 @@ public partial class AlertDetailView : ContentView
 	/// </summary>
 	public void PlaceContent(Thickness clear)
 	{
-		var padding = new Thickness(16 + clear.Left, TopBar.IsVisible ? 0 : 8, 16 + clear.Right, 24 + clear.Bottom);
+        _clear = clear;
+#if IOS
+        StopInsets();
+#endif
+        Busy.Margin = new Thickness(16 + clear.Left,
+            TopBar.IsVisible ? Math.Max(0, TopBar.Height) + 12 : 20,
+            16 + clear.Right, 0);
+        UndoOverlay.Margin = new Thickness(12 + clear.Left, 0, 12 + clear.Right, 16 + clear.Bottom);
+        var overlay = UndoOverlay.IsVisible ? Math.Max(0, UndoOverlay.Height) + 28 : 0;
+        Fade.IsVisible = !TopBar.IsVisible;
+        Fade.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+		var padding = new Thickness(16 + clear.Left, TopBar.IsVisible ? 0 : 20, 16 + clear.Right, 24 + clear.Bottom + overlay);
 		if (Column.Padding != padding)
 		{
 			Column.Padding = padding;
 		}
 	}
+#if IOS
+    private void StopInsets()
+    {
+        if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
+            scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+    }
+#endif
 
 	/// <summary>Loads the alert <see cref="Routes.AlertDetail"/>'s parameters name (and its device, from a notification).</summary>
 	public void Load(IDictionary<string, object>? parameters)

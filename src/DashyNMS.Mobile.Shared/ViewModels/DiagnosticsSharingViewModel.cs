@@ -17,6 +17,15 @@ public sealed partial class DiagnosticsSharingViewModel : ObservableObject
     private readonly ILauncherService? _launcher;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChoose))]
+    [NotifyCanExecuteChangedFor(nameof(AllowSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeclineCommand))]
+    private bool _isCompleting;
+
+    /// <summary>Both completion commands share a latch so competing taps cannot pop twice.</summary>
+    public bool CanChoose => !IsCompleting;
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AllowSelectedCommand))]
     private bool _shareErrors;
 
@@ -31,20 +40,30 @@ public sealed partial class DiagnosticsSharingViewModel : ObservableObject
         _launcher = launcher;
     }
 
-    private bool CanAllowSelected => ShareErrors || ShareUsage;
+    private bool CanAllowSelected => CanChoose && (ShareErrors || ShareUsage);
 
     [RelayCommand(CanExecute = nameof(CanAllowSelected))]
-    private Task AllowSelectedAsync()
-    {
-        _consent.Choose(ShareErrors, ShareUsage);
-        return _navigation.GoToAsync(Routes.Back);
-    }
+    private Task AllowSelectedAsync() => CanAllowSelected
+        ? CompleteAsync(ShareErrors, ShareUsage) : Task.CompletedTask;
 
-    [RelayCommand]
-    private Task DeclineAsync()
+    [RelayCommand(CanExecute = nameof(CanChoose))]
+    private Task DeclineAsync() => CompleteAsync(false, false);
+
+    private async Task CompleteAsync(bool errors, bool usage)
     {
-        _consent.Choose(errors: false, usage: false);
-        return _navigation.GoToAsync(Routes.Back);
+        if (!CanChoose) return;
+        IsCompleting = true;
+        try
+        {
+            _consent.Choose(errors, usage);
+            await _navigation.GoToAsync(Routes.Back);
+        }
+        catch
+        {
+            // Navigation failure leaves the recorded choice intact; retry may repeat Back.
+            IsCompleting = false;
+            throw;
+        }
     }
 
     [RelayCommand]

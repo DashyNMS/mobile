@@ -126,7 +126,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Signed in over plain http - the Server card says so, as a browser would (#3).</summary>
     public bool IsServerInsecure => _session.Connection?.WebRoot.Scheme == Uri.UriSchemeHttp;
 
-    public string ServerVersion => _session.ServerInfo?.LocalVersion ?? "unknown";
+    public string ServerVersion => string.IsNullOrWhiteSpace(_session.ServerInfo?.LocalVersion) ? "unknown" : _session.ServerInfo.LocalVersion;
 
     public string AppVersion { get; } =
         typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3) ?? "unknown";
@@ -288,18 +288,18 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public string Trademarks => DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks;
 
     /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
-    public string GraylogStatusText => _settings.Current.Graylog is { Enabled: true, Server: { Length: > 0 } server }
-        ? "On · " + server.Trim()
-        : "Off";
+    public string GraylogStatusText => !_settings.Current.Graylog.Enabled ? "Off"
+        : "On · " + (DesktopNMS.Core.Api.GraylogConnection.TryParseRoot(
+            _settings.Current.Graylog.Server, _settings.Current.Graylog.Port, out var root, out _)
+            ? root!.Host : "server address unavailable");
 
     [RelayCommand]
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
 
     /// <summary>"On · unimus.example.com", or "Off" - the Unimus row's second line.</summary>
-    public string UnimusStatusText => _settings.Current.Unimus is { Enabled: true, Url: { Length: > 0 } url }
-        && DesktopNMS.Core.Api.UnimusConnection.TryParseWebRoot(url, out var root, out _)
-            ? "On · " + root!.Host
-            : "Off";
+    public string UnimusStatusText => !_settings.Current.Unimus.Enabled ? "Off"
+        : "On · " + (DesktopNMS.Core.Api.UnimusConnection.TryParseWebRoot(_settings.Current.Unimus.Url, out var root, out _)
+            ? root!.Host : "server address unavailable");
 
     [RelayCommand]
     private Task OpenUnimusSettingsAsync() => _navigation.GoToAsync(Routes.UnimusSettings);
@@ -489,7 +489,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public string ServerHost => _session.Connection?.WebRoot.Host ?? "Not signed in";
 
     /// <summary>"LibreNMS 25.9.0 · https", with plain http called out (#3).</summary>
-    public string ServerSummary => "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
+    public string ServerSummary => _session.Connection is null ? "No active connection"
+        : "LibreNMS " + ServerVersion + (IsServerInsecure ? " · not secure (http)" : " · https");
 
     public string AppearanceSummary => AppearanceLabels[Math.Clamp(AppearanceIndex, 0, AppearanceLabels.Count - 1)]
         + (JigglePhysicsOnMaps ? " · jiggle physics" : string.Empty);

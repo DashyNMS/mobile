@@ -146,4 +146,40 @@ public sealed class NavigationTests
 
         Assert.Equal([Routes.Alerts, Routes.Map], navigation.Visits.Select(v => v.Route));
     }
+
+    [Fact]
+    public async Task Pin_feedback_and_open_action_follow_capacity_and_survive_relaunch()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = new MoreViewModel(_pins, navigation, Substitute.For<IDialogService>());
+        var items = vm.Groups.SelectMany(group => group.Items).ToList();
+        var map = items.Single(item => item.Page == AppPage.Map);
+        var health = items.Single(item => item.Page == AppPage.Health);
+        Assert.Contains("Unpin another page", map.PinState);
+        Assert.Contains("Back returns to More", map.OpenHint);
+        var changes = new List<string?>();
+        map.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+
+        await vm.TogglePinCommand.ExecuteAsync(health);
+        Assert.Equal("Not pinned", map.PinState);
+        Assert.Contains(nameof(MoreItem.PinState), changes);
+        await vm.TogglePinCommand.ExecuteAsync(map);
+        Assert.Equal("Pinned to the tab bar", map.PinState);
+        Assert.Equal("Unpin", map.PinLabel);
+        Assert.Contains("Switches", map.OpenHint);
+        Assert.Contains(nameof(MoreItem.OpenDescription), changes);
+        Assert.Contains(nameof(MoreItem.OpenHint), changes);
+        await vm.OpenCommand.ExecuteAsync(map);
+        Assert.Equal(Routes.Main + "/" + AppPages.TabRoute(AppPage.Map), navigation.Visits.Single().Route);
+
+        var restored = new MoreViewModel(new TabPins(_preferences), navigation, Substitute.For<IDialogService>());
+        Assert.True(restored.Groups.SelectMany(group => group.Items).Single(item => item.Page == AppPage.Map).IsPinned);
+        Assert.False(restored.Groups.SelectMany(group => group.Items).Single(item => item.Page == AppPage.Health).IsPinned);
+        Assert.All(items, item =>
+        {
+            Assert.False(string.IsNullOrWhiteSpace(item.Description));
+            Assert.Contains(item.Title, item.OpenDescription);
+            Assert.Contains(item.PinState, item.OpenDescription);
+        });
+    }
 }
