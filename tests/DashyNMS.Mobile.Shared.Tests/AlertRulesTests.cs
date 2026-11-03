@@ -48,6 +48,58 @@ public sealed class AlertRulesTests
     }
 
     [Fact]
+    public async Task Detail_preserves_complete_SQL_notes_and_procedure()
+    {
+        const string sql = "  SELECT *\r\nFROM devices WHERE devices.status = 0 AND devices.disabled = 0  ";
+        var rule = new AlertRule { Id = 20, Query = sql, Extra = new AlertRuleExtra { OverrideQuery = true },
+            Notes = "  Keep leading spaces\r\nand trailing spaces  ", Procedure = "\n  Step one\nStep two  \n" };
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(rule);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Equal(sql, vm.Condition);
+        Assert.Equal(rule.Notes, vm.Notes);
+        Assert.Equal(rule.Procedure, vm.Procedure);
+    }
+
+    [Fact]
+    public async Task Failed_extras_keep_last_good_alerts_and_template_navigation()
+    {
+        var navigation = new RecordingNavigation();
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), navigation) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.AlertTemplates.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertTemplate>>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.Single(vm.Alerts);
+        Assert.False(vm.HasNoAlerts);
+        Assert.True(vm.HasSupplementaryStatus);
+        Assert.Equal("Ports", vm.TemplateName);
+        await vm.OpenTemplateCommand.ExecuteAsync(null);
+        Assert.Equal(7, Assert.Single(navigation.Visits).Parameters![Routes.TemplateIdParameter]);
+    }
+
+    [Fact]
+    public async Task Unavailable_initial_extras_do_not_claim_empty_or_default()
+    {
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<Alert>>(_ => throw new LibreNmsApiException("Unavailable"));
+        _client.AlertTemplates.ListAsync(Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<AlertTemplate>>(_ => throw new LibreNmsApiException("Unavailable"));
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.False(vm.HasNoAlerts);
+        Assert.False(vm.HasTemplate);
+        Assert.Equal("Template unavailable", vm.TemplateName);
+        Assert.True(vm.HasSupplementaryStatus);
+    }
+
+    [Fact]
     public async Task Filter_descriptions_announce_toggles_and_clear_with_source_counts()
     {
         var vm = new AlertRulesViewModel(_client, new RecordingNavigation());

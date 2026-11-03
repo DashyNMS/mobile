@@ -120,6 +120,13 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
 
     /// <summary>A template of its own to open; LibreNMS's default otherwise.</summary>
     public bool HasTemplate => _templateId is not null;
+    public bool HasNoTemplate => !HasTemplate;
+
+    [ObservableProperty]
+    private string? _supplementaryStatus;
+
+    public bool HasSupplementaryStatus => !string.IsNullOrEmpty(SupplementaryStatus);
+    private int _generation;
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -132,6 +139,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         // Only the rule is waited for (#123): it used to wait on six requests -
         // the whole device list among them - before showing anything. The
         // rest fills in behind it; alerts and templates start now, alongside.
+        var generation = ++_generation;
         var alertsTask = BestEffort(() => _client.Alerts.ListAsync(AlertQuery.Open));
         var templatesTask = BestEffort(() => _client.AlertTemplates.ListAsync());
         if (await _client.Rules.GetAsync(id) is not { } rule)
@@ -143,7 +151,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         ShowRule(rule);
         HasLoaded = true;
         OnPropertyChanged(nameof(CanChangeNotifications));
-        Extras = LoadExtrasAsync(rule, alertsTask, templatesTask);
+        Extras = LoadExtrasAsync(rule, alertsTask, templatesTask, generation);
     });
 
     /// <summary>The template, alerts and target names, filling in behind the rule; awaited by tests.</summary>
@@ -154,30 +162,47 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     /// server - only when there's something to name with it: devices the rule
     /// targets, or alerts it has open; groups and locations only if it names any.
     /// </summary>
-    private async Task LoadExtrasAsync(AlertRule rule, Task<IReadOnlyList<Alert>?> alertsTask, Task<IReadOnlyList<AlertTemplate>?> templatesTask)
+    private async Task LoadExtrasAsync(AlertRule rule, Task<IReadOnlyList<Alert>?> alertsTask, Task<IReadOnlyList<AlertTemplate>?> templatesTask, int generation)
     {
         var settings = _settings.Current;
         var groupsTask = rule.Groups.Count > 0 ? BestEffort(() => _client.DeviceGroups.ListAsync()) : Task.FromResult<IReadOnlyList<DeviceGroup>?>([]);
         var locationsTask = rule.Locations.Count > 0 ? BestEffort(() => _client.Locations.ListAsync()) : Task.FromResult<IReadOnlyList<Location>?>([]);
 
-        ShowTemplate(rule, await templatesTask ?? []);
+        var templates = await templatesTask;
+        var reportedAlerts = await alertsTask;
+        if (generation != _generation) return;
+        SupplementaryStatus = templates is null || reportedAlerts is null
+            ? "Some details could not be refreshed. Pull to refresh or use Retry; previously loaded details are retained." : null;
+        OnPropertyChanged(nameof(HasSupplementaryStatus));
+        if (templates is not null) ShowTemplate(rule, templates);
+        else if (!HasTemplate) TemplateName = "Template unavailable";
 
-        var alerts = (await alertsTask ?? [])
+        var alerts = (reportedAlerts ?? [])
             .Where(a => a.RuleId == rule.Id)
             .OrderByDescending(a => a.Severity.SortRank())
             .ThenByDescending(a => a.Timestamp)
             .ToList();
-        ShowAlerts(alerts, settings, devices: null);
+        if (reportedAlerts is not null) ShowAlerts(alerts, settings, devices: null);
 
         var devices = rule.Devices.Count > 0 || alerts.Count > 0
             ? (await BestEffort(() => _client.Devices.ListAsync()))?.ToDictionary(d => d.DeviceId)
             : null;
-        if (devices is not null)
+        if (generation != _generation) return;
+        if (devices is not null && reportedAlerts is not null)
         {
             ShowAlerts(alerts, settings, devices); // named by the Device names setting now the list is in
         }
 
-        ShowTargets(rule, devices ?? new Dictionary<int, Device>(), await groupsTask ?? [], await locationsTask ?? [], settings);
+        var groups = await groupsTask;
+        var locations = await locationsTask;
+        if (generation != _generation) return;
+        if (groups is null || locations is null || (rule.Devices.Count > 0 && devices is null))
+        {
+            SupplementaryStatus = "Some target names could not be refreshed. Pull to refresh or use Retry.";
+            OnPropertyChanged(nameof(HasSupplementaryStatus));
+            if (HasTargetNames) return;
+        }
+        ShowTargets(rule, devices ?? new Dictionary<int, Device>(), groups ?? [], locations ?? [], settings);
     }
 
     private void ShowAlerts(IReadOnlyList<Alert> alerts, AppSettings settings, IReadOnlyDictionary<int, Device>? devices)
@@ -219,7 +244,9 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         Severity = rule.Severity;
         SeverityText = rule.Severity.ToDisplayString();
         IsDisabled = rule.Disabled;
-        Condition = ViewModels.AlertDetailViewModel.BreakCondition(RuleText.Condition(rule));
+        Condition = rule.Extra?.OverrideQuery == true && !string.IsNullOrWhiteSpace(rule.Query)
+            ? rule.Query
+            : AlertRuleSqlFormatter.Format(rule.Builder) ?? rule.Rule ?? rule.Query ?? string.Empty;
         ConditionNote = string.Join(" ", new[]
         {
             rule.Extra?.OverrideQuery == true ? "Hand-written SQL, run exactly as written." : null,
@@ -240,9 +267,9 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
             .Concat(AlertRuleCompatibility.FindRemovedColumns(null, rule.Rule))
             .DistinctBy(field => field.Field).Select(field => field.Advice)) is { Length: > 0 } warning ? warning : null;
         OnPropertyChanged(nameof(HasCompatibilityWarning));
-        Notes = rule.Notes?.Trim();
-        Procedure = rule.Procedure?.Trim();
-        TemplateName = "…";
+        Notes = rule.Notes;
+        Procedure = rule.Procedure;
+        if (!HasLoaded) TemplateName = "Loading template…";
 
         OnPropertyChanged(nameof(HasConditionNote));
         OnPropertyChanged(nameof(HasNotes));
@@ -275,8 +302,10 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     {
         var template = AlertRulesViewModel.TemplateFor(rule.Id, templates);
         _templateId = template?.Id;
-        TemplateName = template?.Name ?? "LibreNMS's default template";
+        TemplateName = template is null ? "LibreNMS's default template"
+            : string.IsNullOrWhiteSpace(template.Name) ? $"Template {template.Id}" : template.Name;
         OnPropertyChanged(nameof(HasTemplate));
+        OnPropertyChanged(nameof(HasNoTemplate));
     }
 
     // ------------------------------------------------------------ notifications (#102)

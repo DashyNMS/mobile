@@ -9,16 +9,16 @@ namespace DashyNMS.Mobile.Views;
 /// </summary>
 public partial class AlertRuleView : ContentView
 {
-#if IOS
-    private bool _embedded;
-#endif
+    private Thickness _clearance;
 	public AlertRuleView(AlertRuleViewModel viewModel)
 	{
 		InitializeComponent();
-		BindingContext = ViewModel = viewModel;
+        BindingContext = ViewModel = viewModel;
+        UndoOverlay.SizeChanged += (_, _) => PlaceOverlay();
+        UndoOverlay.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceOverlay(); };
 #if IOS
-        Scroller.HandlerChanged += (_, _) => StopEmbeddedInsets();
-        Scroller.Loaded += (_, _) => StopEmbeddedInsets();
+        Scroller.HandlerChanged += (_, _) => StopInsets();
+        Scroller.Loaded += (_, _) => StopInsets();
 #endif
 		Controls.PullToRefresh.ShowBusyCard(PullRefresh, Busy, viewModel, "Loading the rule…", "Refreshing the rule…");
 	}
@@ -26,29 +26,37 @@ public partial class AlertRuleView : ContentView
 	public AlertRuleViewModel ViewModel { get; }
 
     /// <summary>The embedded host owns measured occlusion; this view owns scrolling padding.
-    /// Pushed wrappers retain their existing native safe areas until #447.</summary>
+    /// Pushed pages supply their own covered edges through the same boundary.</summary>
     public void PlaceContent(Thickness clearance)
     {
 #if IOS
-        _embedded = true;
-        StopEmbeddedInsets();
+        StopInsets();
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
+        UndoOverlay.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
         Root.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
         ReadingColumn.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
         PullRefresh.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
         Scroller.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
         ContentColumn.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
 #endif
-        ContentColumn.Padding = new Thickness(16 + clearance.Left, 0, 16 + clearance.Right, 24 + clearance.Bottom);
+        _clearance = clearance;
+        PlaceOverlay();
     }
 
 #if IOS
-    private void StopEmbeddedInsets()
+    private void StopInsets()
     {
-        if (_embedded && Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
+        if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
             scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
     }
 #endif
+
+    private void PlaceOverlay()
+    {
+        UndoOverlay.Margin = new Thickness(12 + _clearance.Left, 0, 12 + _clearance.Right, 16 + _clearance.Bottom);
+        var overlay = UndoOverlay.IsVisible ? Math.Max(0, UndoOverlay.Height) + 28 : 0;
+        ContentColumn.Padding = new Thickness(16 + _clearance.Left, 20, 16 + _clearance.Right, 24 + _clearance.Bottom + overlay);
+    }
 
 	/// <summary>"‹ Alert rules"; beside the list, its back button is hidden.</summary>
 	public Controls.BackBar Bar => TopBar;

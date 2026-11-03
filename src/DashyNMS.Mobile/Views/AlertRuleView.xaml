@@ -17,17 +17,24 @@
     <controls:BusyCard x:Name="Busy" ZIndex="1" IsVisible="False" VerticalOptions="Start" Margin="16,64,16,0" />
     <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
         <ScrollView x:Name="Scroller">
-            <controls:ReadableColumn x:Name="ReadingColumn">
+            <Grid x:Name="ReadingColumn">
                 <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12">
 
                     <controls:BackBar x:Name="TopBar" />
 
                     <Border Style="{StaticResource Card}" Padding="14,12" IsVisible="{Binding HasError}"
                             BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
-                        <Label Text="{Binding ErrorMessage}" FontSize="13"
-                               TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding ErrorMessage}" FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                            <Button Text="Retry" Style="{StaticResource LinkButton}" MinimumHeightRequest="44" Command="{Binding RefreshCommand}" />
+                        </VerticalStackLayout>
                     </Border>
 
+                    <VerticalStackLayout IsVisible="{Binding HasSupplementaryStatus}">
+                        <Label Text="{Binding SupplementaryStatus}" Style="{StaticResource Caption}" />
+                        <Button Text="Retry" Style="{StaticResource LinkButton}" MinimumHeightRequest="44" Command="{Binding RefreshCommand}" />
+                    </VerticalStackLayout>
                     <!-- ==================== The header ==================== -->
                     <Border Style="{StaticResource Card}" Padding="16" IsVisible="{Binding HasLoaded}">
                         <VerticalStackLayout Spacing="8">
@@ -55,48 +62,36 @@
                     <!-- ==================== How it notifies ==================== -->
                     <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasLoaded}">
                         <VerticalStackLayout>
-                            <Grid ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48">
-                                <Label Style="{StaticResource Caption}" Text="Recovery alerts" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding RecoveryText}" VerticalOptions="Center" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48">
-                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="Start" Margin="-14,0" />
-                                <Label Style="{StaticResource Caption}" Text="Acknowledgement alerts" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding AcknowledgementText}" VerticalOptions="Center" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48">
-                                <Label Style="{StaticResource Caption}" Text="Notify per entity" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding PerEntityText}" VerticalOptions="Center" />
-                            </Grid>
-                            <Grid ColumnDefinitions="*,Auto" Padding="14,0" MinimumHeightRequest="48">
-                                <Label Style="{StaticResource Caption}" Text="Maximum entities" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding MaxEntitiesText}" VerticalOptions="Center" />
-                            </Grid>
-                            <!-- Which alerts notify (#167): Core's choices for this rule, with Undo. Its alerts still list and count. -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="14,8" MinimumHeightRequest="48" IsVisible="{Binding CanChangeNotifications}">
-                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource Divider}" VerticalOptions="Start" Margin="-14,-8,-14,0" />
-                                <VerticalStackLayout VerticalOptions="Center">
-                                    <Label Style="{StaticResource Caption}" Text="Notifications" />
-                                    <Label Text="{Binding NotificationsText}" />
-                                </VerticalStackLayout>
-                                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Change" Command="{Binding ChangeNotificationsCommand}" VerticalOptions="Center" />
-                            </Grid>
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" Padding="14,0" MinimumHeightRequest="48">
-                                <Grid.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenTemplateCommand}" />
-                                </Grid.GestureRecognizers>
-                                <BoxView Grid.ColumnSpan="3" Style="{StaticResource Divider}" VerticalOptions="Start" Margin="-14,0" />
-                                <Label Style="{StaticResource Caption}" Text="Template" VerticalOptions="Center" />
-                                <Label Grid.Column="1" Text="{Binding TemplateName}" VerticalOptions="Center" HorizontalTextAlignment="End"
-                                       LineBreakMode="TailTruncation">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding HasTemplate}" Value="True">
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                                <Label Grid.Column="2" Style="{StaticResource Chevron}" VerticalOptions="Center" IsVisible="{Binding HasTemplate}" />
-                            </Grid>
+                            <VerticalStackLayout Padding="14,10" Spacing="4">
+                                <Label Style="{StaticResource Caption}" Text="Recovery alerts" />
+                                <Label Text="{Binding RecoveryText}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Padding="14,10" Spacing="4">
+                                <Label Style="{StaticResource Caption}" Text="Acknowledgement alerts" />
+                                <Label Text="{Binding AcknowledgementText}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Padding="14,10" Spacing="4">
+                                <Label Style="{StaticResource Caption}" Text="Notify per entity" />
+                                <Label Text="{Binding PerEntityText}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Padding="14,10" Spacing="4">
+                                <Label Style="{StaticResource Caption}" Text="Maximum entities" />
+                                <Label Text="{Binding MaxEntitiesText}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Padding="14,10" Spacing="4" IsVisible="{Binding CanChangeNotifications}">
+                                <Label Style="{StaticResource Caption}" Text="Notifications on this device" />
+                                <Label Text="Changes save automatically." Style="{StaticResource Caption}" />
+                                <Label Text="{Binding NotificationsText}" />
+                                <Button Style="{StaticResource LinkButton}" Text="Change notifications" MinimumHeightRequest="44"
+                                        SemanticProperties.Description="{Binding Title, StringFormat='Change notifications for {0}'}"
+                                        Command="{Binding ChangeNotificationsCommand}" HorizontalOptions="Start" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Padding="14,10" Spacing="4">
+                                <Label Style="{StaticResource Caption}" Text="Template" />
+                                <Label Text="{Binding TemplateName}" IsVisible="{Binding HasNoTemplate}" />
+                                <Button Style="{StaticResource LinkButton}" Text="{Binding TemplateName}" LineBreakMode="WordWrap"
+                                        MinimumHeightRequest="44" Command="{Binding OpenTemplateCommand}" IsVisible="{Binding HasTemplate}" />
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 
@@ -109,22 +104,15 @@
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Alerts}" Margin="0,-1,0,0">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AlertItem">
-                                    <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
-                                        <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type rules:AlertRuleViewModel}}, x:DataType=rules:AlertRuleViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Grid.GestureRecognizers>
-                                        <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}"
-                                                 VerticalOptions="Start" Margin="0,6,0,0" />
-                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Style="{StaticResource RowTitle}" Text="{Binding Device}" />
-                                            <Label Style="{StaticResource Faint}" Text="{Binding StateText}" />
-                                        </VerticalStackLayout>
-                                        <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,2,0,0" />
-                                        <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
-                                        <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
-                                    </Grid>
+                                    <Button Style="{StaticResource LinkButton}" MinimumHeightRequest="44" Padding="14,10" LineBreakMode="WordWrap"
+                                        Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type rules:AlertRuleViewModel}}, x:DataType=rules:AlertRuleViewModel}"
+                                        CommandParameter="{Binding .}">
+                                        <Button.Text>
+                                            <MultiBinding StringFormat="{}{0} · {1} · {2} · {3}">
+                                                <Binding Path="Device" /><Binding Path="SeverityText" /><Binding Path="StateText" /><Binding Path="ShortAge" />
+                                            </MultiBinding>
+                                        </Button.Text>
+                                    </Button>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
@@ -141,10 +129,18 @@
                     </Border>
 
                 </VerticalStackLayout>
-            </controls:ReadableColumn>
+            </Grid>
         </ScrollView>
     </RefreshView>
-    <views:UndoToastView BindingContext="{Binding Toast}" ZIndex="2" />
+    <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+        <BoxView.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+                <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
+            </LinearGradientBrush>
+        </BoxView.Background>
+    </BoxView>
+    <views:UndoToastView x:Name="UndoOverlay" BindingContext="{Binding Toast}" ZIndex="2" />
     </Grid>
 
 </ContentView>

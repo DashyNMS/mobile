@@ -1,8 +1,7 @@
 using DashyNMS.Mobile.Rules;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Views;
-using Microsoft.Maui.Controls.PlatformConfiguration;
-using Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;
+using DashyNMS.Mobile.Controls;
 
 namespace DashyNMS.Mobile.Pages;
 
@@ -14,20 +13,48 @@ namespace DashyNMS.Mobile.Pages;
 public sealed class AlertRulePage : ContentPage, IQueryAttributable
 {
 	private readonly AlertRuleView _view;
+    private IDisposable? _edges;
 
 	public AlertRulePage(AlertRuleViewModel viewModel)
 	{
 		BindingContext = viewModel;
 		SetBinding(TitleProperty, new Binding(nameof(AlertRuleViewModel.Title)));
-		On<iOS>().SetUseSafeArea(true);
+#if IOS
+        SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+#endif
 		Content = _view = new AlertRuleView(viewModel);
 	}
 
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		_view.Bar.Apply(this);
+        _view.Bar.Apply(this);
+        _edges ??= CoveredEdges.Watch(this, PlaceControls);
+#if IOS
+        _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
+        TabBarButtons.Show(this, null, string.Empty,
+            [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true)]);
+        TabBarButtons.Moved += OnGlassMoved;
+#endif
+        PlaceControls();
 	}
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        _edges?.Dispose();
+        _edges = null;
+#if IOS
+        TabBarButtons.Moved -= OnGlassMoved;
+        TabBarButtons.Hide(this);
+#endif
+    }
+
+    private void PlaceControls() => _view.PlaceContent(CoveredEdges.ForScrolling(this));
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+#endif
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query) => _view.Load(query);
 }
