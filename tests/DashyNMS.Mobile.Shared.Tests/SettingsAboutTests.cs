@@ -38,6 +38,17 @@ public sealed class SettingsAboutTests
     }
 
     [Fact]
+    public void Unsupported_service_schemes_are_not_presented_as_valid_sources()
+    {
+        var settings = new AppSettings();
+        settings.Graylog.Enabled = settings.Unimus.Enabled = true;
+        settings.Graylog.Server = settings.Unimus.Url = "ftp://logs.example.net";
+        var vm = NewViewModel(appSettings: settings);
+        Assert.Equal("On · server address unavailable", vm.GraylogStatusText);
+        Assert.Equal("On · server address unavailable", vm.UnimusStatusText);
+    }
+
+    [Fact]
     public async Task Cancelling_sign_out_keeps_the_session_and_does_not_navigate()
     {
         var session = Substitute.For<ISessionService>();

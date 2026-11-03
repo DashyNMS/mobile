@@ -80,7 +80,7 @@ existing child. No fake network success or availability is introduced.
 
 Claude Opus 5.5 Medium reviewed full diff ac51cde against main 23eff15.
 All findings were addressed: explicit IView overloads fix the CI compile error;
-Graylog accepts bare hosts/ports and Unimus uses its existing parser while both
+Graylog and Unimus use their existing Core parsers for bare hosts/ports while both
 show only host names; local resume and repeated header subscriptions are removed;
 the overview no longer claims all child forms save automatically; backup source
 keeps its warning colour. Regression coverage adds bare-host, host-with-port and
@@ -89,6 +89,14 @@ credential/path/query exclusion for both services.
 Full intended/staged diffs and whitespace checked. Unit tests and CodeQL C#/actions
 passed at the reviewed head; Android failed with CS0121, now corrected. Replacement
 CI remains pending. No local builds/tests ran. Hardware outcomes remain unverified.
+A second Claude Opus 5.5 Medium full-diff review at f5ec842 confirmed all earlier
+findings fixed, including Core support for credential-bearing URLs. Follow-up
+low findings are addressed: Graylog now reuses Core validation (including rejection
+of unsupported schemes), Android declares Container safe areas as More does,
+card dividers are restored and Hide names has consistent title size and a full
+spoken explanation. Added invalid-scheme regression coverage. Replacement CI
+for these follow-ups remains pending; hardware geometry remains unverified.
+
 This branch was updated serially after #495. TestFlight follows #453–#454.
 Issues and epic checkboxes remain open until explicit user device acceptance.
 

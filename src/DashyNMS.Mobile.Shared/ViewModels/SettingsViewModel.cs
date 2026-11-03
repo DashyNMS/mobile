@@ -289,17 +289,9 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
     /// <summary>"On · graylog.example.com", or "Off" - the Graylog row's second line.</summary>
     public string GraylogStatusText => !_settings.Current.Graylog.Enabled ? "Off"
-        : "On · " + SafeServiceHost(_settings.Current.Graylog.Server);
-
-    /// <summary>Accepts the same bare-host form as Graylog setup without exposing URL secrets.</summary>
-    private static string SafeServiceHost(string? address)
-    {
-        var source = address?.Trim();
-        if (string.IsNullOrWhiteSpace(source)) return "server address unavailable";
-        if (!source.Contains("://", StringComparison.Ordinal)) source = "https://" + source;
-        return Uri.TryCreate(source, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host)
-            ? uri.Host : "server address unavailable";
-    }
+        : "On · " + (DesktopNMS.Core.Api.GraylogConnection.TryParseRoot(
+            _settings.Current.Graylog.Server, _settings.Current.Graylog.Port, out var root, out _)
+            ? root!.Host : "server address unavailable");
 
     [RelayCommand]
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
