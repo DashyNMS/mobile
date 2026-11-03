@@ -270,6 +270,38 @@ public sealed class UnimusBackupsTests
     }
 
     [Fact]
+    public async Task Invalid_inline_content_can_be_replaced_by_retry()
+    {
+        var vm = new UnimusBackupViewModel(_api, _share);
+        await vm.LoadAsync(new UnimusBackupRequest("edge.example.net", 7, new UnimusBackup { Id = 1, Bytes = "invalid base64!", Type = "TEXT" }));
+        Assert.True(vm.HasError);
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3, "restored config")] });
+
+        await vm.RetryCommand.ExecuteAsync(null);
+
+        Assert.False(vm.HasError);
+        Assert.Equal("restored config", Assert.Single(vm.Lines).Text);
+    }
+
+    [Fact]
+    public async Task Share_failure_is_separate_from_loading_and_clears_on_retry()
+    {
+        var vm = new UnimusBackupViewModel(_api, _share);
+        await vm.LoadAsync(new UnimusBackupRequest("edge.example.net", 7, Backup(1, 3, "config")));
+        var fail = true;
+        _share.ShareBytesFileAsync(Arg.Any<string>(), Arg.Any<byte[]>(), Arg.Any<string>(), Arg.Any<string>())
+            .Returns(_ => fail ? Task.FromException(new IOException("Synthetic share failure")) : Task.CompletedTask);
+
+        await vm.ShareCommand.ExecuteAsync(null);
+        Assert.True(vm.HasShareStatus);
+        Assert.False(vm.HasError);
+        fail = false;
+        await vm.ShareCommand.ExecuteAsync(null);
+        Assert.False(vm.HasShareStatus);
+    }
+
+    [Fact]
     public async Task Failed_refresh_keeps_history_selection_and_exact_navigation_identity()
     {
         _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())

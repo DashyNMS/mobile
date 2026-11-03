@@ -26,6 +26,12 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
     [ObservableProperty]
     private string? _searchText;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasShareStatus))]
+    private string? _shareStatus;
+
+    public bool HasShareStatus => !string.IsNullOrWhiteSpace(ShareStatus);
+
     public UnimusBackupViewModel(IUnimusApi unimus, IShareService share)
     {
         _unimus = unimus;
@@ -59,7 +65,7 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
 
     public bool CanShare => !IsBusy && _content is not null;
 
-    public async Task LoadAsync(UnimusBackupRequest request)
+    public async Task LoadAsync(UnimusBackupRequest request, bool fetchFresh = false)
     {
         var generation = ++_generation;
         _request = request;
@@ -69,18 +75,21 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
         _all = [];
         Lines.ReplaceAll([]);
         ErrorMessage = null;
+        ShareStatus = null;
         ShareCommand.NotifyCanExecuteChanged();
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Subtitle));
         OnPropertyChanged(nameof(VersionTime));
 
         IsBusy = true;
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
         try
         {
             // The list usually carries the content; when it doesn't, Unimus
             // has no single-backup endpoint, so it's found on its page.
             var backup = request.Backup;
-            if (backup.IsText && backup.Bytes is null)
+            if (backup.IsText && (fetchFresh || backup.Bytes is null))
             {
                 var page = await _unimus.GetBackupsAsync(request.UnimusDeviceId, 0, UnimusBackupsViewModel.PageSize);
                 backup = page.Backups.FirstOrDefault(b => b.Id == request.Backup.Id)
@@ -104,8 +113,8 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
         catch (Exception ex)
         {
             // Do not forward configuration-bearing exceptions to diagnostics.
-            ErrorMessage = ex is UnimusApiException { StatusCode: System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden }
-                ? "Access to this backup was denied. Check Unimus permissions, then retry."
+            ErrorMessage = ex is UnimusApiException apiError
+                ? apiError.ToUserMessage()
                 : "Couldn't load this backup. Retry or return to backup history.";
         }
         finally
@@ -122,7 +131,7 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private Task RetryAsync() => IsBusy || _request is null ? Task.CompletedTask : LoadAsync(_request);
+    private Task RetryAsync() => IsBusy || _request is null ? Task.CompletedTask : LoadAsync(_request, fetchFresh: true);
 
     partial void OnSearchTextChanged(string? value) => WhenTypingPauses(ApplySearch);
 
@@ -146,6 +155,7 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
             return;
         }
 
+        ShareStatus = null;
         var name = UnimusExport.FileNameFor(_request.DeviceName, _request.Backup.ValidSinceUtc?.ToLocalTime(), ".cfg");
         try
         {
@@ -154,7 +164,7 @@ public sealed partial class UnimusBackupViewModel : ViewModelBase
         }
         catch (Exception)
         {
-            ErrorMessage = "Couldn't share this backup. Try Share again.";
+            ShareStatus = "Couldn't share this backup. Try Share again.";
         }
     }
 }

@@ -61,7 +61,7 @@ unavailable, not epoch zero. No timestamp or backup object is rewritten.
 | Initial/loading/error/empty | Fix required: absent payload looked like no matches; no Retry | Explicit failure/Retry; empty config distinct from no matches; no empty while busy/error |
 | Changed query/slow earlier request | Fix required: earlier completion could overwrite newer backup | Clear old source immediately; generation guards success/error/finalisation |
 | Double actions | Toolkit async command exclusion already compliant; busy guard incomplete | Share CanExecute refreshes on busy; execution guard; Retry ignores busy |
-| Back, native insets, glass | Route semantics compliant; subscription lifetime fix required | Actual previous caller unchanged, Never on HandlerChanged/Loaded retained; watcher disposed, retained Window unsubscribed, idempotent Show/Hide and resume reactivation |
+| Back, native insets, glass | Route semantics compliant; subscription lifetime fix required | Actual previous caller unchanged, Never on HandlerChanged/Loaded retained; watcher disposed, central AppShell activation, idempotent Show/Hide and resume reactivation |
 | Security/permissions/comparison | Compliant; native share destination unverified | No permission, matching, TLS or diff semantics changes; no content logging |
 | Search visibility/keyboard | Fix required: permanently open field | Header Search opens/refocuses retained query, Command-F via ISearchHost, hide on unfocus/return |
 
@@ -125,3 +125,15 @@ central Activate entry and idempotent glass subscriptions while adding disposabl
 edge watching; no local Window resume hook is retained. Backup contents now
 implements IActivePage. History continues using that same activation path; diff
 opts in under #464. No device outcome is inferred from this integration.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed 8187738 against main 95600f0. Search now uses
+ButtonSearch with inherited scroll dismissal disabled, preserving typing through
+filtered-row replacements and dismissing only on real drag. The code-surface
+fade is inside the card with a stroke inset. Share failures use separate status
+and never offer load Retry. Retry fetches fresh content even after invalid bytes;
+Core user-facing API error reasons are retained. Starting loads notify empty
+bindings immediately. Source bytes, export and comparison semantics are unchanged.
+Replacement CI and fresh Claude review remain pending. No local builds/tests
+ran; hardware outcomes remain unverified.
