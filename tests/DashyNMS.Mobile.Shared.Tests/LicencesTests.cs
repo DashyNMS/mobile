@@ -88,6 +88,46 @@ public sealed class LicencesTests
         Assert.Equal(OpenSourceNotices.Trademarks, Page().Trademarks);
 
     [Theory]
+    [InlineData(NoticePlatforms.iOS)]
+    [InlineData(NoticePlatforms.Android)]
+    public void Every_platform_notice_and_full_resource_survives_expansion_and_reopening(NoticePlatforms platform)
+    {
+        var page = Page(platform);
+        Assert.Equal(PhoneNotices.For(platform), page.Items.Select(item => item.Notice));
+        foreach (var item in page.Items)
+        {
+            Assert.Equal(item.Notice.Link.AbsoluteUri, item.LinkText);
+            Assert.Equal(item.Notice.Licence, item.LicenceName);
+            Assert.Equal(item.Notice.Copyright, item.Copyright);
+            if (item.Notice.LicenceFile is not { } file) continue;
+            var complete = OpenSourceNotices.ReadLicence(file);
+            Assert.False(string.IsNullOrWhiteSpace(complete));
+            item.ToggleCommand.Execute(null);
+            Assert.Equal(complete, item.LicenceText); // Includes all whitespace and the final notice.
+            item.ToggleCommand.Execute(null);
+            Assert.False(item.IsExpanded);
+            item.ToggleCommand.Execute(null);
+            Assert.Equal(complete, item.LicenceText);
+            Assert.Null(item.LoadError);
+        }
+    }
+
+    [Fact]
+    public void Missing_resource_keeps_retry_available_without_substituting_legal_text()
+    {
+        var item = new LicenceItem(new OpenSourceNotice("Example", "Test", "Copyright Example",
+            "Example licence", new Uri("https://example.net/licence"), "missing-test-resource.txt"));
+        item.ToggleCommand.Execute(null);
+        Assert.Null(item.LicenceText);
+        Assert.False(item.IsExpanded);
+        Assert.NotNull(item.LoadError);
+        Assert.Equal("Retry licence for Example", item.ToggleDescription);
+        item.ToggleCommand.Execute(null);
+        Assert.Null(item.LicenceText);
+        Assert.False(item.IsExpanded);
+    }
+
+    [Theory]
     [InlineData("https://www.openstreetmap.org/copyright", true)]
     [InlineData("https://leafletjs.com/", true)]
     [InlineData("https://dashynms.pckp.net/mobile/", false)] // the page itself, loading

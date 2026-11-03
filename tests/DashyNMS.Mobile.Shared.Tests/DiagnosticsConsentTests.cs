@@ -14,6 +14,46 @@ public sealed class DiagnosticsConsentTests
     private DiagnosticsConsent Launch(bool available = true) => new(_preferences, available);
 
     [Fact]
+    public void Draft_switch_changes_do_not_record_consent()
+    {
+        var consent = Launch();
+        var vm = new DiagnosticsSharingViewModel(consent, _navigation);
+        vm.ShareErrors = true;
+        vm.ShareUsage = true;
+
+        Assert.False(consent.HasChosen);
+        Assert.False(consent.ShareErrors || consent.ShareUsage);
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Competing_choices_cannot_change_the_answer_or_pop_twice(bool allowFirst)
+    {
+        var consent = Launch();
+        var navigation = Substitute.For<INavigationService>();
+        var returned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        navigation.GoToAsync(Routes.Back).Returns(returned.Task);
+        var vm = new DiagnosticsSharingViewModel(consent, navigation) { ShareErrors = true };
+        var changes = 0;
+        consent.Changed += (_, _) => changes++;
+
+        var first = allowFirst ? vm.AllowSelectedCommand.ExecuteAsync(null) : vm.DeclineCommand.ExecuteAsync(null);
+        Assert.False(vm.CanChoose);
+        Assert.False(vm.AllowSelectedCommand.CanExecute(null));
+        Assert.False(vm.DeclineCommand.CanExecute(null));
+        await (allowFirst ? vm.DeclineCommand.ExecuteAsync(null) : vm.AllowSelectedCommand.ExecuteAsync(null));
+        returned.SetResult();
+        await first;
+
+        Assert.Equal(1, changes);
+        Assert.Equal(allowFirst, consent.ShareErrors);
+        Assert.False(consent.ShareUsage);
+        await navigation.Received(1).GoToAsync(Routes.Back);
+    }
+
+    [Fact]
     public async Task Nothing_is_shared_before_a_choice_and_the_sheet_is_shown_once_a_launch()
     {
         var consent = Launch();

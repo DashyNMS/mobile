@@ -65,6 +65,8 @@ public sealed class GraylogMessageItem
     };
 
     public string LevelText { get; }
+    public string DetailLevelText => HasLevel ? LevelText : "Level unavailable";
+    public string DetailTimeText => TimeText ?? "Time unavailable";
 
     public bool HasLevel => LevelText.Length > 0;
 

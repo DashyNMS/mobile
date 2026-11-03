@@ -27,6 +27,77 @@ public sealed class WhatsNewTests
     private WhatsNew NewWhatsNew(string version = "2.0.0") => new(_settings, Notes, version);
 
     [Fact]
+    public async Task Browser_link_uses_only_the_release_destination_and_does_not_mark_seen()
+    {
+        var launcher = Substitute.For<ILauncherService>();
+        var vm = new WhatsNewViewModel(NewWhatsNew(), _navigation, launcher);
+        await vm.OpenReleaseNotesCommand.ExecuteAsync(null);
+        await launcher.Received(1).OpenAsync(new Uri("https://github.com/DashyNMS/mobile/releases"));
+        Assert.Null(_appSettings.WhatsNewShownVersion);
+        _settings.DidNotReceive().Save();
+        Assert.Empty(_navigation.Visits);
+    }
+
+    [Fact]
+    public async Task Completion_records_once_and_cannot_pop_twice_while_returning()
+    {
+        var navigation = Substitute.For<INavigationService>();
+        var returned = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        navigation.GoToAsync(Routes.Back).Returns(returned.Task);
+        var vm = new WhatsNewViewModel(NewWhatsNew(), navigation);
+
+        var first = vm.GotItCommand.ExecuteAsync(null);
+        Assert.False(vm.CanDismiss);
+        await vm.GotItCommand.ExecuteAsync(null);
+        returned.SetResult();
+        await first;
+
+        _settings.Received(1).Save();
+        await navigation.Received(1).GoToAsync(Routes.Back);
+    }
+
+    [Fact]
+    public async Task Leaving_without_completion_keeps_update_due_next_launch()
+    {
+        _appSettings.ServerUrl = "https://nms.example.net/";
+        _appSettings.WhatsNewShownVersion = "1.0.0";
+        var launch = NewWhatsNew();
+        await launch.ShowIfDueAsync(_navigation);
+        _ = new WhatsNewViewModel(launch, _navigation);
+        await launch.ShowIfDueAsync(_navigation);
+        await NewWhatsNew().ShowIfDueAsync(_navigation);
+
+        Assert.Equal(2, _navigation.Visits.Count);
+        Assert.Equal("1.0.0", _appSettings.WhatsNewShownVersion);
+        _settings.DidNotReceive().Save();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("# 2.0.0\n## New\nNo valid changes")]
+    public void Missing_or_unparseable_notes_have_an_honest_empty_state(string notes)
+    {
+        var service = new WhatsNew(_settings, notes, "2.0.0");
+        var vm = new WhatsNewViewModel(service, _navigation);
+        Assert.True(vm.NotesUnavailable);
+        Assert.Empty(vm.Groups);
+        Assert.False(service.IsDue);
+    }
+
+    [Fact]
+    public void Long_continued_text_and_markup_are_preserved_as_plain_text()
+    {
+        var url = "https://example.net/" + new string('a', 400);
+        var text = "A long paragraph " + new string('b', 1000);
+        var service = new WhatsNew(_settings,
+            $"# 2.0.0\n## New\n- **Long change.** {text}\n  {url} <script>plain text</script> {{unknown}}", "2.0.0");
+        var vm = new WhatsNewViewModel(service, _navigation);
+        var row = Assert.Single(Assert.Single(vm.Groups).Rows);
+        Assert.Equal(text + " " + url + " <script>plain text</script>", row.Text);
+        Assert.False(row.HasImage);
+    }
+
+    [Fact]
     public async Task An_update_shows_it_once_and_reopening_the_app_doesnt_show_it_again()
     {
         _appSettings.ServerUrl = "https://nms.example.net/";

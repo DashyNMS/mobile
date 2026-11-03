@@ -3,39 +3,37 @@
     x:Class="DashyNMS.Mobile.Pages.WhatsNewPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:WhatsNewViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="What's new">
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid x:Name="Root" RowDefinitions="Auto,*,Auto">
         <!-- The app's own header, as every page: "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="What's new" Margin="16,0,16,0" />
 
-        <ScrollView Grid.Row="1">
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16" Spacing="4">
-                    <Label Text="{Binding Title}" FontSize="22" FontFamily="BodySemibold" />
+        <ScrollView x:Name="Scroller" Grid.Row="1">
+                <VerticalStackLayout x:Name="Body" Padding="16,20,16,24" Spacing="12">
+                    <Label Text="{Binding Title}" FontSize="22" FontFamily="BodySemibold" SemanticProperties.HeadingLevel="Level1" LineBreakMode="CharacterWrap" />
                     <Label Style="{StaticResource Faint}" Text="{Binding Released}" IsVisible="{Binding HasReleased}" />
+                    <Label Text="Release notes are unavailable in this build." IsVisible="{Binding NotesUnavailable}" />
 
                     <!-- New, Improved and Fixed, each a card of changes - desktop's sheet (desktop#244). -->
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="4">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:WhatsNewGroup">
                                 <VerticalStackLayout Spacing="4">
-                                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" />
+                                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" LineBreakMode="CharacterWrap" />
                                     <Border Style="{StaticResource Card}">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="12">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:WhatsNewRow">
                                                     <Grid ColumnDefinitions="28,*" ColumnSpacing="12">
                                                         <!-- In the theme's secondary text colour, readable in light and dark (#268). -->
-                                                        <controls:Glyph Name="{Binding Image}" IsVisible="{Binding HasImage}" VerticalOptions="Start" />
+                                                        <controls:Glyph Name="{Binding Image}" IsVisible="{Binding HasImage}" VerticalOptions="Start" AutomationProperties.IsInAccessibleTree="False" />
                                                         <VerticalStackLayout Grid.Column="1">
-                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding Text}" />
+                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="CharacterWrap" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding Text}" LineBreakMode="CharacterWrap" />
                                                         </VerticalStackLayout>
                                                     </Grid>
                                                 </DataTemplate>
@@ -48,11 +46,17 @@
                     </VerticalStackLayout>
 
                     <Button Style="{StaticResource LinkButton}" Text="Full release notes" Command="{Binding OpenReleaseNotesCommand}"
-                            HorizontalOptions="Start" Margin="0,8,0,0" />
+                            MinimumHeightRequest="44" LineBreakMode="WordWrap" Margin="0,8,0,0" SemanticProperties.Hint="Opens GitHub in your browser" />
                 </VerticalStackLayout>
-            </controls:ReadableColumn>
         </ScrollView>
-
-        <Button Grid.Row="2" Text="Got it" Command="{Binding GotItCommand}" Margin="16,8,16,16" />
+        <BoxView x:Name="Fade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
+        <Button x:Name="GotIt" Grid.Row="2" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
     </Grid>
 </ContentPage>

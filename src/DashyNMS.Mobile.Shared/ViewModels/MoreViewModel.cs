@@ -20,14 +20,33 @@ public sealed partial class MoreItem : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinDescription))]
+    [NotifyPropertyChangedFor(nameof(PinLabel))]
+    [NotifyPropertyChangedFor(nameof(PinHint))]
+    [NotifyPropertyChangedFor(nameof(PinState))]
+    [NotifyPropertyChangedFor(nameof(OpenDescription))]
+    [NotifyPropertyChangedFor(nameof(OpenHint))]
     private bool _isPinned;
 
-    /// <summary>Pinned, or there's room to pin it: the pin button isn't dimmed.</summary>
+    /// <summary>Whether the action can change pins rather than explain the capacity limit.</summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PinState))]
+    [NotifyPropertyChangedFor(nameof(OpenDescription))]
+    [NotifyPropertyChangedFor(nameof(PinHint))]
     private bool _canToggle;
+
+    public string PinState => IsPinned ? "Pinned to the tab bar" : CanToggle
+        ? "Not pinned" : "Not pinned. Unpin another page to make room.";
+
+    public string OpenDescription => string.Join(". ", Title, Description, PinState);
+
+    public string OpenHint => IsPinned ? "Switches to this page's tab" : "Opens this page. Back returns to More";
 
     /// <summary>For screen readers: what the pin button will do.</summary>
     public string PinDescription => (IsPinned ? "Unpin " : "Pin ") + Title + (IsPinned ? " from" : " to") + " the tab bar";
+
+    public string PinLabel => IsPinned ? "Unpin" : "Pin";
+
+    public string PinHint => CanToggle ? "Changes the tab bar immediately" : "Explains how to make room on the tab bar";
 }
 
 /// <summary>A More heading and its pages.</summary>

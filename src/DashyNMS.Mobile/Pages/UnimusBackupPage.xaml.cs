@@ -5,7 +5,7 @@ using DashyNMS.Mobile.Unimus;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.UnimusBackup"/>, from a device's Config backups (#21).</summary>
-public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearchHost
+public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearchHost, IActivePage
 {
 	private readonly UnimusBackupViewModel _viewModel;
 	private readonly PushedListLayout _layout;
@@ -39,8 +39,11 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		_layout.Show();
+		Activate();
 	}
+
+    /// <summary>Restores controls when Shell returns to retained backup contents.</summary>
+    public void Activate() => _layout.Activate();
 
 	protected override void OnDisappearing()
 	{

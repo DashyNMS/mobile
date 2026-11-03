@@ -16,7 +16,6 @@ internal sealed class PushedListLayout
     private readonly View _foot;
     private readonly View? _bottomAction;
     private IDisposable? _edges;
-    private Window? _window;
     private bool _shown;
 
     public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
@@ -44,13 +43,13 @@ internal sealed class PushedListLayout
         }
     }
 
-    public void Show()
+    public void Show() => Activate();
+
+    /// <summary>Reclaims controls even when Shell restores a retained stack without Appearing.</summary>
+    public void Activate()
     {
-        if (_shown) return;
         _shown = true;
-        _edges = CoveredEdges.Watch(_page, Place);
-        _window = _page.Window;
-        if (_window is not null) _window.Resumed += OnResumed;
+        _edges ??= CoveredEdges.Watch(_page, Place);
         _header.Apply(_page);
 #if IOS
         if (TabBarButtons.IsAvailable)
@@ -60,6 +59,7 @@ internal sealed class PushedListLayout
                 new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
             ]);
         }
+        TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Moved += OnMoved;
 #endif
         Place();
@@ -71,19 +71,10 @@ internal sealed class PushedListLayout
         _shown = false;
         _edges?.Dispose();
         _edges = null;
-        if (_window is not null) _window.Resumed -= OnResumed;
-        _window = null;
 #if IOS
         TabBarButtons.Moved -= OnMoved;
         TabBarButtons.Hide(_page);
 #endif
-    }
-
-    private void OnResumed(object? sender, EventArgs e)
-    {
-        if (!_shown) return;
-        Hide();
-        Show();
     }
 
     private void Place()

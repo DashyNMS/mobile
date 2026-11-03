@@ -117,3 +117,11 @@ scroll memory, performance, accessibility or layout acceptance.
 No merge, release, issue closure, epic tick or device acceptance is claimed.
 Parent updates only this PR at its turn, then owns Claude review, CI, merge and
 cleanup. TestFlight follows the #460–#464 sequence and explicit user acceptance.
+
+## Sequential integration
+
+Updated after merged #504 against main 95600f0. PushedListLayout retains its
+central Activate entry and idempotent glass subscriptions while adding disposable
+edge watching; no local Window resume hook is retained. Backup contents now
+implements IActivePage. History continues using that same activation path; diff
+opts in under #464. No device outcome is inferred from this integration.
