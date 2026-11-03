@@ -32,6 +32,14 @@ public sealed class GroupsLocationsViewModelTests
             .Returns([new Location { Id = 1, Name = "London", Latitude = 51.5074, Longitude = -0.1278 }, new Location { Id = 2, Name = "Bristol" }]);
     }
 
+    [Fact]
+    public void Row_description_omits_absent_metadata()
+    {
+        var row = new SectionRow("Branch 2") { Subtitle = " ", Value = "3 devices", Detail = "" };
+        Assert.Equal("Branch 2, 3 devices", row.ContentDescription);
+        Assert.Equal("Branch 2, 3 devices, 1 down", (row with { Detail = "1 down" }).ContentDescription);
+    }
+
     private async Task<GroupsLocationsViewModel> Loaded()
     {
         var vm = new GroupsLocationsViewModel(_client, _navigation);
@@ -88,5 +96,41 @@ public sealed class GroupsLocationsViewModelTests
         vm.SearchText = "switch";
 
         Assert.Equal(["Switches"], vm.Places.Select(p => p.Title));
+    }
+
+    [Fact]
+    public async Task Empty_state_is_notified_after_loading_finishes()
+    {
+        var client = Fakes.Client(devices: []);
+        client.DeviceGroups.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceGroup>());
+        client.DeviceGroups.GetMembershipByDeviceAsync(Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<int, IReadOnlyList<string>>());
+        client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
+        var vm = new GroupsLocationsViewModel(client, _navigation);
+        var changes = new List<bool>();
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(vm.IsEmpty)) changes.Add(vm.IsEmpty);
+        };
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.True(vm.IsEmpty);
+        Assert.True(changes.Last());
+        Assert.Equal("LibreNMS has no device groups.", vm.EmptyText);
+    }
+
+    [Fact]
+    public async Task Mode_switch_retains_query_and_announces_selection()
+    {
+        var vm = await Loaded();
+        vm.SearchText = "London";
+
+        vm.ShowLocationsCommand.Execute(null);
+
+        Assert.Equal("London", vm.SearchText);
+        Assert.Equal("Locations, selected", vm.LocationsDescription);
+        Assert.Equal("Groups", vm.GroupsDescription);
+        Assert.Equal(["London"], vm.Places.Select(row => row.Title));
     }
 }

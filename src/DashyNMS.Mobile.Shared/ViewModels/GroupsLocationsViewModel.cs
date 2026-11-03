@@ -30,6 +30,8 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShowingLocations))]
+    [NotifyPropertyChangedFor(nameof(GroupsDescription))]
+    [NotifyPropertyChangedFor(nameof(LocationsDescription))]
     private bool _showingGroups = true;
 
     [ObservableProperty]
@@ -42,6 +44,9 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
     }
 
     public bool ShowingLocations => !ShowingGroups;
+
+    public string GroupsDescription => ShowingGroups ? "Groups, selected" : "Groups";
+    public string LocationsDescription => ShowingLocations ? "Locations, selected" : "Locations";
 
     /// <summary>Groups or locations, filtered: counts on the right, red when any device is down.</summary>
     public BulkObservableCollection<SectionRow> Places { get; } = new();

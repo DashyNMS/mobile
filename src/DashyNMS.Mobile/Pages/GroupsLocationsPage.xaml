@@ -3,24 +3,22 @@
     x:Class="DashyNMS.Mobile.Pages.GroupsLocationsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:GroupsLocationsViewModel"
-    ios:Page.UseSafeArea="True"
     SafeAreaEdges="Container"
     Title="Groups &amp; locations">
-    <Grid RowDefinitions="Auto,*">
+    <Grid SafeAreaEdges="None" x:Name="Body" RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Groups &amp; locations" Margin="16,0,16,0" />
-        <Grid Grid.Row="1">
+        <controls:PageHeader x:Name="Header" Title="Groups &amp; locations" Margin="0" />
+        <Grid SafeAreaEdges="None" Grid.Row="1">
 
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="16,8,16,0">
+    <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,*" Padding="0,8,0,0">
 
-        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-            <Button Style="{StaticResource Chip}" Text="Groups" Command="{Binding ShowGroupsCommand}">
+        <Grid SafeAreaEdges="None" ColumnDefinitions="*,*" ColumnSpacing="8">
+            <Button Style="{StaticResource Chip}" Text="Groups" HeightRequest="-1" MinimumHeightRequest="44" SemanticProperties.Description="{Binding GroupsDescription}" Command="{Binding ShowGroupsCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowingGroups}" Value="True">
                         <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
@@ -29,7 +27,7 @@
                     </DataTrigger>
                 </Button.Triggers>
             </Button>
-            <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Locations" Command="{Binding ShowLocationsCommand}">
+            <Button Grid.Column="1" Style="{StaticResource Chip}" Text="Locations" HeightRequest="-1" MinimumHeightRequest="44" SemanticProperties.Description="{Binding LocationsDescription}" Command="{Binding ShowLocationsCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowingLocations}" Value="True">
                         <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
@@ -41,13 +39,16 @@
         </Grid>
 
         <controls:SearchField Grid.Row="1" Margin="0,6,0,0">
-            <Entry Text="{Binding SearchText}" Placeholder="Search" />
+            <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search" SemanticProperties.Description="Search groups and locations" Completed="OnSearchCompleted" />
         </controls:SearchField>
 
         <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 
-        <RefreshView Grid.Row="3" Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
-            <CollectionView ItemsSource="{Binding Places}" SelectionMode="None">
+        <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
+        <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Grid.Row="3" Command="{Binding RefreshCommand}">
+            <CollectionView x:Name="List" ItemsSource="{Binding Places}" SelectionMode="None">
+                <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
+                <CollectionView.Footer><BoxView x:Name="ListFoot" Color="Transparent" /></CollectionView.Footer>
                 <CollectionView.ItemsLayout>
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
                 </CollectionView.ItemsLayout>
@@ -57,30 +58,36 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
-                        <Border Style="{StaticResource Card}">
+                        <Border Style="{StaticResource Card}" SemanticProperties.Description="{Binding ContentDescription}" SemanticProperties.Hint="Opens Devices filtered to this group or location">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:GroupsLocationsViewModel}}, x:DataType=vm:GroupsLocationsViewModel}"
                                     CommandParameter="{Binding .}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="10,*,Auto,Auto" ColumnSpacing="12">
-                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding Status, Converter={StaticResource StatusColor}}" />
-                                <VerticalStackLayout Grid.Column="1">
-                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="TailTruncation" />
-                                </VerticalStackLayout>
-                                <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
-                                    <Label Text="{Binding Value}" HorizontalTextAlignment="End" />
-                                    <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="12" HorizontalTextAlignment="End"
+                            <Grid SafeAreaEdges="None" AutomationProperties.ExcludedWithChildren="True" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout SafeAreaEdges="None" Grid.Column="0">
+                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" />
+
+                                    <Label Text="{Binding Value}" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontSize="12" LineBreakMode="WordWrap"
                                            TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                 </VerticalStackLayout>
-                                <Label Grid.Column="3" Text="›" FontSize="20" VerticalOptions="Center" Style="{StaticResource Caption}" />
+                                <Label Grid.Column="1" Text="›" FontSize="20" VerticalOptions="Center" Style="{StaticResource Caption}" />
                             </Grid>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>
+        <BoxView Grid.Row="3" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+                    <GradientStop Color="Transparent" Offset="1" />
+                </LinearGradientBrush>
+            </BoxView.Background>
+        </BoxView>
 
     </Grid>
         </Grid>
