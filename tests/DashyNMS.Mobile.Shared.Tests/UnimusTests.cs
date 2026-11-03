@@ -100,6 +100,20 @@ public sealed class UnimusSetupTests
         Assert.False(_tokens.HasStoredToken);
         _api.Received(1).Clear();
     }
+
+    [Fact]
+    public async Task Ambiguous_names_never_choose_an_arbitrary_device_or_fall_back_to_IP()
+    {
+        _api.IsConfigured.Returns(true);
+        _api.ListAllDevicesAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new UnimusDevice { Id = 7, Description = "edge-rtr-01", Address = "192.0.2.10" },
+            new UnimusDevice { Id = 8, Description = "EDGE-RTR-01", Address = "192.0.2.20" },
+        ]);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _setup.FindAsync(Fakes.Device(1, "edge-rtr-01", ip: "192.0.2.10")));
+    }
 }
 
 public sealed class UnimusSettingsTests
@@ -211,6 +225,84 @@ public sealed class UnimusBackupsTests
         vm.Initialise(1, "edge-rtr-01");
         await vm.EnsureLoadedAsync();
         return vm;
+    }
+
+    [Fact]
+    public async Task Changed_connection_discards_old_history_even_when_the_new_load_fails()
+    {
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3), Backup(2, 10)] });
+        var vm = await LoadAsync();
+        vm.ToggleCompareCommand.Execute(null);
+        await vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+        _setup.ForgetToken();
+        _api.IsConfigured.Returns(false);
+
+        await vm.EnsureLoadedAsync();
+
+        Assert.Empty(vm.Backups);
+        Assert.False(vm.HasBackups);
+        Assert.False(vm.IsComparing);
+        Assert.DoesNotContain("Unimus device", vm.DeviceIdentity);
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+    }
+
+    [Fact]
+    public async Task Revision_change_during_device_lookup_reloads_without_false_no_match()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<UnimusDevice>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _api.ListAllDevicesAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new UnimusBackupsViewModel(_client, _setup, _api, _navigation);
+        vm.Initialise(1, "edge.example.net");
+        var loading = vm.EnsureLoadedAsync();
+        _setup.ForgetToken();
+        _api.ListAllDevicesAsync(Arg.Any<CancellationToken>()).Returns([new UnimusDevice { Id = 7, Address = "192.0.2.10" }]);
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3)] });
+        pending.SetResult([new UnimusDevice { Id = 7, Address = "192.0.2.10" }]);
+
+        await loading;
+
+        Assert.Single(vm.Backups);
+        Assert.False(vm.IsEmpty);
+        Assert.Equal("1 backup loaded", vm.HistoryText);
+    }
+
+    [Fact]
+    public async Task Failed_refresh_keeps_history_selection_and_exact_navigation_identity()
+    {
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3), Backup(2, 10)] });
+        var vm = await LoadAsync();
+        vm.ToggleCompareCommand.Execute(null);
+        await vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+        var selected = vm.Backups[0];
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .ThrowsAsync(new UnimusApiException("Access denied.", HttpStatusCode.Forbidden));
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Same(selected, vm.Backups[0]);
+        Assert.True(selected.IsSelected);
+        Assert.True(vm.IsComparing);
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        vm.ToggleCompareCommand.Execute(null);
+        await vm.OpenCommand.ExecuteAsync(selected);
+        var request = Assert.IsType<UnimusBackupRequest>(_navigation.Visits.Single().Parameters![Routes.UnimusParameter]);
+        Assert.Equal((7, 2), (request.UnimusDeviceId, request.Backup.Id));
+    }
+
+    [Fact]
+    public void Unknown_dates_and_formats_are_not_presented_as_current_or_binary()
+    {
+        var item = new UnimusBackupItem(new UnimusBackup { Id = 42, Type = "UNKNOWN" }, false);
+        Assert.Equal("Backup 42", item.VersionText);
+        Assert.Equal("Unknown date", item.ExactDateText);
+        Assert.Equal("Date unavailable · format unavailable", item.StatusText);
+        item.IsSelected = true;
+        Assert.EndsWith(", selected", item.ContentDescription);
     }
 
     [Fact]
