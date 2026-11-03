@@ -1,79 +1,51 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage
-    x:Class="DashyNMS.Mobile.Pages.NeighbourGroupsPage"
-    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
-    xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
-    x:DataType="topo:NeighbourGroupsViewModel"
-    Title="Neighbourhoods">
-
-    <!-- Desktop's neighbour views (#98): the same groups on both apps. -->
-    <ScrollView>
-        <controls:ReadableColumn>
-            <VerticalStackLayout Padding="16,0,16,16" Spacing="8">
-
-                <!-- "‹ Neighbours" and Add, as the app's other pushed pages: the system bar
-                     stays hidden, so coming back to Neighbours never brings it back. -->
-                <controls:BackBar x:Name="TopBar">
-                    <controls:BackBar.Actions>
-                        <Button Style="{StaticResource LinkButton}" Text="Add" Command="{Binding AddCommand}" />
-                    </controls:BackBar.Actions>
-                </controls:BackBar>
-                <Label Style="{StaticResource PageTitle}" Text="Neighbourhoods" SemanticProperties.HeadingLevel="Level1" />
-
-                <Label Style="{StaticResource Caption}"
-                       Text="Sort neighbours into neighbourhoods of your own by what they announce: their name, description, port or protocol, or the switch and port they're plugged into. They're shared with DashyNMS on your computer, where they're called neighbour views." />
-
-                <Border Style="{StaticResource Card}" Padding="20,24" IsVisible="{Binding HasNone}">
-                    <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center"
-                           Text="No neighbourhoods yet. Add one to group neighbours by what they announce, such as every access point or phone." />
-                </Border>
-
-                <!-- One card of rows (#121): each with its rules in a line and how many it holds,
-                     then ▲ ▼ to reorder - the order the chips show on Neighbours and desktop. -->
-                <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasNone, Converter={StaticResource Invert}}">
-                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Margin="0,-1,0,0">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="topo:NeighbourGroupRow">
-                                <Grid Style="{StaticResource ListRow}" ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="2"
-                                      Padding="14,11,6,0">
-                                    <VerticalStackLayout Spacing="1" VerticalOptions="Center">
-                                        <VerticalStackLayout.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </VerticalStackLayout.GestureRecognizers>
-                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
-                                        <Label Style="{StaticResource Faint}" Text="{Binding Summary}" LineBreakMode="TailTruncation" />
-                                    </VerticalStackLayout>
-                                    <Button Grid.Column="1" Text="▲" WidthRequest="36" Padding="0" BackgroundColor="Transparent" VerticalOptions="Center"
-                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                                            Command="{Binding MoveUpCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
-                                            CommandParameter="{Binding .}" SemanticProperties.Description="Move up" />
-                                    <Button Grid.Column="2" Text="▼" WidthRequest="36" Padding="0" BackgroundColor="Transparent" VerticalOptions="Center"
-                                            TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                                            Command="{Binding MoveDownCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
-                                            CommandParameter="{Binding .}" SemanticProperties.Description="Move down" />
-                                    <Label Grid.Column="3" Style="{StaticResource Chevron}" VerticalOptions="Center" Margin="6,0,4,0">
-                                        <Label.GestureRecognizers>
-                                            <TapGestureRecognizer
-                                                Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}"
-                                                CommandParameter="{Binding .}" />
-                                        </Label.GestureRecognizers>
-                                    </Label>
-                                    <BoxView Grid.Row="1" Grid.ColumnSpan="4" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
-                                    <BoxView Grid.ColumnSpan="4" Style="{StaticResource RowLine}" Margin="0,-11,-6,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </Border>
-
-                <Button Style="{StaticResource SecondaryButton}" Text="Add a neighbourhood" Command="{Binding AddCommand}" Margin="0,8,0,0" />
-
-            </VerticalStackLayout>
-        </controls:ReadableColumn>
-    </ScrollView>
-
+<ContentPage x:Class="DashyNMS.Mobile.Pages.NeighbourGroupsPage"
+ xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+ xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+ xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
+ x:DataType="topo:NeighbourGroupsViewModel" SafeAreaEdges="All" Title="Neighbourhoods">
+ <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,*" Padding="16,0">
+  <controls:BackBar x:Name="TopBar">
+   <controls:BackBar.Actions><Button Text="Add" Style="{StaticResource LinkButton}" Command="{Binding AddCommand}" MinimumHeightRequest="44" /></controls:BackBar.Actions>
+  </controls:BackBar>
+  <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Neighbourhoods" SemanticProperties.HeadingLevel="Level1" />
+  <VerticalStackLayout Grid.Row="2" Spacing="6">
+   <Label Style="{StaticResource Caption}" Text="Group neighbours by their announced name, description, port or protocol, or the switch and port they use. These use desktop's neighbour view definitions. Reordering and deletion save immediately." />
+   <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+   <Button Text="Retry neighbour counts" MinimumHeightRequest="44" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCountsCommand}" IsVisible="{Binding HasError}" />
+  </VerticalStackLayout>
+  <Grid Grid.Row="3" SafeAreaEdges="None">
+   <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Command="{Binding RetryCountsCommand}">
+    <CollectionView x:Name="List" ItemsSource="{Binding Groups}" SelectionMode="None">
+     <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
+     <CollectionView.Footer><BoxView x:Name="ListFoot" Color="Transparent" /></CollectionView.Footer>
+     <CollectionView.EmptyView><Label Margin="0,20,0,16" Style="{StaticResource Caption}" Text="No neighbourhoods yet. Use Add to group neighbours by what they announce." /></CollectionView.EmptyView>
+     <CollectionView.ItemTemplate>
+      <DataTemplate x:DataType="topo:NeighbourGroupRow">
+       <Border Style="{StaticResource Card}" Margin="0,0,0,8" Padding="14">
+        <VerticalStackLayout Spacing="6">
+         <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" LineBreakMode="WordWrap" />
+         <Label Style="{StaticResource Caption}" Text="{Binding Summary}" LineBreakMode="WordWrap" />
+         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <Button Text="Edit" MinimumHeightRequest="44" Style="{StaticResource SecondaryButton}"
+           SemanticProperties.Description="{Binding Name, StringFormat='Edit neighbourhood {0}'}"
+           Command="{Binding EditCommand, Source={RelativeSource AncestorType={x:Type topo:NeighbourGroupsViewModel}}, x:DataType=topo:NeighbourGroupsViewModel}" CommandParameter="{Binding .}" />
+          <Button Grid.Column="1" Text="More" MinimumHeightRequest="44" Style="{StaticResource SecondaryButton}"
+           SemanticProperties.Description="{Binding Name, StringFormat='More actions for neighbourhood {0}'}" Clicked="OnMore" />
+         </Grid>
+        </VerticalStackLayout>
+       </Border>
+      </DataTemplate>
+     </CollectionView.ItemTemplate>
+    </CollectionView>
+   </RefreshView>
+   <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+    <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
+    </LinearGradientBrush></BoxView.Background>
+   </BoxView>
+   <controls:BusyCard x:Name="Busy" Text="Loading neighbour counts…" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
+  </Grid>
+ </Grid>
 </ContentPage>
