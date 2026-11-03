@@ -16,6 +16,11 @@ public sealed record NotifyRuleChoice(int RuleId, string Name, AlertSeverity Sev
     public string Detail => Note ?? Severity.ToDisplayString();
 
     public bool CanAdd => !IsListed;
+
+    public string ActionDescription { get; init; } = "Add on every device and go back";
+
+    public string SelectionDescription => $"{Name}, {Detail}. " +
+        (CanAdd ? ActionDescription : "Cannot add again");
 }
 
 /// <summary>
@@ -29,6 +34,7 @@ public sealed partial class NotifyRulePickerViewModel : ViewModelBase
     private readonly NotifyRules _rules;
     private readonly INavigationService _navigation;
     private IReadOnlyList<NotifyRuleChoice> _all = [];
+    private bool _loaded;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -42,16 +48,31 @@ public sealed partial class NotifyRulePickerViewModel : ViewModelBase
 
     public BulkObservableCollection<NotifyRuleChoice> Rules { get; } = new();
 
+    public bool IsEmpty => _loaded && !IsBusy && !HasError && Rules.Count == 0;
+
+    public string EmptyText => _all.Count == 0
+        ? "No alert rules are available from this server."
+        : "No alert rules match your search.";
+
     /// <summary>"Leaves it out" or "Notifies you about it" - what adding does in this mode.</summary>
     public string Intro => _rules.Mode == NotificationRuleMode.Only
         ? "Notifies you about the rule on every device. For one device only, use Change on one of its alerts."
         : "Leaves the rule out on every device. For one device only, use Change on one of its alerts.";
 
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(IsBusy) or nameof(HasError))
+            OnPropertyChanged(nameof(IsEmpty));
+    }
+
     partial void OnSearchTextChanged(string value) => Filter();
 
     [RelayCommand]
-    private Task LoadAsync() => RunAsync(async () =>
+    private Task LoadAsync() => IsBusy ? Task.CompletedTask : RunAsync(async () =>
     {
+        _all = [];
+        Rules.ReplaceAll([]);
         var listed = _rules.Listed;
         _all = (await _client.Rules.ListAsync())
             .Select(rule =>
@@ -62,10 +83,16 @@ public sealed partial class NotifyRulePickerViewModel : ViewModelBase
                 var note = everywhere ? "Already on the list, on every device"
                     : devices.Length > 0 ? $"On the list for {devices} · adding covers every device"
                     : null;
-                return new NotifyRuleChoice(rule.Id, RuleText.Name(rule), rule.Severity, note, everywhere);
+                return new NotifyRuleChoice(rule.Id, RuleText.Name(rule), rule.Severity, note, everywhere)
+                {
+                    ActionDescription = _rules.Mode == NotificationRuleMode.Only
+                        ? "Notify on every device and go back"
+                        : "Leave out on every device and go back"
+                };
             })
             .OrderBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        _loaded = true;
         Filter();
     });
 
@@ -85,5 +112,7 @@ public sealed partial class NotifyRulePickerViewModel : ViewModelBase
     {
         var term = SearchText.Trim();
         Rules.ReplaceAll(_all.Where(r => term.Length == 0 || r.Name.Contains(term, StringComparison.OrdinalIgnoreCase)).ToList());
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(EmptyText));
     }
 }
