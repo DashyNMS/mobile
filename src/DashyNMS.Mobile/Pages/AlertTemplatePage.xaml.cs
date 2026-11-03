@@ -44,11 +44,7 @@ public partial class AlertTemplatePage : ContentPage, IQueryAttributable
         {
             if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
             _resumeWindow = Window;
-        }
-        if (_resumeWindow is not null)
-        {
-            _resumeWindow.Resumed -= OnResumed;
-            _resumeWindow.Resumed += OnResumed;
+            if (_resumeWindow is not null) _resumeWindow.Resumed += OnResumed;
         }
 #if IOS
         TopBar.IsVisible = !TabBarButtons.IsAvailable;
@@ -82,8 +78,9 @@ public partial class AlertTemplatePage : ContentPage, IQueryAttributable
             PullRefresh.SafeAreaEdges = Scroller.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None);
 #endif
         var edges = CoveredEdges.ForScrolling(this);
-        ContentColumn.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 24 + edges.Bottom);
-        Fade.Margin = new Thickness(16 + edges.Left, TopBar.IsVisible ? Math.Max(0, TopBar.Height) + 12 : 0, 16 + edges.Right, 0);
+        ContentColumn.Padding = new Thickness(16 + edges.Left, TopBar.IsVisible ? 0 : 20, 16 + edges.Right, 24 + edges.Bottom);
+        Fade.IsVisible = !TopBar.IsVisible;
+        Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
     }
 
     private void OnResumed(object? sender, EventArgs e)

@@ -36,7 +36,7 @@ remain unchanged; only the template view-model section in their shared file chan
 | Loading and failures | Fix required: rules failure blocked all content; fetch template first, display it while rules load, preserve only current assignment IDs from prior rows on failure. State unavailable explicitly and offer pull refresh. Main errors have one Retry and explain retained content. Missing template retains last content with a missing-source message. |
 | Empty source | Compliant: no explicit assignments is distinct from default-template status. Empty source body remains empty; no invented expression or fallback body. |
 | Navigation and security | Compliant relative routes and IDs retained; read-only API and session handling unchanged. Added caller-labelled glass Back for the pushed template only. |
-| Insets and fade | Fix required: remove legacy iOS safe-area flag; page owns top only, native scroll adjustment disabled, scrolling column owns sides/bottom. Input-transparent 20pt fade has a spacer below visible BackBar. No toast exists on this page. |
+| Insets and fade | Fix required: remove legacy iOS safe-area flag; page owns top only, native scroll adjustment disabled, scrolling column owns sides/bottom. Fade stays at viewport top and is hidden with visible BackBar; only glass Back reserves 20pt top padding. No extra spacer below BackBar. No toast exists on this page. |
 | Lifecycle | Fix required: scoped covered-edge watcher, paired glass Moved subscription, retained Window resume subscription. Dispose/unsubscribe on disappearing; same-view native handler hooks are attached once. Resize recalculates padding. |
 | Search and setup | Compliant: neither exists on template details; no search migration or unrelated setup edits. |
 | Themes, large text, fold and resume | Unverified on hardware; exact checks below. |
@@ -53,6 +53,33 @@ obtain Claude Opus 5.5 Medium full-diff review before merge. If quota is exhaust
 leave this PR unmerged for review after reset. Self-review is separate evidence.
 
 ## Remaining device checks
+
+### Revision after Claude findings at a1ab3488
+
+All six supplied findings were confirmed and addressed. Related rules are not
+requested for zero assignments. API failures retain the template's assignment
+count and only still-assigned cached rows, with accurate first-load/retained-row
+wording. Successful partial visibility retains its account suffix during refresh.
+Only LibreNmsApiException is handled as a supplementary failure; cancellation
+and unexpected errors reach RunAsync. Loading status is cleared on those exits.
+The existing row AccessibleDescription supplies name, condition, targets and
+state; decorative icons and label children are excluded from announcements.
+Main retention caption appears only after template content loaded; related
+failure has a 44pt labelled Retry, hidden during busy/main-error states.
+Resume subscription retains its Window and pairs one add/remove per lifetime.
+
+Regression additions cover zero-assignment fetch avoidance, failed assignment
+counts, retained current-row navigation, removed-assignment filtering, partial
+visibility during loading, truthful first template failure and base exception
+handling. Tests were written but not run locally, as instructed. Full final-diff
+self-review and git diff --check are the local validation only.
+Prior-head CI at a1ab3488 is historical: unit/platform and CodeQL actions/C#
+passed; Swift was pending/superseded and Android pending in supplied evidence.
+New-head CI and a fresh parent Claude 5.5 Medium review remain required.
+Specifically verify fade absence after scrolling BackBar away on Android/older
+iOS and single row announcement/activation on VoiceOver and TalkBack.
+
+### Hardware acceptance still pending
 
 All device results remain unverified. Record head/build, device/OS, result and
 diagnostics for each check:

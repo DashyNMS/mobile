@@ -21,15 +21,14 @@
                 <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12">
 
                     <controls:BackBar x:Name="TopBar" />
-                    <BoxView HeightRequest="20" Color="Transparent" />
 
                     <Border Style="{StaticResource Card}" Padding="14,12" IsVisible="{Binding HasError}"
                             BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
                         <VerticalStackLayout Spacing="8">
                             <Label Text="{Binding ErrorMessage}" FontSize="13"
                                    TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                            <Label Text="Showing the last loaded content, if available. Pull to refresh or retry." Style="{StaticResource Caption}" />
-                            <Button Text="Retry" SemanticProperties.Description="Retry loading the template" MinimumHeightRequest="44" Style="{StaticResource LinkButton}" Command="{Binding RefreshCommand}" />
+                            <Label Text="Showing the last loaded content." IsVisible="{Binding HasLoaded}" Style="{StaticResource Caption}" />
+                            <Button Text="Retry" SemanticProperties.Description="Retry loading the template" IsEnabled="{Binding IsNotBusy}" MinimumHeightRequest="44" Style="{StaticResource LinkButton}" Command="{Binding RefreshCommand}" />
                         </VerticalStackLayout>
                     </Border>
 
@@ -67,18 +66,12 @@
                     <!-- The rules using it (#122), as the rules list shows them; each opens its rule. -->
                     <Label Style="{StaticResource SectionHeader}" Text="Used by" Margin="4,8,0,0" IsVisible="{Binding HasRules}" />
                     <Label Text="{Binding RulesStatus}" Style="{StaticResource Caption}" IsVisible="{Binding HasRulesStatus}" />
+                    <Button Text="Retry" SemanticProperties.Description="Retry loading related rules" MinimumHeightRequest="44" Style="{StaticResource LinkButton}" IsVisible="{Binding CanRetryRules}" IsEnabled="{Binding IsNotBusy}" Command="{Binding RefreshCommand}" />
                     <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasRules}">
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rules}" Margin="0,-1,0,0">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="rules:AlertRuleItem">
-                                    <Grid Style="{StaticResource ListRow}" MinimumHeightRequest="44" SemanticProperties.Hint="Opens the read-only rule" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
-                                        <SemanticProperties.Description>
-                                            <MultiBinding StringFormat="{}{0}. {1}. {2}">
-                                                <Binding Path="Name" />
-                                                <Binding Path="Summary" />
-                                                <Binding Path="Condition" />
-                                            </MultiBinding>
-                                        </SemanticProperties.Description>
+                                    <Grid Style="{StaticResource ListRow}" MinimumHeightRequest="44" SemanticProperties.Description="{Binding AccessibleDescription}" SemanticProperties.Hint="Opens the read-only rule" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                         <Grid.Triggers>
                                             <DataTrigger TargetType="Grid" Binding="{Binding IsDisabled}" Value="True">
                                                 <Setter Property="Opacity" Value="0.55" />
@@ -89,15 +82,15 @@
                                                 Command="{Binding OpenRuleCommand, Source={RelativeSource AncestorType={x:Type rules:AlertTemplateViewModel}}, x:DataType=rules:AlertTemplateViewModel}"
                                                 CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
-                                        <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}"
+                                        <Ellipse AutomationProperties.IsInAccessibleTree="False" Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}"
                                                  VerticalOptions="Start" Margin="0,6,0,0" />
-                                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                        <VerticalStackLayout AutomationProperties.ExcludedWithChildren="True" Grid.Column="1" Spacing="2">
                                             <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
                                             <Label Text="{Binding Summary}" Style="{StaticResource Caption}" />
                                             <Label Text="{Binding Condition}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap"
                                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource Gray100}}" />
                                         </VerticalStackLayout>
-                                        <Label Grid.Column="2" Style="{StaticResource Chevron}" VerticalOptions="Center" />
+                                        <Label AutomationProperties.IsInAccessibleTree="False" Grid.Column="2" Style="{StaticResource Chevron}" VerticalOptions="Center" />
                                         <BoxView Grid.Row="1" Grid.ColumnSpan="3" HeightRequest="1" Margin="0,11,0,0" Color="Transparent" />
                                         <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
                                     </Grid>
