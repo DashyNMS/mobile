@@ -20,6 +20,8 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Availability facts stack so dates and durations remain readable at large text sizes.</summary>
+    public bool AvailabilityLayout { get; init; }
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>

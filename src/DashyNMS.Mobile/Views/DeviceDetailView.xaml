@@ -121,10 +121,21 @@
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Grid.Triggers>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding AvailabilityLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
+                                                </Grid.Triggers>
                                                 <Label Text="{Binding Title}" FontSize="13" LineBreakMode="TailTruncation" />
                                                 <Label Grid.Column="1" Text="{Binding Value}" FontSize="13" IsVisible="{Binding HasValue}"
                                                        TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                             </Grid>
+                                            <VerticalStackLayout IsVisible="{Binding AvailabilityLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding Detail}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
                                                          ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                                         </VerticalStackLayout>

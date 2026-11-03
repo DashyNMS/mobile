@@ -15,8 +15,10 @@ namespace DashyNMS.Mobile.Pages;
 /// sliding its field down from beneath the title (#349); without glass, the
 /// header's icon opens it.
 /// </remarks>
-public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearchHost
+public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearchHost, IActivePage
 {
+    private IDisposable? _edges;
+    private readonly ButtonSearch _search;
 	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
 	private const uint SearchSlide = 220;
 
@@ -45,6 +47,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+        _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
+        SearchButton.Command = new Command(OpenSearch);
 #if IOS
 		// Keep clear of the status bar only; the other edges are placed in PlaceControls.
 		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
@@ -55,7 +59,6 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.HandlerChanged += (_, _) => StopInsetAdjustment();
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-		CoveredEdges.Watch(this, PlaceControls);
 
 		// An inventory's nesting reads down one column, so it never spreads across.
 		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(() =>
@@ -75,7 +78,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			switch (e.PropertyName)
 			{
 				case nameof(DeviceSectionViewModel.IsSearchOpen):
-					Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
+					Dispatcher.Dispatch(() => { if (_viewModel.IsSearchOpen) _search.Open(); else _search.Close(); });
 					break;
 				case nameof(DeviceSectionViewModel.IsFilterPanelOpen):
 					Dispatcher.Dispatch(() =>
@@ -124,6 +127,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	/// </summary>
 	public void OpenSearch()
 	{
+        _search.Open();
 		if (_viewModel.IsSearchOpen)
 		{
 			Search.Focus();
@@ -148,7 +152,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+        Activate();
+    }
+
+    public void Activate()
+    {
 		Header.Apply(this);
+        _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
 		_showing = true;
 #endif
@@ -160,6 +170,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 #if IOS
 		_glass = null;
 		UpdateGlass();
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
@@ -178,6 +189,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        _search.Close();
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
 		_showing = false;
 #endif
@@ -212,6 +226,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			for (var i = 0; i < columns; i++) SectionBody.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
 		}
 		Grid.SetRow(Refresh, wideNeighbours ? 0 : 1);
+        Grid.SetRow(ListFade, wideNeighbours ? 0 : 1);
+        Grid.SetColumn(ListFade, wideNeighbours ? 1 : 0);
 		Grid.SetColumn(Refresh, wideNeighbours ? 1 : 0);
 		Grid.SetRowSpan(Refresh, wideNeighbours ? 2 : 1);
 		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
@@ -235,6 +251,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		{
 			List.Margin = list;
 		}
+        ListFade.Margin = list;
 
 		// Keep the viewport itself above the tab/glass area. A grouped,
 		// virtualised list must not rely on its footer alone for clearance:
@@ -396,7 +413,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	}
 
 	// The keyboard's search key: the list is narrowed, so the field goes.
-	private void OnSearchCompleted(object? sender, EventArgs e) => _viewModel.DismissSearch();
+	private void OnSearchCompleted(object? sender, EventArgs e) { _search.Close(); _viewModel.DismissSearch(); }
 
 	/// <summary>
 	/// Slides the search field down from beneath the title, the list easing

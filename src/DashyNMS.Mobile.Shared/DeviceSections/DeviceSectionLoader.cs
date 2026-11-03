@@ -88,20 +88,25 @@ public sealed class DeviceSectionLoader
             .Select(w => new SectionRow(Units.Window(w.DurationSeconds))
             {
                 SortValue = w.DurationSeconds,
-                Value = Units.Percent(w.Percent),
-                Status = w.Percent >= 99.9 ? RowStatus.Ok : w.Percent >= 99 ? RowStatus.Warning : RowStatus.Critical,
+                Value = double.IsFinite(w.Percent) && w.Percent >= 0 && w.Percent <= 100 ? Units.Percent(w.Percent) : "—",
+                AvailabilityLayout = true,
+                Detail = AvailabilityState(w.Percent),
+                Status = !double.IsFinite(w.Percent) || w.Percent < 0 || w.Percent > 100 ? RowStatus.None
+                    : w.Percent >= 99.9 ? RowStatus.Ok : w.Percent >= 99 ? RowStatus.Warning : RowStatus.Critical,
             });
 
         var now = DateTime.Now;
         var outages = outagesTask.Result
-            .Where(o => o.GoingDown is not null)
             .OrderByDescending(o => o.GoingDown)
             .Select(o =>
             {
+                if (o.GoingDown is null)
+                    return new SectionRow("Outage time unavailable") { AvailabilityLayout = true, Detail = "Recorded outage; start time missing" };
                 var down = ServerTime.ToLocal(o.GoingDown!.Value, ServerUtc);
                 var up = ServerTime.ToLocal(o.UpAgain, ServerUtc);
                 return new SectionRow("Down " + down.ToString("d MMM HH:mm", CultureInfo.CurrentCulture))
                 {
+                    AvailabilityLayout = true,
                     Subtitle = up is { } back ? "Back " + back.ToString("d MMM HH:mm", CultureInfo.CurrentCulture) : "Still down",
                     Value = Units.Duration((up ?? now) - down),
                     Status = up is null ? RowStatus.Critical : RowStatus.None,
@@ -110,6 +115,11 @@ public sealed class DeviceSectionLoader
 
         return Groups(("Availability", windows), ("Outages", outages));
     }
+
+    /// <summary>State remains readable without relying on the percentage's colour.</summary>
+    internal static string AvailabilityState(double percent) =>
+        !double.IsFinite(percent) || percent < 0 || percent > 100 ? "Availability unavailable"
+        : percent >= 99.9 ? "OK" : percent >= 99 ? "Warning" : "Critical";
 
     // ------------------------------------------------------------ sensors
 
