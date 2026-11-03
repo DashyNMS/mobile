@@ -28,7 +28,7 @@ public sealed class DeviceSectionCardTests
         await vm.LoadAsync(7);
         await vm.SectionsLoaded;
         Assert.Equal(expected, vm.PortsTileStatus);
-        Assert.Contains("1 unknown", vm.Sections.Single(c => c.Section == DeviceSection.Ports).SummaryText);
+        Assert.Contains("1 unknown", vm.SectionCards.Single(c => c.Info.Section == DeviceSection.Ports).SummaryText);
     }
 
     [Fact]
