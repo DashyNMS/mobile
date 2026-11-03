@@ -15,7 +15,25 @@ public sealed record MapPinData(
     [property: JsonPropertyName("up")] int Up = 0,
     [property: JsonPropertyName("down")] int Down = 0,
     [property: JsonPropertyName("maintenance")] int Maintenance = 0,
-    [property: JsonPropertyName("off")] int Off = 0);
+    [property: JsonPropertyName("off")] int Off = 0)
+{
+    /// <summary>Unreported states occupy their own grey share of the ring.</summary>
+    [JsonPropertyName("unknown")]
+    public int Unknown => Math.Max(0, Count - Up - Down - Maintenance - Off);
+
+    /// <summary>Ordered ring counts; unknown is explicitly grey rather than a gradient remainder.</summary>
+    [JsonPropertyName("ring")]
+    public IReadOnlyList<MapRingPart> Ring =>
+    [
+        new(Down, "#DA3633"), new(Maintenance, "#4C9AFF"), new(Up, "#2EA043"),
+        new(Off + Unknown, "#6E6E6E"),
+    ];
+}
+
+/// <summary>A ring segment passed as JSON, so the rendered colours are testable without MAUI.</summary>
+public sealed record MapRingPart(
+    [property: JsonPropertyName("count")] int Count,
+    [property: JsonPropertyName("colour")] string Colour);
 
 /// <summary>
 /// The Map page's HTML: Leaflet (bundled with the app, inlined - never from
@@ -124,6 +142,9 @@ public static class MapHtml
             {{leafletCss}}
               html, body, #map { margin: 0; padding: 0; height: 100%; background: {{background}}; }
               {{tileFilter}}
+              .leaflet-marker-icon { transition: opacity 250ms; }
+              .immediate .leaflet-marker-icon { transition: none; }
+              .leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
               /* As desktop's pins: a ring split by device state, the count in the hole, bigger for bigger sites. */
               .pin { border-radius: 50%; display: flex; align-items: center; justify-content: center;
                      box-shadow: 0 1px 4px rgba(0,0,0,0.45); }
@@ -137,6 +158,60 @@ public static class MapHtml
               var data = {{data}};
               var map = L.map('map', { worldCopyJump: true });
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
+              window.setMapClearance = function (top, right, bottom, left) {
+                var previous = clearance;
+                hasClearance = true;
+                clearance = { top: top, right: right, bottom: bottom, left: left };
+                var controls = map.getContainer().querySelector('.leaflet-control-container');
+                controls.style.position = 'absolute';
+                controls.style.top = top + 'px'; controls.style.right = right + 'px';
+                controls.style.bottom = bottom + 'px'; controls.style.left = left + 'px';
+                controls.style.pointerEvents = 'none';
+                controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });
+                if (!ready) initialise();
+                else if (fitWithoutClearance && !userMoved) {
+                  // A selected pin already owns its zoom; only its safe offset needs repair.
+                  if (dimming) focusSelection();
+                  else programmatic(function () { fit(); });
+                } else if (dimming) {
+                  // Only a dimming selection follows the uncovered-centre delta.
+                  programmatic(function () {
+                    map.panBy([((right - left) - (previous.right - previous.left)) / 2,
+                      ((bottom - top) - (previous.bottom - previous.top)) / 2], { animate: false });
+                  });
+                }
+                fitWithoutClearance = false;
+              };
+              var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
+              var target = null, hasClearance = false, fitWithoutClearance = false, userMoved = false, moving = 0;
+              function programmatic(action) { moving++; try { action(); } finally { moving--; } }
+              map.on('movestart zoomstart', function () { if (!moving && ready) userMoved = true; });
+              function focusSelection() {
+                if (!ready) { pendingFocus = true; return; }
+                pendingFocus = false;
+                var pins = data.pins.filter(function (p) { return selected.indexOf(p.id) >= 0; });
+                if (!pins.length) return;
+                var centre = L.latLngBounds(pins.map(function (p) { return [p.lat, p.lng]; })).getCenter();
+                var zoom = target && target.ids === selected.join(',') ? target.zoom : map.getZoom();
+                if (target && target.ids === selected.join(',')) target = null;
+                programmatic(function () {
+                  // One synchronous camera operation owns both merged-pin zoom and safe offset.
+                  map.stop();
+                  map.setView(centre, zoom, { animate: false });
+                  map.panBy([(clearance.right - clearance.left) / 2, (clearance.bottom - clearance.top) / 2], { animate: false });
+                });
+              }
+              window.setSelection = function (ids, immediate, dim, focus) {
+                selected = ids;
+                dimming = dim !== false && ids.length > 0;
+                document.getElementById('map').classList.toggle('immediate', immediate);
+                layer.eachLayer(function (marker) {
+                  var el = marker.getElement();
+                  if (el) el.style.opacity = !dimming || marker.pinIds.some(function (id) { return selected.indexOf(id) >= 0; }) ? '1' : '0.25';
+                });
+                if (!dimming) { pendingFocus = false; if (!ids.length) target = null; }
+                if (focus && dimming) focusSelection();
+              };
               var layer = L.layerGroup().addTo(map);
               var bounds = data.pins.map(function (p) { return [p.lat, p.lng]; });
               var radius = {{ClusterRadius}};
@@ -165,14 +240,15 @@ public static class MapHtml
               function draw() {
                 layer.clearLayers();
                 groups().forEach(function (g) {
-                  var up = 0, down = 0, maintenance = 0, off = 0;
-                  g.pins.forEach(function (p) { up += p.up; down += p.down; maintenance += p.maintenance; off += p.off; });
-                  var count = up + down + maintenance + off;
+                  var ring = g.pins[0].ring.map(function (part, index) {
+                    return [g.pins.reduce(function (sum, p) { return sum + p.ring[index].count; }, 0), part.colour];
+                  });
+                  var count = g.pins.reduce(function (total, p) { return total + p.count; }, 0);
                   var size = Math.round(2 * Math.min(20, Math.max(10, 9 + Math.log2(Math.max(count, 1)) * 2)));
 
                   // The ring, in proportion, down first from twelve o'clock.
                   var stops = [], from = 0;
-                  [[down, '#DA3633'], [maintenance, '#4C9AFF'], [up, '#2EA043'], [off, '#6E6E6E']].forEach(function (s) {
+                  ring.forEach(function (s) {
                     if (!s[0]) { return; }
                     var to = from + s[0] / count * 360;
                     stops.push(s[1] + ' ' + from + 'deg ' + to + 'deg');
@@ -190,30 +266,41 @@ public static class MapHtml
                   var where = map.layerPointToLatLng([g.x, g.y]);
                   var title = g.pins.length === 1 ? g.pins[0].name : g.pins.length + ' locations';
                   var marker = L.marker(where, { icon: L.divIcon({ html: el, className: '', iconSize: [size, size] }), title: title });
+                  marker.pinIds = g.pins.map(function (p) { return p.id; });
                   marker.on('click', function () {
-                    // A merged pin also zooms in until its locations separate.
-                    if (g.pins.length > 1) { map.setView(where, Math.min(map.getZoom() + 2, 18)); }
+                    // Defer the zoom until the native card has supplied its clearance.
+                    target = { ids: marker.pinIds.join(','), zoom: g.pins.length > 1 ? Math.min(map.getZoom() + 2, 18) : map.getZoom() };
                     window.location.href = '{{PinScheme}}://pins/' + g.pins.map(function (p) { return p.id; }).join(',');
                   });
                   layer.addLayer(marker);
+                  marker.getElement().style.opacity = !dimming || marker.pinIds.some(function (id) { return selected.indexOf(id) >= 0; }) ? '1' : '0.25';
                 });
               }
 
               function fit() {
-                if (bounds.length) { map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 }); } else { map.setView([20, 0], 2); }
+                // Keep at least a quarter of each axis usable, even when large
+                // captions or glass cover most of a short landscape canvas.
+                var size = map.getSize();
+                var left = clearance.left + 30, right = clearance.right + 30;
+                var top = clearance.top + 30, bottom = clearance.bottom + 30;
+                var horizontal = Math.min(1, size.x * 0.75 / (left + right));
+                var vertical = Math.min(1, size.y * 0.75 / (top + bottom));
+                if (bounds.length) { map.fitBounds(bounds, { paddingTopLeft: [left * horizontal, top * vertical], paddingBottomRight: [right * horizontal, bottom * vertical], maxZoom: 12, animate: false }); } else { map.setView([20, 0], 2, { animate: false }); }
                 draw();
               }
               map.on('zoomend', draw);
-              fit();
-              // The page can load before the web view has its final size, and the
-              // size changes again when the location panel opens: Leaflet then
-              // draws only part of the map and fits the pins to the wrong area
-              // (#84). Re-measure on every resize, and fit again the first time
-              // there's a real size.
-              var fitted = false;
+              // Native geometry normally starts the map. A timed fallback also makes
+              // it usable when the first bridge call is lost during document load.
+              function initialise() {
+                if (ready || map.getSize().y <= 0 || map.getSize().x <= 0) return;
+                programmatic(function () { fit(); });
+                fitWithoutClearance = !hasClearance;
+                ready = true;
+                if (pendingFocus) focusSelection();
+              }
               function resized() {
-                map.invalidateSize();
-                if (!fitted && map.getSize().y > 0) { fitted = true; fit(); }
+                programmatic(function () { map.invalidateSize(); });
+                initialise();
               }
               window.addEventListener('resize', resized);
               setTimeout(resized, 250);

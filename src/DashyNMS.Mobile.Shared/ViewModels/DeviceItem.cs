@@ -18,7 +18,7 @@ public sealed partial class DeviceItem : ObservableObject
 
     /// <summary>Inside a maintenance window - a per-device lookup, filled in after the list loads.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(State), nameof(StateText))]
+    [NotifyPropertyChangedFor(nameof(State), nameof(StateText), nameof(Description))]
     private bool _isUnderMaintenance;
 
     /// <summary>Its detail is showing beside the list, on a larger screen (#88).</summary>
@@ -54,6 +54,11 @@ public sealed partial class DeviceItem : ObservableObject
     /// <summary>"10.0.0.1 · Cisco C9300 · London DC" - whichever of those are known.</summary>
     public string Details => string.Join(" · ", new[] { Device.Ip, Device.Hardware, Device.LocationName() }
         .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    public bool HasDetails => !string.IsNullOrWhiteSpace(Details);
+
+    /// <summary>Whole-row announcement without empty fields or trailing punctuation.</summary>
+    public string Description => string.Join(", ", new[] { Name, StateText, Details }.Where(part => !string.IsNullOrWhiteSpace(part)));
 
     /// <summary>As desktop: maintenance takes over from up/down while a window is open.</summary>
     public DeviceState State => IsUnderMaintenance ? DeviceState.Maintenance : Device.ReportedState;

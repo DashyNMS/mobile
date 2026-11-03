@@ -24,6 +24,9 @@ jobs:
         with:
           global-json-file: global.json
 
+      - name: Test geographic map camera bridge
+        run: node --test tests/map/camera.test.mjs
+
       - name: Test shared code
         run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug
 

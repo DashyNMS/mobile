@@ -51,6 +51,7 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.DiagnosticsSharing, typeof(DiagnosticsSharingPage));
 		Routing.RegisterRoute(Routes.GraylogMessage, typeof(GraylogMessagePage));
 		Routing.RegisterRoute(Routes.GraylogDevice, typeof(GraylogDevicePickerPage));
+		Routing.RegisterRoute(Routes.MapLocations, typeof(MapLocationPickerPage));
 		Routing.RegisterRoute(Routes.LogEntry, typeof(LogEntryPage));
 		Routing.RegisterRoute(Routes.SettingsSection, typeof(SettingsSectionPage));
 		Routing.RegisterRoute(Routes.NeighbourLink, typeof(NeighbourLinkPage));

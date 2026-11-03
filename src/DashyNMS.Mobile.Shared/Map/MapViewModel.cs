@@ -31,6 +31,10 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IMapAssets _assets;
+    private int _deviceCount;
+    public long SelectionVersion { get; private set; }
+    public IReadOnlyList<int> SelectedPinIds { get; private set; } = [];
+
     private IReadOnlyList<(MapPinData Pin, IReadOnlyList<DeviceItem> Devices)> _pins = [];
 
     [ObservableProperty]
@@ -48,6 +52,17 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
         _settings = settings;
         _navigation = navigation;
         _assets = assets;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(IsBusy) or nameof(HasError) or nameof(MapPage))
+            {
+                OnPropertyChanged(nameof(EmptyText));
+                OnPropertyChanged(nameof(HasEmptyText));
+                OnPropertyChanged(nameof(HasUnplacedText));
+                OnPropertyChanged(nameof(CanChooseLocation));
+                ChooseLocationCommand.NotifyCanExecuteChanged();
+            }
+        };
     }
 
     /// <summary>Set by the page from the phone's theme.</summary>
@@ -55,6 +70,15 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
     /// <summary>The tapped pin's devices, down first.</summary>
     public BulkObservableCollection<DeviceItem> Devices { get; } = new();
+
+    public IReadOnlyList<MapPinData> Locations => _pins.Select(p => p.Pin).ToList();
+
+    public bool HasEmptyText => !string.IsNullOrEmpty(EmptyText);
+    public bool HasUnplacedText => !HasEmptyText && !string.IsNullOrEmpty(UnplacedText);
+    partial void OnUnplacedTextChanged(string value) => OnPropertyChanged(nameof(HasUnplacedText));
+    public bool CanChooseLocation => !IsBusy && _pins.Count > 0;
+
+    public string EmptyText => IsBusy || HasError || MapPage is null || _pins.Count > 0 ? string.Empty : (_deviceCount == 0 ? "No devices." : "No devices have locations with coordinates.");
 
     public bool HasSelection => SelectedLocation is not null;
 
@@ -70,6 +94,7 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
         var style = _settings.Current.DeviceNameStyle;
         var devices = devicesTask.Result;
+        _deviceCount = devices.Count;
         foreach (var device in devices)
         {
             // Geocoded locations arrive as an object with the id and coordinates in it (#84).
@@ -99,6 +124,9 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off), (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 
+        OnPropertyChanged(nameof(Locations));
+        OnPropertyChanged(nameof(CanChooseLocation));
+        ChooseLocationCommand.NotifyCanExecuteChanged();
         var unplaced = placement.UnplacedDeviceIds.Count;
         UnplacedText = unplaced == 0 ? string.Empty
             : $"{unplaced} {(unplaced == 1 ? "device has" : "devices have")} no location with coordinates, so {(unplaced == 1 ? "isn't" : "aren't")} on the map.";
@@ -127,6 +155,11 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public bool HasSingleLocation => _selectedNames.Count == 1;
 
+    /// <summary>Push the searchable chooser with this map as its selection owner.</summary>
+    [RelayCommand(CanExecute = nameof(CanChooseLocation))]
+    private Task ChooseLocationAsync() => !CanChooseLocation ? Task.CompletedTask
+        : _navigation.GoToAsync(Routes.MapLocations, new Dictionary<string, object> { [Routes.MapOwnerParameter] = this });
+
     /// <summary>A pin was tapped on the map.</summary>
     public void SelectPin(int id) => SelectPins([id]);
 
@@ -142,6 +175,8 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        SelectedPinIds = chosen.Select(p => p.Pin.Id).ToList();
+        SelectionVersion++;
         _selectedNames = chosen.Select(p => p.Pin.Name).ToList();
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = chosen.Count == 1 ? chosen[0].Pin.Name : $"{chosen.Count} locations";
@@ -149,15 +184,27 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             .SelectMany(p => p.Devices)
             .OrderByDescending(d => d.State == DeviceState.Down)
             .ThenBy(d => d.Name, StringComparer.OrdinalIgnoreCase));
+        OnPropertyChanged(nameof(SelectedPinIds));
+    }
+
+    /// <summary>A departing card must not clear a choice made during its exit.</summary>
+    public bool ClearSelectionIfCurrent(long version)
+    {
+        if (version != SelectionVersion) return false;
+        ClearSelection();
+        return true;
     }
 
     [RelayCommand]
     private void ClearSelection()
     {
+        SelectedPinIds = [];
+        SelectionVersion++;
         _selectedNames = [];
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = null;
         Devices.ReplaceAll([]);
+        OnPropertyChanged(nameof(SelectedPinIds));
     }
 
     /// <summary>

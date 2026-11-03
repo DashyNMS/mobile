@@ -107,6 +107,218 @@ public sealed class MapViewModelTests
     }
 
     [Fact]
+    public async Task Picker_coordinates_use_short_round_trip_text()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            [new Location { Id = 1, Name = "Example site", Latitude = 51.1, Longitude = -1.1 }]);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.EndsWith(" · 51.1, -1.1", Assert.Single(picker.Choices).Details);
+    }
+
+    [Fact]
+    public async Task A_close_cannot_clear_a_new_choice_even_when_the_same_pin_is_reselected()
+    {
+        var vm = await Loaded();
+        vm.SelectPin(vm.Locations[0].Id);
+        var closing = vm.SelectionVersion;
+        vm.SelectPin(vm.Locations[0].Id);
+        Assert.False(vm.ClearSelectionIfCurrent(closing));
+        Assert.True(vm.HasSelection);
+        var nextClose = vm.SelectionVersion;
+        vm.SelectPin(vm.Locations[1].Id);
+        Assert.False(vm.ClearSelectionIfCurrent(nextClose));
+        Assert.Equal([vm.Locations[1].Id], vm.SelectedPinIds);
+        Assert.True(vm.ClearSelectionIfCurrent(vm.SelectionVersion));
+        Assert.False(vm.HasSelection);
+    }
+
+    [Fact]
+    public async Task Searchable_chooser_orders_naturally_and_duplicate_names_select_the_correct_pin()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Location { Id = 1, Name = "Site 10", Latitude = 51, Longitude = -1 },
+            new Location { Id = 2, Name = "Site 2", Latitude = 52, Longitude = -2 },
+            new Location { Id = 3, Name = "Site 2", Latitude = 53, Longitude = -3 },
+        ]);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            At(Fakes.Device(1, "first.example.net", location: "Site 10"), 1),
+            At(Fakes.Device(2, "second.example.net", location: "Site 2"), 2),
+            At(Fakes.Device(3, "third.example.net", location: "Site 2"), 3),
+        ]);
+        var vm = await Loaded();
+        var expected = vm.Locations.Where(p => p.Name == "Site 2").Skip(1).Single();
+        var picker = new MapLocationPickerViewModel(_navigation) { SearchDelay = TimeSpan.Zero };
+        picker.Load(vm);
+        Assert.Equal(["Site 2", "Site 2", "Site 10"], picker.Choices.Select(c => c.Name));
+        Assert.All(picker.Choices, c => Assert.StartsWith("1 device · ", c.Details));
+        picker.SearchText = "Site 2";
+        Assert.Equal(2, picker.Choices.Count);
+        await picker.ChooseCommand.ExecuteAsync(picker.Choices[1]);
+        Assert.Equal(expected.Id, Assert.Single(vm.SelectedPinIds));
+        Assert.Equal(Services.Routes.Back, Assert.Single(_navigation.Visits).Route);
+        await vm.OpenDeviceCommand.ExecuteAsync(Assert.Single(vm.Devices));
+        Assert.Equal(expected.Latitude == 52 ? 2 : 3, _navigation.Visits.Last().Parameters![Services.Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public async Task Identical_location_text_and_coordinates_still_choose_by_object_identity()
+    {
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Location { Id = 1, Name = "Same place", Latitude = 51, Longitude = 1 },
+            new Location { Id = 2, Name = "Same place", Latitude = 51, Longitude = 1 },
+        ]);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [At(Fakes.Device(1, "one.example.net"), 1), At(Fakes.Device(2, "two.example.net"), 2)]);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.Equal(2, picker.Choices.Count);
+        Assert.All(picker.Choices, row => Assert.Equal("Same place", row.Name));
+        Assert.EndsWith("choice 2", picker.Choices[1].Details);
+        Assert.DoesNotContain("location ID", picker.Choices[1].Details);
+        var chosen = picker.Choices[1];
+        await picker.ChooseCommand.ExecuteAsync(chosen);
+        Assert.Equal([chosen.Pin.Id], vm.SelectedPinIds);
+        Assert.Equal(2, Assert.Single(vm.Devices).DeviceId);
+        picker.Load(vm);
+        Assert.True(picker.Choices[1].IsSelected);
+        Assert.EndsWith(", selected", picker.Choices[1].Description);
+    }
+
+    [Fact]
+    public async Task Picker_route_retains_the_owner_and_back_without_choosing_does_not_select()
+    {
+        var vm = await Loaded();
+        await vm.ChooseLocationCommand.ExecuteAsync(null);
+        var visit = Assert.Single(_navigation.Visits);
+        Assert.Equal(Services.Routes.MapLocations, visit.Route);
+        Assert.Same(vm, visit.Parameters![Services.Routes.MapOwnerParameter]);
+        var picker = new MapLocationPickerViewModel(_navigation);
+        picker.Load(vm);
+        Assert.False(vm.HasSelection);
+        Assert.Empty(vm.SelectedPinIds);
+    }
+
+    [Fact]
+    public async Task Large_picker_search_keeps_all_rows_and_rejects_stale_identity_after_refresh()
+    {
+        var devices = Enumerable.Range(1, 300).Select(id => At(Fakes.Device(id, $"device-{id}.example.net"), id)).ToList();
+        var locations = Enumerable.Range(1, 300).Select(id => new Location { Id = id, Name = $"Site {id}", Latitude = 51, Longitude = id / 10.0 }).ToList();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(devices);
+        _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(locations);
+        var vm = await Loaded();
+        var picker = new MapLocationPickerViewModel(_navigation) { SearchDelay = TimeSpan.Zero };
+        picker.Load(vm);
+        Assert.Equal(300, picker.Choices.Count);
+        Assert.Equal("Site 2", picker.Choices[1].Name);
+        picker.SearchText = "Site 300";
+        var stale = Assert.Single(picker.Choices);
+        picker.SearchText = "no such place";
+        Assert.Empty(picker.Choices);
+        Assert.True(picker.HasStatus);
+        picker.SearchText = "";
+        Assert.Equal(300, picker.Choices.Count);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await picker.ChooseCommand.ExecuteAsync(stale);
+        Assert.True(picker.HasError);
+        Assert.False(vm.HasSelection);
+        Assert.Empty(_navigation.Visits);
+        picker.Load(vm);
+        picker.SearchText = "Site 300";
+        await picker.ChooseCommand.ExecuteAsync(Assert.Single(picker.Choices));
+        Assert.Equal("Site 300", vm.SelectedLocation);
+    }
+
+    [Fact]
+    public void Device_rows_omit_empty_details_from_layout_and_speech()
+    {
+        var row = new ViewModels.DeviceItem(new Device { DeviceId = 9, Hostname = "example.net" });
+        Assert.False(row.HasDetails);
+        Assert.Equal("example.net, Unknown", row.Description);
+        row.Device.Hardware = "Example switch";
+        Assert.True(row.HasDetails);
+        Assert.Equal("example.net, Unknown, Example switch", row.Description);
+        row.IsUnderMaintenance = true;
+        Assert.Contains(row.StateText, row.Description);
+    }
+
+    [Fact]
+    public async Task Unknown_members_keep_their_count_and_grey_ring_share()
+    {
+        var unknown = System.Text.Json.JsonSerializer.Deserialize<Device>(
+            """{"device_id":8,"hostname":"unknown.example.net"}""", DesktopNMS.Core.Json.LibreNmsJson.Options)!;
+        unknown.LocationId = 1;
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([At(Fakes.Device(1, "up.example.net"), 1), unknown]);
+        var vm = await Loaded();
+        var pin = Assert.Single(vm.Locations);
+        Assert.Equal((2, 1, 1, 0, 0, 0), (pin.Count, pin.Up, pin.Unknown, pin.Down, pin.Maintenance, pin.Off));
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(pin);
+        Assert.Equal(0.5, json.GetProperty("unknown").GetDouble() / json.GetProperty("count").GetDouble());
+        var grey = Assert.Single(pin.Ring, part => part.Colour == "#6E6E6E");
+        var green = Assert.Single(pin.Ring, part => part.Colour == "#2EA043");
+        Assert.Equal(1, grey.Count);
+        Assert.Equal(1, green.Count);
+        Assert.Equal(pin.Count, pin.Ring.Sum(part => part.Count));
+        vm.SelectPin(pin.Id);
+        Assert.Equal(2, vm.Devices.Count);
+        Assert.Contains(vm.Devices, d => d.State == DeviceState.Unknown);
+        Assert.Equal([pin.Id], vm.SelectedPinIds);
+        vm.ClearSelectionCommand.Execute(null);
+        Assert.Empty(vm.SelectedPinIds);
+    }
+
+    [Fact]
+    public async Task Empty_unlocated_loading_and_failure_states_notify_without_discarding_rows()
+    {
+        var vm = await Loaded();
+        List<string?> changed = [];
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Empty(vm.EmptyText);
+        Assert.False(vm.CanChooseLocation);
+        pending.SetException(new HttpRequestException("offline"));
+        await refresh;
+        Assert.True(vm.HasError);
+        Assert.Empty(vm.EmptyText);
+        Assert.Equal(2, vm.Locations.Count);
+        Assert.True(vm.CanChooseLocation);
+        Assert.Contains(nameof(MapViewModel.CanChooseLocation), changed);
+        Assert.Contains(nameof(MapViewModel.HasEmptyText), changed);
+
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(9, "unlocated.example.net")]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("No devices have locations with coordinates.", vm.EmptyText);
+        Assert.False(vm.HasUnplacedText);
+        Assert.False(vm.CanChooseLocation);
+        Assert.Contains(nameof(MapViewModel.Locations), changed);
+        Assert.Contains(nameof(MapViewModel.HasUnplacedText), changed);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("No devices.", vm.EmptyText);
+        Assert.False(vm.HasUnplacedText);
+    }
+
+    [Fact]
+    public async Task Native_location_choices_select_the_same_complete_membership_as_pins()
+    {
+        var vm = await Loaded();
+        var london = Assert.Single(vm.Locations, p => p.Name == "London");
+        Assert.Equal(2, london.Count);
+        vm.SelectPin(london.Id);
+        Assert.Equal("London", vm.SelectedLocation);
+        Assert.Equal(2, vm.Devices.Count);
+        Assert.True(vm.HasSingleLocation);
+        Assert.Empty(vm.EmptyText);
+    }
+
+    [Fact]
     public async Task One_pin_per_location_red_when_a_device_there_is_down()
     {
         var vm = await Loaded();

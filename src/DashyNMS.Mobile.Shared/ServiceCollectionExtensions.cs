@@ -121,6 +121,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Topology.NeighbourLinkViewModel>();
         services.AddTransient<Topology.NetworkMapViewModel>();
         services.AddTransient<Map.MapViewModel>();
+        services.AddTransient<Map.MapLocationPickerViewModel>();
         // One for Settings and its section pages (#67), which all show and change the same values.
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<MoreViewModel>();
