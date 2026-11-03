@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Only device neighbours use the complete endpoint readout.</summary>
+    public bool NeighbourLayout { get; init; }
+    public string NeighbourSummary => string.Join("\n", new[] { Title, Subtitle, Value, Detail }
+        .Where(text => !string.IsNullOrWhiteSpace(text))
+        .Concat(Fields.Select(field => field.Name + ": " + field.Value)));
+    public string NeighbourAction => NeighbourSummary + "\nOpen neighbouring device";
+    public bool CanOpenNeighbour => NeighbourLayout && LinkDeviceId is > 0;
+    public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>

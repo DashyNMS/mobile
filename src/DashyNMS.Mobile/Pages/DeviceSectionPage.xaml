@@ -99,14 +99,26 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <Border.GestureRecognizers>
+                            <VerticalStackLayout>
+                            <Button Text="{Binding NeighbourAction}" IsVisible="{Binding CanOpenNeighbour}"
+                                    Style="{StaticResource LinkButton}" LineBreakMode="WordWrap" MinimumHeightRequest="44"
+                                    HorizontalOptions="Fill"
+                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
+                                    CommandParameter="{Binding .}" />
+                            <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding IsUnmonitoredNeighbour}" LineBreakMode="WordWrap" />
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding NeighbourLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
+                            <Grid.GestureRecognizers>
                                 <TapGestureRecognizer
                                     Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
                                     CommandParameter="{Binding .}" />
-                            </Border.GestureRecognizers>
+                            </Grid.GestureRecognizers>
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
                                 <!-- Inventory nesting. -->
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
@@ -152,6 +164,7 @@
                                              Progress="{Binding Bar}" IsVisible="{Binding HasBar}"
                                              ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                             </Grid>
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>

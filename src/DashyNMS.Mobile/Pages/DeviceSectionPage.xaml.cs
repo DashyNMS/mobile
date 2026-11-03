@@ -56,6 +56,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
 		CoveredEdges.Watch(this, PlaceControls);
+		SectionBody.SizeChanged += (_, _) => PlaceControls();
 
 		// An inventory's nesting reads down one column, so it never spreads across.
 		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(() =>
@@ -216,7 +217,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		Grid.SetRowSpan(Refresh, wideNeighbours ? 2 : 1);
 		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
 		NeighbourGraph.VerticalOptions = wideNeighbours ? LayoutOptions.Fill : LayoutOptions.Start;
-		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : 280;
+		// Keep a finite list viewport even in short landscape and above the keyboard.
+		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : Math.Min(280, Math.Max(0, SectionBody.Height * 0.35));
 		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? 12 + clear.Bottom : 8);
 
 		Header.Margin = new Thickness(left, 0, right, 0);
