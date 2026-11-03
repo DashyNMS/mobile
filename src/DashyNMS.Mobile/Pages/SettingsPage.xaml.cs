@@ -7,7 +7,6 @@ namespace DashyNMS.Mobile.Pages;
 public partial class SettingsPage : ContentPage, IActivePage
 {
 	private IDisposable? _edges;
-	private Window? _resumeWindow;
 	private bool _visible;
 #if IOS
 	private bool _goingBack;
@@ -46,12 +45,6 @@ public partial class SettingsPage : ContentPage, IActivePage
 		_visible = true;
 		_viewModel.Refresh();
 		_edges ??= CoveredEdges.Watch(this, PlaceControls);
-		if (!ReferenceEquals(_resumeWindow, Window))
-		{
-			if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-			_resumeWindow = Window;
-			if (_resumeWindow is not null) _resumeWindow.Resumed += OnResumed;
-		}
 #if IOS
 		Header.BackInGlass = TabBarButtons.IsAvailable;
 		TabBarButtons.Moved -= OnGlassMoved;
@@ -64,15 +57,12 @@ public partial class SettingsPage : ContentPage, IActivePage
 		PlaceControls();
 	}
 
-	private void OnResumed(object? sender, EventArgs e) => Activate();
-
 	private void PlaceControls()
 	{
 		if (!_visible) return;
 		var clear = CoveredEdges.ForScrolling(this);
 		Body.Padding = new Thickness(16 + clear.Left, 20, 16 + clear.Right, 0);
 		Header.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
-		TopBar.Fit(Header);
 		Fade.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
 		Foot.HeightRequest = 16 + clear.Bottom;
 	}
@@ -102,8 +92,6 @@ public partial class SettingsPage : ContentPage, IActivePage
 		_visible = false;
 		_edges?.Dispose();
 		_edges = null;
-		if (_resumeWindow is not null) _resumeWindow.Resumed -= OnResumed;
-		_resumeWindow = null;
 #if IOS
 		TabBarButtons.Moved -= OnGlassMoved;
 		TabBarButtons.Hide(this);

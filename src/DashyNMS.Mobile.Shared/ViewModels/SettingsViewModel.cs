@@ -291,16 +291,23 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public string GraylogStatusText => !_settings.Current.Graylog.Enabled ? "Off"
         : "On · " + SafeServiceHost(_settings.Current.Graylog.Server);
 
-    private static string SafeServiceHost(string? address) =>
-        Uri.TryCreate(address, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host)
+    /// <summary>Accepts the same bare-host form as Graylog setup without exposing URL secrets.</summary>
+    private static string SafeServiceHost(string? address)
+    {
+        var source = address?.Trim();
+        if (string.IsNullOrWhiteSpace(source)) return "server address unavailable";
+        if (!source.Contains("://", StringComparison.Ordinal)) source = "https://" + source;
+        return Uri.TryCreate(source, UriKind.Absolute, out var uri) && !string.IsNullOrWhiteSpace(uri.Host)
             ? uri.Host : "server address unavailable";
+    }
 
     [RelayCommand]
     private Task OpenGraylogSettingsAsync() => _navigation.GoToAsync(Routes.GraylogSettings);
 
     /// <summary>"On · unimus.example.com", or "Off" - the Unimus row's second line.</summary>
     public string UnimusStatusText => !_settings.Current.Unimus.Enabled ? "Off"
-        : "On · " + SafeServiceHost(_settings.Current.Unimus.Url);
+        : "On · " + (DesktopNMS.Core.Api.UnimusConnection.TryParseWebRoot(_settings.Current.Unimus.Url, out var root, out _)
+            ? root!.Host : "server address unavailable");
 
     [RelayCommand]
     private Task OpenUnimusSettingsAsync() => _navigation.GoToAsync(Routes.UnimusSettings);

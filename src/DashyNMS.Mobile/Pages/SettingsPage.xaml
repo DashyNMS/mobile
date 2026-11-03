@@ -7,13 +7,13 @@
  xmlns:services="clr-namespace:DashyNMS.Mobile.Services;assembly=DashyNMS.Mobile.Shared"
  x:DataType="vm:SettingsViewModel" Title="Settings">
  <Grid x:Name="Root" RowDefinitions="Auto,*">
-  <controls:PageHeader x:Name="Header" Title="Settings" Note="Changes save automatically." Margin="16,0" />
+  <controls:PageHeader x:Name="Header" Title="Settings" Margin="16,0" />
   <ScrollView x:Name="Scroller" Grid.Row="1">
    <VerticalStackLayout x:Name="Body" Padding="16,20,16,16" Spacing="12">
     <Border Style="{StaticResource Card}">
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="{Binding ServerHost}" Summary="{Binding ServerSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
-      <controls:SettingsOverviewRow Title="Backup address" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
+      <controls:SettingsOverviewRow Title="Backup address" SummaryTextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
      </VerticalStackLayout>
     </Border>
     <Border Style="{StaticResource Card}" Padding="14,0">

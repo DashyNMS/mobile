@@ -1,10 +1,9 @@
 # Settings overview and About assessment
 
-Refs #454 and #442. Baseline main 83e9a39 (#490), branch
+Refs #454 and #442. Baseline main 23eff15 (after #495), branch
 `t3/settings-about-overview`. Read live #454/#442/#453/#457/#458/#459,
 CLAUDE.md, DEVELOPING.md, the full DESIGN.md and DESIGN-REFERENCES.md,
-#405/#412 and PR #441 acceptance. FULLDESIGN.md is absent; DESIGN.md is the
-current guide. PR #495's diff and assessment were inspected read-only; it
+#405/#412 and PR #441 acceptance. DESIGN.md is the current guide. PR #495's diff and assessment were inspected read-only; it
 owns More and does not change Settings or its view model. No queued branch edited.
 
 ## Assessment before implementation
@@ -23,7 +22,7 @@ owns More and does not change Settings or its view model. No queued branch edite
 | Diagnostics sharing and hide names | Compliant contracts; row accessibility fix required | Preserve visibility, opt-in defaults, exact explanations, confirmation and stored preference; name switch |
 | Sign out | Compliant destructive workflow; device operation unverified | Preserve confirmation, cancel, token deletion and separate forget-everything confirmation |
 | Insets/fade/final row | Fix required: native safe area with no measured glass/footer/fade | Single iOS top owner, disable native scroll adjustment on handler/load; measured content/footer; matching background 20pt fade below fixed header with 20pt content reserve |
-| Retained stack/child return/resume | Fix required: OnAppearing only, no glass ownership | IActivePage activation, owner-safe Hide, idempotent Moved/watch, paired retained Window subscription |
+| Retained stack/child return/resume | Fix required: OnAppearing only, no glass ownership | IActivePage activation, owner-safe Hide, idempotent Moved/watch, central AppShell resume delivery without a page-local Window subscription |
 | Theme and larger text | Unverified on hardware | Caption resources, wrapping, no fixed value width; exact matrix below |
 
 ## Modes, routes and contracts
@@ -79,17 +78,19 @@ existing child. No fake network success or availability is introduced.
 
 ## Evidence and dependencies
 
-Full-diff implementation self-inspection and git diff --check completed before
-commit. Added unexecuted regressions for disconnected/insecure unknown-version
-summaries and every SettingsSection route/parameter. Existing About tests cover
-version states and sensitive-source exclusion. No local builds, tests, scripts,
-restore or device tools run. CI shared tests, Android and iOS builds pending;
-self-inspection does not establish compilation or independent review.
+Claude Opus 5.5 Medium reviewed full diff ac51cde against main 23eff15.
+All findings were addressed: explicit IView overloads fix the CI compile error;
+Graylog accepts bare hosts/ports and Unimus uses its existing parser while both
+show only host names; local resume and repeated header subscriptions are removed;
+the overview no longer claims all child forms save automatically; backup source
+keeps its warning colour. Regression coverage adds bare-host, host-with-port and
+credential/path/query exclusion for both services.
 
-Queue: #489 -> #491 -> #492 -> #493 -> #494 -> #495 -> this PR. Parent updates
-only this PR after prior PRs merge. Mandatory Claude Opus 5.5 Medium independent
-review after quota reset is pending, one PR at a time. No child review attempt,
-watch, merge, issue closure, epic tick or release. TestFlight follows #453–#454.
+Full intended/staged diffs and whitespace checked. Unit tests and CodeQL C#/actions
+passed at the reviewed head; Android failed with CS0121, now corrected. Replacement
+CI remains pending. No local builds/tests ran. Hardware outcomes remain unverified.
+This branch was updated serially after #495. TestFlight follows #453–#454.
+Issues and epic checkboxes remain open until explicit user device acceptance.
 
 ## Exact pending device matrix
 

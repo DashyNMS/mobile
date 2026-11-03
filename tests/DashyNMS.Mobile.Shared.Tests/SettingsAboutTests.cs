@@ -23,6 +23,20 @@ public sealed class SettingsAboutTests
         Assert.Equal("On · server address unavailable", vm.UnimusStatusText);
     }
 
+    [Theory]
+    [InlineData("logs.example.net", "logs.example.net")]
+    [InlineData("logs.example.net:9000", "logs.example.net")]
+    [InlineData("https://example-user:synthetic-password@logs.example.net/private?token=synthetic", "logs.example.net")]
+    public void Enabled_service_summaries_accept_saved_address_forms_and_show_only_hosts(string address, string host)
+    {
+        var settings = new AppSettings();
+        settings.Graylog.Enabled = settings.Unimus.Enabled = true;
+        settings.Graylog.Server = settings.Unimus.Url = address;
+        var vm = NewViewModel(appSettings: settings);
+        Assert.Equal("On · " + host, vm.GraylogStatusText);
+        Assert.Equal("On · " + host, vm.UnimusStatusText);
+    }
+
     [Fact]
     public async Task Cancelling_sign_out_keeps_the_session_and_does_not_navigate()
     {
