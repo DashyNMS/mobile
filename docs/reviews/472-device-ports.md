@@ -107,3 +107,12 @@ and aliases; record final integrated SHA and CI build with each result.
 
 User acceptance is required before closing #472 or ticking #442. Parent owns
 merges and any later TestFlight delivery.
+
+## Sequential integration
+
+Updated against main 5661748 after merged #507–#509. Port actions and filters
+coexist with the Resource, Sensor and Availability templates; each hides the
+legacy row independently. Both sides' regression tests are retained. Shared
+activation, ButtonSearch, Retry, fade and generation-guarded refresh are unchanged.
+Full-diff Claude review and CI must verify the combined XAML and contracts.
+No hardware outcome is claimed.

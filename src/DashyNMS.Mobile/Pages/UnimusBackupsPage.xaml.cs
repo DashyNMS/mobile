@@ -5,7 +5,7 @@ using DashyNMS.Mobile.Unimus;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.UnimusBackups"/>, from a device's Config backups card (#21).</summary>
-public partial class UnimusBackupsPage : ContentPage, IQueryAttributable
+public partial class UnimusBackupsPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly UnimusBackupsViewModel _viewModel;
 	private readonly PushedListLayout _layout;
@@ -30,9 +30,15 @@ public partial class UnimusBackupsPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		_layout.Show();
-		_ = _viewModel.EnsureLoadedAsync();
+		Activate();
 	}
+
+    /// <summary>Restores retained history controls and refreshes changed connection settings.</summary>
+    public void Activate()
+    {
+        _layout.Activate();
+        _ = _viewModel.EnsureLoadedAsync();
+    }
 
 	protected override void OnDisappearing()
 	{

@@ -70,6 +70,48 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public void Sensor_rows_expose_missing_readings_and_category_to_search()
+    {
+        var row = DeviceSectionLoader.SensorRow(new Sensor { SensorId = 7, SensorClass = "temperature" }, new AppSettings());
+        Assert.True(row.SensorLayout);
+        Assert.Equal("Reading unavailable", row.SensorStatusText);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.True(row.Matches("unavailable"));
+        Assert.True(row.Matches("temperature"));
+        Assert.Contains("Reading unavailable", row.SensorDescription);
+        Assert.DoesNotContain("–", row.SensorDescription);
+        Assert.DoesNotContain("—", row.SensorDescription);
+        Assert.False(new SectionRow("example").SensorLayout);
+    }
+
+    [Fact]
+    public void Unregistered_sensor_without_limits_does_not_claim_healthy_text()
+    {
+        var sensor = new Sensor { SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets" };
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+        Assert.Equal("No limits", row.SensorStatusText);
+        Assert.Contains("No limits", row.SensorDescription);
+        Assert.Equal(DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Status, row.Status);
+    }
+
+    [Fact]
+    public async Task Sensor_section_filters_device_ids_and_keeps_custom_units_and_limits()
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new Sensor[]
+        {
+            new() { DeviceId = DeviceId, SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets", LimitHigh = 10 },
+            new() { DeviceId = 8, SensorId = 8, SensorClass = "temperature", Current = 20 },
+        });
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Sensors)));
+        Assert.Equal("12.3 widgets", row.Value);
+        Assert.Equal(RowStatus.Critical, row.Status);
+        Assert.Equal("Critical", row.SensorStatusText);
+        Assert.True(row.Matches("critical"));
+        Assert.Contains("10", row.Subtitle);
+        Assert.Null(row.LinkDeviceId);
+    }
+
+    [Fact]
     public void Missing_sensor_reading_has_no_severity_or_widget_position()
     {
         var sensor = new Sensor { SensorId = 7, SensorClass = "temperature", Current = null, LimitLow = 0, LimitHigh = 100 };
@@ -184,6 +226,56 @@ public sealed class DeviceSectionLoaderTests
 
         Assert.Equal(expected, row.Status);
         Assert.Equal(percent / 100, row.Bar);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public void Invalid_usage_never_implies_a_healthy_or_zero_reading(double? percent)
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net memory", percent, null, null, null);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Null(row.Bar);
+        Assert.Equal("—", row.Value);
+        Assert.True(row.Matches("unavailable"));
+        Assert.Contains("Reading unavailable", row.ResourceDescription);
+        Assert.DoesNotContain("—", row.ResourceDescription);
+    }
+
+    [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(double.NegativeInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public void Invalid_warning_thresholds_use_default_severity(double warning)
+    {
+        Assert.Equal(RowStatus.Warning, DeviceSectionLoader.UsageRow("Memory", 85, warning, null, null).Status);
+        Assert.Equal(RowStatus.Critical, DeviceSectionLoader.UsageRow("Memory", 99, warning, null, null).Status);
+    }
+
+    [Theory]
+    [InlineData(-1, 100)]
+    [InlineData(101, 100)]
+    [InlineData(0, 0)]
+    public void Invalid_capacity_is_not_formatted_as_usage(long used, long total)
+    {
+        Assert.Null(DeviceSectionLoader.UsageRow("example.net storage", null, null, used, total).Subtitle);
+    }
+
+    [Fact]
+    public void Reported_zero_usage_remains_valid_and_resource_context_is_searchable()
+    {
+        var row = DeviceSectionLoader.UsageRow("example.net processor", 0, null, null, null) with { ResourceKind = "CPU · Processors" };
+        Assert.Equal(RowStatus.Ok, row.Status);
+        Assert.Equal(0d, row.Bar);
+        Assert.True(row.Matches("CPU"));
+        Assert.True(row.Matches("OK"));
+        Assert.False(new SectionRow("example.net").Matches("unavailable"));
     }
 
     [Fact]
@@ -437,6 +529,24 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    [InlineData(-1d)]
+    [InlineData(101d)]
+    public async Task Invalid_availability_is_unavailable_without_a_success_colour(double percent)
+    {
+        _client.Devices.GetAvailabilityAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 2592000, Percent = percent }]);
+        _client.Devices.GetOutagesAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Availability)));
+        Assert.Equal("—", row.Value);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Contains("unavailable", row.ContentDescription);
+        Assert.DoesNotContain("—", row.ContentDescription);
+        Assert.True(row.AvailabilityLayout);
+    }
+
+    [Theory]
     [InlineData("AABBCCDDEEFF", "aa:bb:cc:dd:ee:ff")]
     [InlineData("aa-bb-cc-dd-ee-ff", "aa:bb:cc:dd:ee:ff")]
     [InlineData("weird", "weird")]
@@ -452,6 +562,25 @@ public sealed class DeviceSectionLoaderTests
 
 public sealed class DeviceSectionViewModelTests
 {
+    [Fact]
+    public async Task Changing_device_during_availability_load_discards_the_old_result()
+    {
+        var client = Fakes.Client();
+        var old = new TaskCompletionSource<IReadOnlyList<AvailabilityWindow>>();
+        client.Devices.GetAvailabilityAsync(7, Arg.Any<CancellationToken>()).Returns(old.Task);
+        client.Devices.GetOutagesAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        client.Devices.GetAvailabilityAsync(8, Arg.Any<CancellationToken>()).Returns(
+            [new AvailabilityWindow { DurationSeconds = 86400, Percent = 95 }]);
+        client.Devices.GetOutagesAsync(8, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation());
+        var first = vm.LoadAsync(7, DeviceSection.Availability);
+        var second = vm.LoadAsync(8, DeviceSection.Availability);
+        Assert.Empty(vm.Groups);
+        old.SetResult([new AvailabilityWindow { DurationSeconds = 86400, Percent = 100 }]);
+        await Task.WhenAll(first, second);
+        Assert.Equal(8, vm.DeviceId);
+        Assert.Equal("95%", Assert.Single(Assert.Single(vm.Groups)).Value);
+    }
     [Fact]
     public async Task Search_narrows_rows_and_drops_empty_groups()
     {
