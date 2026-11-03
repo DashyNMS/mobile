@@ -11,7 +11,7 @@ it does not merge, watch, release, close issues or tick the epic.
 | --- | --- |
 | Modes | DeviceSectionPage shows grouped LLDP/CDP cards and a scrollable star graph; 800pt usable width puts graph beside list. Device detail embeds five highlights. All assessed; network graph/saved groups/editor remain #450/#451, link detail #452 is preserved. |
 | Long content/hierarchy | Fix required: title truncation, side protocol column and capped detail squeeze endpoints. Neighbour-only complete wrapping readout puts name, local-to-remote ports, protocols, platform and labelled readings in order; overview uses same facts. |
-| Activation | Fix required: gesture-only card. Monitored neighbour gets a full-width native wrapping button with facts and explicit Open neighbouring device action. Unmonitored neighbour is a plain readout with existing Not monitored explanation. Legacy gesture moves onto legacy grid to avoid duplicate activation. |
+| Activation | Fix required: gesture-only card. Monitored neighbour gets a full-width described wrapping readout with a chevron and explicit Open neighbouring device action. Unmonitored neighbour keeps the Not monitored explanation and announces no unavailable action. The card Border owns the single tap gesture. |
 | Unknown/status | Fix required: non-up port states become Down. Only explicit up/down receive severity; absent/testing/unknown states remain neutral. Local port state label avoids claiming remote endpoint health. Inactive discovery keeps precedence. |
 | Readings | Fix required: negative/nonfinite/overflow traffic can appear valid. Unknown replaces invalid readings; valid zero remains valid and octets are converted to bits. No new readings or thresholds. |
 | Discovery and IDs | Compliant: Core DeviceNeighbours.Build retains own and reverse discoveries, deduplication, matching and remote IDs. No mobile matching fallback added. |
@@ -88,7 +88,7 @@ Use example.net and edge.example.net, IDs 7/8 and long synthetic interface names
 | State/readings | Up/down/testing/missing/unknown and inactive discovery; zero/negative/NaN/infinite/overflow rates; neutral unknown, no fabricated remote health, correct bits and speed |
 | Graph/list | Short/long/empty lists, node selects and scrolls same row, row opens device once, filter removes selection, graph/list stay on same filtered snapshot; 800pt split transition |
 | Failure | Cold load, success empty, no matches, denied/offline/timeout, optional ports failure, refresh success/failure/Retry; slow device switch after #507 integration |
-| Themes/text | Both themes, largest text, long names/ports/protocol/platform, wrapping native button and graph nodes; initial heading clear of fade and final row fully reachable |
+| Themes/text | Both themes, largest text, long names/ports/protocol/platform, wrapping card readout and graph nodes; initial heading clear of fade and final row fully reachable |
 | VoiceOver/TalkBack | Complete endpoint/state facts and one correct activation; unmonitored readout has no false action; node selection, Back/search/Retry and overview card usable |
 | Search/keyboard | Header/glass/Command-F, local endpoint/protocol/state query, typing retains focus, user drag/completion/unfocus retain query, no swipe reveal; final row reachable with keyboard and after dismissal |
 | Duo | Outer portrait, inner portrait, inner landscape and supported outer landscape; fold/unfold and rotate while typing/loading; finite stable list viewport, no duplicate inset or stale glass owner |
@@ -108,3 +108,13 @@ than a nested multiline Button. The retained lifecycle/watcher from #507 is
 preserved; only section-size observation is retained from this branch.
 Full-diff Claude review and CI must verify the integrated templates and routes.
 No device acceptance is inferred.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed c459b22 against main f220f15. The C# 14
+field-keyword lambda compile failure is corrected by renaming the parameter.
+NeighbourAction now appends Open neighbouring device only for monitored IDs;
+regression tests cover absent/zero IDs and a monitored ID. The assessment now
+matches the described readout and single card gesture. The review confirmed
+combined templates, graph IDs, reverse discovery and shared lifecycle wiring.
+Replacement CI is pending; no local builds/tests ran. Hardware remains unverified.

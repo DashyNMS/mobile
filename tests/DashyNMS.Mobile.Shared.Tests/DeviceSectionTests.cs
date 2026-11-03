@@ -378,6 +378,20 @@ public sealed class DeviceSectionLoaderTests
         new("No ports found", System.Net.HttpStatusCode.NotFound, "No ports found");
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Unmonitored_neighbours_do_not_announce_an_unavailable_action(int? deviceId)
+    {
+        var row = new SectionRow("edge.example.net") { NeighbourLayout = true, LinkDeviceId = deviceId, Detail = "Not monitored" };
+        Assert.False(row.CanOpenNeighbour);
+        Assert.Equal(row.NeighbourSummary, row.NeighbourAction);
+        Assert.DoesNotContain("Open neighbouring device", row.NeighbourAction);
+        var monitored = row with { LinkDeviceId = 7 };
+        Assert.True(monitored.CanOpenNeighbour);
+        Assert.Contains("Open neighbouring device", monitored.NeighbourAction);
+    }
+
+    [Theory]
     [InlineData("testing", double.NaN)]
     [InlineData("unknown", double.PositiveInfinity)]
     [InlineData("", -1)]

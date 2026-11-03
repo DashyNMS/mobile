@@ -24,8 +24,8 @@ public sealed record SectionRow(string Title)
     public bool NeighbourLayout { get; init; }
     public string NeighbourSummary => string.Join("\n", new[] { Title, Subtitle, Value, Detail }
         .Where(text => !string.IsNullOrWhiteSpace(text))
-        .Concat(Fields.Select(field => field.Name + ": " + field.Value)));
-    public string NeighbourAction => NeighbourSummary + "\nOpen neighbouring device";
+        .Concat(Fields.Select(f => f.Name + ": " + f.Value)));
+    public string NeighbourAction => CanOpenNeighbour ? NeighbourSummary + "\nOpen neighbouring device" : NeighbourSummary;
     public bool CanOpenNeighbour => NeighbourLayout && LinkDeviceId is > 0;
     public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
     /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
