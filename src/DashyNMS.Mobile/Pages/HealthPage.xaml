@@ -7,6 +7,7 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:HealthViewModel"
+    HideSoftInputOnTapped="True"
     SafeAreaEdges="Container"
     Title="Health">
 
@@ -41,7 +42,7 @@
             </FlexLayout>
         </Border>
 
-        <!-- Retain scroll-reveal on iOS and always-visible search on Android. -->
+        <!-- Button-only search on both platforms. -->
         <Grid SafeAreaEdges="None" Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
             <controls:SearchField x:Name="SearchField" VerticalOptions="Start" Margin="0,6,0,0">
                 <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" SemanticProperties.Description="Search sensors" Completed="OnSearchCompleted" />

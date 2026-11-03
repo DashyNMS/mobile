@@ -10,6 +10,7 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
 	private readonly GroupsLocationsViewModel _viewModel;
 	private bool _loaded;
 	private IDisposable? _edges;
+    private readonly ButtonSearch _search;
 
 	public GroupsLocationsPage(GroupsLocationsViewModel viewModel)
 	{
@@ -17,10 +18,12 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
 		BindingContext = _viewModel = viewModel;
         PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel,
             "Loading groups and locations…", "Refreshing groups and locations…");
-        List.Scrolled += (_, _) => { if (Search.IsFocused) KeyboardDismiss.Close(Search); };
+        _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
+        SearchButton.Command = new Command(OpenSearch);
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         Header.BackInGlass = TabBarButtons.IsAvailable;
+        SearchButton.IsVisible = !TabBarButtons.IsAvailable;
         List.HandlerChanged += (_, _) => StopInsets();
         List.Loaded += (_, _) => StopInsets();
 #endif
@@ -49,14 +52,14 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost
 		}
 	}
 
-    public void OpenSearch() => Search.Focus();
+    public void OpenSearch() => _search.Open();
 
-    private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
+    private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        KeyboardDismiss.Close(Search);
+        _search.Close();
         _edges?.Dispose();
         _edges = null;
 #if IOS

@@ -140,7 +140,7 @@ public static class MapHtml
             <meta name="referrer" content="strict-origin-when-cross-origin">
             <style>
             {{leafletCss}}
-              html, body, #map { margin: 0; padding: 0; height: 100%; background: {{background}}; }
+              html, body, #map { margin: 0; padding: 0; height: 100%; overflow: hidden; background: {{background}}; }
               {{tileFilter}}
               .leaflet-marker-icon { transition: opacity 250ms; }
               .immediate .leaflet-marker-icon { transition: none; }
@@ -164,7 +164,10 @@ public static class MapHtml
                 clearance = { top: top, right: right, bottom: bottom, left: left };
                 var controls = map.getContainer().querySelector('.leaflet-control-container');
                 controls.style.position = 'absolute';
-                controls.style.top = top + 'px'; controls.style.right = right + 'px';
+                // Camera clearance can exceed a short canvas; controls still need their full height.
+                var zoom = controls.querySelector('.leaflet-control-zoom');
+                var controlTop = Math.min(top, Math.max(0, map.getSize().y - (zoom ? zoom.offsetHeight : 90) - 20));
+                controls.style.top = controlTop + 'px'; controls.style.right = right + 'px';
                 controls.style.bottom = bottom + 'px'; controls.style.left = left + 'px';
                 controls.style.pointerEvents = 'none';
                 controls.querySelectorAll('.leaflet-control').forEach(function (c) { c.style.pointerEvents = 'auto'; });

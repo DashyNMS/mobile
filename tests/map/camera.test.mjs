@@ -11,11 +11,12 @@ const pins = [0, 1].map(id => ({ id, name: `Site ${id}`, lat: 51 + id / 100, lng
 function harness(data = pins, size = { x: 800, y: 600 }) {
   const events = {}, timers = [], markers = [], fits = [], pending = [];
   const fire = name => (events[name] ?? []).forEach(fn => fn());
+  const controls = { style: {}, querySelector: () => ({ offsetHeight: 90 }), querySelectorAll: () => [] };
   const map = {
     zoom: undefined, offset: [0, 0],
     on(names, fn) { names.split(' ').forEach(name => (events[name] ??= []).push(fn)); },
     getZoom() { return this.zoom; }, getSize() { return size; },
-    getContainer() { return { querySelector: () => ({ style: {}, querySelectorAll: () => [] }) }; },
+    getContainer() { return { querySelector: () => controls }; },
     setView(centre, zoom, options = {}) {
       assert.ok(Number.isFinite(zoom), 'focus cannot use an undefined zoom');
       const move = () => { fire('zoomstart'); fire('movestart'); this.centre = centre; this.zoom = zoom; this.offset = [0, 0]; fire('zoomend'); };
@@ -36,7 +37,7 @@ function harness(data = pins, size = { x: 800, y: 600 }) {
   const document = { getElementById: () => ({ classList: { toggle() {} } }), createElement: () => ({ style: {}, appendChild() {} }) };
   runInNewContext(bridge.replace('{{data}}', JSON.stringify({ pins: data, tiles: '', attribution: '' })).replace('{{ClusterRadius}}', '26').replace('{{PinScheme}}', 'dashynms-map'),
     { L, window, document, setTimeout: fn => timers.push(fn) });
-  return { window, map, fits, markers, timers, pending, fire };
+  return { window, map, fits, markers, timers, pending, fire, controls };
 }
 
 test('merged zoom and safe offset have one owner, including rapid taps and native choices', () => {
@@ -137,4 +138,16 @@ test('overview padding leaves a usable viewport on short screens with large capt
   assert.ok(fit.paddingTopLeft[1] + fit.paddingBottomRight[1] <= 90);
   assert.ok(fit.paddingTopLeft[1] > 0);
   assert.ok(fit.paddingBottomRight[1] > 0);
+});
+
+
+test('short canvas keeps both zoom targets inside viewport without changing camera clearance', () => {
+  const h = harness(pins, { x: 800, y: 180 });
+  h.window.setMapClearance(150, 20, 100, 20);
+  assert.equal(h.controls.style.top, '70px');
+  assert.equal(h.controls.style.bottom, '100px');
+  h.window.setSelection([0], true, true, true);
+  assert.deepEqual(h.map.offset, [0, -25], 'camera retains the actual overlay clearance');
+  h.window.setMapClearance(40, 20, 10, 20);
+  assert.equal(h.controls.style.top, '40px');
 });

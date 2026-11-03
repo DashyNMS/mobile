@@ -7,11 +7,16 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:GroupsLocationsViewModel"
+    HideSoftInputOnTapped="True"
     SafeAreaEdges="Container"
     Title="Groups &amp; locations">
     <Grid SafeAreaEdges="None" x:Name="Body" RowDefinitions="Auto,*">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="Groups &amp; locations" Margin="0" />
+        <controls:PageHeader x:Name="Header" Title="Groups &amp; locations" Margin="0">
+            <controls:PageHeader.Actions>
+                <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" SemanticProperties.Description="Search groups and locations" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
         <Grid SafeAreaEdges="None" Grid.Row="1">
 
 
@@ -38,9 +43,11 @@
             </Button>
         </Grid>
 
-        <controls:SearchField Grid.Row="1" Margin="0,6,0,0">
+        <Grid x:Name="SearchSlot" Grid.Row="1" SafeAreaEdges="None" IsClippedToBounds="True">
+        <controls:SearchField x:Name="SearchField" VerticalOptions="Start" Margin="0,6,0,0">
             <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search" SemanticProperties.Description="Search groups and locations" Completed="OnSearchCompleted" />
         </controls:SearchField>
+        </Grid>
 
         <Label Grid.Row="2" Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
 

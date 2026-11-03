@@ -266,14 +266,19 @@ Search return type, disables spell checking and prediction, removes clear
 buttons and iOS keyboard accessories, and opts the Entry into `KeyboardDismiss`.
 Do not use native `SearchBar` or copy the search Border markup into pages.
 
-Tab/list search retains its existing sliding slot. `SearchReveal` animates the
-whole SearchField and focuses its Entry; keyboard shortcuts reveal that same
-field. Setup pickers retain their always-visible search behaviour. Changing
-appearance does not change filtering, query retention or selection contracts.
+Tab/list search starts hidden on Android and iOS. Open it only from the header
+search button (Android/older iOS), the glass magnifier (iOS 26+), or Command-F.
+Upward scrolling, pull gestures and swipe-to-search must never open it.
+During future list-page passes, remove legacy `SearchReveal.Attach` and swipe
+handlers from the scoped page rather than preserving the old platform policy.
+Migrate pages individually; do not change shared SearchReveal underneath pages
+that have not been reviewed. Health and Groups & locations use `ButtonSearch`.
+Setup pickers retain their always-visible search. Filtering, query retention
+and selection contracts remain unchanged.
 
 - Opening tab search focuses the field; tapping its magnifier again refocuses
   it. Close on Search, unfocus or a content touch, retaining the query. List
-  scrolling also dismisses the keyboard. Use `KeyboardDismiss.Close` before
+  scrolling also hides the field and dismisses the keyboard. Use `KeyboardDismiss.Close` before
   hiding a focused field.
 - Use no clear/close X or keyboard accessory. `SearchField` owns this policy,
   including on setup pickers.

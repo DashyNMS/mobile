@@ -71,3 +71,41 @@ Every device outcome remains unverified.
 7. Exercise first load, pull refresh, slow refresh with kept readings, empty
    source, failure with/without cache and offline timestamp; no false empty/OK.
    Obtain explicit user acceptance before closing #443 or ticking #442.
+
+
+## Corrective follow-up after #447 (before #448)
+
+This section supersedes the earlier search/geometry assessment without changing
+its historical evidence. User device evidence reports clipped Map title and
+mostly offscreen zoom controls; no corrected device result is claimed.
+
+Health and Groups & locations now start with hidden search on both platforms.
+Only header/glass search or Command-F opens it; repeated opening refocuses it.
+Search, unfocus, content tap and scrolling dismiss it without clearing query,
+category, mode or filters. ButtonSearch owns the clipped height/translation
+transition and honours Reduce Motion. Health no longer attaches SearchReveal;
+Groups no longer has permanent search. Shared SearchReveal and setup pickers
+are unchanged. Future list passes must remove legacy reveal handlers.
+
+Map source diagnosis found PlaceControls overwriting PageHeader's TopBar.Fit
+padding with zero, defeating its dynamic status/camera placement. Horizontal
+clearance now uses Margin, leaving that top padding under TopLineSpace's control.
+The local first header row measures naturally for large text. The native page
+owns top container clearance (TopLineSpace may release it); Canvas opts out.
+WKWebView's separate UIScrollView previously retained automatic adjustment and
+document scrolling: neither was owned by the native overlay geometry. It now
+uses Never, zero content/indicator insets, zero offset, no bounce or document
+scrolling; HTML overflow is hidden. Leaflet still owns map pan/pinch. This fixes
+an independent translation path; whether it caused the observed device clipping
+requires device confirmation. There is no extra fixed top spacer or second inset.
+JS clearance remains in WebView CSS coordinates and camera offsets remain
+unchanged. Zoom control top is bounded by measured control height on short
+canvases independently of camera clearance. Full canvas, selected card, dimming,
+camera serialisation, picker, attribution, CSP, tiles, glass and routes remain.
+
+No local builds, tests or test scripts executed. CI and the parent's mandatory
+Claude Opus 5.5 Medium full-diff review remain pending. Node camera regressions
+are retained. Verify short/large-text displays, glass and camera variants,
+fold/rotate/resume, native frame/offset at rest, both zoom buttons, attribution,
+selection camera, search dismissal/refocus, Reduce Motion and accessibility on
+devices. All device outcomes remain unverified; #443/#444/#445 and #442 stay open.
