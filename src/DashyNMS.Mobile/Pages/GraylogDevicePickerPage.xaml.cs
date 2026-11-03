@@ -1,10 +1,11 @@
+using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Graylog;
 using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.GraylogDevice"/>, with the list whose Device chip it sets - Graylog's (#117) or Logs' (#118).</summary>
-public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable
+public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable, ISearchHost
 {
 	private readonly GraylogDevicePickerViewModel _viewModel;
 
@@ -12,7 +13,10 @@ public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		_ = new SetupPageLayout(this, Setup, Header, DeviceList);
 	}
+
+	public void OpenSearch() => SearchEntry.Focus();
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{
@@ -22,9 +26,4 @@ public partial class GraylogDevicePickerPage : ContentPage, IQueryAttributable
 		}
 	}
 
-	protected override void OnAppearing()
-	{
-		base.OnAppearing();
-		TopBar.Apply(this);
-	}
 }

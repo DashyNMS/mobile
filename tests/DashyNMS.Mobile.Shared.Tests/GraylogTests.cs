@@ -687,6 +687,79 @@ public sealed class GraylogDevicePickerTests
     }
 
     [Fact]
+    public async Task Search_is_naturally_ordered_and_explains_the_result_cap()
+    {
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(Enumerable.Range(1, 60)
+            .Select(id => Fakes.Device(id, $"switch-{id}")).Reverse().ToArray());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        await picker.LoadAsync(source);
+
+        picker.SearchText = "switch";
+        Assert.Equal(50, picker.Groups.Single().Count);
+        Assert.Equal(["switch-1", "switch-2", "switch-3"], picker.Groups.Single().Take(3).Select(c => c.Name));
+        Assert.Contains("Refine your search", picker.StatusText);
+
+        picker.SearchText = "switch-60";
+        Assert.Equal("switch-60", picker.Groups.Single().Single().Name);
+        Assert.False(picker.HasStatus);
+    }
+
+    [Fact]
+    public async Task Pinned_suggestions_use_natural_order_independent_of_bookmark_order()
+    {
+        foreach (var id in new[] { 10, 2, 1 })
+            _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = id, DisplayName = $"switch-{id}" });
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(new[] { 10, 1, 2 }.Select(id => Fakes.Device(id, $"switch-{id}")).ToArray());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        await picker.LoadAsync(source);
+
+        Assert.Equal(["switch-1", "switch-2", "switch-10"],
+            picker.Groups.Single(g => g.Name == "Pinned").Select(c => c.Name));
+    }
+
+    [Fact]
+    public async Task Server_loaded_devices_use_natural_order_for_suggestions_and_search()
+    {
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(Array.Empty<Device>());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            new[] { 10, 1, 2 }.Select(id => Fakes.Device(id, $"switch-{id}")).ToArray());
+        await picker.LoadAsync(source);
+
+        Assert.Equal(["switch-1", "switch-2", "switch-10"], picker.Groups.Single().Select(c => c.Name));
+        picker.SearchText = "switch";
+        Assert.Equal(["switch-1", "switch-2", "switch-10"], picker.Groups.Single().Select(c => c.Name));
+    }
+
+    [Fact]
+    public async Task Failed_load_has_no_empty_status_and_reopening_retains_query()
+    {
+        var (_, picker) = await OpenAsync();
+        var source = Substitute.For<IDeviceChipList>();
+        source.KnownDevices.Returns(Array.Empty<Device>());
+        source.Senders().Returns(Array.Empty<(GraylogDeviceFilter Filter, int Count)>());
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromException<IReadOnlyList<Device>>(new HttpRequestException()));
+        picker.SearchText = "retry";
+        await picker.LoadAsync(source);
+        Assert.True(picker.HasError);
+        Assert.False(picker.IsEmpty);
+        Assert.False(picker.HasStatus);
+
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(99, "retry-switch")]);
+        await picker.LoadAsync(source);
+        Assert.Equal("retry", picker.SearchText);
+        Assert.False(picker.HasError);
+        Assert.Equal("retry-switch", picker.Groups.Single().Single().Name);
+    }
+
+    [Fact]
     public async Task Suggests_the_senders_on_screen_busiest_first_then_pinned_and_recent_devices()
     {
         _appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1, DisplayName = "core-sw-01" });

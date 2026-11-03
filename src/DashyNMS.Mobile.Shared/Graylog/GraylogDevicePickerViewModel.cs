@@ -42,6 +42,11 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         _settings = settings;
         _bookmarks = bookmarks;
         _navigation = navigation;
+        PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(IsBusy) or nameof(HasError))
+                NotifyStatus();
+        };
     }
 
     public BulkObservableCollection<GraylogDeviceGroup> Groups { get; } = new();
@@ -49,7 +54,24 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
     /// <summary>"Any device" at the top - only once there's a device to go back from.</summary>
     public bool CanChooseAny => _list?.HasDeviceFilter == true;
 
-    public bool IsEmpty => !IsBusy && Groups.Count == 0;
+    public bool IsEmpty => !IsBusy && !HasError && Groups.Count == 0;
+
+    private bool _isCapped;
+
+    public string StatusText => IsBusy ? "Loading devices…"
+        : HasError ? string.Empty
+        : IsEmpty ? EmptyText
+        : _isCapped ? $"Showing the first {MaxShown} devices. Refine your search to see more."
+        : string.Empty;
+
+    public bool HasStatus => StatusText.Length > 0;
+
+    private void NotifyStatus()
+    {
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(StatusText));
+        OnPropertyChanged(nameof(HasStatus));
+    }
 
     public string EmptyText => string.IsNullOrWhiteSpace(SearchText)
         ? "No devices to suggest yet. Search for one by name, hostname or IP."
@@ -65,12 +87,17 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         var devices = list.KnownDevices;
         if (devices.Count == 0)
         {
-            await RunAsync(async () => devices = await _client.Devices.ListAsync());
+            if (!await RunAsync(async () => devices = await _client.Devices.ListAsync()))
+            {
+                NotifyStatus();
+                return;
+            }
         }
 
+        ErrorMessage = null;
         _devices = devices
             .Select(d => new DeviceItem(d, style))
-            .OrderBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase)
+            .OrderBy(d => d.Name, NaturalOrder.Instance)
             .ToList();
         Filter();
     }
@@ -91,10 +118,12 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
 
     private void Filter()
     {
+        _isCapped = false;
         var term = SearchText.Trim();
         Groups.ReplaceAll(term.Length == 0 ? Suggestions() : Matches(term));
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(EmptyText));
+        NotifyStatus();
     }
 
     private IEnumerable<GraylogDeviceGroup> Suggestions()
@@ -120,6 +149,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
         // Nothing to go on yet: the first devices, so the page isn't blank.
         if (groups.Count == 0)
         {
+            _isCapped = _devices.Count > MaxShown;
             Add(groups, "Devices", _devices.Take(MaxShown).Select(d => Choice(d)));
         }
 
@@ -130,6 +160,7 @@ public sealed partial class GraylogDevicePickerViewModel : ViewModelBase
     {
         var groups = new List<GraylogDeviceGroup>();
         var matches = _devices.Where(d => d.Matches(term)).ToList();
+        _isCapped = matches.Count > MaxShown;
         Add(groups, "Devices", matches.Take(MaxShown).Select(d => Choice(d)));
 
         // Syslog from something LibreNMS doesn't poll - search its address as typed.
