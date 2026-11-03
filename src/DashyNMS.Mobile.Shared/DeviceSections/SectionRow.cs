@@ -20,6 +20,12 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Only resource readings use the wrapping usage presentation.</summary>
+    public bool ResourceLayout { get; init; }
+    public string? ResourceKind { get; init; }
+    public string ResourceStatusText => Status == RowStatus.None ? "Reading unavailable" : HealthStatusText;
+    public string ResourceDescription => string.Join(", ", new[] { Title, ResourceKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, ResourceStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     /// <summary>Only Device Sensors opts into wrapping, vertically ordered reading facts.</summary>
     public bool SensorLayout { get; init; }
     public string? SensorKind { get; init; }
@@ -137,6 +143,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 

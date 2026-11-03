@@ -271,25 +271,29 @@ public sealed class DeviceSectionLoader
         var storageTask = _client.Health.ListStorageAsync(deviceId, ct);
         await Task.WhenAll(cpuTask, memoryTask, storageTask);
 
-        var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null));
-        var memory = memoryTask.Result.Select(m => UsageRow(m.Description ?? "Memory", m.UsagePercent, m.WarningPercent, m.UsedBytes, m.TotalBytes));
+        var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null) with { ResourceKind = "CPU · Processors" });
+        var memory = memoryTask.Result.Select(m => UsageRow(m.Description ?? "Memory", m.UsagePercent, m.WarningPercent, m.UsedBytes, m.TotalBytes) with { ResourceKind = "Memory" });
         var storage = storageTask.Result
             .OrderBy(s => s.Description, StringComparer.OrdinalIgnoreCase)
-            .Select(s => UsageRow(s.Description ?? "Storage", s.UsagePercent, s.WarningPercent, s.UsedBytes, s.TotalBytes));
+            .Select(s => UsageRow(s.Description ?? "Storage", s.UsagePercent, s.WarningPercent, s.UsedBytes, s.TotalBytes) with { ResourceKind = "Storage" });
 
         return Groups(("Processors", cpus), ("Memory", memory), ("Storage", storage));
     }
 
     internal static SectionRow UsageRow(string name, double? percent, double? warning, long? used, long? total) => new(name)
     {
-        Value = Units.Percent(percent),
-        Bar = percent is { } p ? Math.Clamp(p / 100, 0, 1) : null,
-        Status = percent is not { } value ? RowStatus.None
-            : value >= Math.Max(warning ?? 90, 95) ? RowStatus.Critical
-            : value >= (warning ?? 80) ? RowStatus.Warning
+        ResourceLayout = true,
+        Value = ValidUsage(percent) ? Units.Percent(percent) : "—",
+        Bar = ValidUsage(percent) ? percent / 100 : null,
+        Status = !ValidUsage(percent) || percent is not { } value ? RowStatus.None
+            : value >= Math.Max(ValidUsage(warning) ? warning!.Value : 90, 95) ? RowStatus.Critical
+            : value >= (ValidUsage(warning) ? warning!.Value : 80) ? RowStatus.Warning
             : RowStatus.Ok,
-        Subtitle = used is not null && total is > 0 ? $"{Units.Bytes(used)} of {Units.Bytes(total)}" : null,
+        Subtitle = used is >= 0 && total is > 0 && used <= total ? $"{Units.Bytes(used)} of {Units.Bytes(total)}" : null,
     };
+
+    /// <summary>Do not turn invalid server usage into an empty healthy bar.</summary>
+    private static bool ValidUsage(double? percent) => percent is { } value && double.IsFinite(value) && value >= 0 && value <= 100;
 
     // ------------------------------------------------------------ ports
 

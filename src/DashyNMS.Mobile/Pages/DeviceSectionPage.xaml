@@ -111,6 +111,15 @@
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
                             <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding ResourceLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding ResourceDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding ResourceKind}" Style="{StaticResource Caption}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding ResourceStatusText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding SensorLayout}" Spacing="4"
                                                  SemanticProperties.Description="{Binding SensorDescription}" AutomationProperties.IsInAccessibleTree="True">
                                 <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
@@ -127,6 +136,9 @@
                             </VerticalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
                                 <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding ResourceLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                     <DataTrigger TargetType="Grid" Binding="{Binding SensorLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>

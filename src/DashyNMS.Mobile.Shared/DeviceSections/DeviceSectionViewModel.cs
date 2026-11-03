@@ -263,9 +263,9 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         var generation = _generation;
         var section = Section;
         var deviceId = DeviceId;
-        // Availability has no last-updated timestamp. Do not present old
+        // Availability and Resources have no freshness timestamp. Do not present old
         // percentages as current while retrying an unavailable source.
-        if (section == DeviceSection.Availability)
+        if (section is DeviceSection.Availability or DeviceSection.Resources)
         {
             _all = [];
             Groups.ReplaceAll([]);
