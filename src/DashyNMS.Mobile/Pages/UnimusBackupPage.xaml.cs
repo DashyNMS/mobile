@@ -17,6 +17,7 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 		BindingContext = _viewModel = viewModel;
 		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot);
         _search = new ButtonSearch(SearchSlot, SearchBox, SearchEntry, Rows);
+        SearchButton.Command = new Command(OpenSearch);
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -28,7 +29,6 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 	}
 
     public void OpenSearch() => _search.Open();
-    private void OnSearchClicked(object? sender, EventArgs e) => OpenSearch();
     private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
 
 	/// <summary>The app's own header, as every page (#142).</summary>

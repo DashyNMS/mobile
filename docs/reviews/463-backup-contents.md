@@ -149,3 +149,7 @@ It currently also omits first-load timing events. Restoring timing without error
 reporting needs a separate base-helper change; no timing evidence is claimed.
 Cancellation still uses the generic retryable load error. All hardware checks
 remain unverified. Replacement CI is pending; no local builds/tests ran.
+
+Platform CI at 4e0254a exposed an invalid Clicked event on IconButton.
+The search icon now uses its supported Command property, matching Health.
+Replacement CI is pending; no local builds/tests ran.
