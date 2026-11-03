@@ -29,6 +29,42 @@ public sealed class AlertDetailViewModelTests
 
     private AlertDetailViewModel NewViewModel() => new(_client, Fakes.Settings(), _dialogs, _navigation, _selfActions);
 
+    [Fact]
+    public async Task Acknowledgement_prompt_cannot_write_after_target_changes()
+    {
+        GivenAlert(Fakes.Alert(5, 3, "critical"));
+        GivenAlert(Fakes.Alert(6, 3, "warning"));
+        var prompt = new TaskCompletionSource<string?>();
+        _dialogs.PromptAsync(default!, default!, default!, default).ReturnsForAnyArgs(prompt.Task);
+        var vm = NewViewModel();
+        await vm.LoadAsync(5);
+        var action = vm.AcknowledgeCommand.ExecuteAsync(null);
+        await vm.LoadAsync(6);
+        prompt.SetResult("synthetic note");
+        await action;
+        await _client.Alerts.DidNotReceive().AcknowledgeAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void Rule_source_and_notes_keep_exact_whitespace()
+    {
+        const string source = "  ports.ifAlias = '<example>' AND ports.ifOperStatus = 2\r\n\t ";
+        var rule = new AlertRule { Id = 7, Rule = source, Notes = " notes\r\n\t ", Procedure = " step\n  " };
+        var groups = AlertDetailViewModel.BuildGroups(new AlertItem(Fakes.Alert(5, 3, "critical"), false), rule, [], false).ToList();
+        var rows = Assert.Single(groups, g => g.Name == "Rule");
+        Assert.Equal(source, rows[0].Subtitle);
+        Assert.Equal(rule.Notes, rows[1].Subtitle);
+        Assert.Equal(rule.Procedure, rows[2].Subtitle);
+    }
+
+    [Fact]
+    public void Unreadable_legacy_history_is_unavailable_not_empty()
+    {
+        var groups = AlertDetailViewModel.BuildGroups(new AlertItem(Fakes.Alert(5, 3, "critical"), false), null, [], false).ToList();
+        var history = Assert.Single(groups, g => g.Name == "History");
+        Assert.Equal("History unavailable", Assert.Single(history).Title);
+    }
+
     private static AlertLogEntry LogEntry(int ruleId, int state, DateTime at, string rowJson = "{}") =>
         JsonSerializer.Deserialize<AlertLogEntry>(
             $$"""{ "id": 1, "rule_id": {{ruleId}}, "device_id": 3, "state": {{state}}, "time_logged": "{{at:yyyy-MM-dd HH:mm:ss}}", "details": { "rule": [ {{rowJson}} ] } }""",
@@ -117,7 +153,7 @@ public sealed class AlertDetailViewModelTests
 
         await vm.LoadAsync(5);
 
-        Assert.DoesNotContain(vm.Groups, g => g.Name == "History");
+        Assert.Equal("History unavailable", Assert.Single(Assert.Single(vm.Groups, g => g.Name == "History")).Title);
     }
 
     [Fact]
@@ -134,7 +170,7 @@ public sealed class AlertDetailViewModelTests
         await vm.LoadAsync(5);
 
         Assert.False(vm.HasError);
-        Assert.Equal(["Alert"], vm.Groups.Select(g => g.Name));
+        Assert.Equal(["Alert", "Rule", "History"], vm.Groups.Select(g => g.Name));
         Assert.Equal("host3", vm.Groups[0][0].Value);
     }
 
