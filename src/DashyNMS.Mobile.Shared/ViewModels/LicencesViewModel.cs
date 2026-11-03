@@ -41,7 +41,11 @@ public sealed partial class LicenceItem : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ToggleText))]
     [NotifyPropertyChangedFor(nameof(ToggleDescription))]
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
     private string? _loadError;
+
+    /// <summary>Missing feedback must not reserve a blank line in every notice.</summary>
+    public bool HasLoadError => !string.IsNullOrWhiteSpace(LoadError);
 
     public string ToggleText => LoadError is not null ? "Retry licence" : IsExpanded ? "Hide licence" : "Show licence";
 

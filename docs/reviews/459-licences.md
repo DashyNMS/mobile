@@ -1,6 +1,6 @@
 # Open-source licences — #459
 
-Refs #459, parent #442. Baseline main `83e9a39`; implementation is the
+Refs #459, parent #442. Baseline main `2c7f32f`; implementation is the
 commit carrying this assessment. No issue closure or epic acceptance implied.
 
 ## Scope, routes and source contracts
@@ -51,7 +51,7 @@ Legal bodies are plain Text labels; whitespace is retained in model strings.
 | Long legal notices | Fix required: 11.5pt monospace | Scalable normal body text, character wrapping, no limit or source transformation |
 | Long URLs and actions | Fix required: tap-only small caption | Full URI wrapping label measured independently of native whole-row button, minimum 44pt; child label excluded from accessibility |
 | Scrolling/final content | Fix required: capped column and legacy inset ownership | Finite page ScrollView, full width gutters, scrolling header, final bottom glass clearance |
-| Back and lifecycle | Fix required: header-only ownership | Actual previous title, relative pop, page glass owner; retained activation/resume, paired Moved/Loaded/HandlerChanged and retained Window subscriptions, disposed edge watcher |
+| Back and lifecycle | Fix required: header-only ownership | Actual previous title, relative pop, page glass owner; retained activation/resume, paired Moved/Loaded/HandlerChanged with central AppShell resume delivery, disposed edge watcher |
 | Fade | Fix required with migration | 20pt within viewport, matching background RGB and width, input transparent, reserved only with hidden header Back; none above visible Back |
 | Read failure | Fix required: cached replacement text | Separate truthful error and target-named Retry; website always available; no fabricated licence text |
 | Themes/accessibility | Device evidence unverified | Semantic headings, normal themed body, one accessible native action per row; no tiny monospaced body |
@@ -95,3 +95,18 @@ per row; CI cannot establish these results.
 | Failure | Controlled missing/unreadable resource: separate error, repeat Retry, no replacement legal body, website usable; do not ship changed production resources |
 
 User acceptance remains required after device evidence; #459 and #442 stay open.
+
+## Independent review and remediation
+
+Claude Opus 5.5 Medium reviewed the full diff at 964ab45 against main 2c7f32f.
+The local Window resume hook and repeated TopBar.Fit are removed. Licence prose
+uses word wrapping; URL action text retains character wrapping. Actions use the
+shared themed action colour, and website actions announce their browser hint.
+Empty error labels are hidden through HasLoadError. Failure announcements remain
+a device accessibility check rather than a claimed result.
+
+All CI checks passed at the reviewed head. Replacement CI for these corrections
+is pending; no local builds/tests ran. Check the longest complete notice at the
+largest text size on iOS, including its final paragraph, for native Label drawing
+limits. Transitive catalogue completeness and all hardware outcomes remain
+unverified. Issue closure and epic ticks still require explicit acceptance.

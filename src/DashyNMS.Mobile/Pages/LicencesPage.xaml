@@ -16,14 +16,14 @@
                         <DataTemplate x:DataType="vm:LicenceItem">
                             <Border Style="{StaticResource Card}" Padding="16,14">
                                 <VerticalStackLayout Spacing="8">
-                                    <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" LineBreakMode="CharacterWrap" SemanticProperties.HeadingLevel="Level2" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Use}" LineBreakMode="CharacterWrap" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Copyright}" LineBreakMode="CharacterWrap" />
+                                    <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" LineBreakMode="WordWrap" SemanticProperties.HeadingLevel="Level2" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Use}" LineBreakMode="WordWrap" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Copyright}" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource RowTitle}" Text="{Binding LicenceName}" SemanticProperties.HeadingLevel="Level3" />
                                     <pages:LicenceAction Text="{Binding ToggleDescription}" Command="{Binding ToggleCommand}" IsVisible="{Binding HasLicenceText}" />
-                                    <Label Style="{StaticResource Error}" Text="{Binding LoadError}" />
-                                    <Label Text="{Binding LicenceText}" IsVisible="{Binding IsExpanded}" LineBreakMode="CharacterWrap" TextType="Text" />
-                                    <pages:LicenceAction Text="{Binding LinkText}"
+                                    <Label Style="{StaticResource Error}" Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
+                                    <Label Text="{Binding LicenceText}" IsVisible="{Binding IsExpanded}" LineBreakMode="WordWrap" TextType="Text" />
+                                    <pages:LicenceAction Text="{Binding LinkText}" Hint="Opens in your browser"
                                         Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:LicencesViewModel}}, x:DataType=vm:LicencesViewModel}"
                                         CommandParameter="{Binding .}" />
                                 </VerticalStackLayout>
@@ -31,7 +31,7 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
-                <Label Style="{StaticResource Caption}" Text="{Binding Trademarks}" LineBreakMode="CharacterWrap" />
+                <Label Style="{StaticResource Caption}" Text="{Binding Trademarks}" LineBreakMode="WordWrap" />
             </VerticalStackLayout>
         </ScrollView>
         <BoxView x:Name="Fade" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
