@@ -75,6 +75,10 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
     public string StateText => $"{Severity.ToDisplayString()} · {(IsDisabled ? "Disabled" : "Enabled")} · {AlertingText}";
     public string AccessibleDescription => string.Join(". ", new[] { Name, Condition, DetailText, StateText, IsSelected ? "Selected" : null }
         .Where(part => !string.IsNullOrWhiteSpace(part)));
+    /// <summary>Template rows have no loaded alert counts or need to repeat their template name.</summary>
+    public string RelatedRuleDescription => string.Join(". ",
+        new[] { Name, Condition, Summary, IsDisabled ? null : "Enabled" }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
     public int Id => Rule.Id;
 
     public string Name => RuleText.Name(Rule);

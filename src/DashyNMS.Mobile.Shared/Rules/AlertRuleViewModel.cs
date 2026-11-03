@@ -414,7 +414,7 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string _body = string.Empty;
 
-    /// <summary>"Used by 3 rules", or that LibreNMS only uses it as the default.</summary>
+    /// <summary>Explicit server assignments, without inferring default-template status.</summary>
     [ObservableProperty]
     private string _usedBy = string.Empty;
 
@@ -434,9 +434,26 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
 
     public int? TemplateId { get; set; }
 
-    public bool HasAlertTitle => !string.IsNullOrWhiteSpace(AlertTitle);
+    public bool HasAlertTitle => !string.IsNullOrEmpty(AlertTitle);
 
-    public bool HasRecoveryTitle => !string.IsNullOrWhiteSpace(RecoveryTitle);
+    public bool HasRecoveryTitle => !string.IsNullOrEmpty(RecoveryTitle);
+
+    [ObservableProperty]
+    private string _templateIdentity = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRulesStatus))]
+    private string _rulesStatus = string.Empty;
+
+    public bool HasRulesStatus => !string.IsNullOrEmpty(RulesStatus);
+    public bool CanRetryRules => HasRulesStatus && !HasError && !IsBusy;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is nameof(RulesStatus) or nameof(HasError) or nameof(IsBusy))
+            OnPropertyChanged(nameof(CanRetryRules));
+    }
 
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
@@ -446,17 +463,39 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             return;
         }
 
-        var templateTask = _client.AlertTemplates.GetAsync(id);
-        var rulesTask = _client.Rules.ListAsync();
-        await Task.WhenAll(templateTask, rulesTask);
-
-        if (templateTask.Result is not { } template)
+        RulesStatus = string.Empty;
+        var template = await _client.AlertTemplates.GetAsync(id);
+        if (template is null)
         {
             ErrorMessage = "This template is no longer in LibreNMS.";
             return;
         }
 
-        Show(template, rulesTask.Result);
+        var previousRules = Rules.ToDictionary(r => r.Id, r => r.Rule);
+        Show(template, previousRules.Values.ToArray(), rulesAuthoritative: false);
+        RulesStatus = string.Empty;
+        if (template.AlertRules.Count == 0) return;
+        RulesStatus = "Loading related rules…";
+        UsedBy += " · loading rule details";
+        var rulesLoaded = false;
+        try
+        {
+            Show(template, await _client.Rules.ListAsync());
+            rulesLoaded = true;
+            RulesStatus = string.Empty;
+        }
+        catch (LibreNmsApiException)
+        {
+            RulesStatus = Rules.Count > 0
+                ? "Related rules could not be refreshed. Showing previously loaded details for current assignments."
+                : "Related rule details could not be loaded.";
+        }
+        finally
+        {
+            if (!rulesLoaded)
+                UsedBy = "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule") + " · rule details unavailable";
+            if (RulesStatus == "Loading related rules…") RulesStatus = string.Empty;
+        }
     });
 
     [RelayCommand]
@@ -464,12 +503,13 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
         ? Task.CompletedTask
         : _navigation.GoToAsync(Routes.AlertRule, new Dictionary<string, object> { [Routes.RuleIdParameter] = item.Id });
 
-    internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules)
+    internal void Show(AlertTemplate template, IReadOnlyList<AlertRule> rules, bool rulesAuthoritative = true)
     {
+        TemplateIdentity = $"Template ID {template.Id}";
         Title = string.IsNullOrWhiteSpace(template.Name) ? $"Template {template.Id}" : template.Name;
-        AlertTitle = template.Title?.Trim();
-        RecoveryTitle = template.TitleRec?.Trim();
-        Body = template.Template?.Replace("\r\n", "\n").TrimEnd() ?? string.Empty;
+        AlertTitle = template.Title;
+        RecoveryTitle = template.TitleRec;
+        Body = template.Template ?? string.Empty;
 
         var name = Title;
         Rules.ReplaceAll(rules
@@ -477,7 +517,9 @@ public sealed partial class AlertTemplateViewModel : ViewModelBase, IRefreshable
             .Select(r => new AlertRuleItem(r, 0, name))
             .OrderBy(r => r.IsDisabled)
             .ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase));
-        UsedBy = Rules.Count == 0 ? "Used by no rules - LibreNMS uses it only if it's the default." : "Used by " + RuleText.Count(Rules.Count, "rule");
+        UsedBy = template.AlertRules.Count == 0 ? "No explicit rule assignments. Default-template status is not reported." : "Assigned to " + RuleText.Count(template.AlertRules.Count, "rule");
+        if (rulesAuthoritative && Rules.Count < template.AlertRules.Count)
+            UsedBy += $" · {Rules.Count} available to this account";
         HasLoaded = true;
         OnPropertyChanged(nameof(HasRules));
 
