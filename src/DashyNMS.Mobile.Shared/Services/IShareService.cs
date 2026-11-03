@@ -12,6 +12,9 @@ public interface IShareService
     /// <param name="title">The share sheet's title, where the platform shows one.</param>
     Task ShareTextFileAsync(string fileName, string contents, string contentType, string title);
 
+    /// <summary>Shares original bytes without decoding or normalising a configuration file.</summary>
+    Task ShareBytesFileAsync(string fileName, byte[] contents, string contentType, string title);
+
     /// <summary>
     /// Deletes files written for earlier shares - they hold device names,
     /// rules and notes, and nothing needs them once the share sheet has taken

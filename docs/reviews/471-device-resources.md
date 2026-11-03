@@ -112,3 +112,12 @@ synthetic example.net/edge.example.net, device IDs 7/8 and long resource names.
 
 User acceptance is required before closing #471 or ticking #442. TestFlight,
 merges, watches and release actions remain parent-owned and were not started.
+
+## Sequential integration
+
+Updated after #507/#508 against main 3adc7fd. Resource, Sensor and Availability
+layouts coexist and independently hide the legacy row. Shared activation,
+ButtonSearch, Retry and fade are retained. Resource clear-on-refresh is combined
+with Availability in the generation-guarded serial request path; sensor updating
+feedback remains unchanged. Full-diff Claude review and CI verify integration.
+No hardware outcome is inferred.
