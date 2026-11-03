@@ -29,7 +29,9 @@ All visual changes follow existing guide rules; no new visual policy proposed.
 ## Evidence
 
 Implementation self-inspection: complete intended diff inspected; git diff --check passed.
-CI: pending; no builds or tests run on this code machine. Regression tests
+CI: initial unit-test job caught an incorrectly typed event raise in the new
+regression test; corrected to EventHandler<AppSettings>. Replacement CI pending;
+no builds or tests run on this code machine. Regression tests
 are added for severity text, unknown visibility, counts and threshold return.
 Mandatory independent review: parent to arrange Claude Opus 5.5 medium.
 Every device outcome remains unverified.

@@ -152,7 +152,7 @@ public sealed class HealthViewModelTests
         settings.Current.OverrideSensorLimitsWithAppThresholds = true;
         settings.Current.TemperatureThresholds.HighCritical = 25;
         settings.Current.TemperatureThresholds.HighWarning = 20;
-        settings.Changed += Raise.Event();
+        settings.Changed += Raise.Event<EventHandler<DesktopNMS.Core.Configuration.AppSettings>>(settings, settings.Current);
         await vm.RefreshIfStaleAsync();
         Assert.Equal(3, vm.CriticalCount);
         Assert.All(vm.Sensors, row => Assert.Contains("Critical", row.HealthDescription));
