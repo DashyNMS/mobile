@@ -1,6 +1,6 @@
 # DashyNMS Mobile page design spec
 
-Updated 2 November 2026. Use this spec when creating, changing or reviewing
+Updated 3 November 2026. Use this spec when creating, changing or reviewing
 any mobile page, including tabs, pushed pages, forms, pickers, editors,
 canvases and detail panes. Rules describe the target design; the pattern
 table distinguishes existing implementations awaiting migration.
@@ -36,13 +36,16 @@ reference for historical acceptance; keep reusable design rules here.
 
 ### Batch delivery
 
-The user may authorise a batch of page issues for one device test; #407 to
-#414 were authorised this way on 2 November 2026. A batch changes only when
-device verification happens:
+The user may authorise a batch of page issues for one device test. A batch
+changes when device verification happens; acceptance history belongs in
+DESIGN-REFERENCES.md:
 
 - Keep one issue per PR with a non-closing `Refs #NN`. Each PR passes CI and
   the step 5 review before squash-merging; a code-only machine runs no local
   builds or tests.
+- When managing a batch sequentially, finish each PR's branch update, CI and
+  merge before updating the next. Follow the agreed issue order and land
+  dependencies before their consumers.
 - Land a shared-control change before the pages using it, in its own PR or the
   first consumer's. Name the accepted pages it affects and keep their contracts.
 - Build one TestFlight after the final merge. The user accepts or rejects each
@@ -68,13 +71,13 @@ The final row describes the form implementation retained after #391. The editor
 moved to the scrolling pattern in #401. A form migration needs its own layout
 review; copying the editor's inset calculation into the form helper would count
 native safe areas twice. The agreed target for setup-page unification is recorded below and in #405.
-Remaining migrations are tracked in #405; this table is a pattern index,
-not a completion record.
+This table is a pattern index. DESIGN-REFERENCES.md records accepted pages
+and remaining implementation gaps.
 
 ## Forms and fixed primary actions
 
-Use this pattern for draft forms and pickers. Existing migrations are tracked
-in #405; each page retains its contract until its migration is accepted.
+Use this pattern for draft forms and pickers. Preserve each existing page's
+contract as recorded in DESIGN-REFERENCES.md.
 
 - Forms fill the available width with 16pt gutters and measured camera/glass
   clearance. Remove form-only ReadableColumn/680pt caps.
@@ -110,6 +113,11 @@ An immediate action acts on saved settings, never the unsaved draft. When a
 draft blocks it, disable it and say why, for example "Save first to update
 from this repository". State results in text as well as colour.
 
+Check every secondary action in its enabled, busy and disabled states in both
+themes. An explicit style such as `SecondaryButton` may omit the implicit
+Button style's disabled colours. Supply a themed disabled appearance and keep
+a fixed Save visibly disabled while its command is running.
+
 `DashboardBackNavigation` still uses native page safe areas. Pages adopting
 `SetupPageLayout` must remove that helper and their previous page padding and
 native-safe-area declaration together. Validate the #391 cases before migrating
@@ -131,6 +139,12 @@ safe-area watcher and native notification tokens on disappearing. It restores
 glass Back ownership on return and app resume. Existing callers of
 `CoveredEdges.Watch` may retain their lifetime behaviour; new helpers should
 retain and dispose the returned subscription.
+
+Make page subscriptions idempotent: repeated Appearing adds at most one
+handler or native observer. Retain the Window instance used for resume
+subscriptions and unsubscribe from that instance on disappearing, even if
+the page's Window has changed. Finish with each subscription paired with
+its removal and each native observer disposed.
 
 On iOS the native page owns only the top container inset. The layout owns
 16pt gutters plus `CoveredEdges` side clearance, and the bottom action gap.
@@ -177,8 +191,11 @@ For pages adopting the edge-to-edge pattern:
 - Align header side clearance with the content. Use `TopBar.Fit` on a `Layout`
   after setting its padding; a `Label` is not a valid argument.
 - Overlay an input-transparent 20pt gradient at the content's top, from page
-  background to transparent. Keep initial text, fields and empty states below
-  its 20pt region at rest; content fades only as it scrolls under the heading.
+  background to transparent. Keep it within the scrolling viewport, below
+  fixed search and status rows, with matching list margins. Reserve its 20pt
+  region with a list header spacer or equivalent content padding, including
+  group headings and empty states. Verify initial content is fully readable
+  at rest and the fade passes taps and drags through to the list.
 - Toast sides are 12pt plus side clearance. Its foot clears bottom glass, or
   aligns with the foot of a vertical pill. A wide pill is a bottom bar only if
   its top is below the page midpoint; iPad can put a wide pill at the top.
@@ -263,6 +280,10 @@ appearance does not change filtering, query retention or selection contracts.
 - Use a clipped search slot. Animate height and translation together when the
   chips/list should move; overlay search only when the canvas pattern calls
   for it. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
+- Keep setup picker scope actions, search and status in fixed rows above the
+  results viewport. A `CollectionView.Header` may scroll away or be recycled;
+  reserve it for content that belongs to the list, such as its fade spacer.
+  Verify typing retains focus and Command-F reaches search after scrolling.
 - Implement `ISearchHost` for Entry-based pages supporting Command-F.
 - Choosers whose rows come from the server use a `CollectionView`, grouped
   where headings are needed, inside the finite viewport. `BindableLayout` is
@@ -281,25 +302,38 @@ appearance does not change filtering, query retention or selection contracts.
   reference pattern's breakpoint; folding and rotation update without reopening.
 - Let titles, summaries and field labels wrap. Put labels above pickers with
   `SetupSection`, which supplies 4pt field spacing and 8pt section margin.
-  A switch may sit beside wrapping text and has its own accessible description.
+  Give each picker an accessible name matching its field, even after a value
+  replaces its Title placeholder. A switch may sit beside wrapping text and
+  has its own accessible description.
 - Label/control rows put the control beside its label only when both fit at
   the current width and text size; otherwise stack the label above. Use no
   fixed label or value column widths. Numeric fields show their unit in the
   label or section heading and keep the full value visible.
+- For signed numeric fields on iOS, use a keyboard that offers a minus sign;
+  the decimal keypad selected by `Keyboard.Numeric` cannot re-enter negative
+  thresholds. Thresholds uses `NumbersAndPunctuation` on iOS and retains the
+  numeric keyboard on Android. Verify clearing and re-entering a negative
+  value, decimal input and access to Save with the keyboard open.
 - Choice grids such as Add card use their own breakpoint: 160pt minimum tiles,
   10pt gaps and at most four columns, recomputed on resize and text-size
   change. Dashboard column counts do not apply to catalogue previews.
 - Name a stepped form's current step in its header. Show the chosen entity
   in a labelled section with a Change action naming the entity it replaces.
   A form with no choose step uses its subject as the header.
-- Present a row's name, details and selection state as one accessible element;
-  exclude duplicate child announcements and decorative handles/icons.
-  Segments announce selected state. Use a check box for several choices and
-  a tick for one choice. Verify meaningful names, action semantics and
-  activation with VoiceOver/TalkBack; a hint alone is insufficient evidence.
-- Repeated Set up, More and Change actions name their target. Offer menu
-  reordering alongside drag reordering, using Move earlier/later in reading
-  order. Keep titles and summaries together and Set up below them.
+- Make each selection row or tile one accessible element and make its whole
+  area tappable. Combine its wrapping name, details, availability reason and
+  selected state; exclude child labels, previews, icons and checkboxes from
+  duplicate announcements. Use a checkbox for several choices and a tick for
+  one choice. Keep unavailable reasons at readable contrast.
+- Update row, tile and segment descriptions when selection changes. State
+  the current action accurately, including whether choosing a notification
+  rule includes or excludes it. Verify meaningful names, action semantics
+  and VoiceOver/TalkBack activation; each tap or toggle changes selection once.
+- Repeated Set up, More, Change and Remove actions name their target. Keep
+  each action's tap area at least 44pt high when rows stack, and preserve
+  vertical padding between row content and card borders or dividers.
+- Offer menu reordering alongside drag reordering, using Move earlier/later
+  in reading order. Keep titles and summaries together and Set up below them.
 
 ## Data states and persistence
 
@@ -322,7 +356,10 @@ appearance does not change filtering, query retention or selection contracts.
   heading. It has no Save, action slot or per-change confirmation. A setting
   the system refuses, such as a denied permission, shows its actual state and why.
 - After a failed Save, scroll its error into view and announce it, because the
-  fixed action may be far from the error's position at the top.
+  fixed action may be far from the error's position at the top. Capture the
+  non-empty error before dispatching or awaiting scrolling; announce that
+  captured message only if it is still current. Repeated identical failures
+  must still reveal feedback, and a cleared error must not be announced.
 - Picker status sits between search and the list, one state at a time:
   loading, load failure with its retry route, empty source, no matches for
   the query, or a capped result count with a prompt to refine the search.

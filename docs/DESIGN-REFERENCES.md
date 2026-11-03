@@ -46,10 +46,10 @@ a group or location is a single choice. Missing saved choices remain at the
 top until unticked. Fixed Save waits for all sources to load. Whole network
 saves and returns immediately; other choices wait for Save.
 
-### Pending migrations, #407 to #414
+### Setup batch, #407 to #414
 
-These contracts guide the authorised batch and are not yet accepted. Each page
-adopts `SetupLayout` and follows DESIGN.md's action hierarchy.
+These contracts were accepted with the batch recorded below. Each page uses
+`SetupLayout` and follows DESIGN.md's action hierarchy.
 
 - **Add card #407:** search uses `SearchField`; the catalogue uses the choice
   grid breakpoint. Category counts, unavailable reasons, multi-selection,
@@ -70,7 +70,7 @@ adopts `SetupLayout` and follows DESIGN.md's action hierarchy.
   notification rule list remain unchanged.
 - **Rule picker #413 and Graylog device picker #414:** immediate choosers
   with picker statuses. Already-added rules state why they cannot be added.
-  Any device becomes the scope choice above the results. Suggestions, group
+  Any device is the scope choice above the results. Suggestions, group
   headings, the result cap and natural order are retained.
 
 ## Dashboard editor contract
@@ -98,8 +98,9 @@ under #395.
 
 ## Acceptance evidence
 
-All records below are from 2 November 2026. Build numbers refer to TestFlight
-2.0.0. Full PRs and issues retain implementation and review details.
+The first five records are from 2 November 2026; the setup batch was accepted
+on 3 November 2026. Build numbers refer to TestFlight 2.0.0. Full PRs and issues
+retain implementation and review details.
 
 | Scope | Accepted implementation | Evidence and limits |
 | --- | --- | --- |
@@ -108,6 +109,7 @@ All records below are from 2 November 2026. Build numbers refer to TestFlight
 | Ranked cards #397 | PR #425, `7f0e1f2217fa628209a63c89c2871e69108c9fcd` | User approved closure and #405 completion after device testing build 216. Shared tests and Android/iOS simulator CI passed. Individual configurations and screen-reader results were not recorded. |
 | Spotlight #398 | PR #428, `89eac7478bb70267e10d15b925fd7658193a6196` | User approved closure and #405 completion after device testing build 217. Shared tests and Android/iOS simulator CI passed. Individual configurations and screen-reader results were not recorded. |
 | Dashboard editor #399 and #430 | PR #431, `6d37a55c8dd729f5b1363c11508cb3770ffd618e`, following #401, #404 and #427 | User said the result looks good and authorised both issue closures and their #405 checkboxes. Shared tests, Android/iOS simulator and CodeQL passed. TestFlight run 41519437048 successfully built and uploaded build 219. Individual device configurations and screen-reader results were not supplied. |
+| Setup batch #407 to #414 | Add card #440, Graylog #435, Unimus #434, sensor definitions #436, thresholds #437, settings sections #441, rule picker #439 and Graylog device picker #438 | User approved all eight issue closures and completion of epic #405 on 3 November 2026. Each PR completed Claude Opus 5.5 review and required CI checks. [TestFlight build 220](https://github.com/DashyNMS/mobile/actions/runs/41553258282) built and uploaded successfully. Individual device configurations, diagnostics and screen-reader results were not supplied. |
 
 Editor review #430 confirmed three gaps: log-card Set up reached a form that
 could not load it, the introduction started under the heading fade, and the
