@@ -47,6 +47,37 @@ public sealed class AlertRulesTests
         _client.Locations.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Location>());
     }
 
+    [Fact]
+    public async Task Embedded_selection_survives_filters_and_replacement_rows()
+    {
+        var vm = new AlertRulesViewModel(_client, new RecordingNavigation());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.Select(20);
+        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        vm.ToggleWarningCommand.Execute(null);
+        Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.Equal(20, Assert.Single(vm.Rules.Where(row => row.IsSelected)).Id);
+        vm.Select(null);
+        Assert.DoesNotContain(vm.Rules, row => row.IsSelected);
+    }
+
+    [Fact]
+    public void Row_description_preserves_source_and_announces_state_changes()
+    {
+        var row = new AlertRuleItem(new AlertRule { Id = 81, Name = " ", Rule = "ports.ifOperStatus = 2", Disabled = true, SeverityText = "warning" }, 0, " ");
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, e) => changes.Add(e.PropertyName);
+        Assert.StartsWith("Rule 81. ports.ifOperStatus = 2. All devices · Disabled.", row.AccessibleDescription);
+        Assert.Contains("Warning · Disabled · 0 alerting", row.AccessibleDescription);
+        Assert.DoesNotContain(". .", row.AccessibleDescription);
+        row.IsSelected = true;
+        Assert.Contains("Selected", row.AccessibleDescription);
+        Assert.Contains(nameof(AlertRuleItem.AccessibleDescription), changes);
+        Assert.Equal("ports.ifOperStatus = 2", row.Condition);
+    }
+
     [Theory]
     [InlineData(true, 8, "On", "8")]
     [InlineData(false, null, "Off", "Inherited (server default)")]

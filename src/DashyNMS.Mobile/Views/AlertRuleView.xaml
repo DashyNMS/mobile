@@ -13,12 +13,12 @@
          severity, name, where it applies and the condition; its settings in one card of rows;
          then what it has alerting, its notes and procedure. -->
     <!-- The busy card while it loads, or after a pull; no platform spinner (#111, #123). -->
-    <Grid>
+    <Grid x:Name="Root">
     <controls:BusyCard x:Name="Busy" ZIndex="1" IsVisible="False" VerticalOptions="Start" Margin="16,64,16,0" />
     <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-        <ScrollView>
-            <controls:ReadableColumn>
-                <VerticalStackLayout Padding="16,0,16,24" Spacing="12">
+        <ScrollView x:Name="Scroller">
+            <controls:ReadableColumn x:Name="ReadingColumn">
+                <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12">
 
                     <controls:BackBar x:Name="TopBar" />
 

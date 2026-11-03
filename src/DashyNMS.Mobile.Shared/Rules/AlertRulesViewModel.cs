@@ -53,8 +53,24 @@ public static class RuleText
 }
 
 /// <summary>One rule in the list.</summary>
-public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? TemplateName)
+public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? TemplateName) : System.ComponentModel.INotifyPropertyChanged
 {
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsSelected)));
+            PropertyChanged?.Invoke(this, new(nameof(AccessibleDescription)));
+        }
+    }
+    public string StateText => $"{Severity.ToDisplayString()} · {(IsDisabled ? "Disabled" : "Enabled")} · {AlertingText}";
+    public string AccessibleDescription => string.Join(". ", new[] { Name, Condition, DetailText, StateText, IsSelected ? "Selected" : null }
+        .Where(part => !string.IsNullOrWhiteSpace(part)));
     public int Id => Rule.Id;
 
     public string Name => RuleText.Name(Rule);
@@ -76,7 +92,6 @@ public sealed record AlertRuleItem(AlertRule Rule, int Alerting, string? Templat
     /// <summary>"All devices · Device down alert" - the row's last line (#122): where it applies, its template, and Disabled.</summary>
     public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }
         .Where(p => !string.IsNullOrWhiteSpace(p)));
-/// <summary>"All devices · Device down alert" - the row's last line: where it applies and its template.</summary>    public string DetailText => string.Join(" · ", new[] { RuleText.Targets(Rule), TemplateName, IsDisabled ? "Disabled" : null }.Where(p => !string.IsNullOrWhiteSpace(p)));
 
     public bool IsAlerting => Alerting > 0;
 
@@ -101,6 +116,15 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private IReadOnlyList<AlertRuleItem> _all = [];
     private bool _loaded;
+    private int? _selectedId;
+
+    /// <summary>Keep the embedded choice when filtering hides its row or refresh replaces it.</summary>
+    public void Select(int? id)
+    {
+        _selectedId = id;
+        foreach (var row in _all) row.IsSelected = row.Id == id;
+    }
+
 
     /// <summary>Clearing every chip filters once, not once per chip.</summary>
     private bool _clearing;
@@ -201,6 +225,7 @@ public sealed partial class AlertRulesViewModel : ViewModelBase, IRefreshable
         await Task.WhenAll(rulesTask, alertsTask, templatesTask);
 
         _all = Build(rulesTask.Result, alertsTask.Result, templatesTask.Result ?? []);
+        Select(_selectedId);
         _loaded = true;
         var alerting = _all.Count(r => r.IsAlerting);
         Summary = $"{RuleText.Count(_all.Count, "rule")}{(alerting > 0 ? $" · {alerting} alerting" : string.Empty)}";
