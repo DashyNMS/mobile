@@ -31,6 +31,25 @@ public sealed class SignInWithLibreNmsTests
         return vm;
     }
 
+    [Theory]
+    [InlineData("://invalid")]
+    [InlineData("http://nms.example.net")]
+    public async Task Repeated_web_validation_failure_notifies_feedback_again(string address)
+    {
+        var vm = NewViewModel(address);
+        var errors = new List<string?>();
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(vm.ErrorMessage)) errors.Add(vm.ErrorMessage);
+        };
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        Assert.False(string.IsNullOrWhiteSpace(error));
+        errors.Clear();
+        await vm.SignInWithLibreNmsCommand.ExecuteAsync(null);
+        Assert.Equal(new string?[] { null, error }, errors);
+    }
+
     [Fact]
     public void Offers_LibreNMS_first()
     {
@@ -167,6 +186,27 @@ public sealed class EasierTokenTests
     {
         ServerUrl = server,
     };
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Repeated_manual_validation_failure_notifies_feedback_again(bool paste)
+    {
+        _clipboard.GetTextAsync().Returns("not a token");
+        var vm = NewViewModel();
+        var errors = new List<string?>();
+        vm.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(vm.ErrorMessage)) errors.Add(vm.ErrorMessage);
+        };
+        var command = paste ? vm.PasteTokenCommand : vm.SignInCommand;
+        await command.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        Assert.False(string.IsNullOrWhiteSpace(error));
+        errors.Clear();
+        await command.ExecuteAsync(null);
+        Assert.Equal(new string?[] { null, error }, errors);
+    }
 
     [Fact]
     public void The_hint_is_Cores_as_desktop_says_it() =>

@@ -154,6 +154,8 @@ public sealed partial class SignInViewModel : ViewModelBase
     [RelayCommand]
     private async Task PasteTokenAsync()
     {
+        // Every attempt must reveal feedback, including an identical validation failure.
+        ErrorMessage = null;
         if (_clipboard is null)
         {
             return;
@@ -237,6 +239,8 @@ public sealed partial class SignInViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignInAsync()
     {
+        // Every attempt must reveal feedback, including an identical validation failure.
+        ErrorMessage = null;
         // Nothing to sign in with: say where a token comes from, in Core's words (#161).
         if (string.IsNullOrWhiteSpace(ApiToken))
         {
@@ -289,6 +293,8 @@ public sealed partial class SignInViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignInWithLibreNmsAsync()
     {
+        // Every attempt must reveal feedback, including an identical validation failure.
+        ErrorMessage = null;
         if (_webSignIn is null)
         {
             return;

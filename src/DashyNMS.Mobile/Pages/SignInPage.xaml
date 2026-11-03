@@ -82,7 +82,6 @@
                             <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="API token" />
                             <Entry x:Name="TokenEntry"
                                    MinimumHeightRequest="44" SemanticProperties.Description="API token"
-                                   SemanticProperties.Hint="{Binding ErrorMessage}"
                                    Text="{Binding ApiToken}"
                                    Placeholder="Paste your API token"
                                    IsPassword="True"

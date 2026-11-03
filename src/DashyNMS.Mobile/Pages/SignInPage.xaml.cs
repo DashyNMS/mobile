@@ -1,4 +1,7 @@
 using DashyNMS.Mobile.ViewModels;
+#if IOS
+using CoreGraphics;
+#endif
 
 namespace DashyNMS.Mobile.Pages;
 
@@ -20,6 +23,8 @@ public partial class SignInPage : ContentPage
 		// token box, as well as on showing and coming back to the app.
 		TokenEntry.Focused += (_, _) => _viewModel.CheckClipboard();
 #if IOS
+		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.Container, SafeAreaRegions.Container,
+			SafeAreaRegions.Container, SafeAreaRegions.Container);
 		TokenEntry.Focused += (_, _) => Dispatcher.Dispatch(ScrollFocusedField);
 		FormLayout.SafeAreaEdges = SafeAreaEdges.None;
 		FormScroll.SafeAreaEdges = SafeAreaEdges.None;
@@ -98,10 +103,18 @@ public partial class SignInPage : ContentPage
 		var message = _viewModel.ErrorMessage;
 		Dispatcher.Dispatch(async () =>
 		{
-			if (_resumeWindow is null || _viewModel.ErrorMessage != message) return;
-			await FormScroll.ScrollToAsync(SignInError, ScrollToPosition.MakeVisible, false);
-			if (_resumeWindow is not null && _viewModel.ErrorMessage == message)
-				SemanticScreenReader.Default.Announce(message);
+			try
+			{
+				if (_resumeWindow is null || _viewModel.ErrorMessage != message) return;
+				await FormScroll.ScrollToAsync(SignInError, ScrollToPosition.MakeVisible, false);
+				if (_resumeWindow is not null && _viewModel.ErrorMessage == message)
+					SemanticScreenReader.Default.Announce(message);
+			}
+			catch (Exception)
+			{
+				// Native scroll handlers can disappear while sign-in replaces this page.
+				// Feedback must not interrupt authentication or expose the error in logs.
+			}
 		});
 	}
 

@@ -1,9 +1,8 @@
 # Sign-in review, #455
 
-Refs #455 and epic #442. Baseline: main `83e9a3983b53f3a93931b46347ae8325baa8076b`.
+Refs #455 and epic #442. Baseline: main `2360274be642f45892028f45a7fb689f8b5abcfa`.
 Read live #455/#442/#456/#457, repository CLAUDE.md, DEVELOPING.md,
-the complete DESIGN.md and DESIGN-REFERENCES.md. This checkout has no
-FULLDESIGN.md; DESIGN.md is the current page specification.
+the complete DESIGN.md and DESIGN-REFERENCES.md.
 
 ## Baseline assessment
 
@@ -17,7 +16,7 @@ baseline, not acceptance of this form. #271 supplies diagnostics sequencing.
 | Token help buttons | Fix required: horizontal actions crowd narrow and large-text layouts | Stack full-width secondary actions with 44pt minimum targets |
 | Submit | Fix required: scrolls with form, fixed 50pt height | One visible submit in an Auto row outside the finite scrolling viewport; minimum height allows growth |
 | Entry and switch names | Fix required: placeholders/adjacent labels do not supply explicit names | Named address, token, backup and options; minimum 44pt controls |
-| Error/retry | Fix required: error can be distant from submit | Complete scrollable error revealed after failure, retry guidance, current-error announcement and token error hint |
+| Error/retry | Fix required: error can be distant from submit | Complete scrollable error revealed after failure, retry guidance, current-error announcement, including repeated identical failures |
 | Busy feedback | Compliant spinner, but secondary actions remained interactive | Spinner plus text; form and secondary controls disabled while existing IsBusy is true |
 | Resume lifecycle | Fix required: removes handler from current Window rather than subscribed Window | Retain original Window; remove before subscribing and on disappearance |
 | Draft/options | Compliant | Two-way untrimmed inputs; existing SignIn commits only after successful validation; failure keeps draft |
@@ -77,7 +76,9 @@ new fixture values use synthetic addresses and tokens.
 
 ## Layout ownership and dependencies
 
-The native page owns system safe areas on every edge. iOS child safe areas and
+The native page owns system safe areas on every edge. iOS uses Container
+regions only, leaving keyboard overlap exclusively to the local helper; Android
+retains All for native keyboard handling. iOS child safe areas and
 native scroll auto-insets are disabled to avoid counting them twice. The form supplies only
 16pt gutters; its star row reserves the measured action height. On iOS, local
 keyboard observers reserve docked overlap in page coordinates and disable
@@ -103,16 +104,19 @@ geometry remain explicit device risks, not claims established by source review.
   backup, token and options and never submits a session. Existing WebSignInTests
   and SignInLinksTests retain validation, consent and cancellation coverage.
 - Local builds, tests and scripts: not run, by user instruction.
-- CI: shared tests, Android and iOS builds pending at publication. CI must also
-  validate XAML/native API bindings against the pinned dependencies.
-- Independent review: mandatory Claude Opus 5.5 Medium review pending quota
-  return, handled sequentially by the parent. No child review attempted.
-- Device evidence: none supplied for this change; no user acceptance recorded.
+- Claude Opus 5.5 Medium reviewed full diff 481e9e4 against main 2360274.
+  Findings addressed: import CoreGraphics for CGRect.Inset, clear prior errors
+  before each manual/web/paste attempt, exclude native iOS keyboard handling,
+  remove unrelated token error hints and guard asynchronous scroll/announcement.
+- Unit tests passed at the reviewed head. iOS failed on the missing extension
+  import, now corrected. Replacement CI is pending. No local builds/tests ran.
+- New regressions check repeated identical missing-token, invalid-paste,
+  invalid-address and HTTP-fallback feedback notifications.
+- Device evidence: none supplied; first-dispatch error layout, teardown races
+  and keyboard show/rotation remain unverified.
 
-Queue is #489 -> #491 -> #492 -> #493 -> #494 -> #495 -> #496 -> this PR.
-Leave this PR unmerged. Only the parent updates this PR at its turn after the
-prior PR merges, then handles review, CI, merge and cleanup. TestFlight follows
-#455–#459. No issue closure or epic ticks belong to this delivery.
+Sequential update after #496 is complete. Section TestFlight follows #455–#459.
+Issue closure and epic ticks remain gated on explicit device acceptance.
 
 ## Exact pending device matrix
 
@@ -122,7 +126,7 @@ diagnostics separately. Use synthetic data and redact credentials in evidence.
 | Scenario | Required result |
 | --- | --- |
 | Manual valid, remember on/off, backup present/absent | Existing validation and persistence; one submit; success clears token |
-| Manual invalid URL/token/backup, offline and timeout, retry | Complete error announced and visible; raw draft/options retained; no accidental commit |
+| Manual invalid URL/token/backup, offline and timeout, retry | Complete error announced and visible on every identical retry, even after scrolling; raw draft/options retained; no accidental commit |
 | HTTP primary or backup; self-signed accept/decline/change | Existing warnings precede use; only explicit exact-certificate trust |
 | QR success warm/cold, signed out/active session | Confirmation precedes import, replacement semantics and navigation unchanged |
 | QR malformed payload | Existing failure; no token exposure or session replacement |
