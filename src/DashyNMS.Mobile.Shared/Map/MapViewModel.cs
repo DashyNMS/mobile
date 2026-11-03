@@ -31,6 +31,9 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     private readonly ISettingsStore _settings;
     private readonly INavigationService _navigation;
     private readonly IMapAssets _assets;
+    private int _deviceCount;
+    public IReadOnlyList<int> SelectedPinIds { get; private set; } = [];
+
     private IReadOnlyList<(MapPinData Pin, IReadOnlyList<DeviceItem> Devices)> _pins = [];
 
     [ObservableProperty]
@@ -51,7 +54,11 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
         PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(IsBusy) or nameof(HasError) or nameof(MapPage))
+            {
                 OnPropertyChanged(nameof(EmptyText));
+                OnPropertyChanged(nameof(HasEmptyText));
+                OnPropertyChanged(nameof(CanChooseLocation));
+            }
         };
     }
 
@@ -63,7 +70,12 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
     public IReadOnlyList<MapPinData> Locations => _pins.Select(p => p.Pin).ToList();
 
-    public string EmptyText => IsBusy || HasError || MapPage is null || _pins.Count > 0 ? string.Empty : "No locations with coordinates. Choose Refresh to try again.";
+    public bool HasEmptyText => !string.IsNullOrEmpty(EmptyText);
+    public bool HasUnplacedText => !string.IsNullOrEmpty(UnplacedText);
+    partial void OnUnplacedTextChanged(string value) => OnPropertyChanged(nameof(HasUnplacedText));
+    public bool CanChooseLocation => !IsBusy && _pins.Count > 0;
+
+    public string EmptyText => IsBusy || HasError || MapPage is null || _pins.Count > 0 ? string.Empty : (_deviceCount == 0 ? "No devices." : "No devices have locations with coordinates.");
 
     public bool HasSelection => SelectedLocation is not null;
 
@@ -79,6 +91,7 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
 
         var style = _settings.Current.DeviceNameStyle;
         var devices = devicesTask.Result;
+        _deviceCount = devices.Count;
         foreach (var device in devices)
         {
             // Geocoded locations arrive as an object with the id and coordinates in it (#84).
@@ -108,6 +121,8 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off), (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 
+        OnPropertyChanged(nameof(Locations));
+        OnPropertyChanged(nameof(CanChooseLocation));
         var unplaced = placement.UnplacedDeviceIds.Count;
         UnplacedText = unplaced == 0 ? string.Empty
             : $"{unplaced} {(unplaced == 1 ? "device has" : "devices have")} no location with coordinates, so {(unplaced == 1 ? "isn't" : "aren't")} on the map.";
@@ -151,6 +166,8 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        SelectedPinIds = chosen.Select(p => p.Pin.Id).ToList();
+        OnPropertyChanged(nameof(SelectedPinIds));
         _selectedNames = chosen.Select(p => p.Pin.Name).ToList();
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = chosen.Count == 1 ? chosen[0].Pin.Name : $"{chosen.Count} locations";
@@ -163,6 +180,8 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ClearSelection()
     {
+        SelectedPinIds = [];
+        OnPropertyChanged(nameof(SelectedPinIds));
         _selectedNames = [];
         OnPropertyChanged(nameof(HasSingleLocation));
         SelectedLocation = null;

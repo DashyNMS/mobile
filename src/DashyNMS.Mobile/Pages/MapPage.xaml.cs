@@ -6,12 +6,14 @@ using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
-/// <summary>Shown via <see cref="Routes.Map"/>, from the Devices tab.</summary>
+/// <summary>Shown via <see cref="Routes.Map"/>, from a pinned tab or More.</summary>
 public partial class MapPage : ContentPage
 {
 	private readonly MapViewModel _viewModel;
 	private bool _loaded;
 	private IDisposable? _edges;
+    private bool _visible;
+    private bool? _chooserShown;
 
 	public MapPage(MapViewModel viewModel)
 	{
@@ -20,7 +22,9 @@ public partial class MapPage : ContentPage
 		_viewModel.PropertyChanged += OnViewModelChanged;
 
 		LocationsButton.Command = new Command(async () => await ChooseLocationAsync());
-        MapView.Navigated += (_, _) => PlaceControls();
+        MapView.Navigated += (_, _) => { PlaceControls(); SyncSelection(); };
+        Canvas.SizeChanged += (_, _) => PlaceControls();
+        _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();
         Status.SizeChanged += (_, _) => PlaceControls();
         SelectionCard.SizeChanged += (_, _) => PlaceControls();
@@ -66,13 +70,10 @@ public partial class MapPage : ContentPage
 		base.OnAppearing();
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
+        _visible = true;
+        _chooserShown = null;
+        UpdateActions();
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("mappin", "Choose a map location", () => _ = ChooseLocationAsync()));
-        actions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
-        TabBarButtons.Show(this, null, string.Empty, actions);
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
@@ -88,6 +89,7 @@ public partial class MapPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        _visible = false;
         _edges?.Dispose();
         _edges = null;
 #if IOS
@@ -101,10 +103,19 @@ public partial class MapPage : ContentPage
     private void AnimateSelection(bool show)
     {
         const string name = "MapSelection";
+        if (show && SelectionCard.IsVisible && !SelectionCard.AnimationIsRunning(name) && SelectionCard.TranslationY == 0) return;
         SelectionCard.AbortAnimation(name);
+        if (!show) SendSelection(false);
+        if (show && !SelectionCard.IsVisible)
+        {
+            SelectionCard.Opacity = 0;
+            SelectionCard.TranslationY = Canvas.Height;
+            SelectionCard.IsVisible = true;
+        }
         var travel = Math.Max(0, SelectionCard.Height) + SelectionCard.Margin.Bottom + 8;
         void Finish()
         {
+            if (!show) SelectionCard.IsVisible = false;
             SelectionCard.TranslationY = 0;
             SelectionCard.Opacity = 1;
             if (!show) _viewModel.ClearSelectionCommand.Execute(null);
@@ -121,9 +132,10 @@ public partial class MapPage : ContentPage
 
     private async Task ChooseLocationAsync()
     {
-        var locations = _viewModel.Locations;
+        if (!_viewModel.CanChooseLocation) return;
+        var locations = _viewModel.Locations.OrderBy(p => p.Name, NaturalOrder.Instance).ToList();
         if (locations.Count == 0) return;
-        var names = locations.Select(p => $"{p.Id + 1}. {p.Name} ({p.Count})").ToArray();
+        var names = locations.Select(p => $"{p.Name} ({p.Count} {(p.Count == 1 ? "device" : "devices")})").ToArray();
         var chosen = await DisplayActionSheetAsync("Choose a map location", "Cancel", null, names);
         var index = Array.IndexOf(names, chosen);
         if (index >= 0) _viewModel.SelectPin(locations[index].Id);
@@ -132,7 +144,9 @@ public partial class MapPage : ContentPage
     private void PlaceControls()
     {
         var clear = CoveredEdges.ForScrolling(this);
-        Overlay.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 12 + clear.Bottom);
+        Overlay.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
+        Header.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+        Status.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         var foot = 12 + clear.Bottom;
 #if IOS
         if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
@@ -140,17 +154,42 @@ public partial class MapPage : ContentPage
 #endif
         SelectionCard.Margin = new Thickness(12 + clear.Left, 6, 12 + clear.Right, foot);
         var available = Math.Max(0, Canvas.Height - Header.Height - Status.Height - foot - 110);
-        var height = Math.Min(available, Math.Max(240, Canvas.Height * 0.6));
+        var height = Math.Min(available, Canvas.Height < 740 ? 200 : 300);
         if (SelectionCard.HeightRequest != height) SelectionCard.HeightRequest = height;
         UpdateMapClearance(clear, foot);
     }
 
-    // Move Leaflet's controls, never resize/reload the canvas or reset its camera.
+    private void SyncSelection() => SendSelection(true);
+
+    private async void SendSelection(bool dim)
+    {
+        var ids = System.Text.Json.JsonSerializer.Serialize(_viewModel.SelectedPinIds);
+        try { await MapView.EvaluateJavaScriptAsync($"window.setSelection && window.setSelection({ids}, {(ReducedMotion.IsOn ? "true" : "false")}, {(dim ? "true" : "false")})"); }
+        catch (Exception) { /* Navigated reapplies selection to a replaced document. */ }
+    }
+
+    private void UpdateActions()
+    {
+        LocationsButton.IsEnabled = _viewModel.CanChooseLocation;
+#if IOS
+        if (!_visible || _chooserShown == _viewModel.CanChooseLocation) return;
+        _chooserShown = _viewModel.CanChooseLocation;
+        List<GlassAction> actions = [];
+        if (PageHeader.IsPushed(this))
+            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        if (_viewModel.CanChooseLocation)
+            actions.Add(new("mappin", "Choose a map location", () => _ = ChooseLocationAsync()));
+        actions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
+        TabBarButtons.Show(this, null, string.Empty, actions);
+#endif
+    }
+
+    // Keep controls and the selected camera target inside the uncovered canvas.
     private async void UpdateMapClearance(Thickness clear, double foot)
     {
         if (!_loaded) return;
-        var top = Math.Max(0, Header.Height + Status.Height + 12);
-        var bottom = _viewModel.HasSelection ? SelectionCard.Height + foot + 12 : foot;
+        var top = Math.Max(0, Header.Height + Status.Height + 20);
+        var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }
             .Select(n => Math.Max(0, n).ToString(CultureInfo.InvariantCulture)));
         try { await MapView.EvaluateJavaScriptAsync($"window.setMapClearance && window.setMapClearance({args})"); }
@@ -170,16 +209,14 @@ public partial class MapPage : ContentPage
 
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
+        if (e.PropertyName is nameof(MapViewModel.CanChooseLocation) or nameof(MapViewModel.IsBusy)) Dispatcher.Dispatch(UpdateActions);
+        if (e.PropertyName == nameof(MapViewModel.SelectedPinIds)) Dispatcher.Dispatch(SyncSelection);
 		if (e.PropertyName == nameof(MapViewModel.HasSelection)) Dispatcher.Dispatch(() =>
         {
-            if (_viewModel.HasSelection && !SelectionCard.IsVisible && !ReducedMotion.IsOn)
-            {
-                SelectionCard.Opacity = 0;
-                SelectionCard.TranslationY = Canvas.Height;
-            }
-            SelectionCard.IsVisible = _viewModel.HasSelection;
-            PlaceControls();
             if (_viewModel.HasSelection) AnimateSelection(true);
+            else SelectionCard.IsVisible = false;
+            PlaceControls();
+            SyncSelection();
         });
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{

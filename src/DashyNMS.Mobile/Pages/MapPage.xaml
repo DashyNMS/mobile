@@ -12,7 +12,7 @@
     <Grid x:Name="Canvas" SafeAreaEdges="None">
         <WebView x:Name="MapView" />
         <Grid x:Name="Overlay" RowDefinitions="Auto,Auto,*,Auto" SafeAreaEdges="None" InputTransparent="True" CascadeInputTransparent="False">
-            <controls:PageHeader x:Name="Header" Title="Map">
+            <controls:PageHeader x:Name="Header" Title="Map" BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
                 <controls:PageHeader.Actions>
                     <HorizontalStackLayout Spacing="4">
                         <controls:IconButton x:Name="LocationsButton" Kind="Plain" Icon="{x:Static controls:Icons.Pin}" SemanticProperties.Description="Choose a map location" />
@@ -20,11 +20,18 @@
                     </HorizontalStackLayout>
                 </controls:PageHeader.Actions>
             </controls:PageHeader>
-            <VerticalStackLayout x:Name="Status" Grid.Row="1" Spacing="4" SafeAreaEdges="None">
+            <VerticalStackLayout x:Name="Status" BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Grid.Row="1" Spacing="4" SafeAreaEdges="None">
                 <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                <Label Style="{StaticResource Caption}" Text="{Binding UnplacedText}" />
-                <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding UnplacedText}" IsVisible="{Binding HasUnplacedText}" />
+                <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding HasEmptyText}" />
+                <Button Text="Retry" Style="{StaticResource LinkButton}" Command="{Binding RefreshCommand}" IsVisible="{Binding HasError}" />
             </VerticalStackLayout>
+            <BoxView Grid.Row="2" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+                <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+                    <GradientStop Offset="1" Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" />
+                </LinearGradientBrush></BoxView.Background>
+            </BoxView>
             <controls:BusyCard Grid.Row="2" Text="Loading the map…" IsVisible="{Binding IsBusy}" />
         </Grid>
         <!-- The tapped location's devices. -->
@@ -40,13 +47,16 @@
                 <CollectionView x:Name="DeviceList" Grid.Row="1" ItemsSource="{Binding Devices}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceItem">
-                            <VerticalStackLayout Padding="0,8" Spacing="4">
-                                <Button Style="{StaticResource LinkButton}" Text="{Binding Name}" LineBreakMode="WordWrap"
-                                        Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type map:MapViewModel}}, x:DataType=map:MapViewModel}"
-                                        CommandParameter="{Binding .}" SemanticProperties.Hint="Open device details" />
-                                <Label Text="{Binding Details}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
-                                <Label Text="{Binding StateText}" TextColor="{Binding State, Converter={StaticResource StatusText}}" />
-                            </VerticalStackLayout>
+                            <Grid Padding="0,8" MinimumHeightRequest="44" RowDefinitions="Auto,Auto,Auto"
+                                  AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Hint="Open device details">
+                                <SemanticProperties.Description><MultiBinding StringFormat="{0}, {1}, {2}"><Binding Path="Name" /><Binding Path="StateText" /><Binding Path="Details" /></MultiBinding></SemanticProperties.Description>
+                                <Grid.GestureRecognizers><TapGestureRecognizer
+                                    Command="{Binding OpenDeviceCommand, Source={RelativeSource AncestorType={x:Type map:MapViewModel}}, x:DataType=map:MapViewModel}"
+                                    CommandParameter="{Binding .}" /></Grid.GestureRecognizers>
+                                <Label Text="{Binding Name}" LineBreakMode="WordWrap" HorizontalTextAlignment="Start" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Grid.Row="1" Text="{Binding Details}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Grid.Row="2" Text="{Binding StateText}" LineBreakMode="WordWrap" TextColor="{Binding State, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                            </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>

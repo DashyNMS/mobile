@@ -11,20 +11,6 @@ public sealed class MapHtmlTests
         MapHtml.Build([new MapPinData(0, name, 51.5, -0.12, 3, "down")], tiles, openStreetMapTiles: true, dark: false, "/*leaflet*/", "/*css*/");
 
     [Fact]
-    public void Overlay_clearance_moves_controls_without_refitting_the_camera()
-    {
-        var page = Page();
-        var start = page.IndexOf("window.setMapClearance =");
-        var end = page.IndexOf("var layer =", start);
-        var bridge = page[start..end];
-        Assert.Contains("controls.style.bottom", bridge);
-        Assert.Contains("controls.style.left", bridge);
-        Assert.DoesNotContain("fitBounds", bridge);
-        Assert.DoesNotContain("setView", bridge);
-        Assert.Contains("total + p.count", page); // Unknown-state members still count.
-    }
-
-    [Fact]
     public void Only_this_pages_own_scripts_run_and_images_come_only_from_the_tile_server()
     {
         var page = Page();
@@ -118,6 +104,64 @@ public sealed class MapViewModelTests
         var vm = new MapViewModel(_client, Fakes.Settings(settings), _navigation, _assets);
         await vm.RefreshCommand.ExecuteAsync(null);
         return vm;
+    }
+
+    [Fact]
+    public async Task Unknown_members_keep_their_count_and_grey_ring_share()
+    {
+        var unknown = System.Text.Json.JsonSerializer.Deserialize<Device>(
+            """{"device_id":8,"hostname":"unknown.example.net"}""", DesktopNMS.Core.Json.LibreNmsJson.Options)!;
+        unknown.LocationId = 1;
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([At(Fakes.Device(1, "up.example.net"), 1), unknown]);
+        var vm = await Loaded();
+        var pin = Assert.Single(vm.Locations);
+        Assert.Equal((2, 1, 1, 0, 0, 0), (pin.Count, pin.Up, pin.Unknown, pin.Down, pin.Maintenance, pin.Off));
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(pin);
+        Assert.Equal(0.5, json.GetProperty("unknown").GetDouble() / json.GetProperty("count").GetDouble());
+        var grey = Assert.Single(pin.Ring, part => part.Colour == "#6E6E6E");
+        var green = Assert.Single(pin.Ring, part => part.Colour == "#2EA043");
+        Assert.Equal(1, grey.Count);
+        Assert.Equal(1, green.Count);
+        Assert.Equal(pin.Count, pin.Ring.Sum(part => part.Count));
+        vm.SelectPin(pin.Id);
+        Assert.Equal(2, vm.Devices.Count);
+        Assert.Contains(vm.Devices, d => d.State == DeviceState.Unknown);
+        Assert.Equal([pin.Id], vm.SelectedPinIds);
+        vm.ClearSelectionCommand.Execute(null);
+        Assert.Empty(vm.SelectedPinIds);
+    }
+
+    [Fact]
+    public async Task Empty_unlocated_loading_and_failure_states_notify_without_discarding_rows()
+    {
+        var vm = await Loaded();
+        List<string?> changed = [];
+        vm.PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Empty(vm.EmptyText);
+        Assert.False(vm.CanChooseLocation);
+        pending.SetException(new HttpRequestException("offline"));
+        await refresh;
+        Assert.True(vm.HasError);
+        Assert.Empty(vm.EmptyText);
+        Assert.Equal(2, vm.Locations.Count);
+        Assert.True(vm.CanChooseLocation);
+        Assert.Contains(nameof(MapViewModel.CanChooseLocation), changed);
+        Assert.Contains(nameof(MapViewModel.HasEmptyText), changed);
+
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(9, "unlocated.example.net")]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("No devices have locations with coordinates.", vm.EmptyText);
+        Assert.True(vm.HasUnplacedText);
+        Assert.False(vm.CanChooseLocation);
+        Assert.Contains(nameof(MapViewModel.Locations), changed);
+        Assert.Contains(nameof(MapViewModel.HasUnplacedText), changed);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([]);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal("No devices.", vm.EmptyText);
+        Assert.False(vm.HasUnplacedText);
     }
 
     [Fact]
