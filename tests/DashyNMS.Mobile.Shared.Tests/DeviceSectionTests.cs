@@ -20,7 +20,19 @@ public sealed class DeviceSectionLoaderTests
         Assert.True(row.Matches("unavailable"));
         Assert.True(row.Matches("temperature"));
         Assert.Contains("Reading unavailable", row.SensorDescription);
+        Assert.DoesNotContain("–", row.SensorDescription);
+        Assert.DoesNotContain("—", row.SensorDescription);
         Assert.False(new SectionRow("example").SensorLayout);
+    }
+
+    [Fact]
+    public void Unregistered_sensor_without_limits_does_not_claim_healthy_text()
+    {
+        var sensor = new Sensor { SensorId = 7, SensorClass = "custom", Current = 12.34, Unit = "widgets" };
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+        Assert.Equal("No limits", row.SensorStatusText);
+        Assert.Contains("No limits", row.SensorDescription);
+        Assert.Equal(DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Status, row.Status);
     }
 
     [Fact]

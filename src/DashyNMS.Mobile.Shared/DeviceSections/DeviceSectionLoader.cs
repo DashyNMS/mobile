@@ -167,7 +167,11 @@ public sealed class DeviceSectionLoader
         {
             SensorLayout = true,
             SensorKind = SensorClassName(sensor.SensorClass),
-            SensorStatusText = !sensor.HasReading ? "Reading unavailable" : reading.Status switch
+            SensorStatusText = !sensor.HasReading ? "Reading unavailable"
+                : SensorCategoryRegistry.Resolve(sensor.SensorClass) is null
+                    && sensor.LimitLow is null && sensor.LimitLowWarn is null
+                    && sensor.LimitHighWarn is null && sensor.LimitHigh is null ? "No limits"
+                : reading.Status switch
             {
                 RowStatus.Ok => "OK",
                 RowStatus.Warning => "Warning",

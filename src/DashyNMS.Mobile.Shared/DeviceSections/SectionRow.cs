@@ -24,7 +24,7 @@ public sealed record SectionRow(string Title)
     public bool SensorLayout { get; init; }
     public string? SensorKind { get; init; }
     public string? SensorStatusText { get; init; }
-    public string SensorDescription => string.Join(", ", new[] { Title, SensorKind, Value, Subtitle, SensorStatusText }
+    public string SensorDescription => string.Join(", ", new[] { Title, SensorKind, Status == RowStatus.None && Value is "—" or "–" ? null : Value, Subtitle, SensorStatusText }
         .Where(text => !string.IsNullOrWhiteSpace(text)));
     /// <summary>Availability facts stack so dates and durations remain readable at large text sizes.</summary>
     public bool AvailabilityLayout { get; init; }

@@ -120,3 +120,12 @@ is retained; Sensors updating status wraps that request and clears in finally.
 Shared ButtonSearch, Retry, fade and activation remain owned by the merged
 baseline. Sensors stale notes can offer Retry, which intentionally refreshes.
 Full-diff Claude review and CI must verify these integration choices.
+
+## Independent review remediation
+
+Claude Opus 5.5 Medium reviewed 36b4445 against main 7d3b36c and confirmed
+the shared integration, generation guards and unchanged threshold contracts.
+Unregistered sensor classes without any limits now say No limits rather than
+OK, without changing shared ReadSensor severity. Missing-reading descriptions
+omit dash placeholders. Regression coverage pins both behaviours. Replacement
+CI remains pending. No local builds/tests ran; all hardware checks remain open.
