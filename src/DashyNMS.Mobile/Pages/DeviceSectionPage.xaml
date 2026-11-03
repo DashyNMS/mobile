@@ -99,14 +99,32 @@
                                     </VisualState>
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer
-                                    Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                    CommandParameter="{Binding .}" />
-                            </Border.GestureRecognizers>
+                            <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding PortLayout}">
+                                <Button Text="{Binding PortDescription}" IsVisible="{Binding IsLink}"
+                                        Style="{StaticResource LinkButton}" LineBreakMode="WordWrap"
+                                        MinimumHeightRequest="44" HorizontalOptions="Fill"
+                                        Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
+                                        CommandParameter="{Binding .}" />
+                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                            </VerticalStackLayout>
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding PortLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
                                 <!-- Inventory nesting. -->
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
@@ -152,6 +170,7 @@
                                              Progress="{Binding Bar}" IsVisible="{Binding HasBar}"
                                              ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                             </Grid>
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -175,11 +194,11 @@
                     <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
                 </Grid>
-                <Grid ColumnDefinitions="80,*" RowDefinitions="Auto,Auto" RowSpacing="2" ColumnSpacing="8" SafeAreaEdges="None">
+                <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
                     <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
-                    <Picker Grid.Column="1" Title="Sort by" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
-                    <Label Grid.Row="1" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
-                    <Picker Grid.Row="1" Grid.Column="1" Title="Group" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+                    <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+                    <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
+                    <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
                 </Grid>
             </VerticalStackLayout>
         </Border>

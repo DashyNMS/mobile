@@ -268,14 +268,15 @@ public sealed class DeviceSectionLoader
         var ports = (await _client.Ports.ListForDeviceAsync(deviceId, ct)).Where(p => !p.Deleted).ToList();
 
         // Down but meant to be up first - the ones that need looking at.
-        var down = ports.Where(p => !p.IsUp && !IsAdminDown(p));
+        var down = ports.Where(p => PortState(p).State == "Down");
         var up = ports.Where(p => p.IsUp);
         var shut = ports.Where(p => !p.IsUp && IsAdminDown(p));
 
         return Groups(
             ("Down", down.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
             ("Up", up.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
-            ("Shut down", shut.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)));
+            ("Shut down", shut.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)),
+            ("Unknown", ports.Where(p => PortState(p).State == "Unknown").OrderBy(p => p.IfIndex ?? int.MaxValue).Select(PortRow)));
     }
 
     private static bool IsAdminDown(Port port) =>
@@ -284,24 +285,37 @@ public sealed class DeviceSectionLoader
     internal static SectionRow PortRow(Port port)
     {
         var errors = (port.IfInErrorsRate ?? 0) + (port.IfOutErrorsRate ?? 0);
-        var (rank, state) = port.IsUp ? (1, "Up") : IsAdminDown(port) ? (2, "Shut down") : (0, "Down");
+        var (rank, state) = PortState(port);
+        var knownErrors = ValidRate(port.IfInErrorsRate) && ValidRate(port.IfOutErrorsRate)
+            && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
         return new SectionRow(port.DisplayName)
         {
             Port = PortFacts.From(port, rank, state),
+            PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
             SortValue = port.IsUp ? (port.IfInOctetsRate ?? 0) + (port.IfOutOctetsRate ?? 0) : 0,
             Subtitle = port.IfAlias is { Length: > 0 } alias && alias != port.DisplayName ? alias : null,
-            Value = port.IsUp ? $"↓{Units.Bits(port.IfInOctetsRate * 8)}  ↑{Units.Bits(port.IfOutOctetsRate * 8)}" : IsAdminDown(port) ? "Shut down" : "Down",
-            Status = port.IsUp ? (errors > 0 ? RowStatus.Warning : RowStatus.Ok) : IsAdminDown(port) ? RowStatus.Inactive : RowStatus.Critical,
+            Value = port.IsUp ? $"In: {PortTraffic(port.IfInOctetsRate)} · Out: {PortTraffic(port.IfOutOctetsRate)}" : state,
+            Status = port.IsUp ? (errors > 0 && double.IsFinite(errors) ? RowStatus.Warning : knownErrors ? RowStatus.Ok : RowStatus.None) : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Critical : RowStatus.None,
             Detail = string.Join(" · ", new[]
             {
                 port.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : null,
                 port.IfVlan is { } vlan and > 0 ? $"VLAN {vlan}" : null,
-                errors > 0 ? $"{errors.ToString("0.##", CultureInfo.CurrentCulture)} errors/s" : null,
+                errors > 0 && double.IsFinite(errors) ? $"{errors.ToString("0.##", CultureInfo.CurrentCulture)} errors/s" : null,
             }.Where(s => s is not null)),
         };
     }
+
+    private static (int Rank, string State) PortState(Port port) => port.IsUp ? (1, "Up")
+        : IsAdminDown(port) ? (2, "Shut down")
+        : string.Equals(port.IfOperStatus, "down", StringComparison.OrdinalIgnoreCase) ? (0, "Down")
+        : (3, "Unknown");
+
+    private static bool ValidRate(double? value) => value is { } rate && double.IsFinite(rate) && rate >= 0;
+
+    private static string PortTraffic(double? rate) => ValidRate(rate) && double.IsFinite(rate!.Value * 8)
+        ? Units.Bits(rate * 8) : "Unavailable";
 
     // ------------------------------------------------------------ neighbours
 

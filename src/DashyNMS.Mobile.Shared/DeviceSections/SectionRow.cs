@@ -20,6 +20,14 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
+    public bool PortLayout => Port is not null;
+    public string? PortStatusText { get; init; }
+    public string PortSummary => string.Join(", ", new[] { ContentDescription, PortStatusText }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+    public string PortDescription => string.Join(", ", new[] { PortSummary,
+        LinkPortIfName is not null ? "Open interface graphs" : "Interface graphs unavailable" }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     public string? Subtitle { get; init; }
 
     /// <summary>The subtitle is code or fields (a rule's condition, "ifOperStatus: down"), drawn monospaced.</summary>
@@ -129,6 +137,7 @@ public sealed record SectionRow(string Title)
     /// <summary>Any of the row's text containing <paramref name="term"/>, for the section's search box.</summary>
     public bool Matches(string term) =>
         Contains(Title, term) || Contains(Subtitle, term) || Contains(Value, term) || Contains(Detail, term)
+        || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
 
     private static bool Contains(string? field, string term) =>

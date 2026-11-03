@@ -183,7 +183,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     /// <summary>Green with every port up, amber with any down - desktop's.</summary>
     public RowStatus PortsTileStatus => Card(DeviceSection.Ports) is { Groups.Count: > 0 } card
-        ? card.Groups.Any(g => g.Name == "Down" && g.Count > 0) ? RowStatus.Warning : RowStatus.Ok
+        ? card.Groups.Any(g => g.Name == "Down" && g.Count > 0) ? RowStatus.Warning
+            : card.Groups.Any(g => g.Name == "Unknown" && g.Count > 0) ? RowStatus.None : RowStatus.Ok
         : RowStatus.None;
 
     /// <summary>Red with any critical, amber with other alerts, green with none - desktop's.</summary>

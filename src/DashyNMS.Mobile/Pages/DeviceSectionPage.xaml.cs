@@ -80,6 +80,11 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 				case nameof(DeviceSectionViewModel.IsFilterPanelOpen):
 					Dispatcher.Dispatch(() =>
 					{
+						if (_viewModel.IsPorts && _viewModel.IsFilterPanelOpen)
+						{
+							KeyboardDismiss.Close(Search);
+							_viewModel.DismissSearch();
+						}
 						SlideCard(FilterCard, _viewModel.IsFilterPanelOpen);
 						FadeDim(_viewModel.IsFilterPanelOpen);
 					});
