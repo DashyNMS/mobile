@@ -1,5 +1,10 @@
 # Groups and locations review, #444
 
+Queued correction after #489: see [activation and fade findings and device
+matrix](alert-navigation-correction.md). This adds actual Shell activation
+reclamation and matched-colour fade endpoints. Previous evidence does not cover
+these changes; CI, Claude review and every hardware outcome remain pending.
+
 ## Baseline and contracts
 
 Inspected live #444 and parent #442, CLAUDE.md, DEVELOPING.md, full

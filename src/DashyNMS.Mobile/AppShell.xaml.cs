@@ -6,6 +6,7 @@ namespace DashyNMS.Mobile;
 
 public partial class AppShell : Shell
 {
+    private Window? _activationWindow;
 	private readonly TabPins _pins;
 	private readonly AlertTabDot _alertDot;
 	private readonly Dictionary<AppPage, Tab> _pinnedTabs = [];
@@ -18,6 +19,17 @@ public partial class AppShell : Shell
 	public AppShell(TabPins pins, AlertTabDot alertDot, WhatsNew whatsNew, DiagnosticsConsent consent, DesktopNMS.Services.ISessionService session, INavigationService navigation)
 	{
 		InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            if (_activationWindow is not null) _activationWindow.Resumed -= OnActivationResumed;
+            _activationWindow = Window;
+            if (_activationWindow is not null) _activationWindow.Resumed += OnActivationResumed;
+        };
+        Unloaded += (_, _) =>
+        {
+            if (_activationWindow is not null) _activationWindow.Resumed -= OnActivationResumed;
+            _activationWindow = null;
+        };
 		_pins = pins;
 		_alertDot = alertDot;
 		_whatsNew = whatsNew;
@@ -194,11 +206,20 @@ public partial class AppShell : Shell
 	protected override void OnNavigated(ShellNavigatedEventArgs args)
 	{
 		base.OnNavigated(args);
+        RestoreActivePage();
 		if (_session.IsConnected && args.Current?.Location.OriginalString.StartsWith(Routes.Main, StringComparison.Ordinal) == true)
 		{
 			_ = OfferAsync();
 		}
 	}
+
+    private void OnActivationResumed(object? sender, EventArgs e) => RestoreActivePage();
+
+    private void RestoreActivePage() => Dispatcher.Dispatch(() =>
+    {
+        // Resolve at delivery time: outgoing Disappearing/Hide must finish first.
+        if (CurrentPage is IActivePage page) page.Activate();
+    });
 
 	private async Task OfferAsync()
 	{
