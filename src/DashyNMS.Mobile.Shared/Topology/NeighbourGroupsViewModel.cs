@@ -39,6 +39,7 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
     private readonly NeighbourDirectory _neighbours;
+    private IReadOnlyList<NeighbourLink>? _failedLinks;
 
     public NeighbourGroupsViewModel(ISettingsStore settings, INavigationService navigation, IDialogService dialogs, NeighbourDirectory neighbours)
     {
@@ -63,7 +64,8 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
             for (var i = 0; i < Groups.Count; i++)
             {
                 var group = _settings.Current.NeighbourViews[i];
-                Groups[i] = new NeighbourGroupRow(group, links?.Count(link => NeighboursViewModel.InGroup(group, link)));
+                var next = new NeighbourGroupRow(group, links?.Count(link => NeighboursViewModel.InGroup(group, link)));
+                if (!Groups[i].Equals(next)) Groups[i] = next;
             }
             OnPropertyChanged(nameof(HasNone));
             return;
@@ -83,22 +85,29 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
         if (IsBusy) return;
         if (_neighbours.Links is not null)
         {
-            ErrorMessage = null;
+            if (!ReferenceEquals(_neighbours.Links, _failedLinks)) ErrorMessage = null;
             Refresh();
             return;
         }
 
         if (await RunAsync(() => _neighbours.GetAsync()))
         {
+            _failedLinks = null;
             Refresh();
         }
+        else _failedLinks = _neighbours.Links;
     }
 
     [RelayCommand]
     private async Task RetryCountsAsync()
     {
         if (IsBusy) return;
-        if (await RunAsync(() => _neighbours.LoadAsync())) Refresh();
+        if (await RunAsync(() => _neighbours.LoadAsync()))
+        {
+            _failedLinks = null;
+            Refresh();
+        }
+        else _failedLinks = _neighbours.Links;
     }
 
     [RelayCommand]
@@ -147,7 +156,6 @@ public sealed partial class NeighbourGroupsViewModel : ViewModelBase
         var visibleFrom = Groups.ToList().FindIndex(v => v.Group.Id == row!.Group.Id);
         var visibleTo = Groups.ToList().FindIndex(v => v.Group.Id == groups[from].Id);
         if (visibleFrom >= 0 && visibleTo >= 0) Groups.Move(visibleFrom, visibleTo);
-        Refresh();
     }
 }
 

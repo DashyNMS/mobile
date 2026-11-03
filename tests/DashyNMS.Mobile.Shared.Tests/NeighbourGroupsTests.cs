@@ -68,6 +68,13 @@ public sealed class NeighbourGroupsTests
         Assert.True(list.HasError);
         Assert.Same(savedRow, list.Groups[0]);
         Assert.Equal(0, list.Groups[0].Count);
+        await list.LoadCountsAsync();
+        Assert.True(list.HasError); // Returning to the same failed snapshot is still stale.
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns([new NetworkLink { LocalDeviceId = 1, RemoteHostname = "ap-new" }]);
+        await _directory.LoadAsync();
+        await list.LoadCountsAsync();
+        Assert.False(list.HasError);
+        Assert.Equal(1, list.Groups[0].Count);
     }
 
     private readonly ISettingsStore _settings;
@@ -244,8 +251,10 @@ public sealed class NeighbourGroupsTests
         list.Groups.CollectionChanged += (_, e) => events.Add(e.Action);
         list.MoveUpCommand.Execute(list.Groups[2]);
         Assert.Equal(["A", "C", "B"], _appSettings.NeighbourViews.Select(v => v.Name));
-        Assert.Contains(System.Collections.Specialized.NotifyCollectionChangedAction.Move, events);
-        Assert.DoesNotContain(System.Collections.Specialized.NotifyCollectionChangedAction.Reset, events);
+        Assert.Equal([System.Collections.Specialized.NotifyCollectionChangedAction.Move], events);
+        events.Clear();
+        list.Refresh();
+        Assert.Empty(events);
 
         events.Clear();
         await list.DeleteCommand.ExecuteAsync(list.Groups[0]);

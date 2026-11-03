@@ -3,7 +3,7 @@
 Refs #450, epic #442. Integration baseline main 8f6dc2a (included in
 43c22f9e00187d091997e901e65da67f5e0dba05). Read live #450/#442/#451/#452,
 CLAUDE.md, DEVELOPING.md, full DESIGN.md and DESIGN-REFERENCES.md, and PR #490
-read-only. FULLDESIGN.md is absent. No queued branch is edited.
+read-only. No queued branch is edited.
 
 ## Before fixes
 
@@ -46,7 +46,8 @@ Claude review of 43c22f9 confirmed M1–M3 and L1–L4: stale cache errors/no-op
 retry, collection resets, duplicate activation ownership, count wording, retry
 progress, boundary menu actions and outdated evidence. This revision clears
 errors on valid-cache reuse, explicitly reloads on Retry/pull, retains last-good
-rows on failure, emits Move/Remove without Reset, delegates activation to #490's
+rows on failure, emits a single Move or Remove without replacing unchanged
+rows, delegates activation to #490's
 IActivePage owner, uses singular/plural counts, displays one busy overlay for
 all requests and omits boundary moves. Commands re-resolve saved IDs after sheets.
 Regression coverage added for cache recovery, forced reload, busy state, retained
@@ -83,3 +84,17 @@ fold/rotate and resume. Record exact build/head, OS, result and diagnostics:
    old error. Retry/pull with cached links fetches again; failure retains counts.
 
 No closure or epic ticks. TestFlight only after #450–#452; acceptance remains pending.
+
+
+## Follow-up review at f7fa227
+
+Claude confirmed the count reload and central activation fixes. Refresh now
+replaces only rows whose definition instance or count changed; Move emits one
+Move event without a follow-up Refresh, and an unchanged Refresh emits no events.
+A failed refresh retains its cache reference: later visits clear the error only
+when the directory has a newer successful snapshot, preserving offline warnings
+for unchanged cached counts. Collection-event and recovery regressions cover
+these cases. At f7fa227 unit tests, CodeQL actions/C#, and one Android/iOS run had
+passed; other platform runs and Swift were pending at review. Replacement CI is
+pending, with no local builds/tests and no device acceptance. Refs #450 remains
+intentional under the user's device-acceptance gate.
