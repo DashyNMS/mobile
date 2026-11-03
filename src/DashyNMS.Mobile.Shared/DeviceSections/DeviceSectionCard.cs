@@ -187,9 +187,11 @@ public sealed partial class DeviceSectionCard : ObservableObject
     {
         var up = groups.FirstOrDefault(g => g.Name == "Up")?.Count ?? 0;
         var down = groups.FirstOrDefault(g => g.Name == "Down")?.Count ?? 0;
+        var unknown = groups.FirstOrDefault(g => g.Name == "Unknown")?.Count ?? 0;
         var summary = rows.Count == 0 ? "No ports"
             : $"{up.ToString("N0", CultureInfo.CurrentCulture)} of {Counted(rows.Count, "port", "ports")} up"
-              + (down > 0 ? $" · {down.ToString("N0", CultureInfo.CurrentCulture)} down" : string.Empty);
+              + (down > 0 ? $" · {down.ToString("N0", CultureInfo.CurrentCulture)} down" : string.Empty)
+              + (unknown > 0 ? $" · {unknown.ToString("N0", CultureInfo.CurrentCulture)} unknown" : string.Empty);
 
         var busiest = rows
             .Where(r => r.SortValue > 0)

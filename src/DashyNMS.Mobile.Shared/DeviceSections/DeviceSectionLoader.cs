@@ -325,7 +325,7 @@ public sealed class DeviceSectionLoader
         return new SectionRow(port.DisplayName)
         {
             Port = PortFacts.From(port, rank, state),
-            PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ", Readings unavailable" : string.Empty),
+            PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate) ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
             SortValue = port.IsUp ? PortFacts.SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,

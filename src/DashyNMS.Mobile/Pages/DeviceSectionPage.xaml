@@ -108,12 +108,13 @@
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding PortLayout}">
-                                <Grid MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
                                       SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
                                     <Label Text="{Binding PortSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True"
                                            TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" AutomationProperties.ExcludedWithChildren="True" />
                                 </Grid>
-                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap">
+                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}">
                                     <Label.Triggers>
                                         <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
                                             <Setter Property="IsVisible" Value="False" />

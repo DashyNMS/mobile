@@ -22,6 +22,14 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public void Missing_error_counters_do_not_claim_valid_traffic_is_unavailable()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "port1", IfOperStatus = "up", IfInOctetsRate = 10, IfOutOctetsRate = 20 });
+        Assert.Contains("Error readings unavailable", row.PortStatusText);
+        Assert.DoesNotContain("Unavailable", row.Value);
+    }
+
+    [Fact]
     public void Invalid_rates_do_not_rank_above_valid_traffic_or_offset_errors()
     {
         var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = double.PositiveInfinity, IfOutOctetsRate = 10, IfInErrorsRate = 5, IfOutErrorsRate = -1 });

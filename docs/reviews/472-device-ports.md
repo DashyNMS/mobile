@@ -21,7 +21,7 @@ without merge, release, watch, issue closure or epic ticks.
 | Loading/empty/error | Compliant: first-load BusyCard, error suppresses empty, source empty differs from unmatched query, pull refresh | Preserve; #507 owns Retry and race guard |
 | Cached/offline | Retained rows during refresh/failure are last loaded facts without a timestamp | Existing behaviour preserved, not live or cached-freshness evidence; hardware failure sequence unverified |
 | Insets/header/final row | Existing manual iOS list inset, measured side clearance, finite viewport above glass plus gap and 24pt footer compliant in source | #507 owns list fade/spacer and lifecycle correction; no duplicate inset owner |
-| Themes/motion/accessibility | Unverified on hardware | Native button and explicit text supplied; no new motion; device matrix below remains required |
+| Themes/motion/accessibility | Unverified on hardware | Described card action and explicit text supplied; no new motion; device matrix below remains required |
 
 DeviceSectionPage and code-behind consume DeviceSectionViewModel, loader groups
 and SectionRow. DeviceDetailView embeds DeviceSectionCard's five busiest rows;
@@ -56,7 +56,7 @@ after quota resets. No Claude reviewer or delegate was started.
 
 1. DeviceSectionPage.xaml: combine specialised availability, sensor, resource
    and port presentations under one wrapper. Retain all four legacy-grid hide
-   triggers. Keep the port button's command as the single port activation and
+   triggers. Keep the card border gesture as the single port activation and
    the legacy grid gesture for other rows. Preserve inventory child commands.
 2. DeviceDetailView.xaml: retain all specialised highlights and legacy-grid
    hide triggers. PortSummary intentionally omits a graph action because the
@@ -128,3 +128,10 @@ inner gesture. Native action traits still require device verification.
 Regressions cover known-down states and invalid-rate ranking/error totals.
 Replacement CI and fresh review are pending. No local builds/tests ran;
 all hardware outcomes remain unverified, including missing error-rate behaviour.
+
+Claude re-reviewed d6c4e5d with no blocking or medium findings. Linked rows now
+show a decorative chevron; non-link and overview labels retain status colours.
+Valid traffic with missing error counters says Error readings unavailable.
+Unknown counts appear in the overview summary and tests cover neutral Unknown
+and Down taking priority. Hardware must verify card-action activation and traits.
+Replacement CI is pending; no local builds/tests ran.
