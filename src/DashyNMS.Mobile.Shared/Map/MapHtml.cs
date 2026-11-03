@@ -279,7 +279,10 @@ public static class MapHtml
 
                   var where = map.layerPointToLatLng([g.x, g.y]);
                   var title = g.pins.length === 1 ? g.pins[0].name : g.pins.length + ' locations';
-                  var marker = L.marker(where, { icon: L.divIcon({ html: el, className: '', iconSize: [size, size] }), title: title });
+                  // The first zoomend precedes load, so the layer group may not
+                  // have attached yet. Leaflet applies opacity when creating the icon.
+                  var opacity = !dimming || g.pins.some(function (p) { return selected.indexOf(p.id) >= 0; }) ? 1 : 0.25;
+                  var marker = L.marker(where, { icon: L.divIcon({ html: el, className: '', iconSize: [size, size] }), title: title, opacity: opacity });
                   marker.pinIds = g.pins.map(function (p) { return p.id; });
                   marker.on('click', function () {
                     // Defer the zoom until the native card has supplied its clearance.
@@ -287,7 +290,6 @@ public static class MapHtml
                     window.location.href = '{{PinScheme}}://pins/' + g.pins.map(function (p) { return p.id; }).join(',');
                   });
                   layer.addLayer(marker);
-                  marker.getElement().style.opacity = !dimming || marker.pinIds.some(function (id) { return selected.indexOf(id) >= 0; }) ? '1' : '0.25';
                 });
               }
 
@@ -309,11 +311,13 @@ public static class MapHtml
                 var container = map.getContainer();
                 if (ready || container.clientHeight <= 0 || container.clientWidth <= 0) return;
                 programmatic(function () {
-                  // Leaflet caches getSize(), even before layout, and invalidateSize
-                  // is a no-op until a view exists. Seed that view before invalidating
-                  // so a document loaded at zero size can fit its eventual viewport.
-                  map.setView([20, 0], 2, { animate: false });
-                  map.invalidateSize({ pan: false });
+                  // Only stale geometry needs a seed: pre-view invalidateSize is
+                  // a no-op. Normal startup fits directly without requesting world tiles.
+                  var size = map.getSize();
+                  if (size.x !== container.clientWidth || size.y !== container.clientHeight) {
+                    map.setView([20, 0], 2, { animate: false });
+                    map.invalidateSize({ pan: false });
+                  }
                   fit();
                 });
                 fitWithoutClearance = !hasClearance;

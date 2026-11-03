@@ -476,13 +476,20 @@ Back in glass or the header fallback. Fade endpoints must share the actual
 viewport surface RGB, span that viewport and reserve 20pt without blocking input.
 See [the corrective assessment and exact regression matrix](reviews/alert-navigation-correction.md).
 
-Geographic-map startup proposals, pending Claude Opus 5.5 Medium review and
-hardware acceptance: use live DOM viewport dimensions to gate first layout.
-Leaflet's cached getSize and pre-view invalidateSize cannot establish readiness;
-seed a view before invalidating and fitting. CI must execute the embedded bridge
+Geographic-map startup must use live DOM viewport dimensions to gate first layout.
+Keep first-camera draw handlers safe before load: layer groups attach through
+whenReady and marker icons can be undefined during the first zoomend. Supply
+initial dimming through marker options. The #468 unguarded icon access can stop
+any populated map before tile attachment; stale cached-zero size is a separate
+startup failure. Leaflet's cached getSize and pre-view invalidateSize cannot
+establish readiness. Seed a view only when cached dimensions differ from live
+dimensions, then invalidate and fit inside the programmatic guard. Otherwise fit
+directly to avoid seed world tiles. CI must execute the embedded bridge
 with document load before geometry, cached zero size, later native clearance and
 resize, normal/empty pins and pending selection, requiring camera and draw
-activity rather than source substrings. Keep fitting zoom controls visible and
+activity rather than source substrings. Model deferred layer attachment, missing
+pre-load marker icons and first-view events through load; assert pending focus
+centre and safe offset. Keep fitting zoom controls visible and
 retain the defined insufficient-space pinch fallback. Real tiles, native clips,
 gestures, glass and fold/rotation still require the device matrix in
 [the map correction assessment](reviews/map-loading-correction.md).
