@@ -1,3 +1,4 @@
+using NSubstitute.ExceptionExtensions;
 using AlertWatchState = DashyNMS.Mobile.Alerts.AlertWatchState;
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Rules;
@@ -257,4 +258,70 @@ public sealed class NotifyRulesTests
         Assert.Equal(["Rule 2, on every device", "Rule 3, on every device"], _rules.Listed.Select(e => e.Description));
         Assert.Equal(Routes.Back, Assert.Single(navigation.Visits).Route);
     }
+
+    [Fact]
+    public async Task Rule_picker_distinguishes_loading_empty_search_and_failure()
+    {
+        var client = Fakes.Client();
+        var response = new TaskCompletionSource<IReadOnlyList<AlertRule>>();
+        client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(response.Task);
+        var vm = new NotifyRulePickerViewModel(client, _rules, new RecordingNavigation());
+
+        Assert.False(vm.IsEmpty);
+        var loading = vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.IsEmpty);
+        response.SetResult([]);
+        await loading;
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("No alert rules are available from this server.", vm.EmptyText);
+
+        client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            [new AlertRule { Id = 10, Name = "Rule 1" }]);
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.SearchText = "missing";
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("No alert rules match your search.", vm.EmptyText);
+        vm.SearchText = "rule";
+        Assert.False(vm.IsEmpty);
+
+        client.Rules.ListAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new HttpRequestException());
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        Assert.Empty(vm.Rules);
+
+        client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            [new AlertRule { Id = 10, Name = "Rule 1" }]);
+        await vm.LoadCommand.ExecuteAsync(null);
+        Assert.False(vm.HasError);
+        Assert.Single(vm.Rules);
+        Assert.Equal("rule", vm.SearchText);
+    }
+
+    [Theory]
+    [InlineData(NotificationRuleMode.Only)]
+    [InlineData(NotificationRuleMode.AllExcept)]
+    public async Task Rule_picker_rejects_duplicates_and_preserves_mode(NotificationRuleMode mode)
+    {
+        _rules.Mode = mode;
+        _rules.AddEverywhere(10, "Rule 1");
+        var navigation = new RecordingNavigation();
+        var vm = new NotifyRulePickerViewModel(Fakes.Client(), _rules, navigation);
+        var listed = new NotifyRuleChoice(10, "Rule 1", AlertSeverity.Warning,
+            "Already on the list, on every device", true);
+
+        Assert.Contains("Already on the list", listed.SelectionDescription);
+        Assert.Contains("Cannot add again", listed.SelectionDescription);
+        await vm.ChooseCommand.ExecuteAsync(listed);
+        Assert.Empty(navigation.Visits);
+        Assert.Single(_rules.Listed);
+
+        await vm.ChooseCommand.ExecuteAsync(new NotifyRuleChoice(20, "Rule 2", AlertSeverity.Warning, null, false));
+        Assert.Equal(mode, _rules.Mode);
+        Assert.Equal(2, _rules.Listed.Count);
+        Assert.Equal(Routes.Back, Assert.Single(navigation.Visits).Route);
+    }
+
 }
