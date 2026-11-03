@@ -50,6 +50,31 @@ public sealed class AlertRulesTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task Failed_rule_refresh_keeps_pending_details_for_the_displayed_rule(bool missing)
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<Alert>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Alerts.ListAsync(AlertQuery.Open, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var firstExtras = vm.Extras;
+        Assert.Equal("Loading template…", vm.TemplateName);
+        if (missing)
+            _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(Task.FromResult<AlertRule?>(null));
+        else
+            _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns<AlertRule?>(_ => throw new LibreNmsApiException("Unavailable"));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.False(vm.HasSupplementaryStatus);
+        pending.SetResult([Fakes.Alert(2, 1, "warning")]);
+        await firstExtras;
+        Assert.Equal("Ports", vm.TemplateName);
+        Assert.True(vm.HasAlerts);
+        Assert.False(vm.HasSupplementaryStatus);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task Failed_names_describe_current_targets_and_combine_failures(bool loadFirst)
     {
         var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };

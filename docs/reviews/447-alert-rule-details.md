@@ -66,9 +66,10 @@ last good alerts/template navigation after failure. Existing entity/compatibilit
 and route tests remain. No local builds, tests or test scripts run.
 Whitespace validation is performed with git diff --check before commit.
 
-CI: pending pushed-head shared tests, Android, iOS simulator and security checks.
-Independent review: pending parent-mandated Claude Opus 5.5 Medium full-diff
-review. The implementation agent has started no agents or review delegates.
+Claude Opus 5.5 Medium re-reviewed c551afd, confirmed all eight earlier fixes
+and found no high or medium issues. At c551afd unit tests, Android, iOS simulator
+and CodeQL actions/C# passed; Swift remained pending. The three low follow-ups
+are addressed below; replacement CI is pending. No local builds/tests ran.
 Parent must complete review, CI, merge and branch cleanup before #448.
 
 ## Device evidence and exact gaps
@@ -114,7 +115,7 @@ lookup. Tests are written but have not run locally.
 Restored settings dividers and alert ListRow presentation (dot, title, state,
 age and line), wrapping whole-row actions instead of multiline native buttons.
 Retry actions have distinct accessible descriptions. Visible BackBar uses zero
-top reservation, matching DeviceDetailView; hidden Back retains the 20pt fade
+top reservation to retain its shared header alignment; hidden Back retains the 20pt fade
 reservation. Glass Moved subscription is idempotent. Host inset ownership,
 relative routes and immediate notification Change/Undo remain unchanged.
 
@@ -128,3 +129,17 @@ satisfy that review gate.
 No device acceptance: toast beside a side pill, whole-row screen-reader
 activation, real wrapping at largest text, Duo fold/rotate/resume, glass reclaim,
 and both themes/code contrast all remain unverified, along with the matrix above.
+
+
+## Follow-up after c551afd review
+
+A successful rule fetch now advances the supplementary generation; a failed or
+missing-rule refresh leaves pending details for the displayed rule valid. Old
+status is cleared on refresh and supplementary Retry is suppressed while a main
+error is visible, including when earlier details finish later. Added regressions
+cover both failed and missing-rule refreshes with pending alerts/template data.
+The supplementary Retry is named "Retry loading rule details" so target-name
+failures are described accurately. The view reserves 20pt for the fade when Back
+is hidden and zero above a visible BackBar, following this page's design contract;
+it does not claim to copy DeviceDetailView's 16pt offset. All device checks remain
+unverified, and replacement CI is pending.

@@ -33,7 +33,7 @@
 
                     <VerticalStackLayout IsVisible="{Binding HasSupplementaryStatus}">
                         <Label Text="{Binding SupplementaryStatus}" Style="{StaticResource Caption}" />
-                        <Button SemanticProperties.Description="Retry loading alerts and template" Text="Retry" Style="{StaticResource LinkButton}" MinimumHeightRequest="44" Command="{Binding RefreshCommand}" />
+                        <Button SemanticProperties.Description="Retry loading rule details" Text="Retry" Style="{StaticResource LinkButton}" MinimumHeightRequest="44" Command="{Binding RefreshCommand}" />
                     </VerticalStackLayout>
                     <!-- ==================== The header ==================== -->
                     <Border Style="{StaticResource Card}" Padding="16" IsVisible="{Binding HasLoaded}">

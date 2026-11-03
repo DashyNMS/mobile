@@ -91,6 +91,10 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         _settings = settings;
         _navigation = navigation;
         _rules = rules;
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(HasError)) OnPropertyChanged(nameof(HasSupplementaryStatus));
+        };
     }
 
     public int? RuleId { get; set; }
@@ -125,7 +129,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private string? _supplementaryStatus;
 
-    public bool HasSupplementaryStatus => !string.IsNullOrEmpty(SupplementaryStatus);
+    public bool HasSupplementaryStatus => !HasError && !string.IsNullOrEmpty(SupplementaryStatus);
     private int _generation;
     private IReadOnlyDictionary<int, Device> _devices = new Dictionary<int, Device>();
     private IReadOnlyList<DeviceGroup> _groups = [];
@@ -142,7 +146,8 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         // Only the rule is waited for (#123): it used to wait on six requests -
         // the whole device list among them - before showing anything. The
         // rest fills in behind it; alerts and templates start now, alongside.
-        var generation = ++_generation;
+        SupplementaryStatus = null;
+        OnPropertyChanged(nameof(HasSupplementaryStatus));
         var alertsTask = BestEffort(() => _client.Alerts.ListAsync(AlertQuery.Open));
         var templatesTask = BestEffort(() => _client.AlertTemplates.ListAsync());
         if (await _client.Rules.GetAsync(id) is not { } rule)
@@ -151,6 +156,8 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
             return;
         }
 
+        // Failed rule requests leave the displayed rule's pending details valid.
+        var generation = ++_generation;
         ShowRule(rule);
         ShowTargets(rule, _devices, _groups, _locations, _settings.Current);
         HasLoaded = true;
