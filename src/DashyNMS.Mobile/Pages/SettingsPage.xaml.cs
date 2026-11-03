@@ -24,7 +24,8 @@ public partial class SettingsPage : ContentPage, IActivePage
 		Scroller.SafeAreaEdges = SafeAreaEdges.None;
 		Root.SafeAreaEdges = SafeAreaEdges.None;
 #else
-		SafeAreaEdges = SafeAreaEdges.Container;
+		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.Container, SafeAreaRegions.Container,
+			SafeAreaRegions.Container, SafeAreaRegions.Container);
 #endif
 #if IOS
 		Scroller.HandlerChanged += OnScrollerChanged;

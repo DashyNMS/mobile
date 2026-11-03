@@ -96,6 +96,8 @@ of unsupported schemes), Android declares Container safe areas as More does,
 card dividers are restored and Hide names has consistent title size and a full
 spoken explanation. Added invalid-scheme regression coverage. Replacement CI
 for these follow-ups remains pending; hardware geometry remains unverified.
+Android CI at 6909dca caught use of a nonexistent SafeAreaEdges.Container C#
+member; this is corrected to the explicit four-edge Container constructor.
 
 This branch was updated serially after #495. TestFlight follows #453–#454.
 Issues and epic checkboxes remain open until explicit user device acceptance.
