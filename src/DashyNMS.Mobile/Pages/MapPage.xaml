@@ -12,7 +12,8 @@
     <Grid x:Name="Canvas" SafeAreaEdges="None">
         <WebView x:Name="MapView" />
         <Grid x:Name="Overlay" RowDefinitions="Auto,Auto,*,Auto" SafeAreaEdges="None" InputTransparent="True" CascadeInputTransparent="False">
-            <controls:PageHeader x:Name="Header" Title="Map" BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
+            <BoxView InputTransparent="True" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+            <controls:PageHeader x:Name="Header" Title="Map">
                 <controls:PageHeader.Actions>
                     <HorizontalStackLayout Spacing="4">
                         <controls:IconButton x:Name="LocationsButton" Kind="Plain" Icon="{x:Static controls:Icons.Pin}" SemanticProperties.Description="Choose a map location" />

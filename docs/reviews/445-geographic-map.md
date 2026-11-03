@@ -200,3 +200,45 @@ stale-picker instructions and correct this evidence. Added regressions cover
 is pending; all device checks above remain unverified. The review cannot settle
 real Leaflet user-zoom animation timing, handler measurement, accessibility or
 Duo geometry. No device acceptance is claimed.
+
+
+## Corrective follow-up after #447 (before #448)
+
+User device evidence reported a clipped Map title and mostly offscreen zoom
+controls. Source inspection found PlaceControls overwriting TopLineSpace's
+dynamic padding. Header side clearance now uses Margin; a full-width opaque
+BoxView behind it fills the side gutters and the status band where the top
+line moves up. The local Auto first row contains an invisible TopBar.Height
+spacer, preserving the shared 44pt line without stretching a title that moves
+to the second row. Larger text can still grow.
+The native page retains top container ownership; no second inset is added.
+
+WKWebView uses Never adjustment, zero content/indicator insets and offset,
+no bounce and no document scrolling. Leaflet retains pan/pinch ownership.
+This removes a separate translation path; devices must establish whether it
+caused the observed clipping and whether native gestures still work correctly.
+
+Review of `41a0a20` confirmed stale Leaflet size could misplace zoom on resize.
+Zoom now uses container.clientHeight and recomputes on clearance and resize.
+Both 44px targets retain top and bottom overlay clearance. If insufficient
+height remains, zoom is hidden until it fits again; pinch remains available.
+Camera clearance is unchanged. Node regression covers stale cached dimensions,
+short canvases, exact-fit bottom clearance, resize recovery and selection-camera
+preservation. Attribution, dimming, CSP, JSON and navigation remain unchanged.
+
+No local builds or tests were run. At reviewed head `41a0a20`, the supplied CI
+record had shared/Node tests, actions/csharp, both iOS jobs and one Android job
+passing; the other Android job and Swift analysis were pending. Those results
+do not validate this follow-up. New-head CI and the parent's fresh Claude Opus
+5.5 Medium full-diff review remain pending. No devices have been verified.
+
+Device gaps include opaque band edges, shared top-line alignment and title at
+large text, real pan/pinch with native WebView scrolling off, short canvases,
+folding/rotation, zoom restoration, selection camera, dimming, attribution and
+Reduce Motion. Issue #445 and its #442 entry await device acceptance.
+
+
+Follow-up Claude review at 7f3ab26 confirmed the earlier high and medium fixes.
+Its remaining title-alignment cleanup replaces per-child minimum heights with an
+invisible 44pt first-row spacer, so pushed titles keep their natural second-row
+height. Final replacement CI is pending; all device geometry remains unverified.

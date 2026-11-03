@@ -7,6 +7,7 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:HealthViewModel"
+    HideSoftInputOnTapped="True"
     SafeAreaEdges="Container"
     Title="Health">
 
@@ -41,7 +42,7 @@
             </FlexLayout>
         </Border>
 
-        <!-- Retain scroll-reveal on iOS and always-visible search on Android. -->
+        <!-- Button-only search on both platforms. -->
         <Grid SafeAreaEdges="None" Grid.Row="2" x:Name="SearchSlot" IsClippedToBounds="True">
             <controls:SearchField x:Name="SearchField" VerticalOptions="Start" Margin="0,6,0,0">
                 <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search sensors" SemanticProperties.Description="Search sensors" Completed="OnSearchCompleted" />
@@ -92,7 +93,7 @@
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
+                <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
                     <CollectionView.Footer><BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" /></CollectionView.Footer>
                     <CollectionView.EmptyView>
                         <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" IsVisible="{Binding IsEmpty}"

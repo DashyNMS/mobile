@@ -7,15 +7,15 @@ public partial class HealthPage : ContentPage, ISearchHost
 {
     private readonly HealthViewModel _viewModel;
     private IDisposable? _edges;
+    private readonly ButtonSearch _search;
 
     public HealthPage(HealthViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading sensors…", "Refreshing sensors…");
-        SearchReveal.Attach(List, SearchSlot, Search);
+        _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
-        List.Scrolled += (_, _) => { if (Search.IsFocused) KeyboardDismiss.Close(Search); };
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         Header.BackInGlass = TabBarButtons.IsAvailable;
@@ -44,14 +44,14 @@ public partial class HealthPage : ContentPage, ISearchHost
         _ = _viewModel.RefreshIfStaleAsync();
     }
 
-    public void OpenSearch() => SearchReveal.Reveal(Search);
+    public void OpenSearch() => _search.Open();
 
-    private void OnSearchCompleted(object? sender, EventArgs e) => KeyboardDismiss.Close(Search);
+    private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
 
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        KeyboardDismiss.Close(Search);
+        _search.Close();
         _edges?.Dispose();
         _edges = null;
 #if IOS

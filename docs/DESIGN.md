@@ -266,14 +266,27 @@ Search return type, disables spell checking and prediction, removes clear
 buttons and iOS keyboard accessories, and opts the Entry into `KeyboardDismiss`.
 Do not use native `SearchBar` or copy the search Border markup into pages.
 
-Tab/list search retains its existing sliding slot. `SearchReveal` animates the
-whole SearchField and focuses its Entry; keyboard shortcuts reveal that same
-field. Setup pickers retain their always-visible search behaviour. Changing
-appearance does not change filtering, query retention or selection contracts.
+Tab/list search starts hidden on Android and iOS. Open it only from the header
+search button (Android/older iOS), the glass magnifier (iOS 26+), or Command-F.
+Upward scrolling, pull gestures and swipe-to-search must never open it.
+During future list-page passes, remove legacy `SearchReveal.Attach` and swipe
+handlers from the scoped page rather than preserving the old platform policy.
+Migrate pages individually; do not change shared SearchReveal underneath pages
+that have not been reviewed. Health and Groups & locations use `ButtonSearch`.
+Known follow-ups for future scoped passes: Devices still dismisses search on
+any Scrolled event; Alert rules and Neighbours still inherit scroll dismissal.
+Migrate those handlers to real user-drag checks rather than treating row
+replacement during filtering as a gesture. This does not claim those pages have
+already been migrated.
+Setup pickers retain their always-visible search. Filtering, query retention
+and selection contracts remain unchanged.
 
 - Opening tab search focuses the field; tapping its magnifier again refocuses
   it. Close on Search, unfocus or a content touch, retaining the query. List
-  scrolling also dismisses the keyboard. Use `KeyboardDismiss.Close` before
+  user dragging also hides the field and dismisses the keyboard. Filtering and
+  programmatic scrolling must retain focus, as established by DeviceSectionPage
+  in #402. ButtonSearch checks native drag state; its lists explicitly disable
+  `KeyboardDismiss.OnScroll`. Use `KeyboardDismiss.Close` before
   hiding a focused field.
 - Use no clear/close X or keyboard accessory. `SearchField` owns this policy,
   including on setup pickers.
@@ -412,7 +425,7 @@ Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
 | Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
 | Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
 | Header fitting and native safe-area updates | `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
-| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/SearchReveal.cs` |
+| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/ButtonSearch.cs` for migrated button-only lists; `Controls/SearchReveal.cs` for legacy pages |
 | Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
 | Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
 | Adaptive dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |

@@ -29,6 +29,9 @@ public partial class MapPage : ContentPage
 		LocationsButton.Command = _viewModel.ChooseLocationCommand;
         MapView.Navigated += (_, _) =>
         {
+#if IOS
+            PinMapViewport();
+#endif
             PlaceControls();
             if (_replaySelectionAfterNavigation)
             {
@@ -38,6 +41,15 @@ public partial class MapPage : ContentPage
             }
             else SyncSelection();
         };
+        Header.RowDefinitions[0].Height = GridLength.Auto;
+        // Keep the shared top line without stretching the title itself, which
+        // can move to row one when this page is pushed.
+        Header.Add(new BoxView
+        {
+            MinimumHeightRequest = TopBar.Height,
+            Opacity = 0,
+            InputTransparent = true,
+        }, 0, 0);
         Canvas.SizeChanged += (_, _) => PlaceControls();
         _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();
@@ -49,6 +61,8 @@ public partial class MapPage : ContentPage
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         Header.BackInGlass = TabBarButtons.IsAvailable;
         RefreshButton.IsVisible = LocationsButton.IsVisible = !TabBarButtons.IsAvailable;
+        MapView.HandlerChanged += (_, _) => PinMapViewport();
+        MapView.Loaded += (_, _) => PinMapViewport();
         DeviceList.HandlerChanged += (_, _) => StopInsets();
         DeviceList.Loaded += (_, _) => StopInsets();
 #endif
@@ -171,7 +185,7 @@ public partial class MapPage : ContentPage
         {
             var clear = CoveredEdges.ForScrolling(this);
             Overlay.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
-            Header.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+            Header.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
             Status.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
             var foot = 12 + clear.Bottom;
 #if IOS
@@ -253,6 +267,20 @@ public partial class MapPage : ContentPage
     }
 
 #if IOS
+    // Leaflet owns pan/zoom. WKWebView must not scroll/translate the document
+    // independently of the native overlays or apply another safe-area inset.
+    private void PinMapViewport()
+    {
+        if (MapView.Handler?.PlatformView is not WebKit.WKWebView web) return;
+        var scroll = web.ScrollView;
+        scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+        scroll.ContentInset = UIKit.UIEdgeInsets.Zero;
+        scroll.ScrollIndicatorInsets = UIKit.UIEdgeInsets.Zero;
+        scroll.Bounces = false;
+        scroll.ScrollEnabled = false;
+        scroll.SetContentOffset(CoreGraphics.CGPoint.Empty, false);
+    }
+
     private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
     private void StopInsets()
     {

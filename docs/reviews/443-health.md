@@ -71,3 +71,32 @@ Every device outcome remains unverified.
 7. Exercise first load, pull refresh, slow refresh with kept readings, empty
    source, failure with/without cache and offline timestamp; no false empty/OK.
    Obtain explicit user acceptance before closing #443 or ticking #442.
+
+
+## Corrective follow-up after #447 (before #448)
+
+This supersedes the earlier search policy for Health; historical acceptance
+and evidence above remain unchanged. Search starts hidden on both platforms.
+Header/glass search and Command-F open or refocus it. Search, unfocus and user
+drag close it while retaining the query. Content taps use page unfocus handling.
+The clipped height/translation transition honours Reduce Motion.
+
+Review of `41a0a20` confirmed that filtering could raise Scrolled and dismiss
+search mid-word, as previously fixed in DeviceSectionPage #402. ButtonSearch
+now checks iOS Dragging/Tracking or Android RecyclerView dragging state, without
+native subscriptions or retained native views. Both lists explicitly disable
+the inherited KeyboardDismiss.OnScroll behaviour. The helper is constructed
+once per page; its managed handlers share the page lifetime. No shared
+SearchReveal or KeyboardDismiss behaviour changes.
+
+No local builds or tests were run. At reviewed head `41a0a20`, the supplied CI
+record had shared/Node tests, actions/csharp, both iOS jobs and one Android job
+passing; the other Android job and Swift analysis were pending. Those results
+do not validate this follow-up. New-head CI and the parent's fresh Claude Opus
+5.5 Medium full-diff review remain pending. No devices have been verified.
+
+Device gaps include multiword typing after scrolling on iOS and Android,
+filter-driven row replacement, real drag dismissal, query retention,
+Command-F refocus, Android outside-tap unfocus, rapid transitions and Reduce
+Motion. Check category/severity retention and sensor navigation.
+Issue #443 and its #442 entry await device acceptance.

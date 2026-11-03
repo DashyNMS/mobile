@@ -35,6 +35,7 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
     private bool _showingGroups = true;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSearchQuery))]
     private string _searchText = string.Empty;
 
     public GroupsLocationsViewModel(ILibreNmsClient client, INavigationService navigation)
@@ -42,6 +43,9 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
         _client = client;
         _navigation = navigation;
     }
+
+    /// <summary>Keeps retained filtering visible when button-controlled search is closed.</summary>
+    public bool HasSearchQuery => !string.IsNullOrWhiteSpace(SearchText);
 
     public bool ShowingLocations => !ShowingGroups;
 
