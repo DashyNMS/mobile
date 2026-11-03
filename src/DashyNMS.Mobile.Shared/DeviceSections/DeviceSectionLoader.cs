@@ -149,6 +149,16 @@ public sealed class DeviceSectionLoader
         var reading = ReadSensor(sensor, settings);
         return new SectionRow(reading.Name)
         {
+            SensorLayout = true,
+            SensorKind = SensorClassName(sensor.SensorClass),
+            SensorStatusText = !sensor.HasReading ? "Reading unavailable" : reading.Status switch
+            {
+                RowStatus.Ok => "OK",
+                RowStatus.Warning => "Warning",
+                RowStatus.Critical => "Critical",
+                RowStatus.Inactive => "Inactive",
+                _ => "Unknown",
+            },
             Value = reading.Value,
             Status = reading.Status,
             Subtitle = reading.Limits,

@@ -14,6 +14,10 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     private readonly INavigationService _navigation;
     private IReadOnlyList<SectionGroup> _all = [];
     private bool _loaded;
+
+    /// <summary>Kept sensor readings remain visible while the fleet request completes.</summary>
+    [ObservableProperty]
+    private bool _isUpdatingSensors;
     private readonly HashSet<long> _collapsedInventory = [];
 
     public bool IsNeighbours => Section == DeviceSection.Neighbours;
@@ -251,7 +255,15 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        _all = await _loader.LoadAsync(Section, DeviceId);
+        IsUpdatingSensors = Section == DeviceSection.Sensors && _all.Count > 0;
+        try
+        {
+            _all = await _loader.LoadAsync(Section, DeviceId);
+        }
+        finally
+        {
+            IsUpdatingSensors = false;
+        }
         _loaded = true;
         OnPropertyChanged(nameof(InventorySummary));
         OnPropertyChanged(nameof(ShowInventoryPortsText));

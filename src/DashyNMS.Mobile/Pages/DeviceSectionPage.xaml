@@ -46,6 +46,8 @@
 
         <Label x:Name="ErrorLine" Grid.Row="3" Margin="16,8,16,0" Style="{StaticResource Error}" Text="{Binding ErrorMessage}"
                IsVisible="{Binding HasError}" />
+        <Label Grid.Row="3" Margin="{Binding Margin, Source={x:Reference ErrorLine}}" Style="{StaticResource Caption}"
+               Text="Updating…" IsVisible="{Binding IsUpdatingSensors}" />
 
         <controls:BusyCard x:Name="Busy" Grid.Row="4" Margin="16,8,16,0" Text="Loading…" IsVisible="{Binding IsLoadingFirstTime}"
                            ZIndex="1" VerticalOptions="Start" />
@@ -106,7 +108,20 @@
                             </Border.GestureRecognizers>
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
+                            <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding SensorLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding SensorDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Value}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding SensorStatusText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
+                                <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding SensorLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                </Grid.Triggers>
                                 <!-- Inventory nesting. -->
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
@@ -152,6 +167,7 @@
                                              Progress="{Binding Bar}" IsVisible="{Binding HasBar}"
                                              ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" />
                             </Grid>
+                            </VerticalStackLayout>
                         </Border>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
