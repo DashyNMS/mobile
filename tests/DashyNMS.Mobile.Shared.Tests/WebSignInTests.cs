@@ -209,6 +209,20 @@ public sealed class EasierTokenTests
     }
 
     [Fact]
+    public async Task Denied_clipboard_read_keeps_the_previous_failure()
+    {
+        var vm = NewViewModel();
+        await vm.SignInCommand.ExecuteAsync(null);
+        var error = vm.ErrorMessage;
+        _clipboard.GetTextAsync().Returns(Task.FromException<string?>(new InvalidOperationException("Synthetic paste refusal")));
+
+        await vm.PasteTokenCommand.ExecuteAsync(null);
+
+        Assert.Equal(error, vm.ErrorMessage);
+        Assert.Equal(SignInHelp.MissingToken, vm.ErrorMessage);
+    }
+
+    [Fact]
     public void The_hint_is_Cores_as_desktop_says_it() =>
         Assert.Equal(SignInHelp.TokenHint, NewViewModel().TokenHint);
 

@@ -154,8 +154,6 @@ public sealed partial class SignInViewModel : ViewModelBase
     [RelayCommand]
     private async Task PasteTokenAsync()
     {
-        // Every attempt must reveal feedback, including an identical validation failure.
-        ErrorMessage = null;
         if (_clipboard is null)
         {
             return;
@@ -172,6 +170,8 @@ public sealed partial class SignInViewModel : ViewModelBase
             return;
         }
 
+        // Only a completed read starts a new attempt; denied paste keeps prior feedback.
+        ErrorMessage = null;
         if (ApiTokenText.TryExtract(text, out var token))
         {
             ApiToken = token;

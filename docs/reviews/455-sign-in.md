@@ -112,6 +112,11 @@ geometry remain explicit device risks, not claims established by source review.
   import, now corrected. Replacement CI is pending. No local builds/tests ran.
 - New regressions check repeated identical missing-token, invalid-paste,
   invalid-address and HTTP-fallback feedback notifications.
+- A second Claude Opus 5.5 Medium full-diff review at 0d1f893 confirmed all
+  earlier findings fixed and no blockers. Its low paste-refusal finding is fixed:
+  clear feedback only after a successful clipboard read, with regression coverage.
+  The repeated HTTP-fallback test is view-model evidence only; the real UI must
+  first switch back from token mode before retrying web sign-in.
 - Device evidence: none supplied; first-dispatch error layout, teardown races
   and keyboard show/rotation remain unverified.
 
