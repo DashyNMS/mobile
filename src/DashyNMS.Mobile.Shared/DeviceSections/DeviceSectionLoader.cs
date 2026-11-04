@@ -697,15 +697,37 @@ public sealed class DeviceSectionLoader
             .OrderBy(g => WirelessSensorClasses.SortRank(g.Key))
             .Select(g => new SectionGroup(WirelessSensorClasses.NameOf(g.Key), g
                 .OrderBy(s => s.Description, StringComparer.OrdinalIgnoreCase)
-                .Select(s => new SectionRow(string.IsNullOrWhiteSpace(s.Description) ? $"Sensor {s.SensorId}" : s.Description!)
-                {
-                    Value = s.Current is { } value && double.IsFinite(value)
-                        ? WirelessSensorClasses.Format(s.SensorClass, value) : "–",
-                    Status = s.Current is { } v && double.IsFinite(v)
-                        ? ToStatus(AgainstOwnLimits(v, s.LimitLow, s.LimitLowWarn, s.LimitHighWarn, s.LimitHigh))
-                        : RowStatus.None,
-                })))
+                .Select(WirelessRow)))
             .ToList();
+    }
+
+    /// <summary>Wireless uses source limits only; missing or invalid limits cannot establish health.</summary>
+    internal static SectionRow WirelessRow(WirelessSensor sensor)
+    {
+        double?[] limits = [sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh];
+        var hasReading = sensor.Current is { } current && double.IsFinite(current);
+        var invalidLimits = limits.Any(limit => limit is { } value && !double.IsFinite(value));
+        var hasLimits = limits.Any(limit => limit is not null);
+        var status = !hasReading || invalidLimits || !hasLimits ? RowStatus.None
+            : ToStatus(AgainstOwnLimits(sensor.Current!.Value, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh));
+        var kind = WirelessSensorClasses.NameOf(sensor.SensorClass);
+        return new SectionRow(string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!)
+        {
+            SensorLayout = true,
+            // Subtitle is visible in both templates and included once in joined speech.
+            Subtitle = kind,
+            Value = hasReading ? WirelessSensorClasses.Format(sensor.SensorClass, sensor.Current) : "–",
+            Status = status,
+            SensorStatusText = !hasReading ? "Reading unavailable"
+                : invalidLimits ? "Limits unavailable"
+                : !hasLimits ? "No limits"
+                : status switch
+                {
+                    RowStatus.Critical => "Critical",
+                    RowStatus.Warning => "Warning",
+                    _ => "OK",
+                },
+        };
     }
 
     private async Task<IReadOnlyList<SectionGroup>> InventoryAsync(int deviceId, CancellationToken ct)
