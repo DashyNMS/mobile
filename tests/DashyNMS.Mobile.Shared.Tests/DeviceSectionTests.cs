@@ -611,6 +611,54 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Arp_preserves_complete_context_and_overview_in_numeric_order()
+    {
+        const string name = "Very long synthetic interface description on example.net";
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ArpEntry { PortId = 1, Ipv4Address = "192.0.2.100", MacAddress = "AABBCCDDEEFF" },
+            new ArpEntry { PortId = 99, Ipv4Address = "192.0.2.9", MacAddress = "unusual raw MAC" },
+            new ArpEntry { PortId = 1, Ipv4Address = "192.0.2.9", MacAddress = "001122334455" },
+        ]);
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, name)]);
+        var groups = await Load(DeviceSection.Arp);
+        var rows = Assert.Single(groups);
+        Assert.Equal(["192.0.2.9", "192.0.2.9", "192.0.2.100"], rows.Select(r => r.Title));
+        Assert.Equal("port 99", rows[0].Value);
+        Assert.Equal("unusual raw MAC", rows[0].Subtitle);
+        Assert.Equal($"192.0.2.100, aa:bb:cc:dd:ee:ff, {name}", rows[2].ArpDescription);
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.ArpLayout);
+            Assert.False(row.FdbLayout);
+            Assert.False(row.IsLink);
+            Assert.Equal(RowStatus.None, row.Status);
+        });
+        Assert.True(rows[2].Matches(name));
+        Assert.True(rows[2].Matches("AA:BB"));
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Arp));
+        card.Show(groups);
+        Assert.Equal(3, card.Highlights.Count);
+        Assert.Contains(card.Highlights, row => row.ArpDescription == rows[2].ArpDescription);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("—")]
+    [InlineData("–")]
+    public void Arp_missing_facts_are_named_without_mutating_source_or_sibling_search(string? missing)
+    {
+        var row = new SectionRow(missing ?? "—") { ArpLayout = true, Subtitle = missing };
+        Assert.Equal(missing, row.Subtitle);
+        Assert.Null(row.Value);
+        Assert.Equal("IP address not reported, MAC address not reported, Interface not reported", row.ArpDescription);
+        Assert.True(row.Matches("MAC address not reported"));
+        Assert.True(row.Matches("Interface not reported"));
+        Assert.False(new SectionRow("ordinary").Matches("not reported"));
+    }
+
+    [Fact]
     public async Task Routing_shows_bgp_state_and_leaves_out_empty_groups()
     {
         _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(

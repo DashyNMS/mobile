@@ -20,6 +20,17 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>ARP facts wrap independently to retain address and interface context.</summary>
+    public bool ArpLayout { get; init; }
+    /// <summary>Names missing addresses without replacing the source fields.</summary>
+    public string ArpIpText => MissingAddress(Title) ? "IP address not reported" : Title;
+    public string ArpMacText => MissingAddress(Subtitle) ? "MAC address not reported" : Subtitle!;
+    /// <summary>An unmapped interface keeps its port identity rather than disappearing.</summary>
+    public string ArpInterfaceText => HasValue ? Value! : "Interface not reported";
+    public string ArpDescription => string.Join(", ", ArpIpText, ArpMacText, ArpInterfaceText);
+
+    private static bool MissingAddress(string? text) => string.IsNullOrWhiteSpace(text) || text is "—" or "–";
+
     /// <summary>FDB facts wrap independently so VLAN context cannot crowd the MAC or interface.</summary>
     public bool FdbLayout { get; init; }
     /// <summary>Names unavailable MAC data without changing the raw title used by other sections.</summary>
@@ -180,6 +191,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
+        || (ArpLayout && (Contains(ArpIpText, term) || Contains(ArpMacText, term) || Contains(ArpInterfaceText, term)))
         || (FdbLayout && (Contains(FdbMacText, term) || Contains(FdbVlanText, term)))
         || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
         || Fields.Any(f => Contains(f.Name, term) || Contains(f.Value, term));
