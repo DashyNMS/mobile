@@ -4,7 +4,8 @@ Refs #475 and #442. Baseline current main 0416232438241593489c83ec9acb370b52eb31
 Read live issue/epic, CLAUDE.md, DEVELOPING.md, DESIGN.md,
 DESIGN-REFERENCES.md and prior section assessments #469–#474.
 
-> Historical assessments below are superseded on VLAN semantics and provenance by
+> Historical assessments below are superseded on VLAN semantics, provenance,
+> read-failure policy and permissions by
 > [Confirmed VLAN correction](#confirmed-vlan-correction). Positive internal IDs
 > were incorrectly described as compliant VLAN tags.
 
@@ -131,7 +132,7 @@ no unresolved issue comments or unsettled visual decisions were found.
 | Overview | C: totals count all returned entries; stable neutral Worst selection takes three in source order. Empty success hides card, failure clears highlights and retains error card/open action. No nested FDB action. U: actual card speech and activation. |
 | Initial load, empty and no match | C: finite grouped CollectionView, BusyCard, error/Retry, empty success separate from Nothing matches. Corrected F: outer 404 catch after WhenAll could mask ports 403/500/timeout when FDB 404 surfaced first; ports 404 could discard valid FDB rows. Each read now converts only its own 404 to empty before WhenAll; valid rows retain port-ID fallback. Factories run inside async try, including synchronous throws. Other errors/cancellation propagate. Both missing yields empty. |
 | Refresh, offline and retained data | C: existing rows retained while refreshing and after failure with error, no persistent FDB cache or timestamp/freshness claim. Overview failure clears highlights. U: native error/Retry and offline timing. |
-| Routes/scope/security | C: relative DeviceSection route carries device ID, Fdb enum and name from DeviceDetail; actual caller Back is relative. Devices narrow/split, Dashboard, alerts and other device links retain their callers. Captured scope/generation guards reject obsolete results; scope change clears rows. Read-only credential, permission, server-content, routing, storage and export contracts unchanged. U: native navigation/resume and race timing. |
+| Routes/scope/security | C: relative DeviceSection route carries device ID, Fdb enum and name from DeviceDetail; actual caller Back is relative. Devices narrow/split, Dashboard, alerts and other device links retain their callers. Captured scope/generation guards reject obsolete results; scope change clears rows. Credentials, primary device permissions, routing, storage and exports are unchanged. Added fleet VLAN metadata has a stronger permission; its 403 preserves authorised FDB rows and explicitly reports tag permission denial. Other source failures still propagate. U: native navigation/resume and race timing. |
 | Search/filter/keyboard | C: local case-insensitive raw/presented MAC, interface and VLAN search; missing labels scoped to FDB. ButtonSearch opens by header/glass/Command-F on iOS hardware keyboard, retains query on completion/unfocus/real drag, ignores programmatic scrolling. U: native focus/event timing/restoration. NA: FDB filter panel, sorting chooser, editor, comparison, sheet, row destination, fixed primary action and export. |
 | Insets, glass and usable base | C: consume #530 native SectionBody coordinates, measured side/bottom pill base, separate obstruction footer, top-wide/fallback and keyboard precedence; native iOS inset adjustment Never, finite list and 20pt fade spacer. U: actual host/pane/viewport bounds, base delta and final row independently. #475 has no reported individual geometry defect; recurring checkpoint is mandatory, not an asserted failure. |
 | Hierarchy/theme/accessibility/motion | C: neutral themed stacked facts and combined semantic description, children excluded from duplicate speech; no false health/link. Shared reduced-motion search and lifecycle restoration retained. U: both themes/contrast, 44pt actions, largest text, full speech once, native action roles and repeated transitions. |
@@ -209,8 +210,10 @@ OptionalSectionSourceAsync stays unchanged, including its Resources and VLAN
 consumers. ARP remains #476 next. Existing Core Vlans.ListAsync supplies the
 necessary metadata; no Core change or pin update. All three factories execute
 inside the existing helper and reads join concurrently. Only each source's 404
-becomes empty. Mapping 404 preserves FDB with VLAN not reported; denial, server
-failure and timeout propagate even when FDB itself is missing.
+becomes empty. Mapping 404 preserves FDB with VLAN not reported. A fleet VLAN
+403 preserves FDB and reports VLAN unavailable: permission denied; only this
+optional metadata denial is downgraded. FDB/ports denial and all server failures
+and timeouts propagate even when another source is missing.
 
 Filter metadata by selected DeviceId before grouping internal IDs. Require a
 positive reference and an unambiguous positive VlanNumber. Missing, nonpositive,
@@ -219,7 +222,7 @@ unknown label. No IfVlan fallback, VLAN name, internal-ID display or new action.
 MAC/interface formatting, ordering, duplicates, neutral status, routes, search
 lifecycle, geometry, persistence and security remain unchanged.
 
-CI fixtures now distinguish internal ID 50 from actual tag 2074, including
+CI fixtures now distinguish internal ID 50 from actual tag 300, including
 ports 404, selected-device isolation, identical/conflicting duplicates, missing
 and invalid mappings, synchronous/faulted lookup 404 and non-404 failures paired
 with primary 404. Existing context fixtures now supply real mappings and check
@@ -229,7 +232,26 @@ only git whitespace checks. Full intended diff versus main reviewed against
 DESIGN; parent owns fresh review, CI judgement and merge.
 
 Extend native facts check above: use synthetic internal ID 50 mapped to tag
-2074 and compare section, overview, search and speech; raw 50 must never appear
+300 and compare section, overview, search and speech; raw 50 must never appear
 as VLAN 50. Exercise missing/ambiguous mapping and all three read failures.
 All native evidence remains unverified. Typed-payload completeness is still an
 independent limitation, not proven by this semantic fix or Core CI provenance.
+
+### Review of fb4da91 and permission correction
+
+Opus 5.5 Medium confirmed the tag mapping and identified a medium permission
+regression: fleet VLAN viewAll permission is stronger than device FDB/ports
+view permission. The new lookup must not hide otherwise authorised FDB records.
+Fixed with a local lookup-only 403 catch, outside the shared 404 helper. Every
+retained FDB row explicitly says VLAN unavailable: permission denied, including
+search, speech and overview. A primary FDB 404 plus lookup denial remains empty;
+primary/ports denial, lookup 500/timeout and cancellation are not swallowed.
+Regressions cover synchronous/faulted denials and absent primary records.
+The source policy is explicit rather than a claim that no permission changed.
+
+Fixtures and acceptance examples now use independently selected synthetic tag
+300 (internal reference 50), rather than copying a tag from Core's real-server
+comment. The duplicate fleet VLAN read for the VLAN and FDB cards is a known
+efficiency limitation; no cross-request cache or credential-lifetime change is
+introduced here. Native restricted-account presentation and all prior device
+checks remain unverified. Fresh full review and replacement CI are pending.

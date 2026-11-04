@@ -442,6 +442,11 @@ discard valid primary records or mask a different source's denial, timeout or
 server failure. Preserve unavailable facts rather than inventing zero counts.
 Exercise mixed faulted tasks as well as synchronous failures in CI regressions.
 
+Optional enrichment must not require stronger permissions to view authorised
+primary records. If metadata alone is denied, preserve those records and state
+the denied fact and reason explicitly. Keep primary-source denial, server errors
+and timeouts distinct from missing metadata; test the differing permissions.
+
 - Preserve complete server-provided messages, expressions, configuration and
   licence content. Presentation wrapping must not change copied, shared or
   compared source text. Truncated previews must lead to the complete content.
