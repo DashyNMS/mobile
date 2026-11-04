@@ -1,80 +1,37 @@
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Topology;
-#if IOS
-using UIKit;
-#endif
 
 namespace DashyNMS.Mobile.Views;
 
 /// <summary>Snapshot detail shared by the pushed page and the Neighbours split host.</summary>
 public sealed partial class NeighbourLinkView : ContentView
 {
-    private IDisposable? _edges;
-    private Page? _page;
+    private Thickness _clearance;
 
     public NeighbourLinkView(NeighbourLinkViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = ViewModel = viewModel;
-        Loaded += OnLoaded;
-        Unloaded += OnUnloaded;
-        SizeChanged += OnChanged;
-        Scroller.HandlerChanged += OnChanged;
-        Scroller.Loaded += OnChanged;
+        Scroller.HandlerChanged += (_, _) => PlaceContent(_clearance);
+        Scroller.Loaded += (_, _) => PlaceContent(_clearance);
     }
 
     public NeighbourLinkViewModel ViewModel { get; }
     public BackBar Bar => TopBar;
 
-    private void OnLoaded(object? sender, EventArgs e)
+    /// <summary>The host supplies reaching edges; padding belongs to content, never the finite pane.</summary>
+    internal void PlaceContent(Thickness clearance)
     {
-        OnUnloaded(sender, e);
-        for (Element? parent = Parent; parent is not null; parent = parent.Parent)
-            if (parent is Page page) { _page = page; break; }
-        if (_page is not null) _edges = CoveredEdges.Watch(_page, Place);
+        _clearance = clearance;
 #if IOS
-        TabBarButtons.Moved -= OnChanged;
-        TabBarButtons.Moved += OnChanged;
-#endif
-        Place();
-    }
-
-    private void OnUnloaded(object? sender, EventArgs e)
-    {
-        _edges?.Dispose();
-        _edges = null;
-        _page = null;
-#if IOS
-        TabBarButtons.Moved -= OnChanged;
-#endif
-    }
-
-    private void OnChanged(object? sender, EventArgs e) => Place();
-
-    internal void Place()
-    {
-#if IOS
-        if (Scroller.Handler?.PlatformView is UIScrollView scroll)
-            scroll.ContentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentBehavior.Never;
-#endif
-        if (_page is null) return;
-        var edges = CoveredEdges.ForScrolling(_page);
-        double left = edges.Left, right = edges.Right, bottom = edges.Bottom;
-#if IOS
-        // Insets belong only to the part of the host that reaches this column.
-        if (_page.Handler?.PlatformView is UIView host && Handler?.PlatformView is UIView detail)
-        {
-            var bounds = detail.ConvertRectToView(detail.Bounds, host);
-            left = Math.Max(0, left - bounds.Left);
-            right = Math.Max(0, right - (host.Bounds.Width - bounds.Right));
-            bottom = Math.Max(0, bottom - (host.Bounds.Height - bounds.Bottom));
-        }
+        if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
+            scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
 #endif
         TopBar.IsVisible = TopBar.ShowsBack;
-        TopBar.Margin = new Thickness(16 + left, 0, 16 + right, 0);
-        Viewport.Margin = new Thickness(16 + left, 0, 16 + right, 0);
-        Column.Padding = new Thickness(0, 20, 0, 24 + bottom);
+        TopBar.Margin = new Thickness(16 + clearance.Left, 0, 16 + clearance.Right, 0);
+        Column.Padding = new Thickness(16 + clearance.Left, 20, 16 + clearance.Right, 24 + clearance.Bottom);
+        Fade.Margin = new Thickness(16 + clearance.Left, 0, 16 + clearance.Right, 0);
     }
 
     public void Load(IDictionary<string, object>? parameters)
