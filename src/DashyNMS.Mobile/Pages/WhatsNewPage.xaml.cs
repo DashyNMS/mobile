@@ -89,10 +89,12 @@ public partial class WhatsNewPage : ContentPage, IActivePage
     {
         if (!_visible) return;
         var edges = CoveredEdges.ForScrolling(this);
-        var bottom = SetupActionPlacement.BottomGap(Root.Height, edges.Bottom, null, []);
+        var actionHeight = Root.Height;
+        var bottom = SetupActionPlacement.BottomGap(actionHeight, edges.Bottom, null, []);
 #if IOS
         if (Root.Handler?.PlatformView is UIKit.UIView view)
         {
+            actionHeight = view.Bounds.Height;
             OccupiedArea? pill = TabBarButtons.PillIn(view) is { } bar
                 ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
             var glass = TabBarButtons.Occupied(view)
@@ -105,7 +107,7 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         Body.Padding = new Thickness(16 + edges.Left, 20, 16 + edges.Right, 24);
         // The Auto row reserves the wrapped action; the measured gap is its only bottom inset.
         var actionMargin = new Thickness(16 + edges.Left, 12, 16 + edges.Right, bottom);
-        if (GotIt.Margin != actionMargin) GotIt.Margin = actionMargin;
+        if (actionHeight > 0 && GotIt.Margin != actionMargin) GotIt.Margin = actionMargin;
         Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 #if IOS
         if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)

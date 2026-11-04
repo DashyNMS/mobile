@@ -85,6 +85,15 @@ public sealed class WhatsNewTests
     }
 
     [Fact]
+    public void Missing_notes_show_the_current_app_version()
+    {
+        var service = new WhatsNew(_settings, string.Empty, "2.0.1");
+        var vm = new WhatsNewViewModel(service, _navigation);
+        Assert.True(vm.NotesUnavailable);
+        Assert.Equal("Version 2.0.1", vm.Version);
+    }
+
+    [Fact]
     public void Long_continued_text_and_markup_are_preserved_as_plain_text()
     {
         var url = "https://example.net/" + new string('a', 400);

@@ -160,7 +160,9 @@ Native scroll inset adjustment is disabled on the supplied scrollers.
 `SetupActionPlacement` aligns the action with a measured side pill, clears a
 bottom pill and its actions, and treats a top pill separately. If measurement
 is unavailable, it falls back to native bottom and extra glass clearance.
-The action's own bottom margin must be zero to preserve alignment.
+Within SetupLayout, the action's own bottom margin must be zero because
+the layout owns the gap. Other fixed-action hosts may put the measured gap in
+the action margin instead; it must still have exactly one owner.
 Side-pill alignment uses `max(0, native height - pill bottom)`, matching
 Devices/Alerts in `TabAlignedListLayout`. Do not clamp this measured gap to
 the native bottom inset, which can lift the action a few points above the
@@ -224,7 +226,9 @@ XML alone does not validate MAUI properties or binding types.
 
 ## Header, glass and navigation
 
-On iOS 26+, top-level page actions and optional search belong to `TabBarButtons`.
+**On iOS 26+, all page actions and optional search, on top-level and pushed
+pages alike, belong to `TabBarButtons`. Back-only glass does not satisfy this
+rule when a pushed page has other actions.**
 Android and older iOS keep header icons through `IconButton` and `Icons`.
 Form submission follows the fixed primary-action layout above; preserve each
 form's save rules unless its issue explicitly changes them. Keep page actions

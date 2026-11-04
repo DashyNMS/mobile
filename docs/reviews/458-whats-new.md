@@ -96,3 +96,17 @@ remain explicitly unverified.
 
 Inspect diagnostics for repeated placement/paused loops after transitions. User
 acceptance remains pending. #458 and its #442 checkbox must remain open.
+
+## Independent review disposition
+
+Opus 5.5 Medium reviewed the complete e8b29b0 diff against 9e616fd and
+found no code blockers. Parent fixed its medium documentation omission with
+a bold all-actions-in-glass rule explicitly covering pushed pages, while
+retaining Android/older iOS icons and fixed primary-action policy. Low findings
+fixed: defer action-margin assignment until the actual Root height is positive;
+add a distinct 2.0.1 current-version fallback assertion for empty notes.
+Inset ownership wording distinguishes SetupLayout-owned padding from this
+page's sole action-margin gap. Full earlier #500 assessment, Core pin and
+regression/remediation details remain in this file at main 9e616fd.
+Replacement CI and fresh review pending; physical alignment and every device
+outcome remain unverified. No local tests/builds were run.
