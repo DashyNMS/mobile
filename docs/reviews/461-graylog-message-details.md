@@ -173,8 +173,8 @@ retained-tab return, child return and resume. No global subscriber was added.
 
 | Concern and trigger/mode | Location and observed result | Expected result and code fix | Status |
 | --- | --- | --- | --- |
-| Reported constrained width/short base, pushed and embedded | Inner Grid/content column had implicit safe-area ownership alongside host clearance; exact reported dimensions unknown | Explicit star viewport and content-only clearance; no guessed percentage or height correction | Corrected contract; physical cause/deltas unverified |
-| Resize/fold/native attachment, both modes | Attachment only disabled native adjustment; embedded relied on legacy list clearance | Retain/reapply clearance; trailing pane uses reaching right/bottom edges with no stale conversion | Corrected |
+| Reported constrained width/short base, pushed and embedded | Inner Grid/content column safe-area defaults were implicit; their actual effect and reported dimensions are unknown | Explicit star viewport and content-only clearance; no guessed percentage or height correction | Explicit contract; symptom cause and resolution unverified |
+| Resize/fold/native attachment, both modes | Attachment only disabled native adjustment; embedded relied on legacy list clearance | Retain/reapply clearance on attachment; trailing right/bottom values match the prior helper values, not a new geometry correction | Attachment retention corrected; embedded geometry unchanged |
 | Pushed actions when glass available | Only Back was in glass; Show only/Open device stayed inline | Eligible existing actions join pushed glass, inline fallback retained on Android/older iOS; absent actions reserve no space | Corrected |
 | Child/tab return and resume, pushed | Central IActivePage already present | Preserve it; idempotent subscriptions, disposal and queued current-page guards; glass rebuilt on state change | Compliant, guards corrected; native operation unverified |
 | Source/time/severity, both modes | Source matching, raw fields, explicit unavailable time/level and themed severity already present | Preserve original values, zone semantics and unknown state | Compliant; theme/max-text appearance unverified |
@@ -219,3 +219,26 @@ LogsPage and GraylogPage. GraylogMessageItem also supplies DashboardCard
 previews and GraylogViewModel rows; neither projection changes. Command
 CanExecuteChanged and relevant view-model properties are observed only while
 the pushed detail is active, with matching unsubscription on disappearance.
+
+### Independent review disposition and unresolved symptom
+
+Opus 5.5 Medium full-diff review at fe6c669 found no blockers. Parent fixed
+three low findings: the existing list-helper callback supplies its own
+clearance directly (no redundant calculation); older iOS keeps its inline
+visibility bindings; glass action presence and cached state now use command
+CanExecute, including in-flight changes. Fresh review and CI pending.
+
+The reported three-quarter width and shortened bottom are NOT demonstrated
+resolved by this patch. The explicit SafeAreaEdges contract may equal native
+default behaviour; no measurement proves those defaults consumed space.
+Embedded right/bottom clearance matches main. This is an acceptance gap, not
+a source-confirmed geometry fix: record native page, host, pane, ContentView,
+viewport and content frames on the reporting OS/build in both modes, compare
+actual width/base loss and camera/glass insets, and correct the proven owner.
+No guessed offsets or device success claim is justified.
+
+The review's statement that current-page guards occur nowhere else is
+rejected with source evidence: merged HealthPage and AlertRulesPage use
+the same Shell.Current.CurrentPage guard. Initial-frame ordering remains
+a device check, as recorded for those consumers; shared dispatch resolves
+the active page at delivery. Physical outcomes remain wholly unverified.

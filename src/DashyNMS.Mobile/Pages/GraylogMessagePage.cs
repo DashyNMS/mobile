@@ -76,19 +76,19 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     {
 #if IOS
         _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
-        _view.UseGlassActions(TabBarButtons.IsAvailable);
+        if (TabBarButtons.IsAvailable) _view.UseGlassActions(true);
         if (TabBarButtons.IsAvailable)
         {
-            var state = (ViewModel.CanShowOnly, ViewModel.HasDevice, ViewModel.ShowOnlyText, ViewModel.DeviceActionDescription);
+            var state = (ViewModel.ShowOnlyCommand.CanExecute(null), ViewModel.OpenDeviceCommand.CanExecute(null), ViewModel.ShowOnlyText, ViewModel.DeviceActionDescription);
             if (_actions == state) return;
             _actions = state;
             List<GlassAction> actions = [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => { if (IsActive) _ = Shell.Current.GoToAsync(".."); }, IsBack: true)];
-            if (ViewModel.CanShowOnly)
+            if (state.Item1)
                 actions.Add(new("line.3.horizontal.decrease", ViewModel.ShowOnlyText, () =>
                 {
                     if (IsActive && ViewModel.ShowOnlyCommand.CanExecute(null)) ViewModel.ShowOnlyCommand.Execute(null);
                 }));
-            if (ViewModel.HasDevice)
+            if (state.Item2)
                 actions.Add(new("desktopcomputer", ViewModel.DeviceActionDescription, () =>
                 {
                     if (IsActive && ViewModel.OpenDeviceCommand.CanExecute(null)) ViewModel.OpenDeviceCommand.Execute(null);

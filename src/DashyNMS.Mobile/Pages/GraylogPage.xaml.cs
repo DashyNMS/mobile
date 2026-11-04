@@ -24,7 +24,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		BindingContext = _viewModel = viewModel;
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
-			PlaceMessage();
+			if (Split.Detail is GraylogMessageView detail) detail.PlaceContent(clear);
 		});
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		SearchButton.Command = new Command(() =>
