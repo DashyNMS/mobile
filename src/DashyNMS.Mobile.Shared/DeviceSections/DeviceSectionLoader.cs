@@ -544,9 +544,19 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> FdbAsync(int deviceId, CancellationToken ct)
     {
-        var fdbTask = _client.Fdb.ListForDeviceAsync(deviceId, ct);
-        var portsTask = _client.Ports.ListForDeviceAsync(deviceId, ct);
-        await Task.WhenAll(fdbTask, portsTask);
+        var vlanLookupDenied = false;
+        var fdbTask = OptionalSectionSourceAsync(() => _client.Fdb.ListForDeviceAsync(deviceId, ct));
+        var portsTask = OptionalSectionSourceAsync(() => _client.Ports.ListForDeviceAsync(deviceId, ct));
+        var vlansTask = LoadVlanMappingAsync();
+        await Task.WhenAll(fdbTask, portsTask, vlansTask);
+
+        // Internal VLAN row IDs are not tags. Conflicting mappings stay unknown,
+        // independent of server ordering; repeated identical mappings are safe.
+        var vlans = vlansTask.Result
+            .Where(v => v.DeviceId == deviceId && v.VlanId > 0)
+            .GroupBy(v => v.VlanId)
+            .Where(g => g.Select(v => v.VlanNumber).Distinct().Count() == 1 && g.First().VlanNumber > 0)
+            .ToDictionary(g => g.Key, g => g.First().VlanNumber);
 
         var ports = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);
         var rows = fdbTask.Result
@@ -556,10 +566,26 @@ public sealed class DeviceSectionLoader
             {
                 FdbLayout = true,
                 Subtitle = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
-                Value = e.VlanId is > 0 ? $"VLAN {e.VlanId}" : null,
+                Value = e.VlanId is not > 0 ? null : vlans.TryGetValue(e.VlanId.Value, out var tag) ? $"VLAN {tag}"
+                    : vlanLookupDenied ? "VLAN unavailable: permission denied" : null,
             });
 
         return Groups(("MAC addresses", rows));
+
+        async Task<IReadOnlyList<Vlan>> LoadVlanMappingAsync()
+        {
+            try
+            {
+                return await OptionalSectionSourceAsync(() => _client.Vlans.ListAsync(ct));
+            }
+            catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                // Fleet-wide metadata has a stronger permission than device FDB.
+                // Keep authorised records and expose the actual missing-tag reason.
+                vlanLookupDenied = true;
+                return [];
+            }
+        }
     }
 
     private async Task<IReadOnlyList<SectionGroup>> ArpAsync(int deviceId, CancellationToken ct)
