@@ -136,7 +136,7 @@ activation follow the explicit design contract.
 | Retained pinned/More stack return or resume; AlertRulesPage lifecycle | Corrected: implements IActivePage; Activate reapplies Header, watcher, glass and placement without Refresh or resetting query, filters or detail ID. Actual Appearing still executes the original RefreshCommand. |
 | Queued safe-area/Moved after child departure | Corrected: inactive/current-page guards reject placement; watcher disposal and idempotent Moved remove/add mirror merged Health. Hide remains owner-aware. |
 | Inner camera layering; Body/filter ScrollView | Corrected: removed blanket Body padding; native safe-area-free filter viewport spans the list column, with safe padding inside ScrollView as Devices/Alerts. Header, search, count, error, busy and list independently own gutters. No guessed camera offsets. |
-| Fold/rotate split layout | Corrected host boundary: Body resize/SplitChanged and detail SizeChanged recompute placement; native converted detail bounds subtract distance outside its right edge before passing right clearance. Detail background/viewport stays full-size; accepted PlaceContent owns scrolling padding. |
+| Fold/rotate split layout | Source compliant host boundary: Body resize/SplitChanged recompute placement; the trailing star detail column reaches the page right edge and receives clear.Right directly. Detail background/viewport stays full-size; accepted PlaceContent owns scrolling padding. |
 | Bottom/side/top pill; list base | Source compliant: measured max(0, native height minus pill bottom) retained without safe-bottom clamping; bottom-pill footer clears glass, top pill retains fallback policy. Restored activation refreshes geometry. Actual base delta unverified. |
 | Rows/source text/state | Compliant source: full wrapping condition, name, target/template and explicit severity, enabled/disabled and alerting count; no new truncation. Existing list Condition trims outer whitespace only; original server expression remains on Rule and accepted detail uses ConditionSource unmodified. |
 | Search/counts/filter/selection | Compliant source: debounce and original predicates/order unchanged; counts remain source-wide; ID highlight only in split, filtering retains detail, refresh reapplies ID. No persistence added. |
@@ -204,3 +204,16 @@ clearance and accepted #447/#448/#449 regressions. Smoke Health retained return
 and first-row divider; no Health/shared code changed. Capture placement-loop
 and safe-area diagnostics. Parent owns independent review, CI and merge before
 the next issue; user acceptance remains required, with no closures or epic ticks.
+
+### Independent review disposition
+
+Claude Opus 5.5 Medium reviewed the full diff at ce3f33b against 56ccb45: no
+blockers, one plausible low–medium native-frame timing finding and one nit.
+Parent traced ListDetail: its trailing star column fills the right edge with
+no native side safe area. Accepted the timing finding and removed the redundant
+conversion and detail SizeChanged callback; direct clear.Right preserves the
+correct settled clearance without depending on frame update ordering. Fold,
+rotate and width-only resize remain explicit device checks. The ChipScroll
+SizeChanged nit is retained: harmless, idempotent placement also covers chip
+geometry updates. Fresh revised-head independent review and CI are pending.
+No device result or acceptance is inferred.

@@ -47,7 +47,6 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IAc
 		view.Bar.ShowsBack = false;
 		view.Load(parameters);
 		Split.Detail = _detail = view;
-        view.SizeChanged += (_, _) => { if (ReferenceEquals(_detail, view)) PlaceControls(); };
         _detailId = view.ViewModel.RuleId;
         _viewModel.Select(_detailId);
         PlaceControls();
@@ -126,16 +125,9 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IAc
 #endif
         ListCard.Margin = new Thickness(left, 0, right, foot);
         ListFoot.HeightRequest = spacer;
-        // The host supplies only the insets reaching the detail column. The view owns its content padding.
-        var detailRight = clear.Right;
-#if IOS
-        if (Handler?.PlatformView is UIKit.UIView host && _detail?.Handler?.PlatformView is UIKit.UIView detail)
-        {
-            var bounds = detail.ConvertRectToView(detail.Bounds, host);
-            detailRight = Math.Max(0, clear.Right - Math.Max(0, host.Bounds.Width - bounds.Right));
-        }
-#endif
-        if (Split.IsSplit) _detail?.PlaceContent(new Thickness(0, 0, detailRight, clear.Bottom));
+        // ListDetail's trailing star column reaches the page's right edge. Pass its
+        // clearance directly; native frames can still be stale during SizeChanged.
+        if (Split.IsSplit) _detail?.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
     }
 
 #if IOS
