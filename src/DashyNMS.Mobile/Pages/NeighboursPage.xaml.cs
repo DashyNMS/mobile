@@ -103,7 +103,6 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         CountLine.Margin = new Thickness(left + 4, 6, right, 4);
         ErrorCard.Margin = new Thickness(left, 0, right, 8);
         Busy.Margin = new Thickness(left, 0, right, 0);
-        Fade.Margin = new Thickness(left, 0, right, 0);
         var foot = 12 + clear.Bottom;
         var spacer = 0.0;
 #if IOS

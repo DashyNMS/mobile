@@ -103,3 +103,20 @@ assessment; no installed final build or OS result exists yet.
 
 No merge/watch/release/closure/epic ticks. Parent owns independent review, CI
 judgement and sequential merge; later TestFlight/device acceptance is separate.
+
+## Independent review and corrective disposition
+
+Earlier #493 assessment and review provenance remain in this file at main
+c3b584e (before this correction). Historical results do not validate this head.
+
+Claude Opus 5.5 Medium reviewed the complete ce343cb diff against c3b584e.
+Parent substantiated and fixed all four findings: the list fade now lives
+inside the card viewport with Surface/SurfaceClear colours and 1pt inset,
+rather than painting Background over the card stroke; Header, ChipScroll
+and Busy now have 16pt XAML defaults before measured placement; DESIGN.md
+records Alert rules/Neighbours ButtonSearch migration accurately; historical
+assessment provenance is linked above. No shared helper was changed.
+
+Fresh full-diff review and revised-head CI remain pending. All native results
+remain unverified, including first-frame clearance/Back flash, camera clip,
+pill-base delta and reported detail bottom reach on the reporting OS.
