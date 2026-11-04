@@ -20,7 +20,7 @@ accepted pages retain their acceptance.
 | Open saved list on iOS 26+, top text at Body/title | Corrected source gap. Hiding BackBar left the row-1 PageTitle outside the visible fitted line. Reuse PageHeader, whose TopBar.Fit registration owns the visible title line. Actual reported clipping and largest-text fit remain UNVERIFIED on hardware. |
 | Native top ownership | Source compliant with existing header policy. iOS page keeps native top only; Body has no safe edges. TopLineSpace may release top on iOS 27.1+ only when measured reserved regions permit fitting beside the status bar. On iOS 26 it retains native top plus the standard header padding. No guessed top offset or second top inset. |
 | Retained More return/resume, Activate and queued Moved | Corrected departure gap. Active/current-page guard rejects queued placement after departure. Existing IActivePage central owner remains; watch uses ??=, Moved removes before adding, disappearance disposes/removes and owner-safe Hide remains. No Shell/Window hooks added. Native return behaviour UNVERIFIED. |
-| Back/Add, glass and fallback | Source compliant. PageHeader keeps the visible fitted title, glass gets Add and route-sensitive caller Back, older iOS/Android retain header Add and caller Back. Current list is pushed from Neighbours; pinned Neighbours and More-pushed Neighbours are caller modes, not a newly supported list tab. |
+| Back/Add, glass and fallback | Source compliant. PageHeader keeps the visible fitted title, glass gets Add and route-sensitive caller Back, older iOS/Android retain caller Back; Add now sits beside the title rather than on the Back line. Current list is pushed from Neighbours; pinned Neighbours and More-pushed Neighbours are caller modes, not a newly supported list tab. |
 | Full names/summaries/counts | Source compliant. WordWrap, full single-rule description, multi-rule all/any summary, singular/plural neighbour counts and explicit unavailable text remain. Full unknown imported rule handling and match semantics unchanged. Speech, contrast and maximum-text fit UNVERIFIED. |
 | Add/Edit/return | Source compliant. Relative editor route; Edit passes exact saved string ID. OnAppearing reloads saved definitions and cached counts; activation alone restores controls without refreshing data. Back discards editor clone, Save returns to list. No migration. |
 | Order/delete | Source compliant. Saved order, bounded menu moves and immediate persistence remain; commands re-resolve IDs after menus/confirmation. Delete retains destructive confirmation and irreversible warning. Selection fallback to All remains Neighbours' responsibility. No Undo added. |
@@ -181,3 +181,24 @@ these cases. At f7fa227 unit tests, CodeQL actions/C#, and one Android/iOS run h
 passed; other platform runs and Swift were pending at review. Replacement CI is
 pending, with no local builds/tests and no device acceptance. Refs #450 remains
 intentional under the user's device-acceptance gate.
+
+## Independent review disposition
+
+Claude Opus 5.5 Medium reviewed the complete diff at 26fe8554 against
+d271e9c: no blockers or medium findings. The fallback Add placement wording
+is clarified above (documentation-only correction). Parent accepts the
+low first-placement observation as UNVERIFIED: if CurrentPage is not updated
+at Appearing, plain 16pt gutters and the default footer can persist until
+central dispatched activation. Check initial push and rapid retained return
+for a clearance flash; record the actual frames against installed SHA/build.
+No evidence warrants changing shared lifecycle ordering in this pass.
+
+The exact cause of reported clipping is not demonstrated for iOS 26.x:
+TopLineSpace only releases native top from iOS 27.1. The source correction
+brings the visible title under shared fitting ownership; this does not prove
+resolution on the reporting OS. Record OS and title glyph/camera bounds on
+26.x and 27.1+ where available. Bottom extent remains unverified; full-height
+viewport reach and final-row clearance must be measured separately.
+
+No implementation changed after independent review. Final documentation-head
+CI is pending; all device outcomes and explicit #450 acceptance remain pending.
