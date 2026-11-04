@@ -92,6 +92,17 @@ or physical acceptance are claimed. Verify all diagnostics visibility
 combinations and hidden release notes, headings navigation, maximum-text
 host/summary wrapping and press/focus/ripple contrast on the installed head.
 
+The fresh full-diff Opus review at a3b1ed0 confirmed the previous fixes and
+identified inappropriate negative-margin RowLine use between overview rows.
+Parent traced App.xaml's -11pt margin and fixed all Settings overview lines
+to use the plain input-transparent Divider; explicit version/sign-out margins
+remain. This prevents overlapping row bounds and uneven spacing/tint bleed.
+Title-only text now centres against chevrons, and Hide names has a conditional
+leading divider. All three findings are fixed; no source/command semantics
+changed. Another full-diff review and replacement CI remain pending. Native
+spacing, actual press/focus state precedence and conditional visibility still
+require installed-build checks, never inferred from source.
+
 ## Historical #496 assessment and review provenance
 
 The remainder records the previous implementation and its then-pending checks.

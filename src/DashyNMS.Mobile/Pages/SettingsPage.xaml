@@ -12,29 +12,29 @@
    <VerticalStackLayout x:Name="Body" Padding="16,20,16,16" Spacing="0">
      <VerticalStackLayout>
       <controls:SettingsOverviewRow ShowLogo="True" Title="{Binding ServerHost}" Summary="{Binding ServerSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding Backup.IsOnBackup}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding Backup.IsOnBackup}" />
       <controls:SettingsOverviewRow ShowChevron="False" Title="Backup address" SummaryTextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
      </VerticalStackLayout>
     <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Preferences" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Appearance" Summary="{Binding AppearanceSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Devices" Summary="{Binding DevicesSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Devices}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Alert checks" Summary="{Binding AlertChecksSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.AlertChecks}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Notifications" Summary="{Binding NotificationsSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Notifications}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Health thresholds" Summary="When dBm, signal, temperature and fan speed turn amber or red" Command="{Binding OpenThresholdsCommand}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasLockScreenWidgets}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasLockScreenWidgets}" />
       <controls:SettingsOverviewRow Title="Lock screen widgets" Summary="{Binding LockScreenSummary}" IsVisible="{Binding HasLockScreenWidgets}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
      </VerticalStackLayout>
     <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Services" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Graylog" Summary="{Binding GraylogStatusText}" Command="{Binding OpenGraylogSettingsCommand}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Unimus" Summary="{Binding UnimusStatusText}" Command="{Binding OpenUnimusSettingsCommand}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Sensor definitions" Summary="{Binding SensorDefinitionsSummary}" Command="{Binding OpenSensorDefinitionsCommand}" />
      </VerticalStackLayout>
     <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="About" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
@@ -46,25 +46,25 @@
           <Label Text="{Binding Name}" FontSize="15" FontFamily="BodySemibold" />
           <Label Text="{Binding DisplayVersion}" FontSize="15" LineBreakMode="CharacterWrap" />
           <Label Text="{Binding State}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
-          <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" Margin="0,10,0,0" />
+          <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="0,10,0,0" />
          </VerticalStackLayout>
         </DataTemplate>
        </BindableLayout.ItemTemplate>
       </VerticalStackLayout>
       <controls:SettingsOverviewRow Title="What's new in this version" Summary="{Binding WhatsNewSummary}" IsVisible="{Binding HasWhatsNew}" Command="{Binding OpenWhatsNewCommand}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasWhatsNew}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasWhatsNew}" />
       <controls:SettingsOverviewRow Title="Privacy policy" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Help and support" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="DashyNMS website" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Website}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Open-source licences" Command="{Binding OpenLicencesCommand}" />
      </VerticalStackLayout>
     <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Diagnostics" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" IsVisible="{Binding HasDiagnosticsCard}" />
      <VerticalStackLayout IsVisible="{Binding HasDiagnosticsCard}">
       <controls:SettingsOverviewRow Title="Error reports and usage" Summary="{Binding SharingSummary}" IsVisible="{Binding CanChooseSharing}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Diagnostics}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="False">
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="False">
        <BoxView.Triggers>
         <MultiTrigger TargetType="BoxView">
          <MultiTrigger.Conditions>
@@ -76,6 +76,7 @@
        </BoxView.Triggers>
       </BoxView>
       <controls:SettingsOverviewRow ShowChevron="False" Title="Share diagnostics" Summary="What the app did lately, for a bug report" IsVisible="{Binding CanShareDiagnostics}" Command="{Binding ShareDiagnosticsCommand}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding CanHideNamesInDiagnostics}" />
       <Grid Padding="0,14" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNamesInDiagnostics}">
        <VerticalStackLayout Spacing="4" AutomationProperties.ExcludedWithChildren="True">
         <Label Text="Hide names" FontSize="15" FontFamily="BodySemibold" />
@@ -84,7 +85,7 @@
        <Switch Grid.Column="1" IsToggled="{Binding HideNamesInDiagnostics}" VerticalOptions="Center" SemanticProperties.Description="Hide names in diagnostics. Replace server and device names and IP addresses with placeholders." MinimumHeightRequest="44" MinimumWidthRequest="44" />
       </Grid>
      </VerticalStackLayout>
-    <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" Margin="0,38,0,0" />
+    <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="0,38,0,0" />
     <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" HeightRequest="-1" MinimumHeightRequest="52" BackgroundColor="Transparent" BorderWidth="0" Margin="0,0,0,24">
      <VisualStateManager.VisualStateGroups>
       <VisualStateGroup x:Name="CommonStates">

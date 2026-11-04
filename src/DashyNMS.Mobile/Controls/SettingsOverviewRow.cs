@@ -24,7 +24,7 @@ public sealed class SettingsOverviewRow : Grid
         ColumnDefinitions = [new(new GridLength(0)), new(GridLength.Star), new(GridLength.Auto)];
         ColumnSpacing = 0;
         _chevron.Margin = new Thickness(12, 0, 0, 0);
-        var text = new VerticalStackLayout { Padding = new Thickness(0, 14), Spacing = 4, InputTransparent = true };
+        var text = new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 14), Spacing = 4, InputTransparent = true };
         text.Add(_title);
         text.Add(_summary);
         AutomationProperties.SetIsInAccessibleTree(text, false);
