@@ -1,12 +1,14 @@
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile.Pages;
 
-public partial class HealthPage : ContentPage, ISearchHost
+public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 {
     private readonly HealthViewModel _viewModel;
     private IDisposable? _edges;
+    private bool _active;
     private readonly ButtonSearch _search;
 
     public HealthPage(HealthViewModel viewModel)
@@ -28,6 +30,14 @@ public partial class HealthPage : ContentPage, ISearchHost
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        Activate();
+        _ = _viewModel.RefreshIfStaleAsync();
+    }
+
+    /// <summary>Reclaims retained-page controls without reloading readings or resetting filters.</summary>
+    public void Activate()
+    {
+        _active = true;
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -41,7 +51,6 @@ public partial class HealthPage : ContentPage, ISearchHost
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-        _ = _viewModel.RefreshIfStaleAsync();
     }
 
     public void OpenSearch() => _search.Open();
@@ -50,6 +59,7 @@ public partial class HealthPage : ContentPage, ISearchHost
 
     protected override void OnDisappearing()
     {
+        _active = false;
         base.OnDisappearing();
         _search.Close();
         _edges?.Dispose();
@@ -62,6 +72,9 @@ public partial class HealthPage : ContentPage, ISearchHost
 
     private void PlaceControls()
     {
+        // Native safe-area and glass callbacks may already be queued on departure.
+        if (!_active || Shell.Current?.CurrentPage != this) return;
+
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         var foot = 12 + clear.Bottom;

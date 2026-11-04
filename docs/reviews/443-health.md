@@ -100,3 +100,109 @@ filter-driven row replacement, real drag dismissal, query retention,
 Command-F refocus, Android outside-tap unfocus, rapid transitions and Reduce
 Motion. Check category/severity retention and sensor navigation.
 Issue #443 and its #442 entry await device acceptance.
+
+## Retained-tab correction, 4 November 2026
+
+Current assessment baseline: origin/main `35bf21712b5a2c3a83d5344bcb65da0321090e23`.
+Live #443 body and its sole comment, and #442 body and all comments (none),
+were refreshed on 4 November. This section supersedes earlier claims that tab
+return necessarily calls RefreshIfStaleAsync. Historical review/CI above applies
+only to those historical heads. Groups #444 is closed with explicit user
+acceptance in comment 6618547247; its old pending wording is historical.
+No acceptance of Health follows from that record.
+
+### Report, cause and correction
+
+The user's #443 comment 6618546870 reports More → Health → another tab →
+More loses Back and menu-base alignment; reopening Health restores both.
+`Pages/HealthPage.xaml.cs` implemented ISearchHost but not IActivePage, leaving
+Header.Apply, CoveredEdges.Watch, glass Back/Refresh/Search, Moved subscription
+and PlaceControls dependent on OnAppearing. AppShell.RestoreActivePage already
+resolves CurrentPage inside a dispatched callback on navigation and resume.
+GroupsLocationsPage.Activate is the accepted opt-in reference. No evidence
+requires changing that shared mechanism or any other consumer.
+
+Health now implements IActivePage. OnAppearing delegates control restoration
+to Activate and separately keeps RefreshIfStaleAsync. Activate restores header,
+watcher, caller-aware glass Back, refresh/search and placement, with one watcher
+and remove-before-add Moved registration. Activation itself never fetches,
+clears query, changes category/severity or reloads the page. Actual Appearing
+retains the one-minute stale/definitions check; explicit pull/glass refresh
+retains its existing command. Health has no periodic showing-state timer.
+
+OnDisappearing clears the active flag before closing search, disposing/nulling
+the watcher, removing Moved and owner-safe Hide. CoveredEdges' native safe-area
+callback and OnGlassMoved can already have dispatched PlaceControls before
+unsubscribe. PlaceControls now checks both the active flag and Shell's current
+page at delivery, so departed retained pages cannot apply queued geometry.
+Constructor handler/load inset hooks remain once per page lifetime; there are
+no new Shell, Window, native observer or global helper subscriptions.
+
+### Complete applicable scope reassessment
+
+C means source compliant/preserved; F identifies a corrected source finding;
+U means actual operation remains unverified. All runtime results are U.
+
+| Concern and location | Source result and preserved semantics |
+| --- | --- |
+| Retained pinned/More return and resume, HealthPage.Activate | F corrected as above. Pinned root gets no Back; pushed Back label uses PreviousTitle and relative `..` to the actual caller. Sensor rows still push Routes.DeviceSection, Sensors, exact device ID and display name. Return from that child restores Health. No embedded Health detail mode exists. |
+| Sensor rows, HealthPage.xaml / SectionRow | C full wrapping title, device, value/units and limits; explicit Critical/Warning/OK/Inactive/Unavailable text and combined HealthDescription. Decorative dot is excluded; child text is excluded from duplicate speech. Native whole-row activation and speech remain U. |
+| Categories/severity/counts, HealthViewModel | C four registry categories, wrapping equal-growth category buttons and wrapping minimum-44pt severity pills; selected/included state descriptions. Counts cover the whole category before severity/query filtering. Unknown/non-finite readings remain unavailable, excluded from OK and retained with all chips off. Existing problems-first/device/name ordering and Clear semantics retained. |
+| Search, ButtonSearch / HealthPage | C hidden initially on both platforms; header/glass/Command-F opens or refocuses. Completion, unfocus/content touch and real native drag close while retaining query. Programmatic/filter-driven Scrolled does not close; KeyboardDismiss.OnScroll stays false. Clipped animation/Reduce Motion unchanged. Query/category remain instance-local; only severity preferences persist. |
+| Thresholds and source, HealthViewModel.Rebuild/RefreshIfStaleAsync | C Settings remains the only threshold entry; Save validates/persists and Back discards under #411/#405. Settings.Changed rebuilds already loaded readings without fetch. ReadSensor owns existing thresholds, definitions, limits, units and unavailable classification; no new source interpretation. Fresh Appearing applies changed definitions without refetch where applicable. |
+| Loading/stale/error/empty, HealthViewModel / PullToRefresh | C first-load/refresh busy overlay, updating text over kept readings, SensorRefreshStatus failure information, saved/offline timestamp and retained last data. Empty is suppressed during busy/error; no-source and no-match messages differ. Pull/glass refresh retry. Partial/denied data retains existing Core/session handling; no false OK added. |
+| Measured usable base, HealthPage.PlaceControls | C existing measured placement preserved exactly: vertical side pill uses max(0, page height minus pill bottom), without native-bottom clamp; lower horizontal pill uses that base and footer difference plus existing 8pt gap; upper horizontal pill uses fallback 12 + clear.Bottom. Missing geometry uses fallback, no cached pill. Side gutters remain 16 + measured clear.Left/Right. Physical base delta and final-row reach are U. |
+| Inset/viewport/fade, HealthPage.xaml and StopInsets | C native iOS page owns top only; supporting grids/RefreshView opt out, native collection adjustment Never on handler/load; Android native container handling remains. List stays in star row outside ScrollView. F missing guide-required fade corrected with an input-transparent 20pt overlay inside the same ListCard viewport and a 20pt collection header. Surface/SurfaceClear endpoints share card RGB in each theme. Empty text already has 32pt margin. No guessed base offset or shared layout change. |
+| Actions, text and colours | C search/header fallback and glass refresh unchanged; Clear minimum 44pt, row wrapping and semantic severity remain. No Compare/Share/Save capability applies to Health. Contrast, clipping, final action reach and large-text fit are U. |
+| Persistence/security | C no server writes; only existing local severity preferences are written; no credential, permission, session/cache schema, network source or threshold persistence changes. Synthetic data only. |
+
+### Evidence and remaining acceptance
+
+Implementation self-inspection covers the complete diff against origin/main and
+DESIGN.md, including measured base versus final-row clearance. git diff --check passed before commit. No local build or test was run. New-head shared tests,
+Android/iOS builds and security CI are pending. Independent Claude Opus 5.5
+Medium full-diff review is pending and belongs to the parent. This is source
+assessment, not that independent review. No device check is verified and no
+build/OS/device result is claimed. #443 remains open and #442 unchecked.
+
+Record final SHA, build, OS and each result separately for these exact steps:
+
+1. On Duo outer, inner portrait and inner landscape, in both themes and maximum
+   text, cold-launch pinned Health, switch tabs/return and background/resume.
+   Unpin Health, open More → Health → Devices → More without reopening Health;
+   repeat after folding/rotation and resume. Confirm one current glass owner,
+   caller Back/Search/Refresh restored, retained category/query/chips and no
+   activation-driven reload. Repeat reopen recovery for comparison.
+2. On each configuration measure native page/host, list viewport and content
+   bounds in the same coordinate space as pill bottom B and page height H.
+   For side pill verify viewport base gap equals max(0,H−B), separately verify
+   the complete final row can scroll clear. Repeat bottom and top pill, missing
+   geometry, fold/rotate without reopening and keyboard dismissal. Verify only
+   one owner per inset, first text below 20pt fade, empty text clear, fade accepts
+   taps/drags, header actions and final footer clear glass. Inspect placement
+   diagnostics for overlap/loops. Capture measured deltas rather than judging
+   only that rows do not overlap.
+3. Use synthetic long sensor/device names, long units/limits, negative/decimal
+   values, critical/warning/OK and absent/non-finite readings. Check all four
+   categories, totals before filters/search, all chips off retaining unknown,
+   Clear, no matches and relaunch severity memory. Confirm severity readable
+   without dot colour and complete text at maximum size.
+4. Open/refocus search with header/glass and Command-F after scrolling. Type
+   several words while rows filter; programmatic scroll must retain focus.
+   Actual drag, Search and outside touch/unfocus close keyboard retaining query.
+   Repeat rapid open/close with Reduce Motion on/off, rotate/fold with keyboard
+   open, dismiss and remeasure base. Check Android header fallback explicitly.
+5. Tap a sensor from pinned and More-pushed Health; confirm exact device Sensors
+   and Back to its actual Health caller. Visit Settings → Health thresholds,
+   Save a negative/decimal change and return: counts/severity rebuild without
+   fresh-interval fetch; repeat Back to discard. Test slow refresh with retained
+   readings, empty source, no matches, first failure, refresh failure, denied/
+   partial source and offline saved timestamp; no false empty or OK claims.
+6. VoiceOver and TalkBack: each complete name/device/value/limits/severity once,
+   whole-row activation once, category/filter state and Clear/action names and
+   targets. Repeat the route/geometry/search checks on an ordinary iPhone,
+   including iOS 26+ glass and older-iOS header fallback when available, plus
+   Android. Shared controls are unchanged; regress accepted Groups #444 and
+   rules/template/alert #447–#449 tab-return/resume ownership and setup/information
+   caller Back on the integrated build. Obtain explicit Health acceptance before
+   closure or epic changes.
