@@ -134,9 +134,9 @@ rejection; #442 has no comments. PR #512 is merged at `0416232`, and its old
 #474 and shared rules, CLAUDE, DEVELOPING, DESIGN and DESIGN-REFERENCES.
 Historical review/CI evidence is not acceptance of this reassessment.
 
-This pass changes documentation only. No additional confirmed mobile defect
-was established. No visual choice, offset, API, package pin or upstream fix is
-introduced. In particular, the earlier assessment's claim that viewport-above-
+Independent review established a mobile read-failure defect, corrected below.
+No visual choice, offset, API, package pin or upstream fix is introduced.
+In particular, the earlier assessment's claim that viewport-above-
 glass placement was compliant is superseded by the rejection and current
 DESIGN measured-base rule. Actual reported geometry remains UNVERIFIED after
 the integrated correction, not resolved by source review or historical CI.
@@ -156,13 +156,17 @@ Neighbours, VLANs, FDB, ARP, Routing, Wireless and Inventory (#469–#479).
 Event log, Graylog, Graphs and backups retain their specialised destinations.
 SectionRow, loader, overview templates, DeviceSectionPage, ButtonSearch,
 CoveredEdges and TabBarButtons remain unchanged. Accepted pages and setup
-contracts remain intact. Only this review file is edited; no other checkout
-is touched. No new reusable DESIGN rule was found beyond the existing #530
+contracts remain intact. Changes also include the loader and shared regression
+tests; no other checkout is touched. The private ResourceCategoryAsync helper
+is renamed OptionalSectionSourceAsync and reused for the two VLAN reads.
+Existing Resources callers (processors/memory/storage) are behaviourally
+unchanged; FDB/ARP remain owned by #475/#476 and require the same error audit.
+No new reusable layout rule was found beyond the existing #530
 viewport/footer and #515 placement guidance.
 
 ### Source dispositions across the original scope
 
-C means source contract retained, F means reported failure still awaiting
+C means source contract retained, F means reported geometry failure still awaiting
 accepted evidence, U means unverified, and NA means no such mode or action.
 C does not assert a native pass.
 
@@ -172,10 +176,10 @@ C does not assert a native pass.
 | Port counts and unknowns | C within the typed contract: await fleet VLANs and device ports together; count each returned port once per positive tag by distinct membership plus IfVlan. Missing match is null and No member ports reported, never inferred zero. Positive count describes returned records, not proof of all trunk memberships. No operational/admin/deleted filtering is added. U: server completeness. |
 | Full source validity | U: Core owns JSON parsing, endpoints, membership completeness and malformed/omitted identifier provenance. Mobile consumes ci.52; no installed ci.52 package exists locally. Read-only Core checkout `5f7bde5` exposes int VlanNumber/DeviceId and nullable name/IfVlan, with Vlans initialised empty. Its PortsApi requests explicit columns plus with=vlans; older servers may omit membership. That checkout is supporting evidence, not proven identical to ci.52. Missing numeric fields cannot be distinguished from zero by the consumer. Do not silently filter/default-repair or mirror Core. Definitive validity requires pinned Core source/package provenance and synthetic payload evidence upstream. This blocks a claim of complete source validity, not this documentation PR. |
 | Overview selection and metadata | C: DeviceSectionCard.Show counts all loaded rows; neutral VLAN rows retain numeric order through stable Worst selection, taking three highlights. Summary counts VLAN records, not ports. Failed clears highlights and keeps a retry-by-opening card; successful empty hides VLAN card. Full card opens the section; highlights have no nested action. Device name is in section title; no invented VLAN metadata is added. U: actual card speech/activation. |
-| Initial load and empty | C: finite grouped CollectionView, BusyCard and separate status; IsEmpty requires loaded, not busy and no error. Empty source differs from Nothing matches. Existing loader treats 404 as empty across sections; that preserved policy is not evidence of permission or completeness. NA: VLAN editor, picker, selection sheet and server search. |
+| Initial load and empty | C: finite grouped CollectionView, BusyCard and separate status; IsEmpty requires loaded, not busy and no error. Empty source differs from Nothing matches. Corrected: each VLAN source treats its own 404 as absent; other failures propagate even alongside a 404. A ports 404 preserves valid VLAN rows with unavailable membership. Absence is not evidence of permission or completeness. NA: VLAN editor, picker, selection sheet and server search. |
 | Denial, timeout, offline and refresh | C: non-404 read failures propagate to ViewModelBase error/Retry; previous VLAN rows remain during refresh and after failure. They are last loaded facts with no VLAN timestamp or offline disk cache guarantee. Overview failure instead clears highlights and retains its card. U: native error visibility, retry and offline sequences. No freshness claim is added. |
 | Generation and routes | C: LoadAsync increments generation, captures section/device for refresh, serialises pending work and discards superseded section results/errors. Different scope clears groups. DeviceDetail passes actual DeviceId, section enum and title on relative DeviceSection route. Overview load cancellation checks before Show. NA: VLAN row child route. U: actual rapid-device switch, tab return and resume; cancellation/lifecycle timing is not proven by reading guards. |
-| Search and focus | C: local case-insensitive SectionRow.Matches includes identifier, raw name/count and VLAN-only unavailable labels. Query is transient and retained on dismissal. ButtonSearch opens from action/Command-F and closes on native drag, completion/unfocus; programmatic Scrolled alone does not close. No VLAN sort/filter panel or persistence change. U: focus, keyboard and native scroll event timing. |
+| Search and focus | C: local case-insensitive SectionRow.Matches includes identifier, raw name/count and VLAN-only unavailable labels. Query is transient and retained on dismissal. ButtonSearch opens from actions or iOS hardware-keyboard Command-F and closes on native drag, completion/unfocus; programmatic Scrolled alone does not close. No VLAN sort/filter panel or persistence change. U: focus, keyboard and native scroll event timing. |
 | Hierarchy and adaptive layout | C: complete neutral stacked facts, common themed Card/Caption, finite viewport and shared non-Port adaptive span. No VLAN severity, graph action or misleading chevron. U: full names, reading order, line wrapping and useful column widths at maximum text on every display. No unagreed redesign proposed. |
 | Glass, insets and final row | F: user reports section fails to reach usable base. Integrated source correction above replaces old clearance-only placement. Expected viewport reaches actual measured pill base and final row clears glass. U: H/B/V measurement, inherited safe areas, native clip/refresh bounds and footer reachability; no per-page offset proposal. |
 | Accessibility and themes | C: VlanDescription combines identifier/name/count and excludes duplicate child labels; neutral facts use theme resources. U: VoiceOver/TalkBack grouping, complete speech once, overview action role, contrast, 44pt controls and maximum text. Colour alone conveys no VLAN health. |
@@ -211,7 +215,7 @@ of a reachable last row alone does not establish viewport alignment.
    below fade, backgrounds, viewport base, final complete fact and Back/search
    clearance. Repeat shared consumers #469–#479; Ports grid and wide/narrow
    neighbour graph retain their separate layout/selection contracts.
-3. Open search from header/glass and Command-F. Match name, ID, count and
+3. Open search from header/glass and iOS hardware-keyboard Command-F. Match name, ID, count and
    unavailable labels, then no match. Type successive replacements: keyboard
    stays focused. Complete, unfocus or genuinely drag: field closes and query
    remains. Reopen, clear, show/dismiss keyboard, fold and rotate while open;
@@ -223,6 +227,9 @@ of a reachable last row alone does not establish viewport alignment.
    replace current scope. Do not treat a successful HTTP response as membership
    completeness. Use duplicate memberships plus matching IfVlan to check one
    count per returned port and no-match unavailable rather than zero.
+   Specifically pair a VLAN 404 with ports 403/500/timeout: expect error/Retry,
+   never successful empty. With valid VLAN rows plus ports 404, retain those
+   rows and show No member ports reported. Both 404s yield successful empty.
 5. Switch tabs away/back, return from the caller's child flow, background/resume,
    fold/unfold and rotate during loading/refresh/search. VLANs has no child
    action itself. Check actual Back destination, device/title/query, one glass
@@ -234,12 +241,25 @@ of a reachable last row alone does not establish viewport alignment.
 
 ### Delivery evidence
 
+Opus 5.5 Medium reviewed 7b9b88e and identified two related source gaps and a
+keyboard-platform wording error. The original WhenAll could expose the VLAN
+404 first and mask ports denial/500/timeout; a ports 404 could discard valid
+VLAN records. Both are now corrected per source, using the existing Resources
+404 wrapper before WhenAll. Factories execute inside async try/catch, covering
+synchronous throws and faulted tasks; non-404 errors and cancellation propagate.
+Core ci.52 reachability remains unproven, but mobile behaviour is directly
+testable without guessing source completeness. This correction belongs in #474's
+existing PR rather than a separate replacement. New CI regressions cover
+preserved VLAN facts with missing ports and mixed failures, including async
+failures and synchronous factory errors. Resources regressions remain relevant
+because its private helper was renamed, with unchanged behaviour. Fresh review
+and CI are pending; no native outcome is inferred.
+
 No local build, restore, test, validation script, browser or device check ran.
 Source review is implementation self-assessment only. Existing synthetic VLAN
 regressions cover membership deduplication/IfVlan, numeric ordering, device
 filtering, raw long names, neutral/no-link rows, missing labels/search and 404/
-error policies. They are not rerun locally; no production change requires a
-new mirrored test. Full intended diff against fetched current main and staged
+error policies. They are not rerun locally. Full intended diff against fetched current main and staged
 whitespace are checked before commit. New-head CI and independent parent
 Claude Opus 5.5 Medium review remain pending. Hardware acceptance, source
 completeness evidence and reported geometry are separate remaining gaps.

@@ -221,6 +221,51 @@ public sealed class DeviceSectionLoaderTests
         await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Vlans));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Missing_ports_preserve_vlan_facts_and_unknown_membership(bool synchronous)
+    {
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            new[] { new Vlan { DeviceId = DeviceId, VlanNumber = 10, VlanName = "Example VLAN" } });
+        var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
+        if (synchronous)
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw missing);
+        else
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Vlans)));
+        Assert.Equal("VLAN 10", row.Title);
+        Assert.Equal("Example VLAN", row.VlanNameText);
+        Assert.Equal("No member ports reported", row.VlanPortsText);
+    }
+
+    [Theory]
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    public async Task Missing_vlan_source_does_not_mask_port_failure(int status, bool synchronous)
+    {
+        var missing = new LibreNmsApiException("No VLANs", System.Net.HttpStatusCode.NotFound);
+        var failure = new LibreNmsApiException("Ports failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        if (synchronous)
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Vlan>>(_ => throw missing);
+        else
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(missing));
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(failure));
+        Assert.Same(failure, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Vlans)));
+        await _client.Ports.Received(1).ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Both_missing_vlan_sources_remain_an_empty_section()
+    {
+        var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(missing));
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        Assert.Empty(await Load(DeviceSection.Vlans));
+    }
+
     [Fact]
     public async Task Sensors_are_this_devices_only_grouped_by_kind_with_desktops_thresholds()
     {
