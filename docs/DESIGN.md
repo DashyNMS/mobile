@@ -359,13 +359,12 @@ actions, each at least 44pt, with no parent gesture enclosing the pin. Use an
 outlined pin for not pinned and a filled pin for pinned, with explicit target,
 membership and action in its accessible name. State capacity once above the
 catalogue; this pattern replaces visible per-row unavailable text with that
-line and explicit accessible state. A full-bar pin remains operable to explain how to make room.
+line and explicit accessible state. A full-bar pin remains operable to
+explain how to make room.
 This visual direction was approved for More on 4 November 2026; native device
 acceptance remains separate in [its assessment](reviews/453-more-navigation.md).
 
-
 ## Data states and persistence
-
 
 - Preserve complete server-provided messages, expressions, configuration and
   licence content. Presentation wrapping must not change copied, shared or
