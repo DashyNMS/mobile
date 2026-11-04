@@ -76,3 +76,63 @@ Use synthetic example.net/edge.example.net, device IDs 7/8 and 192.0.2.0/24.
 
 No issue closure or epic ticks. Parent owns CI, independent review, merge,
 cleanup and final-batch TestFlight; user hardware acceptance remains required.
+
+## 4 November reassessment after PR #537
+
+Baseline `f08148946ae6cbb962efde48bf4de413bfeb0b72`, clean isolated
+`t3/device-arp-review-fixes`. Live #476 and #442 remain OPEN with no comments;
+no open ARP PR was found. The reconciled assessment's #476 checkpoint is
+mandatory review scope, not evidence of a reported defect. PR #514's actual
+squash `d9353cc6aed1cea3a9f218e1d377578d0e104960` is the implementation
+baseline; its head `872e9d107fb0ef7fd02535e806c3f7e0158326de` is not replayed.
+Historical green CI proves neither geometry nor acceptance. The old assessment
+above is retained as history; the dispositions below supersede its source and
+geometry compliance claims.
+
+C means source-compliant, correction means a confirmed defect corrected here,
+N/A means absent capability, U means unverified. Every native outcome remains U.
+
+| Concern | Disposition and source evidence |
+| --- | --- |
+| Sources and failure states | Correction: ArpAsync started raw tasks under LoadAsync's outer 404 catch. ARP 404 could hide port 403/500/timeout/cancellation; ports 404 discarded valid ARP. Both reads now use existing OptionalSectionSourceAsync before WhenAll. Only 404 becomes empty; all other failures/cancellation propagate. Valid ARP retains port ID when mapping is missing. Both missing remains empty. No fleet request or stronger permission dependency added. |
+| Arbitrary MAC text | Correction: Mac stripped all nonhex characters and normalised any twelve remaining digits, potentially inventing an address from explanatory text. ARP now normalises only compact, consistently paired colon/hyphen, or dotted hex spellings. Other source strings remain verbatim. FDB's existing formatter is unchanged. |
+| Provenance and completeness | C mapping, U completeness: local Core HEAD is `5f7bde53ac05ea75f7cb6dd06a8fae62606f0769`, supplied Core CI run 52 provenance. ArpApi.ListForDeviceAsync requests resources/ip/arp/all?device=id and reads collection arp through LibreNmsTransport.GetCollectionCoreAsync. ArpEntry binds id, port_id, device_id, mac_address and ipv4_address. Strings are nullable; IDs are nonnullable, so omitted IDs become zero. Missing/null collection becomes empty; non-array throws. Unknown payload fields are not represented. This does not prove complete typed payload coverage, IPv6 endpoint support, or missing-versus-zero identity. No new meaning is assigned to those values. |
+| IP/MAC/interface facts and order | C: raw IP is the title, nullable IP/MAC gets named missing text through SectionRow; PortId joins Port.DisplayName with port ID fallback. IpSortKey numerically orders parsed address bytes, stable for duplicate keys, invalid/missing after parsed values. IPv6 text can be displayed without claiming IPv6 endpoint coverage. No address validation, health inference, row action or deduplication introduced. Malformed IP text is retained. U complete real-server payload coverage. |
+| List/overview hierarchy | C source: ArpLayout stacks all three facts with wrapping in DeviceSectionPage and DeviceDetailView, same ArpDescription; card count and three neutral highlights retained. U actual wrapping and unbroken strings at largest text. |
+| Loading/empty/error/offline/cache/refresh | C source: VM RunAsync owns busy/error/Retry; IsEmpty excludes errors/busy, unmatched query differs from source empty. ARP keeps last rows on failed refresh, with no persistent cache or freshness claim. Generation guard prevents old device publication. Overview uses the same loader and Failed card state. U observed offline/retry/resume timing. |
+| Search and keyboard | C source: ButtonSearch, SearchField, native drag check, retained query, Command-F; Matches includes full IP/MAC/interface and missing labels. Filtering must retain focus. U keyboard show/dismiss and native drag/focus. |
+| Viewport, fade, glass and usable base | U native: PR #530 supersedes the old claimed bottom geometry. PlaceControls measures SectionBody and pill/glass in host coordinates, extends viewport to measured base with content footer clearance, keyboard takes precedence; iOS list adjustment Never. Matching fade/list margins and 20pt spacer remain. No measured H/B/V or last-row evidence exists. |
+| Lifecycle/navigation | C source: selected device relative section route from overview; actual caller Back, no row destination. Activate restores search/glass and measured placement; OnDisappearing disposes edge/keyboard subscriptions, closes search and releases glass. U repeated tab return, resume, fold and rotation. Devices narrow/split, Dashboard, alerts and other device links remain entry routes. |
+| Accessibility/theme/motion | C source: joined ArpDescription excludes repeated child announcements; themed labels, nonactionable rows, accessible overview navigation; shared reduced-motion search. U VO/TB grouping, action traits, contrast, largest text, touch and keyboard operation. |
+| Forms/actions/persistence | N/A Save, drafts, toggles, selection, comparison, export and mutations. Credentials, permission storage, persistence and existing exports untouched. No new action hierarchy or unsettled visual policy implemented. |
+
+Before editing, dependencies/consumers were recorded: DeviceSectionLoader is
+shared by overview and full sections. OptionalSectionSourceAsync is already
+used by Resources, VLANs and FDB; it is reused unchanged. ArpMac is ARP-only.
+SectionRow, both templates, DeviceSectionCard, shared page geometry, search,
+Core package and navigation are unchanged. Other section consumers are
+Availability, Sensors, Resources, Ports, Neighbours, VLANs, FDB, Routing,
+Wireless, Inventory and Event log. Graphs, Graylog and backups use separate
+routes. Accepted closed pages and #405/#288 retain their contracts. No other
+checkout, including the preserved dirty #475 checkout, was modified.
+DESIGN already records independent-source handling, metadata permissions and
+full source text; no duplicate lesson or visual rule is added.
+
+CI-only regressions cover synchronous/asynchronous missing ARP plus port
+403/500/timeout, cancellation, missing ports retaining valid/malformed/missing
+facts and overview highlights, both sources missing, and MAC text preservation.
+Existing numeric/duplicate ordering, scoped search and refresh retention tests
+remain. No local build, restore, tests or validation scripts ran. Full-diff
+self-review and staged whitespace checks are separate from pending CI and
+parent independent Opus 5.5 Medium review.
+
+All native verification remains pending at the eventual integrated SHA/build:
+Duo outer and inner portrait/landscape, ordinary iPhone portrait/landscape,
+both themes, largest text, VO/TB, physical keyboard and search keyboard
+show/dismiss, fold/rotate, tab return and resume. For each host record exact
+host height H, measured pill base B, viewport base V and separately whether the
+last complete row can scroll clear of glass. Check initial fade clearance,
+short/long lists, overview and pushed routes, all loading/empty/error/offline/
+refresh states and full facts using RFC 5737/3849 addresses and synthetic MACs
+and interface names. No hardware pass, issue closure, epic tick or release is
+claimed. Parent owns independent review, CI judgement and sequential merge.

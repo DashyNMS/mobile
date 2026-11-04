@@ -437,6 +437,21 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData("MAC: 020000000001 unavailable", "MAC: 020000000001 unavailable")]
+    [InlineData("0200.0000.0001", "02:00:00:00:00:01")]
+    [InlineData("02-00-00-00-00-01", "02:00:00:00:00:01")]
+    [InlineData("02:00-00:00:00:01", "02:00-00:00:00:01")]
+    public async Task Arp_mac_preserves_arbitrary_text(string raw, string expected)
+    {
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            new[] { new ArpEntry { PortId = 99, Ipv4Address = "192.0.2.9", MacAddress = raw } });
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Arp)));
+        Assert.Equal(expected, row.Subtitle);
+        Assert.Contains(expected, row.ArpDescription);
+        Assert.True(row.Matches(expected));
+    }
+
+    [Theory]
     [InlineData(403, false)]
     [InlineData(500, false)]
     [InlineData(0, false)]
@@ -925,6 +940,81 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("MAC address not reported, port 99, VLAN not reported", row.FdbDescription);
         Assert.True(row.Matches("MAC address not reported"));
         Assert.False(new SectionRow(title).Matches("MAC address not reported"));
+    }
+
+    [Theory]
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    [InlineData(500, true)]
+    [InlineData(0, true)]
+    public async Task Missing_arp_does_not_mask_port_failure(int status, bool synchronous)
+    {
+        var missing = new LibreNmsApiException("No ARP", System.Net.HttpStatusCode.NotFound);
+        var failure = new LibreNmsApiException("Ports failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        if (synchronous)
+        {
+            _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<ArpEntry>>(_ => throw missing);
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw failure);
+        }
+        else
+        {
+            _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<ArpEntry>>(missing));
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(failure));
+        }
+        Assert.Same(failure, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Arp)));
+        await _client.Ports.Received(1).ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Missing_ports_preserve_arp_facts_and_overview(bool synchronous)
+    {
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new ArpEntry { PortId = 99, Ipv4Address = "2001:db8::9", MacAddress = "unusual raw MAC" },
+            new ArpEntry { PortId = 100, Ipv4Address = "malformed address" },
+            new ArpEntry { PortId = 101 },
+        });
+        var missing = new LibreNmsApiException("No ports", System.Net.HttpStatusCode.NotFound);
+        if (synchronous)
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw missing);
+        else
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        var groups = await Load(DeviceSection.Arp);
+        var rows = Assert.Single(groups);
+        Assert.Equal(3, rows.Count);
+        Assert.Contains(rows, r => r.ArpDescription == "2001:db8::9, unusual raw MAC, port 99");
+        Assert.Contains(rows, r => r.ArpDescription == "malformed address, MAC address not reported, port 100");
+        Assert.Contains(rows, r => r.ArpDescription == "IP address not reported, MAC address not reported, port 101");
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Arp));
+        card.Show(groups);
+        Assert.Equal(rows.Select(r => r.ArpDescription), card.Highlights.Select(r => r.ArpDescription));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Missing_arp_does_not_mask_port_cancellation(bool synchronous)
+    {
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<ArpEntry>>(
+            new LibreNmsApiException("No ARP", System.Net.HttpStatusCode.NotFound)));
+        if (synchronous)
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw new OperationCanceledException());
+        else
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromCanceled<IReadOnlyList<Port>>(new CancellationToken(true)));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Load(DeviceSection.Arp));
+    }
+
+    [Fact]
+    public async Task Both_missing_arp_sources_remain_empty()
+    {
+        var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<ArpEntry>>(missing));
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        Assert.Empty(await Load(DeviceSection.Arp));
     }
 
     [Fact]
