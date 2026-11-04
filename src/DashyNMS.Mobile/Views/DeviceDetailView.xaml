@@ -149,7 +149,7 @@
                                             </VerticalStackLayout>
                                             <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding NeighbourLayout}" LineBreakMode="WordWrap" />
                                             <VerticalStackLayout IsVisible="{Binding PortLayout}" Spacing="4"
-                                                                 SemanticProperties.Description="{Binding PortFactsDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                                 SemanticProperties.Description="{Binding PortOverviewDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding PortOverviewIdentity}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Text="{Binding PortVisualLabel}" TextColor="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Text="{Binding PortOverviewTraffic}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />

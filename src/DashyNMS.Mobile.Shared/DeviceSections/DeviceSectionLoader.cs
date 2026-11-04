@@ -341,7 +341,10 @@ public sealed class DeviceSectionLoader
             && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
         var complete = knownErrors && double.IsFinite(port.IfInOctetsRate!.Value * 8)
             && double.IsFinite(port.IfOutOctetsRate!.Value * 8);
-        var hasErrors = errors > 0 && double.IsFinite(errors);
+        // Either positive source rate is enough; summing two finite rates can
+        // overflow and must not turn an error card green.
+        var hasErrors = (ValidRate(port.IfInErrorsRate) && port.IfInErrorsRate > 0)
+            || (ValidRate(port.IfOutErrorsRate) && port.IfOutErrorsRate > 0);
         var visual = port.IsUp ? hasErrors ? RowStatus.Critical : complete ? RowStatus.Ok : RowStatus.None
             : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Warning : RowStatus.None;
         var facts = new List<SectionField>();

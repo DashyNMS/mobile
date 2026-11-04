@@ -100,6 +100,13 @@
                                     <Setter Property="StrokeThickness" Value="2" />
                                     <Setter Property="Padding" Value="0" />
                                 </DataTrigger>
+                                <MultiTrigger TargetType="Border">
+                                    <MultiTrigger.Conditions>
+                                        <BindingCondition Binding="{Binding PortLayout}" Value="True" />
+                                        <BindingCondition Binding="{Binding PortVisualStatus}" Value="{x:Static sections:RowStatus.None}" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+                                </MultiTrigger>
                             </Border.Triggers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">

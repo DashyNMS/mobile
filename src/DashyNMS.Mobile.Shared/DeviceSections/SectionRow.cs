@@ -90,6 +90,7 @@ public sealed record SectionRow(string Title)
         .Concat(PortDisplayFacts.Where(f => f.Name is "ifName" or "Alias").Select(f => f.Value)));
     public string PortOverviewTraffic => string.Join("\n", PortDisplayFacts
         .Where(f => f.Name is "Traffic in" or "Traffic out").Select(f => f.Name + ": " + f.Value));
+    public string PortOverviewDescription => string.Join(", ", PortOverviewIdentity, PortVisualLabel, PortOverviewTraffic);
     public string PortActionDescription => PortFactsDescription + (LinkPortIfName is not null
         ? ", Open interface graphs" : ", Interface graphs unavailable: ifName not reported");
     public string? PortStatusText { get; init; }

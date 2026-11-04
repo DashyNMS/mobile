@@ -21,6 +21,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
     private readonly ButtonSearch _search;
     private bool _active;
     private VisualElement? _filterFocus;
+    private Window? _placementWindow;
 #if IOS
     private readonly List<Foundation.NSObject> _keyboardObservers = [];
     private CoreGraphics.CGRect? _keyboardScreen;
@@ -68,6 +69,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
         SectionBody.HandlerChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
         SectionBody.Loaded += (_, _) => Dispatcher.Dispatch(PlaceControls);
         FilterCard.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        FilterScroll.SizeChanged += (_, _) => RevealFilterFocus();
         FilterCard.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(View.IsVisible)) Dispatcher.Dispatch(PlaceControls);
@@ -181,6 +183,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
     public void Activate()
     {
+        if (_placementWindow is not null) _placementWindow.SizeChanged -= OnWindowSizeChanged;
+        _placementWindow = Window;
+        if (_placementWindow is not null) _placementWindow.SizeChanged += OnWindowSizeChanged;
         if (!_active)
         {
             _active = true;
@@ -236,6 +241,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        if (_placementWindow is not null) _placementWindow.SizeChanged -= OnWindowSizeChanged;
+        _placementWindow = null;
         _active = false;
         FilterCard.AbortAnimation("CardSlide");
         Dim.AbortAnimation("ListDim");
@@ -362,7 +369,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
             // Split-pane and side-pill geometry is an approved rough estimate.
             var landscape = windowBounds.Width > windowBounds.Height;
             var paneShare = Math.Min(1, paneWidth / windowBounds.Width);
-            var portraitAvailable = Math.Max(0, Math.Min(windowBounds.Width, windowBounds.Height) * paneShare - left - right);
+            // Current landscape camera/pill insets constrain available width,
+            // but do not belong to the hypothetical portrait card width.
+            var portraitAvailable = Math.Max(0, Math.Min(windowBounds.Width, windowBounds.Height) * paneShare - 32);
             var fit = PortColumns.Fit(width, portraitAvailable, landscape, ListLayout.HorizontalItemSpacing);
             span = fit.Count;
             portStageWidth = fit.Width;
@@ -383,6 +392,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			ListLayout.Span = span;
 		}
 	}
+
+    private void OnWindowSizeChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
 
 	/// <summary>
 	/// Back, search and - on Ports - Sort &amp; filter, filled while the ports

@@ -15,7 +15,8 @@ contract with the explicit correction, "Admin shutdown and monitoring disabled
 should be the same otherwise approved". Both now use the same gray Disabled
 border/label. Raw states and the monitoring flag remain independent facts.
 The user also authorised a responsive portrait-width estimate from live logical
-window dimensions and page share, with current measured gutters subtracted once.
+window dimensions and page share. The portrait estimate subtracts base 16pt
+gutters; measured camera/pill gutters constrain current landscape space only.
 There is no stored orientation width, hard-coded display size or card height.
 Split views and landscape side-pill changes can alter the estimate. Native
 width preservation is approximate and UNVERIFIED.
@@ -60,11 +61,11 @@ Compliant/corrected below means source inspection. Every device result is UNVERI
 | Concern and actual trigger/mode | Location, observed/expected behaviour and disposition |
 | --- | --- |
 | Full Ports, long names/aliases and max text | Page previously used one coloured summary. PortReadout now stacks wrapping title, label and all approved facts. Corrected; no height/line cap. Two-column physical feasibility remains unverified |
-| Full page portrait/landscape, cold landscape/fold/resize | PlaceControls and PortColumns use live window shorter dimension scaled by page share, less current gutters; portrait two tracks, landscape floor-fit with trailing remainder and no three-column cap. Corrected Ports-only; estimate limits above apply |
+| Full page portrait/landscape, cold landscape/fold/resize | PlaceControls and PortColumns use live window shorter dimension scaled by page share, less base 32pt gutters; current landscape clearance is applied only to available width. Portrait two tracks, landscape floor-fit with trailing remainder and no three-column cap. Corrected Ports-only; estimate limits above apply |
 | Up/errors/down/disabled/unknown and contradictions | PortRow retains IsUp-first PortState/RowStatus/rank. Display-only palette maps positive existing errors red before green; both disabling causes gray only when non-up; down amber; missing/testing/unrecognised neutral. Raw source tokens remain visible. Corrected |
 | Traffic, speed, errors and VLAN | PortDisplayFacts uses existing bit formatter after finite/nonnegative and multiplication-overflow guards. Positive speed only; errors show each valid zero or partial side. Non-up traffic says not shown; direct VLAN absence says not reported. Complete traffic/error validity gates green. Corrected, no utilisation/discards/membership inference |
 | Graph action, no ifName | PortReadout native transparent Button fills the card content; Ports border padding moves into decorative facts. One joined description includes identity, states, all facts and action. Missing ifName is a plain joined readout without button/chevron. Corrected; native traits/activation unverified |
-| Overview/tile | DeviceDetailView uses wrapping identity/alias, display status and directional traffic, with complete joined facts and parent Ports action. Existing selected highlights/counts/tile unchanged. Corrected hierarchy; no nested graph command |
+| Overview/tile | DeviceDetailView uses wrapping identity/alias, display status and directional traffic, with matching compact speech and parent Ports action. Existing selected highlights/counts/tile unchanged. Corrected hierarchy; no nested graph command |
 | Sort/group/search/preferences | Seven sort and four group choices, defaults, enum keys, null-picker handling and immediate writes unchanged. Search domain unchanged. Done only closes. Compliant |
 | Open Sort & filter with wheel/keyboard, short landscape/max text | Old unbounded stack replaced by Auto header/Done and star ScrollView body. MaximumHeightRequest uses SectionBody height less measured overlay clearance and top margin. Focused picker scrolls into view after focus/frame change. Footer retains actual panel height through exit. Corrected source; native picker/Done bounds unverified |
 | Loading/empty/error/offline/cache/refresh | Existing BusyCard, refresh, Retry, errors suppressing empty, source-empty versus unmatched preserved. Ports retains last-loaded rows through refresh/failure without timestamp; no freshness claim. Overview can retain prior card while initial device request runs/fails; fresh cards load after success. Compliant with recorded limitations |
@@ -72,8 +73,40 @@ Compliant/corrected below means source inspection. Every device result is UNVERI
 | Header/search/glass/lifecycle | Central IActivePage, idempotent watchers/observers, Back/search/filter ownership, iOS26 glass and older/Android header unchanged. ButtonSearch opens only from controls/Command-F; native drag/completion/unfocus retain query, replacements keep focus. Compliant in source; all native returns/resume unverified |
 | Viewport/insets/final card | Inherited #530 SectionBody-native pill/occupied measurements, top-only iOS safe area, UIScrollView Never, finite Refresh and one footer owner retained. Ports stage margin narrows only horizontal tracks. No extra bottom translation/insets. Compliant source dependency, rejected native base extent not accepted |
 | Keyboard already open on activation | Inherited activation may lack keyboard frame until another notification. Not proven fixed by a scrolling panel. UNVERIFIED dependency; measure before acceptance |
-| Themes/contrast/speech/motion | Border uses existing decorative StatusColor, label readable StatusText, facts neutral. Joined readout excludes decorative children, native action >=44pt, ReduceMotion retained. Source corrected; contrast, speech order, wrapping and gesture/drag behaviour require native evidence |
+| Themes/contrast/speech/motion | Known status borders use StatusColor; neutral uses theme-aware normal card stroke. Labels use readable StatusText and facts stay neutral. Linked cards have one native button description; nonlinks have a separate readout description. Native action >=44pt, ReduceMotion retained. Contrast, speech order, recycling, wrapping and gesture/drag behaviour require native evidence |
 | Editors/server writes/export/graph redesign | N/A. No Ports editor, Save draft, extra endpoint, export or graph presentation change approved |
+
+### Review of 66b0ffa and corrections
+
+Claude Opus 5.5 Medium found no merge blockers and four medium findings.
+The implicit Button Disabled fill was substantiated from the app style: fixed
+with an explicit empty style and local transparent Normal/Disabled states;
+Pressed/Focused use the existing translucent tint. Neutral borders previously
+used the text-colour fallback: fixed with a Ports-only theme-aware card-stroke
+trigger. The landscape calculation incorrectly subtracted current camera
+insets from a portrait estimate: fixed by subtracting base 32pt gutters only.
+The 393x852 example with 75pt current side clearance now fits three 176.5pt
+cards, covered by a CI-only column test. The accessibility recycling concern
+was plausible rather than proven: removed the parent Grid description entirely;
+only the linked native button or the separate nonlink label carries speech.
+VoiceOver/TalkBack recycling and traits remain UNVERIFIED.
+
+Lower findings: overview speech now matches visible compact facts; window size
+subscriptions are paired across activation/departure; filter-scroll resize
+re-reveals its focused picker. Moved durable Ports guidance under adaptive
+accessibility. Full-precision error values remain deliberate to preserve the
+reported rate and avoid zeroing tiny positives; verify long values wrap in the
+two-column cards. The trailing strip outside the scrolling stage remains the
+approved stable-width remainder, with headings/empty text centred in that stage;
+verify dragging there and report usability problems. Repeated alias is retained
+as an explicitly labelled source fact. These choices reject optional presentation
+changes, not demonstrated defects. Short landscape panel space and Done/picker
+bounds still need physical measurement. Fresh full-diff review and final CI are
+pending; no device result is claimed.
+
+Self-review also found that summing two finite positive error rates could
+overflow and incorrectly choose green. Display-only error detection now checks
+each source independently, with a CI regression; legacy ranking stays unchanged.
 
 ### Validation and pending native evidence
 

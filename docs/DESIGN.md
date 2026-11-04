@@ -1,36 +1,5 @@
 # DashyNMS Mobile page design spec
 
-### Approved Device Ports presentation, 4 November 2026
-
-Ports alone uses two columns on both portrait displays, with vertical scrolling
-after the first four cards. Landscape fits more columns at approximately the
-portrait card width, leaving trailing remainder instead of stretching tracks.
-Derive the estimate from live logical window/pane bounds and subtract measured
-gutters once. Do not retain orientation dimensions between layouts. Split views
-and changed side-pill clearance can alter the estimate; exact width preservation
-is not promised. Other sections retain their own column policies.
-
-Port cards grow with wrapping facts and text size, without fixed heights or line
-caps. Preserve Core display identity, actual ifName, full alias, raw operational
-and administrative states, monitoring flag, speed, directional bit rates,
-directional errors/s and direct access/native VLAN. Missing readings stay
-explicit. Use a status border and label with neutral fact text. Up with errors
-is red, complete Up is green, known Down is amber, and Disabled is gray.
-The user's correction requires the SAME gray Disabled label for administrative
-shutdown and disabled monitoring. Distinguish their raw source facts only.
-Incomplete Up readings and unknown states remain neutral. Preserve source
-oper-up precedence and existing grouping/ranking despite contradictory flags.
-
-The full card has one native graph action only when actual ifName is available;
-otherwise it has an unavailable explanation and no action or chevron. Overview
-highlights share identity/status/traffic hierarchy while their parent opens Ports.
-Sort & filter retains native choices and immediate saving. Keep Done outside
-a finite scrolling picker body, clamp the panel to measured available height,
-and reserve its actual visible height in the list footer through exit. Verify
-native wheel/keyboard clearance and largest text without guessing card heights.
-Two-column maximum-text feasibility and all native measurements remain unverified;
-report physical failures before changing this approved policy.
-
 Updated 4 November 2026. Use this spec when creating, changing or reviewing
 any mobile page, including tabs, pushed pages, forms, pickers, editors,
 canvases and detail panes. Rules describe the target design; the pattern
@@ -358,6 +327,36 @@ and selection contracts remain unchanged.
   does not apply to their graph descriptions. Test each source separately.
 
 ## Adaptive content and accessibility
+
+### Approved Device Ports presentation, 4 November 2026
+
+Ports alone uses two portrait columns on both displays. Landscape fits more
+columns at approximately the portrait card width, leaving trailing remainder
+instead of stretching tracks. Estimate portrait width from live logical window
+shorter dimension and pane share, less the two base 16pt gutters. Current
+landscape camera/pill clearances constrain the available landscape width only;
+subtracting them from the portrait estimate would narrow cards twice. Do not
+cache orientation dimensions. Split views can affect this approximate estimate.
+Other sections retain their own column policies.
+
+Cards grow with wrapping facts and text size, without fixed heights or line
+caps. Preserve display identity, actual ifName, full alias, raw operational and
+administrative states, monitoring flag, speed, directional bit rates, directional
+errors/s and direct access/native VLAN. Missing readings stay explicit. Use a
+status border and label with neutral fact text: red errors, green complete Up,
+amber known Down, and the same gray Disabled for administrative shutdown and
+disabled monitoring. Distinguish their raw facts only. Unknown and incomplete
+Up use the theme's normal card stroke. Preserve source oper-up precedence and
+existing ranking/grouping despite contradictory flags.
+
+The full card has one native graph action only with actual ifName; otherwise
+show an unavailable explanation without an action or chevron. Overview highlights
+share identity/status/traffic hierarchy and matching speech; their parent opens
+Ports. Sort & filter retains choices and immediate saving. Keep Done outside
+a finite scrolling picker body, clamp to measured available height, and reserve
+the visible panel height in the list footer through exit. Native wheel/keyboard
+clearance, maximum text and two-column feasibility remain unverified; report
+physical failures before changing this approved policy.
 
 ### Approved Settings overview hierarchy
 

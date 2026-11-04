@@ -3,12 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
              x:Class="DashyNMS.Mobile.Controls.PortReadout" x:DataType="sections:SectionRow">
-    <Grid MinimumHeightRequest="44" SemanticProperties.Description="{Binding PortActionDescription}" AutomationProperties.IsInAccessibleTree="True">
-        <Grid.Triggers>
-            <DataTrigger TargetType="Grid" Binding="{Binding IsLink}" Value="True">
-                <Setter Property="AutomationProperties.IsInAccessibleTree" Value="False" />
-            </DataTrigger>
-        </Grid.Triggers>
+    <Grid MinimumHeightRequest="44">
         <VerticalStackLayout Spacing="6" Padding="14" AutomationProperties.ExcludedWithChildren="True">
             <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
             <Label Text="{Binding PortVisualLabel}" TextColor="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" />
@@ -31,10 +26,38 @@
             </Label>
             <Label Text="Open interface graphs ›" IsVisible="{Binding IsLink}" LineBreakMode="WordWrap" />
         </VerticalStackLayout>
-        <Button Style="{x:Null}" Text="" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsLink}"
+        <Label Text="" InputTransparent="True" SemanticProperties.Description="{Binding PortActionDescription}" AutomationProperties.IsInAccessibleTree="True">
+            <Label.Triggers>
+                <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
+                    <Setter Property="IsVisible" Value="False" />
+                </DataTrigger>
+            </Label.Triggers>
+        </Label>
+        <Button Text="" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsLink}"
                 MinimumHeightRequest="44" HorizontalOptions="Fill" VerticalOptions="Fill"
                 SemanticProperties.Description="{Binding PortActionDescription}"
                 Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                CommandParameter="{Binding .}" />
+                CommandParameter="{Binding .}">
+            <!-- An explicit empty style prevents the implicit Disabled fill
+                 from covering every card during the async graph push. -->
+            <Button.Style><Style TargetType="Button" /></Button.Style>
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal" />
+                    <VisualState x:Name="Disabled" />
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="PointerOver" />
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+        </Button>
     </Grid>
 </ContentView>

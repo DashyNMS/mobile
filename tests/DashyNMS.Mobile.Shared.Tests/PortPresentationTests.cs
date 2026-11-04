@@ -63,6 +63,7 @@ public sealed class PortPresentationTests
 
     [Theory]
     [InlineData(308, 308, false, 2, 308)]
+    [InlineData(702, 361, true, 3, 545.5)]
     [InlineData(636, 308, true, 4, 624)]
     [InlineData(1000, 308, true, 6, 940)]
     [InlineData(200, 308, true, 2, 200)]
@@ -73,5 +74,15 @@ public sealed class PortPresentationTests
         Assert.Equal(count, fit.Count);
         Assert.Equal(stage, fit.Width);
         Assert.True(fit.Width <= width);
+    }
+
+    [Fact]
+    public void Overflowing_error_sum_still_shows_red_for_positive_source_rates()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfOperStatus = "up",
+            IfInErrorsRate = double.MaxValue, IfOutErrorsRate = double.MaxValue,
+            IfInOctetsRate = 0, IfOutOctetsRate = 0 });
+        Assert.Equal(RowStatus.Critical, row.PortVisualStatus);
+        Assert.Equal("Errors · link up", row.PortVisualLabel);
     }
 }
