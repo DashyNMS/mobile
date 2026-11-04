@@ -157,8 +157,9 @@ below follow the existing explicit-severity and neutral-unknown rules.
 Only `DeviceSectionLoader.SensorRow` changes production behaviour. Its rows
 feed full DeviceSectionPage and DeviceDetailView's embedded Sensors projection
 through DeviceSectionCard.Show. Both already opt into SensorLayout. Health
-uses ReadSensor directly; Dashboard's separate Sensors cards/picker and
-Wireless use their own projections. ReadSensor, APIs and threshold evaluation
+uses ReadSensor directly; Dashboard, SensorPicker and WidgetSnapshot also consume ReadSensor: custom
+no-limit readings still appear OK there. This known cross-surface divergence
+is tracked in #532; Wireless uses its own projection. ReadSensor, APIs and threshold evaluation
 are unchanged. No SectionRow, XAML, lifecycle or geometry helper is changed.
 
 Shared host consumers remain Availability #469, Sensors #470, Resources #471,
@@ -182,7 +183,7 @@ Compliant below means source inspection only. All native results are unverified.
 | State definition with no numeric limits, both projections | Same `SensorRow` conditional previously replaced definition severity text with No limits, despite ReadSensor resolving label/severity | Corrected here: No limits applies only without StateDefinition; defined Critical/Warning/OK/Unknown follows resolved severity. Label/raw number retained; unresolved/label-only neutral Unknown |
 | Null/NaN/infinity | `ReadSensor` HasReading guard and `SensorRow` first status branch | Compliant: dash, Reading unavailable, neutral. No state resolution or fabricated healthy reading |
 | Full names/values/limits, overview and full section | `DashyNMS.Mobile/Pages/DeviceSectionPage.xaml:SensorLayout` lines 171–177; `Views/DeviceDetailView.xaml:SensorLayout` lines 194–200; `SectionRow.SensorDescription` | Compliant wrapping stacks and joined nonblank description, child labels excluded; visual clipping and announcements unverified. Full section heading supplies class; overview description includes class |
-| Overview counts/ranking | `DeviceSectionCard.Show`, lines 99–120, Summary and Worst(rows, SensorCount) | Preserved totals and four highlights; newly neutral unassessed rows no longer compete as assessed OK. No new overview actions |
+| Overview counts/ranking | `DeviceSectionCard.Show`, lines 99–120, Summary and Worst(rows, SensorCount) | Preserved totals and four highlights; counts and highlight ranking are unchanged because OK and neutral have the same rank; only the unassessed colour changes. No new overview actions |
 | Loading / retained refresh | `DeviceSectionViewModel.RefreshAsync` lines 256–293; page fixed Updating label line 53 | Compliant initial busy and retained Updating, finally resets; no claim that retained readings are freshly polled |
 | Cache/offline/timeout/denial/500, Retry | `DeviceSectionLoader.FleetSensorsAsync`, lines 150–160; `Services/SensorRefreshStatus.cs:Describe/HasNothingToShow`; `CorePolling.PollSensorsAsync` lines 172–186; page ErrorLine lines 48–53 | Compliant cached failure age comes from ObservedAt, no-cache failure throws, busy-disabled Retry refreshes. Successful empty and no matches remain distinct. Denial/error must not imply no sensors or fresh success; runtime sequence unverified |
 | Device handoff | `DeviceSectionViewModel.LoadAsync/RefreshAsync`, lines 232–293 | Compliant clears rows on ID/section change, serialises old request, generation rejects stale result/error; prior request may delay handoff, retained known limitation |
@@ -261,3 +262,24 @@ All rows are currently UNVERIFIED.
 
 #470 remains open and #442 unchecked pending explicit user device acceptance.
 No merge, release, watch, issue edit or unrelated work is authorised here.
+
+### Independent review disposition
+
+Opus 5.5 Medium full-diff review at 5fb2259 found no blockers and confirmed
+the two scoped presentation fixes; both shared CI test runs passed at that
+head. Parent fixed documentation of ranking (OK and neutral rank equally)
+and explicitly recorded the ReadSensor consumer divergence in follow-up #532.
+No shared classification change is silently included in #470.
+
+Existing numeric fallback when state definitions are disabled can still
+classify a state reading with a reported high limit as OK. Warning-only
+custom limits can yield OK/Warning without a limits line because limit text
+uses low/high critical bounds. Verify both cases, and compare defined versus
+disabled definitions without assuming new semantics. Nonfinite-limit null
+normalisation was traced in sibling Core source, not the pinned ci.52 binary;
+package-specific verification remains pending.
+
+No production code changed after review. Final documentation-head CI pending;
+physical geometry, full loading/cache/search/threshold-return operation and
+all original #470 acceptance remain unverified. Independent review did not
+retrace those unchanged paths; their source assessment is not a device pass.
