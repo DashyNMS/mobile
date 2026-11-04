@@ -57,6 +57,6 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
-        <Button x:Name="GotIt" Grid.Row="2" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
+        <Button x:Name="GotIt" Grid.Row="2" Margin="16,12,16,12" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
     </Grid>
 </ContentPage>

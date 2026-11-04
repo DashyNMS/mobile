@@ -226,8 +226,8 @@ XML alone does not validate MAUI properties or binding types.
 
 ## Header, glass and navigation
 
-**On iOS 26+, all page actions and optional search, on top-level and pushed
-pages alike, belong to `TabBarButtons`. Back-only glass does not satisfy this
+**On iOS 26+, all page actions other than the fixed primary action, and
+optional search, on top-level and pushed pages alike, belong to `TabBarButtons`. Back-only glass does not satisfy this
 rule when a pushed page has other actions.**
 Android and older iOS keep header icons through `IconButton` and `Icons`.
 Form submission follows the fixed primary-action layout above; preserve each

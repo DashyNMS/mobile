@@ -110,3 +110,11 @@ page's sole action-margin gap. Full earlier #500 assessment, Core pin and
 regression/remediation details remain in this file at main 9e616fd.
 Replacement CI and fresh review pending; physical alignment and every device
 outcome remain unverified. No local tests/builds were run.
+
+Fresh full-diff Opus review at 052523e found no code blockers. Parent fixed
+the remaining low fallback issue with 16/12/16/12 XAML action margins before
+measurement; measured placement replaces them as sole inset owner. The bold
+glass rule now explicitly excludes fixed primary actions, and PR validation
+wording is updated. No measured policy, lifecycle or semantics changed after
+review. Final-head CI and all physical checks remain pending, including the
+initial-frame transition from fallback to measured side-pill alignment.
