@@ -568,8 +568,10 @@ own action, search, source and export contracts.
 
 Device-section consumers apply the same distinction between viewport base and
 content clearance. Measure the pill, glass and keyboard in the actual finite
-body host, including a sibling graph's bounds. A wide graph and list share the
-base; a narrow graph reserves its actual layout row above the list. Keep a
+body host, including a sibling graph's bounds. The list reaches the measured
+pill base and clears bottom obstruction in its footer. A wide graph without
+a content footer must clear the bar and glass in its viewport margin; a narrow
+graph reserves its actual layout row above the list. Keep a
 visible filter panel's measured height in the footer through its exit animation.
 Record host height H, pill bottom B, viewport bottom V and V−B separately from
 complete final-row reachability. A footer that clears the row does not prove

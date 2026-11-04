@@ -62,13 +62,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.HandlerChanged += (_, _) => StopInsetAdjustment();
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-		SectionBody.SizeChanged += (_, _) => PlaceControls();
-        SectionBody.HandlerChanged += (_, _) => PlaceControls();
-        SectionBody.Loaded += (_, _) => PlaceControls();
-        FilterCard.SizeChanged += (_, _) => PlaceControls();
+		SectionBody.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        SectionBody.HandlerChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        SectionBody.Loaded += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        FilterCard.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
         FilterCard.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(View.IsVisible)) PlaceControls();
+            if (e.PropertyName == nameof(View.IsVisible)) Dispatcher.Dispatch(PlaceControls);
         };
 
 		// An inventory's nesting reads down one column, so it never spreads across.
@@ -202,6 +202,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
         ManualKeyboardScroll.Acquire(this);
 #endif
 
+		// Stop transitions before restoring their final state on retained activation.
+        FilterCard.AbortAnimation("CardSlide");
+        Dim.AbortAnimation("ListDim");
 		// As it was left, without sliding in again.
 		FilterCard.IsVisible = _viewModel.IsFilterPanelOpen;
         FilterCard.TranslationY = 0;
@@ -319,7 +322,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		NeighbourGraph.VerticalOptions = wideNeighbours ? LayoutOptions.Fill : LayoutOptions.Start;
 		// Keep a finite list viewport even in short landscape and above the keyboard.
 		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : Math.Min(280, Math.Max(0, SectionBody.Height * 0.35));
-		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? bottom : 8);
+		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? overlayBottom : 8);
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		var field = new Thickness(left, 4, right, 8);

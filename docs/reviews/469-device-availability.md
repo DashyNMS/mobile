@@ -184,7 +184,7 @@ clamping. Bottom bar obstruction uses existing SetupActionPlacement.BottomGap
 and is added inside the footer above its normal 24pt gap. Top-wide pill uses
 that helper's separate fallback, without pretending it anchors the base.
 Missing native measurement retains 12 + ForScrolling.Bottom. Side gutters
-remain 16 + covered sides once. Wide graph shares the measured base. FilterCard
+remain 16 + covered sides once. Wide graph has no content footer, so its viewport clears the bar and glass. FilterCard
 clears glass using the same host policy; footer reserves actual visible panel
 height + bottom margin + 12pt through exit, recalculated on SizeChanged. No
 fixed panel-height guess determines clearance (the existing animation-only
@@ -210,7 +210,7 @@ claim. All rows inherit the full device matrix below.
 | #470 Sensors | Class groups, readings/units/limits, definitions, retained readings/Updating/freshness; no new classification | Corrected shared base; reassess after #469 merge |
 | #471 Resources | CPU/memory/storage, bars/thresholds and clearing on refresh | Corrected shared base; reassess sequentially |
 | #472 Ports | Existing complete row presentation, saved sorting/grouping, search and ifName graph route | Corrected base and measured panel clearance; redesign proposal still required under #472 |
-| #473 Neighbours | Forward/reverse discoveries, IDs, selection/scroll, narrow graph and wide split | Corrected common base; fade spans split list rows; graph content unchanged |
+| #473 Neighbours | Forward/reverse discoveries, IDs, selection/scroll, narrow graph and wide split | List reaches measured base; graph viewport clears bottom glass because it has no footer; graph content unchanged |
 | #474 VLAN | IDs/names/count meaning, unavailable facts, ordering and highlights | Corrected shared base; subsequent reassessment required |
 | #475 FDB | Merged MAC/interface/VLAN and unavailable labels, nonactionable facts | Corrected shared base; no replay of stale #475 code |
 | #476 ARP | Merged full IP/MAC/interface/PortId, neutral unknown and order | Corrected shared base; merged presentation retained |
@@ -275,3 +275,18 @@ User-liked presentation elsewhere remains baseline. Parent reassesses siblings
 sequentially after this shared correction merges, then obtains explicit device
 acceptance under #442. DESIGN adds only the missing bounds-evidence lesson;
 existing reusable inset/search/lifecycle rules and #405 acceptance remain intact.
+
+### Independent review disposition
+
+Opus 5.5 Medium reviewed 5ead2a9 against f7c7130 and found a blocking
+wide-Neighbours bottom-bar regression. Parent substantiated the graph has no
+content footer and fixed its viewport margin to overlayBottom, while the
+list still uses measured base plus footer obstruction clearance. DESIGN and
+DEVELOPING now state the distinct owners. Also fixed low native-frame timing
+by dispatching body/handler/load/filter-size placement, and low activation
+animation interference by aborting CardSlide/ListDim before restoring state.
+Fresh full-diff review and replacement CI pending; all native checks remain
+unverified. Ports landscape picker fit with the wheel/keyboard at maximum
+text is a specific open verification: measure card/picker/Done bounds; if
+clipped, correct the proven obstruction owner or provide scrolling, without
+guessing a height. Extra keyboard-visible footer space is cosmetic and kept.

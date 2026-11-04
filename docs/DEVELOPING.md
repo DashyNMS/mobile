@@ -518,7 +518,8 @@ DeviceSectionPage now uses the measured pill base for its finite viewport
 clearance belong to its virtualised footer, after a normal 24pt content gap.
 Missing measurements retain the existing safe-area fallback. This shared path covers Availability,
 Sensors, Resources, Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and
-Inventory. Neighbours' wide graph pane uses the same bottom clearance.
+Inventory. Neighbours' wide graph pane has no scrolling footer, so its viewport
+clears the bottom bar and glass instead of extending underneath them.
 Graphs, logs and config backups have independent page layouts. Verify each
 shared section on inner/outer displays in portrait/landscape, including short
 and long lists, Ports filters, Inventory expansion and Neighbours' graph.
