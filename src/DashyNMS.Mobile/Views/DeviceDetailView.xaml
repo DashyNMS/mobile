@@ -148,7 +148,12 @@
                                                 <Label Text="{Binding VlanPortsText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                             </VerticalStackLayout>
                                             <Label Text="{Binding NeighbourSummary}" IsVisible="{Binding NeighbourLayout}" LineBreakMode="WordWrap" />
-                                            <Label Text="{Binding PortSummary}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" IsVisible="{Binding PortLayout}" LineBreakMode="WordWrap" FontSize="13" />
+                                            <VerticalStackLayout IsVisible="{Binding PortLayout}" Spacing="4"
+                                                                 SemanticProperties.Description="{Binding PortFactsDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding PortOverviewIdentity}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding PortVisualLabel}" TextColor="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding PortOverviewTraffic}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Grid.Triggers>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding RoutingLayout}" Value="True">

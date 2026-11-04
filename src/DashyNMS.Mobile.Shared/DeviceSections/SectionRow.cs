@@ -79,6 +79,19 @@ public sealed record SectionRow(string Title)
     public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
     /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
     public bool PortLayout => Port is not null;
+    /// <summary>Display-only palette; ranking and grouping retain the source classification.</summary>
+    public RowStatus PortVisualStatus { get; init; }
+    public string? PortVisualLabel { get; init; }
+    /// <summary>Separate from Fields so new visible facts do not change saved search semantics.</summary>
+    public IReadOnlyList<SectionField> PortDisplayFacts { get; init; } = [];
+    public string PortFactsDescription => string.Join(", ", new[] { Title, PortVisualLabel }
+        .Concat(PortDisplayFacts.Select(f => f.Name + ": " + f.Value)));
+    public string PortOverviewIdentity => string.Join("\n", new[] { Title }
+        .Concat(PortDisplayFacts.Where(f => f.Name is "ifName" or "Alias").Select(f => f.Value)));
+    public string PortOverviewTraffic => string.Join("\n", PortDisplayFacts
+        .Where(f => f.Name is "Traffic in" or "Traffic out").Select(f => f.Name + ": " + f.Value));
+    public string PortActionDescription => PortFactsDescription + (LinkPortIfName is not null
+        ? ", Open interface graphs" : ", Interface graphs unavailable: ifName not reported");
     public string? PortStatusText { get; init; }
     public string PortSummary => string.Join(", ", new[] { ContentDescription, Value == PortStatusText ? null : PortStatusText }
         .Where(text => !string.IsNullOrWhiteSpace(text)));
