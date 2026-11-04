@@ -590,8 +590,8 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> ArpAsync(int deviceId, CancellationToken ct)
     {
-        var arpTask = _client.Arp.ListForDeviceAsync(deviceId, ct);
-        var portsTask = _client.Ports.ListForDeviceAsync(deviceId, ct);
+        var arpTask = OptionalSectionSourceAsync(() => _client.Arp.ListForDeviceAsync(deviceId, ct));
+        var portsTask = OptionalSectionSourceAsync(() => _client.Ports.ListForDeviceAsync(deviceId, ct));
         await Task.WhenAll(arpTask, portsTask);
 
         var ports = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);
@@ -600,11 +600,24 @@ public sealed class DeviceSectionLoader
             .Select(e => new SectionRow(e.Ipv4Address ?? "—")
             {
                 ArpLayout = true,
-                Subtitle = Mac(e.MacAddress),
+                Subtitle = ArpMac(e.MacAddress),
                 Value = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
             });
 
         return Groups(("ARP entries", rows));
+    }
+
+    // Only normalise recognised MAC spellings. Stripping arbitrary text down
+    // to twelve hex digits can turn a server's explanation into a false address.
+    internal static string ArpMac(string? raw)
+    {
+        if (raw is null) return "—";
+        var compact = raw.Length == 12 && raw.All(Uri.IsHexDigit);
+        var paired = raw.Length == 17 && (raw[2] is ':' or '-')
+            && Enumerable.Range(0, raw.Length).All(i => i % 3 == 2 ? raw[i] == raw[2] : Uri.IsHexDigit(raw[i]));
+        var dotted = raw.Length == 14 && raw[4] == '.' && raw[9] == '.'
+            && Enumerable.Range(0, raw.Length).All(i => i is 4 or 9 ? raw[i] == '.' : Uri.IsHexDigit(raw[i]));
+        return compact || paired || dotted ? Mac(raw) : raw;
     }
 
     /// <summary>aa:bb:cc:dd:ee:ff from however LibreNMS stored it (often bare hex).</summary>
