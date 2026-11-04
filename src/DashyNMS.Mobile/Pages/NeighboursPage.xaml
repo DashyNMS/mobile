@@ -5,36 +5,38 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
-    xmlns:ios="clr-namespace:Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific;assembly=Microsoft.Maui.Controls"
     x:DataType="topo:NeighboursViewModel"
-    ios:Page.UseSafeArea="True"
-    SafeAreaEdges="Container"
+    SafeAreaEdges="All"
+    HideSoftInputOnTapped="True"
     Title="Neighbours">
 
     <!-- On an iPad or a Mac, the link you tap shows beside the list (#88). -->
-    <controls:ListDetail x:Name="Split" Placeholder="Choose a neighbour to see the link here.">
+    <controls:ListDetail SafeAreaEdges="None" x:Name="Split" Placeholder="Choose a neighbour to see the link here.">
 
     <!-- Laid out as the Devices tab (#98) and brought up to date (#121): search, the chips as the
          network map's, a count, then the rows in one card with the busy card over it. -->
-    <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0">
+    <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*">
 
-        <controls:PageHeader x:Name="Header" Title="Neighbours">
+        <controls:PageHeader x:Name="Header" Title="Neighbours" Margin="16,0">
             <controls:PageHeader.Actions>
+              <HorizontalStackLayout>
                 <Button Style="{StaticResource LinkButton}" Text="Neighbourhoods" Command="{Binding EditGroupsCommand}" />
+                <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" SemanticProperties.Description="Search neighbours" />
+              </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
-        <!-- Slides out when the list is scrolled back up or pulled down - see SearchReveal. -->
-        <Grid Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
-            <controls:SearchField Margin="0,2,0,0">
-                <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search names, ports, platforms" />
+        <!-- Button-only search retains the query when dismissed. -->
+        <Grid SafeAreaEdges="None" Grid.Row="1" x:Name="SearchSlot" IsClippedToBounds="True">
+            <controls:SearchField x:Name="SearchField" Margin="16,2,16,0">
+                <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="Search names, ports, platforms" Completed="OnSearchCompleted" />
             </controls:SearchField>
         </Grid>
 
         <!-- Up and Down (both on to start), a divider, then All and each neighbourhood. -->
-        <ScrollView Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
+        <ScrollView x:Name="ChipScroll" Padding="16,0" SafeAreaEdges="None" Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
-                <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
@@ -43,7 +45,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding DownCount, StringFormat='Down {0}'}" Command="{Binding ToggleDownCommand}">
+                <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" Text="{Binding DownCount, StringFormat='Down {0}'}" Command="{Binding ToggleDownCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDown}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
@@ -58,7 +60,7 @@
                 <HorizontalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="8">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourGroupChip">
-                            <Button Style="{StaticResource Chip}" Text="{Binding Text}"
+                            <Button Style="{StaticResource Chip}" HeightRequest="-1" MinimumHeightRequest="44" Padding="14,8" CornerRadius="22" Text="{Binding Text}"
                                     Command="{Binding SelectGroupCommand, Source={RelativeSource AncestorType={x:Type topo:NeighboursViewModel}}, x:DataType=topo:NeighboursViewModel}"
                                     CommandParameter="{Binding .}">
                                 <Button.Triggers>
@@ -76,22 +78,25 @@
         </ScrollView>
 
         <!-- Shown, blank, while loading: its height is the gap between the chips and the list (#143). -->
-        <Grid Grid.Row="3" Margin="4,6,0,4" MinimumHeightRequest="30">
+        <Grid x:Name="CountLine" SafeAreaEdges="None" Grid.Row="3" Margin="20,6,16,4" MinimumHeightRequest="30">
             <Label Style="{StaticResource Faint}" Text="{Binding CountText}" VerticalOptions="Center" IsVisible="{Binding HasLoaded}" />
         </Grid>
 
         <!-- LibreNMS's reason when the fetch fails, in a card of its own. -->
-        <Border Grid.Row="4" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
+        <Border x:Name="ErrorCard" Grid.Row="4" Style="{StaticResource Card}" Padding="14,12" Margin="16,0,16,8" IsVisible="{Binding HasError}"
                 BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
             <Label Text="{Binding ErrorMessage}" FontSize="13"
                    TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
         </Border>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
-        <controls:BusyCard x:Name="Busy" Grid.Row="5" ZIndex="1" IsVisible="False" />
-        <Border Grid.Row="5" Style="{StaticResource ListCard}" Margin="0,0,0,12">
-            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Links}" SelectionMode="None">
+        <controls:BusyCard x:Name="Busy" Margin="16,0" Grid.Row="5" ZIndex="1" IsVisible="False" />
+        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="5" Style="{StaticResource ListCard}" Margin="16,0,16,12">
+            <Grid SafeAreaEdges="None">
+            <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
+                <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" x:Name="List" ItemsSource="{Binding Links}" SelectionMode="None">
+                    <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
+                    <CollectionView.Footer><BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" /></CollectionView.Footer>
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
                             <Label Text="{Binding EmptyTitle}" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
@@ -132,7 +137,15 @@
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </RefreshView>
+        <BoxView Margin="1,1,1,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+            <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" Offset="0" />
+                <GradientStop Color="{AppThemeBinding Light={StaticResource SurfaceLightClear}, Dark={StaticResource SurfaceDarkClear}}" Offset="1" />
+            </LinearGradientBrush></BoxView.Background>
+        </BoxView>
+            </Grid>
         </Border>
+
 
     </Grid>
 
