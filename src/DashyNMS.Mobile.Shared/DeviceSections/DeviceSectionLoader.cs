@@ -270,9 +270,9 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> ResourcesAsync(int deviceId, CancellationToken ct)
     {
-        var cpuTask = _client.Health.ListProcessorsAsync(deviceId, ct);
-        var memoryTask = _client.Health.ListMempoolsAsync(deviceId, ct);
-        var storageTask = _client.Health.ListStorageAsync(deviceId, ct);
+        var cpuTask = ResourceCategoryAsync(() => _client.Health.ListProcessorsAsync(deviceId, ct));
+        var memoryTask = ResourceCategoryAsync(() => _client.Health.ListMempoolsAsync(deviceId, ct));
+        var storageTask = ResourceCategoryAsync(() => _client.Health.ListStorageAsync(deviceId, ct));
         await Task.WhenAll(cpuTask, memoryTask, storageTask);
 
         var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null) with { ResourceKind = "CPU · Processors" });
@@ -282,6 +282,19 @@ public sealed class DeviceSectionLoader
             .Select(s => UsageRow(s.Description ?? "Storage", s.UsagePercent, s.WarningPercent, s.UsedBytes, s.TotalBytes) with { ResourceKind = "Storage" });
 
         return Groups(("Processors", cpus), ("Memory", memory), ("Storage", storage));
+    }
+
+    /// <summary>Unsupported categories must neither discard supported rows nor mask another category's failure.</summary>
+    private static async Task<IReadOnlyList<T>> ResourceCategoryAsync<T>(Func<Task<IReadOnlyList<T>>> load)
+    {
+        try
+        {
+            return await load();
+        }
+        catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return [];
+        }
     }
 
     internal static SectionRow UsageRow(string name, double? percent, double? warning, long? used, long? total) => new(name)

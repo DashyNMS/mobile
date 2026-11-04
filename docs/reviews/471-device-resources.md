@@ -134,15 +134,23 @@ Replacement CI is pending; no local builds/tests ran. Hardware is unverified.
 
 ## Full reassessment on integrated main, 4 November 2026
 
+Pre-edit consumer inventory for the review revision: repository-wide
+`Units.Percent` calls occur only in `DeviceSectionLoader.UsageRow` (Resources
+full page and overview, #471) and `AvailabilityAsync` (window rows, #469).
+No other production consumers exist. The mobile shared project owns this
+formatter; Core owns the endpoint models and exception contract. Availability
+is affected by the shared correction and receives regression coverage; no
+existing acceptance is inferred or changed. #532 ReadSensor remains separate.
+
 Refs #471 and #442. Source base is `cdf3b0d`, including merged #530 shared
 viewport and #531 sensor presentation corrections. This section supersedes
 historical geometry-compliant labels and queued integration instructions above.
 PR #509 is already merged, head `c1c408047891a830b223c4cb81dcaecbe4d4eb55`,
 squash `566174894c689c9d558eb1ca546026e1747b1bd9`. Its historical Opus review
 and successful CI recorded in reconciliation apply to that work only. No stale
-Resources branch is replayed. Current source inspection found no additional
-confirmed Resources defect requiring a production change. This is a docs-only
-reassessment, with device acceptance still pending.
+Resources branch is replayed. Subsequent review confirmed two source defects:
+near-full percentages rounded to 100%, and a resource-category 404 could mask
+another category's real failure. This revision fixes both; acceptance is pending.
 
 Read live #471 body and its complete comment stream, live #442 body/comments,
 `/tmp/mobile-442/issue-471.json`, reconciliation's #471 record, #509 record and
@@ -172,7 +180,7 @@ selected DeviceId, section enum and title through the relative Shell route.
 child, editor, graph, export, filter panel, primary Save or persistent selection.
 These capabilities are N/A; no extra actions or source fields are invented.
 
-No shared helper or production source changes in this PR. Existing host owners
+The revision changes the shared percent formatter and resource loading only. Existing host owners
 remain Availability #469, Sensors #470, Resources #471, Ports #472, Neighbours
 #473, VLANs #474, FDB #475, ARP #476, Routing #477, Wireless #478 and Inventory
 #479, plus EventLog compatibility. Preserve their independent presentation
@@ -186,15 +194,26 @@ broader ReadSensor work is separate and is not included.
 
 ### Full source findings and disposition
 
+Core contract trace: mobile remains pinned to `DashyNMS.Core` 2.0.0-ci.52.
+The available Core checkout (`5f7bde5`) exposes Task of IReadOnlyList of
+ProcessorSensor, MempoolSensor and StorageVolume through IHealthApi and
+DeviceHealthApi. Calls read devices/{id}/health/{category} and sensor detail
+URLs with the same token. Transport throws LibreNmsApiException with message
+then nullable HttpStatusCode; timeouts can carry IsTimeout without a status.
+The pinned package is absent locally, so exact package/source provenance is
+not independently verified; CI must validate the contract. No restore or pin
+change was made. Invoking the factory inside the async try handles synchronous
+throws and faulted tasks alike.
+
 Compliant means source inspection, not physical verification. Every native
 result remains UNVERIFIED. No unresolved visual choice is implemented.
 
 | Concern and trigger/mode | File/symbol, observed source behaviour | Expected result and disposition |
 | --- | --- | --- |
 | CPU/memory/storage source and order | `DeviceSectionLoader.ResourcesAsync`, concurrent ListProcessorsAsync, ListMempoolsAsync, ListStorageAsync with selected device ID; CPU/memory retain returned order, storage description sorts ordinal-ignore-case; Groups removes empty groups | Compliant with existing contract. All three supported categories assessed; no severity sorting introduced |
-| Percent and units, both projections | `UsageRow/ValidUsage`, `Units.Percent/Bytes`: percent uses supplied UsagePercent, bar uses the same percent divided by 100; bytes use 1024 scaling with existing B/KB/MB/GB labels | Compliant preservation. No byte-derived substitute percent, new unit conversion or capped invalid bar. Localised rounding is presentation, not a second measurement |
-| Known false OK / capped-bar allegation | `UsageRow` validates finite 0–100 before Value, Bar and Status; invalid becomes dash, null bar, None; `SectionRow.ResourceStatusText` says Reading unavailable | Earlier defects corrected by #509. No current independent capped-bar/text mismatch reproduced in source. Physical mismatch remains unverified; obtain source payload and rendered values before proposing numerical changes |
-| Limits and severity | `UsageRow` uses valid server warning, otherwise 80 warning; critical is max(valid warning or 90, 95), hence default 95 | Compliant preservation of existing app policy, not a claim of server critical health. Valid warning 0 or 100 remains honoured; invalid warning falls back. No limit line or provenance label is currently displayed. No new health meaning introduced |
+| Percent and units, both projections | `Units.Percent` rounded 99.95–99.995 to 100% and 99.9996 to 100.000%, while the bar retained raw usage | Confirmed text/bar mismatch fixed with shortest round-trip formatting for >=99.9 and <100. Current-culture decimal separator retained; other bands, zero, 100 and null unchanged. No flooring, byte-derived percentage or raw bar/status change |
+| Known false OK / capped-bar allegation | `UsageRow` validates finite 0–100 before Value, Bar and Status; invalid becomes dash, null bar, None | Invalid-value defects were corrected by #509; the distinct valid near-full text mismatch is corrected here. Physical rendering remains unverified |
+| Limits and severity | `UsageRow` uses valid server warning, otherwise 80 warning; critical is max(valid warning or 90, 95), hence default 95 | Policy unchanged. A valid warning >=95 equals the critical boundary, so equality is Critical, including usage 100 with warning 100. Invalid warning falls back. This corrects the description only; no server critical-health claim or new limit display |
 | Used/total/free and partial facts | `UsageRow.Subtitle` formats used of total only for used >= 0, total > 0, used <= total | Existing honest limitation recorded: neither free bytes nor independently known partial used/total is shown. CPU has no capacity. Missing/zero/negative/contradictory capacity omits the line; a valid percentage can still have OK state despite missing capacity. No false zero/free or invented missing total; no guarantee that percent equals rounded byte ratio |
 | Missing and unknown | `UsageRow`, `SectionRow.ResourceDescription` | Compliant null, NaN, infinities, negative and >100 percentage neutral/unavailable with no bar. Valid 0 is a real empty bar and may be OK. Invalid capacity does not invalidate an independently reported valid percentage; status describes usage only |
 | Full names/long content | Both ResourceLayout stacks, `ResourceDescription`; legacy grids hidden independently | Compliant wrapping name/value/capacity/status, no inherited 180pt value cap. ResourceKind repeats group context intentionally in overview and spoken facts. Maximum text and actual clipping unverified |
@@ -202,7 +221,7 @@ result remains UNVERIFIED. No unresolved visual choice is implemented.
 | Loading and stale full-page refresh | `DeviceSectionViewModel.LoadAsync/RefreshAsync`, page Busy/Refresh | Compliant clears Resources before fetch because no freshness timestamp. Initial loading and native refresh retained; error leaves no stale resource bars. Sensor Updating is N/A here |
 | Overview refresh and failure | `DeviceDetailViewModel.RefreshAsync/LoadSectionsAsync`, `DeviceSectionCard.Failed/IsVisible` | Fresh cards replace previous cards after device request succeeds. Prior overview can remain during that initial request or failure, without a resource timestamp. Card failure clears highlights and stays visible, denial wording differs. Source-empty Resources card disappears. Existing limitation, not a fresh-resource guarantee |
 | Empty vs no matches | `DeviceSectionViewModel.IsEmpty/EmptyText/ApplyFilter`, page EmptyView | Compliant successful empty differs from unmatched term; errors suppress empty, empty groups removed. Full page can show no resources even though overview card is omitted |
-| Denied/offline/partial endpoint results | `ResourcesAsync` Task.WhenAll; `DeviceSectionLoader.LoadAsync` catch NotFound | Non-404 denial/timeout/500 propagates whole-section failure, no partial success or resource offline cache. Existing 404 maps whole section to empty, even if another category returned rows. This is endpoint compatibility behaviour, not proof all categories are genuinely empty; mixed-failure outcome and pinned Core payload semantics remain unverified. No silent new partial-data policy |
+| Denied/offline/partial endpoint results | Previously `ResourcesAsync` Task.WhenAll could throw CPU 404 first and outer `LoadAsync` returned empty despite memory denial/timeout/500 | Confirmed false-empty bug fixed: each resource category handles only its own 404 as unsupported/empty before WhenAll. Supported categories remain; any non-404 still fails the section. Requests remain parallel with unchanged IDs/tokens. Other sections retain global 404 compatibility. All-404 is compatibility-empty, not evidence of genuine source-empty |
 | Retry/device handoff | `RefreshAsync/LoadAsync` generation and serial pending guard; ErrorLine Retry | Compliant busy-disabled Retry reloads all endpoints; ID/mode change clears groups, stale result/error rejected. Waiting for prior request may delay new device. Runtime failure/success and handoff unverified |
 | Search and ordering | `SectionRow.Matches`, `DeviceSectionViewModel.ApplyFilter`, page OpenSearch/OnSearchCompleted, `Controls/ButtonSearch` | Compliant case-insensitive local matching name/value/subtitle and resource-only kind/status. Filtering preserves category and source order. No Resources sorting/chips/Ports filters; no severity filter invented |
 | Actions and keyboard | Page constructor, UpdateGlass, Header, ButtonSearch, SearchField | Compliant iOS 26 pushed Back/search with actual previous-title label, Android/older iOS header alternatives, inline Retry. Header search command is replaced with OpenSearch, so unused ToggleSearch clear behaviour does not control it. Button/glass/Command-F only, refocus on reopen; completion/unfocus/native drag closes retaining term; replacement/programmatic scroll must keep focus. Existing controls target >=44pt; actual labels/targets and keyboard operation unverified |
@@ -250,7 +269,10 @@ reversed; all eleven modes plus EventLog retain the current shared policy.
 
 Code self-check covers full intended main-to-head diff against current DESIGN,
 explicit file set, staged diff and whitespace. No local builds, tests, scripts
-or agents run. No tests added for documentation-only changes. Existing
+or agents run. Added CI-only regressions cover near-full/nearest-double values,
+two cultures, raw resource bars/status and Availability, synchronous and faulted
+404s, retained supported categories, all-404 and concurrent 403/500/timeout.
+Existing
 DeviceSectionTests cover valid/default/server-warning, invalid usage and warning,
 capacity guards, zero/search and grouped loader; historical #509 CI is evidence
 only for its old head. Parent Opus 5.5 Medium full-diff judgement is PENDING.
