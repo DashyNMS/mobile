@@ -13,7 +13,7 @@
     <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
         <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="{Binding Title}">
             <controls:PageHeader.Actions>
-                <HorizontalStackLayout Spacing="8">
+                <HorizontalStackLayout x:Name="HeaderActions" Spacing="8">
                 <controls:IconButton x:Name="SearchButton" Icon="{x:Static controls:Icons.Search}" Kind="Plain" Text="Search" MinimumHeightRequest="44" MinimumWidthRequest="44" SemanticProperties.Description="Search this backup" />
                 <Button Style="{StaticResource LinkButton}" Text="Share" MinimumHeightRequest="44" MinimumWidthRequest="44" SemanticProperties.Description="Share complete backup" Command="{Binding ShareCommand}" />
                 </HorizontalStackLayout>
