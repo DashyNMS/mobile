@@ -1,3 +1,127 @@
+# Current reassessment, 4 November 2026
+
+Refs #473 and #442. Baseline HEAD and fetched origin/main are
+`476ba157faf577ac2d7e791079cf3749f66f3e05`, including Ports #534.
+This section supersedes the historical assessment below, especially its
+"viewport above bottom glass plus gap" compliant claim. That claim did not
+establish usable-base extent and is rejected by the user's device feedback.
+The original assessment and integration/review history remain below for provenance.
+
+Read live complete #473 and #442 bodies/comments, merged #511/#530/#534 PR
+records, repository CLAUDE.md, DEVELOPING.md, DESIGN.md and DESIGN-REFERENCES.md,
+and the initial reconciled assessment's shared rules and #473 entry. No open
+PR was present. Existing neighbour branches are historical work, not a reason
+to replay pre-integration changes. This checkout was clean on the prepared
+reassessment branch. Neither the dirty #475 checkout nor the Ports checkout
+was changed. Parent owns independent Opus 5.5 Medium review, CI judgement and merge.
+
+## Live user comment disposition
+
+The only live #473 comment is [the 4 November rejection](https://github.com/DashyNMS/mobile/issues/473#issuecomment-6619307234).
+
+| Trigger and mode | Observed / expected | Code and disposition |
+| --- | --- | --- |
+| Enter Device Neighbours on reporting display | User reports section stops short of usable base; expected finite viewport reaches measured usable base and final content clears glass | `DeviceSectionPage.PlaceControls`, `SectionBody`, `Refresh`, `ListFoot`. #530 merged as `74c1891` already measures pill in native body coordinates, aligns list base and puts obstruction in footer. Preserve it. Report remains UNVERIFIED on corrected build, not resolved by this PR. No guessed offset. |
+| Inside/outside displays, fold/rotate | User requests checking inherited safe areas and actual content viewport | iOS page owns top only, Root/body/Refresh opt out, native list adjustment Never. CoveredEdges supplies sides; footer supplies final content reach. Android keeps Container fallback. Native width/bottom cause remains unproven; measure page, host and viewport separately. |
+| Tab return and resume, all #469–#474 and #475–#479 consumers | Expected current geometry and one glass owner without reopen/Refresh | Existing IActivePage activation, disposable edge watch, idempotent Moved and retained Window.SizeChanged subscription from #534 preserved. Pending native checks include delayed native attachment and keyboard already visible at activation. |
+
+## Complete source dispositions and correction
+
+C means source contract retained, F means a confirmed correction in this PR,
+U means unverified native result, N/A means an absent capability. No C is a
+physical acceptance claim. Every native result is U.
+
+| Concern and trigger | Source evidence / expected behaviour / disposition |
+| --- | --- |
+| Overview | C: `DeviceDetailView` uses NeighbourSummary within the section-opening card; DeviceSectionCard retains five highlights and totals. No nested device action added. Long names, all facts, empty/error overview and largest-text fit U. |
+| Own/reverse discovery, both ends | C: loader concurrently fetches own/fleet links and optional ports, delegates matching/deduplication to pinned Core DeviceNeighbours.Build, resolves reverse names with configured name style. Local-to-remote subtitle and actual positive remote ID remain intact. No source matching changes. |
+| Monitored/unmonitored routes | C: loader admits only positive LinkDeviceId, row opens relative DeviceDetail, graph selects card only even when unmonitored. Devices narrow/split, Dashboard, alert and recursive device entries retain caller Back via existing Shell routes. Network link detail #452 and groups/editor #450/#451 are separate ownership and unchanged. Actual speech/activation once U. |
+| Native graph actions | F: centre was an inert Button; now an identically bounded readout with current-device description. Neighbour buttons previously announced only name/subtitle/first field, omitting protocol/platform/state/readings. Now use complete NeighbourSummary with Show neighbour card, never Open neighbouring device. Native role/focus U. |
+| Narrow graph dimensions | C existing policy: finite parent body, graph height min(280, 35% of body height), internal vertical ScrollView, measured name lanes at least 60pt, content height at least 240pt. Remaining list uses star row. U actual AbsoluteLayout scroll extent, long-name fit, short body and keyboard-open list availability. No geometry redesign approved or implemented. |
+| Wide graph dimensions | C existing policy: at 800pt page width after sides, graph spans both rows beside finite list; graph margin uses overlayBottom, list uses pill-base gap/footer. U actual pane width versus page width, three node lanes, widest names, resize/scroll reach, split transition, live font/theme changes without rebuilding. Native measurements required before altering policy. |
+| Node/list selection and search | C: filtered Groups feed graph; Picked assigns same row and ScrollTo(group, Start), animation obeys ReducedMotion. Row gesture opens device. ButtonSearch checks native drag and list disables KeyboardDismiss.OnScroll; filtering/programmatic scroll must retain focus/query. U native selected outline, selection removed by filtering and refresh, focus after node tap, graph drag versus list drag. |
+| Unknown and inactive states | C: only explicit local up/down classified; absent/testing unknown neutral. Inactive discovery has precedence. Complete textual local state, speed, in/out bits and Seen by retained; invalid/negative/nonfinite/overflow traffic unknown, zero valid. No inferred remote health. F: complete node speech includes Local port state: Not active, matching the inactive border. Native speech delivery and visual contrast U; no new health fact invented. |
+| All data states | C: first-load busy, empty source distinct from no match, error suppresses empty, Retry and refresh use serial generation guard. Neighbours retain old rows on refresh/failure, so readings are not fresh-health evidence. Optional non-auth port failure permits unknown readings; required links failure stays error. Offline/denied/timeout, refresh failure and slow device switch U on native. |
+| Text, hierarchy and themes | C: full wrapping neighbour summary and graph node names; no source truncation added. F: centre keeps the previous semibold font and measurement uses the same font. The confirmed stale live-theme graph colours now rebuild through a paired Loaded/Unloaded theme subscription, including lines and unknown borders. U native contrast, maximum text, live font remeasurement and minimum hit areas. |
+| Glass, fade and insets | C: list-column fade and 20pt header, finite Refresh viewport and footer, wide graph independent clearance. #530 and #534 remain dependencies, not acceptance. U native body/pane inheritance, graph clipping, base extent and final row reach separately. |
+| Retained activation and motion | C: Activate restores glass/header/watch, graph snapshot and placement; disappearance removes window/edge/keyboard observers. Existing ReducedMotion search/scroll policy retained. U repeated activation, child return, background/resume and fold during load/search. |
+| Filters, persistence, security | C: transient query, no neighbour sort/group panel, server facts/ordering, naming preferences, permissions, authentication, credentials and package unchanged. N/A draft Save, export, comparison and server writes. No new storage, API or health rules. |
+
+## Consumers, dependencies and recurrence checkpoints
+
+Production changes are confined to DeviceNeighbourGraph and a presentation-only
+SectionRow.NeighbourGraphDescription consumed there. Shared tests exercise the
+complete announced facts and selection intent for monitored/unmonitored rows.
+No test runs locally. Native centre role requires platform verification.
+No shared page placement, loader, overview, route or lifecycle implementation changes.
+
+Shared DeviceSectionPage consumers remain Availability, Sensors, Resources,
+Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and Inventory. Preserve
+availability windows, sensor definitions/freshness, resource readings/failures,
+Ports approved card grid/ifName route/preferences/panel and recycled gestures,
+VLAN/FDB/ARP fields/order, routing state and inventory tree/copy/toggle contracts.
+Graphs, logs, Graylog and backups keep independent layouts. Accepted #405,
+#450/#451/#452 and all other closed contracts remain unchanged. #288 retains
+global mock-up ownership. DESIGN already records measured-base and fixed-action
+lessons from #530/#515; this PR adds only the graph action/readout lesson.
+
+## Exact remaining verification, all UNVERIFIED
+
+### Independent review corrections
+
+Opus 5.5 Medium reviewed fd8a254 against 476ba15. Three findings were
+substantiated: the new centre Label inherited regular rather than the original
+Button's semibold font; graph colours were snapshots with no live-theme update;
+and inactive-state speech was incorrectly recorded as uncertain despite the
+explicit Not active fact. Fixed all three. The centre and measuring Label now
+use BodySemibold. A Loaded/Unloaded-paired RequestedThemeChanged observer rebuilds
+the graph on a theme change; repeated attachment unsubscribes first, and queued
+callbacks check the observer is still attached. This updates node text, fills,
+borders and connecting lines together without changing status meanings.
+Shared consumers remain DeviceSectionPage's device-neighbour graph only.
+Fresh full-diff review and replacement CI remain pending. Native theme-switch
+focus, font-scale changes, long semibold names and readout roles remain unverified.
+
+Record final SHA, CI build, OS, display, theme, text size and individual outcome.
+Use synthetic example.net and edge.example.net, IDs 7/8 and long port names.
+
+1. Measure page, body host, graph viewport/content and list viewport/content in
+   the same native coordinate system. Record host H, pill bottom B, list bottom
+   V, V minus B and final-row reach independently. Cover side, bottom and top
+   pill, missing pill fallback, short/long/empty content, 799/800pt transition.
+   Check #469–#474 separately and smoke #475–#479; inspect diagnostics for
+   placement loops. No inferred width percentage or bottom offset.
+2. Duo outer portrait, inner portrait/landscape and supported outer landscape:
+   cold launch open/closed, fold/unfold and rotate while loading and typing,
+   then tab return, nested child return and resume without reopening. Repeat
+   ordinary iPhone portrait/landscape, Android/older-iOS header and iOS glass.
+3. Largest text and both themes: long node/port/protocol/platform names, zero,
+   one and many neighbours; scroll graph to every node and list to final row.
+   Change theme/text size on retained page and confirm nodes refresh correctly.
+   If graph fit/refresh fails, capture dimensions before proposing a new policy.
+4. VoiceOver/TalkBack and physical keyboard: centre reads Current device without
+   button action; every neighbour button announces complete facts and Show
+   neighbour card, selects/scrolls matching row once; row opens actual monitored
+   ID once, unmonitored has no navigation. Check selection removal by filtering,
+   native focus/outline, search typing and programmatic scroll retention.
+5. Open search via header/glass/Command-F. Type endpoint/protocol/state queries,
+   select graph node, programmatically scroll, then actually drag each scroller,
+   complete and unfocus. Verify intended query/focus retention and final-row
+   reach with docked/floating keyboard and after dismissal. Enter page with a
+   keyboard already visible; existing keyboard-frame risk is not fixed here.
+6. Own/reverse-only ping device, deduplicated both directions, LLDP/CDP,
+   unmonitored/missing port/platform, unknown/testing/inactive, invalid and zero
+   rates; then cold/empty/no-match/denied/offline/timeout and refresh/Retry failure
+   and recovery. Return through each actual caller and confirm query/glass state.
+
+Only source/diff inspection and git whitespace checks run locally. Shared tests,
+Android and iOS CI are pending; all native checks above remain UNVERIFIED.
+Parent independent review is pending. No issue closure, epic tick, release,
+watch or device acceptance is authorised by this record. Native evidence is the
+remaining geometry blocker; no speculative visual proposal was implemented.
+
+---
+
 # Device Neighbours review, #473
 
 Refs #473 and #442. Baseline main `2c7f32f`. Read live issues and repository

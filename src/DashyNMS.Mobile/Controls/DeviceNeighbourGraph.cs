@@ -1,6 +1,7 @@
 using System.Globalization;
 using DashyNMS.Mobile.Converters;
 using DashyNMS.Mobile.DeviceSections;
+using Microsoft.Maui.Controls.Shapes;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -16,6 +17,7 @@ public sealed class DeviceNeighbourGraph : ContentView
     private IReadOnlyList<SectionRow> _rows = [];
     private string _device = string.Empty;
     private double _lastWidth;
+    private Application? _themeSource;
 
     public event Action<SectionRow>? Picked;
 
@@ -23,11 +25,31 @@ public sealed class DeviceNeighbourGraph : ContentView
     {
         _lines = new GraphicsView { Drawable = _drawing, InputTransparent = true };
         Content = new ScrollView { Content = _layout };
+        Loaded += (_, _) =>
+        {
+            StopWatchingTheme();
+            _themeSource = Application.Current;
+            if (_themeSource is not null) _themeSource.RequestedThemeChanged += OnThemeChanged;
+            Rebuild();
+        };
+        Unloaded += (_, _) => StopWatchingTheme();
         SizeChanged += (_, _) =>
         {
             if (Width > 0 && Math.Abs(Width - _lastWidth) > 1) Rebuild();
         };
     }
+
+    private void StopWatchingTheme()
+    {
+        if (_themeSource is not null) _themeSource.RequestedThemeChanged -= OnThemeChanged;
+        _themeSource = null;
+    }
+
+    private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => Dispatcher.Dispatch(() =>
+    {
+        // A queued theme callback must not rebuild a departed graph.
+        if (_themeSource is not null) Rebuild();
+    });
 
     public void Update(IReadOnlyList<SectionRow> rows, string device)
     {
@@ -68,21 +90,42 @@ public sealed class DeviceNeighbourGraph : ContentView
 
         double NodeHeight(string name)
         {
-            var label = new Label { Text = name, FontSize = 12, LineBreakMode = LineBreakMode.CharacterWrap };
+            var label = new Label { Text = name, FontFamily = "BodySemibold", FontSize = 12, LineBreakMode = LineBreakMode.CharacterWrap };
             return ((Microsoft.Maui.IView)label).Measure(nodeWidth - 10, double.PositiveInfinity).Height + 24;
         }
 
         void AddNode(string name, double x, double y, Color color, SectionRow? row)
         {
+            if (row is null)
+            {
+                // The centre identifies this device; it has no selection action.
+                var label = new Label
+                {
+                    Text = name, FontFamily = "BodySemibold", FontSize = 12, TextColor = text,
+                    LineBreakMode = LineBreakMode.CharacterWrap,
+                    HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center,
+                };
+                SemanticProperties.SetDescription(label, "Current device: " + name);
+                var readout = new Border
+                {
+                    Content = label, Padding = new Thickness(5),
+                    BackgroundColor = dark ? Color.FromArgb("#20252C") : Colors.White,
+                    Stroke = color, StrokeThickness = 2,
+                    StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                };
+                _layout.Children.Add(readout);
+                AbsoluteLayout.SetLayoutBounds(readout, new Rect(x, y, nodeWidth, nodeHeight));
+                return;
+            }
+
             var button = new Button
             {
                 Text = name, FontSize = 12, Padding = new Thickness(5), LineBreakMode = LineBreakMode.CharacterWrap,
                 TextColor = text, BackgroundColor = dark ? Color.FromArgb("#20252C") : Colors.White,
                 BorderColor = color, BorderWidth = 2, CornerRadius = 12,
             };
-            SemanticProperties.SetDescription(button, row is null ? "Current device: " + name
-                : "Show neighbour card: " + name + ", " + row.Subtitle + ", " + row.Fields.FirstOrDefault()?.Value);
-            if (row is not null) button.Clicked += (_, _) => Picked?.Invoke(row);
+            SemanticProperties.SetDescription(button, row.NeighbourGraphDescription);
+            button.Clicked += (_, _) => Picked?.Invoke(row);
             _layout.Children.Add(button);
             AbsoluteLayout.SetLayoutBounds(button, new Rect(x, y, nodeWidth, nodeHeight));
         }

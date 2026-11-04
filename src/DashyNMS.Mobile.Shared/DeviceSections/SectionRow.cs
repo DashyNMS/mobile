@@ -74,6 +74,8 @@ public sealed record SectionRow(string Title)
     public string NeighbourSummary => string.Join("\n", new[] { Title, Subtitle, Value, Detail }
         .Where(text => !string.IsNullOrWhiteSpace(text))
         .Concat(Fields.Select(f => f.Name + ": " + f.Value)));
+    /// <summary>A graph node selects a card, including for an unmonitored neighbour.</summary>
+    public string NeighbourGraphDescription => "Show neighbour card: " + NeighbourSummary;
     public string NeighbourAction => CanOpenNeighbour ? NeighbourSummary + "\nOpen neighbouring device" : NeighbourSummary;
     public bool CanOpenNeighbour => NeighbourLayout && LinkDeviceId is > 0;
     public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;

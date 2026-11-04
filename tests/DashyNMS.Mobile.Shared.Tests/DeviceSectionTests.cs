@@ -497,6 +497,24 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(7)]
+    public void Graph_selection_announces_complete_facts_without_promising_navigation(int? deviceId)
+    {
+        var row = new SectionRow("edge.example.net")
+        {
+            NeighbourLayout = true, LinkDeviceId = deviceId,
+            Subtitle = "local-port → remote-port", Value = "LLDP/CDP",
+            Detail = deviceId is null ? "Not monitored in LibreNMS" : "Example platform",
+            Fields = [new("Local port state", "State unknown"), new("Traffic in", "Unknown"), new("Seen by", "This device via LLDP")],
+        };
+        Assert.Contains("Show neighbour card", row.NeighbourGraphDescription);
+        foreach (var fact in new[] { row.Title, row.Subtitle, row.Value, row.Detail, "Local port state: State unknown", "Traffic in: Unknown", "Seen by: This device via LLDP" })
+            Assert.Contains(fact!, row.NeighbourGraphDescription);
+        Assert.DoesNotContain("Open neighbouring device", row.NeighbourGraphDescription);
+    }
+
+    [Theory]
     [InlineData("testing", double.NaN)]
     [InlineData("unknown", double.PositiveInfinity)]
     [InlineData("", -1)]
