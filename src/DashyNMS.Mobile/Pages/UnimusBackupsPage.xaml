@@ -14,7 +14,7 @@
     <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="16,0,16,0" SafeAreaEdges="None">
         <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="Config backups">
             <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="{Binding CompareText}" Command="{Binding ToggleCompareCommand}"
+                <Button x:Name="CompareToggle" Style="{StaticResource LinkButton}" Text="{Binding CompareText}" Command="{Binding ToggleCompareCommand}"
                         IsVisible="{Binding CanCompare}" IsEnabled="{Binding IsNotBusy}" MinimumHeightRequest="44" />
             </controls:PageHeader.Actions>
         </controls:PageHeader>

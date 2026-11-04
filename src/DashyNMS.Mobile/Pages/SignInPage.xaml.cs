@@ -52,7 +52,7 @@ public partial class SignInPage : ContentPage
 		{
 			// This logged-out page owns no tab glass. Keep native safe areas and
 			// reserve only keyboard overlap beyond the native bottom inset.
-			Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
+			DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
 			_keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
 			{
 				_keyboardScreen = args.FrameEnd;
@@ -83,7 +83,7 @@ public partial class SignInPage : ContentPage
 		_keyboardObservers.Clear();
 		_keyboardScreen = null;
 		FormLayout.Padding = 0;
-		Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Connect();
+		DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
 #endif
 	}
 

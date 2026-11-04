@@ -228,6 +228,55 @@ public sealed class UnimusBackupsTests
     }
 
     [Fact]
+    public async Task Cancel_remains_executable_after_connection_revision_changes()
+    {
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3), Backup(2, 10)] });
+        var vm = await LoadAsync();
+        Assert.True(vm.ToggleCompareCommand.CanExecute(null));
+        vm.ToggleCompareCommand.Execute(null);
+        await vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+        await vm.OpenCommand.ExecuteAsync(vm.Backups[1]);
+        Assert.True(vm.CompareSelectedCommand.CanExecute(null));
+        _setup.ForgetToken();
+        Assert.True(vm.ToggleCompareCommand.CanExecute(null));
+        Assert.False(vm.CompareSelectedCommand.CanExecute(null));
+        vm.ToggleCompareCommand.Execute(null);
+        Assert.False(vm.IsComparing);
+        Assert.DoesNotContain(vm.Backups, item => item.IsSelected);
+        Assert.False(vm.ToggleCompareCommand.CanExecute(null));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Navigation_blocks_comparison_commands_until_it_completes(bool comparing)
+    {
+        _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())
+            .Returns(new UnimusBackupPage { Backups = [Backup(1, 3), Backup(2, 10)] });
+        var navigation = Substitute.For<INavigationService>();
+        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        navigation.GoToAsync(Arg.Any<string>(), Arg.Any<IDictionary<string, object>?>()).Returns(pending.Task);
+        var vm = new UnimusBackupsViewModel(_client, _setup, _api, navigation);
+        vm.Initialise(1, "edge.example.net");
+        await vm.EnsureLoadedAsync();
+        if (comparing)
+        {
+            vm.ToggleCompareCommand.Execute(null);
+            await vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+            await vm.OpenCommand.ExecuteAsync(vm.Backups[1]);
+            Assert.True(vm.CompareSelectedCommand.CanExecute(null));
+        }
+        var running = comparing ? vm.CompareSelectedCommand.ExecuteAsync(null)
+            : vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+        Assert.False(vm.ToggleCompareCommand.CanExecute(null));
+        Assert.False(vm.CompareSelectedCommand.CanExecute(null));
+        pending.SetResult();
+        await running;
+        Assert.True(vm.ToggleCompareCommand.CanExecute(null));
+    }
+
+    [Fact]
     public async Task Changed_connection_discards_old_history_even_when_the_new_load_fails()
     {
         _api.GetBackupsAsync(7, 0, UnimusBackupsViewModel.PageSize, Arg.Any<CancellationToken>())

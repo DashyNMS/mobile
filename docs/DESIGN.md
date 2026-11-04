@@ -546,3 +546,22 @@ centre and safe offset. Keep fitting zoom controls visible and
 retain the defined insufficient-space pinch fallback. Real tiles, native clips,
 gestures, glass and fold/rotation still require the device matrix in
 [the map correction assessment](reviews/map-loading-correction.md).
+
+### Pushed backup viewport ownership
+
+`PushedListLayout` owns the full-height Body host's side and bottom padding;
+fixed headers/status rows precede a finite star viewport. Query the pill and
+glass in that exact native host. With no fixed action, match Devices/Alerts:
+a side or bottom pill anchors the viewport base at `max(0, H - pill.Bottom)`.
+A bottom pill's obstructing glass belongs in the scrolling footer; a side
+pill must not clamp the measured base to the safe-area bottom. A top-wide pill
+is separate. With a visible fixed action, use `SetupActionPlacement` for the
+host's only bottom gap and reserve the action's actual wrapped Auto-row height.
+Do not combine an action bottom margin with the same host inset.
+
+Check normal and comparison modes independently against actual native host,
+card/list and pill bounds, including dynamic selection/busy actions, child
+return, retained tab/resume, fold/rotation and keyboard dismissal. Footer reach
+alone does not establish viewport alignment. #462 owns this shared correction;
+#463 contents then #464 differences consume it sequentially and retain their
+own action, search, source and export contracts.

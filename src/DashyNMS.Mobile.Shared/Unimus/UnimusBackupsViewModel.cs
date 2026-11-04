@@ -34,6 +34,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CompareText), nameof(CompareHint))]
     [NotifyCanExecuteChangedFor(nameof(CompareSelectedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ToggleCompareCommand))]
     private bool _isComparing;
 
     public UnimusBackupsViewModel(ILibreNmsClient client, UnimusSetup setup, IUnimusApi unimus, INavigationService navigation)
@@ -48,8 +49,17 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
             {
                 OnPropertyChanged(nameof(IsEmpty));
                 CompareSelectedCommand.NotifyCanExecuteChanged();
+                ToggleCompareCommand.NotifyCanExecuteChanged();
             }
         };
+        OpenCommand.PropertyChanged += OnNavigationStateChanged;
+        CompareSelectedCommand.PropertyChanged += OnNavigationStateChanged;
+    }
+
+    private void OnNavigationStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        ToggleCompareCommand.NotifyCanExecuteChanged();
+        CompareSelectedCommand.NotifyCanExecuteChanged();
     }
 
     public string DeviceName { get; private set; } = "Device";
@@ -158,6 +168,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
                 OnPropertyChanged(nameof(EmptyText));
                 OnPropertyChanged(nameof(IsEmpty));
                 OnPropertyChanged(nameof(CanCompare));
+                ToggleCompareCommand.NotifyCanExecuteChanged();
                 OnPropertyChanged(nameof(CompareHint));
                 OnPropertyChanged(nameof(DeviceIdentity));
                 OnPropertyChanged(nameof(HistoryText));
@@ -179,6 +190,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(DeviceIdentity));
         OnPropertyChanged(nameof(HistoryText));
         OnPropertyChanged(nameof(CanCompare));
+        ToggleCompareCommand.NotifyCanExecuteChanged();
         CompareSelectedCommand.NotifyCanExecuteChanged();
     }
 
@@ -219,7 +231,10 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         return Task.CompletedTask;
     }
 
-    [RelayCommand]
+    private bool CanToggleCompare() => !IsBusy && !OpenCommand.IsRunning && !CompareSelectedCommand.IsRunning
+        && (IsComparing || (_loadedRevision == _setup.Revision && CanCompare));
+
+    [RelayCommand(CanExecute = nameof(CanToggleCompare))]
     private void ToggleCompare()
     {
         if (IsBusy || OpenCommand.IsRunning || CompareSelectedCommand.IsRunning || (!IsComparing && !CanCompare)) return;
@@ -231,7 +246,8 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
         IsComparing = !IsComparing;
     }
 
-    private bool CanCompareSelected() => !IsBusy && _loadedRevision == _setup.Revision && IsComparing && Selected.Count == 2;
+    private bool CanCompareSelected() => !IsBusy && !OpenCommand.IsRunning && !CompareSelectedCommand.IsRunning
+        && _loadedRevision == _setup.Revision && IsComparing && Selected.Count == 2;
 
     /// <summary>The older of the two on the left, as a diff reads.</summary>
     [RelayCommand(CanExecute = nameof(CanCompareSelected))]
