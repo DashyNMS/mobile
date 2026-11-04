@@ -24,7 +24,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		BindingContext = _viewModel = viewModel;
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
-			if (Split.Detail is GraylogMessageView detail) detail.PlaceContent(clear);
+			PlaceMessage();
 		});
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		SearchButton.Command = new Command(() =>
@@ -74,10 +74,19 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		view.ViewModel.IsBesideList = true;
 		view.Load(parameters);
 		Split.Detail = view;
+		PlaceMessage();
 #if IOS
 		PlaceFooter();
 #endif
 		return true;
+	}
+
+	/// <summary>The trailing star pane reaches the right and bottom edges, never the left edge.</summary>
+	private void PlaceMessage()
+	{
+		if (Split.Detail is not GraylogMessageView detail) return;
+		var clear = CoveredEdges.ForScrolling(this);
+		detail.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
 	}
 
 	protected override void OnAppearing()

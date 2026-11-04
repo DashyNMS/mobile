@@ -124,3 +124,98 @@ Unit tests passed at reviewed head; replacement platform/security CI is pending.
 Full intended/staged diffs and whitespace inspected. No local builds/tests ran.
 All device outcomes remain unverified, including retained More return, resume,
 light-theme severity contrast and the fade. No issue closure or epic ticks.
+
+## Current corrective assessment, 4 November 2026
+
+This section supersedes the baseline findings and pending statuses above for
+this correction only. Historical PR #503, its independent review and CI retain
+their provenance; they do not validate this diff. Prepared main is
+`63466c80fdab8a1300d61ce4d6f7d52ead85bcf3`, including merged #525.
+Live #461 and #442 bodies and all comments, #288 and accepted #460 were
+refreshed. #460's explicit acceptance is preserved, as is completed #405.
+The current reconciled assessment's #461 entry records the same rejection.
+
+### Hierarchy and consumer inventory
+
+Pushed: Shell native page → GraylogMessagePage, native top container on iOS
+and native All on Android → GraylogMessageView → star Grid → finite
+ScrollView → ContentColumn → metadata/message/actions/stacked additional
+fields. There is no ReadableColumn or proportional-width cap. Previously the
+root Grid and content column had implicit safe-area handling while the host
+already supplied measured content clearance. Both now explicitly have no
+safe-area ownership. The viewport has no margin, padding or height offset.
+Only ContentColumn owns 16pt gutters, side clearance and 24pt final-field gap
+plus bottom clearance. Native scroll adjustment is Never on attachment/load;
+those events reapply stored clearance rather than substituting zero.
+
+Embedded: GraylogPage → ListDetail → trailing star _pane → _detail
+ContentView → the same message view hierarchy. ListDetail's pane and content
+host already opt out of safe areas. The pane reaches the page right/bottom,
+so GraylogPage passes ForScrolling right/bottom directly and zero left. No
+native frame conversion during SizeChanged is required. Its list column,
+card base, footer and camera layout are untouched. TabAlignedListLayout's
+legacy detail callback now delegates only Graylog message placement to this
+explicit boundary; its other consumer LogsPage is unchanged. ListDetail's
+other consumers are unchanged. Shared helpers have no edits.
+
+GraylogMessageView has exactly two construction consumers: GraylogMessagePage
+and GraylogPage.TryShowDetail. Network/device GraylogViewModel.OpenMessage
+passes the message and list owner; DashboardViewModel.OpenGraylogMessage
+passes only the snapshot. ShellNavigationService retains split interception
+and relative routing. NeighbourLinkView/NeighbourLinkPage and NeighboursPage
+were inspected as stored-clearance and trailing-pane references, not copied
+as a new detail design. CoveredEdges, BackBar and AppShell remain shared
+owners. AppShell's central IActivePage dispatch restores pushed glass on
+retained-tab return, child return and resume. No global subscriber was added.
+#483 owns device-list review and #517 owns list camera layering.
+
+### Current findings
+
+| Concern and trigger/mode | Location and observed result | Expected result and code fix | Status |
+| --- | --- | --- | --- |
+| Reported constrained width/short base, pushed and embedded | Inner Grid/content column had implicit safe-area ownership alongside host clearance; exact reported dimensions unknown | Explicit star viewport and content-only clearance; no guessed percentage or height correction | Corrected contract; physical cause/deltas unverified |
+| Resize/fold/native attachment, both modes | Attachment only disabled native adjustment; embedded relied on legacy list clearance | Retain/reapply clearance; trailing pane uses reaching right/bottom edges with no stale conversion | Corrected |
+| Pushed actions when glass available | Only Back was in glass; Show only/Open device stayed inline | Eligible existing actions join pushed glass, inline fallback retained on Android/older iOS; absent actions reserve no space | Corrected |
+| Child/tab return and resume, pushed | Central IActivePage already present | Preserve it; idempotent subscriptions, disposal and queued current-page guards; glass rebuilt on state change | Compliant, guards corrected; native operation unverified |
+| Source/time/severity, both modes | Source matching, raw fields, explicit unavailable time/level and themed severity already present | Preserve original values, zone semantics and unknown state | Compliant; theme/max-text appearance unverified |
+| Full message, arbitrary long keys/values, CRLF/tabs/JSON/URL-like text | FullText and GetText fields use plain CharacterWrap stacks | Preserve full payload and field order; no parser, truncation or new links | Compliant; physical readability unverified |
+| Related-device and Show only | Positive-ID gating, current-device suppression and list filter return already present | Keep routes, IDs, scope and read-only snapshot semantics; guard glass command execution | Compliant/corrected guards |
+| Missing route after valid route | Load clears message/owner and commands | Retain return/reselect guidance; no stale record | Compliant |
+| Loading/error/retry | No detail endpoint or asynchronous fetch | Existing synchronous snapshot; reselect from caller | Compliant; separate detail loading/retry N/A |
+| Copy/export/security/persistence | No detail copy/export route exists; list export and raw data unchanged | No new feature, storage, credentials, TLS, permission or server write | Compliant; detail copy/export N/A |
+| Fade/final field | Matching Background RGB endpoints, input-transparent 20pt fade and initial reserve when header hidden | Preserve reserve and bottom content clearance without shrinking pane | Compliant; final-row/glass bounds unverified |
+| Accessibility, themes, motion, large font | Wrapping actions retain 44pt minimum and joined accessible descriptions; no new animation | Verify native activation, contrast and full content reachability | Unverified |
+
+### Validation and acceptance at this correction
+
+Full diff against prepared main, staged diff and DESIGN self-inspection are
+separate from independent review. Whitespace is checked with git diff --check.
+No agents, builds, tests or scripts ran. Independent full-diff review by the
+parent's Opus 5.5 Medium is pending. Shared tests, Android build, iOS simulator
+build and security CI are pending. No physical result is claimed. The PR head
+identifies the exact final SHA; the parent must record its build and OS before
+running this matrix. All rows are device ALL UNVERIFIED.
+
+| Exact build/OS matrix, run at final PR SHA | Required observations, all unverified |
+| --- | --- |
+| Duo outer portrait/landscape, inner portrait, inner landscape | Both pushed and embedded where supported; actual host/pane/viewport bounds, usable width/base, camera and glass bounds, final-row deltas |
+| Duo fold/unfold and rotate while detail open | No stale clearance, no reserved absent-action space, last field scrolls above glass |
+| Ordinary iPhone, iOS 26+ glass and older iOS fallback | Network/device/Dashboard entry, child device and Back twice, one active owner |
+| Android outer/inner or phone/tablet, portrait/landscape | Native safe areas, fallback actions, full finite viewport, TalkBack activation |
+| Every supported device/OS above, light and dark, maximum text | Long keys/values, CRLF/blank lines/tabs, unknown metadata, missing route, final field, fade RGB and initial 20pt reserve |
+| Every supported device/OS above, retained tab, child return, resume | Same payload/filter/scroll contract, correct caller Back/actions/header geometry, no duplicate handlers or placement loop |
+| VoiceOver and TalkBack, both modes | Action names include identity/severity; one target, minimum 44pt, activation and traversal |
+| Keyboard where relevant | Detail has no input; return from caller search or child keyboard restores usable bounds; floating keyboard obstruction remains unverified |
+
+Record exact SHA, build number, OS version, diagnostics and measured deltas
+for each executed case. No merge, release, watch, closure or epic ticks here.
+Outstanding Graylog mock-ups/global light-theme acceptance remain #288; this
+correction introduces no unresolved visual redesign decision.
+
+Shared consumer inventory supplement: ListDetail is used by DevicesPage,
+NeighboursPage, LogsPage, AlertRulesPage, AlertsPage and GraylogPage. Only
+GraylogPage's message boundary changes. TabAlignedListLayout is used by
+LogsPage and GraylogPage. GraylogMessageItem also supplies DashboardCard
+previews and GraylogViewModel rows; neither projection changes. Command
+CanExecuteChanged and relevant view-model properties are observed only while
+the pushed detail is active, with matching unsubscription on disappearance.

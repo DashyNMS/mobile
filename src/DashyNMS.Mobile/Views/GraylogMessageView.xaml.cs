@@ -6,6 +6,7 @@ namespace DashyNMS.Mobile.Views;
 /// <summary>Complete plain-text message content in a pushed or list-owned host.</summary>
 public partial class GraylogMessageView : ContentView
 {
+    private Thickness _clearance;
     public GraylogMessageView(GraylogMessageViewModel viewModel)
     {
         InitializeComponent();
@@ -23,6 +24,7 @@ public partial class GraylogMessageView : ContentView
 
     private void OnScrollAttached(object? sender, EventArgs e)
     {
+        PlaceContent(_clearance);
 #if IOS
         if (Scroller.Handler?.PlatformView is UIKit.UIView native && FindScroll(native) is { } scroll)
             scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
@@ -36,10 +38,18 @@ public partial class GraylogMessageView : ContentView
     /// <summary>The host passes only clearance not already owned by its layout.</summary>
     public void PlaceContent(Thickness clear)
     {
+        _clearance = clear;
         var header = !ViewModel.IsBesideList && Bar.IsVisible;
         Bar.IsVisible = header;
         ContentColumn.Padding = new Thickness(16 + clear.Left, header ? 0 : 20, 16 + clear.Right, 24 + clear.Bottom);
         Fade.IsVisible = !header;
+    }
+
+    /// <summary>Only the pushed glass owner replaces the inline actions.</summary>
+    public void UseGlassActions(bool glass)
+    {
+        ShowOnlyAction.IsVisible = !glass && ViewModel.CanShowOnly;
+        DeviceAction.IsVisible = !glass && ViewModel.HasDevice;
     }
 
     /// <summary>No detail fetch exists; absent route data must clear the previous record.</summary>
@@ -48,6 +58,6 @@ public partial class GraylogMessageView : ContentView
         var message = parameters?.TryGetValue(Routes.GraylogMessageParameter, out var item) == true ? item as GraylogMessageItem : null;
         var list = parameters?.TryGetValue(Routes.GraylogListParameter, out var owner) == true ? owner as GraylogViewModel : null;
         ViewModel.Load(message, list);
-        if (ViewModel.IsBesideList) PlaceContent(Thickness.Zero);
+        PlaceContent(_clearance);
     }
 }

@@ -11,6 +11,10 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     private readonly GraylogMessageView _view;
     private IDisposable? _edges;
     private bool _showing;
+    private GraylogMessageViewModel ViewModel => _view.ViewModel;
+#if IOS
+    private (bool Filter, bool Device, string FilterText, string DeviceText)? _actions;
+#endif
 
     public GraylogMessagePage(GraylogMessageViewModel viewModel)
     {
@@ -18,6 +22,8 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
         Title = "Message";
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+#else
+        SafeAreaEdges = SafeAreaEdges.All;
 #endif
         Content = _view = new GraylogMessageView(viewModel);
     }
@@ -31,9 +37,18 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     /// <summary>Restores retained message controls through AppShell's single activation owner.</summary>
     public void Activate()
     {
+#if IOS
+        _actions = null;
+#endif
         _showing = true;
         _view.Bar.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
+        ViewModel.PropertyChanged -= OnMessageChanged;
+        ViewModel.PropertyChanged += OnMessageChanged;
+        ViewModel.OpenDeviceCommand.CanExecuteChanged -= OnCommandChanged;
+        ViewModel.OpenDeviceCommand.CanExecuteChanged += OnCommandChanged;
+        ViewModel.ShowOnlyCommand.CanExecuteChanged -= OnCommandChanged;
+        ViewModel.ShowOnlyCommand.CanExecuteChanged += OnCommandChanged;
 #if IOS
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
@@ -46,6 +61,9 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     {
         base.OnDisappearing();
         _showing = false;
+        ViewModel.PropertyChanged -= OnMessageChanged;
+        ViewModel.OpenDeviceCommand.CanExecuteChanged -= OnCommandChanged;
+        ViewModel.ShowOnlyCommand.CanExecuteChanged -= OnCommandChanged;
         _edges?.Dispose();
         _edges = null;
 #if IOS
@@ -58,15 +76,44 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     {
 #if IOS
         _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
+        _view.UseGlassActions(TabBarButtons.IsAvailable);
         if (TabBarButtons.IsAvailable)
+        {
+            var state = (ViewModel.CanShowOnly, ViewModel.HasDevice, ViewModel.ShowOnlyText, ViewModel.DeviceActionDescription);
+            if (_actions == state) return;
+            _actions = state;
+            List<GlassAction> actions = [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => { if (IsActive) _ = Shell.Current.GoToAsync(".."); }, IsBack: true)];
+            if (ViewModel.CanShowOnly)
+                actions.Add(new("line.3.horizontal.decrease", ViewModel.ShowOnlyText, () =>
+                {
+                    if (IsActive && ViewModel.ShowOnlyCommand.CanExecute(null)) ViewModel.ShowOnlyCommand.Execute(null);
+                }));
+            if (ViewModel.HasDevice)
+                actions.Add(new("desktopcomputer", ViewModel.DeviceActionDescription, () =>
+                {
+                    if (IsActive && ViewModel.OpenDeviceCommand.CanExecute(null)) ViewModel.OpenDeviceCommand.Execute(null);
+                }));
             TabBarButtons.Show(this, null, string.Empty,
-            [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => { if (_showing) _ = Shell.Current.GoToAsync(".."); }, IsBack: true)]);
+                actions);
+        }
 #endif
+    }
+
+    private bool IsActive => _showing && Shell.Current?.CurrentPage == this;
+
+    private void OnCommandChanged(object? sender, EventArgs e) =>
+        Dispatcher.Dispatch(() => { if (IsActive) { RestoreGlass(); PlaceControls(); } });
+
+    private void OnMessageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(GraylogMessageViewModel.Message) or nameof(GraylogMessageViewModel.HasDevice)
+            or nameof(GraylogMessageViewModel.CanShowOnly))
+            Dispatcher.Dispatch(() => { if (IsActive) { RestoreGlass(); PlaceControls(); } });
     }
 
     private void PlaceControls()
     {
-        if (_showing) _view.PlaceContent(CoveredEdges.ForScrolling(this));
+        if (IsActive) _view.PlaceContent(CoveredEdges.ForScrolling(this));
     }
 #if IOS
     private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
