@@ -54,7 +54,7 @@
      </VerticalStackLayout>
     </VerticalStackLayout>
    </ScrollView>
-   <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+   <BoxView x:Name="Fade" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
     <BoxView.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
      <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
      <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />

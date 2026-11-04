@@ -7,10 +7,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>LibreNMS's alert rules, read-only (#22): from More, or pinned to the tab bar.</summary>
-public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
+public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IActivePage
 {
 	private readonly AlertRulesViewModel _viewModel;
     private IDisposable? _edges;
+    private bool _active;
     private int? _detailId;
     private AlertRuleView? _detail;
     private readonly ButtonSearch _search;
@@ -22,6 +23,7 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading rules…", "Refreshing rules…");
         _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
+        ChipScroll.SizeChanged += (_, _) => PlaceControls();
         Body.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) => { _viewModel.Select(Split.IsSplit ? _detailId : null); PlaceControls(); };
 #if IOS
@@ -55,7 +57,15 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
+        Activate();
+		_viewModel.RefreshCommand.Execute(null);
+	}
+
+    /// <summary>Restores retained-stack glass and geometry without refreshing or replacing selection.</summary>
+    public void Activate()
+    {
+        _active = true;
+        Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
         List<GlassAction> actions = [];
@@ -67,7 +77,6 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-		_viewModel.RefreshCommand.Execute(null);
 	}
 
     public void OpenSearch() => _search.Open();
@@ -75,6 +84,7 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
 
     protected override void OnDisappearing()
     {
+        _active = false;
         base.OnDisappearing();
         _search.Close();
         _edges?.Dispose();
@@ -87,9 +97,21 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
 
     private void PlaceControls()
     {
+        // Watcher and glass callbacks can already be queued when a child takes ownership.
+        if (!_active || Shell.Current?.CurrentPage != this) return;
+
         var clear = CoveredEdges.ForScrolling(this);
         var outside = Math.Max(0, Width - Body.Width);
-        Body.Padding = new Thickness(16 + clear.Left, 0, 16 + Math.Max(0, clear.Right - outside), 0);
+        var left = 16 + clear.Left;
+        var right = 16 + Math.Max(0, clear.Right - outside);
+        Header.Margin = new Thickness(left, 0, right, 0);
+        SearchField.Margin = new Thickness(left, 2, right, 0);
+        // Keep the native clip full-width; only its scrolling content owns safe gutters,
+        // as in Devices/Alerts. Offscreen chips may travel beneath the camera.
+        ChipScroll.Padding = new Thickness(left, 0, right, 0);
+        CountLine.Margin = new Thickness(left + 4, 6, right, 4);
+        ErrorCard.Margin = new Thickness(left, 0, right, 8);
+        Busy.Margin = new Thickness(left, 0, right, 0);
         var foot = 12 + clear.Bottom;
         var spacer = 0.0;
 #if IOS
@@ -101,10 +123,11 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost
                 spacer = clear.Bottom - foot + 8;
         }
 #endif
-        ListCard.Margin = new Thickness(0, 0, 0, foot);
+        ListCard.Margin = new Thickness(left, 0, right, foot);
         ListFoot.HeightRequest = spacer;
-        // The host supplies only the insets reaching the detail column. The view owns its content padding.
-        _detail?.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
+        // ListDetail's trailing star column reaches the page's right edge. Pass its
+        // clearance directly; native frames can still be stale during SizeChanged.
+        if (Split.IsSplit) _detail?.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
     }
 
 #if IOS

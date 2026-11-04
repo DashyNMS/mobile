@@ -9,6 +9,8 @@ namespace DashyNMS.Mobile.Pages;
 public sealed class NeighbourLinkPage : ContentPage, IQueryAttributable, IActivePage
 {
     private readonly NeighbourLinkView _view;
+    private IDisposable? _edges;
+    private bool _active;
 
     public NeighbourLinkPage(NeighbourLinkViewModel viewModel)
     {
@@ -21,6 +23,7 @@ public sealed class NeighbourLinkPage : ContentPage, IQueryAttributable, IActive
         SafeAreaEdges = SafeAreaEdges.All;
 #endif
         Content = _view = new NeighbourLinkView(viewModel);
+        SizeChanged += (_, _) => PlaceControls();
     }
 
     protected override void OnAppearing()
@@ -32,6 +35,8 @@ public sealed class NeighbourLinkPage : ContentPage, IQueryAttributable, IActive
     /// <summary>Uses the shell activation owner to restore retained pushed Back.</summary>
     public void Activate()
     {
+        _active = true;
+        _edges ??= CoveredEdges.Watch(this, PlaceControls);
         _view.Bar.Apply(this);
 #if IOS
         _view.Bar.ShowsBack = !TabBarButtons.IsAvailable;
@@ -39,13 +44,29 @@ public sealed class NeighbourLinkPage : ContentPage, IQueryAttributable, IActive
             TabBarButtons.Show(this, null, string.Empty,
                 [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                     () => _ = Shell.Current.GoToAsync(".."), IsBack: true)]);
+        TabBarButtons.Moved -= OnGlassMoved;
+        TabBarButtons.Moved += OnGlassMoved;
 #endif
-        _view.Place();
+        PlaceControls();
     }
+
+    private void PlaceControls()
+    {
+        if (!_active || Shell.Current?.CurrentPage != this) return;
+        _view.PlaceContent(CoveredEdges.ForScrolling(this));
+    }
+
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+#endif
 
     protected override void OnDisappearing()
     {
+        _active = false;
+        _edges?.Dispose();
+        _edges = null;
 #if IOS
+        TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Hide(this);
 #endif
         base.OnDisappearing();

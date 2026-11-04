@@ -18,6 +18,12 @@ public sealed partial class MoreItem : ObservableObject
 
     public string Description => AppPages.Description(Page);
 
+    /// <summary>Only ambiguous destination names need supporting copy in the catalogue.</summary>
+    public string Summary => Page is AppPage.Health or AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.Graylog
+        ? Description : string.Empty;
+
+    public bool HasSummary => Summary.Length > 0;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinDescription))]
     [NotifyPropertyChangedFor(nameof(PinLabel))]
@@ -32,21 +38,24 @@ public sealed partial class MoreItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(PinState))]
     [NotifyPropertyChangedFor(nameof(OpenDescription))]
     [NotifyPropertyChangedFor(nameof(PinHint))]
+    [NotifyPropertyChangedFor(nameof(PinDescription))]
     private bool _canToggle;
 
     public string PinState => IsPinned ? "Pinned to the tab bar" : CanToggle
         ? "Not pinned" : "Not pinned. Unpin another page to make room.";
 
-    public string OpenDescription => string.Join(". ", Title, Description, PinState);
+    public string OpenDescription => string.Join(". ", new[] { Title, Summary, IsPinned ? "Pinned" : "Not pinned" }.Where(text => text.Length > 0));
 
     public string OpenHint => IsPinned ? "Switches to this page's tab" : "Opens this page. Back returns to More";
 
     /// <summary>For screen readers: what the pin button will do.</summary>
-    public string PinDescription => (IsPinned ? "Unpin " : "Pin ") + Title + (IsPinned ? " from" : " to") + " the tab bar";
+    public string PinDescription => IsPinned ? $"Unpin {Title} from the tab bar. Pinned."
+        : CanToggle ? $"Pin {Title} to the tab bar. Not pinned."
+        : $"{Title}. Not pinned. Tab bar full. Explains how to make room.";
 
     public string PinLabel => IsPinned ? "Unpin" : "Pin";
 
-    public string PinHint => CanToggle ? "Changes the tab bar immediately" : "Explains how to make room on the tab bar";
+    public string PinHint => CanToggle ? "Changes the tab bar immediately" : string.Empty;
 }
 
 /// <summary>A More heading and its pages.</summary>
@@ -79,6 +88,8 @@ public sealed partial class MoreViewModel : ViewModelBase
     /// <summary>"2 of 3 pinned".</summary>
     public string PinnedText => $"{_pins.Pinned.Count} of {TabPins.MaxPinned} pinned";
 
+    public string CapacityText => PinnedText + (_pins.CanPinMore ? "." : ". Unpin a page to make room.");
+
     /// <summary>Its tab when pinned, pushed onto More when not.</summary>
     [RelayCommand]
     private Task OpenAsync(MoreItem item) => _navigation.GoToAsync(
@@ -109,5 +120,6 @@ public sealed partial class MoreViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(PinnedText));
+        OnPropertyChanged(nameof(CapacityText));
     }
 }

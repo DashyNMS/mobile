@@ -611,6 +611,54 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Arp_preserves_complete_context_and_overview_in_numeric_order()
+    {
+        const string name = "Very long synthetic interface description on example.net";
+        _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ArpEntry { PortId = 1, Ipv4Address = "192.0.2.100", MacAddress = "AABBCCDDEEFF" },
+            new ArpEntry { PortId = 99, Ipv4Address = "192.0.2.9", MacAddress = "unusual raw MAC" },
+            new ArpEntry { PortId = 1, Ipv4Address = "192.0.2.9", MacAddress = "001122334455" },
+        ]);
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, name)]);
+        var groups = await Load(DeviceSection.Arp);
+        var rows = Assert.Single(groups);
+        Assert.Equal(["192.0.2.9", "192.0.2.9", "192.0.2.100"], rows.Select(r => r.Title));
+        Assert.Equal("port 99", rows[0].Value);
+        Assert.Equal("unusual raw MAC", rows[0].Subtitle);
+        Assert.Equal($"192.0.2.100, aa:bb:cc:dd:ee:ff, {name}", rows[2].ArpDescription);
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.ArpLayout);
+            Assert.False(row.FdbLayout);
+            Assert.False(row.IsLink);
+            Assert.Equal(RowStatus.None, row.Status);
+        });
+        Assert.True(rows[2].Matches(name));
+        Assert.True(rows[2].Matches("AA:BB"));
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Arp));
+        card.Show(groups);
+        Assert.Equal(3, card.Highlights.Count);
+        Assert.Contains(card.Highlights, row => row.ArpDescription == rows[2].ArpDescription);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("—")]
+    [InlineData("–")]
+    public void Arp_missing_facts_are_named_without_mutating_source_or_sibling_search(string? missing)
+    {
+        var row = new SectionRow(missing ?? "—") { ArpLayout = true, Subtitle = missing };
+        Assert.Equal(missing, row.Subtitle);
+        Assert.Null(row.Value);
+        Assert.Equal("IP address not reported, MAC address not reported, Interface not reported", row.ArpDescription);
+        Assert.True(row.Matches("MAC address not reported"));
+        Assert.True(row.Matches("Interface not reported"));
+        Assert.False(new SectionRow("ordinary").Matches("not reported"));
+    }
+
+    [Fact]
     public async Task Routing_shows_bgp_state_and_leaves_out_empty_groups()
     {
         _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
@@ -629,6 +677,86 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal(RowStatus.Critical, bgp[0].Status);
         Assert.Equal("Hold timer expired", bgp[0].Detail);
         Assert.Equal("Up 3d 0h", bgp[1].Detail);
+    }
+
+    [Fact]
+    public async Task Routing_preserves_protocol_context_and_complete_overview_facts()
+    {
+        var context = "example.net-" + new string('x', 160);
+        _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new BgpSession { PeerIdentifier = "192.0.2.7", State = "active", RemoteAs = 64500, LastErrorText = context }]);
+        _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new OspfNeighbour { IpAddress = "192.0.2.8", RouterId = "192.0.2.9", State = "full", ContextName = context }]);
+        _client.Routing.ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Ospfv3Neighbour { Address = "2001:db8::7", State = "init", ContextName = context }]);
+        _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Vrf { Name = context, Description = "Synthetic VRF", RouteDistinguisher = "64500:7" }]);
+        var groups = await Load(DeviceSection.Routing);
+        Assert.Equal(["BGP sessions", "OSPF neighbours", "VRFs"], groups.Select(g => g.Name));
+        var rows = groups.SelectMany(g => g).ToArray();
+        Assert.Equal(["BGP", "OSPF", "OSPFv3", "VRF"], rows.Select(r => r.RoutingKind));
+        Assert.Equal([RowStatus.Critical, RowStatus.Ok, RowStatus.Warning, RowStatus.None], rows.Select(r => r.Status));
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.RoutingLayout);
+            Assert.False(row.IsLink);
+            Assert.Contains(context, row.RoutingDescription);
+            Assert.True(row.Matches(context));
+            Assert.True(row.Matches(row.RoutingKind!));
+        });
+        Assert.Equal(new string?[] { "Critical", "OK", "Warning", null }, rows.Select(r => r.RoutingStatusText));
+        Assert.All(rows.Where(r => r.HasRoutingStatus), row =>
+        {
+            Assert.Contains(row.RoutingStatusText!, row.RoutingDescription);
+            Assert.True(row.Matches(row.RoutingStatusText!));
+        });
+        Assert.False(rows[3].HasRoutingStatus);
+        Assert.False(new SectionRow("example.net").Matches("Critical"));
+        Assert.Equal("Route distinguisher: 64500:7", rows[3].RoutingValueText);
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Routing));
+        card.Show(groups);
+        Assert.Equal(4, card.Count);
+        Assert.Equal([rows[0], rows[2], rows[1]], card.Highlights);
+        Assert.All(card.Highlights, row => Assert.Contains(context, row.RoutingDescription));
+    }
+
+    [Theory]
+    [InlineData("BGP", "State not reported")]
+    [InlineData("OSPF", "State not reported")]
+    [InlineData("OSPFv3", "State not reported")]
+    [InlineData("VRF", "Route distinguisher not reported")]
+    public void Routing_missing_facts_are_named_without_changing_raw_values(string kind, string expected)
+    {
+        var row = new SectionRow("—") { RoutingKind = kind };
+        Assert.Equal(kind == "VRF" ? "VRF name not reported" : "Routing identity not reported", row.RoutingTitleText);
+        Assert.Equal(expected, row.RoutingValueText);
+        Assert.True(row.Matches(expected));
+        Assert.Null(row.Value);
+        Assert.Equal("—", row.Title);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.False(new SectionRow("example.net").RoutingLayout);
+        Assert.False(new SectionRow("example.net").Matches(expected));
+    }
+
+    [Fact]
+    public async Task Routing_loader_names_missing_ospf_and_vrf_facts_without_changing_classification()
+    {
+        _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new OspfNeighbour()]);
+        _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Vrf()]);
+        var rows = (await Load(DeviceSection.Routing)).SelectMany(g => g).ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Equal("Routing identity not reported", rows[0].RoutingTitleText);
+        Assert.Equal("State not reported", rows[0].RoutingValueText);
+        Assert.Equal(RowStatus.Warning, rows[0].Status);
+        Assert.Contains("Warning", rows[0].RoutingDescription);
+        Assert.Equal("VRF", rows[1].Title);
+        Assert.Equal("VRF name not reported", rows[1].RoutingTitleText);
+        Assert.Equal("Route distinguisher not reported", rows[1].RoutingValueText);
+        Assert.Equal(RowStatus.None, rows[1].Status);
+        Assert.False(rows[1].HasRoutingStatus);
+        Assert.Equal("VRF", new SectionRow("VRF") { RoutingKind = "VRF" }.RoutingTitleText);
     }
 
     [Fact]

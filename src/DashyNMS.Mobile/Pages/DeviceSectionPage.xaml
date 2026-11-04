@@ -107,6 +107,21 @@
                                 </VisualStateGroup>
                             </VisualStateManager.VisualStateGroups>
                             <VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding RoutingLayout}" Spacing="4"
+                                SemanticProperties.Description="{Binding RoutingDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding RoutingTitleText}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding RoutingKind}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding RoutingValueText}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Text="{Binding RoutingStatusText}" IsVisible="{Binding HasRoutingStatus}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding ArpLayout}" Spacing="4"
+                                                 SemanticProperties.Description="{Binding ArpDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                <Label Text="{Binding ArpIpText}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding ArpMacText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding ArpInterfaceText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding FdbLayout}" Spacing="4"
                                                  SemanticProperties.Description="{Binding FdbDescription}" AutomationProperties.IsInAccessibleTree="True">
                                 <Label Text="{Binding FdbMacText}" FontFamily="BodySemibold" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
@@ -168,6 +183,12 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
 
                                 <Grid.Triggers>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding RoutingLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="Grid" Binding="{Binding ArpLayout}" Value="True">
+                                        <Setter Property="IsVisible" Value="False" />
+                                    </DataTrigger>
                                     <DataTrigger TargetType="Grid" Binding="{Binding FdbLayout}" Value="True">
                                         <Setter Property="IsVisible" Value="False" />
                                     </DataTrigger>

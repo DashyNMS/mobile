@@ -1,104 +1,122 @@
-# Neighbour link details, #452
+# Neighbours list and link details, #452
 
-Refs #452 and #442. Baseline main 95d50a6709b6caf1122412cae5d09c31be223aca.
-Read live #452/#442/#450/#451/#288, CLAUDE.md, DEVELOPING.md, complete
-DESIGN.md and DESIGN-REFERENCES.md. Inspected
-#490 design/navigation lessons and #491/#492 scope and remote diffs read-only.
-No queued branch was edited. Repo-workflow applied with the user's explicit
-no-local-build/test/script and non-closing-reference overrides.
+Refs #452 and #442. Corrective baseline: main c3b584e (Health #519,
+Alert rules #520, saved neighbourhoods #521 integrated). This assessment
+supersedes the earlier queue/status claims and the exclusion of the network-wide
+list. Original #493 and device-neighbours #511 are merged; their stale remote
+branches are not replayed. No open replacement #452 PR existed at inspection.
+Read CLAUDE.md, DEVELOPING.md, full DESIGN.md and DESIGN-REFERENCES.md,
+reconciled assessment and all supplied/live #452 comments, live #442/#288,
+#450 latest evidence and #451 acceptance. New neighbourhood remains accepted;
+#450 bottom reach remains unverified. No other worktree was changed.
 
-## Baseline modes, routes and contracts
+## Modes, sources and preserved contracts
 
-NeighboursViewModel.Build constructs deduplicated links from server devices,
-ports and NetworkLink data; NeighbourDirectory supplies the list snapshot.
-Neighbours.Open passes that same NeighbourLink object on relative neighbourlink.
-ShellNavigationService offers it to the current IDetailHost first. NeighboursPage
-embeds NeighbourLinkView only while ListDetail.IsSplit; narrow screens push
-NeighbourLinkPage. ListDetail retains the detail when narrowed and restores it
-when widened. Replacing a selection creates a new view; it has no model event
-subscriptions. Device-scoped neighbour lists are #473, not a second caller here.
+Neighbours is a pinned root or a relative More-pushed page. Constructor performs
+the initial fetch; pull refresh explicitly reloads. Actual Appearing rebuilds
+saved-group chips, retaining the selected ID unless the definition disappeared.
+Central IActivePage activation only restores controls and geometry; it performs
+no fetch, group rebuild, query/filter reset or detail replacement.
 
-Pushed Back pops the actual previous page; each endpoint opens relative
-devicedetail with the existing integer DeviceIdParameter. Returning restores
-the link snapshot. Embedded Back is hidden, and the host retains glass ownership;
-an endpoint still pushes device detail and returns to the host. A retained More
-stack must reclaim pushed Back after another tab and resume without refresh.
+NeighbourDirectory supplies devices, ports and NetworkLink snapshots.
+NeighboursViewModel retains Core matching/FromLinks, deduplication, ordering,
+Up/Down filter classification, counts and debounced search across row and LLDP
+fields. Filters/query are page-memory state; saved definitions/order remain
+AppSettings.NeighbourViews. No storage format or persistence change.
 
-Modes include both monitored ends, unmonitored remote, unresolved local/remote
-port, known device/port down, active and inactive discovery, no payload, and
-missing announcement fields. There is no detail fetch, refresh, timestamp,
-loading/error/stale detection, permission editor, Save, Undo or toast. The
-snapshot may age; adding freshness or a fabricated retry/error is unsupported.
-List fetch states stay with the source and are not reimplemented here.
+Open passes the exact NeighbourLink via relative neighbourlink. Shell navigation
+first offers it to IDetailHost: Neighbours embeds only when ListDetail.IsSplit,
+otherwise pushes NeighbourLinkPage. ListDetail keeps its detail while narrowed,
+restoring it when widened. Each new selection replaces the snapshot view.
+Endpoint commands pass the original integer device ID to relative devicedetail;
+Back returns to the actual caller. Embedded view has no Back/glass owner.
+Device-scoped #473 rows open a neighbouring device, not this shared detail;
+its graph and selection code are untouched. These are all current detail hosts.
 
-Contracts preserved: Core Neighbours.Matches and FromLinks, deduplication,
-filters/counts, server IDs, device navigation, endpoint entity kinds and
-permission behaviour, saved definitions/order and all persistence. No server
-writes, capability additions, credential access or new fallback identities.
-Core is pinned to 2.0.0-ci.52 in the shared project. Existing NetworkLink,
-Neighbour and endpoint consumers were checked in source; the package is not
-cached locally, so package-level type verification remains for CI. No new Core
-API is introduced.
+Detail preserves complete endpoint names, interface names, announcement fields,
+multiline source, unknown ports/states, inactive discovery and neutral unobserved
+health from #493. No data fetch or freshness guarantee is invented in detail.
+No server writes, permissions, credentials, certificate policy, export, Core API,
+settings/editor save contracts or graph semantics change.
 
-## Concern assessment and fixes
+## Concern disposition
 
-| Concern | Baseline finding | Outcome |
+“Corrected” means source correction, not hardware acceptance. Every native result
+below remains UNVERIFIED until tied to the installed final SHA/build/OS.
+
+| Trigger and mode | Observed baseline / expected | Location and disposition |
 | --- | --- | --- |
-| Identity, long names | Endpoint labels and navigation rows truncate; two endpoint columns squeeze narrow panes | Fix: complete character wrapping, stacked endpoint cards at every width; no multiline Button measurement |
-| Metadata | Fixed label/value columns crowd large text; Field trims source | Fix: label above wrapping value, preserve exact meaningful field source including whitespace/newlines; omit whitespace-only fields |
-| Missing data | Empty endpoint state and question-mark ports; no-payload page blank | Fix: explicit State unknown / Port unknown and no-link return guidance; missing metadata explains absence |
-| Status | Up could imply unobserved remote health | Fix: Active describes discovery and uses neutral colour unless both endpoints report up; Down and Not active retain precedence; endpoint state remains source-based, unknown is explicit |
-| Endpoint actions | Tap rows lack joined descriptions, names truncate | Fix: whole 44pt minimum wrapping action, joined side/name/port/state/discovery description, child label excluded; command availability notified on snapshot replacement |
-| Pushed navigation | No glass owner; legacy full safe-area flag | Fix: relative Back and actual caller label, iOS glass with header fallback, top-only native page owner; old flag removed |
-| Embedded navigation | Host already hides Back | Compliant: host ownership preserved, no embedded glass actions |
-| Insets/fade | Fixed 24pt foot, no glass/column-boundary clearance or fade | Fix: host-boundary side and bottom clearance, final-content bottom clearance, child None and native scroll Never on handler/load; matching Background RGB fade within viewport below visible BackBar, reserved 20pt |
-| Lifecycle | No pushed retained-stack restoration | Fix: central IActivePage activation, no local Window/Shell subscriptions or duplicate glass-move placement; view edge watcher disposed on unload/replacement |
-| Loading/error/stale/toast | No such detail capabilities | Compliant scope: preserve snapshot contract; freshness cannot be independently verified |
-| Native layout and assistive activation | No hardware evidence | Unverified; exact matrix below |
+| #452 consolidated header More report; pushed list on tested OS | Header owned caller Back; iOS26+ requires glass Back, pinned root none | NeighboursPage Activate uses PageHeader.IsPushed and actual PreviousTitle; header fallback only Android/old iOS. Corrected |
+| Each list action | Neighbourhoods remained header-only; search legacy | Neighbourhoods moves to glass with search on iOS26+, fallback header retains both. Endpoint actions remain scoped to content. Corrected |
+| Retained tab/child return/resume | List lacked activation/watch/glass restoration | IActivePage restores idempotent watch and Moved subscription; departure disposes/unsubscribes, queued placement guards active/current page. Pushed detail follows same ownership. Corrected |
+| #452 consolidated list base report | Default 12pt margin ignored measured pill base | PlaceControls follows #520: side/bottom base max(0,H-pill.Bottom), bottom-only footer covers actions, top pill uses fallback. Corrected; numeric device delta UNVERIFIED |
+| #452 slide/swipe search report | SearchReveal opened from scroll | Scoped ButtonSearch/ISearchHost, no legacy attach, glass/header/Command-F only; completion/unfocus/native drag close retaining term. KeyboardDismiss.OnScroll=False avoids filtering dismissal. Corrected |
+| #452 camera-layering comment; inner display | Outer safe-area/padding constrained chip clip | Body/ChipScroll None; full-width clip with internal safe gutters as Devices/Alerts/#520. Chips at rest clear camera/pill; 44pt minimum targets. Corrected; actual camera bounds UNVERIFIED |
+| #452 phone detail bottom report; pushed and embedded | Native-frame subtraction and viewport margins obscured ownership | Explicit host clearance; full Root Auto/star Viewport/Scroller. Content padding owns sides/bottom, not pane. Corrected ownership; reported OS root cause and bottom reach UNVERIFIED |
+| Long/missing endpoint/ports/metadata, both hosts | Existing #493 wrapping and honest absence | Compliant, unchanged VM/source semantics, no invented healthy/unknown identity |
+| Navigation through either endpoint | Relative device route and IDs | Compliant; actual child return/assistive activation UNVERIFIED |
+| Fade/initial/final item | List lacked reserved fade; detail already reserves 20pt | Matching input-transparent list fade/header spacer; detail fade matches content gutters. Corrected; native initial/final reach UNVERIFIED |
+| Detail loading/error/stale/search/export/save/toast | Snapshot has no such capability | N/A; source list retains busy/error/empty/no-match/refresh and Clear filters |
+| Themes, largest text, screen readers, minimum targets, motion | No final device evidence | Source styles/SearchField/ButtonSearch retained; UNVERIFIED native result |
 
-The permanently stacked layout is the conservative guide-compliant choice for
-narrow panes and large text; it does not introduce a new multi-column breakpoint.
-No shared helper/global edit or accepted-consumer migration is included.
+## Geometry and consumer ownership
 
-## Dependencies and queue
+No shared helper changed. Scoped reuse: PageHeader/BackBar, ButtonSearch,
+CoveredEdges, TabBarButtons, ListDetail, central AppShell activation. Consumers
+of the only changed shared view are NeighboursPage and NeighbourLinkPage,
+both updated together. #450, accepted #451 and #473 graphs are unaffected.
 
-Queue #489 -> #490 -> #491 (#450) -> #492 (#451) -> this PR. Parent updates
-ONLY this branch when its turn arrives, after predecessors land. #490 owns the
-central AppShell activation and BackBar root-title fallback. This PR does not
-copy or edit that central fix; pushed activation now implements its IActivePage
-hook. #491 owns the saved list and #492 the editor and shared setup changes.
-No root-list/search expansion.
-#288 still owns Neighbours mock-ups and global light-theme acceptance.
+On iOS native page owns top container only; layouts/refresh/scroller own no
+additional safe areas; native scroll adjustment is Never. Android retains
+page All. List Body occupies the left ListDetail column; trailing star pane
+reaches page right/bottom, so clear.Right/Bottom pass directly, avoiding stale
+native frames during SizeChanged. Root background and star viewport fill the
+actual available pane, with no guessed height or width cap. Detail content
+owns 16pt side gutters, 20pt fade reserve and 24pt + covered bottom foot.
+List card owns measured base; footer owns only obscured final rows. Top,
+bottom and side pills are distinguished. No pane bottom padding is added.
 
-## Validation and remaining evidence
+## Validation and final device matrix
 
-Claude Opus 5.5 Medium reviewed the full diff at 551d647 against main 95d50a6.
-One medium, three low and two nit findings were addressed: central activation,
-host-relative bottom clearance, honest status colours, omission of blank-only
-fields, prose word wrapping and removal of duplicate glass-move placement.
-Regression assertions cover neutral unknown state, known-up state and blank-only
-fields while retaining exact meaningful field text and endpoint navigation.
-Full intended diff and whitespace were inspected. Unit tests passed in both CI
-runs at the reviewed head, confirming pinned Core compatibility. Android, iOS
-and Swift analysis were pending at review time; replacement CI remains pending.
-No local builds or tests ran. All device results remain unverified.
-Issues remain open and epic boxes untouched.
+Implementation self-inspection: complete diff against c3b584e and DESIGN,
+including staged diff and whitespace. No local builds, tests, scripts or agents.
+Independent full-diff Claude Opus 5.5 Medium review: PENDING, parent-owned.
+CI shared tests, Android, iOS and security: PENDING for revised head. Historical
+#493 review/CI does not validate this correction. No new tests mirror layout;
+existing semantic tests remain for CI. Device acceptance: UNVERIFIED throughout.
 
-Run every row below in light and dark themes, default and large text. Record
-commit/build, OS/device, actual outcome and diagnostics separately; all are
-currently unverified.
+For each row record final PR head SHA, installed build, device/OS, theme/text,
+actual/expected and diagnostics. Final SHA is the PR head containing this
+assessment; no installed final build or OS result exists yet.
 
-| Scenario | Required device evidence |
+| Matrix (all UNVERIFIED) | Required observation |
 | --- | --- |
-| Missing ends/data | Monitored pair; unmonitored remote; missing local/remote port; no metadata; no payload: explicit unknown/absence, no false zero/OK or unrunnable action |
-| Long names | Long local/remote hostname and interface ID, multiline description and MAC/protocol: full content, wrapping and final field reachable |
-| Active/inactive | Active with unknown remote health, inactive, local device/port down and remote device/port down: text independent of colour and correct action description |
-| Endpoint return | Narrow Neighbours -> link -> each device -> Back -> link -> Back actual caller; wide embedded -> each device -> Back host; repeat from pinned and unpinned More stacks |
-| Narrow/split | Resize across split threshold with selection retained, replace detail, reopen; only host-reaching insets, no duplicate Back or glass |
-| Duo | Outer portrait, inner portrait and inner landscape; fold/unfold, rotate and background/resume in pushed and embedded modes, final item above glass |
-| Retained tab | More link -> Devices -> More and resume without Refresh: one correct glass owner and caller label |
-| VoiceOver/TalkBack | Whole action focus/name/state and one activation per tap, full long labels, unavailable action absent; Back meaningful |
-| iPhone | Ordinary iPhone portrait/landscape, header fallback where applicable and iOS glass: top safe area once, full-width matched fade, scroll Never and last-item clearance |
+| Duo outer portrait/landscape; inner portrait/landscape | Pinned root and More-pushed list, narrow pushed link and wide embedded link; fold/rotate without reopening |
+| Ordinary iPhone portrait/landscape; Android; old iOS; iOS26+ | Single safe-area owner, fallback header versus glass, actual caller and no duplicate More/Back |
+| Tab return, child return, background/resume | One glass owner, query/chips/detail retained without refresh; both endpoints return to link then actual opener; saved-list/editor return retains filters |
+| Camera and pills | Capture native page → ListDetail → pane → ContentView → viewport → content bounds; camera reserved bounds, chip clip/content frames and resting tap targets; side/bottom/top pill |
+| Base measurements | Same-coordinate H, pill bottom B, list card bottom V, delta V-B; target zero for measured side/bottom base. Detail viewport/background reaches host foot; content can scroll complete final field above actions |
+| Data states | Synthetic long/multiline names/interfaces/metadata, monitored pair/unmonitored remote, unknown ports, down device/port, inactive discovery, missing payload/fields; no false OK/zero |
+| List states | Cold/refresh busy, empty source/no matches, denied/offline/error retaining data, retry, groups changed/deleted; complete final row reachable |
+| Keyboard | Header/glass/Command-F open and refocus; typing/filter replacement/programmatic Scrolled retains focus; native drag/completion/unfocus dismiss retaining term; restored geometry |
+| Accessibility and appearance | Both themes, largest text, VoiceOver/TalkBack full names/state and activation once, 44pt targets, Reduce Motion/repeated search transitions, initial fade clearance |
 
-Section TestFlight is after #450–#452 land under the parent; obtain separate user
-acceptance for #452 before closure. No hardware outcome is inferred from CI.
+No merge/watch/release/closure/epic ticks. Parent owns independent review, CI
+judgement and sequential merge; later TestFlight/device acceptance is separate.
+
+## Independent review and corrective disposition
+
+Earlier #493 assessment and review provenance remain in this file at main
+c3b584e (before this correction). Historical results do not validate this head.
+
+Claude Opus 5.5 Medium reviewed the complete ce343cb diff against c3b584e.
+Parent substantiated and fixed all four findings: the list fade now lives
+inside the card viewport with Surface/SurfaceClear colours and 1pt inset,
+rather than painting Background over the card stroke; Header, ChipScroll
+and Busy now have 16pt XAML defaults before measured placement; DESIGN.md
+records Alert rules/Neighbours ButtonSearch migration accurately; historical
+assessment provenance is linked above. No shared helper was changed.
+
+Fresh full-diff review and revised-head CI remain pending. All native results
+remain unverified, including first-frame clearance/Back flash, camera clip,
+pill-base delta and reported detail bottom reach on the reporting OS.

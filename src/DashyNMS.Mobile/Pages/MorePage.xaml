@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:shapes="clr-namespace:Microsoft.Maui.Controls.Shapes;assembly=Microsoft.Maui.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:MoreViewModel"
     Shell.NavBarIsVisible="False" Title="More" SafeAreaEdges="Container">
@@ -12,37 +13,68 @@
         <ScrollView x:Name="Scroller" Grid.Row="1" SafeAreaEdges="None">
             <VerticalStackLayout SafeAreaEdges="None" Spacing="8" Padding="0,20,0,0">
                 <Label Style="{StaticResource Caption}" Text="Changes save automatically." />
-                <Label Style="{StaticResource Caption}" Text="{Binding PinnedText}" />
-                <Label Style="{StaticResource Caption}" Text="Pin up to three pages to the tab bar. Dashboard and More always stay. Tabs follow the page order below; pinning does not change their order." />
+                <Label Style="{StaticResource Caption}" Text="{Binding CapacityText}" />
+                <Label Style="{StaticResource Caption}" Text="Dashboard and More always stay. Tabs follow the order below." />
                 <!-- This is a fixed catalogue of eleven pages, not server results. -->
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:MoreGroup">
-                            <VerticalStackLayout>
-                                <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" Spacing="8">
+                            <VerticalStackLayout Spacing="4" Margin="0,16,0,0">
+                                <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" Spacing="0">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:MoreItem">
-                                            <Border Style="{StaticResource Card}" Padding="12">
-                                                <VerticalStackLayout Spacing="8">
-                                                    <Border StrokeThickness="0" BackgroundColor="Transparent" Padding="0,8" MinimumHeightRequest="44"
+                                            <Grid RowDefinitions="Auto,1" ColumnDefinitions="*,44" ColumnSpacing="8" Padding="0,4,0,0">
+                                                <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="48">
+                                                    <VerticalStackLayout Grid.Column="0" Padding="0,8" Spacing="4" VerticalOptions="Center" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                        <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                                                        <Label Style="{StaticResource Caption}" Text="{Binding Summary}" IsVisible="{Binding HasSummary}" LineBreakMode="WordWrap" />
+                                                    </VerticalStackLayout>
+                                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="8,0,0,0" />
+                                                    <Button Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0" Padding="0" Text="" MinimumHeightRequest="48" MinimumWidthRequest="44"
                                                             SemanticProperties.Description="{Binding OpenDescription}"
-                                                            SemanticProperties.Hint="{Binding OpenHint}">
-                                                        <Border.GestureRecognizers>
-                                                            <TapGestureRecognizer Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}" />
-                                                        </Border.GestureRecognizers>
-                                                        <VerticalStackLayout AutomationProperties.ExcludedWithChildren="True" Spacing="4">
-                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding Description}" LineBreakMode="WordWrap" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding PinState}" LineBreakMode="WordWrap" />
-                                                        </VerticalStackLayout>
-                                                    </Border>
-                                                    <Button Style="{StaticResource SecondaryButton}" Text="{Binding PinLabel}" MinimumHeightRequest="44"
+                                                            SemanticProperties.Hint="{Binding OpenHint}"
+                                                            Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}">
+                                                        <VisualStateManager.VisualStateGroups>
+                                                            <VisualStateGroup x:Name="CommonStates">
+                                                                <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Disabled" />
+                                                            </VisualStateGroup>
+                                                        </VisualStateManager.VisualStateGroups>
+                                                        <Button.Style><Style TargetType="Button" /></Button.Style>
+                                                    </Button>
+                                                </Grid>
+                                                <Grid Grid.Column="1" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
+                                                    <!-- Geometry mirrors Icons.Pin; SourceGen cannot convert an x:Static string to Geometry. -->
+                                                    <shapes:Path Data="M9 3H15L14 9L18 12V14H6V12L10 9Z M12 14V21" StrokeLineCap="Round" StrokeLineJoin="Round" StrokeThickness="1.8" WidthRequest="24" HeightRequest="24" Aspect="None"
+                                                        HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False"
+                                                        Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" Fill="Transparent">
+                                                        <shapes:Path.Triggers>
+                                                            <DataTrigger TargetType="shapes:Path" Binding="{Binding IsPinned}" Value="True">
+                                                                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                                <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                                            </DataTrigger>
+                                                        </shapes:Path.Triggers>
+                                                    </shapes:Path>
+                                                    <Button BackgroundColor="Transparent" BorderWidth="0" Padding="0" Text="" MinimumHeightRequest="44" MinimumWidthRequest="44"
                                                             SemanticProperties.Description="{Binding PinDescription}"
                                                             SemanticProperties.Hint="{Binding PinHint}"
-                                                            Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}" />
-                                                </VerticalStackLayout>
-                                            </Border>
+                                                            Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}">
+                                                        <VisualStateManager.VisualStateGroups>
+                                                            <VisualStateGroup x:Name="CommonStates">
+                                                                <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Disabled" />
+                                                            </VisualStateGroup>
+                                                        </VisualStateManager.VisualStateGroups>
+                                                        <Button.Style><Style TargetType="Button" /></Button.Style>
+                                                    </Button>
+                                                </Grid>
+                                                <BoxView Grid.Row="1" Grid.ColumnSpan="2" HeightRequest="1" Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
+                                            </Grid>
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>

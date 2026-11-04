@@ -1,3 +1,111 @@
+# More redesign assessment, 4 November 2026
+
+Refs #453 and #442. Implementation baseline `765b02c`, current main after
+#519–#522. The user explicitly said "Approve as proposed" for
+`/tmp/mobile-442/more-proposal.html` and `more-proposal.md`: quiet headings,
+hairline rows, five retained AppPages summaries, outlined/filled trailing pin
+and a single full-width catalogue at both widths. This approves the visual
+proposal only. The previous device layout was rejected on both screens.
+
+## Current scope assessment
+
+| Concern, location and trigger | Disposition |
+| --- | --- |
+| MorePage catalogue, all widths | Corrected: lightweight rows replace cards. All eleven titles and four groups remain in enum order. Settings remains pinnable. |
+| MoreItem summaries | Corrected: only Health, Map, Network map, Neighbours and Graylog show their exact AppPages.Description. Other source descriptions remain unchanged. |
+| MorePage Open/pin actions | Corrected in source: sibling native buttons, wrapping text, 48pt minimum Open height and separate 44×44 pin. Decorative labels/path excluded. No enclosing row gesture or repeated visible Pin prose. Native focus and activation remain UNVERIFIED. |
+| MoreItem state, full/available/pinned | Corrected: names include target, membership and action or capacity explanation; CanToggle now notifies PinDescription too. Open speaks only retained summary and membership, with route hint. Global capacity line updates with pins. Full-capacity controls remain operable and retain the explanatory dialog. |
+| MoreViewModel ordering and persistence | Compliant: three slots, fixed Dashboard/More, immediate Preferences writes, default Devices/Alerts/Health, enum sorting, missing versus saved-empty and invalid-name filtering unchanged. Zero pins valid. |
+| AppPages/ShellNavigationService/AppShell entry and return | Compliant source, native UNVERIFIED: pinned destinations select existing tabs, unpinned use PushRoute, Resolve retains suffix/query, relative descendants return to actual caller. Pinning does not navigate. Unchanged Tab objects retain stacks. |
+| MorePage activation, tab/child return and resume | Compliant source, native UNVERIFIED: IActivePage claims action-free glass, updates existing items, idempotent watch/Moved, paired disposal. No new global subscriptions. |
+| MorePage safe areas and usable viewport | Compliant source policy, native measurements UNVERIFIED: iOS page owns top only; host star row owns available viewport height, with no extra viewport bottom margin. CoveredEdges owns measured side clearance plus one 16pt gutter; content footer owns 16pt plus measured bottom coverage. Android retains native Container safe areas. No new second inset owner or fixed native offsets. Measure native host/viewport bottom and usable base, not just final-row nonoverlap, for side, bottom and top pills. |
+| Fade, first caption, final Settings row | Compliant source, native UNVERIFIED: retained input-transparent 20pt fade and initial reserve within viewport; endpoints use BackgroundLight #F4F6F9 and BackgroundDark #11141A, matching page background, including transparent RGB. Footer lets final row clear glass. |
+| Themes, text and contrast | Source uses existing Text/Caption tokens and muted TextSecondary outline when not pinned; PrimaryText stroke and fill when pinned against page background, without capacity dimming. Shape and speech identify state independently of colour. Native contrast, target measurement and largest-text reach UNVERIFIED. |
+| Loading/error/search/keyboard, security | N-A: fixed local catalogue, no fetch, search or keyboard. No server, credentials, permissions, source data or preference schema changes. |
+
+Only MorePage, its scoped model presentation, existing navigation regression
+assertions and design/review notes change. Pin geometry is an exact inline copy of Icons.Pin (SourceGen MAUIX2002), without
+editing Icons/IconButton or SettingsOverviewRow. #454 owns Settings; #475's
+separate worktree and #515's fixed-action guidance are untouched. No accepted
+setup page or shared consumer is changed. The reusable catalogue rule is in
+DESIGN.md; no device acceptance is asserted there.
+
+## Validation and exact remaining device procedure
+
+Full intended diff versus current main and DESIGN was self-reviewed; whitespace
+inspection passed before commit. Independent full-diff code review is
+PENDING with the parent. CI shared tests, Android/iOS builds and security checks
+are PENDING. Existing state/route/persistence regression assertions were updated
+for the new capacity-dependent accessible names. No local builds, tests or
+scripts were run. CI is not device evidence.
+
+Every device outcome is **UNVERIFIED**. Use the final PR head SHA from handoff;
+record that exact installed SHA, build number and OS version beside every
+result. No build/OS is available on this code-only machine. Test synthetic
+example.net data only. Run each applicable step on Duo outer, inner portrait,
+inner landscape and an ordinary iPhone, light/dark, normal/largest text and
+TalkBack/VoiceOver, then fold/rotate, tab-return, child-return and foreground
+resume without reopening.
+
+1. Cold launch with missing preferences: Devices/Alerts/Health filled, all
+   eleven routes reachable, Dashboard first/More last and More selected.
+   Read each heading, Open title/retained summary/state/hint and pin name once.
+   Activate each separately, ensuring one action and no navigation from pin.
+2. At full capacity activate Map's outlined pin: exact existing full-bar
+   dialog, no saved change. Unpin Health: capacity and Map's available name
+   update. Pin Map: fill/name/count update, More remains selected. Restart:
+   Devices/Alerts/Map restored in enum order. Repeat Settings as a pin.
+3. Unpin all and restart: saved zero remains zero. Compare missing preference
+   defaults with saved empty, unknown/duplicate/invalid preference names using
+   a controlled synthetic test install. Every catalogue route still opens.
+4. Open every pinned tab and unpinned route, return to More; push relative
+   alert/rule/template/device descendants and Back through actual callers.
+   Smoke Dashboard, Devices, Alerts and previously accepted setup pages.
+   Preserve route IDs, query/filter, selected tab identity and retained stacks.
+5. Return from child/tab and resume with More root versus a retained child:
+   exactly one glass owner, correct Back/search on child and no stale root
+   actions. Repeat rapid push/pop and fold/rotate without Refresh.
+6. Measure page native bounds, host/viewport bounds and pill frame, identifying
+   each inset owner. Record usable viewport bottom relative to host and pill
+   bottom for side/bottom/top pills and camera cases; reject wasted bands even
+   if nothing overlaps. Confirm initial caption below 20pt fade, complete
+   wrapping and final Settings Open/pin reachable above glass with no duplicate
+   inset. Check targets at native scale and contrast in both themes.
+
+## CI failure and independent review disposition
+
+Both platform CI builds at 888805b failed MAUIX2002: SourceGen cannot convert
+Icons.Pin's x:Static string into Path.Data geometry. Parent fixed this using
+the exact inline path with shared-source provenance comment; no icon semantics
+changed. No local builds/tests were run.
+
+Opus 5.5 Medium full-diff review at 888805b found that blocker and a medium
+single-line title alignment mismatch; both are fixed. Parent also fixed muted
+unpinned versus accent pinned stroke, round caps/joins, press/focus visual
+feedback, More-only placement/exception wording under accessibility guidance,
+and exact five-summary regression coverage. Unused compatibility PinState and
+PinLabel properties are retained; they do not affect presentation. Pin remains
+vertically centred for a stable native target; largest-text alignment/reach
+requires explicit device verification rather than a guessed font-size threshold.
+Fresh full-diff review and replacement CI remain pending, all device outcomes
+unverified. Approved proposal is not device acceptance.
+
+Fresh Opus 5.5 Medium full-diff review at 56e6905 found no blockers.
+Parent fixed its low assessment wording finding and documentation spacing;
+no implementation changed after review. Final documentation-head CI pending.
+Also verify live theme changes while a pin is filled, press/ripple shape and
+hardware-keyboard focus tint, separate screen-reader actions, largest-text
+centred pin reach and full-capacity explanatory dialog on the installed build.
+All physical outcomes remain unverified.
+
+Historical assessment below is retained verbatim as evidence of the earlier
+implementation/review, not the current layout or current CI/device status.
+Its per-row state prose and vertical Pin buttons are superseded by the approved
+proposal. Historical review at 2946d88 and associated checks do not validate
+this redesign. Issues remain open until user device acceptance.
+
+---
+
 # More navigation and pinning assessment
 
 Refs #453 and #442. Baseline main `ad42d71`, including merged predecessors through #494.
