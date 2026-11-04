@@ -1,6 +1,6 @@
 # DashyNMS Mobile page design spec
 
-Updated 3 November 2026. Use this spec when creating, changing or reviewing
+Updated 4 November 2026. Use this spec when creating, changing or reviewing
 any mobile page, including tabs, pushed pages, forms, pickers, editors,
 canvases and detail panes. Rules describe the target design; the pattern
 table distinguishes existing implementations awaiting migration.
@@ -97,6 +97,14 @@ contract as recorded in DESIGN-REFERENCES.md.
   buttons for subordinate actions.
 
 ### Action hierarchy
+
+**Every fixed primary action, including “Got it”, must align its bottom edge
+with the base of a vertical menu/tab pill. Use measured shared placement, with
+no extra bottom margin or safe-area padding lifting it above that base. For a
+bottom menu bar, clear the bar and its glass actions; treat a top pill separately.
+Verify this on inside and outside screens, after folding/rotation, keyboard
+dismissal, tab return and resume. A page fails visual acceptance if this
+alignment is wrong.**
 
 Each page has at most one primary action, in the fixed action slot. Remove
 any header or in-form copy of it. Other actions take the lowest role that fits:
@@ -463,6 +471,7 @@ For each page change, record applicable results, including unverified items:
 - [ ] Loading, empty, error and selected states remain readable and retryable
 - [ ] Save/automatic-save and Back cancellation follow the approved contract; failed loads cannot save an empty draft
 - [ ] One primary action; secondary and immediate actions follow the action hierarchy and say what they change
+- [ ] **Fixed primary action aligns with the base of a vertical menu/tab pill, or clears a bottom bar and its actions; verify inside/outside screens and after fold, rotate, keyboard dismissal, tab return and resume**
 - [ ] Screen-reader names, selection states and activation work; drag actions have an accessible alternative
 - [ ] Motion respects Reduce Motion; repeated transitions finish correctly
 - [ ] Relevant shared tests and Android/iOS builds pass
