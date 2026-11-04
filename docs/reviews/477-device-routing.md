@@ -150,8 +150,9 @@ unknowns. AdditionalData retains unmodelled fields in Core, but mobile does not
 display every field, counter or internal identity. Existing compact routing
 facts are preserved; no payload-completeness claim or invented field meaning is
 made. Core returns empty for missing/null collections, throws for non-arrays or
-JSON parsing failures, and maps exact 500/'Error retrieving ospfv3_nbrs' and
-404/'VRFs do not exist' pairs to empty before mobile sees them. Other 500s
+JSON parsing failures, and maps status 500/'Error retrieving ospfv3_nbrs' and
+404/'VRFs do not exist' pairs to empty before mobile sees them, trimming message
+whitespace and comparing messages without case. Status matching is exact. Other 500s
 propagate. CI substitutes typed APIs, so it does not establish valid/malformed
 server-payload completeness. No upstream parser is mirrored or changed.
 
@@ -213,3 +214,15 @@ ordinary iPhone. Repeat light/dark, maximum text, VO/TB and Reduce Motion on/off
 
 Hardware outcomes and user acceptance remain pending. Earlier device steps
 requiring preservation of loader-wide 404 behaviour are superseded by step 3.
+
+Opus 5.5 Medium reviewed the full diff at bf89607 with no blocking bugs.
+Its medium test-gap finding is corrected: denial, 500 and timeout are now
+crossed with all four protocols and both synchronous and faulted delivery.
+For OSPF, OSPFv3 and VRF the unsupported BGP task comes first, directly exposing
+the old masking. BGP is first in task order, so its async mixed-failure cases
+guard already-correct error propagation; its synchronous cases also verify
+all four reads start. Supported-protocol and cancellation regressions remain.
+The Core message-matching description is corrected above. Production code is
+unchanged from the reviewed head. Existing missing-state severity choices are
+preserved (BGP Critical, OSPF Warning), not inferred as new health evidence.
+Final-head CI and all native acceptance remain pending.

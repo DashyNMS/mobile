@@ -1106,19 +1106,13 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
-    [InlineData(0, false)]
-    [InlineData(1, false)]
-    [InlineData(2, false)]
-    [InlineData(3, false)]
-    [InlineData(0, true)]
-    [InlineData(1, true)]
-    [InlineData(2, true)]
-    [InlineData(3, true)]
-    public async Task Missing_routing_protocol_cannot_mask_another_protocol_failure(int failing, bool synchronous)
+    [MemberData(nameof(RoutingFailureCases))]
+    public async Task Missing_routing_protocol_cannot_mask_another_protocol_failure(int failing, int status, bool synchronous)
     {
-        var status = failing switch { 0 => 403, 1 => 500, 2 => 0, _ => 403 };
         SeedRouting();
-        RoutingFailure((failing + 1) % 4, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), synchronous);
+        // BGP is first, so no preceding fault is possible for it. For every
+        // later protocol put the 404 first to reproduce the masking directly.
+        RoutingFailure(failing == 0 ? 1 : 0, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), synchronous);
         var error = new LibreNmsApiException("Protocol unavailable", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
         RoutingFailure(failing, error, synchronous);
         Assert.Same(error, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Routing)));
@@ -1128,6 +1122,12 @@ public sealed class DeviceSectionLoaderTests
         await _client.Routing.Received().ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>());
         await _client.Routing.Received().ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>());
     }
+
+    public static IEnumerable<object[]> RoutingFailureCases =>
+        from source in Enumerable.Range(0, 4)
+        from status in new[] { 403, 500, 0 }
+        from synchronous in new[] { false, true }
+        select new object[] { source, status, synchronous };
 
     [Theory]
     [InlineData(0, false)]
