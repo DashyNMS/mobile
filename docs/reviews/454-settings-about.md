@@ -40,7 +40,7 @@ add duplicate actions. Pressed/focused states use the existing PrimaryTint.
 | Persistence and permissions | Compliant unchanged VM/children. Seven immediate sections keep their automatic-save contracts and dependent fields. Draft thresholds/services/catalogue retain Save/Back, validation, draft Test connection/trust and immediate confirmed secret removal. Permission refusal still says Notifications are off and explains continued checks/system permission. No overview automatic-save claim. |
 | Root/pushed/child/tab return/resume | Compliant source retained: IActivePage.Refresh, idempotent edge watcher and Moved subscription, central Shell resume owner, actual caller Back. No local resume fanout or new lifecycle mechanism. Hardware operation UNVERIFIED. |
 | Usable viewport, fade and final action | Compliant source retained: star viewport, iOS top-only native owner, native scroll adjustment disabled, Android Container edges, measured ForScrolling sides/bottom, single 16pt gutters and footer. The 20pt reserve/fade uses actual page Background resources. No guessed offsets introduced. Actual native base, top/side/bottom pill bounds, overlay clearance and initial/final reach remain UNVERIFIED. |
-| Themes, maximum text and accessible actions | Wrapping, uncapped full-width column, minimum 60pt rows and existing caption/warning colours retained. Native joined action names and independent switch remain. Both-theme feedback added. Actual contrast, speech, focus, rapid activation and fit UNVERIFIED. |
+| Themes, maximum text and accessible actions | Wrapping, uncapped full-width column, minimum 60pt rows and existing caption/warning colours retained. Native joined action names and independent switch remain. Shared translucent PrimaryTint/CriticalTint feedback added; contrast against each theme remains unverified. Actual contrast, speech, focus, rapid activation and fit UNVERIFIED. |
 | Keyboard/search/loading/retry | N/A on overview: no editable fields, search or network list. Existing unknown saved/session states and all loading/refusal behaviour in children unchanged. |
 
 Accepted #405/#412 forms, #457 consent, #459 licences and #450/#451/#460
@@ -76,6 +76,21 @@ privacy/share confirmations, permission refusal and both sign-out paths using
 synthetic data only. Record commit, build, device, OS, theme, text size, reader,
 trigger, actual result and expected correction for each failure. No credentials
 or real network identity belongs in evidence.
+
+### Independent full-diff review disposition
+
+Claude Opus 5.5 Medium reviewed b7386c4 against cf11a41 with no blockers.
+Parent substantiated all four findings: group labels now expose Level2
+headings; the post-What's-new divider appears only when that row is visible,
+avoiding a doubled last-version line; the sharing divider requires both
+sharing rows, avoiding a line through the Diagnostics heading; only the
+hostname title character-wraps, while summary prose keeps word wrapping.
+The logo's fixed horizontal alignment moved to its initialiser. Feedback
+uses shared translucent tints in both themes, with actual contrast unverified.
+Fresh full-diff review and replacement CI are pending. No local tests/builds
+or physical acceptance are claimed. Verify all diagnostics visibility
+combinations and hidden release notes, headings navigation, maximum-text
+host/summary wrapping and press/focus/ripple contrast on the installed head.
 
 ## Historical #496 assessment and review provenance
 

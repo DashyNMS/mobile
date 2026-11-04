@@ -15,7 +15,7 @@
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding Backup.IsOnBackup}" />
       <controls:SettingsOverviewRow ShowChevron="False" Title="Backup address" SummaryTextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
      </VerticalStackLayout>
-    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Preferences" Margin="0,34,0,6" />
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Preferences" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Appearance" Summary="{Binding AppearanceSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
@@ -29,7 +29,7 @@
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasLockScreenWidgets}" />
       <controls:SettingsOverviewRow Title="Lock screen widgets" Summary="{Binding LockScreenSummary}" IsVisible="{Binding HasLockScreenWidgets}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
      </VerticalStackLayout>
-    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Services" Margin="0,34,0,6" />
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Services" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Graylog" Summary="{Binding GraylogStatusText}" Command="{Binding OpenGraylogSettingsCommand}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
@@ -37,7 +37,7 @@
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Sensor definitions" Summary="{Binding SensorDefinitionsSummary}" Command="{Binding OpenSensorDefinitionsCommand}" />
      </VerticalStackLayout>
-    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="About" Margin="0,34,0,6" />
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="About" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,12" Spacing="12">
        <BindableLayout.ItemTemplate>
@@ -52,7 +52,7 @@
        </BindableLayout.ItemTemplate>
       </VerticalStackLayout>
       <controls:SettingsOverviewRow Title="What's new in this version" Summary="{Binding WhatsNewSummary}" IsVisible="{Binding HasWhatsNew}" Command="{Binding OpenWhatsNewCommand}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
+      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasWhatsNew}" />
       <controls:SettingsOverviewRow Title="Privacy policy" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Help and support" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
@@ -61,10 +61,20 @@
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Open-source licences" Command="{Binding OpenLicencesCommand}" />
      </VerticalStackLayout>
-    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Diagnostics" Margin="0,34,0,6" IsVisible="{Binding HasDiagnosticsCard}" />
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Diagnostics" SemanticProperties.HeadingLevel="Level2" Margin="0,34,0,6" IsVisible="{Binding HasDiagnosticsCard}" />
      <VerticalStackLayout IsVisible="{Binding HasDiagnosticsCard}">
       <controls:SettingsOverviewRow Title="Error reports and usage" Summary="{Binding SharingSummary}" IsVisible="{Binding CanChooseSharing}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Diagnostics}" />
-      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding CanShareDiagnostics}" />
+      <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="False">
+       <BoxView.Triggers>
+        <MultiTrigger TargetType="BoxView">
+         <MultiTrigger.Conditions>
+          <BindingCondition Binding="{Binding CanChooseSharing}" Value="True" />
+          <BindingCondition Binding="{Binding CanShareDiagnostics}" Value="True" />
+         </MultiTrigger.Conditions>
+         <Setter Property="IsVisible" Value="True" />
+        </MultiTrigger>
+       </BoxView.Triggers>
+      </BoxView>
       <controls:SettingsOverviewRow ShowChevron="False" Title="Share diagnostics" Summary="What the app did lately, for a bug report" IsVisible="{Binding CanShareDiagnostics}" Command="{Binding ShareDiagnosticsCommand}" />
       <Grid Padding="0,14" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNamesInDiagnostics}">
        <VerticalStackLayout Spacing="4" AutomationProperties.ExcludedWithChildren="True">

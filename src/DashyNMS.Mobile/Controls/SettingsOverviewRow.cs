@@ -12,7 +12,7 @@ public sealed class SettingsOverviewRow : Grid
     public static readonly BindableProperty SummaryTextColorProperty = BindableProperty.Create(nameof(SummaryTextColor), typeof(Color), typeof(SettingsOverviewRow), null, propertyChanged: Changed);
     public static readonly BindableProperty ShowLogoProperty = BindableProperty.Create(nameof(ShowLogo), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
     public static readonly BindableProperty ShowChevronProperty = BindableProperty.Create(nameof(ShowChevron), typeof(bool), typeof(SettingsOverviewRow), true, propertyChanged: Changed);
-    private readonly Image _logo = new() { Source = "dashynms_logo.png", WidthRequest = 54, HeightRequest = 54, VerticalOptions = LayoutOptions.Center, InputTransparent = true, IsVisible = false };
+    private readonly Image _logo = new() { Source = "dashynms_logo.png", WidthRequest = 54, HeightRequest = 54, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center, InputTransparent = true, IsVisible = false };
     private readonly Label _chevron = new() { Style = (Style)Application.Current!.Resources["Chevron"], InputTransparent = true };
     private readonly Label _title = new() { FontSize = 15, FontFamily = "BodySemibold", LineBreakMode = LineBreakMode.WordWrap };
     private readonly Label _summary = new() { Style = (Style)Application.Current!.Resources["Caption"], LineBreakMode = LineBreakMode.WordWrap };
@@ -74,9 +74,7 @@ public sealed class SettingsOverviewRow : Grid
         _title.Text = Title;
         _logo.IsVisible = ShowLogo;
         _title.LineBreakMode = ShowLogo ? LineBreakMode.CharacterWrap : LineBreakMode.WordWrap;
-        _summary.LineBreakMode = ShowLogo ? LineBreakMode.CharacterWrap : LineBreakMode.WordWrap;
         ColumnDefinitions[0].Width = new GridLength(ShowLogo ? 68 : 0);
-        _logo.HorizontalOptions = LayoutOptions.Start;
         _chevron.IsVisible = ShowChevron;
         _summary.Text = Summary;
         if (SummaryTextColor is { } colour) _summary.TextColor = colour;
