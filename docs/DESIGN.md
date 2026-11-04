@@ -436,6 +436,12 @@ acceptance remains separate in [its assessment](reviews/453-more-navigation.md).
 
 ## Data states and persistence
 
+For sections combining independent reads, handle an optional source's 404 at
+that source boundary before joining the requests. Missing membership must not
+discard valid primary records or mask a different source's denial, timeout or
+server failure. Preserve unavailable facts rather than inventing zero counts.
+Exercise mixed faulted tasks as well as synchronous failures in CI regressions.
+
 - Preserve complete server-provided messages, expressions, configuration and
   licence content. Presentation wrapping must not change copied, shared or
   compared source text. Truncated previews must lead to the complete content.

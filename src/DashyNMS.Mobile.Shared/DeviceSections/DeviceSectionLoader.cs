@@ -270,9 +270,9 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> ResourcesAsync(int deviceId, CancellationToken ct)
     {
-        var cpuTask = ResourceCategoryAsync(() => _client.Health.ListProcessorsAsync(deviceId, ct));
-        var memoryTask = ResourceCategoryAsync(() => _client.Health.ListMempoolsAsync(deviceId, ct));
-        var storageTask = ResourceCategoryAsync(() => _client.Health.ListStorageAsync(deviceId, ct));
+        var cpuTask = OptionalSectionSourceAsync(() => _client.Health.ListProcessorsAsync(deviceId, ct));
+        var memoryTask = OptionalSectionSourceAsync(() => _client.Health.ListMempoolsAsync(deviceId, ct));
+        var storageTask = OptionalSectionSourceAsync(() => _client.Health.ListStorageAsync(deviceId, ct));
         await Task.WhenAll(cpuTask, memoryTask, storageTask);
 
         var cpus = cpuTask.Result.Select(p => UsageRow(p.Description ?? "Processor", p.UsagePercent, p.WarningPercent, null, null) with { ResourceKind = "CPU · Processors" });
@@ -284,8 +284,8 @@ public sealed class DeviceSectionLoader
         return Groups(("Processors", cpus), ("Memory", memory), ("Storage", storage));
     }
 
-    /// <summary>Unsupported categories must neither discard supported rows nor mask another category's failure.</summary>
-    private static async Task<IReadOnlyList<T>> ResourceCategoryAsync<T>(Func<Task<IReadOnlyList<T>>> load)
+    /// <summary>A missing source must neither discard supported rows nor mask another source's failure.</summary>
+    private static async Task<IReadOnlyList<T>> OptionalSectionSourceAsync<T>(Func<Task<IReadOnlyList<T>>> load)
     {
         try
         {
@@ -520,8 +520,8 @@ public sealed class DeviceSectionLoader
     private async Task<IReadOnlyList<SectionGroup>> VlansAsync(int deviceId, CancellationToken ct)
     {
         // Like sensors, VLANs only come fleet-wide.
-        var vlansTask = _client.Vlans.ListAsync(ct);
-        var portsTask = _client.Ports.ListForDeviceAsync(deviceId, ct);
+        var vlansTask = OptionalSectionSourceAsync(() => _client.Vlans.ListAsync(ct));
+        var portsTask = OptionalSectionSourceAsync(() => _client.Ports.ListForDeviceAsync(deviceId, ct));
         await Task.WhenAll(vlansTask, portsTask);
 
         var portsPerVlan = portsTask.Result
