@@ -81,3 +81,101 @@ this displayed label; regression coverage checks placeholders and section isolat
 New properties explain unavailable-value semantics in XML comments. Ordering
 documentation now explicitly records unmapped ports first. Final review and
 replacement CI pending; no local tests/builds or hardware acceptance claimed.
+
+## Full-scope reassessment, 4 November 2026
+
+Refs #475 and #442. Clean isolated sole-writer baseline and fetched main:
+`868e526c4b0f31c8fa11a22c55ea869c901cae1a`. Live issue and epic are OPEN,
+both with no comments; live open-PR list is empty. Read their full bodies,
+PR #513 body/comments/state, CLAUDE, DEVELOPING, DESIGN, DESIGN-REFERENCES,
+the reconciled #475 assessment and recurring verification M.
+
+### Reconciliation and ownership before editing
+
+PR #513 is already merged as `2393422164afa149a4f3b0d01969c35e79f5335f`,
+head `8c2de169e1b4562e44bdd0c1b78890924a67961d`. Its complete wrapping,
+missing-MAC speech/search and VLAN-not-reported presentation remain baseline.
+Read every partial diff and untracked assessment in the original checkout
+`/home/tpickup/.t3/worktrees/mobile/t3-1d79352a`, branch fix/475-device-fdb,
+base 2c7f32f. Its FdbLayout loader/row/templates/test changes mostly precede
+#513, and its nested legacy gesture and old unavailable wording must not
+replace current integration. No file there was changed, imported or replayed.
+The old assessment's both-reads-required and viewport-above-glass claims are
+superseded below; historical green CI is not native acceptance.
+
+Mobile owns this loader and shared tests; Core owns API parsing/models.
+The eleven shared page modes are Availability, Sensors, Resources, Ports,
+Neighbours, VLANs, FDB, ARP, Routing, Wireless and Inventory (#469–#479).
+#530 owns measured SectionBody usable-base placement, #534 Ports grid/window
+and non-Port gestures, #535 neighbour speech/theme, #536 VLAN per-read 404
+handling. Preserve those controls and all accepted setup/other-page contracts.
+Only FdbAsync reuses OptionalSectionSourceAsync. Its existing Resources
+processor/memory/storage and VLAN consumers, implementation and semantics
+are unchanged. ARP has the same old multi-read pattern but belongs to #476,
+next; no ARP fix here. No API mirroring or Core package update.
+
+### Complete concern dispositions
+
+C means source compliant, U unverified, NA absent capability. All native
+results are U even where source is C. The confirmed source defect is fixed;
+no unresolved issue comments or unsettled visual decisions were found.
+
+| Concern/mode | Observed source, expected result and disposition |
+| --- | --- |
+| MACs, interfaces, VLAN facts: list and overview | C: endpoint scoped to device; ports join by ID, unknown mapping says port plus returned ID. Order is looked-up interface then raw MAC, ordinal ignore case, unmapped first; duplicates remain. Mac lowercases/colonises when stripping nonhex yields 12 digits; otherwise preserves raw nonblank content; blank becomes dash then explicit missing-MAC presentation. Positive VlanId retains baseline VLAN label, absent/nonpositive gives not reported. Both templates wrap full stacked facts without line limits. U: full source validity and native long unbroken text. |
+| Source provenance | U: pinned dependency is ci.52; local Core checkout `5f7bde53ac05ea75f7cb6dd06a8fae62606f0769` is not proven identical. Its FdbEntry has Id, PortId, DeviceId, MacAddress, nullable VlanId and UpdatedAt. Notably its documentation calls VlanId an internal row ID rather than tag. Baseline mobile displays it directly, ignores UpdatedAt and trusts endpoint scope; omitted int IDs cannot be distinguished from zero. This is a concrete unresolved provenance/meaning concern, not proof ci.52 supplies incorrect tags. Parent must obtain pinned source/package and synthetic payload evidence before claiming VLAN-tag correctness or complete source validity; do not silently resolve or fabricate tags. |
+| Overview | C: totals count all returned entries; stable neutral Worst selection takes three in source order. Empty success hides card, failure clears highlights and retains error card/open action. No nested FDB action. U: actual card speech and activation. |
+| Initial load, empty and no match | C: finite grouped CollectionView, BusyCard, error/Retry, empty success separate from Nothing matches. Corrected F: outer 404 catch after WhenAll could mask ports 403/500/timeout when FDB 404 surfaced first; ports 404 could discard valid FDB rows. Each read now converts only its own 404 to empty before WhenAll; valid rows retain port-ID fallback. Factories run inside async try, including synchronous throws. Other errors/cancellation propagate. Both missing yields empty. |
+| Refresh, offline and retained data | C: existing rows retained while refreshing and after failure with error, no persistent FDB cache or timestamp/freshness claim. Overview failure clears highlights. U: native error/Retry and offline timing. |
+| Routes/scope/security | C: relative DeviceSection route carries device ID, Fdb enum and name from DeviceDetail; actual caller Back is relative. Devices narrow/split, Dashboard, alerts and other device links retain their callers. Captured scope/generation guards reject obsolete results; scope change clears rows. Read-only credential, permission, server-content, routing, storage and export contracts unchanged. U: native navigation/resume and race timing. |
+| Search/filter/keyboard | C: local case-insensitive raw/presented MAC, interface and VLAN search; missing labels scoped to FDB. ButtonSearch opens by header/glass/Command-F on iOS hardware keyboard, retains query on completion/unfocus/real drag, ignores programmatic scrolling. U: native focus/event timing/restoration. NA: FDB filter panel, sorting chooser, editor, comparison, sheet, row destination, fixed primary action and export. |
+| Insets, glass and usable base | C: consume #530 native SectionBody coordinates, measured side/bottom pill base, separate obstruction footer, top-wide/fallback and keyboard precedence; native iOS inset adjustment Never, finite list and 20pt fade spacer. U: actual host/pane/viewport bounds, base delta and final row independently. #475 has no reported individual geometry defect; recurring checkpoint is mandatory, not an asserted failure. |
+| Hierarchy/theme/accessibility/motion | C: neutral themed stacked facts and combined semantic description, children excluded from duplicate speech; no false health/link. Shared reduced-motion search and lifecycle restoration retained. U: both themes/contrast, 44pt actions, largest text, full speech once, native action roles and repeated transitions. |
+| Adaptive/lifecycle | C: existing non-Port adaptive columns, window resize, activation, disposable watcher and glass ownership remain. U: Duo outer/inner portrait/inner landscape, fold/rotation, retained tabs and resume without Appearing, ordinary iPhone, Android/older iOS fallback. |
+
+### Exact remaining native steps and evidence limits
+
+Every following outcome is UNVERIFIED. Record reviewed SHA/build/OS, display,
+orientation, theme and text size. Measure host H, pill bottom B, viewport
+bottom V and V−B in the same native coordinates, plus page/body/list/clip
+bounds and inherited/native insets. Verify viewport base and full final-row
+reach separately. A reachable last row does not prove usable-base alignment.
+
+1. From Devices narrow and split, Dashboard and alert → device, inspect FDB
+   overview then full list and Back. Use synthetic devices 7/8, long interface
+   names, locally administered MACs, missing/unusual MAC, repeated MAC on
+   several interfaces/VLANs, missing port mapping and positive/zero/null VLAN.
+   Compare counts, first three highlights, exact facts and ordering.
+2. Cold-load short, huge and empty tables; search MAC/interface/VLAN/missing
+   labels and no match. Inject FDB 404 with ports 403/500/timeout: error/Retry,
+   never successful empty. Valid FDB plus ports 404 retains records and port
+   IDs; both 404 empty. Independently fail FDB and ports, retry and refresh
+   successfully/unsuccessfully offline. Retained rows must not imply freshness.
+   Start slow device 7 then device 8; obsolete results must not replace scope.
+3. On Duo outer, inner portrait/landscape and ordinary iPhone portrait/landscape,
+   both themes and maximum text, measure H/B/V for side, bottom, top-wide and
+   absent-pill fallback. First heading clears fade; complete last fact scrolls
+   clear. Repeat fold/rotate during loading/search/refresh without reopening.
+   Recheck all eleven modes, including Ports grid/graphs, neighbour graph and
+   Inventory expansion/copy, preserving accepted sibling contracts.
+4. Open search only from actions/Command-F; repeated typing/filter replacement
+   and programmatic scrolling keep focus. Completion, unfocus and real drag
+   close it while retaining query. Reopen/refocus, show/dismiss keyboard,
+   measure base restoration and final row; no placement loop or doubled inset.
+5. Switch tabs away/back, return through callers and background/resume with
+   and without Appearing. Check correct device/title/query, one glass owner
+   and actual Back destination. With VoiceOver/TalkBack hear all facts once,
+   no invented row action, and operate overview/Back/search/Retry. Repeat
+   Reduce Motion and rapid transitions; include Android and older iOS headers.
+
+### Delivery
+
+Added meaningful CI-only regressions for valid FDB plus synchronous/faulted
+ports 404, primary missing plus ports denial/500/timeout, synchronous primary
+factory failure and both missing. Existing Resources/VLAN regressions and all
+sibling tests remain intact. No local build, restore, tests or validation
+scripts run. Full diff versus current main and staged whitespace are inspected
+before push. CI and independent parent Opus 5.5 Medium review/CI judgement
+remain pending, separately from native acceptance and pinned-source evidence.
+No new DESIGN lesson: #536 source handling and #515/#530 alignment already
+cover these rules. No watch, merge, release, issue closure or epic tick.

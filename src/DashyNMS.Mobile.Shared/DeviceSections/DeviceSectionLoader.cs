@@ -544,8 +544,8 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> FdbAsync(int deviceId, CancellationToken ct)
     {
-        var fdbTask = _client.Fdb.ListForDeviceAsync(deviceId, ct);
-        var portsTask = _client.Ports.ListForDeviceAsync(deviceId, ct);
+        var fdbTask = OptionalSectionSourceAsync(() => _client.Fdb.ListForDeviceAsync(deviceId, ct));
+        var portsTask = OptionalSectionSourceAsync(() => _client.Ports.ListForDeviceAsync(deviceId, ct));
         await Task.WhenAll(fdbTask, portsTask);
 
         var ports = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);

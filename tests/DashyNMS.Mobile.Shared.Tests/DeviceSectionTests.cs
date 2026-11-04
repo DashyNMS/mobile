@@ -710,6 +710,53 @@ public sealed class DeviceSectionLoaderTests
         Assert.False(new SectionRow("Other section").Matches("unavailable"));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Missing_ports_preserve_fdb_facts_and_port_identity(bool synchronous)
+    {
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            new[] { new FdbEntry { PortId = 99, MacAddress = "020000000001", VlanId = 10 } });
+        var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
+        if (synchronous)
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw missing);
+        else
+            _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Fdb)));
+        Assert.Equal("02:00:00:00:00:01", row.Title);
+        Assert.Equal("port 99", row.Subtitle);
+        Assert.Equal("VLAN 10", row.FdbVlanText);
+        Assert.True(row.FdbLayout);
+        Assert.False(row.IsLink);
+    }
+
+    [Theory]
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    public async Task Missing_fdb_source_does_not_mask_port_failure(int status, bool synchronous)
+    {
+        var missing = new LibreNmsApiException("No FDB", System.Net.HttpStatusCode.NotFound);
+        var failure = new LibreNmsApiException("Ports failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        if (synchronous)
+            _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<FdbEntry>>(_ => throw missing);
+        else
+            _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<FdbEntry>>(missing));
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(failure));
+        Assert.Same(failure, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Fdb)));
+        await _client.Ports.Received(1).ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Both_missing_fdb_sources_remain_an_empty_section()
+    {
+        var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<FdbEntry>>(missing));
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Port>>(missing));
+        Assert.Empty(await Load(DeviceSection.Fdb));
+    }
+
     [Fact]
     public async Task Fdb_keeps_interface_order_mac_formatting_and_complete_context()
     {
