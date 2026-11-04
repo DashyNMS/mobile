@@ -4,17 +4,16 @@
  xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
  xmlns:topo="clr-namespace:DashyNMS.Mobile.Topology;assembly=DashyNMS.Mobile.Shared"
  x:DataType="topo:NeighbourGroupsViewModel" SafeAreaEdges="All" Title="Neighbourhoods">
- <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,*" Padding="16,0">
-  <controls:BackBar x:Name="TopBar">
-   <controls:BackBar.Actions><Button Text="Add" Style="{StaticResource LinkButton}" Command="{Binding AddCommand}" MinimumHeightRequest="44" /></controls:BackBar.Actions>
-  </controls:BackBar>
-  <Label Grid.Row="1" Style="{StaticResource PageTitle}" Text="Neighbourhoods" SemanticProperties.HeadingLevel="Level1" />
-  <VerticalStackLayout Grid.Row="2" Spacing="6">
+ <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,*" Padding="16,0">
+  <controls:PageHeader x:Name="Header" Title="Neighbourhoods">
+   <controls:PageHeader.Actions><Button x:Name="AddButton" Text="Add" Style="{StaticResource LinkButton}" Command="{Binding AddCommand}" MinimumHeightRequest="44" /></controls:PageHeader.Actions>
+  </controls:PageHeader>
+  <VerticalStackLayout Grid.Row="1" Spacing="6">
    <Label Style="{StaticResource Caption}" Text="Group neighbours by their announced name, description, port or protocol, or the switch and port they use. These use desktop's neighbour view definitions. Reordering and deletion save immediately." />
    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
    <Button Text="Retry neighbour counts" MinimumHeightRequest="44" IsEnabled="{Binding IsNotBusy}" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCountsCommand}" IsVisible="{Binding HasError}" />
   </VerticalStackLayout>
-  <Grid Grid.Row="3" SafeAreaEdges="None">
+  <Grid Grid.Row="2" SafeAreaEdges="None">
    <RefreshView x:Name="PullRefresh" SafeAreaEdges="None" Command="{Binding RetryCountsCommand}">
     <CollectionView x:Name="List" ItemsSource="{Binding Groups}" SelectionMode="None">
      <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
