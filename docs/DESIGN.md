@@ -317,6 +317,27 @@ and selection contracts remain unchanged.
 
 ## Adaptive content and accessibility
 
+### Approved Settings overview hierarchy
+
+The 4 November 2026 #454 proposal was explicitly approved for implementation.
+Settings uses one full-width column on narrow and wide displays. Restore the
+repository DashyNMS mark beside the wrapping session server identity. Separate
+Preferences, Services, embedded About and conditional Diagnostics with generous
+space, quiet headings and hairline navigation rows. Lock screen widgets belongs
+after Health thresholds in Preferences. Keep Sign out isolated below the groups.
+This decision is specific to Settings and does not approve other page redesigns.
+
+Retain every existing dynamic summary and explanatory sentence in full.
+Component versions are read-only name/version/state stacks; About stays inline.
+Navigation gets a chevron; explanations, switches and immediate actions keep
+distinct targets. Logo and chevrons are decorative. The overview must not claim
+all children save automatically, because services and thresholds use drafts.
+Proposal approval does not establish device acceptance. See the complete source
+map, historical rejected layout and pending matrix in
+[the Settings assessment](reviews/454-settings-about.md).
+
+### Shared adaptive rules
+
 - Dashboard and editor share `DashboardColumns.Count`, with 340pt minimum
   columns, 12pt gaps and a three-column limit. Use available content width
   after clearances, and read across then down. Other page types use their
