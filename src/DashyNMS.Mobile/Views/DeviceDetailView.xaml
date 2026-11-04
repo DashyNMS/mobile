@@ -120,6 +120,12 @@
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
+                                            <VerticalStackLayout IsVisible="{Binding ArpLayout}" Spacing="3"
+                                                                 SemanticProperties.Description="{Binding ArpDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding ArpIpText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding ArpMacText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding ArpInterfaceText}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <VerticalStackLayout IsVisible="{Binding FdbLayout}" Spacing="3"
                                                                  SemanticProperties.Description="{Binding FdbDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding FdbMacText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
@@ -136,6 +142,9 @@
                                             <Label Text="{Binding PortSummary}" TextColor="{Binding Status, Converter={StaticResource StatusText}}" IsVisible="{Binding PortLayout}" LineBreakMode="WordWrap" FontSize="13" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Grid.Triggers>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding ArpLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding FdbLayout}" Value="True">
                                                         <Setter Property="IsVisible" Value="False" />
                                                     </DataTrigger>

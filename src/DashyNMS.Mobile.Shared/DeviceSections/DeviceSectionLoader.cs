@@ -526,8 +526,9 @@ public sealed class DeviceSectionLoader
             .OrderBy(e => IpSortKey(e.Ipv4Address))
             .Select(e => new SectionRow(e.Ipv4Address ?? "—")
             {
+                ArpLayout = true,
                 Subtitle = Mac(e.MacAddress),
-                Value = ports.GetValueOrDefault(e.PortId),
+                Value = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
             });
 
         return Groups(("ARP entries", rows));
