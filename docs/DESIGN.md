@@ -160,7 +160,9 @@ Native scroll inset adjustment is disabled on the supplied scrollers.
 `SetupActionPlacement` aligns the action with a measured side pill, clears a
 bottom pill and its actions, and treats a top pill separately. If measurement
 is unavailable, it falls back to native bottom and extra glass clearance.
-The action's own bottom margin must be zero to preserve alignment.
+Within SetupLayout, the action's own bottom margin must be zero because
+the layout owns the gap. Other fixed-action hosts may put the measured gap in
+the action margin instead; it must still have exactly one owner.
 Side-pill alignment uses `max(0, native height - pill bottom)`, matching
 Devices/Alerts in `TabAlignedListLayout`. Do not clamp this measured gap to
 the native bottom inset, which can lift the action a few points above the
@@ -179,6 +181,11 @@ Floating iPad keyboard obstruction remains a device check.
 Content may move beneath glass as it scrolls. Controls at rest and the final
 scroll position must stay reachable. Scrolling cards always clear a side pill's
 column. Canvas backgrounds and chips scrolled out of sight may pass beneath it.
+
+**Use all available pane space after measured camera/glass clearance and the
+page gutters. Keep scrolling viewports finite and reserve the actual wrapped
+height of fixed actions outside them. Give each inset one owner so extra
+padding cannot shrink the usable area or lift an action above the pill base.**
 
 For pages adopting the edge-to-edge pattern:
 
@@ -219,7 +226,9 @@ XML alone does not validate MAUI properties or binding types.
 
 ## Header, glass and navigation
 
-On iOS 26+, top-level page actions and optional search belong to `TabBarButtons`.
+**On iOS 26+, all page actions other than the fixed primary action, and
+optional search, on top-level and pushed pages alike, belong to `TabBarButtons`. Back-only glass does not satisfy this
+rule when a pushed page has other actions.**
 Android and older iOS keep header icons through `IconButton` and `Icons`.
 Form submission follows the fixed primary-action layout above; preserve each
 form's save rules unless its issue explicitly changes them. Keep page actions
@@ -232,6 +241,8 @@ to two to four and leave rare actions in context menus.
 - Pushed pages use `chevron.backward`, `BackBar.PreviousTitle(page)` for the
   accessible label and relative back navigation. Hide their header Back on
   iOS 26+; keep it on older iOS and Android.
+  **Every pushed page must reclaim its caller Back in glass on iOS 26+ after
+  child return, retained-tab return and resume, with one active glass owner.**
 - Open descendants with relative routes so Back returns to the actual
   caller. Test each entry path, child return and app resume for one glass
   owner. Cover Dashboard → Edit → Add/Set up → Back and alert → device → backups.

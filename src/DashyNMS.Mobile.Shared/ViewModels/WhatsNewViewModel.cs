@@ -38,8 +38,8 @@ public sealed partial class WhatsNewViewModel : ObservableObject
             .ToList() ?? [];
     }
 
-    /// <summary>"What's new in 2.0.0".</summary>
-    public string Title => $"What's new in {_whatsNew.Notes?.Version ?? _whatsNew.CurrentVersion}";
+    /// <summary>The parsed release version, without repeating the page title.</summary>
+    public string Version => $"Version {_whatsNew.Notes?.Version ?? _whatsNew.CurrentVersion}";
 
     public string? Released => _whatsNew.Notes?.Released;
 

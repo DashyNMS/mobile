@@ -85,6 +85,15 @@ public sealed class WhatsNewTests
     }
 
     [Fact]
+    public void Missing_notes_show_the_current_app_version()
+    {
+        var service = new WhatsNew(_settings, string.Empty, "2.0.1");
+        var vm = new WhatsNewViewModel(service, _navigation);
+        Assert.True(vm.NotesUnavailable);
+        Assert.Equal("Version 2.0.1", vm.Version);
+    }
+
+    [Fact]
     public void Long_continued_text_and_markup_are_preserved_as_plain_text()
     {
         var url = "https://example.net/" + new string('a', 400);
@@ -170,7 +179,7 @@ public sealed class WhatsNewTests
     {
         var vm = new WhatsNewViewModel(NewWhatsNew(), _navigation);
 
-        Assert.Equal("What's new in 2.0.0", vm.Title);
+        Assert.Equal("Version 2.0.0", vm.Version);
         Assert.Equal("Released 30 November 2026", vm.Released);
         Assert.Equal(["New", "Fixed"], vm.Groups.Select(g => g.Name));
         Assert.Equal(("Alert groups", "Faults grouped by device and rule.", "tab_alerts.png"),

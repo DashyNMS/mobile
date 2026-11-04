@@ -40,6 +40,10 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         Scroller.HandlerChanged += OnChanged;
         Scroller.Loaded -= OnChanged;
         Scroller.Loaded += OnChanged;
+        Root.SizeChanged -= OnChanged;
+        Root.SizeChanged += OnChanged;
+        GotIt.SizeChanged -= OnChanged;
+        GotIt.SizeChanged += OnChanged;
 #if IOS
         TabBarButtons.Moved -= OnChanged;
         TabBarButtons.Moved += OnChanged;
@@ -63,6 +67,8 @@ public partial class WhatsNewPage : ContentPage, IActivePage
         _edges = null;
         Scroller.HandlerChanged -= OnChanged;
         Scroller.Loaded -= OnChanged;
+        Root.SizeChanged -= OnChanged;
+        GotIt.SizeChanged -= OnChanged;
 #if IOS
         TabBarButtons.Moved -= OnChanged;
         TabBarButtons.Hide(this);
@@ -83,9 +89,25 @@ public partial class WhatsNewPage : ContentPage, IActivePage
     {
         if (!_visible) return;
         var edges = CoveredEdges.ForScrolling(this);
+        var actionHeight = Root.Height;
+        var bottom = SetupActionPlacement.BottomGap(actionHeight, edges.Bottom, null, []);
+#if IOS
+        if (Root.Handler?.PlatformView is UIKit.UIView view)
+        {
+            actionHeight = view.Bounds.Height;
+            OccupiedArea? pill = TabBarButtons.PillIn(view) is { } bar
+                ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(view)
+                .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
+            bottom = SetupActionPlacement.BottomGap(view.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+        }
+#endif
         Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
         Body.Padding = new Thickness(16 + edges.Left, 20, 16 + edges.Right, 24);
-        GotIt.Margin = new Thickness(16 + edges.Left, 12, 16 + edges.Right, 16 + edges.Bottom);
+        // The Auto row reserves the wrapped action; the measured gap is its only bottom inset.
+        var actionMargin = new Thickness(16 + edges.Left, 12, 16 + edges.Right, bottom);
+        if (actionHeight > 0 && GotIt.Margin != actionMargin) GotIt.Margin = actionMargin;
         Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 #if IOS
         if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
