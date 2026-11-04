@@ -217,3 +217,11 @@ rotate and width-only resize remain explicit device checks. The ChipScroll
 SizeChanged nit is retained: harmless, idempotent placement also covers chip
 geometry updates. Fresh revised-head independent review and CI are pending.
 No device result or acceptance is inferred.
+
+Fresh Opus 5.5 Medium full-diff review at 4710d25 confirmed the inset fix
+and found no blockers. Its low robustness finding is fixed with 16pt XAML
+side defaults on each slot (chip padding stays internal); measured placement
+overwrites these once current-page activation runs. This avoids a possible
+initial edge-to-edge frame without changing measured layout or ownership.
+The stale converted-bounds PR wording is corrected. No behavioural code
+changed after this review; final-head CI and physical checks remain pending.
