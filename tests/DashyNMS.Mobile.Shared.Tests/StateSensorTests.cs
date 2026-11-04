@@ -19,6 +19,37 @@ public sealed class StateSensorDisplayTests
         StateDefinition = state,
     };
 
+    [Theory]
+    [InlineData(AlertSeverity.Critical, RowStatus.Critical, "Critical")]
+    [InlineData(AlertSeverity.Warning, RowStatus.Warning, "Warning")]
+    [InlineData(AlertSeverity.Ok, RowStatus.Ok, "OK")]
+    [InlineData(AlertSeverity.Unknown, RowStatus.None, "Unknown")]
+    public void State_rows_without_numeric_limits_keep_definition_health(
+        AlertSeverity severity, RowStatus expectedStatus, string expectedText)
+    {
+        var sensor = FanState(new("Synthetic state", severity, severity != AlertSeverity.Unknown, "example/fan", "1.0.0"));
+        sensor.LimitHigh = null;
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+
+        Assert.Equal(expectedStatus, row.Status);
+        Assert.Equal(expectedText, row.SensorStatusText);
+        Assert.Equal("Synthetic state", row.Value);
+        Assert.Equal("Raw value: 2", row.Subtitle);
+        Assert.Contains(expectedText, row.SensorDescription);
+        Assert.True(row.Matches(expectedText));
+    }
+
+    [Fact]
+    public void Unresolved_state_without_numeric_limits_remains_unknown()
+    {
+        var sensor = FanState(SensorStateResolution.Unresolved);
+        sensor.LimitHigh = null;
+        var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.Equal("Unknown", row.SensorStatusText);
+        Assert.Equal("2", row.Value);
+    }
+
     [Fact]
     public void A_defined_state_shows_its_name_and_colour_with_the_number_beneath()
     {

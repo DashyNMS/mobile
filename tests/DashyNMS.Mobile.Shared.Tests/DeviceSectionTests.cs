@@ -120,7 +120,7 @@ public sealed class DeviceSectionLoaderTests
         var row = DeviceSectionLoader.SensorRow(sensor, new AppSettings());
         Assert.Equal("No limits", row.SensorStatusText);
         Assert.Contains("No limits", row.SensorDescription);
-        Assert.Equal(DeviceSectionLoader.ReadSensor(sensor, new AppSettings()).Status, row.Status);
+        Assert.Equal(RowStatus.None, row.Status);
     }
 
     [Fact]

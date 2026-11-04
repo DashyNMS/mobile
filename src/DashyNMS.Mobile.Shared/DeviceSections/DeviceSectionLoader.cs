@@ -163,14 +163,18 @@ public sealed class DeviceSectionLoader
     internal static SectionRow SensorRow(Sensor sensor, AppSettings settings)
     {
         var reading = ReadSensor(sensor, settings);
+        // A definition supplies state health independently of numeric limits.
+        // An unassessed numeric reading must not acquire an OK colour either.
+        var unassessed = sensor.StateDefinition is null
+            && SensorCategoryRegistry.Resolve(sensor.SensorClass) is null
+            && sensor.LimitLow is null && sensor.LimitLowWarn is null
+            && sensor.LimitHighWarn is null && sensor.LimitHigh is null;
         return new SectionRow(reading.Name)
         {
             SensorLayout = true,
             SensorKind = SensorClassName(sensor.SensorClass),
             SensorStatusText = !sensor.HasReading ? "Reading unavailable"
-                : SensorCategoryRegistry.Resolve(sensor.SensorClass) is null
-                    && sensor.LimitLow is null && sensor.LimitLowWarn is null
-                    && sensor.LimitHighWarn is null && sensor.LimitHigh is null ? "No limits"
+                : unassessed ? "No limits"
                 : reading.Status switch
             {
                 RowStatus.Ok => "OK",
@@ -180,7 +184,7 @@ public sealed class DeviceSectionLoader
                 _ => "Unknown",
             },
             Value = reading.Value,
-            Status = reading.Status,
+            Status = unassessed ? RowStatus.None : reading.Status,
             Subtitle = reading.Limits,
         };
     }
