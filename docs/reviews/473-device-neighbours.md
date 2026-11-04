@@ -40,9 +40,9 @@ physical acceptance claim. Every native result is U.
 | Narrow graph dimensions | C existing policy: finite parent body, graph height min(280, 35% of body height), internal vertical ScrollView, measured name lanes at least 60pt, content height at least 240pt. Remaining list uses star row. U actual AbsoluteLayout scroll extent, long-name fit, short body and keyboard-open list availability. No geometry redesign approved or implemented. |
 | Wide graph dimensions | C existing policy: at 800pt page width after sides, graph spans both rows beside finite list; graph margin uses overlayBottom, list uses pill-base gap/footer. U actual pane width versus page width, three node lanes, widest names, resize/scroll reach, split transition, live font/theme changes without rebuilding. Native measurements required before altering policy. |
 | Node/list selection and search | C: filtered Groups feed graph; Picked assigns same row and ScrollTo(group, Start), animation obeys ReducedMotion. Row gesture opens device. ButtonSearch checks native drag and list disables KeyboardDismiss.OnScroll; filtering/programmatic scroll must retain focus/query. U native selected outline, selection removed by filtering and refresh, focus after node tap, graph drag versus list drag. |
-| Unknown and inactive states | C: only explicit local up/down classified; absent/testing unknown neutral. Inactive discovery has precedence. Complete textual local state, speed, in/out bits and Seen by retained; invalid/negative/nonfinite/overflow traffic unknown, zero valid. No inferred remote health. Inactive graph-border meaning in speech and visual contrast U; no new health fact invented. |
+| Unknown and inactive states | C: only explicit local up/down classified; absent/testing unknown neutral. Inactive discovery has precedence. Complete textual local state, speed, in/out bits and Seen by retained; invalid/negative/nonfinite/overflow traffic unknown, zero valid. No inferred remote health. F: complete node speech includes Local port state: Not active, matching the inactive border. Native speech delivery and visual contrast U; no new health fact invented. |
 | All data states | C: first-load busy, empty source distinct from no match, error suppresses empty, Retry and refresh use serial generation guard. Neighbours retain old rows on refresh/failure, so readings are not fresh-health evidence. Optional non-auth port failure permits unknown readings; required links failure stays error. Offline/denied/timeout, refresh failure and slow device switch U on native. |
-| Text, hierarchy and themes | C: full wrapping neighbour summary and graph node names; no source truncation added. U both themes/contrast, maximum text, graph live theme/font refresh and minimum hit areas after native measurement. |
+| Text, hierarchy and themes | C: full wrapping neighbour summary and graph node names; no source truncation added. F: centre keeps the previous semibold font and measurement uses the same font. The confirmed stale live-theme graph colours now rebuild through a paired Loaded/Unloaded theme subscription, including lines and unknown borders. U native contrast, maximum text, live font remeasurement and minimum hit areas. |
 | Glass, fade and insets | C: list-column fade and 20pt header, finite Refresh viewport and footer, wide graph independent clearance. #530 and #534 remain dependencies, not acceptance. U native body/pane inheritance, graph clipping, base extent and final row reach separately. |
 | Retained activation and motion | C: Activate restores glass/header/watch, graph snapshot and placement; disappearance removes window/edge/keyboard observers. Existing ReducedMotion search/scroll policy retained. U repeated activation, child return, background/resume and fold during load/search. |
 | Filters, persistence, security | C: transient query, no neighbour sort/group panel, server facts/ordering, naming preferences, permissions, authentication, credentials and package unchanged. N/A draft Save, export, comparison and server writes. No new storage, API or health rules. |
@@ -66,6 +66,21 @@ global mock-up ownership. DESIGN already records measured-base and fixed-action
 lessons from #530/#515; this PR adds only the graph action/readout lesson.
 
 ## Exact remaining verification, all UNVERIFIED
+
+### Independent review corrections
+
+Opus 5.5 Medium reviewed fd8a254 against 476ba15. Three findings were
+substantiated: the new centre Label inherited regular rather than the original
+Button's semibold font; graph colours were snapshots with no live-theme update;
+and inactive-state speech was incorrectly recorded as uncertain despite the
+explicit Not active fact. Fixed all three. The centre and measuring Label now
+use BodySemibold. A Loaded/Unloaded-paired RequestedThemeChanged observer rebuilds
+the graph on a theme change; repeated attachment unsubscribes first, and queued
+callbacks check the observer is still attached. This updates node text, fills,
+borders and connecting lines together without changing status meanings.
+Shared consumers remain DeviceSectionPage's device-neighbour graph only.
+Fresh full-diff review and replacement CI remain pending. Native theme-switch
+focus, font-scale changes, long semibold names and readout roles remain unverified.
 
 Record final SHA, CI build, OS, display, theme, text size and individual outcome.
 Use synthetic example.net and edge.example.net, IDs 7/8 and long port names.

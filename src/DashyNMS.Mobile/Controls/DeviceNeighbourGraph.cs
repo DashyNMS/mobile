@@ -17,6 +17,7 @@ public sealed class DeviceNeighbourGraph : ContentView
     private IReadOnlyList<SectionRow> _rows = [];
     private string _device = string.Empty;
     private double _lastWidth;
+    private Application? _themeSource;
 
     public event Action<SectionRow>? Picked;
 
@@ -24,11 +25,31 @@ public sealed class DeviceNeighbourGraph : ContentView
     {
         _lines = new GraphicsView { Drawable = _drawing, InputTransparent = true };
         Content = new ScrollView { Content = _layout };
+        Loaded += (_, _) =>
+        {
+            StopWatchingTheme();
+            _themeSource = Application.Current;
+            if (_themeSource is not null) _themeSource.RequestedThemeChanged += OnThemeChanged;
+            Rebuild();
+        };
+        Unloaded += (_, _) => StopWatchingTheme();
         SizeChanged += (_, _) =>
         {
             if (Width > 0 && Math.Abs(Width - _lastWidth) > 1) Rebuild();
         };
     }
+
+    private void StopWatchingTheme()
+    {
+        if (_themeSource is not null) _themeSource.RequestedThemeChanged -= OnThemeChanged;
+        _themeSource = null;
+    }
+
+    private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => Dispatcher.Dispatch(() =>
+    {
+        // A queued theme callback must not rebuild a departed graph.
+        if (_themeSource is not null) Rebuild();
+    });
 
     public void Update(IReadOnlyList<SectionRow> rows, string device)
     {
@@ -69,7 +90,7 @@ public sealed class DeviceNeighbourGraph : ContentView
 
         double NodeHeight(string name)
         {
-            var label = new Label { Text = name, FontSize = 12, LineBreakMode = LineBreakMode.CharacterWrap };
+            var label = new Label { Text = name, FontFamily = "BodySemibold", FontSize = 12, LineBreakMode = LineBreakMode.CharacterWrap };
             return ((Microsoft.Maui.IView)label).Measure(nodeWidth - 10, double.PositiveInfinity).Height + 24;
         }
 
@@ -80,7 +101,7 @@ public sealed class DeviceNeighbourGraph : ContentView
                 // The centre identifies this device; it has no selection action.
                 var label = new Label
                 {
-                    Text = name, FontSize = 12, TextColor = text,
+                    Text = name, FontFamily = "BodySemibold", FontSize = 12, TextColor = text,
                     LineBreakMode = LineBreakMode.CharacterWrap,
                     HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center,
                 };
