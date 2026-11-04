@@ -88,7 +88,6 @@ internal sealed class PushedListLayout
                 _bottomAction.PropertyChanged += OnActionChanged;
             }
 #if IOS
-            Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
             TabBarButtons.Moved += OnChanged;
             _observers.Add(UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
             {
@@ -104,6 +103,8 @@ internal sealed class PushedListLayout
         }
         _header.Apply(_page);
 #if IOS
+        // A departing sibling may reconnect after our first Appearing. Reclaim on activation.
+        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
         ShowGlass();
 #endif
         Place();

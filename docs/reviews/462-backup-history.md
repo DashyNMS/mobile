@@ -150,10 +150,10 @@ branches to recreate. Unrelated #475 worktrees and other branches are untouched.
 | Device identity, rows, exact timestamps and status | Compliant source baseline: both device IDs, backup IDs, local seconds/offset, honest unknown dates/formats and Current revision label, wrapping and joined selected-state description retained. Maximum text and speech unverified. |
 | Matching and unavailable/error/empty | Compliant baseline: original candidate priority, ambiguity refusal, matched-empty versus unmatched versus unavailable, denied request error and retained same-connection rows remain intact. No loader/matcher/API edits. |
 | View/diff actions and dynamic 0/1/2 selections | Corrected command availability for toggle/submit during busy/navigation; source membership/revision guards, third-choice replacement, deselection, Cancel clearing and older-first exact-ID diff remain. Native double-tap/overflow operation unverified. |
-| Child return, retained tab and resume | Corrected: central IActivePage activation restores controls without requesting a load. Actual Appearing retains EnsureLoadedAsync. Watches/listeners are idempotent and disposed on Hide; queued placement/taps check active ownership. Native result unverified. |
+| Child return, retained tab and resume | Corrected: central IActivePage activation restores controls and retains the guarded EnsureLoadedAsync connection-revision check and failed-first-load retry; unchanged loaded history is not refetched. Watches/listeners are idempotent and disposed on Hide; queued placement/taps check active ownership. Native result unverified. |
 | Source/export/navigation/permissions/persistence | Compliant: no bytes, sharing, relative routes, IDs, settings/token storage, permissions or job semantics changed. No Backup now or new capability. |
 | Search, form Save and backup jobs in history | N/A: absent capabilities; none invented. Child search remains with #463; child Share with #463/#464. |
-| Keyboard in shared contents consumer | Corrected shared clearance observes docked keyboard and restores placement on dismissal; Android retains native safe-area/resize handling. Floating keyboard, focused-field reach and drag behaviour unverified; #463 owns search behaviour. |
+| Keyboard in shared contents consumer | Corrected shared clearance observes docked keyboard and restores placement on dismissal; Android now explicitly uses All rather than Container, adding keyboard resize and a 12pt host bottom gap; native effects require device checks. Floating keyboard, focused-field reach and drag behaviour unverified; #463 owns search behaviour. |
 | Fade and initial content | Compliant source: 20pt input-transparent fade inside card with matching Surface RGB; 20pt list header plus empty-state spacing retained. Native first-row/empty rendering unverified. |
 
 ### Shared ownership and complete consumer inventory
@@ -208,3 +208,20 @@ SHA, build, OS, device, theme, text size and individual measured results:
   overflow callback/selection/cancellation with reserved regions present.
 
 No acceptance, issue closure, epic tick, merge, release or watcher is performed.
+
+### Independent review disposition
+
+Opus 5.5 Medium at d756e811 found one blocking medium regression and three
+low findings. Parent fixed retained activation: EnsureLoadedAsync again
+checks connection revision and retries failed first loads on Activate, with
+no fetch for unchanged loaded history. Cancel permits existing comparison
+mode independently of revision while navigation/busy guards remain.
+Keyboard auto-scroll Disconnect now runs on every activation so departing
+siblings cannot leave the current helper reconnected. Glass state callbacks
+are dispatched after native taps and check active state on delivery.
+
+Android behaviour is explicitly changed for all three consumers: native All
+adds keyboard resize, and no-pill fallback adds 12pt Body bottom padding.
+Verify visible keyboard dismissal, viewport/final-line reach and both themes
+on Android; these are not unchanged or accepted results. Fresh full-diff
+review and replacement CI pending; every physical outcome unverified.

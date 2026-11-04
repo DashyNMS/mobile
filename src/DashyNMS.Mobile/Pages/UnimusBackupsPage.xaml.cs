@@ -44,10 +44,9 @@ public partial class UnimusBackupsPage : ContentPage, IQueryAttributable, IActiv
 	{
 		base.OnAppearing();
 		Activate();
-        _ = _viewModel.EnsureLoadedAsync();
 	}
 
-    /// <summary>Restores retained history controls without refreshing or resetting selection.</summary>
+    /// <summary>Restores controls and checks connection revision without reloading unchanged history.</summary>
     public void Activate()
     {
         if (!_active)
@@ -59,10 +58,11 @@ public partial class UnimusBackupsPage : ContentPage, IQueryAttributable, IActiv
         }
         UpdateActions();
         _layout.Activate();
+        _ = _viewModel.EnsureLoadedAsync();
     }
 
-    private void OnStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => UpdateActions();
-    private void OnCommandChanged(object? sender, EventArgs e) => UpdateActions();
+    private void OnStateChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => Dispatcher.Dispatch(UpdateActions);
+    private void OnCommandChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(UpdateActions);
 
     private void UpdateActions()
     {

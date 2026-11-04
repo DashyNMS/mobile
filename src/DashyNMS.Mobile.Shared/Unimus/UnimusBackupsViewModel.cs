@@ -232,7 +232,7 @@ public sealed partial class UnimusBackupsViewModel : ViewModelBase, IRefreshable
     }
 
     private bool CanToggleCompare() => !IsBusy && !OpenCommand.IsRunning && !CompareSelectedCommand.IsRunning
-        && _loadedRevision == _setup.Revision && (IsComparing || CanCompare);
+        && (IsComparing || (_loadedRevision == _setup.Revision && CanCompare));
 
     [RelayCommand(CanExecute = nameof(CanToggleCompare))]
     private void ToggleCompare()
