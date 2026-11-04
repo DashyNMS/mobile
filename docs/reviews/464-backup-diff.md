@@ -151,3 +151,87 @@ no configuration-bearing exception enters diagnostics.
 Replacement CI is pending. No local builds/tests ran. All hardware outcomes
 remain unverified, including screen-reader and Voice Control activation,
 continuous tint, large-text wrapping, performance, glass and safe areas.
+
+## Current corrective assessment, 4 November 2026
+
+Baseline main `d78b335`, including merged #527/#528. Earlier sections retain
+review provenance for historical merged #506; they are not current acceptance
+or a replacement branch to replay. Inspected existing branches/PRs, original
+cached and live #464 body and all comments, live #442 body/comments, relevant
+reconciliation and current #462/#463 assessments. Unrelated #475 work is
+untouched. The user likes the diff presentation but rejects viewport alignment
+and header-only Share. This correction preserves the liked presentation.
+
+Applied repo-workflow and unslop. No agents, local builds, restore, tests or
+scripts run. DESIGN already covers the reusable rules; no duplicate rule is
+needed. The current status below supersedes historical pending integration
+claims without removing their provenance.
+
+### Scoped triggers, modes and locations
+
+| Trigger / location | Current status, expected result, actual source and correction |
+| --- | --- |
+| Initial/populated/filtered/expanded diff; Body/card/Rows base | Corrected policy inherited from #527; native outcome UNVERIFIED. Full-height Body has Auto metadata/filter/status rows and a finite star card. Shared helper measures pill in native Body host; side base is max(0,H-B), without safe-bottom clamp. Bottom obstruction is cleared in RowFoot; top-wide pill has its separate policy. No fixed action or extra action row/space is introduced. |
+| Share available on iOS26; Header and glass | Corrected in UnimusDiffPage: hide the header Share and supply SetActions with Share complete diff; helper adds actual-caller Back. No search exists, so none is supplied. Android/older iOS retain named Share, minimum 44pt in both dimensions, bound to the same command. No duplicate header action/observer. Native reach and fallback rendering UNVERIFIED. |
+| Load, identical/filtered-empty, error and async Share busy | Corrected action lifecycle: ShareCommand.CanExecuteChanged subscription is active-only and idempotent. Dispatch updates after taps, guard delivery by active state, cache availability, and recheck active plus actual CanExecute immediately before Execute. Toolkit excludes overlapping Share. Existing HasDifferences availability semantics remain unchanged, including no Share when filtering yields no differences. Cancellation, failure and busy handoff UNVERIFIED. |
+| Appearing, retained tab return, resume and departure | Compliant shared activation plus corrected action subscription: Activate updates current actions and reclaims layout without reload/reset; Disappearing detaches and hides owner-safely. Queued updates cannot act while inactive. No per-page Window/native observer. Event order and native ownership UNVERIFIED. |
+| Compared version identity and source request | Compliant unchanged view model/caller: wrapping device name, Original/Revised exact backup IDs, local seconds/offset and Unknown date. History sorts ValidSince older first and passes original IDs unchanged; Retry uses that exact pair. Long identities/maximum text render UNVERIFIED. |
+| Additions, removals and context rows | Compliant unchanged renderer: full-width added/removed tints, plus/minus and old/new numbers, spoken kind and both line identities, blank-line cue. Source order and counts remain Core-owned. Show context is a single 44pt button; expansion stays in place. VoiceOver/TalkBack and continuous tint UNVERIFIED. |
+| Only changes / Ignore blank lines / context expansion | Compliant unchanged Core options and expanded-run tracking; blank-line option resets expanded IDs. No selection/filter defaults or counts rewritten. History's two selections, third replacement and Cancel remain unchanged. Native activation and scroll retention UNVERIFIED. |
+| Long lines, large diff, first/final row and fade | Compliant source: CharacterWrap, automatic number gutter, finite virtualised list without enclosing ScrollView, full result retained in memory. No horizontal scroller, wrap toggle or cap exists. Fade endpoints match SurfaceAltLight #EEF1F5 / CodeDark #0D1015, including transparent RGB; 20pt header reserves initial text. Rows/tints/fade remain unchanged. Native stroke edge, initial clipping, final tinted line and scale performance UNVERIFIED; no speculative offset/cause claim. |
+| Identical, missing response, load error and Retry | Compliant unchanged generation guards and clear-before-load result/rows/export. Valid identical is distinct from missing response/error; denied/offline/timeout keep existing user-facing error and Retry. Old successful/failed completions cannot replace current pair. Native controls/errors and Retry outcomes UNVERIFIED. |
+| Complete diff export after filters/context | Compliant unchanged ShareAsync: Core ToUnifiedDiff reads original _diff, not displayed Lines/_result; captured exact compared IDs, headers, filename, text/x-diff and ShareTextFileAsync remain. No newline/encoding conversion or source rewriting added here. This is unified diff text, not byte-identical original backup export; backup raw-byte fidelity remains #463's contract. Actual destination newline bytes and full unfiltered source fidelity UNVERIFIED. |
+| Binary/source failure and unavailable integration | Compliant unchanged server/Core error path; no client binary parser or fabricated binary comparison/identical result. No source truncation marker exists, so undisclosed upstream truncation cannot be diagnosed. Binary/error permissions and source failures UNVERIFIED. |
+| Entry, return, selection and persistence | Compliant unchanged Devices/Dashboard/alert/nested device → history → diff → Back, then actual device caller; retained More and history selection preserved. No child route from diff. Matching, permissions, jobs, connection revision, TLS consent, token/keychain and persistence unchanged. Native routes UNVERIFIED. |
+| Search, keyboard, fixed Save, editing, Copy, backup-now/job writes | N/A: absent on diff. No invented search/action space or keyboard UI. Sibling contents keyboard dismissal and return must restore shared base; physical restoration UNVERIFIED. |
+
+### Shared dependencies and ownership
+
+Inspected all three PushedListLayout consumers: history, contents and diff.
+The helper is unchanged. #527 owns shared geometry, native inset suppression
+on handler/load, central IActivePage activation, caller Back and manual keyboard
+handover. #528 supplies the Share observation/cache/dispatch pattern used here.
+No shared renderer, model, export adapter, route or sibling page is edited.
+
+The native page owns top clearance; Body owns gutters and measured base;
+RowFoot owns final-row obstruction clearance. Measure native page → Body →
+card → CollectionView and pill in one coordinate system. Final-row reach alone
+is insufficient evidence that the viewport base aligns with the pill.
+
+Inherited Android SafeAreaEdges.All includes native soft-input resize and a
+12pt no-pill host gap. Older iOS fallback uses 12pt plus safe bottom and a
+20pt footer. These are affected behaviours requiring verification, not unchanged
+platform claims. ManualKeyboardScroll's static owner set can retain owners if
+Disappearing never occurs. Thirteen accepted setup pages lack IActivePage;
+retained activation gaps are not claimed fixed. Regress accepted AddCard,
+GraphPicker, SensorPicker, TopCardSetUp, SpotlightPicker, MapLocationPicker,
+GraylogDevicePicker, NotifyRulePicker, SettingsSection, Thresholds,
+GraylogSettings, UnimusSettings, SensorDefinitionsSettings and
+NeighbourGroupEditor, plus sign-in on session expiry. Preserve their accepted
+geometry/save contracts and test setup/backups handover in both event orders.
+
+### Validation and required physical evidence
+
+Code self-review: complete intended diff against main and DESIGN, iOS guards,
+command state, subscription pairing and staged whitespace inspected. Independent
+full-diff Opus 5.5 Medium review is PENDING with parent. Shared-test CI and
+Android/iOS compilation are PENDING for the final pushed head. No local
+builds/tests/scripts executed. CI is not native acceptance or measured cause.
+
+Every physical cell below is UNVERIFIED at the exact final head SHA in the PR
+handoff. Build/OS are unavailable. Record SHA, build, OS, device, orientation,
+theme, text size and individual expected/actual measurements for each run.
+
+| Matrix | Required evidence |
+| --- | --- |
+| Geometry/devices | Duo outer portrait/landscape, inner portrait/landscape; ordinary iPhone portrait/landscape; Android and old-iOS fallback. Side/bottom/top pill; native host/card/viewport/pill bounds and base delta, final complete tinted row, first row below fade; no extra action space. |
+| Transitions | Fold/unfold and rotate while loading, expanded, filtered and at final row; retained tab return, sibling contents/history return and background/resume. One glass owner, actual-caller Back, no placement loop; keyboard dismissal in sibling restores base. |
+| Themes/accessibility | Light/dark, maximum text, long identity and many-digit numbers; VoiceOver/TalkBack change/line identity once, blank rows, switch state and Show context once, named 44pt fallback Share; Reduce Motion and overflow selection/cancellation. |
+| Source/context/options | Identical, additions/removals/modified/common/blank-only; mixed LF/CRLF, literal CR, tabs, whitespace, Unicode and final/trailing lines. Context expansion and both filters preserve Core counts/order; export complete unfiltered diff with exact headers and newline bytes. |
+| Scale | 100,000-line synthetic pair and 20,000-character wrapped line; initial/final line, responsive scrolling/context and memory; no truncation or source rewriting. |
+| Failures/retry | Missing response, binary/source error, unavailable integration, 401/403, offline/timeout, Retry success/failure on exact pair, superseded success/error; no false identical or stale rows/share. |
+| Share/routes | Cancel, failure, double tap, busy disappearance/return, stale native callback and no duplicate header; native reach/overflow; all entry routes and Back with history selection/older-first IDs retained. |
+| Shared regressions | History 0/1/2 selection, third replacement, Cancel; contents exact bytes/search/keyboard; accepted setup/sign-in handover in both orders and retained Settings/Unimus return, without claiming existing activation gaps fixed. |
+
+No merge, watch, release, issue closure, epic tick or device acceptance is
+performed. Parent owns sequential full-diff review, CI and merge.

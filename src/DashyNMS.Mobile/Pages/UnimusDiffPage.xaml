@@ -10,7 +10,8 @@
     <Grid x:Name="Body" RowDefinitions="Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
         <controls:PageHeader x:Name="Header" SafeAreaEdges="None" Title="Changes">
             <controls:PageHeader.Actions>
-                <Button Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}" MinimumHeightRequest="44" />
+                <Button x:Name="ShareButton" Style="{StaticResource LinkButton}" Text="Share" Command="{Binding ShareCommand}"
+                        MinimumHeightRequest="44" MinimumWidthRequest="44" SemanticProperties.Description="Share complete diff" />
             </controls:PageHeader.Actions>
         </controls:PageHeader>
         <VerticalStackLayout Grid.Row="1" Margin="4,0,4,8" Spacing="4">
