@@ -11,7 +11,7 @@ DESIGN.md, DESIGN-REFERENCES.md and section assessments #469–#476.
 | Modes | Compliant: RoutingAsync combines BGP, OSPF, OSPFv3 and VRFs into three nonempty groups. No protocol picker, editor, selection, graph, sort or filter panel. OSPFv3 follows OSPF in the same group. |
 | Long facts | Fix: DeviceSectionPage legacy grid truncates titles and caps values to two lines/180pt. Routing-only stack wraps identity, protocol, subtitle, state/distinguisher and detail independently. |
 | Overview | Fix: DeviceDetailView legacy highlight omits subtitle and detail and truncates identity. Same full facts now wrap in highlights with explicit protocol, important when the group heading is absent. DeviceSectionCard still selects three worst rows, counts all entries and hides successful empty sections. |
-| Missing values | Fix: named missing identity/state/distinguisher presentation without replacing raw Title/Value. Existing null VRF name fallback remains VRF. Missing OSPF state remains Warning under the existing classifier; no new health inference. |
+| Missing values | Fix: named missing identity/state/distinguisher presentation without replacing raw Title/Value. Raw null VRF name fallback remains VRF; presentation names it VRF name not reported. Missing OSPF state remains Warning under the existing classifier; no new health inference. |
 | Protocol semantics | Compliant: BGP non-established before established, then ordinal ignore-case peer address. Admin-down text Shut down and Inactive, established OK plus formatted uptime, other state Critical plus LastErrorText. OSPF full-prefix is OK, others Warning. VRFs neutral and ordinal ignore-case name sorted. All raw server descriptions, AS facts, contexts, router IDs and address formatting retained. |
 | Source contract | Compliant: four selected-device endpoint calls run concurrently and all must complete. No Core pin, API, permission, credential, settings or persistence changes. |
 | Search | Compliant ButtonSearch/header/glass/Command-F only, real drag/completion/unfocus dismissal retains query. Fix: protocol and displayed missing-value/distinguisher labels now match only routing rows, alongside original title/subtitle/value/detail. Filtering must retain focus. |
@@ -72,3 +72,16 @@ and TestFlight build. Use devices 7/8 example.net/edge.example.net, 192.0.2.0/24
 
 Hardware/user acceptance pending. No closure or epic ticks. Parent owns CI,
 cross-review, merge and cleanup serially, then final TestFlight after #484.
+
+## Cross-review remediation
+
+Opus review at 47ebec1 identified colour-only routing severity as blocking.
+Both routing templates now name the existing classification in a wrapping
+label, combined screen-reader description and scoped search. Neutral VRFs
+have no severity label; no state classification or raw field is changed.
+Missing VRF names are named explicitly while preserving the raw fallback.
+Overview weight and spacing match FDB/ARP/VLAN highlights. Derived properties
+explain their purpose. Regression coverage checks protocol severity/search
+and loader-level absent OSPF/VRF fields. Admin-down BGP retains its existing
+Inactive classification and Shut down state; hardware coverage remains pending.
+Final Opus review and replacement CI pending; no local builds/tests ran.

@@ -583,6 +583,7 @@ public sealed class DeviceSectionLoader
             .Select(v => new SectionRow(v.Name ?? "VRF")
             {
                 RoutingKind = "VRF",
+                RoutingNameMissing = string.IsNullOrWhiteSpace(v.Name),
                 Subtitle = v.Description,
                 Value = v.RouteDistinguisher,
             });

@@ -704,6 +704,14 @@ public sealed class DeviceSectionLoaderTests
             Assert.True(row.Matches(context));
             Assert.True(row.Matches(row.RoutingKind!));
         });
+        Assert.Equal(new string?[] { "Critical", "OK", "Warning", null }, rows.Select(r => r.RoutingStatusText));
+        Assert.All(rows.Where(r => r.HasRoutingStatus), row =>
+        {
+            Assert.Contains(row.RoutingStatusText!, row.RoutingDescription);
+            Assert.True(row.Matches(row.RoutingStatusText!));
+        });
+        Assert.False(rows[3].HasRoutingStatus);
+        Assert.False(new SectionRow("example.net").Matches("Critical"));
         Assert.Equal("Route distinguisher: 64500:7", rows[3].RoutingValueText);
         var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Routing));
         card.Show(groups);
@@ -720,7 +728,7 @@ public sealed class DeviceSectionLoaderTests
     public void Routing_missing_facts_are_named_without_changing_raw_values(string kind, string expected)
     {
         var row = new SectionRow("—") { RoutingKind = kind };
-        Assert.Equal("Routing identity not reported", row.RoutingTitleText);
+        Assert.Equal(kind == "VRF" ? "VRF name not reported" : "Routing identity not reported", row.RoutingTitleText);
         Assert.Equal(expected, row.RoutingValueText);
         Assert.True(row.Matches(expected));
         Assert.Null(row.Value);
@@ -728,6 +736,27 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal(RowStatus.None, row.Status);
         Assert.False(new SectionRow("example.net").RoutingLayout);
         Assert.False(new SectionRow("example.net").Matches(expected));
+    }
+
+    [Fact]
+    public async Task Routing_loader_names_missing_ospf_and_vrf_facts_without_changing_classification()
+    {
+        _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new OspfNeighbour()]);
+        _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Vrf()]);
+        var rows = (await Load(DeviceSection.Routing)).SelectMany(g => g).ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Equal("Routing identity not reported", rows[0].RoutingTitleText);
+        Assert.Equal("State not reported", rows[0].RoutingValueText);
+        Assert.Equal(RowStatus.Warning, rows[0].Status);
+        Assert.Contains("Warning", rows[0].RoutingDescription);
+        Assert.Equal("VRF", rows[1].Title);
+        Assert.Equal("VRF name not reported", rows[1].RoutingTitleText);
+        Assert.Equal("Route distinguisher not reported", rows[1].RoutingValueText);
+        Assert.Equal(RowStatus.None, rows[1].Status);
+        Assert.False(rows[1].HasRoutingStatus);
+        Assert.Equal("VRF", new SectionRow("VRF") { RoutingKind = "VRF" }.RoutingTitleText);
     }
 
     [Fact]
