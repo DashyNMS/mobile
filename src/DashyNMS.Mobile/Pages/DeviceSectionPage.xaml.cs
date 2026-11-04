@@ -20,6 +20,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
     private IDisposable? _edges;
     private readonly ButtonSearch _search;
     private bool _active;
+    private VisualElement? _filterFocus;
+    private Window? _placementWindow;
 #if IOS
     private readonly List<Foundation.NSObject> _keyboardObservers = [];
     private CoreGraphics.CGRect? _keyboardScreen;
@@ -63,9 +65,11 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
 		SectionBody.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
         SectionBody.HandlerChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
         SectionBody.Loaded += (_, _) => Dispatcher.Dispatch(PlaceControls);
         FilterCard.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        FilterScroll.SizeChanged += (_, _) => RevealFilterFocus();
         FilterCard.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName == nameof(View.IsVisible)) Dispatcher.Dispatch(PlaceControls);
@@ -179,6 +183,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
     public void Activate()
     {
+        if (_placementWindow is not null) _placementWindow.SizeChanged -= OnWindowSizeChanged;
+        _placementWindow = Window;
+        if (_placementWindow is not null) _placementWindow.SizeChanged += OnWindowSizeChanged;
         if (!_active)
         {
             _active = true;
@@ -187,6 +194,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
             {
                 _keyboardScreen = args.FrameEnd;
                 PlaceControls();
+                RevealFilterFocus();
             }));
             _keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillHide((_, _) =>
             {
@@ -233,6 +241,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        if (_placementWindow is not null) _placementWindow.SizeChanged -= OnWindowSizeChanged;
+        _placementWindow = null;
         _active = false;
         FilterCard.AbortAnimation("CardSlide");
         Dim.AbortAnimation("ListDim");
@@ -334,13 +344,11 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		FilterLine.Margin = new Thickness(left + 4, 4, right, 0);
 		ErrorLine.Margin = new Thickness(left, 8, right, 0);
 		FilterCard.Margin = new Thickness(left, 6, right, overlayBottom);
+        // Root's star row is finite. Its native keyboard/glass clearance is
+        // already expressed by overlayBottom; do not add safe area again.
+        var panelHeight = Math.Max(0, SectionBody.Height - overlayBottom - 6);
+        if (FilterCard.MaximumHeightRequest != panelHeight) FilterCard.MaximumHeightRequest = panelHeight;
 		Busy.Margin = new Thickness(left, 8, right, 0);
-		var list = new Thickness(left, 0, right, 0);
-		if (List.Margin != list)
-		{
-			List.Margin = list;
-		}
-        ListFade.Margin = list;
 
 		// The viewport reaches the pill base; content owns final-row clearance.
 		var viewport = new Thickness(0, 0, 0, bottom);
@@ -351,18 +359,41 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			ListFoot.HeightRequest = footer;
 		}
 
-		var span = 1;
-		var width = Width - left - right;
-		if (width > 0 && !_viewModel.IsNeighbours && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
+		var span = _viewModel.IsPorts ? 2 : 1;
+        var paneWidth = _viewModel.IsPorts && SectionBody.Width > 0 ? SectionBody.Width : Width;
+		var width = paneWidth - left - right;
+        var portStageWidth = width;
+        if (_viewModel.IsPorts && width > 0 && Window is { Width: > 0, Height: > 0 } windowBounds)
+        {
+            // Live logical bounds, never remembered display/orientation metrics.
+            // Split-pane and side-pill geometry is an approved rough estimate.
+            var landscape = windowBounds.Width > windowBounds.Height;
+            var paneShare = Math.Min(1, paneWidth / windowBounds.Width);
+            // Current landscape camera/pill insets constrain available width,
+            // but do not belong to the hypothetical portrait card width.
+            var portraitAvailable = Math.Max(0, Math.Min(windowBounds.Width, windowBounds.Height) * paneShare - 32);
+            var fit = PortColumns.Fit(width, portraitAvailable, landscape, ListLayout.HorizontalItemSpacing);
+            span = fit.Count;
+            portStageWidth = fit.Width;
+        }
+		else if (!_viewModel.IsPorts && width > 0 && !_viewModel.IsNeighbours && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
 		{
 			span = Math.Clamp((int)((width + ListLayout.HorizontalItemSpacing) / (MinRowWidth + ListLayout.HorizontalItemSpacing)), 1, MaxColumns);
 		}
+        // Fixed landscape tracks leave remainder at the trailing edge rather
+        // than stretching cards or a sparse final row.
+        var trailing = _viewModel.IsPorts ? Math.Max(0, width - portStageWidth) : 0;
+        var list = new Thickness(left, 0, right + trailing, 0);
+        if (List.Margin != list) List.Margin = list;
+        ListFade.Margin = List.Margin;
 
 		if (ListLayout.Span != span)
 		{
 			ListLayout.Span = span;
 		}
 	}
+
+    private void OnWindowSizeChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
 
 	/// <summary>
 	/// Back, search and - on Ports - Sort &amp; filter, filled while the ports
@@ -500,6 +531,31 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	}
 
 	// The keyboard's search key: the list is narrowed, so the field goes.
+    private void OnFilterPickerFocused(object? sender, FocusEventArgs e)
+    {
+        _filterFocus = sender as VisualElement;
+        RevealFilterFocus();
+    }
+
+    /// <summary>Recycled Ports cards use their native button, with no enclosing gesture.</summary>
+    private void OnRowBindingContextChanged(object? sender, EventArgs e)
+    {
+        if (sender is not Border border) return;
+        border.GestureRecognizers.Clear();
+        if (border.BindingContext is SectionRow { PortLayout: false } row)
+            border.GestureRecognizers.Add(new TapGestureRecognizer
+            {
+                Command = _viewModel.OpenLinkCommand,
+                CommandParameter = row,
+            });
+    }
+
+    private void RevealFilterFocus() => Dispatcher.Dispatch(() =>
+    {
+        if (_active && FilterCard.IsVisible && _filterFocus is { IsFocused: true } focus)
+            _ = FilterScroll.ScrollToAsync(focus, ScrollToPosition.MakeVisible, !ReducedMotion.IsOn);
+    });
+
 	private void OnSearchCompleted(object? sender, EventArgs e) { _search.Close(); _viewModel.DismissSearch(); }
 
 #if IOS

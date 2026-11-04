@@ -1,5 +1,156 @@
 # Device Ports review, #472
 
+## Approved revision on main 2010d7b, 4 November 2026
+
+This section supersedes historical presentation and geometry-compliant findings
+below. Historical provenance remains evidence for its original heads only.
+Live origin/main was `2010d7b44cc73027d0ffbea72a2a686c4c859918`; the task
+worktree was clean and no open PR existed. PR #510 is merged, head
+`52f88f5e3938e22977476fd2dd69444c24bf8707`, squash
+`f220f15f7e09fda091f870a55faffbb9488b939e`. No old work is replayed.
+The separate dirty #475 worktree and unrelated branches are untouched.
+
+The user approved `/tmp/mobile-442/ports-proposal.html` and its revised Markdown
+contract with the explicit correction, "Admin shutdown and monitoring disabled
+should be the same otherwise approved". Both now use the same gray Disabled
+border/label. Raw states and the monitoring flag remain independent facts.
+The user also authorised a responsive portrait-width estimate from live logical
+window dimensions and page share. The portrait estimate subtracts base 16pt
+gutters; measured camera/pill gutters constrain current landscape space only.
+There is no stored orientation width, hard-coded display size or card height.
+Split views and landscape side-pill changes can alter the estimate. Native
+width preservation is approximate and UNVERIFIED.
+
+### Consumers and boundaries
+
+`DeviceSectionLoader.PortRow` supplies `SectionRow` to full
+`DeviceSectionPage` and `DeviceDetailView` via `DeviceSectionCard.Ports`.
+The overview still selects five positive-traffic rows and preserves totals,
+up/down/unknown counts and Ports tile semantics. `PortArrangement` consumes
+PortFacts, not display fields. Existing rank/state, natural name, index, alias,
+VLAN fallback/trunk, traffic bytes/s and speed sort/group facts are unchanged.
+New PortDisplayFacts are separate from searchable Fields, preserving Matches.
+PortSummary/PortDescription remain compatibility properties for existing tests;
+new visible/spoken projections use PortFactsDescription/PortActionDescription.
+`OnRowBindingContextChanged` restores the existing outer link gesture for every
+non-Port row and removes it for Ports, including recycled cards. PortReadout
+supplies the one native button with no enclosing gesture.
+
+Shared host owners remain Availability #469, Sensors #470, Resources #471,
+Ports #472, Neighbours #473, VLANs #474, FDB #475, ARP #476, Routing #477,
+Wireless #478 and Inventory #479, plus EventLog compatibility. Their layout
+flags, loader ordering, source facts, native viewport/inset policy and lifecycle
+remain intact. The 340pt/three-column policy is unchanged for other sections.
+Neighbour graph/split/reverse links, VLAN/FDB/ARP facts, routing states,
+wireless formatting, inventory expansion/ports/copy and resource/sensor/availability
+projections retain their contracts. Graphs #480/#481, Graylog and backups use
+specialised routes. EventLog normally uses Logs. Setup #405 acceptance is unchanged.
+
+The available Core Port model confirms nullable raw states, byte/s octet rates,
+errors/s rates, nullable long bit/s speed, nullable direct IfVlan and bool Disabled.
+The pin remains 2.0.0-ci.52. Available sibling source is corroboration, not proof
+of the pinned binary. No local restore or pin change was made; CI must confirm
+the exact package API. A missing boolean payload cannot be recovered from this
+typed bool; "Monitoring disabled: No" describes the model flag, not proof of
+payload completeness. No AdditionalData inference or extra fetch was added.
+
+### Current whole-scope dispositions
+
+Compliant/corrected below means source inspection. Every device result is UNVERIFIED.
+
+| Concern and actual trigger/mode | Location, observed/expected behaviour and disposition |
+| --- | --- |
+| Full Ports, long names/aliases and max text | Page previously used one coloured summary. PortReadout now stacks wrapping title, label and all approved facts. Corrected; no height/line cap. Two-column physical feasibility remains unverified |
+| Full page portrait/landscape, cold landscape/fold/resize | PlaceControls and PortColumns use live window shorter dimension scaled by page share, less base 32pt gutters; current landscape clearance is applied only to available width. Portrait two tracks, landscape floor-fit with trailing remainder and no three-column cap. Corrected Ports-only; estimate limits above apply |
+| Up/errors/down/disabled/unknown and contradictions | PortRow retains IsUp-first PortState/RowStatus/rank. Display-only palette maps positive existing errors red before green; both disabling causes gray only when non-up; down amber; missing/testing/unrecognised neutral. Raw source tokens remain visible. Corrected |
+| Traffic, speed, errors and VLAN | PortDisplayFacts uses existing bit formatter after finite/nonnegative and multiplication-overflow guards. Positive speed only; errors show each valid zero or partial side. Non-up traffic says not shown; direct VLAN absence says not reported. Complete traffic/error validity gates green. Corrected, no utilisation/discards/membership inference |
+| Graph action, no ifName | PortReadout native transparent Button fills the card content; Ports border padding moves into decorative facts. One joined description includes identity, states, all facts and action. Missing ifName is a plain joined readout without button/chevron. Corrected; native traits/activation unverified |
+| Overview/tile | DeviceDetailView uses wrapping identity/alias, display status and directional traffic, with matching compact speech and parent Ports action. Existing selected highlights/counts/tile unchanged. Corrected hierarchy; no nested graph command |
+| Sort/group/search/preferences | Seven sort and four group choices, defaults, enum keys, null-picker handling and immediate writes unchanged. Search domain unchanged. Done only closes. Compliant |
+| Open Sort & filter with wheel/keyboard, short landscape/max text | Old unbounded stack replaced by Auto header/Done and star ScrollView body. MaximumHeightRequest uses SectionBody height less measured overlay clearance and top margin. Focused picker scrolls into view after focus/frame change. Footer retains actual panel height through exit. Corrected source; native picker/Done bounds unverified |
+| Loading/empty/error/offline/cache/refresh | Existing BusyCard, refresh, Retry, errors suppressing empty, source-empty versus unmatched preserved. Ports retains last-loaded rows through refresh/failure without timestamp; no freshness claim. Overview can retain prior card while initial device request runs/fails; fresh cards load after success. Compliant with recorded limitations |
+| Device handoff/source IDs | Existing generation/serial pending guard clears on ID/mode change and rejects old results/errors. API still selected device ports excluding Deleted with existing permissions/token. Waiting for old request can delay new one. Compliant; no mutation/new storage |
+| Header/search/glass/lifecycle | Central IActivePage, idempotent watchers/observers, Back/search/filter ownership, iOS26 glass and older/Android header unchanged. ButtonSearch opens only from controls/Command-F; native drag/completion/unfocus retain query, replacements keep focus. Compliant in source; all native returns/resume unverified |
+| Viewport/insets/final card | Inherited #530 SectionBody-native pill/occupied measurements, top-only iOS safe area, UIScrollView Never, finite Refresh and one footer owner retained. Ports stage margin narrows only horizontal tracks. No extra bottom translation/insets. Compliant source dependency, rejected native base extent not accepted |
+| Keyboard already open on activation | Inherited activation may lack keyboard frame until another notification. Not proven fixed by a scrolling panel. UNVERIFIED dependency; measure before acceptance |
+| Themes/contrast/speech/motion | Known status borders use StatusColor; neutral uses theme-aware normal card stroke. Labels use readable StatusText and facts stay neutral. Linked cards have one native button description; nonlinks have a separate readout description. Native action >=44pt, ReduceMotion retained. Contrast, speech order, recycling, wrapping and gesture/drag behaviour require native evidence |
+| Editors/server writes/export/graph redesign | N/A. No Ports editor, Save draft, extra endpoint, export or graph presentation change approved |
+
+### Review of 66b0ffa and corrections
+
+Claude Opus 5.5 Medium found no merge blockers and four medium findings.
+The implicit Button Disabled fill was substantiated from the app style: fixed
+with an explicit empty style and local transparent Normal/Disabled states;
+Pressed/Focused use the existing translucent tint. Neutral borders previously
+used the text-colour fallback: fixed with a Ports-only theme-aware card-stroke
+trigger. The landscape calculation incorrectly subtracted current camera
+insets from a portrait estimate: fixed by subtracting base 32pt gutters only.
+The 393x852 example with 75pt current side clearance now fits three 176.5pt
+cards, covered by a CI-only column test. The accessibility recycling concern
+was plausible rather than proven: removed the parent Grid description entirely;
+only the linked native button or the separate nonlink label carries speech.
+VoiceOver/TalkBack recycling and traits remain UNVERIFIED.
+
+Lower findings: overview speech now matches visible compact facts; window size
+subscriptions are paired across activation/departure; filter-scroll resize
+re-reveals its focused picker. Moved durable Ports guidance under adaptive
+accessibility. Full-precision error values remain deliberate to preserve the
+reported rate and avoid zeroing tiny positives; verify long values wrap in the
+two-column cards. The trailing strip outside the scrolling stage remains the
+approved stable-width remainder, with headings/empty text centred in that stage;
+verify dragging there and report usability problems. Repeated alias is retained
+as an explicitly labelled source fact. These choices reject optional presentation
+changes, not demonstrated defects. Short landscape panel space and Done/picker
+bounds still need physical measurement. Fresh full-diff review and final CI are
+pending; no device result is claimed.
+
+Self-review also found that summing two finite positive error rates could
+overflow and incorrectly choose green. Display-only error detection now checks
+each source independently, with a CI regression; legacy ranking stays unchanged.
+
+### Validation and pending native evidence
+
+Opus 5.5 Medium re-reviewed the full diff at db78cbe. No proven blocker;
+one medium trigger-precedence risk remained: both Ports triggers set Stroke.
+Rather than rely on unverified same-priority trigger restoration, the colour
+now has one owner: only the known-status MultiTrigger sets Stroke. Thickness
+and padding stay in the Ports trigger; neutral uses the Card style's live theme
+stroke. PortHasStatusBorder drives the condition. The full and overview neutral
+status labels likewise use live theme text by default, with a single known-state
+colour trigger. Native mixed-status recycling and live theme switching remain
+required verification steps. A tiny portrait estimate could create impractically
+many columns in an unusually small pane; no arbitrary minimum width or column
+cap was introduced against the approved adaptive policy. Record actual pane and
+card widths during split/fold tests. Final full-diff review and CI remain pending.
+
+Code self-review covers the complete intended main-to-head diff against DESIGN,
+the explicit staged file set and whitespace. No local builds, tests, scripts or
+agents run. New CI-only tests cover visual states and contradictions, both
+Disabled causes, partial errors, zero, invalid/overflowing rates, real ifName,
+unchanged search domain and adaptive columns. Existing command routing and
+PortArrangement/preferences tests remain relevant. Parent Opus 5.5 Medium
+independent full-diff judgement is PENDING. Final-head CI is PENDING.
+No merge/watch/release/issue closure/epic tick. #472 remains open under #442.
+
+For every check below record final integrated SHA, CI/TestFlight build number,
+device and OS, theme, text size and assistive settings. Final review SHA is the
+PR head, not baseline 2010d7b. Build/OS/results are currently unavailable.
+
+| User trigger/configuration | Required evidence, all UNVERIFIED |
+| --- | --- |
+| Ordinary iPhone and Duo outer/inner, portrait/landscape, cold landscape then fold/rotate/resize | Window/page logical bounds, actual gutters, column count, first/final card widths before/after; portrait two columns; landscape roughly stable cards constrained to pane; report split/side-pill estimate delta |
+| Short/long lists, max text, both themes, VO/TB, Reduce Motion | Full facts without clipping/line caps; one joined readout/action, >=44pt target, no missing-name button/chevron; overview parent action and compact hierarchy. Report physical two-column failure rather than changing policy |
+| Every pane/pill mode, first/final cards, tab/child return and resume | Native SectionBody height H, pill bottom B, Refresh/List viewport bottom V, V-B delta, first heading and complete final-card bounds; final card clears glass and measured panel |
+| Search header/glass/Command-F, filtering/programmatic scroll vs actual drag, no matches/clear | Query/order retained; filtering keeps focus, real drag/completion/unfocus dismiss; no swipe reveal or duplicate glass/header commands |
+| Sort/Group pickers and Done at max text, wheel/keyboard show/hide, rotate/fold while focused, resume with keyboard already active | Panel/header/body/Done and actual keyboard/wheel bounds, focused picker reachable, Done fixed/reachable, footer reserves actual visible panel through exit once; viewport restores without double translation |
+| Every sort/group and saved relaunch, graph and caller return | Exact seven/four choices/order/defaults/auto-save, natural/index/VLAN/type/alias facts; actual ifName route and same DeviceId, query retained after graph Back, Devices narrow/split/Dashboard/alert actual caller |
+| Cold/cache/offline/denied/404-empty/genuine empty, refresh failure/success/Retry, slow device7 then8 | Honest errors and retained last-loaded Ports facts, no stale rows under new ID, permissions/credentials/read-only behaviour preserved; distinguish 404 compatibility-empty from source-empty |
+| Raw source values and contradictions | Compare payload bytes/s with displayed bits/s, zero/partial/missing/nonfinite/overflow traffic/errors, speed/VLAN missing, oper-up/admin-down/monitoring-disabled, both non-up disabling causes same gray label. No invented complete VLAN membership |
+
+Use synthetic example.net and edge.example.net, device IDs 7/8 only. Visual
+approval is not device acceptance. Parent owns sequential CI/review/merge and
+later delivery; this implementation does not close #472.
+
 Refs #472 and epic #442. Baseline main `2c7f32f`. Read live issues,
 CLAUDE.md, full DEVELOPING.md, DESIGN.md and DESIGN-REFERENCES.md before
 assessment. Routine guide choices were authorised. This is a prepared PR,

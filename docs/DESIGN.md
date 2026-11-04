@@ -328,6 +328,36 @@ and selection contracts remain unchanged.
 
 ## Adaptive content and accessibility
 
+### Approved Device Ports presentation, 4 November 2026
+
+Ports alone uses two portrait columns on both displays. Landscape fits more
+columns at approximately the portrait card width, leaving trailing remainder
+instead of stretching tracks. Estimate portrait width from live logical window
+shorter dimension and pane share, less the two base 16pt gutters. Current
+landscape camera/pill clearances constrain the available landscape width only;
+subtracting them from the portrait estimate would narrow cards twice. Do not
+cache orientation dimensions. Split views can affect this approximate estimate.
+Other sections retain their own column policies.
+
+Cards grow with wrapping facts and text size, without fixed heights or line
+caps. Preserve display identity, actual ifName, full alias, raw operational and
+administrative states, monitoring flag, speed, directional bit rates, directional
+errors/s and direct access/native VLAN. Missing readings stay explicit. Use a
+status border and label with neutral fact text: red errors, green complete Up,
+amber known Down, and the same gray Disabled for administrative shutdown and
+disabled monitoring. Distinguish their raw facts only. Unknown and incomplete
+Up use the theme's normal card stroke. Preserve source oper-up precedence and
+existing ranking/grouping despite contradictory flags.
+
+The full card has one native graph action only with actual ifName; otherwise
+show an unavailable explanation without an action or chevron. Overview highlights
+share identity/status/traffic hierarchy and matching speech; their parent opens
+Ports. Sort & filter retains choices and immediate saving. Keep Done outside
+a finite scrolling picker body, clamp to measured available height, and reserve
+the visible panel height in the list footer through exit. Native wheel/keyboard
+clearance, maximum text and two-column feasibility remain unverified; report
+physical failures before changing this approved policy.
+
 ### Approved Settings overview hierarchy
 
 The 4 November 2026 #454 proposal was explicitly approved for implementation.

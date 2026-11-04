@@ -339,8 +339,35 @@ public sealed class DeviceSectionLoader
         var (rank, state) = PortState(port);
         var knownErrors = ValidRate(port.IfInErrorsRate) && ValidRate(port.IfOutErrorsRate)
             && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
+        var complete = knownErrors && double.IsFinite(port.IfInOctetsRate!.Value * 8)
+            && double.IsFinite(port.IfOutOctetsRate!.Value * 8);
+        // Either positive source rate is enough; summing two finite rates can
+        // overflow and must not turn an error card green.
+        var hasErrors = (ValidRate(port.IfInErrorsRate) && port.IfInErrorsRate > 0)
+            || (ValidRate(port.IfOutErrorsRate) && port.IfOutErrorsRate > 0);
+        var visual = port.IsUp ? hasErrors ? RowStatus.Critical : complete ? RowStatus.Ok : RowStatus.None
+            : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Warning : RowStatus.None;
+        var facts = new List<SectionField>();
+        if (!string.IsNullOrWhiteSpace(port.IfName) && port.IfName != port.DisplayName)
+            facts.Add(new("ifName", port.IfName));
+        if (!string.IsNullOrWhiteSpace(port.IfAlias)) facts.Add(new("Alias", port.IfAlias));
+        facts.AddRange([
+            new("Operational state", string.IsNullOrWhiteSpace(port.IfOperStatus) ? "Unknown (not reported)" : port.IfOperStatus),
+            new("Administrative state", string.IsNullOrWhiteSpace(port.IfAdminStatus) ? "Unknown (not reported)" : port.IfAdminStatus),
+            new("Monitoring disabled", port.Disabled ? "Yes" : "No"),
+            new("Speed", port.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : "Unavailable"),
+            new("Traffic in", port.IsUp ? PortTraffic(port.IfInOctetsRate) : "Not shown while not up"),
+            new("Traffic out", port.IsUp ? PortTraffic(port.IfOutOctetsRate) : "Not shown while not up"),
+            new("Errors in", PortErrors(port.IfInErrorsRate)),
+            new("Errors out", PortErrors(port.IfOutErrorsRate)),
+            new("Access/native VLAN", port.IfVlan is > 0 ? port.IfVlan.Value.ToString(CultureInfo.CurrentCulture) : "Not reported"),
+        ]);
         return new SectionRow(port.DisplayName)
         {
+            PortVisualStatus = visual,
+            PortVisualLabel = port.IsUp ? hasErrors ? "Errors · link up" : complete ? "Up" : "Up · readings unavailable"
+                : state == "Shut down" ? "Disabled" : state,
+            PortDisplayFacts = facts,
             Port = PortFacts.From(port, rank, state),
             PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate) ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
@@ -364,6 +391,9 @@ public sealed class DeviceSectionLoader
         : (3, "Unknown");
 
     private static bool ValidRate(double? value) => value is { } rate && double.IsFinite(rate) && rate >= 0;
+
+    private static string PortErrors(double? rate) => ValidRate(rate)
+        ? rate!.Value.ToString("G", CultureInfo.CurrentCulture) + " errors/s" : "Unavailable";
 
     private static string PortTraffic(double? rate) => ValidRate(rate) && double.IsFinite(rate!.Value * 8)
         ? Units.Bits(rate * 8) : "Unavailable";

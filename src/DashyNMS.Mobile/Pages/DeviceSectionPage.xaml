@@ -93,10 +93,20 @@
                 </CollectionView.GroupHeaderTemplate>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
-                        <Border Style="{StaticResource Card}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}" CommandParameter="{Binding .}" />
-                                </Border.GestureRecognizers>
+                        <Border Style="{StaticResource Card}" BindingContextChanged="OnRowBindingContextChanged">
+                            <Border.Triggers>
+                                <DataTrigger TargetType="Border" Binding="{Binding PortLayout}" Value="True">
+                                    <Setter Property="StrokeThickness" Value="2" />
+                                    <Setter Property="Padding" Value="0" />
+                                </DataTrigger>
+                                <MultiTrigger TargetType="Border">
+                                    <MultiTrigger.Conditions>
+                                        <BindingCondition Binding="{Binding PortLayout}" Value="True" />
+                                        <BindingCondition Binding="{Binding PortHasStatusBorder}" Value="True" />
+                                    </MultiTrigger.Conditions>
+                                    <Setter Property="Stroke" Value="{Binding PortVisualStatus, Converter={StaticResource StatusColor}}" />
+                                </MultiTrigger>
+                            </Border.Triggers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
                                     <VisualState Name="Normal" />
@@ -141,21 +151,7 @@
                                 <Label Text="{Binding NeighbourSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True" />
                                 <Label Grid.Column="1" Style="{StaticResource Chevron}" IsVisible="{Binding CanOpenNeighbour}" AutomationProperties.ExcludedWithChildren="True" />
                             </Grid>
-                            <VerticalStackLayout IsVisible="{Binding PortLayout}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" MinimumHeightRequest="44" IsVisible="{Binding IsLink}"
-                                      SemanticProperties.Description="{Binding PortDescription}" AutomationProperties.IsInAccessibleTree="True">
-                                    <Label Text="{Binding PortSummary}" LineBreakMode="WordWrap" AutomationProperties.ExcludedWithChildren="True"
-                                           TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
-                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" AutomationProperties.ExcludedWithChildren="True" />
-                                </Grid>
-                                <Label Text="{Binding PortDescription}" LineBreakMode="WordWrap" TextColor="{Binding Status, Converter={StaticResource StatusText}}">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
-                                            <Setter Property="IsVisible" Value="False" />
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                            </VerticalStackLayout>
+                            <controls:PortReadout IsVisible="{Binding PortLayout}" />
                             <!-- No spacing after the indent: with none, the gap still pushed
                                  every row's text in past its group's heading (#344). -->
                             <VerticalStackLayout>
@@ -287,18 +283,20 @@
              that rises from the foot of the screen near the glass button that opens it (#350). -->
         <Border x:Name="FilterCard" Grid.Row="4" Style="{StaticResource Card}" IsVisible="False" VerticalOptions="End"
                 Margin="16,6,16,12" SafeAreaEdges="None">
-            <VerticalStackLayout Spacing="6" SafeAreaEdges="None">
+            <Grid RowDefinitions="Auto,*" RowSpacing="6" SafeAreaEdges="None">
                 <Grid ColumnDefinitions="*,Auto" SafeAreaEdges="None">
                     <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" Command="{Binding ToggleFilterPanelCommand}" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" MinimumHeightRequest="44" Command="{Binding ToggleFilterPanelCommand}" />
                 </Grid>
+                <ScrollView x:Name="FilterScroll" Grid.Row="1" SafeAreaEdges="None">
                 <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
                     <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
-                    <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
+                    <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" Focused="OnFilterPickerFocused" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
                     <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
-                    <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
+                    <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" Focused="OnFilterPickerFocused" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
                 </Grid>
-            </VerticalStackLayout>
+                </ScrollView>
+            </Grid>
         </Border>
 
 
