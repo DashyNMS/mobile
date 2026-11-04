@@ -104,7 +104,7 @@ internal sealed class PushedListLayout
         _header.Apply(_page);
 #if IOS
         // A departing sibling may reconnect after our first Appearing. Reclaim on activation.
-        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
+        DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
         ShowGlass();
 #endif
         Place();
@@ -127,7 +127,7 @@ internal sealed class PushedListLayout
 #if IOS
         TabBarButtons.Moved -= OnChanged;
         TabBarButtons.Hide(_page);
-        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Connect();
+        DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
         foreach (var observer in _observers) observer.Dispose();
         _observers.Clear();
         _keyboardScreen = null;

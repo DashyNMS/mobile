@@ -245,3 +245,18 @@ contract changes; regress keyboard focus/scroll and dismissal on these
 accepted forms, especially backups to retained Settings/Unimus and back.
 Their explicit acceptance remains intact; physical regressions unverified.
 Fresh shared-change review and final CI pending; no local execution.
+
+The next full-diff Opus pass at 6b3e0f5 found the setup activation-only
+keyboard fix incomplete: thirteen accepted setup pages do not forward
+IActivePage activation. Parent fixed the actual shared handover instead.
+ManualKeyboardScroll tracks distinct UI-thread owners across PushedListLayout,
+SetupPageLayout and SignInPage. Each idempotent Acquire disconnects; only
+the final Release reconnects, regardless of lifecycle ordering. All fourteen
+setup consumers acquire through their existing Appearing hooks, without
+requiring new page interfaces. Their geometry/save contracts stay unchanged.
+Sign-in is an additional accepted affected consumer; check backup-to-sign-in
+on session expiry, plus setup/backups in both event orders. Prior claim that
+Activate alone covered all setup consumers is superseded by this correction.
+The revision test now selects two backups and proves Compare executable
+before ForgetToken, so the post-change assertion exercises revision gating.
+Fresh full-diff review and CI pending; all native checks remain unverified.

@@ -236,6 +236,8 @@ public sealed class UnimusBackupsTests
         Assert.True(vm.ToggleCompareCommand.CanExecute(null));
         vm.ToggleCompareCommand.Execute(null);
         await vm.OpenCommand.ExecuteAsync(vm.Backups[0]);
+        await vm.OpenCommand.ExecuteAsync(vm.Backups[1]);
+        Assert.True(vm.CompareSelectedCommand.CanExecute(null));
         _setup.ForgetToken();
         Assert.True(vm.ToggleCompareCommand.CanExecute(null));
         Assert.False(vm.CompareSelectedCommand.CanExecute(null));

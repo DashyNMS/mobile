@@ -59,7 +59,7 @@ internal sealed class SetupPageLayout
             StopInsets(scroller);
         }
 #if IOS
-        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
+        DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
         TabBarButtons.Moved += OnChanged;
         ShowBack();
         _observers.Add(UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
@@ -89,7 +89,7 @@ internal sealed class SetupPageLayout
         _header.Apply(_page);
 #if IOS
         // A departing manual-layout page may reconnect after our Appearing.
-        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
+        DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
         ShowBack();
 #endif
         Place();
@@ -112,7 +112,7 @@ internal sealed class SetupPageLayout
 #if IOS
         TabBarButtons.Moved -= OnChanged;
         TabBarButtons.Hide(_page);
-        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Connect();
+        DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
         foreach (var observer in _observers) observer.Dispose();
         _observers.Clear();
         _keyboardScreen = null;
