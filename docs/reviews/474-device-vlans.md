@@ -154,7 +154,7 @@ supplies neighbour graph speech/theme handling. None is reverted or duplicated.
 The eleven shared consumers are Availability, Sensors, Resources, Ports,
 Neighbours, VLANs, FDB, ARP, Routing, Wireless and Inventory (#469–#479).
 Event log, Graylog, Graphs and backups retain their specialised destinations.
-SectionRow, loader, overview templates, DeviceSectionPage, ButtonSearch,
+SectionRow, overview templates, DeviceSectionPage, ButtonSearch,
 CoveredEdges and TabBarButtons remain unchanged. Accepted pages and setup
 contracts remain intact. Changes also include the loader and shared regression
 tests; no other checkout is touched. The private ResourceCategoryAsync helper
@@ -240,6 +240,12 @@ of a reachable last row alone does not establish viewport alignment.
    native keyboard/safe areas where available. Record unavailable devices.
 
 ### Delivery evidence
+
+Fresh full-diff Opus 5.5 Medium review at 10f0bd9 found no blockers and
+confirmed both failure-handling fixes, unchanged Resources behaviour and
+meaningful passing CI regressions. Its sole documentation finding (listing
+the loader as unchanged) is corrected above. No production changes followed
+that review. Final required CI and every native outcome remain pending.
 
 Opus 5.5 Medium reviewed 7b9b88e and identified two related source gaps and a
 keyboard-platform wording error. The original WhenAll could expose the VLAN
