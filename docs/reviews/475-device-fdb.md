@@ -243,7 +243,7 @@ Opus 5.5 Medium confirmed the tag mapping and identified a medium permission
 regression: fleet VLAN viewAll permission is stronger than device FDB/ports
 view permission. The new lookup must not hide otherwise authorised FDB records.
 Fixed with a local lookup-only 403 catch, outside the shared 404 helper. Every
-retained FDB row explicitly says VLAN unavailable: permission denied, including
+retained FDB row with a positive VLAN reference explicitly says VLAN unavailable: permission denied, including
 search, speech and overview. A primary FDB 404 plus lookup denial remains empty;
 primary/ports denial, lookup 500/timeout and cancellation are not swallowed.
 Regressions cover synchronous/faulted denials and absent primary records.
@@ -255,3 +255,11 @@ comment. The duplicate fleet VLAN read for the VLAN and FDB cards is a known
 efficiency limitation; no cross-request cache or credential-lifetime change is
 introduced here. Native restricted-account presentation and all prior device
 checks remain unverified. Fresh full review and replacement CI are pending.
+
+Opus 5.5 Medium re-reviewed b8c280a with no blockers. It found one low factual
+fallback bug: a lookup denial also labelled rows with no VLAN reference denied.
+The positive-reference guard now leaves null/zero/negative references as VLAN
+not reported. CI regressions cover those three cases and required FDB denial
+alongside optional lookup denial. This targeted correction was inspected against
+the full reviewed diff; no other production behaviour changed. All final CI and
+native restricted-account, speech and layout results remain pending.

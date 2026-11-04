@@ -566,7 +566,7 @@ public sealed class DeviceSectionLoader
             {
                 FdbLayout = true,
                 Subtitle = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
-                Value = e.VlanId is > 0 && vlans.TryGetValue(e.VlanId.Value, out var tag) ? $"VLAN {tag}"
+                Value = e.VlanId is not > 0 ? null : vlans.TryGetValue(e.VlanId.Value, out var tag) ? $"VLAN {tag}"
                     : vlanLookupDenied ? "VLAN unavailable: permission denied" : null,
             });
 

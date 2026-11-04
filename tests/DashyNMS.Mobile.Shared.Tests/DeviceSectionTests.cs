@@ -887,6 +887,32 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Missing_vlan_reference_does_not_claim_lookup_permission_denial(int? reference)
+    {
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            new[] { new FdbEntry { PortId = 99, VlanId = reference } });
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(
+            new LibreNmsApiException("VLAN access denied", System.Net.HttpStatusCode.Forbidden)));
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Fdb)));
+        Assert.Equal("VLAN not reported", row.FdbVlanText);
+        Assert.DoesNotContain("permission denied", row.FdbDescription);
+        Assert.False(row.Matches("permission denied"));
+    }
+
+    [Fact]
+    public async Task Required_fdb_permission_failure_is_not_hidden_by_metadata_denial()
+    {
+        var denied = new LibreNmsApiException("FDB access denied", System.Net.HttpStatusCode.Forbidden);
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<FdbEntry>>(denied));
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(
+            new LibreNmsApiException("VLAN access denied", System.Net.HttpStatusCode.Forbidden)));
+        Assert.Same(denied, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Fdb)));
+    }
+
+    [Theory]
     [InlineData("—")]
     [InlineData("–")]
     [InlineData("")]
