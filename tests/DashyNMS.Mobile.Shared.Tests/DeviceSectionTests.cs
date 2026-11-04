@@ -320,6 +320,22 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("4 GB of 8 GB", groups[1][0].Subtitle);
     }
 
+    [Theory]
+    [InlineData("en-GB", 99.95, "99.95%")]
+    [InlineData("fr-FR", 99.95, "99,95%")]
+    [InlineData("en-GB", 99.9996, "99.9996%")]
+    [InlineData("fr-FR", 99.9996, "99,9996%")]
+    public void Near_full_text_has_literal_culture_specific_expectations(string culture, double value, string expected)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+            Assert.Equal(expected, Units.Percent(value));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
     [Fact]
     public async Task Near_full_percentages_preserve_reported_values_in_resources_and_availability()
     {
@@ -376,16 +392,23 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Theory]
-    [InlineData(403)]
-    [InlineData(500)]
-    [InlineData(0)]
-    public async Task Unsupported_cpu_cannot_mask_memory_failure(int status)
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    [InlineData(500, true)]
+    [InlineData(0, true)]
+    public async Task Unsupported_cpu_cannot_mask_memory_failure(int status, bool faultedTask)
     {
         var error = new LibreNmsApiException("Memory endpoint failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
         _client.Health.ListProcessorsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
             Task.FromException<IReadOnlyList<ProcessorSensor>>(new LibreNmsApiException("No processors", System.Net.HttpStatusCode.NotFound)));
-        _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>())
-            .Returns<IReadOnlyList<MempoolSensor>>(_ => throw error);
+        if (faultedTask)
+            _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<IReadOnlyList<MempoolSensor>>(error));
+        else
+            _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>())
+                .Returns<IReadOnlyList<MempoolSensor>>(_ => throw error);
         _client.Health.ListStorageAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<StorageVolume>());
 
         Assert.Same(error, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Resources)));

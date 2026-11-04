@@ -301,3 +301,18 @@ Use synthetic example.net/edge.example.net and IDs 7/8 only. #471 remains open
 and #442 unchecked until explicit user device acceptance. No merge, watch,
 release, issue edit or epic tick is performed. Unresolved visual findings need
 actual evidence and an agreed proposal before any speculative UI change.
+
+Fresh Opus 5.5 Medium full-diff review at 8ba82ba confirmed both fixes
+and found no blockers. Parent strengthened regression coverage with literal
+en-GB/fr-FR expectations and faulted memory-task variants for 403/500/timeout
+alongside CPU 404; no production code changed after review. Shared tests
+already passed at the reviewed head against the pinned Core package. Final
+head CI remains pending; no local execution.
+
+Known preserved limitation: rounding below other status boundaries can show
+94.96 as 95% while Warning, 79.96 as 80% while OK, or Availability 99.86 as
+99.9% while Warning and 98.96 as 99% while Critical. This PR fixes false
+full/100 only, not those other bands. Record actual source/readout/status
+together in #469/#471 checks. The near-full round-trip value may be as long
+as 99.99999999999999%; verify wrapping and speech in both projections at
+maximum text. All native geometry and original acceptance remain unverified.
