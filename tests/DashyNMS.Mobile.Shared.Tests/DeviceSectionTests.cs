@@ -716,7 +716,9 @@ public sealed class DeviceSectionLoaderTests
     public async Task Missing_ports_preserve_fdb_facts_and_port_identity(bool synchronous)
     {
         _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
-            new[] { new FdbEntry { PortId = 99, MacAddress = "020000000001", VlanId = 10 } });
+            new[] { new FdbEntry { PortId = 99, MacAddress = "020000000001", VlanId = 50 } });
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            new[] { new Vlan { DeviceId = DeviceId, VlanId = 50, VlanNumber = 2074 } });
         var missing = new LibreNmsApiException("No endpoint", System.Net.HttpStatusCode.NotFound);
         if (synchronous)
             _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw missing);
@@ -725,7 +727,7 @@ public sealed class DeviceSectionLoaderTests
         var row = Assert.Single(Assert.Single(await Load(DeviceSection.Fdb)));
         Assert.Equal("02:00:00:00:00:01", row.Title);
         Assert.Equal("port 99", row.Subtitle);
-        Assert.Equal("VLAN 10", row.FdbVlanText);
+        Assert.Equal("VLAN 2074", row.FdbVlanText);
         Assert.True(row.FdbLayout);
         Assert.False(row.IsLink);
     }
@@ -770,6 +772,8 @@ public sealed class DeviceSectionLoaderTests
             new FdbEntry { PortId = 99, MacAddress = "002233445566" },
         ]);
 
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(
+            new[] { new Vlan { DeviceId = DeviceId, VlanId = 100, VlanNumber = 2074 } });
         var rows = Assert.Single(await Load(DeviceSection.Fdb));
         Assert.Equal(["port 99", "Access interface", name], rows.Select(row => row.Subtitle));
         Assert.All(rows, row =>
@@ -783,14 +787,75 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("VLAN not reported", rows[0].FdbVlanText);
         Assert.True(rows[0].Matches("not reported"));
         Assert.Equal("VLAN not reported", rows[1].FdbVlanText);
-        Assert.Equal($"aa:bb:cc:dd:ee:ff, {name}, VLAN 100", rows[2].FdbDescription);
+        Assert.Equal($"aa:bb:cc:dd:ee:ff, {name}, VLAN 2074", rows[2].FdbDescription);
         Assert.True(rows[2].Matches("research"));
-        Assert.True(rows[2].Matches("vlan 100"));
+        Assert.True(rows[2].Matches("vlan 2074"));
         Assert.False(new SectionRow("Other mode").Matches("not reported"));
         var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Fdb));
         card.Show([rows]);
         Assert.Equal(3, card.Highlights.Count);
         Assert.Contains(card.Highlights, row => row.FdbDescription == rows[2].FdbDescription);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Fdb_mapping_404_preserves_records_with_unknown_vlan(bool synchronous)
+    {
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            new[] { new FdbEntry { PortId = 99, VlanId = 50 } });
+        var missing = new LibreNmsApiException("No VLAN endpoint", System.Net.HttpStatusCode.NotFound);
+        if (synchronous)
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Vlan>>(_ => throw missing);
+        else
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(missing));
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Fdb)));
+        Assert.Equal("VLAN not reported", row.FdbVlanText);
+        Assert.Null(row.Value);
+    }
+
+    [Theory]
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    public async Task Missing_fdb_does_not_mask_mapping_failure(int status, bool synchronous)
+    {
+        var missing = new LibreNmsApiException("No FDB", System.Net.HttpStatusCode.NotFound);
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<FdbEntry>>(missing));
+        var failure = new LibreNmsApiException("VLAN lookup failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        if (synchronous)
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Vlan>>(_ => throw failure);
+        else
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(failure));
+        Assert.Same(failure, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Fdb)));
+        await _client.Ports.Received(1).ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Fdb_resolves_only_unambiguous_positive_tags_for_selected_device()
+    {
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            new int?[] { 50, 51, 52, 53, 54, 0, -1, null }.Select(id => new FdbEntry { PortId = 99, VlanId = id }).ToArray());
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new Vlan { DeviceId = DeviceId + 1, VlanId = 50, VlanNumber = 999 },
+            new Vlan { DeviceId = DeviceId, VlanId = 50, VlanNumber = 2074 },
+            new Vlan { DeviceId = DeviceId, VlanId = 50, VlanNumber = 2074 },
+            new Vlan { DeviceId = DeviceId + 1, VlanId = 51, VlanNumber = 2075 },
+            new Vlan { DeviceId = DeviceId, VlanId = 52, VlanNumber = 1 },
+            new Vlan { DeviceId = DeviceId, VlanId = 52, VlanNumber = 2 },
+            new Vlan { DeviceId = DeviceId, VlanId = 53, VlanNumber = 0 },
+        });
+        var rows = Assert.Single(await Load(DeviceSection.Fdb));
+        Assert.Equal("VLAN 2074", rows[0].FdbVlanText);
+        Assert.True(rows[0].Matches("VLAN 2074"));
+        Assert.False(rows[0].Matches("VLAN 50"));
+        Assert.Contains("VLAN 2074", rows[0].FdbDescription);
+        Assert.All(rows.Skip(1), row => Assert.Equal("VLAN not reported", row.FdbVlanText));
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Fdb));
+        card.Show([rows]);
+        Assert.Equal("VLAN 2074", card.Highlights[0].FdbVlanText);
     }
 
     [Theory]

@@ -4,6 +4,10 @@ Refs #475 and #442. Baseline current main 0416232438241593489c83ec9acb370b52eb31
 Read live issue/epic, CLAUDE.md, DEVELOPING.md, DESIGN.md,
 DESIGN-REFERENCES.md and prior section assessments #469–#474.
 
+> Historical assessments below are superseded on VLAN semantics and provenance by
+> [Confirmed VLAN correction](#confirmed-vlan-correction). Positive internal IDs
+> were incorrectly described as compliant VLAN tags.
+
 ## Assessment and changes
 
 | Concern | Evidence and disposition |
@@ -122,8 +126,8 @@ no unresolved issue comments or unsettled visual decisions were found.
 
 | Concern/mode | Observed source, expected result and disposition |
 | --- | --- |
-| MACs, interfaces, VLAN facts: list and overview | C: endpoint scoped to device; ports join by ID, unknown mapping says port plus returned ID. Order is looked-up interface then raw MAC, ordinal ignore case, unmapped first; duplicates remain. Mac lowercases/colonises when stripping nonhex yields 12 digits; otherwise preserves raw nonblank content; blank becomes dash then explicit missing-MAC presentation. Positive VlanId retains baseline VLAN label, absent/nonpositive gives not reported. Both templates wrap full stacked facts without line limits. U: full source validity and native long unbroken text. |
-| Source provenance | U: pinned dependency is ci.52; local Core checkout `5f7bde53ac05ea75f7cb6dd06a8fae62606f0769` is not proven identical. Its FdbEntry has Id, PortId, DeviceId, MacAddress, nullable VlanId and UpdatedAt. Notably its documentation calls VlanId an internal row ID rather than tag. Baseline mobile displays it directly, ignores UpdatedAt and trusts endpoint scope; omitted int IDs cannot be distinguished from zero. This is a concrete unresolved provenance/meaning concern, not proof ci.52 supplies incorrect tags. Parent must obtain pinned source/package and synthetic payload evidence before claiming VLAN-tag correctness or complete source validity; do not silently resolve or fabricate tags. |
+| MACs, interfaces, VLAN facts: list and overview | C: endpoint scoped to device; ports join by ID, unknown mapping says port plus returned ID. Order is looked-up interface then raw MAC, ordinal ignore case, unmapped first; duplicates remain. Mac lowercases/colonises when stripping nonhex yields 12 digits; otherwise preserves raw nonblank content; blank becomes dash then explicit missing-MAC presentation. Confirmed HIGH baseline bug, now fixed: resolve internal VlanId through selected-device VLAN metadata to a positive VlanNumber; unresolved context stays not reported. Both templates wrap full stacked facts without line limits. U: full source validity and native long unbroken text. |
+| Source provenance | C: ci.52 provenance confirmed by successful Core CI run 52 at `5f7bde53ac05ea75f7cb6dd06a8fae62606f0769`; see exact evidence below. Internal-ID meaning is confirmed, not deferred. U: complete source validity remains independently unproven: typed payloads cannot distinguish omitted integer IDs from zero and do not establish every valid server payload. |
 | Overview | C: totals count all returned entries; stable neutral Worst selection takes three in source order. Empty success hides card, failure clears highlights and retains error card/open action. No nested FDB action. U: actual card speech and activation. |
 | Initial load, empty and no match | C: finite grouped CollectionView, BusyCard, error/Retry, empty success separate from Nothing matches. Corrected F: outer 404 catch after WhenAll could mask ports 403/500/timeout when FDB 404 surfaced first; ports 404 could discard valid FDB rows. Each read now converts only its own 404 to empty before WhenAll; valid rows retain port-ID fallback. Factories run inside async try, including synchronous throws. Other errors/cancellation propagate. Both missing yields empty. |
 | Refresh, offline and retained data | C: existing rows retained while refreshing and after failure with error, no persistent FDB cache or timestamp/freshness claim. Overview failure clears highlights. U: native error/Retry and offline timing. |
@@ -176,6 +180,56 @@ factory failure and both missing. Existing Resources/VLAN regressions and all
 sibling tests remain intact. No local build, restore, tests or validation
 scripts run. Full diff versus current main and staged whitespace are inspected
 before push. CI and independent parent Opus 5.5 Medium review/CI judgement
-remain pending, separately from native acceptance and pinned-source evidence.
+remain pending, separately from native acceptance.
 No new DESIGN lesson: #536 source handling and #515/#530 alignment already
 cover these rules. No watch, merge, release, issue closure or epic tick.
+
+## Confirmed VLAN correction
+
+Independent parent Opus 5.5 Medium review confirmed the HIGH baseline defect:
+`FdbEntry.VlanId` is an internal VLAN row ID, not an 802.1Q tag. Earlier
+positive-VLAN compliance claims above are superseded by this correction.
+The finding is implemented in this PR; fresh full review and new-head CI
+remain pending with the parent, separately from hardware acceptance.
+
+Provenance: [Core CI run 52](https://github.com/DashyNMS/core/actions/runs/41293836508)
+succeeded at [5f7bde53ac05ea75f7cb6dd06a8fae62606f0769](https://github.com/DashyNMS/core/commit/5f7bde53ac05ea75f7cb6dd06a8fae62606f0769),
+also the inspected local Core HEAD. Its
+[FdbEntry model](https://github.com/DashyNMS/core/blob/5f7bde53ac05ea75f7cb6dd06a8fae62606f0769/src/DesktopNMS.Core/Models/FdbEntry.cs)
+documents that meaning; the model was imported in one commit. Desktop
+[de629be resolver](https://github.com/DashyNMS/desktop/blob/de629be/src/DesktopNMS.Presentation/ViewModels/DeviceDetailViewModel.cs)
+at LoadVlansAsync and FdbItemViewModel.VlanText joins VlanId to VlanNumber.
+Desktop overwrites duplicate IDs in response order and falls back to raw IDs;
+mobile deliberately uses neither policy: conflicting numbers remain unknown,
+identical duplicates are accepted, and unresolved IDs are never displayed as tags.
+This is a conservative presentation choice, not a claim about server guarantees.
+
+Ownership recorded before editing: only FdbAsync in the shared loader changes;
+OptionalSectionSourceAsync stays unchanged, including its Resources and VLAN
+consumers. ARP remains #476 next. Existing Core Vlans.ListAsync supplies the
+necessary metadata; no Core change or pin update. All three factories execute
+inside the existing helper and reads join concurrently. Only each source's 404
+becomes empty. Mapping 404 preserves FDB with VLAN not reported; denial, server
+failure and timeout propagate even when FDB itself is missing.
+
+Filter metadata by selected DeviceId before grouping internal IDs. Require a
+positive reference and an unambiguous positive VlanNumber. Missing, nonpositive,
+foreign-device, conflicting or unmapped references retain the existing explicit
+unknown label. No IfVlan fallback, VLAN name, internal-ID display or new action.
+MAC/interface formatting, ordering, duplicates, neutral status, routes, search
+lifecycle, geometry, persistence and security remain unchanged.
+
+CI fixtures now distinguish internal ID 50 from actual tag 2074, including
+ports 404, selected-device isolation, identical/conflicting duplicates, missing
+and invalid mappings, synchronous/faulted lookup 404 and non-404 failures paired
+with primary 404. Existing context fixtures now supply real mappings and check
+actual tags in search, speech and overview. Old read-error regressions and
+Resources/VLAN tests remain intact. No local build/test/restore/validation ran;
+only git whitespace checks. Full intended diff versus main reviewed against
+DESIGN; parent owns fresh review, CI judgement and merge.
+
+Extend native facts check above: use synthetic internal ID 50 mapped to tag
+2074 and compare section, overview, search and speech; raw 50 must never appear
+as VLAN 50. Exercise missing/ambiguous mapping and all three read failures.
+All native evidence remains unverified. Typed-payload completeness is still an
+independent limitation, not proven by this semantic fix or Core CI provenance.
