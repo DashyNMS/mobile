@@ -158,6 +158,9 @@ public sealed record SectionRow(string Title)
     public long? InventoryIndex { get; init; }
     /// <summary>Only inventory rows opt into complete wrapping facts.</summary>
     public bool InventoryLayout => InventoryIndex is not null;
+    public bool InventoryClassVisible => InventoryLayout && HasValue;
+    public string InventoryDescription => string.Join(", ", new[] { Title, Value, Subtitle, Detail }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
     public bool IsInventoryPort { get; init; }
     public string? Serial { get; init; }
     /// <summary>Names the serial action without changing the clipboard payload.</summary>

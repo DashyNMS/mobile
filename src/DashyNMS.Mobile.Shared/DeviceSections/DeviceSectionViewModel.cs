@@ -34,7 +34,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 
     public string ShowInventoryPortsText => $"Show ports ({_all.SelectMany(g => g).Count(r => r.IsInventoryPort)})";
     public string InventorySummary => string.Join(" · ", _all.SelectMany(g => g)
-        .GroupBy(r => r.Value ?? "Unknown").OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}"));
+        .GroupBy(r => string.IsNullOrWhiteSpace(r.Value) ? "Unknown" : r.Value).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}"));
 
     [RelayCommand]
     private void ExpandInventory()

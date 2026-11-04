@@ -121,7 +121,7 @@
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
                                             <VerticalStackLayout IsVisible="{Binding InventoryLayout}" Spacing="3"
-                                                SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                SemanticProperties.Description="{Binding InventoryDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding HasValue}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />

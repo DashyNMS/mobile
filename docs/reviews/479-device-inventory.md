@@ -42,7 +42,7 @@ all rows regardless of source disposition.
 | --- | --- |
 | Pattern and modes | C searchable grouped pushed detail; Inventory always one column, unlike other sections. Full list has nested chassis/module/optic/port entries, summary and tree controls. Overview has count and three highlights, opens full Inventory. Empty success hides overview card. |
 | Long content | Correction: DeviceSectionPage generic grid truncates title, caps Detail at three lines and constrains Class to 180pt/two lines. Trigger is long name, firmware/serial or unknown class at narrow width/large text. Inventory-specific triggers wrap title/detail and span facts over value columns, moving Class into the content stack. Overview replaces truncated title/value row with complete wrapping facts. Expected complete existing source text without horizontal competition. |
-| Header controls | Correction: horizontal stacks cannot wrap Expand all/Collapse all or constrain Show ports label. Use wrapping FlexLayout for tree actions and Auto/star switch row. Switch gets accessible name; repeated Copy serial names its entry. No new visual policy beyond DESIGN wrapping and accessibility rules. |
+| Header controls | NEEDS CORRECTION / DECISION PENDING: iOS 26 page-wide Expand all, Collapse all and Show ports must be reached through glass. Back plus Search and three controls exceed the four-action policy. A concrete Tree options panel proposal is awaiting user agreement before implementation. Current wrapping fallback remains interim, not compliant glass placement. Per-row expansion and Copy serial stay contextual. |
 | Tree ownership | C loader calls Core InventoryTree.Build and depth-first DescendantsAndSelf. Mobile does not reconstruct containment. Full details below. |
 | Expansion/search | C InventoryRows.Visible preserves matching descendants and ancestors through collapsed branches while search is active; clearing restores collapsed set. Hidden ports and their subtrees remain excluded from search until toggled on. Expandability counts visible children. Same-device refresh preserves collapsed indices and port switch. Changing device/section clears both. No durable expansion setting is added. |
 | Selection/restoration | N/A selectable rows, editor, comparison and draft Save. CollectionView SelectionMode None. Expansion is session-local state, not a selected device. Existing search/query lifetime remains unchanged. |
@@ -116,3 +116,20 @@ using synthetic example.net identities and documentation IP ranges only.
 Check Tab bar buttons and Top line diagnostics for loops or overlap. CI cannot
 establish native acceptance. No merge, watch, issue closure, epic tick or release
 is performed by this implementation sub-agent.
+
+## Independent review and pending proposal
+
+Opus 5.5 Medium reviewed e2d5756. Its medium glass-action finding is accepted:
+page-wide tree controls are not exempt from the pushed-page glass rule.
+The proposed single Tree options action opens a compact measured panel with
+Expand all, Collapse all, Show ports and Done, retaining current commands and
+session state. Android/older iOS use a header Tree options icon and the same
+panel. This proposal requires agreement before implementation; it is not coded.
+Availability must follow loaded source rows and actual command availability,
+including hidden ports and empty search results, without claiming loading/error
+data is actionable. Device measurements and final independent review are pending.
+
+Low source findings are corrected: blank class no longer reserves a caption in
+the full list, overview speech follows visible Title/Class/Subtitle/Detail order,
+and whitespace class summaries group under Unknown. Exact copied serial bytes
+remain untouched. These corrections do not settle the pending glass proposal.

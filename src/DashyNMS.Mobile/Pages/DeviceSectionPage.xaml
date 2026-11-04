@@ -229,7 +229,7 @@
                                             </DataTrigger>
                                         </Label.Triggers>
                                     </Label>
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding InventoryLayout}" LineBreakMode="WordWrap" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding InventoryClassVisible}" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
                                            LineBreakMode="WordWrap" />
                                     <Button Style="{StaticResource LinkButton}" Text="Copy serial" MinimumHeightRequest="44" SemanticProperties.Description="{Binding CopySerialLabel}" IsVisible="{Binding HasSerial}"
