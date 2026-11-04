@@ -568,19 +568,21 @@ public sealed class DeviceSectionLoader
             .ThenBy(b => b.PeerAddressText, StringComparer.OrdinalIgnoreCase)
             .Select(b => new SectionRow(b.PeerAddressText)
             {
+                RoutingKind = "BGP",
                 Subtitle = string.Join(" · ", new[] { $"AS{b.RemoteAs}", b.AsText, b.Description }.Where(s => !string.IsNullOrWhiteSpace(s))),
                 Value = b.IsAdminDown ? "Shut down" : b.State,
                 Status = b.IsAdminDown ? RowStatus.Inactive : b.IsEstablished ? RowStatus.Ok : RowStatus.Critical,
                 Detail = b.IsEstablished ? "Up " + Units.Duration(TimeSpan.FromSeconds(b.EstablishedSeconds)) : b.LastErrorText,
             });
 
-        var ospf = ospfTask.Result.Select(n => OspfRow(n.IpAddress, n.RouterId, n.State, n.ContextName))
-            .Concat(ospf3Task.Result.Select(n => OspfRow(n.Address, n.RouterId, n.State, n.ContextName)));
+        var ospf = ospfTask.Result.Select(n => OspfRow(n.IpAddress, n.RouterId, n.State, n.ContextName, "OSPF"))
+            .Concat(ospf3Task.Result.Select(n => OspfRow(n.Address, n.RouterId, n.State, n.ContextName, "OSPFv3")));
 
         var vrfs = vrfTask.Result
             .OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase)
             .Select(v => new SectionRow(v.Name ?? "VRF")
             {
+                RoutingKind = "VRF",
                 Subtitle = v.Description,
                 Value = v.RouteDistinguisher,
             });
@@ -588,9 +590,10 @@ public sealed class DeviceSectionLoader
         return Groups(("BGP sessions", bgp), ("OSPF neighbours", ospf), ("VRFs", vrfs));
     }
 
-    private static SectionRow OspfRow(string? address, string? routerId, string? state, string? context) =>
+    private static SectionRow OspfRow(string? address, string? routerId, string? state, string? context, string kind) =>
         new(RoutingText.Address(address) is { Length: > 0 } a ? a : "—")
         {
+            RoutingKind = kind,
             Subtitle = string.Join(" · ", new[] { routerId is null ? null : "Router " + routerId, context }.Where(s => !string.IsNullOrWhiteSpace(s))),
             Value = state,
             Status = state?.StartsWith("full", StringComparison.OrdinalIgnoreCase) == true ? RowStatus.Ok : RowStatus.Warning,

@@ -680,6 +680,57 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Routing_preserves_protocol_context_and_complete_overview_facts()
+    {
+        var context = "example.net-" + new string('x', 160);
+        _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new BgpSession { PeerIdentifier = "192.0.2.7", State = "active", RemoteAs = 64500, LastErrorText = context }]);
+        _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new OspfNeighbour { IpAddress = "192.0.2.8", RouterId = "192.0.2.9", State = "full", ContextName = context }]);
+        _client.Routing.ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Ospfv3Neighbour { Address = "2001:db8::7", State = "init", ContextName = context }]);
+        _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new Vrf { Name = context, Description = "Synthetic VRF", RouteDistinguisher = "64500:7" }]);
+        var groups = await Load(DeviceSection.Routing);
+        Assert.Equal(["BGP sessions", "OSPF neighbours", "VRFs"], groups.Select(g => g.Name));
+        var rows = groups.SelectMany(g => g).ToArray();
+        Assert.Equal(["BGP", "OSPF", "OSPFv3", "VRF"], rows.Select(r => r.RoutingKind));
+        Assert.Equal([RowStatus.Critical, RowStatus.Ok, RowStatus.Warning, RowStatus.None], rows.Select(r => r.Status));
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.RoutingLayout);
+            Assert.False(row.IsLink);
+            Assert.Contains(context, row.RoutingDescription);
+            Assert.True(row.Matches(context));
+            Assert.True(row.Matches(row.RoutingKind!));
+        });
+        Assert.Equal("Route distinguisher: 64500:7", rows[3].RoutingValueText);
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Routing));
+        card.Show(groups);
+        Assert.Equal(4, card.Count);
+        Assert.Equal([rows[0], rows[2], rows[1]], card.Highlights);
+        Assert.All(card.Highlights, row => Assert.Contains(context, row.RoutingDescription));
+    }
+
+    [Theory]
+    [InlineData("BGP", "State not reported")]
+    [InlineData("OSPF", "State not reported")]
+    [InlineData("OSPFv3", "State not reported")]
+    [InlineData("VRF", "Route distinguisher not reported")]
+    public void Routing_missing_facts_are_named_without_changing_raw_values(string kind, string expected)
+    {
+        var row = new SectionRow("—") { RoutingKind = kind };
+        Assert.Equal("Routing identity not reported", row.RoutingTitleText);
+        Assert.Equal(expected, row.RoutingValueText);
+        Assert.True(row.Matches(expected));
+        Assert.Null(row.Value);
+        Assert.Equal("—", row.Title);
+        Assert.Equal(RowStatus.None, row.Status);
+        Assert.False(new SectionRow("example.net").RoutingLayout);
+        Assert.False(new SectionRow("example.net").Matches(expected));
+    }
+
+    [Fact]
     public async Task Inventory_is_a_tree_with_depth()
     {
         _client.Devices.GetInventoryAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(

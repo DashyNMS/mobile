@@ -20,6 +20,16 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Routing facts wrap in both the section and its overview highlights.</summary>
+    public bool RoutingLayout => RoutingKind is not null;
+    public string? RoutingKind { get; init; }
+    /// <summary>Missing identity and state remain explicit without changing server fields or classification.</summary>
+    public string RoutingTitleText => MissingAddress(Title) ? "Routing identity not reported" : Title;
+    public string RoutingValueText => HasValue ? (RoutingKind == "VRF" ? "Route distinguisher: " + Value : Value!)
+        : RoutingKind == "VRF" ? "Route distinguisher not reported" : "State not reported";
+    public string RoutingDescription => string.Join(", ", new[] { RoutingKind, RoutingTitleText, Subtitle, RoutingValueText, Detail }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+
     /// <summary>ARP facts wrap independently to retain address and interface context.</summary>
     public bool ArpLayout { get; init; }
     /// <summary>Names missing addresses without replacing the source fields.</summary>
@@ -191,6 +201,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
+        || (RoutingLayout && (Contains(RoutingKind, term) || Contains(RoutingTitleText, term) || Contains(RoutingValueText, term)))
         || (ArpLayout && (Contains(ArpIpText, term) || Contains(ArpMacText, term) || Contains(ArpInterfaceText, term)))
         || (FdbLayout && (Contains(FdbMacText, term) || Contains(FdbVlanText, term)))
         || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
