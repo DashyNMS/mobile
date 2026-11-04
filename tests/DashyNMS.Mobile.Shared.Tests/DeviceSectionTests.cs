@@ -438,6 +438,7 @@ public sealed class DeviceSectionLoaderTests
 
     [Theory]
     [InlineData("MAC: 020000000001 unavailable", "MAC: 020000000001 unavailable")]
+    [InlineData("port 020000000001", "port 020000000001")]
     [InlineData("0200.0000.0001", "02:00:00:00:00:01")]
     [InlineData("02-00-00-00-00-01", "02:00:00:00:00:01")]
     [InlineData("02:00-00:00:00:01", "02:00-00:00:00:01")]

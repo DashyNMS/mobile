@@ -136,3 +136,10 @@ short/long lists, overview and pushed routes, all loading/empty/error/offline/
 refresh states and full facts using RFC 5737/3849 addresses and synthetic MACs
 and interface names. No hardware pass, issue closure, epic tick or release is
 claimed. Parent owns independent review, CI judgement and sequential merge.
+
+Opus 5.5 Medium independently reviewed the full diff at 5e111ea and found no
+correctness, security or scope defects. Its sole low test-gap finding is fixed:
+the additional free-text fixture port 020000000001 leaves exactly twelve hex
+digits under the old stripping algorithm, so it directly reproduces the false
+address conversion. Production code is unchanged from that reviewed head.
+Final-head CI remains pending; every native outcome above remains unverified.
