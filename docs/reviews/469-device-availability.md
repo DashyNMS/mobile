@@ -290,3 +290,22 @@ unverified. Ports landscape picker fit with the wheel/keyboard at maximum
 text is a specific open verification: measure card/picker/Done bounds; if
 clipped, correct the proven obstruction owner or provide scrolling, without
 guessing a height. Extra keyboard-visible footer space is cosmetic and kept.
+
+Fresh full-diff Opus review at 383f8d7 confirmed the graph correction and
+found no merge blocker. The introduced keyboard-policy risk is explicitly
+retained for device acceptance: this PR replaces MAUI automatic page shifting
+with manual clearance on DeviceSectionPage. Picker wheels send keyboard
+notifications, so Ports' non-scrolling panel may clip Sort/Group/Done in
+short landscape, possibly even at default text. Estimates are not evidence;
+measure actual card/picker/Done/keyboard bounds and correct any regression
+before acceptance. Activation while a keyboard is already visible may lack
+a frame until another notification; test retained return/resume in that state.
+No guessed height correction is included.
+
+Low documentation findings fixed: graph bounds are a separate device
+verification, not something this code measures, and XAML comments distinguish
+iOS measured-pillar placement from Android's existing fallback. No runtime
+implementation changed after review. Final-head CI pending, all device
+results still unverified. Review coverage did not include full sibling
+assessments/comments; #470–#479 remain separate sequential reassessments,
+not accepted by this shared review.
