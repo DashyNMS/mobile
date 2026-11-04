@@ -7,9 +7,9 @@
     xmlns:sys="clr-namespace:System.Collections.Generic;assembly=System.Runtime"
     x:DataType="graylog:GraylogMessageViewModel"
     BackgroundColor="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
-    <Grid>
-        <ScrollView x:Name="Scroller">
-            <VerticalStackLayout x:Name="ContentColumn" Padding="16,0,16,24" Spacing="12">
+    <Grid SafeAreaEdges="None" RowDefinitions="*">
+        <ScrollView x:Name="Scroller" SafeAreaEdges="None">
+            <VerticalStackLayout x:Name="ContentColumn" SafeAreaEdges="None" Padding="16,0,16,24" Spacing="12">
                 <controls:BackBar x:Name="TopBar" />
                 <Label Text="Message unavailable. Go back and select a message again." IsVisible="{Binding MissingMessage}" LineBreakMode="CharacterWrap" />
                 <VerticalStackLayout Spacing="12" IsVisible="{Binding HasMessage}">
@@ -23,12 +23,12 @@
                             <Label Text="{Binding Message.FullText}" FontFamily="Mono" FontSize="13" TextType="Text" LineBreakMode="CharacterWrap" />
                         </VerticalStackLayout>
                     </Border>
-                    <Border Style="{StaticResource ListCard}" Padding="14,12" MinimumHeightRequest="44" IsVisible="{Binding CanShowOnly}"
+                    <Border x:Name="ShowOnlyAction" Style="{StaticResource ListCard}" Padding="14,12" MinimumHeightRequest="44" IsVisible="{Binding CanShowOnly}"
                             AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Description="{Binding ShowOnlyText}">
                         <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding ShowOnlyCommand}" /></Border.GestureRecognizers>
                         <Label Text="{Binding ShowOnlyText}" TextType="Text" LineBreakMode="CharacterWrap" AutomationProperties.IsInAccessibleTree="False" />
                     </Border>
-                    <Border Style="{StaticResource ListCard}" Padding="14,12" MinimumHeightRequest="44" IsVisible="{Binding HasDevice}"
+                    <Border x:Name="DeviceAction" Style="{StaticResource ListCard}" Padding="14,12" MinimumHeightRequest="44" IsVisible="{Binding HasDevice}"
                             AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Description="{Binding DeviceActionDescription}">
                         <Border.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenDeviceCommand}" /></Border.GestureRecognizers>
                         <Label Text="Open device" LineBreakMode="CharacterWrap" AutomationProperties.IsInAccessibleTree="False" />
