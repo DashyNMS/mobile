@@ -643,10 +643,10 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> RoutingAsync(int deviceId, CancellationToken ct)
     {
-        var bgpTask = _client.Routing.ListBgpSessionsAsync(deviceId, ct);
-        var ospfTask = _client.Routing.ListOspfNeighboursAsync(deviceId, ct);
-        var ospf3Task = _client.Routing.ListOspfv3NeighboursAsync(deviceId, ct);
-        var vrfTask = _client.Routing.ListVrfsAsync(deviceId, ct);
+        var bgpTask = OptionalSectionSourceAsync(() => _client.Routing.ListBgpSessionsAsync(deviceId, ct));
+        var ospfTask = OptionalSectionSourceAsync(() => _client.Routing.ListOspfNeighboursAsync(deviceId, ct));
+        var ospf3Task = OptionalSectionSourceAsync(() => _client.Routing.ListOspfv3NeighboursAsync(deviceId, ct));
+        var vrfTask = OptionalSectionSourceAsync(() => _client.Routing.ListVrfsAsync(deviceId, ct));
         await Task.WhenAll(bgpTask, ospfTask, ospf3Task, vrfTask);
 
         var bgp = bgpTask.Result

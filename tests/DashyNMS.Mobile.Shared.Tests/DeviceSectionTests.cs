@@ -1083,6 +1083,101 @@ public sealed class DeviceSectionLoaderTests
         Assert.False(new SectionRow("ordinary").Matches("not reported"));
     }
 
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public async Task Missing_routing_protocol_preserves_other_protocols_and_overview(int missing, bool synchronous)
+    {
+        SeedRouting();
+        RoutingFailure(missing, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), synchronous);
+        var rows = (await Load(DeviceSection.Routing)).SelectMany(g => g).ToArray();
+        Assert.Equal(new[] { "BGP", "OSPF", "OSPFv3", "VRF" }.Where((_, index) => index != missing), rows.Select(r => r.RoutingKind));
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Routing));
+        card.Show(await Load(DeviceSection.Routing));
+        Assert.True(card.IsVisible);
+        Assert.Equal(3, card.Count);
+        Assert.Equal(3, card.Highlights.Count);
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public async Task Missing_routing_protocol_cannot_mask_another_protocol_failure(int failing, bool synchronous)
+    {
+        var status = failing switch { 0 => 403, 1 => 500, 2 => 0, _ => 403 };
+        SeedRouting();
+        RoutingFailure((failing + 1) % 4, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), synchronous);
+        var error = new LibreNmsApiException("Protocol unavailable", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        RoutingFailure(failing, error, synchronous);
+        Assert.Same(error, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Routing)));
+        // Even a synchronous factory failure must not prevent later reads.
+        await _client.Routing.Received().ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>());
+        await _client.Routing.Received().ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>());
+        await _client.Routing.Received().ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>());
+        await _client.Routing.Received().ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(3, false)]
+    [InlineData(0, true)]
+    [InlineData(1, true)]
+    [InlineData(2, true)]
+    [InlineData(3, true)]
+    public async Task Missing_routing_protocol_cannot_mask_cancellation(int failing, bool synchronous)
+    {
+        SeedRouting();
+        RoutingFailure((failing + 1) % 4, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), synchronous);
+        RoutingFailure(failing, new OperationCanceledException(), synchronous);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Load(DeviceSection.Routing));
+    }
+
+    [Fact]
+    public async Task All_unsupported_routing_protocols_are_empty()
+    {
+        for (var source = 0; source < 4; source++)
+            RoutingFailure(source, new LibreNmsApiException("Unsupported protocol", System.Net.HttpStatusCode.NotFound), false);
+        Assert.Empty(await Load(DeviceSection.Routing));
+    }
+
+    private void SeedRouting()
+    {
+        _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new BgpSession { PeerIdentifier = "192.0.2.1", State = "established" }]);
+        _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new OspfNeighbour { IpAddress = "192.0.2.2", State = "full" }]);
+        _client.Routing.ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new Ospfv3Neighbour { Address = "2001:db8::1", State = "full" }]);
+        _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new Vrf { Name = "example" }]);
+    }
+
+    private void RoutingFailure(int source, Exception error, bool synchronous)
+    {
+        switch (source)
+        {
+            case 0: _client.Routing.ListBgpSessionsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(_ => Fail<BgpSession>()); break;
+            case 1: _client.Routing.ListOspfNeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(_ => Fail<OspfNeighbour>()); break;
+            case 2: _client.Routing.ListOspfv3NeighboursAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(_ => Fail<Ospfv3Neighbour>()); break;
+            case 3: _client.Routing.ListVrfsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(_ => Fail<Vrf>()); break;
+        }
+
+        Task<IReadOnlyList<T>> Fail<T>() => synchronous ? throw error
+            : error is OperationCanceledException
+                ? Task.FromCanceled<IReadOnlyList<T>>(new CancellationToken(true))
+                : Task.FromException<IReadOnlyList<T>>(error);
+    }
+
     [Fact]
     public async Task Routing_shows_bgp_state_and_leaves_out_empty_groups()
     {
