@@ -1,5 +1,89 @@
 # Settings overview and About assessment
 
+## Current approved correction, 4 November 2026
+
+Refs #454 and #442. Baseline main `cf11a4171371febe229ef8ebd47f41f3a411174a`,
+including merged More #523. The user explicitly said "Approve as proposed"
+for `/tmp/mobile-442/settings-proposal.md` and `settings-proposal.html`.
+Both exact artifacts were read before implementation. This approves the visual
+decision only. #454 remains open and its epic checkbox remains unchecked.
+
+The trigger was the user's 4 November device feedback on #454: the landing
+page looked blockier, the server logo was lost, and sections were smashed
+together. Historical review of #496 did not establish acceptance of that layout.
+The current correction replaces its bordered groups with separated, quiet
+headings and hairline rows, restores the packaged repository mark, and retains
+the complete embedded About content and every summary.
+
+### Ownership and approved source map
+
+`SettingsOverviewRow.cs` belongs to the mobile head. A repository-wide consumer
+search found only `SettingsPage.xaml`, including server/backup, preferences,
+services, About links and diagnostics rows. No accepted form or More consumer
+uses it. Its optional ShowLogo property is enabled only on the server row;
+ShowChevron is false for the backup explanation and explicit diagnostics share
+action, because these do not navigate. No global row or setup helper changed.
+The native button covers the measured row; excluded labels/logo/chevron do not
+add duplicate actions. Pressed/focused states use the existing PrimaryTint.
+
+| Location, mode and trigger | Assessment and expected correction/source contract |
+| --- | --- |
+| Server identity, active/disconnected/long host | Corrected visual loss: packaged dashynms_logo.png from the repo SVG, 54pt beside wrapping ServerHost and complete ServerSummary. Existing Not signed in / No active connection / unknown / HTTP warning remain. Transport never claims reachability. |
+| Backup active | Compliant independent ExplainCommand, full ServerRowText and warning text colour. No nested server target or new probe/failback behaviour. |
+| Preferences, narrow/wide | Corrected blockiness: Appearance, Devices, Alert checks, Notifications, Health thresholds then conditional Lock screen widgets. All original summary bindings and threshold explanation remain. Lock screen moves out of Services. |
+| Services, enabled/off/invalid source | Compliant GraylogStatusText, UnimusStatusText, SensorDefinitionsSummary. Saved enablement, host-only source and unavailable/not-downloaded states remain honest. No credential/path/query display or connectivity assertion. |
+| About, normal/long/missing/cached versions | Compliant ComponentVersions.Build source. App/Core/Sensor definitions retain name, full DisplayVersion and State in read-only stacks. Only metadata is omitted for display; diagnostic headers keep full versions. Missing is Unavailable, never zero. Disabled, Not downloaded, Enabled and cached update failure remain distinct. Added hairlines. |
+| About links and release notes | Compliant full conditional WhatsNewSummary and OpenWhatsNewCommand; exact AppLinks PrivacyPolicy/Support/Website and OpenLicencesCommand remain. No new About route or child edit. |
+| Diagnostics availability and consent combinations | Compliant conditional HasDiagnosticsCard, CanChooseSharing, CanShareDiagnostics and CanHideNamesInDiagnostics. SharingSummary remains complete. Hide names has its own 44pt native switch beside excluded explanatory labels; no parent gesture. Full share confirmation, redaction choice and explicit system sheet remain. |
+| Sign out, cancel/ordinary/forget | Compliant existing SignOutCommand and exact chooser/second confirmation. Isolated by 38pt space; no shortcut or new deletion. Ordinary sign-out retains saved server/settings; forget additionally clears service secrets/data/catalogue, keeps diagnostics log. |
+| Footer and secret action | Compliant exact AppVersion and Trademarks bindings. Existing three quick header/version taps retained; logo is decorative. |
+| Persistence and permissions | Compliant unchanged VM/children. Seven immediate sections keep their automatic-save contracts and dependent fields. Draft thresholds/services/catalogue retain Save/Back, validation, draft Test connection/trust and immediate confirmed secret removal. Permission refusal still says Notifications are off and explains continued checks/system permission. No overview automatic-save claim. |
+| Root/pushed/child/tab return/resume | Compliant source retained: IActivePage.Refresh, idempotent edge watcher and Moved subscription, central Shell resume owner, actual caller Back. No local resume fanout or new lifecycle mechanism. Hardware operation UNVERIFIED. |
+| Usable viewport, fade and final action | Compliant source retained: star viewport, iOS top-only native owner, native scroll adjustment disabled, Android Container edges, measured ForScrolling sides/bottom, single 16pt gutters and footer. The 20pt reserve/fade uses actual page Background resources. No guessed offsets introduced. Actual native base, top/side/bottom pill bounds, overlay clearance and initial/final reach remain UNVERIFIED. |
+| Themes, maximum text and accessible actions | Wrapping, uncapped full-width column, minimum 60pt rows and existing caption/warning colours retained. Native joined action names and independent switch remain. Both-theme feedback added. Actual contrast, speech, focus, rapid activation and fit UNVERIFIED. |
+| Keyboard/search/loading/retry | N/A on overview: no editable fields, search or network list. Existing unknown saved/session states and all loading/refusal behaviour in children unchanged. |
+
+Accepted #405/#412 forms, #457 consent, #459 licences and #450/#451/#460
+remain outside this UI change. #458 owns What's new. Open documentation PR #515
+retains fixed-action alignment ownership. More #523 is the direction baseline;
+no More edits, unrelated worktrees or dirty #475 changes are included.
+
+### Current evidence and remaining gates
+
+Source diff and whitespace inspection only. No local builds, tests or scripts.
+No model semantics changed, so no new model tests were added. Android and iOS
+MAUI compilation belongs to CI; XML/source inspection is not proof of MAUI
+compilation. The repository image pipeline already packages this mark for
+SignInPage. No static-string Path.Data was introduced after #523's MAUIX2002.
+
+Independent Claude Opus 5.5 Medium full-diff review: PENDING, parent-owned.
+Shared tests, Android, iOS and CodeQL CI: PENDING at handoff.
+Device/user acceptance: ALL UNVERIFIED. No build or OS result is available.
+The PR head SHA identifies the exact source revision; record the eventual build,
+OS and result against that SHA before acceptance. Proposal approval is not a
+native pass. Parent owns subsequent review, CI judgement and merge; no merge,
+watch, release, closure or epic tick is performed by this implementation task.
+
+The exact pending matrix below remains required for the new PR head. Every
+combination is UNVERIFIED: Duo outer portrait/landscape, inner portrait/landscape
+and ordinary iPhone portrait/landscape; light/dark; default/maximum OS text;
+VoiceOver/TalkBack as supported. Repeat cold launch, fold/unfold, rotation while
+scrolled, resume, pinned-tab return and all child returns without reload.
+Check top/side/bottom glass, actual usable base, initial fade text and final
+Sign out/footer reach. Exercise long example.net hosts and full prerelease/build
+versions, every unavailable/disabled/cached/service state, diagnostics visibility,
+privacy/share confirmations, permission refusal and both sign-out paths using
+synthetic data only. Record commit, build, device, OS, theme, text size, reader,
+trigger, actual result and expected correction for each failure. No credentials
+or real network identity belongs in evidence.
+
+## Historical #496 assessment and review provenance
+
+The remainder records the previous implementation and its then-pending checks.
+Its branch names, statuses and "new" control claims are historical, not the
+current correction's status. The original scope and detailed device steps are
+retained for regression coverage.
+
 Refs #454 and #442. Baseline main 23eff15 (after #495), branch
 `t3/settings-about-overview`. Read live #454/#442/#453/#457/#458/#459,
 CLAUDE.md, DEVELOPING.md, the full DESIGN.md and DESIGN-REFERENCES.md,

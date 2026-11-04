@@ -9,15 +9,13 @@
  <Grid x:Name="Root" RowDefinitions="Auto,*">
   <controls:PageHeader x:Name="Header" Title="Settings" Margin="16,0" />
   <ScrollView x:Name="Scroller" Grid.Row="1">
-   <VerticalStackLayout x:Name="Body" Padding="16,20,16,16" Spacing="12">
-    <Border Style="{StaticResource Card}">
+   <VerticalStackLayout x:Name="Body" Padding="16,20,16,16" Spacing="0">
      <VerticalStackLayout>
-      <controls:SettingsOverviewRow Title="{Binding ServerHost}" Summary="{Binding ServerSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
+      <controls:SettingsOverviewRow ShowLogo="True" Title="{Binding ServerHost}" Summary="{Binding ServerSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Server}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding Backup.IsOnBackup}" />
-      <controls:SettingsOverviewRow Title="Backup address" SummaryTextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
+      <controls:SettingsOverviewRow ShowChevron="False" Title="Backup address" SummaryTextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" Summary="{Binding Backup.ServerRowText}" IsVisible="{Binding Backup.IsOnBackup}" Command="{Binding Backup.ExplainCommand}" />
      </VerticalStackLayout>
-    </Border>
-    <Border Style="{StaticResource Card}" Padding="14,0">
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Preferences" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Appearance" Summary="{Binding AppearanceSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
@@ -28,21 +26,18 @@
       <controls:SettingsOverviewRow Title="Notifications" Summary="{Binding NotificationsSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Notifications}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Health thresholds" Summary="When dBm, signal, temperature and fan speed turn amber or red" Command="{Binding OpenThresholdsCommand}" />
-     </VerticalStackLayout>
-    </Border>
-    <Border Style="{StaticResource Card}" Padding="14,0">
-     <VerticalStackLayout>
-      <controls:SettingsOverviewRow Title="Lock screen widgets" Summary="{Binding LockScreenSummary}" IsVisible="{Binding HasLockScreenWidgets}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasLockScreenWidgets}" />
+      <controls:SettingsOverviewRow Title="Lock screen widgets" Summary="{Binding LockScreenSummary}" IsVisible="{Binding HasLockScreenWidgets}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.LockScreen}" />
+     </VerticalStackLayout>
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Services" Margin="0,34,0,6" />
+     <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Graylog" Summary="{Binding GraylogStatusText}" Command="{Binding OpenGraylogSettingsCommand}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Unimus" Summary="{Binding UnimusStatusText}" Command="{Binding OpenUnimusSettingsCommand}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Sensor definitions" Summary="{Binding SensorDefinitionsSummary}" Command="{Binding OpenSensorDefinitionsCommand}" />
      </VerticalStackLayout>
-    </Border>
-    <Label Style="{StaticResource SectionHeader}" Text="About" />
-    <Border Style="{StaticResource Card}" Padding="14,0">
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="About" Margin="0,34,0,6" />
      <VerticalStackLayout>
       <VerticalStackLayout BindableLayout.ItemsSource="{Binding Versions}" Padding="0,12" Spacing="12">
        <BindableLayout.ItemTemplate>
@@ -51,6 +46,7 @@
           <Label Text="{Binding Name}" FontSize="15" FontFamily="BodySemibold" />
           <Label Text="{Binding DisplayVersion}" FontSize="15" LineBreakMode="CharacterWrap" />
           <Label Text="{Binding State}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
+          <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" Margin="0,10,0,0" />
          </VerticalStackLayout>
         </DataTemplate>
        </BindableLayout.ItemTemplate>
@@ -65,25 +61,34 @@
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Open-source licences" Command="{Binding OpenLicencesCommand}" />
      </VerticalStackLayout>
-    </Border>
-    <Label Style="{StaticResource SectionHeader}" Text="Diagnostics" IsVisible="{Binding HasDiagnosticsCard}" />
-    <Border Style="{StaticResource Card}" Padding="14,0" IsVisible="{Binding HasDiagnosticsCard}">
-     <VerticalStackLayout>
+    <Label Style="{StaticResource Caption}" FontFamily="BodySemibold" Text="Diagnostics" Margin="0,34,0,6" IsVisible="{Binding HasDiagnosticsCard}" />
+     <VerticalStackLayout IsVisible="{Binding HasDiagnosticsCard}">
       <controls:SettingsOverviewRow Title="Error reports and usage" Summary="{Binding SharingSummary}" IsVisible="{Binding CanChooseSharing}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Diagnostics}" />
       <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding CanShareDiagnostics}" />
-      <controls:SettingsOverviewRow Title="Share diagnostics" Summary="What the app did lately, for a bug report" IsVisible="{Binding CanShareDiagnostics}" Command="{Binding ShareDiagnosticsCommand}" />
-      <VerticalStackLayout Padding="0,10" IsVisible="{Binding CanHideNamesInDiagnostics}">
-       <Label Text="Hide names" FontSize="15" FontFamily="BodySemibold" />
-       <Label Style="{StaticResource Caption}" Text="Server and device names and IP addresses as placeholders in diagnostics" />
-       <Switch IsToggled="{Binding HideNamesInDiagnostics}" HorizontalOptions="Start" SemanticProperties.Description="Hide names in diagnostics. Replace server and device names and IP addresses with placeholders." MinimumHeightRequest="44" />
-      </VerticalStackLayout>
+      <controls:SettingsOverviewRow ShowChevron="False" Title="Share diagnostics" Summary="What the app did lately, for a bug report" IsVisible="{Binding CanShareDiagnostics}" Command="{Binding ShareDiagnosticsCommand}" />
+      <Grid Padding="0,14" ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding CanHideNamesInDiagnostics}">
+       <VerticalStackLayout Spacing="4" AutomationProperties.ExcludedWithChildren="True">
+        <Label Text="Hide names" FontSize="15" FontFamily="BodySemibold" />
+        <Label Style="{StaticResource Caption}" Text="Server and device names and IP addresses as placeholders in diagnostics" />
+       </VerticalStackLayout>
+       <Switch Grid.Column="1" IsToggled="{Binding HideNamesInDiagnostics}" VerticalOptions="Center" SemanticProperties.Description="Hide names in diagnostics. Replace server and device names and IP addresses with placeholders." MinimumHeightRequest="44" MinimumWidthRequest="44" />
+      </Grid>
      </VerticalStackLayout>
-    </Border>
-    <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" MinimumHeightRequest="44" />
+    <BoxView Style="{StaticResource RowLine}" AutomationProperties.IsInAccessibleTree="False" Margin="0,38,0,0" />
+    <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" HeightRequest="-1" MinimumHeightRequest="52" BackgroundColor="Transparent" BorderWidth="0" Margin="0,0,0,24">
+     <VisualStateManager.VisualStateGroups>
+      <VisualStateGroup x:Name="CommonStates">
+       <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>
+       <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" /></VisualState.Setters></VisualState>
+       <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" /></VisualState.Setters></VisualState>
+       <VisualState x:Name="Disabled" />
+      </VisualStateGroup>
+     </VisualStateManager.VisualStateGroups>
+    </Button>
     <Label Style="{StaticResource Faint}" Text="{Binding AppVersion, StringFormat='DashyNMS mobile {0}'}" HorizontalTextAlignment="Center">
      <Label.GestureRecognizers><TapGestureRecognizer Tapped="OnSecretTap" /></Label.GestureRecognizers>
     </Label>
-    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}" HorizontalTextAlignment="Center" />
+    <Label Style="{StaticResource Faint}" Text="{Binding Trademarks}" HorizontalTextAlignment="Center" Margin="0,24,0,0" />
     <BoxView x:Name="Foot" Color="Transparent" HeightRequest="16" />
    </VerticalStackLayout>
   </ScrollView>
