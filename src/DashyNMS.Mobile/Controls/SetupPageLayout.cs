@@ -88,6 +88,8 @@ internal sealed class SetupPageLayout
         if (!_showing) OnAppearing(_page, EventArgs.Empty);
         _header.Apply(_page);
 #if IOS
+        // A departing manual-layout page may reconnect after our Appearing.
+        Microsoft.Maui.Platform.KeyboardAutoManagerScroll.Disconnect();
         ShowBack();
 #endif
         Place();

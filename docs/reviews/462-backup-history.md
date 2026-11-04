@@ -150,7 +150,7 @@ branches to recreate. Unrelated #475 worktrees and other branches are untouched.
 | Device identity, rows, exact timestamps and status | Compliant source baseline: both device IDs, backup IDs, local seconds/offset, honest unknown dates/formats and Current revision label, wrapping and joined selected-state description retained. Maximum text and speech unverified. |
 | Matching and unavailable/error/empty | Compliant baseline: original candidate priority, ambiguity refusal, matched-empty versus unmatched versus unavailable, denied request error and retained same-connection rows remain intact. No loader/matcher/API edits. |
 | View/diff actions and dynamic 0/1/2 selections | Corrected command availability for toggle/submit during busy/navigation; source membership/revision guards, third-choice replacement, deselection, Cancel clearing and older-first exact-ID diff remain. Native double-tap/overflow operation unverified. |
-| Child return, retained tab and resume | Corrected: central IActivePage activation restores controls and retains the guarded EnsureLoadedAsync connection-revision check and failed-first-load retry; unchanged loaded history is not refetched. Watches/listeners are idempotent and disposed on Hide; queued placement/taps check active ownership. Native result unverified. |
+| Child return, retained tab and resume | Corrected: central IActivePage activation restores controls and retains the guarded EnsureLoadedAsync connection-revision check and revision-dependent failed-load retry; unchanged loaded history is not refetched. Watches/listeners are idempotent and disposed on Hide; queued placement/taps check active ownership. Native result unverified. |
 | Source/export/navigation/permissions/persistence | Compliant: no bytes, sharing, relative routes, IDs, settings/token storage, permissions or job semantics changed. No Backup now or new capability. |
 | Search, form Save and backup jobs in history | N/A: absent capabilities; none invented. Child search remains with #463; child Share with #463/#464. |
 | Keyboard in shared contents consumer | Corrected shared clearance observes docked keyboard and restores placement on dismissal; Android now explicitly uses All rather than Container, adding keyboard resize and a 12pt host bottom gap; native effects require device checks. Floating keyboard, focused-field reach and drag behaviour unverified; #463 owns search behaviour. |
@@ -213,7 +213,7 @@ No acceptance, issue closure, epic tick, merge, release or watcher is performed.
 
 Opus 5.5 Medium at d756e811 found one blocking medium regression and three
 low findings. Parent fixed retained activation: EnsureLoadedAsync again
-checks connection revision and retries failed first loads on Activate, with
+checks connection revision and retains existing revision-dependent failed-load retries on Activate, with
 no fetch for unchanged loaded history. Cancel permits existing comparison
 mode independently of revision while navigation/busy guards remain.
 Keyboard auto-scroll Disconnect now runs on every activation so departing
@@ -225,3 +225,23 @@ adds keyboard resize, and no-pill fallback adds 12pt Body bottom padding.
 Verify visible keyboard dismissal, viewport/final-line reach and both themes
 on Android; these are not unchanged or accepted results. Fresh full-diff
 review and replacement CI pending; every physical outcome unverified.
+
+Fresh full-diff Opus review at c8fdbea confirms all previous fixes and no
+blockers. Added shared regression cases for Cancel after a revision change
+and comparison guard availability during pending Open/Compare navigation.
+The existing retry is revision-dependent, not a general retry after every
+failed device reinitialisation; that baseline behaviour is preserved.
+Without a pill, older iOS now also has 12pt plus safe-bottom host padding
+and a 20pt footer; verify its viewport/action reach, not just Android.
+
+Shared keyboard handover correction: SetupPageLayout.Activate now repeats
+the idempotent Disconnect just as PushedListLayout does. This prevents an
+outgoing backup helper Connect undoing an already-showing setup helper.
+Affected accepted consumers: AddCard, GraphPicker, SensorPicker, TopCardSetUp,
+SpotlightPicker, MapLocationPicker, GraylogDevicePicker, NotifyRulePicker,
+SettingsSection, Thresholds, GraylogSettings, UnimusSettings,
+SensorDefinitionsSettings and NeighbourGroupEditor. No layout/persistence
+contract changes; regress keyboard focus/scroll and dismissal on these
+accepted forms, especially backups to retained Settings/Unimus and back.
+Their explicit acceptance remains intact; physical regressions unverified.
+Fresh shared-change review and final CI pending; no local execution.
