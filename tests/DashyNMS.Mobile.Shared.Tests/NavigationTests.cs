@@ -15,6 +15,18 @@ public sealed class NavigationTests
     }
 
     [Fact]
+    public void More_summaries_match_the_approved_five_destinations()
+    {
+        foreach (var page in AppPages.All)
+        {
+            var item = new MoreItem(page);
+            var expected = page is AppPage.Health or AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.Graylog;
+            Assert.Equal(expected, item.HasSummary);
+            Assert.Equal(expected ? AppPages.Description(page) : string.Empty, item.Summary);
+        }
+    }
+
+    [Fact]
     public void Devices_alerts_and_health_are_pinned_until_the_user_chooses()
     {
         Assert.Equal([AppPage.Devices, AppPage.Alerts, AppPage.Health], _pins.Pinned);
@@ -132,7 +144,7 @@ public sealed class NavigationTests
         Assert.False(health.IsPinned);
         Assert.Equal("2 of 3 pinned", vm.PinnedText);
         Assert.True(vm.Groups[1].Items[0].CanToggle);
-        Assert.Equal("Pin Health to the tab bar", health.PinDescription);
+        Assert.Equal("Pin Health to the tab bar. Not pinned.", health.PinDescription);
     }
 
     [Fact]
@@ -156,6 +168,8 @@ public sealed class NavigationTests
         var map = items.Single(item => item.Page == AppPage.Map);
         var health = items.Single(item => item.Page == AppPage.Health);
         Assert.Contains("Unpin another page", map.PinState);
+        Assert.Contains("Tab bar full", map.PinDescription);
+        Assert.Contains("Unpin a page", vm.CapacityText);
         Assert.Contains("Back returns to More", map.OpenHint);
         var changes = new List<string?>();
         map.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
@@ -163,6 +177,9 @@ public sealed class NavigationTests
         await vm.TogglePinCommand.ExecuteAsync(health);
         Assert.Equal("Not pinned", map.PinState);
         Assert.Contains(nameof(MoreItem.PinState), changes);
+        Assert.Contains(nameof(MoreItem.PinDescription), changes);
+        Assert.Equal("Pin Map to the tab bar. Not pinned.", map.PinDescription);
+        Assert.Equal("2 of 3 pinned.", vm.CapacityText);
         await vm.TogglePinCommand.ExecuteAsync(map);
         Assert.Equal("Pinned to the tab bar", map.PinState);
         Assert.Equal("Unpin", map.PinLabel);
@@ -179,7 +196,7 @@ public sealed class NavigationTests
         {
             Assert.False(string.IsNullOrWhiteSpace(item.Description));
             Assert.Contains(item.Title, item.OpenDescription);
-            Assert.Contains(item.PinState, item.OpenDescription);
+            Assert.Contains(item.IsPinned ? "Pinned" : "Not pinned", item.OpenDescription);
         });
     }
 }

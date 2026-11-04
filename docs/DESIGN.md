@@ -352,6 +352,18 @@ and selection contracts remain unchanged.
   each actionable row's accessible description. Unknown readings must not be
   presented as OK.
 
+For More’s navigation catalogue, use quiet headings and lightweight rows separated
+by hairlines. Keep one wrapping column at narrow and wide widths; use summaries
+where destination names need context. Open and pin are separate accessible
+actions, each at least 44pt, with no parent gesture enclosing the pin. Use an
+outlined pin for not pinned and a filled pin for pinned, with explicit target,
+membership and action in its accessible name. State capacity once above the
+catalogue; this pattern replaces visible per-row unavailable text with that
+line and explicit accessible state. A full-bar pin remains operable to
+explain how to make room.
+This visual direction was approved for More on 4 November 2026; native device
+acceptance remains separate in [its assessment](reviews/453-more-navigation.md).
+
 ## Data states and persistence
 
 - Preserve complete server-provided messages, expressions, configuration and
