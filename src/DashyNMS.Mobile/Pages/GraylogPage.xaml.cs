@@ -11,12 +11,17 @@ namespace DashyNMS.Mobile.Pages;
 /// device, or from a device's Graylog section with its id and name - the
 /// same page, with the Device chip fixed to it (#117).
 /// </summary>
-public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost
+public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost, IActivePage
 {
 	private readonly GraylogViewModel _viewModel;
 	private readonly TabAlignedListLayout _listLayout;
 	private const uint SearchSlide = 220;
 	private bool _searchOpen;
+	private bool _showing;
+#if IOS
+	private GraylogMessageViewModel? _observedDetail;
+	private (GraylogMessageViewModel? Detail, bool Search, bool Back, string BackText, bool Filter, bool Device, string FilterText, string DeviceText)? _glassState;
+#endif
 
 	public GraylogPage(GraylogViewModel viewModel)
 	{
@@ -37,6 +42,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 			else OpenSearch();
 		});
 		Search.Unfocused += (_, _) => CloseSearch();
+		Split.SplitChanged += (_, _) => UpdateGlass();
 		List.Scrolled += (_, _) =>
 		{
 			if (Search.IsFocused) CloseSearch();
@@ -73,49 +79,50 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		view.Bar.ShowsBack = false;
 		view.ViewModel.IsBesideList = true;
 		view.Load(parameters);
+#if IOS
+		ObserveDetail(null);
+#endif
 		Split.Detail = view;
-		PlaceMessage();
+		UpdateGlass();
 #if IOS
 		PlaceFooter();
 #endif
 		return true;
 	}
 
-	/// <summary>The trailing star pane reaches the right and bottom edges, never the left edge.</summary>
-	private void PlaceMessage()
-	{
-		if (Split.Detail is not GraylogMessageView detail) return;
-		var clear = CoveredEdges.ForScrolling(this);
-		detail.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
-	}
-
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
-#if IOS
-		if (TabBarButtons.IsAvailable)
-		{
-			List<GlassAction> actions = [];
-			if (PageHeader.IsPushed(this))
-			{
-				actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-			}
-			TabBarButtons.Show(this, _viewModel.IsConfigured ? OpenSearch : null, "Search messages", actions);
-		}
-		TabBarButtons.Moved += OnGlassMoved;
-		PlaceFooter();
-#endif
+		Activate();
 		_ = _viewModel.EnsureLoadedAsync();
 		_viewModel.AutoRefresh.SetShowing(true);
+	}
+
+	/// <summary>Reclaims retained host controls without fetching or resetting list state.</summary>
+	public void Activate()
+	{
+		_showing = true;
+		Header.Apply(this);
+#if IOS
+		_glassState = null;
+		_viewModel.PropertyChanged -= OnHostChanged;
+		_viewModel.PropertyChanged += OnHostChanged;
+		TabBarButtons.Moved -= OnGlassMoved;
+		TabBarButtons.Moved += OnGlassMoved;
+		UpdateGlass();
+		PlaceFooter();
+#endif
 	}
 
 	/// <summary>Auto-refresh only ticks while the page is showing (#214).</summary>
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+		_showing = false;
 		CloseSearch();
 #if IOS
+		ObserveDetail(null);
+		_viewModel.PropertyChanged -= OnHostChanged;
 		TabBarButtons.Moved -= OnGlassMoved;
 		TabBarButtons.Hide(this);
 #endif
@@ -143,7 +150,67 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 	}
 
 #if IOS
-	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
+	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(() => { if (IsActive) PlaceFooter(); });
+	private void OnHostChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => QueueGlass();
+	private void OnDetailChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) => QueueGlass();
+	private void OnDetailCommandChanged(object? sender, EventArgs e) => QueueGlass();
+	private void QueueGlass() => Dispatcher.Dispatch(() => { if (IsActive) UpdateGlass(); });
+
+	/// <summary>Only this host observes its current detail; replaced/hidden hosts release subscriptions.</summary>
+	private void ObserveDetail(GraylogMessageViewModel? detail)
+	{
+		if (ReferenceEquals(_observedDetail, detail)) return;
+		if (_observedDetail is { } old)
+		{
+			old.PropertyChanged -= OnDetailChanged;
+			old.OpenDeviceCommand.CanExecuteChanged -= OnDetailCommandChanged;
+			old.ShowOnlyCommand.CanExecuteChanged -= OnDetailCommandChanged;
+		}
+		_observedDetail = detail;
+		if (detail is null) return;
+		detail.PropertyChanged += OnDetailChanged;
+		detail.OpenDeviceCommand.CanExecuteChanged += OnDetailCommandChanged;
+		detail.ShowOnlyCommand.CanExecuteChanged += OnDetailCommandChanged;
+	}
+#endif
+
+	private bool IsActive => _showing && Shell.Current?.CurrentPage == this;
+
+	/// <summary>Detail actions join the existing list owner, never claim child Back or search.</summary>
+	private void UpdateGlass()
+	{
+#if IOS
+		if (!IsActive || !TabBarButtons.IsAvailable) return;
+		var view = Split.IsSplit ? Split.Detail as GraylogMessageView : null;
+		var detail = view?.ViewModel;
+		ObserveDetail(detail);
+		view?.HideInlineActions();
+		var state = (detail, _viewModel.IsConfigured, PageHeader.IsPushed(this), BackBar.PreviousTitle(this),
+			detail?.ShowOnlyCommand.CanExecute(null) == true, detail?.OpenDeviceCommand.CanExecute(null) == true,
+			detail?.ShowOnlyText ?? string.Empty, detail?.DeviceActionDescription ?? string.Empty);
+		if (_glassState == state) return;
+		_glassState = state;
+		List<GlassAction> actions = [];
+		if (state.Item3)
+			actions.Add(new("chevron.backward", "Back to " + state.Item4, () => { if (IsActive) _ = Shell.Current.GoToAsync(".."); }, IsBack: true));
+		if (state.Item5)
+			actions.Add(new("line.3.horizontal.decrease", state.Item7, () =>
+			{
+				if (IsCurrentDetail(detail) && detail!.ShowOnlyCommand.CanExecute(null)) detail.ShowOnlyCommand.Execute(null);
+			}));
+		if (state.Item6)
+			actions.Add(new("desktopcomputer", state.Item8, () =>
+			{
+				if (IsCurrentDetail(detail) && detail!.OpenDeviceCommand.CanExecute(null)) detail.OpenDeviceCommand.Execute(null);
+			}));
+		TabBarButtons.Show(this, state.Item2 ? () => { if (IsActive) OpenSearch(); } : null, "Search messages", actions);
+#endif
+	}
+
+#if IOS
+	private bool IsCurrentDetail(GraylogMessageViewModel? detail) => IsActive && Split.IsSplit
+		&& detail is not null && ReferenceEquals((Split.Detail as GraylogMessageView)?.ViewModel, detail);
+
 	private void PlaceFooter()
 	{
 		_listLayout.Place();

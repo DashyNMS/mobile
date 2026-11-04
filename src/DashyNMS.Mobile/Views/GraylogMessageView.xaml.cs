@@ -45,11 +45,11 @@ public partial class GraylogMessageView : ContentView
         Fade.IsVisible = !header;
     }
 
-    /// <summary>Only the pushed glass owner replaces the inline actions.</summary>
-    public void UseGlassActions(bool glass)
+    /// <summary>The available host glass replaces the inline actions.</summary>
+    public void HideInlineActions()
     {
-        ShowOnlyAction.IsVisible = !glass && ViewModel.CanShowOnly;
-        DeviceAction.IsVisible = !glass && ViewModel.HasDevice;
+        ShowOnlyAction.IsVisible = false;
+        DeviceAction.IsVisible = false;
     }
 
     /// <summary>No detail fetch exists; absent route data must clear the previous record.</summary>

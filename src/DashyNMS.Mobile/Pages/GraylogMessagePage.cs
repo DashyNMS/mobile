@@ -76,7 +76,7 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
     {
 #if IOS
         _view.Bar.IsVisible = !TabBarButtons.IsAvailable;
-        if (TabBarButtons.IsAvailable) _view.UseGlassActions(true);
+        if (TabBarButtons.IsAvailable) _view.HideInlineActions();
         if (TabBarButtons.IsAvailable)
         {
             var state = (ViewModel.ShowOnlyCommand.CanExecute(null), ViewModel.OpenDeviceCommand.CanExecute(null), ViewModel.ShowOnlyText, ViewModel.DeviceActionDescription);
@@ -106,9 +106,7 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
 
     private void OnMessageChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(GraylogMessageViewModel.Message) or nameof(GraylogMessageViewModel.HasDevice)
-            or nameof(GraylogMessageViewModel.CanShowOnly))
-            Dispatcher.Dispatch(() => { if (IsActive) { RestoreGlass(); PlaceControls(); } });
+        Dispatcher.Dispatch(() => { if (IsActive) { RestoreGlass(); PlaceControls(); } });
     }
 
     private void PlaceControls()

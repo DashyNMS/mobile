@@ -151,11 +151,11 @@ those events reapply stored clearance rather than substituting zero.
 Embedded: GraylogPage → ListDetail → trailing star _pane → _detail
 ContentView → the same message view hierarchy. ListDetail's pane and content
 host already opt out of safe areas. The pane reaches the page right/bottom,
-so GraylogPage passes ForScrolling right/bottom directly and zero left. No
+so TabAlignedListLayout passes its existing right/bottom clearance and zero left. No
 native frame conversion during SizeChanged is required. Its list column,
 card base, footer and camera layout are untouched. TabAlignedListLayout's
-legacy detail callback now delegates only Graylog message placement to this
-explicit boundary; its other consumer LogsPage is unchanged. ListDetail's
+existing detail callback supplies Graylog message placement directly;
+its other consumer LogsPage is unchanged. ListDetail's
 other consumers are unchanged. Shared helpers have no edits.
 
 GraylogMessageView has exactly two construction consumers: GraylogMessagePage
@@ -222,11 +222,13 @@ the pushed detail is active, with matching unsubscription on disappearance.
 
 ### Independent review disposition and unresolved symptom
 
-Opus 5.5 Medium full-diff review at fe6c669 found no blockers. Parent fixed
-three low findings: the existing list-helper callback supplies its own
-clearance directly (no redundant calculation); older iOS keeps its inline
-visibility bindings; glass action presence and cached state now use command
-CanExecute, including in-flight changes. Fresh review and CI pending.
+Opus 5.5 Medium full-diff review at fe6c669 found no blockers. Parent recorded
+three low findings as fixed, but the description at 4d9dd90 overstated completion:
+PlaceMessage still redundantly recalculated clearance, UseGlassActions still
+accepted a false branch that would destroy bindings, and embedded detail
+actions were missing from host glass. The corrections below supersede that
+claim. Command CanExecute gating was already present for pushed actions.
+Fresh review and CI pending.
 
 The reported three-quarter width and shortened bottom are NOT demonstrated
 resolved by this patch. The explicit SafeAreaEdges contract may equal native
@@ -242,3 +244,70 @@ rejected with source evidence: merged HealthPage and AlertRulesPage use
 the same Shell.Current.CurrentPage guard. Initial-frame ordering remains
 a device check, as recorded for those consumers; shared dispatch resolves
 the active page at delivery. Physical outcomes remain wholly unverified.
+
+### Host glass correction after review of 4d9dd90
+
+Removed PlaceMessage and its call. Embedded geometry again uses only the
+unchanged TabAlignedListLayout callback, as in prepared main 63466c8.
+HideInlineActions is parameterless and true-only, called exclusively when
+iOS glass is available. Android and older iOS retain their inline bindings.
+
+GraylogPage now implements the existing IActivePage contract. Its central
+UpdateGlass method retains host Back (only when pushed) and configured search,
+and adds eligible Show only and Open device actions for the visible split
+detail. No embedded Back is added. IsBesideList changes Show only navigation,
+not eligibility: CanShowOnly delegates to the owner's current filter and fixed
+device scope. Both commands use CanExecute for presence and again at execution.
+The cache includes detail identity, both labels, both command states, search
+availability and host Back state/title. Callbacks check the active host and
+current visible detail, so a retained/replaced detail cannot act through an
+old glass callback. Narrowing removes detail actions and subscriptions;
+widening restores them without route reentry.
+
+Host properties and detail properties/CanExecuteChanged are observed while
+active. Detail subscriptions are removed on replacement, narrowing and host
+disappearance; activation restores them idempotently. The view model has no
+IDisposable contract: release means removing the host's observers, not clearing
+its retained payload. Queued updates resolve current state and require the
+current Shell page. Moved only places the existing layout; it never publishes
+glass. No new native observer, window hook or shared-helper change is needed.
+AppShell restores controls on retained-stack activation and resume. Activate
+does not fetch, reset filters/selection or start timers: the original
+EnsureLoadedAsync and AutoRefresh showing lifecycle remain in Appearing and
+Disappearing. Pushed details also observe label changes through their existing
+property observer and retain the same command guards.
+
+Individual host command audit: Search remains the configured glass magnifier;
+SearchCommand remains completion; RefreshCommand remains pull-to-refresh;
+ChooseDevice/ClearDevice, ChooseRange, ChooseLevel, ChooseStream,
+ToggleAutoRefresh/ChooseAutoRefreshInterval and ClearFilters retain their
+scope chips and existing bindings; OpenSettings remains the unconfigured
+setup route; OpenMessage keeps the row payload and list owner; LoadMore keeps
+its existing visibility and append semantics. There is no Graylog export
+command in this host to migrate or remove. No list action is replaced by child
+Back. Filters are scope controls, not newly duplicated glass actions.
+
+Ownership dependencies remain #517 (list camera layering) and #483 (list
+review). TabAlignedListLayout consumers are GraylogPage and LogsPage;
+ListDetail consumers are Devices, Neighbours, Logs, AlertRules, Alerts and
+Graylog pages. None of these shared helpers or other consumers changed.
+Any future camera/list correction must assess those consumers separately.
+
+The geometry report remains unresolved. Explicit None defaults may be a no-op;
+ForScrolling side camera clearance can intentionally apply to a whole column,
+and 340/400pt list panes can be legitimate. Obtain page/native host, split pane,
+ContentView, viewport and content bounds, native scroll insets/content size,
+camera reserved rectangles, pill/action glass bounds and last-field position
+on the reporting OS/build. Compare pushed and embedded, wide and narrow,
+before/after fold/rotation. No width/height offset or geometry cause is invented.
+
+Validation for this revision: full intended diff against 63466c8 and DESIGN
+self-inspected; whitespace checked. No agents, local builds, tests or scripts.
+Parent's fresh Opus 5.5 Medium full-diff review and CI are pending. Exact source
+revision is the commit containing this section (resolve with git log); its SHA
+is reported in handoff. Build number and runtime OS: none, code-only session.
+All existing matrix rows remain unverified at that SHA, including iOS 26+
+embedded glass, older-iOS/Android fallback, retained stack/resume, accessibility
+and final field reachability. Record exact SHA/build/OS per executed row;
+historical no-blocker review does not establish acceptance of this correction.
+Refs #461 and #442; no closure or device acceptance claimed.
