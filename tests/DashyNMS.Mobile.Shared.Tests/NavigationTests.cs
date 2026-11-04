@@ -15,6 +15,18 @@ public sealed class NavigationTests
     }
 
     [Fact]
+    public void More_summaries_match_the_approved_five_destinations()
+    {
+        foreach (var page in AppPages.All)
+        {
+            var item = new MoreItem(page);
+            var expected = page is AppPage.Health or AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.Graylog;
+            Assert.Equal(expected, item.HasSummary);
+            Assert.Equal(expected ? AppPages.Description(page) : string.Empty, item.Summary);
+        }
+    }
+
+    [Fact]
     public void Devices_alerts_and_health_are_pinned_until_the_user_chooses()
     {
         Assert.Equal([AppPage.Devices, AppPage.Alerts, AppPage.Health], _pins.Pinned);

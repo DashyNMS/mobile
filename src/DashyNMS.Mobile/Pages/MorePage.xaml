@@ -26,7 +26,7 @@
                                         <DataTemplate x:DataType="vm:MoreItem">
                                             <Grid RowDefinitions="Auto,1" ColumnDefinitions="*,44" ColumnSpacing="8" Padding="0,4,0,0">
                                                 <Grid ColumnDefinitions="*,Auto" MinimumHeightRequest="48">
-                                                    <VerticalStackLayout Grid.Column="0" Padding="0,8" Spacing="4" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                    <VerticalStackLayout Grid.Column="0" Padding="0,8" Spacing="4" VerticalOptions="Center" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
                                                         <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
                                                         <Label Style="{StaticResource Caption}" Text="{Binding Summary}" IsVisible="{Binding HasSummary}" LineBreakMode="WordWrap" />
                                                     </VerticalStackLayout>
@@ -35,15 +35,25 @@
                                                             SemanticProperties.Description="{Binding OpenDescription}"
                                                             SemanticProperties.Hint="{Binding OpenHint}"
                                                             Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}">
+                                                        <VisualStateManager.VisualStateGroups>
+                                                            <VisualStateGroup x:Name="CommonStates">
+                                                                <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Disabled" />
+                                                            </VisualStateGroup>
+                                                        </VisualStateManager.VisualStateGroups>
                                                         <Button.Style><Style TargetType="Button" /></Button.Style>
                                                     </Button>
                                                 </Grid>
                                                 <Grid Grid.Column="1" WidthRequest="44" HeightRequest="44" VerticalOptions="Center">
-                                                    <shapes:Path Data="{x:Static controls:Icons.Pin}" StrokeThickness="1.8" WidthRequest="24" HeightRequest="24" Aspect="None"
+                                                    <!-- Geometry mirrors Icons.Pin; SourceGen cannot convert an x:Static string to Geometry. -->
+                                                    <shapes:Path Data="M9 3H15L14 9L18 12V14H6V12L10 9Z M12 14V21" StrokeLineCap="Round" StrokeLineJoin="Round" StrokeThickness="1.8" WidthRequest="24" HeightRequest="24" Aspect="None"
                                                         HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False"
-                                                        Stroke="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" Fill="Transparent">
+                                                        Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" Fill="Transparent">
                                                         <shapes:Path.Triggers>
                                                             <DataTrigger TargetType="shapes:Path" Binding="{Binding IsPinned}" Value="True">
+                                                                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                                                 <Setter Property="Fill" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
                                                             </DataTrigger>
                                                         </shapes:Path.Triggers>
@@ -52,6 +62,14 @@
                                                             SemanticProperties.Description="{Binding PinDescription}"
                                                             SemanticProperties.Hint="{Binding PinHint}"
                                                             Command="{Binding TogglePinCommand, Source={RelativeSource AncestorType={x:Type vm:MoreViewModel}}, x:DataType=vm:MoreViewModel}" CommandParameter="{Binding .}">
+                                                        <VisualStateManager.VisualStateGroups>
+                                                            <VisualStateGroup x:Name="CommonStates">
+                                                                <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                                                                <VisualState x:Name="Disabled" />
+                                                            </VisualStateGroup>
+                                                        </VisualStateManager.VisualStateGroups>
                                                         <Button.Style><Style TargetType="Button" /></Button.Style>
                                                     </Button>
                                                 </Grid>

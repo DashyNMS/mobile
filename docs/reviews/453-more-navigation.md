@@ -194,3 +194,21 @@ resume. No issue closure, epic ticks or release is authorised by these notes.
 | Fold/rotate/resume | Recalculate gutters/footer without reopening; no duplicate insets, watchers or stale glass actions. More root resume reclaims action-free ownership; pushed pages keep their Back/search. |
 
 User acceptance remains pending for each matrix row.
+
+## CI failure and independent review disposition
+
+Both platform CI builds at 888805b failed MAUIX2002: SourceGen cannot convert
+Icons.Pin's x:Static string into Path.Data geometry. Parent fixed this using
+the exact inline path with shared-source provenance comment; no icon semantics
+changed. No local builds/tests were run.
+
+Opus 5.5 Medium full-diff review at 888805b found that blocker and a medium
+single-line title alignment mismatch; both are fixed. Parent also fixed muted
+unpinned versus accent pinned stroke, round caps/joins, press/focus visual
+feedback, More-only placement/exception wording under accessibility guidance,
+and exact five-summary regression coverage. Unused compatibility PinState and
+PinLabel properties are retained; they do not affect presentation. Pin remains
+vertically centred for a stable native target; largest-text alignment/reach
+requires explicit device verification rather than a guessed font-size threshold.
+Fresh full-diff review and replacement CI remain pending, all device outcomes
+unverified. Approved proposal is not device acceptance.
