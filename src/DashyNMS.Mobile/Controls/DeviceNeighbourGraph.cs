@@ -1,6 +1,7 @@
 using System.Globalization;
 using DashyNMS.Mobile.Converters;
 using DashyNMS.Mobile.DeviceSections;
+using Microsoft.Maui.Controls.Shapes;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -74,15 +75,36 @@ public sealed class DeviceNeighbourGraph : ContentView
 
         void AddNode(string name, double x, double y, Color color, SectionRow? row)
         {
+            if (row is null)
+            {
+                // The centre identifies this device; it has no selection action.
+                var label = new Label
+                {
+                    Text = name, FontSize = 12, TextColor = text,
+                    LineBreakMode = LineBreakMode.CharacterWrap,
+                    HorizontalTextAlignment = TextAlignment.Center, VerticalTextAlignment = TextAlignment.Center,
+                };
+                SemanticProperties.SetDescription(label, "Current device: " + name);
+                var readout = new Border
+                {
+                    Content = label, Padding = new Thickness(5),
+                    BackgroundColor = dark ? Color.FromArgb("#20252C") : Colors.White,
+                    Stroke = color, StrokeThickness = 2,
+                    StrokeShape = new RoundRectangle { CornerRadius = 12 },
+                };
+                _layout.Children.Add(readout);
+                AbsoluteLayout.SetLayoutBounds(readout, new Rect(x, y, nodeWidth, nodeHeight));
+                return;
+            }
+
             var button = new Button
             {
                 Text = name, FontSize = 12, Padding = new Thickness(5), LineBreakMode = LineBreakMode.CharacterWrap,
                 TextColor = text, BackgroundColor = dark ? Color.FromArgb("#20252C") : Colors.White,
                 BorderColor = color, BorderWidth = 2, CornerRadius = 12,
             };
-            SemanticProperties.SetDescription(button, row is null ? "Current device: " + name
-                : "Show neighbour card: " + name + ", " + row.Subtitle + ", " + row.Fields.FirstOrDefault()?.Value);
-            if (row is not null) button.Clicked += (_, _) => Picked?.Invoke(row);
+            SemanticProperties.SetDescription(button, row.NeighbourGraphDescription);
+            button.Clicked += (_, _) => Picked?.Invoke(row);
             _layout.Children.Add(button);
             AbsoluteLayout.SetLayoutBounds(button, new Rect(x, y, nodeWidth, nodeHeight));
         }

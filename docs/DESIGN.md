@@ -607,3 +607,9 @@ Record host height H, pill bottom B, viewport bottom V and V−B separately from
 complete final-row reachability. A footer that clears the row does not prove
 that the viewport reaches the usable base. #469 owns this correction before
 sequential reassessment of #470–#479; source correction is not device acceptance.
+
+For device-neighbour graphs, distinguish a current-device readout from actionable
+neighbour nodes. A node selecting a list card must announce that selection intent
+and the complete endpoint/state facts; it must not promise device navigation.
+Verify centre role, node activation and list focus separately with assistive
+technology, including unmonitored neighbours and a filtered list.
