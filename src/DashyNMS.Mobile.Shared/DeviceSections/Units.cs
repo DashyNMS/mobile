@@ -18,7 +18,8 @@ public static class Units
     public static string Bytes(long? bytes) => Scale(bytes, 1024, BytePrefixes);
 
     public static string Percent(double? value) =>
-        value is { } v ? v.ToString(v >= 99.995 && v < 100 ? "0.000" : v >= 10 ? "0.#" : "0.##", CultureInfo.CurrentCulture) + "%" : "—";
+        // Round-trip precision prevents a below-full reading from becoming 100%.
+        value is { } v ? v.ToString(v >= 99.9 && v < 100 ? "R" : v >= 10 ? "0.#" : "0.##", CultureInfo.CurrentCulture) + "%" : "—";
 
     /// <summary>"3d 4h", "2h 5m", "45m", "12s".</summary>
     public static string Duration(TimeSpan span)

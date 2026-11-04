@@ -320,6 +320,111 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("4 GB of 8 GB", groups[1][0].Subtitle);
     }
 
+    [Theory]
+    [InlineData("en-GB", 99.95, "99.95%")]
+    [InlineData("fr-FR", 99.95, "99,95%")]
+    [InlineData("en-GB", 99.9996, "99.9996%")]
+    [InlineData("fr-FR", 99.9996, "99,9996%")]
+    public void Near_full_text_has_literal_culture_specific_expectations(string culture, double value, string expected)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+            Assert.Equal(expected, Units.Percent(value));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = previous; }
+    }
+
+    [Fact]
+    public async Task Near_full_percentages_preserve_reported_values_in_resources_and_availability()
+    {
+        var previousCulture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            foreach (var culture in new[] { "en-GB", "fr-FR" })
+            {
+                System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
+                foreach (var percent in new[] { 99.95, 99.97, 99.995, 99.9996, Math.BitDecrement(100d), 100d, 0d })
+                {
+                    var expected = percent.ToString("R", System.Globalization.CultureInfo.CurrentCulture) + "%";
+                    var resource = DeviceSectionLoader.UsageRow("example.net CPU", percent, null, null, null);
+                    Assert.Equal(expected, resource.Value);
+                    Assert.Equal(percent / 100, resource.Bar);
+                    Assert.Equal(percent >= 95 ? RowStatus.Critical : RowStatus.Ok, resource.Status);
+                    Assert.Contains(expected, resource.ResourceDescription);
+                    var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Resources));
+                    card.Show([new SectionGroup("Processors", [resource])]);
+                    Assert.Same(resource, Assert.Single(card.Highlights));
+                    Assert.Equal(expected, card.Highlights[0].Value);
+
+                    _client.Devices.GetAvailabilityAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+                        [new AvailabilityWindow { DurationSeconds = 86400, Percent = percent }]);
+                    _client.Devices.GetOutagesAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceOutage>());
+                    var availability = Assert.Single(Assert.Single(await Load(DeviceSection.Availability)));
+                    Assert.Equal(expected, availability.Value);
+                    if (percent < 100)
+                        Assert.NotEqual("100%", resource.Value);
+                }
+                Assert.Equal("—", Units.Percent(null));
+                Assert.Equal("—", DeviceSectionLoader.UsageRow("example.net CPU", null, null, null, null).Value);
+                Assert.Equal(12.3.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture) + "%", Units.Percent(12.34));
+            }
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    [Fact]
+    public async Task Unsupported_cpu_preserves_supported_memory_and_storage()
+    {
+        _client.Health.ListProcessorsAsync(DeviceId, Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<ProcessorSensor>>(_ => throw new LibreNmsApiException("No processors", System.Net.HttpStatusCode.NotFound));
+        _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new MempoolSensor { Description = "example.net RAM", UsagePercent = 50 }]);
+        _client.Health.ListStorageAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([new StorageVolume { Description = "example.net disk", UsagePercent = 25 }]);
+
+        var groups = await Load(DeviceSection.Resources);
+        Assert.Equal(["Memory", "Storage"], groups.Select(g => g.Name));
+        Assert.Equal("50%", groups[0][0].Value);
+        Assert.Equal("25%", groups[1][0].Value);
+    }
+
+    [Theory]
+    [InlineData(403, false)]
+    [InlineData(500, false)]
+    [InlineData(0, false)]
+    [InlineData(403, true)]
+    [InlineData(500, true)]
+    [InlineData(0, true)]
+    public async Task Unsupported_cpu_cannot_mask_memory_failure(int status, bool faultedTask)
+    {
+        var error = new LibreNmsApiException("Memory endpoint failed", status == 0 ? null : (System.Net.HttpStatusCode)status) { IsTimeout = status == 0 };
+        _client.Health.ListProcessorsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromException<IReadOnlyList<ProcessorSensor>>(new LibreNmsApiException("No processors", System.Net.HttpStatusCode.NotFound)));
+        if (faultedTask)
+            _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>())
+                .Returns(Task.FromException<IReadOnlyList<MempoolSensor>>(error));
+        else
+            _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>())
+                .Returns<IReadOnlyList<MempoolSensor>>(_ => throw error);
+        _client.Health.ListStorageAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Array.Empty<StorageVolume>());
+
+        Assert.Same(error, await Assert.ThrowsAsync<LibreNmsApiException>(() => Load(DeviceSection.Resources)));
+        await _client.Health.Received(1).ListStorageAsync(DeviceId, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task All_unsupported_resource_categories_are_empty()
+    {
+        var error = new LibreNmsApiException("Unsupported health category", System.Net.HttpStatusCode.NotFound);
+        _client.Health.ListProcessorsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<ProcessorSensor>>(error));
+        _client.Health.ListMempoolsAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<MempoolSensor>>(error));
+        _client.Health.ListStorageAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<StorageVolume>>(error));
+        Assert.Empty(await Load(DeviceSection.Resources));
+    }
+
     [Fact]
     public async Task Ports_put_the_ones_that_need_looking_at_first()
     {
