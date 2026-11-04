@@ -19,7 +19,11 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 {
     private IDisposable? _edges;
     private readonly ButtonSearch _search;
-	/// <summary>How long the search field takes to slide in or out, as Devices' and Alerts'.</summary>
+    private bool _active;
+#if IOS
+    private readonly List<Foundation.NSObject> _keyboardObservers = [];
+    private CoreGraphics.CGRect? _keyboardScreen;
+#endif
 
 	/// <summary>How long the Sort &amp; filter card takes to rise or go, and the list to dim, as Devices'.</summary>
 	private const uint CardMotion = 250;
@@ -58,11 +62,19 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		List.HandlerChanged += (_, _) => StopInsetAdjustment();
 		List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-		SectionBody.SizeChanged += (_, _) => PlaceControls();
+		SectionBody.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        SectionBody.HandlerChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        SectionBody.Loaded += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        FilterCard.SizeChanged += (_, _) => Dispatcher.Dispatch(PlaceControls);
+        FilterCard.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(View.IsVisible)) Dispatcher.Dispatch(PlaceControls);
+        };
 
 		// An inventory's nesting reads down one column, so it never spreads across.
 		_viewModel.Groups.CollectionChanged += (_, _) => Dispatcher.Dispatch(() =>
 		{
+            if (!_active) return;
 			PlaceControls();
 			UpdateNeighbourGraph();
 		});
@@ -78,11 +90,12 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			switch (e.PropertyName)
 			{
 				case nameof(DeviceSectionViewModel.IsSearchOpen):
-					Dispatcher.Dispatch(() => { if (_viewModel.IsSearchOpen) _search.Open(); else _search.Close(); });
+					Dispatcher.Dispatch(() => { if (!_active) return; if (_viewModel.IsSearchOpen) _search.Open(); else _search.Close(); });
 					break;
 				case nameof(DeviceSectionViewModel.IsFilterPanelOpen):
 					Dispatcher.Dispatch(() =>
 					{
+                        if (!_active) return;
 						if (_viewModel.IsPorts && _viewModel.IsFilterPanelOpen)
 						{
 							KeyboardDismiss.Close(Search);
@@ -95,6 +108,9 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 				case nameof(DeviceSectionViewModel.IsPorts) or nameof(DeviceSectionViewModel.HasPanelFilters) or nameof(DeviceSectionViewModel.SearchLabel):
 					Dispatcher.Dispatch(UpdateGlass);
 					break;
+                case nameof(DeviceSectionViewModel.IsNeighbours):
+                    Dispatcher.Dispatch(PlaceControls);
+                    break;
 			}
 		};
 
@@ -132,6 +148,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	/// </summary>
 	public void OpenSearch()
 	{
+        if (!_active) return;
         _search.Open();
 		if (_viewModel.IsSearchOpen)
 		{
@@ -162,14 +179,36 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
     public void Activate()
     {
+        if (!_active)
+        {
+            _active = true;
+#if IOS
+            _keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
+            {
+                _keyboardScreen = args.FrameEnd;
+                PlaceControls();
+            }));
+            _keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillHide((_, _) =>
+            {
+                _keyboardScreen = null;
+                PlaceControls();
+            }));
+#endif
+        }
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
 		_showing = true;
+        ManualKeyboardScroll.Acquire(this);
 #endif
 
+		// Stop transitions before restoring their final state on retained activation.
+        FilterCard.AbortAnimation("CardSlide");
+        Dim.AbortAnimation("ListDim");
 		// As it was left, without sliding in again.
 		FilterCard.IsVisible = _viewModel.IsFilterPanelOpen;
+        FilterCard.TranslationY = 0;
+        FilterCard.Opacity = 1;
 		Dim.IsVisible = _viewModel.IsFilterPanelOpen;
 		Dim.Opacity = _viewModel.IsFilterPanelOpen ? DimmedTo : 0;
 #if IOS
@@ -194,11 +233,18 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        _active = false;
+        FilterCard.AbortAnimation("CardSlide");
+        Dim.AbortAnimation("ListDim");
         _search.Close();
         _edges?.Dispose();
         _edges = null;
 #if IOS
 		_showing = false;
+        ManualKeyboardScroll.Release(this);
+        foreach (var observer in _keyboardObservers) observer.Dispose();
+        _keyboardObservers.Clear();
+        _keyboardScreen = null;
 #endif
 		KeyboardDismiss.Close(Search);
 #if IOS
@@ -214,7 +260,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	/// </summary>
 	private void PlaceControls()
 	{
-		if (Width <= 0)
+		if (!_active || Width <= 0)
 		{
 			return;
 		}
@@ -222,6 +268,42 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		var clear = CoveredEdges.ForScrolling(this);
 		var left = 16 + clear.Left;
 		var right = 16 + clear.Right;
+        var bottom = 12 + clear.Bottom;
+        var footer = 24d;
+        var overlayBottom = bottom;
+#if IOS
+        StopInsetAdjustment();
+        // Query every obstruction in the body host's coordinates. Its bottom
+        // is the viewport base in narrow and split modes alike.
+        if (SectionBody.Handler?.PlatformView is UIKit.UIView host && host.Bounds.Height > 0)
+        {
+            var height = (double)host.Bounds.Height;
+            var nativePill = TabBarButtons.PillIn(host);
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(host)
+                .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
+            overlayBottom = SetupActionPlacement.BottomGap(height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+            bottom = overlayBottom;
+            if (nativePill is { } measured && (measured.Height > measured.Width || measured.Top > height / 2))
+            {
+                bottom = Math.Max(0, height - measured.Bottom);
+                footer += Math.Max(0, overlayBottom - bottom);
+            }
+            if (_keyboardScreen is { } screen && host.Window is { } window)
+            {
+                var keyboard = host.ConvertRectFromView(window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
+                if (keyboard.Width >= host.Bounds.Width * .8 && keyboard.Bottom >= height)
+                {
+                    var keyboardGap = height - Math.Max(0, (double)keyboard.Top) + 12;
+                    bottom = Math.Max(bottom, keyboardGap);
+                    overlayBottom = Math.Max(overlayBottom, keyboardGap);
+                }
+            }
+        }
+#endif
+        if (FilterCard.IsVisible && FilterCard.Height > 0)
+            footer = Math.Max(footer, FilterCard.Height + overlayBottom + 12 - bottom);
 
 		var wideNeighbours = _viewModel.IsNeighbours && Width - left - right >= 800;
 		var columns = wideNeighbours ? 2 : 1;
@@ -235,11 +317,12 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
         Grid.SetColumn(ListFade, wideNeighbours ? 1 : 0);
 		Grid.SetColumn(Refresh, wideNeighbours ? 1 : 0);
 		Grid.SetRowSpan(Refresh, wideNeighbours ? 2 : 1);
+        Grid.SetRowSpan(ListFade, wideNeighbours ? 2 : 1);
 		Grid.SetRowSpan(NeighbourGraph, wideNeighbours ? 2 : 1);
 		NeighbourGraph.VerticalOptions = wideNeighbours ? LayoutOptions.Fill : LayoutOptions.Start;
 		// Keep a finite list viewport even in short landscape and above the keyboard.
 		NeighbourGraph.HeightRequest = wideNeighbours ? -1 : Math.Min(280, Math.Max(0, SectionBody.Height * 0.35));
-		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? 12 + clear.Bottom : 8);
+		NeighbourGraph.Margin = new Thickness(left, 8, wideNeighbours ? 8 : right, wideNeighbours ? overlayBottom : 8);
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		var field = new Thickness(left, 4, right, 8);
@@ -250,7 +333,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 
 		FilterLine.Margin = new Thickness(left + 4, 4, right, 0);
 		ErrorLine.Margin = new Thickness(left, 8, right, 0);
-		FilterCard.Margin = new Thickness(left, 6, right, 12 + clear.Bottom);
+		FilterCard.Margin = new Thickness(left, 6, right, overlayBottom);
 		Busy.Margin = new Thickness(left, 8, right, 0);
 		var list = new Thickness(left, 0, right, 0);
 		if (List.Margin != list)
@@ -259,16 +342,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		}
         ListFade.Margin = list;
 
-		// Keep the viewport itself above the tab/glass area. A grouped,
-		// virtualised list must not rely on its footer alone for clearance:
-		// rows at the viewport's bottom could still sit behind the menu (#392).
-		var viewport = new Thickness(0, 0, 0, 12 + clear.Bottom);
+		// The viewport reaches the pill base; content owns final-row clearance.
+		var viewport = new Thickness(0, 0, 0, bottom);
 		if (Refresh.Margin != viewport) Refresh.Margin = viewport;
 
-		const double foot = 24;
-		if (ListFoot.HeightRequest != foot)
+		if (ListFoot.HeightRequest != footer)
 		{
-			ListFoot.HeightRequest = foot;
+			ListFoot.HeightRequest = footer;
 		}
 
 		var span = 1;
@@ -300,14 +380,14 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		_glass = state;
 		List<GlassAction> actions =
 		[
-			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
+			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => { if (_active) _ = Shell.Current.GoToAsync(".."); }, IsBack: true),
 		];
 		if (state.Filter)
 		{
 			actions.Add(new(
 				state.Filtered ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle",
 				state.Filtered ? "Sort and filter, sorted or grouped" : "Sort and filter",
-				() => _viewModel.ToggleFilterPanelCommand.Execute(null)));
+				() => { if (_active) _viewModel.ToggleFilterPanelCommand.Execute(null); }));
 		}
 
 		TabBarButtons.Show(this, OpenSearch, state.Search, actions);
@@ -349,6 +429,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		// Once laid out, so it knows how far it has to come.
 		Dispatcher.Dispatch(() =>
 		{
+            if (!_active) return;
 			var fromY = show && card.Opacity == 0 ? Travel() : card.TranslationY;
 			var fromOpacity = card.Opacity;
 			var toY = show ? 0 : Travel();
