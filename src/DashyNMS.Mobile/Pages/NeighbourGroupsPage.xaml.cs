@@ -9,6 +9,7 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
 {
     private readonly NeighbourGroupsViewModel _viewModel;
     private IDisposable? _edges;
+    private bool _active;
 
     public NeighbourGroupsPage(NeighbourGroupsViewModel viewModel)
     {
@@ -17,6 +18,8 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
         PullToRefresh.HideSpinner(PullRefresh);
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+        Header.BackInGlass = TabBarButtons.IsAvailable;
+        AddButton.IsVisible = !TabBarButtons.IsAvailable;
         List.HandlerChanged += (_, _) => StopInsets();
         List.Loaded += (_, _) => StopInsets();
 #endif
@@ -32,13 +35,16 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
 
     public void Activate()
     {
-        TopBar.Apply(this);
+        _active = true;
+        Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        TopBar.IsVisible = !TabBarButtons.IsAvailable;
-        TabBarButtons.Show(this, null, string.Empty,
-        [new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
-         new("plus", "Add a neighbourhood", () => _viewModel.AddCommand.Execute(null))]);
+        List<GlassAction> actions = [];
+        if (PageHeader.IsPushed(this))
+            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        actions.Add(new("plus", "Add a neighbourhood", () => _viewModel.AddCommand.Execute(null)));
+        TabBarButtons.Show(this, null, string.Empty, actions);
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
@@ -47,6 +53,7 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
 
     protected override void OnDisappearing()
     {
+        _active = false;
         base.OnDisappearing();
         _edges?.Dispose();
         _edges = null;
@@ -58,6 +65,9 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
 
     private void PlaceControls()
     {
+        // Native safe-area and glass callbacks can already be queued on departure.
+        if (!_active || Shell.Current?.CurrentPage != this) return;
+
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         ListFoot.HeightRequest = 12 + clear.Bottom;
