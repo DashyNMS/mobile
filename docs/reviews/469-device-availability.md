@@ -133,3 +133,145 @@ for that uncommon reused-instance handoff remain a recorded limitation. Sensors
 status-note Retry is harmless refresh behaviour and must be checked under #470.
 Replacement CI is pending. No local builds/tests ran; all hardware outcomes
 remain unverified and no issues or epic checkboxes are closed.
+
+## Current shared correction, 4 November 2026
+
+This section supersedes the historical geometry-compliant findings above and
+in #470–#477 assessments. Prepared base is main f7c7130, including #529;
+#475/#476/#477 implementations are already merged through #513/#514/#518.
+Live #469/#442 bodies and full comments and #470–#479 comment streams were
+refreshed. #469–#474 explicitly fail viewport-base acceptance. #472 also
+requires an agreed concrete card proposal before any redesign. The current
+PR changes geometry only and preserves all existing presentation flags.
+Existing #507 is merged; no open availability replacement PR existed.
+The dirty fix/475 worktree and all stale sibling branches remain untouched.
+
+### Actual ownership and trace
+
+DeviceDetailViewModel.OpenSectionAsync/OpenTileCommand opens relative
+Routes.DeviceSection with selected DeviceId, section enum and display title.
+AppShell registers DeviceSectionPage. Devices narrow/pushed and split detail,
+Dashboard, alert and other device links all reach the same section host.
+Back is relative `..`, labelled by BackBar.PreviousTitle. No new route or ID
+conversion. Child routes are neighbour DeviceDetail and port DeviceGraphs
+with original ifName, device ID/name and port title. Inventory serial copy
+remains an explicit local clipboard action; no server mutation or new storage.
+
+Native iOS page owns top container safe area only. Root and SectionBody opt
+out; Refresh opts out; CollectionView has no SafeAreaEdges and retains native
+UIScrollView Never on HandlerChanged/Loaded and placement. Android retains
+its existing native Container safe area. Header/search/status Auto rows precede
+SectionBody's finite star allocation. There is no ListCard wrapper in this
+page: individual rows are Borders. Refresh fills SectionBody's star row, List
+fills Refresh, and ListFoot is content rather than viewport margin. ListFade
+is input transparent with a 20pt header reserve; empty text has 32pt margin.
+Wide Neighbours uses two columns, graph/list each spanning both body rows;
+narrow graph takes its measured Auto row with the existing 35%/280pt cap.
+Graph visibility is the IsNeighbours binding; no hidden graph reserve is added.
+
+Confirmed source mismatch: Refresh previously reserved 12 + ForScrolling.Bottom
+outside the viewport, while ListFoot separately reserved 24pt. That uses glass
+obstruction clearance as viewport-base policy. This is a source finding, not
+proof of the exact native device failure. Devices/Alerts and TabAlignedListLayout
+(Logs/Graylog) already separate measured base from final-row obstruction.
+PushedListLayout (#527, consumed by backup history/contents/differences) measures
+its own Body. Copying its native coordinates into SectionBody would be wrong;
+this page queries PillIn/Occupied in SectionBody itself instead. None of those
+helpers or accepted consumers is changed by this PR.
+
+With side or bottom pill, bottom gap = max(0,H−pill.Bottom), without safe-bottom
+clamping. Bottom bar obstruction uses existing SetupActionPlacement.BottomGap
+and is added inside the footer above its normal 24pt gap. Top-wide pill uses
+that helper's separate fallback, without pretending it anchors the base.
+Missing native measurement retains 12 + ForScrolling.Bottom. Side gutters
+remain 16 + covered sides once. Wide graph shares the measured base. FilterCard
+clears glass using the same host policy; footer reserves actual visible panel
+height + bottom margin + 12pt through exit, recalculated on SizeChanged. No
+fixed panel-height guess determines clearance (the existing animation-only
+travel fallback is unchanged). Largest-text panel fit itself remains unverified.
+
+Docked keyboard frames convert screen → window → SectionBody, then reduce the
+finite viewport and lift the panel. ManualKeyboardScroll owns native keyboard
+translation while active. Observers install once and dispose on departure;
+central IActivePage restores ownership/placement on retained-tab return and
+resume without fetching. CoveredEdges and Moved remain idempotent. Queued
+placement/search/panel work and glass callbacks guard departure; departure
+aborts panel/dim animation, and activation restores panel presentation.
+
+### Current assessment and complete consumer dependencies
+
+Statuses below are source-only: corrected means code changed, compliant means
+contract retained by inspection, N/A means absent, unverified means no runtime
+claim. All rows inherit the full device matrix below.
+
+| Mode / owner | Source and presentation retained | Geometry / dependency status |
+| --- | --- | --- |
+| #469 Availability | Returned windows ordered by duration, Units.Window/Percent; finite 0–100 valid, neutral unavailable otherwise; original thresholds/text; recovered/ongoing/missing-start outages and known end retained | Corrected shared base/footer; first consumer, review/CI pending |
+| #470 Sensors | Class groups, readings/units/limits, definitions, retained readings/Updating/freshness; no new classification | Corrected shared base; reassess after #469 merge |
+| #471 Resources | CPU/memory/storage, bars/thresholds and clearing on refresh | Corrected shared base; reassess sequentially |
+| #472 Ports | Existing complete row presentation, saved sorting/grouping, search and ifName graph route | Corrected base and measured panel clearance; redesign proposal still required under #472 |
+| #473 Neighbours | Forward/reverse discoveries, IDs, selection/scroll, narrow graph and wide split | Corrected common base; fade spans split list rows; graph content unchanged |
+| #474 VLAN | IDs/names/count meaning, unavailable facts, ordering and highlights | Corrected shared base; subsequent reassessment required |
+| #475 FDB | Merged MAC/interface/VLAN and unavailable labels, nonactionable facts | Corrected shared base; no replay of stale #475 code |
+| #476 ARP | Merged full IP/MAC/interface/PortId, neutral unknown and order | Corrected shared base; merged presentation retained |
+| #477 Routing | Merged BGP/OSPF/OSPFv3/VRF facts and text severity | Corrected shared base; merged presentation retained |
+| #478 Wireless | All server classes/units/readings/own limits | Corrected shared base; full page assessment remains sibling-owned |
+| #479 Inventory | One column, nesting, expansion, Show ports, serial clipboard | Corrected shared base; controls remain in list header/rows |
+| EventLog compatibility | Loader/grouped generic rows remain supported | Same shared geometry if routed directly; normal entry uses Logs #482 |
+| Graphs/Graylog/Unimus enum routes | Specialised pages, not DeviceSectionPage consumers | N/A to this change; #480/#481/#483 and backup contracts retained |
+| DeviceDetailView / DeviceSectionCard | Embedded highlights/counts/30-day tile and section navigation | Compliant unchanged; no full-page geometry applied to overview |
+| Setup #405 and other accepted forms | Separate setup helpers and acceptance records | N/A, no helper or acceptance reversal |
+
+Source contracts: Availability concurrently requires GetAvailabilityAsync and
+GetOutagesAsync, orders server durations, uses existing ServerTime UTC setting
+and Units.Duration. No chart/calendar/period editor or persistent availability
+cache exists. Refresh clears percentages rather than asserting stale freshness;
+errors suppress empty, Retry is busy-disabled, device-generation guard retained.
+Existing loader 404 maps to empty; this is an existing source contract, not proof
+that historical availability exists. No history-completeness guarantee added.
+Denied/offline/timeout propagate through existing status handling. Percent known,
+invalid and missing collections retain existing wording. API/package, read-only
+permissions, credentials, persistence and selected IDs are unchanged.
+
+Action audit: glass has Back and search for every mode, plus Ports sort/filter;
+Android/older iOS retain individual header Back/search/filter. Retry remains an
+inline loading-error recovery action. Inventory expand/collapse, Show ports,
+row expansion and serial copy remain local content actions. Port/neighbour row
+navigation remains unchanged. Availability facts have no action. ButtonSearch
+opens only from header/glass/Command-F; completion/unfocus/native drag closes
+retaining query, and filtering/programmatic scroll must retain focus. No legacy
+SearchReveal attachment. Theme/text/screen-reader and actual action usability
+are unverified despite retained source contracts.
+
+### Verification and evidence required
+
+Code self-check: full main-to-head intended diff and staged diff inspected;
+whitespace check passed. No local builds, tests, scripts or agents run.
+Independent parent Opus 5.5 Medium full-diff review pending. Shared tests,
+Android/iOS CI pending. Device evidence ALL unverified; source correction is
+not a native pass. No acceptance, issue closure, epic tick, merge or release.
+
+For EACH consumer/mode above and EACH trigger below record final integrated
+SHA, CI/TestFlight build, device model/OS, theme/text setting, H (native body
+height), B (pill bottom), V (actual list/graph viewport bottom), delta V−B,
+keyboard/panel bounds, and complete final-row bounds/reachability. No actual
+bounds/build/OS are available here; all numeric measurements remain unverified.
+
+| Trigger / state | Observed | Expected and evidence location |
+| --- | --- | --- |
+| Side pill, bottom pill, top-wide, missing pill | Unverified | Body/Refresh/List bottom uses correct policy; side V−B=0; bottom footer clears actions; top-wide handled separately |
+| Light/dark and largest accessibility text | Unverified | Full facts, first heading below 20pt fade, empty/error/Retry and complete final row readable; inspect viewport and row bounds separately |
+| VoiceOver / TalkBack | Unverified | Each complete fact once, unknown neutral, every action named/operable; focus survives resize |
+| Duo outer/inner portrait/landscape; ordinary iPhone portrait/landscape | Unverified | Finite viewport fills available base, columns update, graph split transition correct; no duplicate safe inset |
+| Keyboard present → dismiss, typing/filter/programmatic scroll | Unverified | Viewport clears docked keyboard; dismissal restores measured base and actions without refresh/reentry; query/focus contract preserved |
+| Fold/unfold, rotation mid-search/loading/panel | Unverified | Recompute native host/pill/keyboard and actual wrapped overlay bounds, full last row reachable |
+| Tab return / child return / resume | Unverified | One active glass owner, actual caller Back, retained query, correct base and no reload required |
+| Loading, source-empty, no match, denied/error/offline, Retry | Unverified | No false success/freshness, status not under fade; final content uses whole finite viewport |
+| Known/unknown percentages and history unavailable | Unverified | 24h/7d/30d/365d/custom order, 100/99.9/99/95/invalid values; recovered/ongoing/missing times remain honest; no invented history |
+| Short/long lists, narrow/wide graph, Ports panel open/exit/resize | Unverified | Graph/list share correct base; footer clears measured panel through exit; final row fully visible above obstruction |
+
+The historical assessments' geometry-compliant labels are not current acceptance.
+User-liked presentation elsewhere remains baseline. Parent reassesses siblings
+sequentially after this shared correction merges, then obtains explicit device
+acceptance under #442. DESIGN adds only the missing bounds-evidence lesson;
+existing reusable inset/search/lifecycle rules and #405 acceptance remain intact.

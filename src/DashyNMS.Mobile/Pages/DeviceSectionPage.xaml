@@ -2,7 +2,7 @@
 <!--
     Any Device View section: its rows, in titled groups. On iOS the page
     places its edges in PlaceControls (#344), using the available width;
-    the list viewport stays clear of the tab bar and glass (#392).
+    the list viewport reaches the measured pill base; its footer clears glass.
 -->
 <ContentPage
     x:Class="DashyNMS.Mobile.Pages.DeviceSectionPage"
@@ -54,8 +54,8 @@
         <controls:BusyCard x:Name="Busy" Grid.Row="4" Margin="16,8,16,0" Text="Loading…" IsVisible="{Binding IsLoadingFirstTime}"
                            ZIndex="1" VerticalOptions="Start" />
 
-        <!-- The viewport stays clear of the bottom tab bar and glass; the
-             footer adds a normal gap after the last row (#392). One column
+        <!-- The viewport reaches the measured pill base; the footer keeps
+             the final row clear of bottom glass and visible overlays. One column
              on a phone, more across a wide screen (PlaceControls). -->
         <Grid x:Name="SectionBody" Grid.Row="4" RowDefinitions="Auto,*" ColumnDefinitions="*" SafeAreaEdges="None">
         <controls:DeviceNeighbourGraph x:Name="NeighbourGraph" HeightRequest="280" IsVisible="{Binding IsNeighbours}" Margin="16,8" />

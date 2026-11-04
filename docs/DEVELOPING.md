@@ -513,9 +513,10 @@ slides and fades, with Reduce Motion respected. Check drag reordering across
 columns, folding, rotation, large text, the final Add action and the full
 Dashboard → Edit → Add/Set up → Back chain on both platforms.
 
-DeviceSectionPage keeps its viewport above the bottom tab/glass clearance
-with a 12pt gap, rather than depending only on its virtualised footer (#392).
-Its last row retains a 24pt content gap. This shared path covers Availability,
+DeviceSectionPage now uses the measured pill base for its finite viewport
+(#469 correction of #392); bottom glass and measured visible filter-panel
+clearance belong to its virtualised footer, after a normal 24pt content gap.
+Missing measurements retain the existing safe-area fallback. This shared path covers Availability,
 Sensors, Resources, Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and
 Inventory. Neighbours' wide graph pane uses the same bottom clearance.
 Graphs, logs and config backups have independent page layouts. Verify each
