@@ -170,7 +170,7 @@ public sealed class WhatsNewTests
     {
         var vm = new WhatsNewViewModel(NewWhatsNew(), _navigation);
 
-        Assert.Equal("What's new in 2.0.0", vm.Title);
+        Assert.Equal("Version 2.0.0", vm.Version);
         Assert.Equal("Released 30 November 2026", vm.Released);
         Assert.Equal(["New", "Fixed"], vm.Groups.Select(g => g.Name));
         Assert.Equal(("Alert groups", "Faults grouped by device and rule.", "tab_alerts.png"),

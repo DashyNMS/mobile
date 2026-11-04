@@ -14,7 +14,7 @@
 
         <ScrollView x:Name="Scroller" Grid.Row="1">
                 <VerticalStackLayout x:Name="Body" Padding="16,20,16,24" Spacing="12">
-                    <Label Text="{Binding Title}" FontSize="22" FontFamily="BodySemibold" SemanticProperties.HeadingLevel="Level1" LineBreakMode="CharacterWrap" />
+                    <Label Text="{Binding Version}" FontSize="22" FontFamily="BodySemibold" LineBreakMode="CharacterWrap" />
                     <Label Style="{StaticResource Faint}" Text="{Binding Released}" IsVisible="{Binding HasReleased}" />
                     <Label Text="Release notes are unavailable in this build." IsVisible="{Binding NotesUnavailable}" />
 

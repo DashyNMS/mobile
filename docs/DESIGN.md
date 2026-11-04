@@ -180,6 +180,11 @@ Content may move beneath glass as it scrolls. Controls at rest and the final
 scroll position must stay reachable. Scrolling cards always clear a side pill's
 column. Canvas backgrounds and chips scrolled out of sight may pass beneath it.
 
+**Use all available pane space after measured camera/glass clearance and the
+page gutters. Keep scrolling viewports finite and reserve the actual wrapped
+height of fixed actions outside them. Give each inset one owner so extra
+padding cannot shrink the usable area or lift an action above the pill base.**
+
 For pages adopting the edge-to-edge pattern:
 
 - On iOS, keep only the page's top container safe area. Set `SafeAreaEdges="None"`
@@ -232,6 +237,8 @@ to two to four and leave rare actions in context menus.
 - Pushed pages use `chevron.backward`, `BackBar.PreviousTitle(page)` for the
   accessible label and relative back navigation. Hide their header Back on
   iOS 26+; keep it on older iOS and Android.
+  **Every pushed page must reclaim its caller Back in glass on iOS 26+ after
+  child return, retained-tab return and resume, with one active glass owner.**
 - Open descendants with relative routes so Back returns to the actual
   caller. Test each entry path, child return and app resume for one glass
   owner. Cover Dashboard → Edit → Add/Set up → Back and alert → device → backups.

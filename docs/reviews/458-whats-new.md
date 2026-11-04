@@ -1,126 +1,98 @@
 # What's new assessment
 
-Issue #458, epic #442. Baseline main 83e9a3983b53f3a93931b46347ae8325baa8076b.
-Read live #458/#442/#457/#454 and read-only diffs for #496 Settings and
-#499 consent. No queued branch changed. Guidance: CLAUDE.md,
-docs/DEVELOPING.md, docs/DESIGN.md and DESIGN-REFERENCES.md. No FULLDESIGN.md
-exists in this checkout; DESIGN.md is the current page specification.
+Issue #458, epic #442. Corrective baseline is main `9e616fd`, including merged
+Settings #524 and documentation #515. Read live issue bodies and all comments,
+the cached original #458, CLAUDE.md, DEVELOPING.md, DESIGN.md and
+DESIGN-REFERENCES.md. Inspected merged #500 and #515 and existing related
+branches before editing this clean worktree. The unrelated #475 worktree is
+untouched. This assessment supersedes the previous current-status tables.
 
-## Baseline and contracts
+## Current findings
 
-WhatsNewPage binds WhatsNewViewModel to WhatsNew, which parses the embedded
-WhatsNew.md synchronously with Core WhatsNewNotes. Section and item order,
-full parsed paragraphs, optional release date and allowlisted decorative icons
-are retained. Unknown icons draw nothing. Glyph retains its secondary themed
-stroke, including the existing light-theme fix. No release copy is changed.
-Core is pinned to 2.0.0-ci.52. Existing Parse/IsDue/MarkSeenIfFreshInstall APIs
-are unchanged; sibling Core source was inspected for parser semantics, but the
-pinned package is absent locally, so exact binary verification awaits CI.
+| Concern and location | Trigger/mode and observed baseline | Expected result and implemented outcome | Status |
+| --- | --- | --- | --- |
+| Heading, WhatsNewPage.xaml and WhatsNewViewModel | Both entry routes repeat What's new in the body | One PageHeader title, followed by Version and the parsed version verbatim. No heading stripping or new parser. Optional release date retained. | Corrected in code; device unverified |
+| Got it, WhatsNewPage.Place | Side pill: scrolling bottom clearance plus 16pt lifts the button | Reuse unchanged SetupActionPlacement.BottomGap with native Root bounds, PillIn and Occupied in the same coordinate space. Measured side gap is max(0, height minus pill bottom), with no safe-area clamp or added bottom inset. Bottom pill/actions and top pill use their separate shared rules. | Corrected in code; device unverified |
+| Viewport and full release link, Root/Scroller/Body | Long notes, narrow pane, wrapping action | Auto/star/Auto reserves actual action height; finite scroll viewport ends above it. Root and GotIt size changes repeat placement. Final link remains inside scrolling content above fixed action. | Compliant in code; device unverified |
+| Insets/background/fade, page and Place | iOS versus Android, resizing | iOS native top only; Android native safe areas. Body owns side gutters once; action owns its measured bottom gap once. Full pane background retained. Background-matched input-transparent 20pt fade has 20pt content reserve. No readable-width cap. | Compliant in code; device unverified |
+| Groups, icons and complete notes | Long paragraphs/URLs, absent or unknown icon/date | Preserve ordered parsed sections/items and complete text with character wrapping. Unknown glyph stays absent; decorative glyph excluded from accessibility tree. Existing themed secondary Glyph stroke, including light fix, unchanged. Source text stays inert. | Compliant in code; device unverified |
+| Source unavailable, WhatsNew/VM | Missing/invalid embedded notes | Existing visible unavailable message and fixed GitHub link retained for direct page construction; automatic offer and Settings entry require parsed notes. Version falls back to CurrentVersion. No loading/error fetch state exists. | Compliant; normal unavailable entry N/A |
+| Actual caller Back, page/Header/AppShell | Automatic offer or Settings push, child/browser return, retained More, resume | Existing relative route, caller label, iOS 26 glass and older iOS/Android header fallback retained. IActivePage activation remains centrally resolved by AppShell at delivery time. | Compliant in code; device unverified |
+| Lifecycle, Activate/OnDisappearing | Repeated activation, queued placement after departure | Idempotent edge watcher and event subscriptions; paired removal. Queued Place checks visibility. Existing queued Got it departure guard and Back completion guard retained. No Window watcher or native notifications added. | Compliant in code; device unverified |
+| Seen version, WhatsNew and VM | Fresh install/update/legacy upgrade, Back, Got it, save/pop failure, rapid taps | Existing fresh-install initialisation retained. Only Got it marks seen during notes interaction. It latches before save, stores CurrentVersion before pop, and permits retry after exception. Back/browser never mark seen. Cancellation stays due next launch; process offer latch unchanged. | Compliant; concurrency on devices unverified |
+| Keyboard | Read-only notes, no focusable editor/search | No page keyboard handling needed. Recompute on central resume and size changes after browser return. | N/A; browser return device unverified |
+| Permissions/security | Either entry or release link | No credentials, permissions, routes, schema, export, source, telemetry or network-fetch changes. Only fixed HTTPS GitHub releases URI opens through ILauncherService/SystemPreferred browser. | Compliant |
+| Accessibility/themes | Largest text, narrow screen, screen reader | One semantic page heading, section Level2 headings, wrapping version/notes/action, minimum 44pt link and Got it, caller Back label. | Code compliant; contrast, focus and target operation unverified |
 
-App startup calls MarkSeenIfFreshInstall before sign-in saves a server.
-No saved server and no recorded seen version means fresh install, recorded
-without prompting. Saved server with no seen version is an old upgrade and
-remains due. Preview versions and mismatched embedded versions are not due.
-AppShell OfferAsync on connected Main offers diagnostics consent first and
-only offers notes when consent returns false. Returning from consent permits
-notes. This sequencing is unchanged, including #499's choice latch.
+## Shared ownership and preserved contracts
 
-Both automatic post-update entry and Settings About OpenWhatsNew use the
-relative Routes.WhatsNew Shell route. This is a pushed page, not a modal.
-Header/system/glass Back returns to its actual caller and does not mark seen.
-Got it marks CurrentVersion in WhatsNewShownVersion, saves, then returns using
-Routes.Back. Preserve this existing commit order, including storage before
-navigation. Navigation failure permits retry, with the version already stored.
-Opening notes or returning from the browser never marks seen. An offer is
-latched once per process before navigation; cancellation remains due next
-launch, and Settings can reopen any time. A new page/view model is transient.
-No new persistence keys, version policy or consent behaviour.
+SetupActionPlacement is owned by the shared setup implementation. Its production
+consumer before this change is SetupPageLayout; WhatsNewPage now also consumes
+it. The policy and SetupPageLayout are unchanged, so accepted #405 forms keep
+all their existing contracts. No shared-control edit requires coordination.
+SetupPageLayout was inspected but not adopted: its unguarded glass Back,
+keyboard-manager disconnect and native keyboard/resume observers would change
+this page's completion guard and central activation contract.
 
-Only the hard-coded HTTPS github.com/DashyNMS/mobile/releases URI is launched
-through ILauncherService, whose native adapter uses Browser SystemPreferred.
-This is the existing system browser presentation, not a privileged app WebView.
-Embedded row text is plain Label text. No markdown/HTML renderer or arbitrary
-URL activation is introduced; URL-looking content wraps as inert text. No
-server data, credentials, extra network fetching or telemetry is added.
+The embedded source is app-owned, not fetched from a server. No source copy is
+changed or dropped. Core WhatsNewNotes reads the first version heading, optional
+release text, ordered sections and complete continued bullets. The VM uses
+Notes.Version directly with CurrentVersion fallback, without assuming numeric
+version syntax. Sibling Core source was inspected; exact pinned binary behaviour
+remains for CI. App version, Core pin, Glyph and notes source remain unchanged.
+AppShell continues to offer diagnostics consent before notes. Settings can reopen
+seen notes. A transient VM retains its existing completion latch and failure
+behaviour. No new dismiss action or visual feature is introduced.
 
-## Scope assessment and fixes
+DESIGN #515's bold fixed-action requirement remains intact. This PR adds only
+the related usable-space and pushed glass-return requirements, not another
+copy of #515 or a broad documentation sweep.
 
-| Concern | Baseline result | Implementation outcome |
+## Validation and historical provenance
+
+Current code self-check covers the complete intended diff against main, event
+pairing, coordinate spaces, inset ownership and binding consumers. The existing
+VM assertion is updated for the version label. No new tests, builds, test runs,
+scripts, agents or device checks were performed, as instructed. Whitespace and
+staged diff inspection are recorded in the PR. Android/iOS compilation, shared
+CI and security CI are pending. Independent full-diff Opus 5.5 Medium review is
+pending parent coordination; no current independent approval is claimed.
+
+Historical #500 assessment recorded an Opus review at `d50f767` against
+`3ac10df`, with completion/placement remediation and passing unit tests at its
+reviewed head. That is provenance only. The 4 November user report rejected
+heading duplication and action alignment; earlier review and CI do not verify
+this corrective head. #515 is merged, as is #524. No merge, watch, release,
+issue closure or epic tick is requested here.
+
+## Pending device matrix
+
+All device outcomes below are **UNVERIFIED** for the exact corrective commit
+listed in the PR. Build number and OS versions are not available. For each row,
+record exact head SHA, build, device model, OS version, theme, text size,
+screen-reader state, observed result and expected-result comparison. Do not
+carry results across SHAs or infer them from CI.
+
+Run every applicable row on Duo outer portrait and landscape, inner portrait
+and landscape, ordinary iPhone portrait and landscape, plus Android fallback.
+Repeat light/dark, default/largest text, VoiceOver/TalkBack. Include iOS 26+
+glass and older iOS fallback where available; unavailable OS/device combinations
+remain explicitly unverified.
+
+| Trigger/mode | Expected result | Current evidence |
 | --- | --- | --- |
-| Automatic and Settings routes | Compliant | Relative push and caller Back retained; #496 keeps Settings ownership |
-| Seen-version and consent order | Compliant | Service, AppShell, startup, storage and release content unchanged |
-| Release headings and sections | Fix required | Semantic release/section headings, complete ordered content retained |
-| Icons and themes | Compliant in code | Existing Glyph strokes retained; decorative instance excluded from accessibility tree; device contrast unverified |
-| Long notes and links | Fix required | Removed ReadableColumn cap; character wrapping permits long URLs/paragraphs; browser action full width and minimum 44pt |
-| Scroll and final dismissal | Fix required | Finite star viewport; single primary Got it remains in a fixed Auto row outside the scrolling viewport, minimum 44pt and wrapping; footer clears glass |
-| Insets and fade | Fix required | Native top only on iOS; page owns content sides/bottom once, Android native safe areas; 20pt input-transparent background fade matches content width and has 20pt reserved space |
-| Header/glass ownership | Fix required | Shared PageHeader/TopBar line, caller Back in glass on supported iOS; IActivePage restores retained More entry/resume |
-| Lifecycle | Fix required | Idempotent edge/handler/Loaded/Moved subscriptions, retained Window unsubscribed on disappearance; no native observers added |
-| Empty/parse failure | Fix required | Parser-null groups show truthful unavailable text and fixed release-notes destination; synchronous immutable data has no loading, refresh or stale state |
-| Completion race | Fix required | Got it latches before save/pop, disables header/system/glass Back during completion; retry permitted on exception |
-| Layout and accessibility on devices | Unverified | Exact matrix below remains required |
+| Fresh install then sign-in | Consent order retained; no automatic notes; fresh version initialised | UNVERIFIED |
+| Saved-session update; legacy upgrade without seen version | Consent first when due, then one automatic offer; no overlay over consent | UNVERIFIED |
+| Settings entry before/after seen | Same full notes/version; caller Back returns to Settings; no seen write on opening | UNVERIFIED |
+| Header/system/hardware/glass Back and iOS edge swipe | Actual caller restored once; no seen write; process latch retained, due next launch | UNVERIFIED |
+| Got it and relaunch; rapid competing Got it/Back; save or navigation failure | Single completion; stored version before return; existing failure/retry semantics retained | UNVERIFIED |
+| Fold/unfold and rotate while scrolled to final link | Side action base matches pill exactly; bottom actions clear glass; top pill distinct; finite viewport and final link reachable | UNVERIFIED |
+| Retained-tab away/return; browser child return; background/resume | One glass owner, correct caller Back and measured action placement; scroll state retained; no placement loop | UNVERIFIED |
+| One page title and version, arbitrary parsed version, absent date/icon, unknown icon | No duplicate source heading; no version truncation or notes loss; silent decorative icon | UNVERIFIED |
+| Long notes/continued paragraphs/URL-looking text, wrapped action | Complete inert text wraps, full release link scrolls clear of fixed action, 20pt fade reserve readable | UNVERIFIED |
+| Missing/invalid notes via direct construction | Visible unavailable text, app-version fallback and working fixed release link | UNVERIFIED; normal production entry N/A |
+| Screen-reader traversal, both themes and largest text | Logical heading order, named operable Back/link/Got it, adequate targets and contrast | UNVERIFIED |
+| Keyboard dismissal | No notes editor or keyboard exists; repeat resize and browser return checks above | N/A |
 
-No shared controls changed. Accepted setup, Settings child forms and other
-Glyph/PageHeader consumers keep their implementations. Reused CoveredEdges,
-TopBar, PageHeader, TabBarButtons and IActivePage. #490 retained-stack activation
-is part of this baseline. Native scroll adjustment is disabled on handler,
-Loaded and placement. The fade uses BackgroundLight/Dark and their clear
-variants, matching the page background rather than the card surface.
-
-## Evidence and dependencies
-
-Implementation full-diff self-inspection and git diff --check are the only
-local validation. Regression tests added for competing completion, cancelled
-update/reentry, absent/invalid notes, long continued paragraphs and inert markup.
-Existing tests cover fresh install, legacy upgrade, once-per-version, preview,
-Settings reentry, glyph mapping and actual embedded version. Tests are not run.
-No local builds, tests, scripts, independent reviews or device checks performed.
-Native XAML/API compilation, shared tests and Android/iOS CI remain pending.
-
-Mandatory independent Claude Opus 5.5 Medium review remains pending quota return,
-sequentially after #489 -> #491 -> #492 -> #493 -> #494 Map -> #495 -> #496 ->
-#497 -> #498 -> #499 -> this PR. Parent updates only this PR at its turn after
-prior merges, then handles review/CI/merge/cleanup. No merge, watch, release,
-closure or epic ticks here. TestFlight follows #455–#459. User device acceptance
-remains a separate gate; this assessment makes no acceptance claim.
-
-## Exact pending device matrix
-
-For every row record commit/build, device/OS, theme, text size, screen reader
-and result. Repeat in light/dark and default/largest text on Duo outer portrait,
-inner portrait, inner landscape and ordinary iPhone portrait/landscape. Use
-TalkBack on Android and VoiceOver on iOS. Fold/unfold, rotate while scrolled,
-switch tabs away/back and background/resume; inspect diagnostics for loops.
-
-| Scenario | Required result | Evidence |
-| --- | --- | --- |
-| Fresh install then sign-in | Consent first; no automatic notes; fresh version recorded | Unverified |
-| Saved-session update and legacy no-seen upgrade | Consent when due, then one notes offer; no offer over consent | Unverified |
-| Got it then relaunch | Exactly one save/pop; same version never offered again | Unverified |
-| Back without Got it | Actual caller restored, no seen write; no repeat this process, due next launch | Unverified |
-| Settings reopen, including retained More | Notes reopen despite seen version; Back returns Settings once, one glass owner | Unverified |
-| Browser link and return | Fixed HTTPS GitHub browser destination, no seen write; text/scroll state retained | Unverified |
-| Rapid Got it and Back/system gesture | No duplicate save/pop; caller usable; navigation failure retry does not invent unseen state | Unverified |
-| Long synthetic notes/URL, no icon/date, unavailable notes | Complete wrapping content, truthful empty state, final Got it reachable, no clipping | Unverified |
-| Heading and icon traversal | Correct section order/headings, decorative glyphs silent, both themes legible | Unverified |
-| VoiceOver/TalkBack actions | Named Back, browser hint and Got it operable, minimum 44pt targets, logical focus | Unverified |
-| Resize/fold/rotate/resume at final item | Finite viewport, 20pt fade reserved on matching surface, no floating Back or overlap, final action clears glass | Unverified |
-
-No screenshots or customer data collected. All added fixtures are synthetic.
-
-## Claude review remediation
-
-Full-diff Claude Opus 5.5 Medium review at d50f767 against main 3ac10df found
-no blockers. Its two medium findings are fixed: AppShell alone owns resume
-activation, and Got it is restored to the fixed action slot with measured side
-and bottom clearance. The scroll viewport ends above it. The page ignores queued
-Got it taps after disappearance; the command still owns its completion latch.
-Repeated TopBar.Fit is removed because PageHeader already installs it once.
-The obsolete legacy iOS safe-area flag is removed in favour of explicit edges.
-
-Unit tests passed at reviewed head; replacement platform CI remains pending.
-No local builds/tests ran. NotesUnavailable is defensive for direct construction;
-normal production entry requires parsed notes and does not expose an empty state.
-Device checks must include rapid Got it with header/system/glass Back and iOS
-edge swipe, including a swipe during completion. Gesture-transition ordering
-cannot be established by code inspection; all hardware outcomes are unverified.
+Inspect diagnostics for repeated placement/paused loops after transitions. User
+acceptance remains pending. #458 and its #442 checkbox must remain open.
