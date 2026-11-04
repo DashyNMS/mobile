@@ -354,6 +354,16 @@ and selection contracts remain unchanged.
 
 ## Data states and persistence
 
+For navigation catalogues, use quiet headings and lightweight rows separated
+by hairlines. Keep one wrapping column at narrow and wide widths; use summaries
+where destination names need context. Open and pin are separate accessible
+actions, each at least 44pt, with no parent gesture enclosing the pin. Use an
+outlined pin for not pinned and a filled pin for pinned, with explicit target,
+membership and action in its accessible name. State capacity once above the
+catalogue. A full-bar pin remains operable to explain how to make room.
+This visual direction was approved for More on 4 November 2026; native device
+acceptance remains separate in [its assessment](reviews/453-more-navigation.md).
+
 - Preserve complete server-provided messages, expressions, configuration and
   licence content. Presentation wrapping must not change copied, shared or
   compared source text. Truncated previews must lead to the complete content.
