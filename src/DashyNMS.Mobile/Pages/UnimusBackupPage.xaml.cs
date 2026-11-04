@@ -10,6 +10,10 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 	private readonly UnimusBackupViewModel _viewModel;
 	private readonly PushedListLayout _layout;
     private readonly ButtonSearch _search;
+    private bool _active;
+#if IOS
+    private bool? _shareAvailable;
+#endif
 
 	public UnimusBackupPage(UnimusBackupViewModel viewModel)
 	{
@@ -18,6 +22,9 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot);
         _search = new ButtonSearch(SearchSlot, SearchBox, SearchEntry, Rows);
         SearchButton.Command = new Command(OpenSearch);
+#if IOS
+        HeaderActions.IsVisible = !TabBarButtons.IsAvailable;
+#endif
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -39,11 +46,45 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 	}
 
     /// <summary>Restores controls when Shell returns to retained backup contents.</summary>
-    public void Activate() => _layout.Activate();
+    public void Activate()
+    {
+        if (!_active)
+        {
+            _active = true;
+            _viewModel.ShareCommand.CanExecuteChanged += OnShareCanExecuteChanged;
+        }
+        UpdateActions();
+        _layout.Activate();
+    }
+
+    // Native taps can change async-command state while UIKit is delivering the
+    // action. Rebuild on the next UI turn, only for the still-active owner.
+    private void OnShareCanExecuteChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(UpdateActions);
+
+    private void UpdateActions()
+    {
+        if (!_active) return;
+#if IOS
+        if (!TabBarButtons.IsAvailable) return;
+        var available = _viewModel.ShareCommand.CanExecute(null);
+        if (_shareAvailable == available) return;
+        _shareAvailable = available;
+        IReadOnlyList<GlassAction> actions = available
+            ? [new("square.and.arrow.up", "Share complete backup", () =>
+            {
+                if (_active && _viewModel.ShareCommand.CanExecute(null))
+                    _viewModel.ShareCommand.Execute(null);
+            })]
+            : [];
+        _layout.SetActions(actions, OpenSearch, "Search this backup");
+#endif
+    }
 
 	protected override void OnDisappearing()
 	{
 		base.OnDisappearing();
+        _active = false;
+        _viewModel.ShareCommand.CanExecuteChanged -= OnShareCanExecuteChanged;
 		_layout.Hide();
         _search.Close();
 	}

@@ -153,3 +153,92 @@ remain unverified. Replacement CI is pending; no local builds/tests ran.
 Platform CI at 4e0254a exposed an invalid Clicked event on IconButton.
 The search icon now uses its supported Command property, matching Health.
 Replacement CI is pending; no local builds/tests ran.
+
+## Current corrective assessment, 4 November 2026
+
+Baseline main `0c55d06`, including merged #527. The sections above retain
+historical review provenance; they do not establish current device acceptance.
+Read original cached #463, live #463 and all comments, live #442 and its
+comments, the cached reconciliation, current #462 assessment and repository
+guides. The live #463 comment still rejects viewport alignment and header-only
+Search/Share. Merged #505 and its remaining remote branch are historical work,
+not a replacement PR. #504/#506 are also merged. This correction changes only
+contents controls and this assessment. Unrelated #475 work is untouched.
+
+### Findings by trigger, mode and location
+
+| Concern and trigger | Status, expected result and code disposition |
+| --- | --- |
+| Initial/populated/filtered contents, Body/card/Rows base | Corrected policy inherited from #527; native result UNVERIFIED. Full-height Body has Auto header/search/metadata/status and a finite star card. PushedListLayout queries pill/occupied bounds in the native Body host, applies side-pill `max(0,H-B)` without safe-bottom clamping, treats top-wide pill separately and clears bottom obstruction inside RowFoot. No per-page offset, fixed action or extra action row/gap is added. |
+| First text, empty state and scrolling fade | Compliant source: 20pt list header, empty margin and stroke-inset input-transparent 20pt fade retain the code surface RGB at both endpoints. Initial clipping and final complete text reach are UNVERIFIED. |
+| Search from glass/header/Command-F | Corrected UnimusBackupPage: SetActions supplies the dedicated glass search callback on iOS26; HeaderActions is hidden there, retained on Android/old iOS with named minimum 44pt Search and Share. ISearchHost and ButtonSearch remain the sole opening path. Reopening refocuses the retained query. Native behaviour UNVERIFIED. |
+| Typing, filter replacements, programmatic scrolling, real drag, completion/unfocus | Compliant source: KeyboardDismiss.OnScroll=False and ButtonSearch checks native drag/tracking before closing. Completion/unfocus close through KeyboardDismiss.Close and retain SearchText. Filtering/programmatic Scrolled does not itself dismiss. No new gesture/observer or clear/copy action. Native focus and drag checks UNVERIFIED. |
+| Share available, absent content, load busy and native async share busy | Corrected: observe ShareCommand.CanExecuteChanged only while active; dispatch state updates after native taps; active guard on delivery and execution; cached boolean avoids rebuilding unchanged actions. SetActions owns Back/Search/Share centrally. Toolkit command exclusion retains double-tap protection; fallback stays bound to the same command. Cancellation/failure/handoff UNVERIFIED. |
+| Device/version/time metadata | Compliant baseline: wrapping device title, backup ID, Unimus device ID, local seconds/offset and honest unavailable time retained. No version or timestamp rewriting. Large-text rendering UNVERIFIED. |
+| Full configuration, line identity, long lines and vertical scrolling | Compliant baseline: numbered monospaced CharacterWrap, auto-width number gutter and original line-order search remain. No horizontal scroller or wrap toggle exists; none is introduced. Virtualised finite Rows retains whole parsed content in memory; smoothness/memory for large contents and very long wrapped lines UNVERIFIED. |
+| Exact sharing with or without filtering | Compliant inspected source: ShareAsync uses captured _rawBytes, never Lines/SearchText or decoded display text. ShareService writes bytes with File.WriteAllBytesAsync. BOM, mixed newlines, encoding bytes, invalid UTF-8, NUL/control bytes and trailing blanks are not re-encoded. Display normalises CRLF only in its projection; native labels may not display controls. Physical destination byte fidelity UNVERIFIED. |
+| Empty, null/missing, binary, invalid payload and load errors | Compliant baseline: empty base64 is valid empty text; missing text/payload is retryable error; binary remains unavailable and unshareable. Existing error reasons and privacy handling stay intact. Retry requests the exact original ID on page zero, never latest; existing source-generation guards reject stale completions. Error/binary/empty controls and denied/offline/timeout behaviour UNVERIFIED. |
+| Appearing, retained tab return, background/resume | Corrected action lifecycle: idempotent Activate attaches one command subscription, updates state and calls shared Activate. Disappearing removes subscription, hides layout and closes search retaining query. Central IActivePage restoration is retained; no new resume observer, loader or selection reset. Native event order/focus/scroll memory UNVERIFIED. |
+| Entry and caller Back | Compliant: device from Devices/Dashboard/alerts/nested links → history → exact requested contents; relative Back returns to that history and its device caller. Contents has no child route. History comparison selection, IDs and older-first diff remain unchanged; #464 owns diff Share/presentation next. Native retained child/tab returns UNVERIFIED. |
+| Access, matching, permissions, storage and jobs | Compliant inspected unchanged paths: caller membership/revision guards, connection matching, source loading, token/keychain, TLS consent, cache cleanup, persistence and export filename/bytes retained. No new copy/edit/backup-now/job capability. These absent actions are N/A. |
+
+### Shared owners and limits
+
+Audited all three PushedListLayout callers: history #462, contents #463 and diff
+#464. #527 already supplies geometry, native inset suppression on handler/load,
+keyboard frame observers, active-only placement and owner-safe actual-caller
+Back. This pass uses SetActions without editing the helper or its consumers.
+History's guarded EnsureLoadedAsync retains connection revision/source checks;
+contents continues loading only its supplied request, not on every activation.
+Diff retains its liked presentation and remains #464's action owner.
+
+The source geometry policy is established, but actual native page/Body/card/list
+bounds and resulting alignment are UNVERIFIED. Measure each level and pill in
+the same coordinate system, including the final viewport end and last line;
+footer reach alone proves no alignment. No fixed contents action is reserved.
+Keyboard clearance takes precedence and dismissal must restore the measured base.
+
+Android is explicitly affected by inherited #527: SafeAreaEdges.All replaces
+Container, adding native keyboard resizing; no-pill Body bottom is 12pt.
+Old iOS fallback also uses 12pt plus safe-bottom padding and a 20pt footer.
+These are changed behaviours needing physical verification, not unchanged
+platform claims. iOS manual keyboard ownership remains inherited unchanged.
+Its static owner set can retain an owner if teardown never delivers
+Disappearing; that lifecycle limitation is recorded, not claimed fixed here.
+Thirteen accepted setup pages lack IActivePage forwarding, so retained activation
+gaps remain; the shared Acquire/Release handover does not prove those gaps fixed.
+The fourteen setup consumers and sign-in named in #462 remain affected by the
+shared manual-keyboard policy. Their accepted geometry/save contracts are not
+reimplemented or reopened by this contents-only change.
+
+DESIGN already records pushed viewport ownership, glass actions, command-state
+caching and native-drag search. No missing reusable rule was found, so no
+duplicate rule or stale historical acceptance is added there.
+
+### Current validation and required physical evidence
+
+Full diff versus current main and DESIGN, subscription pairing, preprocessor
+boundaries and staged whitespace inspected. No agents, local build, restore,
+tests or scripts run by explicit instruction. Existing source regression cases
+cover exact raw bytes after search, invalid UTF-8/control text, empty versus
+missing content and superseded loads; they were read, not executed. Android/iOS
+compilation and shared-test CI are PENDING at the final pushed head. Independent
+full-diff Opus 5.5 Medium review belongs to the parent and is PENDING.
+
+Every physical matrix cell below is **UNVERIFIED** for the final head SHA
+reported in the PR handoff. Build and OS are **unavailable**. For each cell,
+record exact SHA, build, OS, device, theme, text size and measured outcome.
+
+| Matrix | Required result and evidence |
+| --- | --- |
+| Devices/orientations | Duo outer portrait/landscape, inner portrait/landscape and ordinary iPhone portrait/landscape; side/bottom/top pill, Android and old-iOS fallback. Measure native host/card/list/pill base delta and final complete line. |
+| Presentation | Light/dark, maximum text, long identity/large line numbers, initial text below 20pt fade, no clipping, VoiceOver/TalkBack names and line identity once, named 44pt fallback actions, Reduce Motion and overflow selection/cancellation. |
+| Transitions | Fold/unfold, rotate while loading/searching/final-line scrolling; tab return, actual child return to history, retained More, background/resume; one glass owner, correct caller Back and no placement loop. |
+| Search/keyboard | Header/glass/Command-F open and repeated refocus; type/filter with no matches and restore query; programmatic scrolling retains focus; native drag, Search completion and unfocus dismiss without clearing. Keyboard show/dismiss/rotate restores base, fixed header and final line reach. Floating keyboard remains unverified. |
+| Source/failure/share | Filtered and unfiltered complete-byte export including BOM, mixed LF/CRLF, encoding/invalid UTF-8, NUL, tabs/spaces and trailing blanks. Empty, null/missing, binary, invalid payload, offline/timeout, 401/403 and Retry. Share double tap, busy disappearance, failure and cancellation; no stale source or load Retry for share errors. Copy is N/A, absent. |
+| Scale/access | 100,000 synthetic lines and a 20,000-character wrapped line; first/final line reachable, scrolling/search memory and responsiveness. Verify access-controlled errors stay errors and no content enters diagnostics. |
+| Shared regression | History selection 0/1/2, third replacement, Cancel and exact older-first diff; diff final tinted line and full-source Share under #464. Accepted setup/backups lifecycle in both orders, retained Settings/Unimus and session-expiry sign-in keyboard handover. |
+
+CI cannot establish native cause, visual correctness or scoped acceptance.
+Issue #463 and its epic box remain open. No merge, watcher, release or acceptance
+is performed by this implementation agent.
