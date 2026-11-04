@@ -81,6 +81,7 @@ public sealed record SectionRow(string Title)
     public bool PortLayout => Port is not null;
     /// <summary>Display-only palette; ranking and grouping retain the source classification.</summary>
     public RowStatus PortVisualStatus { get; init; }
+    public bool PortHasStatusBorder => PortVisualStatus != RowStatus.None;
     public string? PortVisualLabel { get; init; }
     /// <summary>Separate from Fields so new visible facts do not change saved search semantics.</summary>
     public IReadOnlyList<SectionField> PortDisplayFacts { get; init; } = [];

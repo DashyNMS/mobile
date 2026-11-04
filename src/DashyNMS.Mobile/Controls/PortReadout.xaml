@@ -6,7 +6,13 @@
     <Grid MinimumHeightRequest="44">
         <VerticalStackLayout Spacing="6" Padding="14" AutomationProperties.ExcludedWithChildren="True">
             <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
-            <Label Text="{Binding PortVisualLabel}" TextColor="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" />
+            <Label Text="{Binding PortVisualLabel}" TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" LineBreakMode="WordWrap">
+                <Label.Triggers>
+                    <DataTrigger TargetType="Label" Binding="{Binding PortHasStatusBorder}" Value="True">
+                        <Setter Property="TextColor" Value="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" />
+                    </DataTrigger>
+                </Label.Triggers>
+            </Label>
             <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding PortDisplayFacts}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionField">

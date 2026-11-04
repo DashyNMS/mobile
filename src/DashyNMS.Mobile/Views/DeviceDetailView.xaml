@@ -151,7 +151,13 @@
                                             <VerticalStackLayout IsVisible="{Binding PortLayout}" Spacing="4"
                                                                  SemanticProperties.Description="{Binding PortOverviewDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding PortOverviewIdentity}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
-                                                <Label Text="{Binding PortVisualLabel}" TextColor="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Text="{Binding PortVisualLabel}" TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False">
+                                                    <Label.Triggers>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding PortHasStatusBorder}" Value="True">
+                                                            <Setter Property="TextColor" Value="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" />
+                                                        </DataTrigger>
+                                                    </Label.Triggers>
+                                                </Label>
                                                 <Label Text="{Binding PortOverviewTraffic}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                             </VerticalStackLayout>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">

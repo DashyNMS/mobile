@@ -110,6 +110,19 @@ each source independently, with a CI regression; legacy ranking stays unchanged.
 
 ### Validation and pending native evidence
 
+Opus 5.5 Medium re-reviewed the full diff at db78cbe. No proven blocker;
+one medium trigger-precedence risk remained: both Ports triggers set Stroke.
+Rather than rely on unverified same-priority trigger restoration, the colour
+now has one owner: only the known-status MultiTrigger sets Stroke. Thickness
+and padding stay in the Ports trigger; neutral uses the Card style's live theme
+stroke. PortHasStatusBorder drives the condition. The full and overview neutral
+status labels likewise use live theme text by default, with a single known-state
+colour trigger. Native mixed-status recycling and live theme switching remain
+required verification steps. A tiny portrait estimate could create impractically
+many columns in an unusually small pane; no arbitrary minimum width or column
+cap was introduced against the approved adaptive policy. Record actual pane and
+card widths during split/fold tests. Final full-diff review and CI remain pending.
+
 Code self-review covers the complete intended main-to-head diff against DESIGN,
 the explicit staged file set and whitespace. No local builds, tests, scripts or
 agents run. New CI-only tests cover visual states and contradictions, both
