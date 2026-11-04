@@ -543,6 +543,57 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Fdb_keeps_interface_order_mac_formatting_and_complete_context()
+    {
+        const string name = "Synthetic long interface name for the research network";
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [Port(1, name), Port(2, "Access interface")]);
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new FdbEntry { PortId = 1, MacAddress = "AABBCCDDEEFF", VlanId = 100 },
+            new FdbEntry { PortId = 2, MacAddress = "001122334455", VlanId = 0 },
+            new FdbEntry { PortId = 99, MacAddress = "002233445566" },
+        ]);
+
+        var rows = Assert.Single(await Load(DeviceSection.Fdb));
+        Assert.Equal(["port 99", "Access interface", name], rows.Select(row => row.Subtitle));
+        Assert.All(rows, row =>
+        {
+            Assert.True(row.FdbLayout);
+            Assert.False(row.VlanLayout);
+            Assert.False(row.IsLink);
+            Assert.Equal(RowStatus.None, row.Status);
+        });
+        Assert.Null(rows[0].Value);
+        Assert.Equal("VLAN not reported", rows[0].FdbVlanText);
+        Assert.True(rows[0].Matches("not reported"));
+        Assert.Equal("VLAN not reported", rows[1].FdbVlanText);
+        Assert.Equal($"aa:bb:cc:dd:ee:ff, {name}, VLAN 100", rows[2].FdbDescription);
+        Assert.True(rows[2].Matches("research"));
+        Assert.True(rows[2].Matches("vlan 100"));
+        Assert.False(new SectionRow("Other mode").Matches("not reported"));
+        var card = new DeviceSectionCard(DeviceSectionInfo.For(DeviceSection.Fdb));
+        card.Show([rows]);
+        Assert.Equal(3, card.Highlights.Count);
+        Assert.Contains(card.Highlights, row => row.FdbDescription == rows[2].FdbDescription);
+    }
+
+    [Theory]
+    [InlineData("—")]
+    [InlineData("–")]
+    [InlineData("")]
+    [InlineData(" ")]
+    public void Fdb_names_missing_mac_without_changing_raw_title_or_other_search(string title)
+    {
+        var row = new SectionRow(title) { FdbLayout = true, Subtitle = "port 99" };
+        Assert.Equal(title, row.Title);
+        Assert.Equal("MAC address not reported", row.FdbMacText);
+        Assert.Equal("MAC address not reported, port 99, VLAN not reported", row.FdbDescription);
+        Assert.True(row.Matches("MAC address not reported"));
+        Assert.False(new SectionRow(title).Matches("MAC address not reported"));
+    }
+
+    [Fact]
     public async Task Arp_sorts_addresses_numerically_and_tidies_macs()
     {
         _client.Arp.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
