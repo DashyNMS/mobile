@@ -20,6 +20,26 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    /// <summary>Routing facts wrap in both the section and its overview highlights.</summary>
+    public bool RoutingLayout => RoutingKind is not null;
+    /// <summary>Identifies protocol context without inferring it from server-provided text.</summary>
+    public string? RoutingKind { get; init; }
+    /// <summary>Distinguishes the fallback title from a real VRF whose name is VRF.</summary>
+    public bool RoutingNameMissing { get; init; }
+    private bool IsRoutingVrf => RoutingKind == "VRF";
+    /// <summary>Names absent identities without replacing the raw server title.</summary>
+    public string RoutingTitleText => IsRoutingVrf && (MissingAddress(Title) || RoutingNameMissing)
+        ? "VRF name not reported" : MissingAddress(Title) ? "Routing identity not reported" : Title;
+    /// <summary>Distinguishes a VRF distinguisher from a protocol state, including missing values.</summary>
+    public string RoutingValueText => HasValue ? (IsRoutingVrf ? "Route distinguisher: " + Value : Value!)
+        : IsRoutingVrf ? "Route distinguisher not reported" : "State not reported";
+    /// <summary>States the existing severity in words while leaving neutral VRFs unclassified.</summary>
+    public string? RoutingStatusText => Status == RowStatus.None ? null : HealthStatusText;
+    public bool HasRoutingStatus => RoutingStatusText is not null;
+    /// <summary>Announces the complete facts and existing severity once, independently of colour.</summary>
+    public string RoutingDescription => string.Join(", ", new[] { RoutingKind, RoutingTitleText, Subtitle, RoutingValueText, RoutingStatusText, Detail }
+        .Where(text => !string.IsNullOrWhiteSpace(text)));
+
     /// <summary>ARP facts wrap independently to retain address and interface context.</summary>
     public bool ArpLayout { get; init; }
     /// <summary>Names missing addresses without replacing the source fields.</summary>
@@ -191,6 +211,7 @@ public sealed record SectionRow(string Title)
         || (PortLayout && (Contains(PortStatusText, term) || Contains(LinkPortIfName, term)))
         || (ResourceLayout && (Contains(ResourceKind, term) || Contains(ResourceStatusText, term)))
         || (SensorLayout && (Contains(SensorKind, term) || Contains(SensorStatusText, term)))
+        || (RoutingLayout && (Contains(RoutingKind, term) || Contains(RoutingTitleText, term) || Contains(RoutingValueText, term) || Contains(RoutingStatusText, term)))
         || (ArpLayout && (Contains(ArpIpText, term) || Contains(ArpMacText, term) || Contains(ArpInterfaceText, term)))
         || (FdbLayout && (Contains(FdbMacText, term) || Contains(FdbVlanText, term)))
         || (VlanLayout && (Contains(VlanNameText, term) || Contains(VlanPortsText, term)))
