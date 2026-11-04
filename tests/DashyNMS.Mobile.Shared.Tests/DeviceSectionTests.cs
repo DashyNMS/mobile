@@ -1295,6 +1295,32 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Inventory_keeps_unknown_class_and_exact_serial_under_index_parent()
+    {
+        const string serial = "  SYNTHETIC-OPTIC-079 \t";
+        _client.Devices.GetInventoryAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new InventoryEntry { Id = 810, Index = 31, Name = "Synthetic chassis" },
+            new InventoryEntry { Id = 811, Index = 32, ContainedIn = 31,
+                Name = "Synthetic optic", Class = "futureEntityClass", Serial = serial,
+                FirmwareRev = "synthetic firmware revision", Description = "Synthetic description",
+                Model = "Synthetic model", Manufacturer = "Synthetic manufacturer" },
+        ]);
+
+        var rows = Assert.Single(await Load(DeviceSection.Inventory));
+        Assert.Equal([0, 1], rows.Select(row => row.Depth));
+        Assert.All(rows, row => Assert.True(row.InventoryLayout));
+        var optic = rows[1];
+        Assert.Equal(32L, optic.InventoryIndex);
+        Assert.Equal(serial, optic.Serial);
+        Assert.Equal("futureEntityClass", optic.Value);
+        Assert.Contains(serial, optic.Detail!);
+        Assert.Contains("synthetic firmware revision", optic.Detail!);
+        Assert.True(optic.Matches("SYNTHETIC-OPTIC-079"));
+        Assert.False(new SectionRow("Other section").InventoryLayout);
+    }
+
+    [Fact]
     public async Task Event_log_is_newest_first_and_coloured_by_severity()
     {
         _client.Logs.ListEventLogAsync(DeviceId, DeviceSectionLoader.EventLogLimit, Arg.Any<CancellationToken>()).Returns(

@@ -156,8 +156,12 @@ public sealed record SectionRow(string Title)
 
     /// <summary>Inventory identity and metadata retained for tree controls and serial copying.</summary>
     public long? InventoryIndex { get; init; }
+    /// <summary>Only inventory rows opt into complete wrapping facts.</summary>
+    public bool InventoryLayout => InventoryIndex is not null;
     public bool IsInventoryPort { get; init; }
     public string? Serial { get; init; }
+    /// <summary>Names the serial action without changing the clipboard payload.</summary>
+    public string CopySerialLabel => "Copy serial for " + Title;
     public bool HasSerial => !string.IsNullOrWhiteSpace(Serial);
     public bool CanExpand { get; init; }
     public bool IsExpanded { get; init; }

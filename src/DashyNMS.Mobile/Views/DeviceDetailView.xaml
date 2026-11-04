@@ -120,6 +120,13 @@
                                     <DataTemplate x:DataType="sections:SectionRow">
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
+                                            <VerticalStackLayout IsVisible="{Binding InventoryLayout}" Spacing="3"
+                                                SemanticProperties.Description="{Binding ContentDescription}" AutomationProperties.IsInAccessibleTree="True">
+                                                <Label Text="{Binding Title}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding HasValue}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                                            </VerticalStackLayout>
                                             <VerticalStackLayout IsVisible="{Binding RoutingLayout}" Spacing="3"
                                                 SemanticProperties.Description="{Binding RoutingDescription}" AutomationProperties.IsInAccessibleTree="True">
                                                 <Label Text="{Binding RoutingTitleText}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
@@ -162,6 +169,9 @@
                                             </VerticalStackLayout>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <Grid.Triggers>
+                                                    <DataTrigger TargetType="Grid" Binding="{Binding InventoryLayout}" Value="True">
+                                                        <Setter Property="IsVisible" Value="False" />
+                                                    </DataTrigger>
                                                     <DataTrigger TargetType="Grid" Binding="{Binding RoutingLayout}" Value="True">
                                                         <Setter Property="IsVisible" Value="False" />
                                                     </DataTrigger>
