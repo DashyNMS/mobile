@@ -502,7 +502,7 @@ public sealed class GraylogViewModelTests
         Assert.Equal(fails, vm.HasError);
         if (fails) Assert.Empty(vm.Messages);
         else Assert.Equal("192.0.2.2", Assert.Single(vm.Messages).SourceText);
-        await _client.Received(1).Devices.ListAsync(Arg.Any<CancellationToken>());
+        await _client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
         if (!fails)
         {
             await vm.EnsureLoadedAsync();

@@ -191,3 +191,8 @@ CI at 6f474db compiled successfully but six connection-isolation theory cases
 failed at one ambiguous NSubstitute assertion. All integer arguments and the
 stream filter now use explicit specifications, preserving the page-size, zero
 offset and new-query checks. Production code is unchanged; CI must rerun.
+
+CI at 01ff8bf passed the new-query/zero-offset checks but exposed a separate
+mock verification error: Received(1) was applied to the client's Devices getter,
+not to ListAsync. The assertion now verifies the devices API's ListAsync call.
+No production code changed; current-head CI remains required.
