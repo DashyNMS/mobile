@@ -13,9 +13,10 @@ preserved. Epic ticks, closure alone, merged source and CI do not prove acceptan
 Explicit acceptance below means a live comment records the user's decision; its
 scope is only the reported result (not a fresh exhaustive hardware pass).
 
-Live totals: 19 closed and 21 open. Fourteen children have explicit acceptance
+Live totals: 25 closed and 15 open. Twenty children have explicit acceptance
 comments, including build 231 acceptance for #454, #458 and #462 in addition
-to the initial eleven. Five closed children (#443, #446, #450, #452, #453)
+to the initial eleven, and 5 November acceptance with no notes for #463, #464,
+#482, #484 and #516, plus explicit #461 detail acceptance (updated with this PR). Five closed children (#443, #446, #450, #452, #453)
 have no explicit acceptance in the fetched comments; preserve their closures.
 
 ## Complete child ledger
@@ -46,10 +47,10 @@ acceptance, including older negative feedback; it does not request reopening.
 | [#458](https://github.com/DashyNMS/mobile/issues/458) CLOSED | [458-whats-new](458-whats-new.md) | [#525](https://github.com/DashyNMS/mobile/pull/525) `63466c80fdab8a1300d61ce4d6f7d52ead85bcf3` | single heading/fixed Got it | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/458#issuecomment-6629907781) |
 | [#459](https://github.com/DashyNMS/mobile/issues/459) CLOSED | [459-licences](459-licences.md) | [#501](https://github.com/DashyNMS/mobile/pull/501) `a52994ca0af20ac7b0764d02d08c477347242dee` | licence reading | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/459#issuecomment-6618921043) |
 | [#460](https://github.com/DashyNMS/mobile/issues/460) CLOSED | [460-log-entry-details](460-log-entry-details.md) | [#502](https://github.com/DashyNMS/mobile/pull/502) `c25b71cf34fad3286ddebb6e93fa2a4b5e712865` | complete entry facts | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/460#issuecomment-6618968741) |
-| [#461](https://github.com/DashyNMS/mobile/issues/461) OPEN | [461-graylog-message-details](461-graylog-message-details.md) | [#526](https://github.com/DashyNMS/mobile/pull/526) `e67448928e7aaa37d0b81b474ebc6c24f5c26a3d` | pane clearance/actions; post-#526 build 231 layering report unresolved | **U**; [latest negative feedback](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6629909350), no explicit device acceptance |
+| [#461](https://github.com/DashyNMS/mobile/issues/461) CLOSED | [461-graylog-message-details](461-graylog-message-details.md) | [#526](https://github.com/DashyNMS/mobile/pull/526) `e67448928e7aaa37d0b81b474ebc6c24f5c26a3d` | accepted details; list layering owned by #483/#517 | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6665115476) |
 | [#462](https://github.com/DashyNMS/mobile/issues/462) CLOSED | [462-backup-history](462-backup-history.md) | [#527](https://github.com/DashyNMS/mobile/pull/527) `0c55d06496a70f55bc887bb35fbd5e1f35eb808c` | history/comparison glass/base | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/462#issuecomment-6629908503) |
-| [#463](https://github.com/DashyNMS/mobile/issues/463) OPEN | [463-backup-contents](463-backup-contents.md) | [#528](https://github.com/DashyNMS/mobile/pull/528) `d78b33592812076cb8e8f6678a6acaff57776727` | contents Search/Share | **U**; no explicit device acceptance |
-| [#464](https://github.com/DashyNMS/mobile/issues/464) OPEN | [464-backup-diff](464-backup-diff.md) | [#529](https://github.com/DashyNMS/mobile/pull/529) `f7c71306b40fd33f6ad86e68bfb8c2e1d161967e` | diff Share/base | **U**; no explicit device acceptance |
+| [#463](https://github.com/DashyNMS/mobile/issues/463) CLOSED | [463-backup-contents](463-backup-contents.md) | [#528](https://github.com/DashyNMS/mobile/pull/528) `d78b33592812076cb8e8f6678a6acaff57776727` | contents Search/Share | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/463#issuecomment-6664900181), no notes |
+| [#464](https://github.com/DashyNMS/mobile/issues/464) CLOSED | [464-backup-diff](464-backup-diff.md) | [#529](https://github.com/DashyNMS/mobile/pull/529) `f7c71306b40fd33f6ad86e68bfb8c2e1d161967e` | diff Share/base | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/464#issuecomment-6664901483), no notes |
 | [#469](https://github.com/DashyNMS/mobile/issues/469) OPEN | [469-device-availability](469-device-availability.md) | [#530](https://github.com/DashyNMS/mobile/pull/530) `74c1891514d6dcf9eef2fd3d388b3a8203ff454c` | shared measured section base | **U**; no explicit device acceptance |
 | [#470](https://github.com/DashyNMS/mobile/issues/470) OPEN | [470-device-sensors](470-device-sensors.md) | [#531](https://github.com/DashyNMS/mobile/pull/531) `cdf3b0d32f6ce1fdf1978ac2c58068101b1ab1a8` | neutral unassessed section sensors; #532 remains | **U**; no explicit device acceptance |
 | [#471](https://github.com/DashyNMS/mobile/issues/471) OPEN | [471-device-resources](471-device-resources.md) | [#533](https://github.com/DashyNMS/mobile/pull/533) `2010d7b44cc73027d0ffbea72a2a686c4c859918` | near-full text and source failures | **U**; no explicit device acceptance |
@@ -63,11 +64,11 @@ acceptance, including older negative feedback; it does not request reopening.
 | [#479](https://github.com/DashyNMS/mobile/issues/479) OPEN | [479-device-inventory](479-device-inventory.md) | [#541](https://github.com/DashyNMS/mobile/pull/541) `26ee61babe42a406cdd057c81b06d52dec7b567b` | approved Tree options/raw serial | **U**; no explicit device acceptance |
 | [#480](https://github.com/DashyNMS/mobile/issues/480) OPEN | [480-device-graphs](480-device-graphs.md) | [#542](https://github.com/DashyNMS/mobile/pull/542) `d1c6e86c88e33b83e864ac331f8ff8312d0d1d84` | approved legends/lifecycle + Core ci.56 | **U**; no explicit device acceptance |
 | [#481](https://github.com/DashyNMS/mobile/issues/481) OPEN | [481-interface-graphs](481-interface-graphs.md) | [#543](https://github.com/DashyNMS/mobile/pull/543) `ccfe4b0f593e13c38212ef73a4094cda59463a77` | live ports/unknown-name fallback | **U**; no explicit device acceptance |
-| [#482](https://github.com/DashyNMS/mobile/issues/482) OPEN | [482-device-event-logs](482-device-event-logs.md) | [#546](https://github.com/DashyNMS/mobile/pull/546) `256307a98aeb8f459df8dd508df9535431e6a23c` | complete event facts + transparent row overlay | **U**; no explicit device acceptance |
-| [#483](https://github.com/DashyNMS/mobile/issues/483) OPEN | [483-device-graylog](483-device-graylog.md) | [#545](https://github.com/DashyNMS/mobile/pull/545) `56d55fef095f6b2c62cefc2007772584540ea971` | approved compact facts + request isolation | **U**; no explicit device acceptance |
-| [#484](https://github.com/DashyNMS/mobile/issues/484) OPEN | [484-device-maintenance](484-device-maintenance.md) | [#547](https://github.com/DashyNMS/mobile/pull/547) `357937869cfb8854c23be45ed957dc662e5b51f1` | fixed Schedule/error reveal | **U**; no explicit device acceptance |
-| [#516](https://github.com/DashyNMS/mobile/issues/516) OPEN | [516-network-log-camera](516-network-log-camera.md) | [#548](https://github.com/DashyNMS/mobile/pull/548) `612b4a89c66e73dee58a1037fe37f535907a4356` | horizontal outer clip/internal gutters | **U**; no explicit device acceptance |
-| [#517](https://github.com/DashyNMS/mobile/issues/517) OPEN | [517-network-graylog-camera](517-network-graylog-camera.md) | [#549](https://github.com/DashyNMS/mobile/pull/549) `503393f101ba480b2f12f175ab84d8eb64bcba1c` | accepted wrapping/sideways deferral; no camera fix | Explicit conversation decision recorded in merged [#549](https://github.com/DashyNMS/mobile/pull/549) description/assessment, not an issue comment; native **U** |
+| [#482](https://github.com/DashyNMS/mobile/issues/482) CLOSED | [482-device-event-logs](482-device-event-logs.md) | [#546](https://github.com/DashyNMS/mobile/pull/546) `256307a98aeb8f459df8dd508df9535431e6a23c` | complete event facts + transparent row overlay | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/482#issuecomment-6665017358), no notes |
+| [#483](https://github.com/DashyNMS/mobile/issues/483) OPEN | [483-device-graylog](483-device-graylog.md) | [#545](https://github.com/DashyNMS/mobile/pull/545) `56d55fef095f6b2c62cefc2007772584540ea971` | full facts + request isolation; Logs structure (this PR) supersedes wrapping header | **U**; [latest user direction](https://github.com/DashyNMS/mobile/issues/483#issuecomment-6665022283); no device acceptance |
+| [#484](https://github.com/DashyNMS/mobile/issues/484) CLOSED | [484-device-maintenance](484-device-maintenance.md) | [#547](https://github.com/DashyNMS/mobile/pull/547) `357937869cfb8854c23be45ed957dc662e5b51f1` | fixed Schedule/error reveal | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/484#issuecomment-6665018550), no notes |
+| [#516](https://github.com/DashyNMS/mobile/issues/516) CLOSED | [516-network-log-camera](516-network-log-camera.md) | [#548](https://github.com/DashyNMS/mobile/pull/548) `612b4a89c66e73dee58a1037fe37f535907a4356` | horizontal outer clip/internal gutters | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/516#issuecomment-6665020020), no notes |
+| [#517](https://github.com/DashyNMS/mobile/issues/517) OPEN | [517-network-graylog-camera](517-network-graylog-camera.md) | [#549](https://github.com/DashyNMS/mobile/pull/549) `503393f101ba480b2f12f175ab84d8eb64bcba1c` | Logs structure: horizontal full-width strip/internal gutters (this PR); #549 deferral superseded | **U**; [latest user direction](https://github.com/DashyNMS/mobile/issues/517#issuecomment-6665022749) supersedes the #549 decision; no device acceptance |
 
 ## Delivery dependencies and live inventory
 
@@ -122,23 +123,24 @@ native correctness. Later publication run 57 does not change the pinned ci.56.
   while OK, and Availability 99.86 as 99.9% while Warning or 98.96 as 99% while
   Critical. Core tiny-positive rounding is also preserved. Record raw value,
   text and status; no wider rounding redesign or accepted deferral is inferred.
-- **Native hypotheses, not invented source blockers:** #461's reported
-  three-quarter-width/short base has no proven root cause despite #526's source
-  corrections. Separately, [the user's build 231 report after #526](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6629909350)
-  says the pills still have a layering issue. The affected surface and ownership
-  versus #517 are unknown. This report predates #545 and is **not** covered by
-  the later #517 sideways-underlap deferral without user confirmation.
+- **Accepted detail / remaining list checks:** #461's details were explicitly
+  accepted and closed on 5 November ([decision](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6665115476)).
+  The older width/base symptoms are not outstanding acceptance work. Retest the
+  historical build 231 pill-layering report under the #483/#517 list correction;
+  do not infer native success from the source change.
   Graylog long fixed errors may reduce the viewport; floating
   keyboard geometry, recycling/semantic focus and graph payload/SVG identity
   beyond count matching remain U where their assessments say so.
 
-The user's exact #517 decision is **“Keep wrapping; defer sideways underlap.”**
-[#549](https://github.com/DashyNMS/mobile/pull/549) and
-[the #517 assessment](517-network-graylog-camera.md) own that accepted deferral.
-Keep #545's compact wrapping header. Vertical movement cannot create a horizontal
-filter lane. No camera-layering fix or device acceptance is claimed; reopen the
-visual decision only at the user's request. #288 global work and accepted #405
-setup ownership remain separate and intact.
+The earlier #517 decision, **“Keep wrapping; defer sideways underlap.”**
+([#549](https://github.com/DashyNMS/mobile/pull/549)), is **superseded** by the
+user's 5 November direction to mirror the Event and Alert log structure, pills
+and camera layering, recorded on [#483](https://github.com/DashyNMS/mobile/issues/483#issuecomment-6665022283)
+and [#517](https://github.com/DashyNMS/mobile/issues/517#issuecomment-6665022749).
+The Graylog structure PR implements that in source; see the "Latest direction"
+sections of the [#483](483-device-graylog.md) and [#517](517-network-graylog-camera.md)
+assessments. No camera-layering device acceptance is claimed. #288 global work
+and accepted #405 setup ownership remain separate and intact.
 
 ## Ordered remaining device acceptance
 
@@ -151,15 +153,11 @@ Historical explicit approvals and closed states above remain preserved.
    separately for side, bottom and top-wide pills, plus camera, native outer clip
    and clipping ancestors. Then independently prove complete final-row/action
    reach clear of glass; footer reach does not prove viewport-base alignment.
-   Prioritise #469–#479 shared geometry, #463/#464 backups, #516 Logs camera
-   travel, and #517's retained wrapping vertical path within its deferral.
-2. **Graylog #461:** measure pushed and embedded detail width, pane/host bounds,
-   viewport/base and content clearance on every entry, including Dashboard direct
-   messages and narrow/wide changes. Reproduce the 3/4-width/short-base symptom
-   before attributing a cause. Also reproduce the post-#526 build 231 pill-layering
-   report, identifying the surface and ownership versus #517; do not attribute it
-   to the #517 deferral without user confirmation. Coordinate #483/#517 without
-   redesigning filters.
+   Prioritise #469–#479 shared geometry and #483/#517 Graylog horizontal
+   strip camera travel; #463/#464 backups and #516 Logs are accepted.
+2. **Graylog #483/#517:** retest the horizontal strip and historical build 231
+   pill-layering report on an installed build. Detail #461 is accepted and closed;
+   preserve that implementation while checking list-to-detail return paths.
 3. **Ports #472 and all eleven section modes:** measured filter panel/wheel
    height through open/close animation, maximum text, VO/TB focus and activation,
    recycled cards, search/sort/grouping, graph entry and complete final facts.
@@ -176,8 +174,9 @@ Historical explicit approvals and closed states above remain preserved.
 6. **Maintenance #484:** now/later, validation/error reveal, single/bulk success,
    partial/all failure, busy confirmation, Back during an in-flight operation and
    actual-caller return using **mock writes only; no real server writes**. Measure
-   fixed Schedule and final field with keyboard open/closed. Source-race disposition
-   requires parent judgement before claiming completion.
+   fixed Schedule and final field with keyboard open/closed. The user accepted
+   #484 on 5 November with no notes; the source-race note above is retained for
+   parent judgement and is not re-assessed here.
 
 ## Handback boundary
 
