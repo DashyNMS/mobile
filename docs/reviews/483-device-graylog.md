@@ -219,3 +219,89 @@ ownership versus #517 are not established. The report predates #545 and must not
 be treated as covered by the later “Keep wrapping; defer sideways underlap”
 decision without user confirmation. Reproduce and identify the surface on an
 installed build; #461 remains open and device acceptance remains pending.
+
+## Latest direction: mirror the Event and Alert log structure
+
+On 5 November 2026 the user directed: **"we should mirror Event and Alert Log for
+this with the pills and the layering under it - the structure of the event and
+alert log page is what we want."** Live #483 and #517 comments record it. This
+**supersedes** #545's approved wrapping CollectionView.Header and #549's "Keep
+wrapping; defer sideways underlap" decision. The earlier sections above are
+historical. No new proposal was needed: the accepted Logs page (#544, #546,
+#548; #482 and #516 accepted on device with no notes) is the settled reference.
+
+### Source cause and correction
+
+Cause, from source: Graylog's choices sat in a wrapping FlexLayout inside
+CollectionView.Header, and `TabAlignedListLayout` padded `ListColumn` with the
+measured gutters. Choices could only move vertically inside the narrowed list
+card, so they could never travel sideways beneath the camera. Logs avoids this
+with a horizontal ScrollView whose outer clip spans the page and whose Padding
+holds the resting gutters.
+
+Correction in `GraylogPage.xaml` and its code-behind, matching `LogsPage`:
+
+- `ListColumn` has no padding. Rows are header, search slot, `FilterStrip`,
+  `Summary`, `ErrorCard`, then the star list row holding `SetupCard`, `Busy`
+  and `ListCard`.
+- `FilterStrip` is a horizontal, scroll-bar-free ScrollView with a full-width
+  clip and 16pt resting Padding. It holds native 44pt `GraylogChoice` buttons
+  (device change and clear in network scope, time, level, stream, auto-refresh
+  On/Off and its interval). A fixed device is a read-only label. Each choice
+  and the label wrap within `ListCard.Width`, as Logs does, so a long device or
+  stream name stays complete when scrolled into view. The FlexLayout and its
+  per-child width handler are removed.
+- `Summary` is a fixed row: summary text, stream-metadata problem and
+  auto-refresh failure, with Clear filters as its 44pt link (as in Logs).
+  Graylog's own search error keeps its card. Strip and summary are hidden while
+  Graylog is not configured, as before when they sat inside the hidden card.
+- `CollectionView.Header` is the 20pt transparent fade spacer only. The
+  surface-matched 20pt input-transparent fade, EmptyView (now with Logs'
+  40pt top padding below the fade), rows, Load more and `ListFoot` are retained.
+- `GraylogPage` passes `PlaceGutters` to `TabAlignedListLayout`, the existing
+  callback #548 added. It sets the measured left/right gutters on the header,
+  search field, strip Padding, summary (+4pt as Logs), error, setup, busy and
+  list cards, retaining the helper's computed list-card bottom margin. Android
+  keeps the XAML 16pt margins, as Logs. No offset is guessed.
+
+Preserved, unchanged: `TabAlignedListLayout` and `LogsPage` source; every
+`GraylogViewModel` path, including #545 setup-generation isolation, current
+load identity, stale error/metadata guards, zero-offset paging after a connection
+change, Apply, the timer's cleared old query, busy gates and authored tests;
+no view-model, projection or label change was necessary. Rows keep complete
+plain multiline messages, list-only level/facility/full time with unavailable
+fallbacks, one native Open message action with its explicit empty style,
+transparent Normal/Disabled and PrimaryTint Pressed/Focused states. #461 detail
+geometry/actions (`PlaceContent` input and embedded glass), #405 setup and
+device picker, routes, Dashboard previews and See all, search via ButtonSearch,
+permissions, credentials and network behaviour are untouched.
+
+Shared consumer audit: `TabAlignedListLayout` has two consumers, both now opting
+into the gutter callback; its default column-padding branch is retained but
+unused. `ButtonSearch`, `ListDetail`, `PullToRefresh` and `GraylogMessageItem`
+are consumed unchanged.
+
+Small and large screens: the strip is one 44pt-minimum row (taller only when a
+single choice wraps), so maximum text grows the strip by wrapped choice height
+rather than by a wrapped grid of every choice. Summary and errors can still
+wrap; long simultaneous errors can reduce the viewport. Both are native **U**.
+
+### Exact native matrix for this correction
+
+All rows are **U (UNVERIFIED)**. Record the full installed SHA and build, OS
+and device for each; no local build, test or device run was available.
+
+| Check | Duo outside | Duo inside portrait | Duo inside landscape |
+| --- | --- | --- | --- |
+| Strip outer clip spans the page; resting first/last choice clear of camera and pill; choice scrolled sideways passes beneath the camera | U | U | U |
+| Choice frames: 44pt minimum, wrapping long device/stream within list card width, default and maximum text, both themes | U | U | U |
+| Fixed device label read-only; network change/clear, time, level, stream, auto-refresh, interval and Clear filters execute their commands once | U | U | U |
+| Same-coordinate H, pill bottom B, viewport bottom V and V−B for side, bottom and top-wide pills | U | U | U |
+| Complete final row and Load more clear of glass, separately from V≈B | U | U | U |
+| Fade at rest leaves first row and EmptyView readable; passes taps and drags | U | U | U |
+| Fold/rotate, keyboard dismissal, retained tab, Settings/picker child return and resume re-place gutters without reopening | U | U | U |
+| VoiceOver/TalkBack: strip order, choice names/values, Open message speech, single activation | U | U | U |
+| Split view: list pane gutters, embedded #461 detail width/base and glass | n/a | U | U |
+
+Code review, CI (shared tests, Android, iOS) and this device matrix are recorded
+separately. Refs #483, #517 and #442 remain non-closing until the user accepts.
