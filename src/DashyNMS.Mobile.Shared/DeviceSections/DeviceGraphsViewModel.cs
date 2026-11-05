@@ -267,7 +267,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                     try
                     {
                         var ports = await _client.Ports.ListForDeviceAsync(deviceId);
-                        targets.AddRange(ports.Where(p => !string.IsNullOrWhiteSpace(p.IfName))
+                        targets.AddRange(ports.Where(p => !p.Deleted && !string.IsNullOrWhiteSpace(p.IfName))
                             .GroupBy(p => p.IfName, StringComparer.Ordinal).Select(g => g.First())
                             .OrderBy(p => p.DisplayName, NaturalOrder.Instance)
                             .Select(p => new GraphTarget(p.DisplayName, p.IfName)));
@@ -325,7 +325,9 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                 }
                 Graphs.ReplaceAll((target.IfName is null ? _deviceGraphs! : PortGraphs)
                     .OrderBy(g => g.Description, NaturalOrder.Instance));
-                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == (graph ?? (target.IfName is null ? null : "port_bits"))) ?? Graphs.FirstOrDefault();
+                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph)
+                    ?? (target.IfName is null ? null : Graphs.FirstOrDefault(g => g.Name == "port_bits"))
+                    ?? Graphs.FirstOrDefault();
             });
         }
         finally { _loadingList = false; }
@@ -694,7 +696,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     {
         try
         {
-            return (await _client.Ports.ListForDeviceAsync(DeviceId)).FirstOrDefault(p => p.IfName == ifName);
+            return (await _client.Ports.ListForDeviceAsync(DeviceId)).FirstOrDefault(p => !p.Deleted && p.IfName == ifName);
         }
         catch (LibreNmsApiException)
         {

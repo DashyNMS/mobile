@@ -52,6 +52,24 @@ public sealed class GraphLegendTests
         return vm;
     }
 
+    [Fact]
+    public async Task Deleted_ports_are_not_offered_and_cannot_supply_live_legend_values()
+    {
+        _client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new Port { Deleted = true, IfName = "Gi0/1", IfDescr = "Deleted duplicate", IfInOctetsRate = 999999 },
+            new Port { IfName = "Gi0/1", IfDescr = "Live interface", IfInOctetsRate = 125, IfOutOctetsRate = 0 },
+            new Port { Deleted = true, IfName = "Gi0/2" },
+        ]);
+        _client.Graphs.GetPortSvgAsync(7, "Gi0/1", "port_bits", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), true).Returns(TwoSeries);
+        var vm = new DeviceGraphsViewModel(_client, _settings);
+        await vm.LoadPortAsync(7, "Gi0/1", "Live interface", "example.net");
+        Assert.Equal([null, "Gi0/1"], vm.Targets.Select(t => t.IfName));
+        Assert.Equal("Live interface", vm.Targets[1].Label);
+        Assert.Equal(["In", "Out"], vm.Series.Select(s => s.Name));
+        Assert.Equal(["1 kb/s", "0 b/s"], vm.Series.Select(s => s.Value));
+    }
+
     [Theory]
     [InlineData(null, null, null, null, "–", "–")]
     [InlineData(125d, null, null, null, "1 kb/s (incomplete)", "–")]

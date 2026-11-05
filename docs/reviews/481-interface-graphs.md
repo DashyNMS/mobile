@@ -1,9 +1,9 @@
 # Interface graphs review, #481
 
 Refs #481 and #442. Source assessment on 5 November 2026 at main
-`d1c6e86c88e33b83e864ac331f8ff8312d0d1d84`. No additional confirmed
-interface-specific defect was found in this pass. This is an assessment-only
-change, not device acceptance or a claim that the remaining checks passed.
+`d1c6e86c88e33b83e864ac331f8ff8312d0d1d84`. Independent review found two
+interface-specific defects, corrected below. This assessment and correction
+are not device acceptance or a claim that the remaining checks passed.
 
 ## Baseline and ownership
 
@@ -26,8 +26,8 @@ rules, recurring matrix M and #481 checkpoint. Read the exact approved compact
 legend proposal at `/tmp/mobile-442/legend-proposal.html`. Historical assessments
 describe their own heads; current source takes precedence.
 
-This checkout is the sole writer for this assessment. No production file,
-shared helper, dependency, or other checkout is edited. In particular the
+This checkout is the sole writer for this assessment and its scoped view-model
+fixes/regressions. No shared helper, dependency or other checkout is edited. The
 protected dirty #475 checkout is untouched. Shared ownership remains:
 
 | Source | Consumers and boundary |
@@ -52,7 +52,8 @@ links enter device mode, from which Show can choose any listed port.
 AppShell registers one transient pushed page. There is no pinned root or
 embedded interface graph page; embedded device detail still pushes this page.
 
-Show includes Device graphs and deduplicated nonblank IfNames, sorted by display
+Show includes Device graphs and deduplicated nonblank IfNames from non-deleted
+ports, sorted by display
 name using NaturalOrder. A direct link missing from a successful list, or an
 API-failed list, adds its own target without guessing a replacement interface.
 DisplayName prefers IfDescr, then IfName; labels never replace the API key.
@@ -73,14 +74,15 @@ Every interface offers the following sources. Names come from Core's committed
 Descriptions are naturally ordered in the graph picker, so Broadcast and
 multicast packets appears before Errors, Traffic and Unicast packets. Initial
 interface selection is still **Traffic** by identity; an explicit compatible
-graph deep link wins. Unsupported graph identity falls back to the offered
-list. Show switches to device/another port retaining the selected range; it
+graph deep link wins. Empty or unsupported interface graph identity falls back
+to Traffic before the offered list. Show switches targets retaining range; it
 does not promise to retain the previous graph kind across targets.
 
 Each graph supports Hour, Day, Week, Month and Year. Initial range is Day unless
 the caller supplies a recognised preset. Core builds the escaped endpoint
 `devices/{deviceId}/ports/{escaped IfName}/{escaped graphType}` with from,
-optional to, width, height and legend query parameters. Slashes belong to the
+optional to, width and height query parameters. Keeping the legend omits a
+legend parameter; only requests hiding it append legend=no. Slashes belong to the
 IfName, not to a display-description path. The SVG owns historical samples,
 axes and times; current API values in the legend are not historical samples.
 
@@ -109,7 +111,7 @@ customisation, percentile entries and incomplete series.
 ## Concern ledger
 
 C means inspected source contract, U means unverified outcome, N/A means absent
-capability. There is no newly confirmed correction in this PR. A C entry does
+capability. The two confirmed corrections below are included in this PR. A C entry does
 not turn its accompanying native check into a pass.
 
 | Concern | Source evidence and disposition |
@@ -178,8 +180,12 @@ approval do not satisfy these checks.
 
 Inspected existing GraphTargetTests, GraphLegendTests and the shared CI workflow.
 They provide relevant source regressions, not a completed interface device
-matrix. This PR changes documentation only, so no mirrored layout tests or new
-behaviour tests were added. No local build, tests, restore or validation script
+matrix. Added behavioural regressions exercise the actual interface legend
+branch with deleted/live duplicate IfNames and prove live rates are selected;
+target regressions cover empty/unknown saved graph fallback and successful-list
+missing direct targets. Unsupported non-unicast/discard value claims still rest
+on inspected Core source and Core tests, not a new exhaustive mobile-mode test.
+No local build, tests, restore or validation script
 ran. Whitespace and full intended/staged diff inspection precede commit/push;
 new-head CI results must be read separately from baseline #542's green checks.
 
@@ -189,3 +195,20 @@ Parent must obtain fresh Opus 5.5 Medium full-diff review and judge CI before
 any authorised merge. This implementation child starts no agents and performs
 no watch, merge, issue closure, epic tick or release. #481 remains open pending
 the unverified evidence and explicit user acceptance.
+
+## Independent review corrections
+
+Opus 5.5 Medium reviewed 9f63d47 and found a medium deleted-port selection
+defect and low invalid-graph fallback defect. Both are fixed: target enumeration
+and PortAsync exclude deleted records before deduplication/first-match, and
+port_bits is the fallback for empty/unrecognised interface graph identities.
+This preserves actual IfName, live label/rates and valid explicit saved graphs.
+Device-wide fallback is unchanged. Shared device-mode port choices consume the
+same live-port correction; GraphPicker already excludes deleted records.
+No layout, route, API, cache key or persistence change is introduced.
+
+Corrected the earlier no-defect conclusion, source coverage and legend-query
+wording. The ledger's selection and current-reading source dispositions include
+these fixes; malformed/real payload completeness and every native result remain
+UNVERIFIED. Full intended diff and whitespace inspected; final independent
+review and CI remain pending. No local builds/tests ran.

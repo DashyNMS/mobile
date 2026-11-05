@@ -81,4 +81,24 @@ public sealed class GraphTargetTests
         Assert.Null(vm.PortIfName);
         Assert.NotNull(vm.GraphPage);
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("unknown_saved_graph")]
+    public async Task Invalid_saved_port_graph_defaults_to_traffic(string graph)
+    {
+        var vm = new DeviceGraphsViewModel(_client);
+        await vm.LoadPortAsync(7, "Gi0/1", "Synthetic interface", "example.net", graph);
+        Assert.Equal("port_bits", vm.SelectedGraph!.Name);
+    }
+
+    [Fact]
+    public async Task Successful_port_list_keeps_a_direct_target_missing_from_the_list()
+    {
+        var vm = new DeviceGraphsViewModel(_client);
+        await vm.LoadPortAsync(7, "Gi0/9", "Synthetic uplink", "example.net", "port_errors");
+        Assert.False(vm.HasTargetsError);
+        Assert.Equal("Gi0/9", vm.SelectedTarget!.IfName);
+        Assert.Equal("port_errors", vm.SelectedGraph!.Name);
+    }
 }
