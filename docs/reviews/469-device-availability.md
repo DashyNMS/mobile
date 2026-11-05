@@ -309,3 +309,103 @@ implementation changed after review. Final-head CI pending, all device
 results still unverified. Review coverage did not include full sibling
 assessments/comments; #470–#479 remain separate sequential reassessments,
 not accepted by this shared review.
+
+## Base correction for #469–#479, 5 November 2026
+
+User device feedback rejects the #530 base on both Duo displays: in every
+DeviceSectionPage mode the content still stops short of the screen's base.
+#479 Inventory is bundled at the user's request (issue comment 6664918141);
+its remaining approved presentation and behaviour are unchanged. This section
+supersedes the "Corrected shared base" statuses above. Earlier compliance labels
+and the #530 pill-base claim are withdrawn, not restated.
+
+### Cause, from source
+
+#530 copied the card-host rule from `PushedListLayout`, Devices and Alerts:
+viewport base = `max(0, H − pill.Bottom)`, measured in `SectionBody`'s native
+host. In those hosts a `ListCard` border and background end at that line, so
+the card visibly reaches the pill base. DeviceSectionPage has no enclosing
+card; each row is its own `Card` Border inside a `CollectionView`. Its
+visible end is the clip edge of the `RefreshView`/`CollectionView`, which
+`Refresh.Margin.Bottom` placed at the pill base (side and bottom pills), at the
+bar-and-glass gap (bottom bar via `BottomGap`), or 12pt plus covered bottom
+when unmeasured. So rows were cut off above the screen's base by that whole
+gap, with empty page background beneath, on outer and inner displays alike.
+
+`SectionBody` itself was not short: page iOS safe area is top-only, Root,
+SectionBody and Refresh opt out, `CollectionView` uses `Never` and the body is
+Root's star row, so its native bottom is the screen base. The coordinate
+system (`PillIn`/`Occupied` in the same host) was correct; the policy was
+wrong for a cardless list. The accepted cardless precedent is the Dashboard,
+whose ScrollView fills to the base and whose content padding carries the
+bottom clearance. No offset is guessed: the measured obstruction moves from
+the viewport margin into the footer unchanged.
+
+### Correction
+
+New shared `SectionListPlacement.Resolve(obstruction, keyboardGap, panelHeight)`
+is the one owner of the list base:
+
+- Viewport bottom = 0 (host base), or the docked keyboard gap when present.
+- Overlay bottom = max(obstruction, keyboard gap): FilterCard margin, panel
+  maximum height and the wide Neighbours graph margin, as before.
+- Footer = 24pt + (overlay − viewport), raised to panel height + overlay +
+  12pt − viewport while the panel is visible.
+
+`obstruction` is still `SetupActionPlacement.BottomGap` measured in the body
+host on iOS, and 12 + `ForScrolling.Bottom` otherwise. Android gets the same
+policy inside its native Container safe area: its rows now reach that safe
+base, with the former 12pt viewport gap moved into the footer. Unit tests cover
+each pill type, keyboard above and below the obstruction, panel larger and
+smaller than the normal footer, unmeasured panel and negative measurements.
+
+### Regression map, all DeviceSectionPage consumers
+
+Each mode shares one placement path; no row template, flag, binding, route,
+loader, permission, persistence, search, keyboard or lifecycle code changed.
+
+| Mode / owner | Base effect | Retained, checked by source |
+| --- | --- | --- |
+| #469 Availability | Rows reach host base; final outage row clears pill via footer | Windows, outages, status text, Retry |
+| #470 Sensors | Same | Class groups, limits, Updating line |
+| #471 Resources | Same, wide columns unchanged | Bars, thresholds, column span |
+| #472 Ports | Same; approved two-column portrait and fitted landscape cards unchanged | Status borders, panel footer = measured panel + overlay + 12, saved sort/group, ifName route |
+| #473 Neighbours | Narrow: list reaches base below graph row. Wide: list column reaches base; graph column keeps overlay clearance (no footer) | Graph selection/scroll, split threshold 800 |
+| #474 VLANs | Same | Number/name/ports |
+| #475 FDB | Same | MAC/interface/VLAN |
+| #476 ARP | Same | IP/MAC/interface |
+| #477 Routing | Same | BGP/OSPF/VRF facts |
+| #478 Wireless | Same | Classes, units, limits |
+| #479 Inventory | Same; one column | Tree options panel, expansion, Show ports, serial copy, summary header |
+| EventLog compatibility | Same if routed directly | Normal entry uses Logs |
+
+### Other Device subsection hosts audited
+
+| Host | Bottom ownership in source | Same cause? |
+| --- | --- | --- |
+| DeviceGraphsPage, #480/#481 | Full-height ScrollView; ContentColumn padding 24 + covered bottom | No: already scrolls to base |
+| LogsPage device scope, #482 | `TabAlignedListLayout` ListCard ends at pill base | No: card host, edge is drawn |
+| GraylogPage device scope, #483 | Same `TabAlignedListLayout` card host | No |
+| MaintenancePage, #484 | `SetupPageLayout` form with fixed action at pill base | No: fixed-action rule |
+| Backup history/contents/diff, #462–#464 | `PushedListLayout` ListCard | No; accepted, untouched |
+| DeviceDetailView overview | Not a section viewport | N/A |
+
+All of these are unaffected in source; their native bases remain U under
+their own issues. No accepted page is redesigned.
+
+### Device checks still needed (all U)
+
+For each mode above, on the Duo outer display and the inner display in portrait
+and landscape, record two separate results against the final head SHA and build:
+
+1. Viewport base: the list's native bottom V equals the body host's bottom H
+   (the screen base) with no keyboard; rows visibly pass beneath the pill.
+2. Final row: scrolled to the end, the complete last row sits above the pill
+   base B (side pill) or above the bottom bar and glass, with a 24pt gap; with
+   Ports or Inventory panel open, above the panel.
+
+Also: keyboard open then dismissed (V returns to H), wide/narrow Neighbours
+graph bounds, fold/rotate, tab and child return, resume, themes, largest text,
+VoiceOver, and an ordinary iPhone. No native frames are available here; the
+fix rests on the source constraints above. No local build, test or script ran;
+CI and independent review are parent-owned. #469–#479 stay open and unticked.

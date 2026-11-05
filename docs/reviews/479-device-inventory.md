@@ -182,3 +182,10 @@ approved. Corrected the stale Unknown-summary sentence. Shared tests cover
 command availability and row expansion during a pending refresh. New panel
 stack layouts explicitly opt out of inherited safe areas. Fresh full review
 and replacement CI remain pending; every native result remains unverified.
+
+User device feedback, 5 November 2026: all good apart from the content not
+reaching the base of the screen. The shared base correction and its cause are
+recorded in [the #469 assessment](469-device-availability.md#base-correction-for-469479-5-november-2026).
+It changes only DeviceSectionPage's viewport and footer ownership; the approved
+Tree options, expansion, Show ports, serial copy and summary are unchanged.
+Native base and final-row checks remain U.

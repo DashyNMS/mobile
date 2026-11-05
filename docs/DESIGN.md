@@ -636,17 +636,25 @@ alone does not establish viewport alignment. #462 owns this shared correction;
 #463 contents then #464 differences consume it sequentially and retain their
 own action, search, source and export contracts.
 
-Device-section consumers apply the same distinction between viewport base and
-content clearance. Measure the pill, glass and keyboard in the actual finite
-body host. Verify the sibling graph's bounds separately on-device. The list reaches the measured
-pill base and clears bottom obstruction in its footer. A wide graph without
-a content footer must clear the bar and glass in its viewport margin; a narrow
-graph reserves its actual layout row above the list. Keep a
-visible filter panel's measured height in the footer through its exit animation.
-Record host height H, pill bottom B, viewport bottom V and V−B separately from
-complete final-row reachability. A footer that clears the row does not prove
-that the viewport reaches the usable base. #469 owns this correction before
-sequential reassessment of #470–#479; source correction is not device acceptance.
+Device sections are cardless: each row is its own card, so the viewport's
+clip edge is the visible end of the content. Do not copy the card hosts' pill
+base there. The list viewport runs to the actual finite body host's base,
+beneath the pill and glass, as on the Dashboard, and stops short only for a
+docked keyboard. `SectionListPlacement` gives the footer the whole measured
+obstruction (side-pill gap, bottom bar and glass, or covered edges) plus 24pt,
+and a visible filter panel's measured height through its exit animation.
+Anchoring a cardless viewport at `H - pill.Bottom` clipped rows above the
+screen's base on both Duo displays (#469–#479). A wide graph without a content
+footer keeps the bar and glass clearance in its own margin; a narrow graph
+reserves its actual layout row above the list. Verify the graph's bounds
+separately on-device.
+
+Record host height H, pill bottom B and viewport bottom V per mode: a cardless
+viewport passes only with V = H (or the docked keyboard top), and the final row
+must still scroll fully above B and the glass. Check these separately; one does
+not prove the other. Card hosts (`PushedListLayout`, `TabAlignedListLayout`,
+Devices, Alerts, Health) keep their card base at the pill base. Source
+correction is not device acceptance.
 
 For device-neighbour graphs, distinguish a current-device readout from actionable
 neighbour nodes. A node selecting a list card must announce that selection intent
@@ -685,23 +693,29 @@ list, with textual severity and stacked metadata and local timestamps. A single
 native entry action includes its ID in speech. Raw source fields remain in the
 accepted #460 detail. Fixed device scope is read-only; filter choices wrap and
 name their current value, and auto-refresh states On or Off. This records the
-approved presentation; native acceptance remains pending in the #482 assessment.
+approved presentation; the user accepted it on device on 5 November 2026 with
+no notes, as recorded in the [#442 ledger](reviews/442-delivery-status.md).
 
 
-### Approved compact Graylog list
+### Approved Graylog list structure
 
-The #483 proposal was approved with the constraint "Yeah but should be compact
-enough to fit on small screens as well as larger screens". Use modest row spacing,
-wrapping native choices with 44pt targets, read-only fixed scope and separate
-network change/clear actions. Put the choices and summary in the scrolling list
-header so maximum text on a short screen cannot reserve the entire viewport for
-filters. Keep the CollectionView finite and virtualised. Show complete plain
-multiline messages and stacked severity, facility and full time; missing facts say
-unavailable. One native Open message target announces source, level, time and ID.
-Reserve the 20pt surface-matched fade in content. Dashboard previews, #461 detail,
-#405 setup and #517 camera ownership remain separate. Proposal approval is not
-native acceptance; small viewport and maximum-text evidence remains U in the
-[#483 assessment](reviews/483-device-graylog.md).
+On 5 November 2026 the user directed: "we should mirror Event and Alert Log for
+this with the pills and the layering under it - the structure of the event and
+alert log page is what we want." This supersedes the earlier #483 compact
+wrapping header and the #517 "Keep wrapping; defer sideways underlap" decision.
+
+Graylog uses the Logs structure: fixed header and search, a horizontal strip of
+native 44pt choices in a full-width outer clip, then fixed summary/status rows
+and the finite virtualised list card. Choices and the summary leave
+CollectionView.Header, which keeps only the 20pt fade spacer. Each choice wraps
+within the guttered list card's width. Fixed device scope is a read-only label;
+network scope keeps separate change and clear choices; Clear filters is the
+summary's link, as in Logs. Rows keep modest spacing, complete plain multiline
+messages, stacked level, facility and full time with unavailable fallbacks, and
+one native Open message target. Dashboard previews, #461 detail and #405 setup
+are separate. Source and approval are not native acceptance; see the
+[#483 assessment](reviews/483-device-graylog.md) and
+[#517 assessment](reviews/517-network-graylog-camera.md).
 
 ### Log filter camera layering
 
@@ -713,8 +727,8 @@ ScrollView's Padding. Bound wrapping choice width to the guttered list card,
 so a long choice fits when scrolled into view. Preserve the finite list viewport
 and its separate pill-base margin and content footer. `TabAlignedListLayout`
 allows a page-owned gutter callback for this pattern; its default column-padding
-mode remains for consumers awaiting their own camera assessment. #516 owns Logs
-in both scopes; #517 must audit Graylog's distinct scrolling-header placement
-before opting in. Source correction and native acceptance are separate; record
+mode is retained, but both current consumers opt in. #516 owns Logs in both
+scopes; #517 and #483 own Graylog, which adopts the same callback with its own
+fixed status slots. Source correction and native acceptance are separate; record
 actual clip/choice/camera frames and H/B/V in the
-[#516 assessment](reviews/516-network-log-camera.md).
+[#516 assessment](reviews/516-network-log-camera.md) and the Graylog assessments.

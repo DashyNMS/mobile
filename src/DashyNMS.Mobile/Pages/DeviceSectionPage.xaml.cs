@@ -278,13 +278,13 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 		var clear = CoveredEdges.ForScrolling(this);
 		var left = 16 + clear.Left;
 		var right = 16 + clear.Right;
-        var bottom = 12 + clear.Bottom;
-        var footer = 24d;
-        var overlayBottom = bottom;
+        // What the final row and resting overlays must clear at the base.
+        var obstruction = 12 + clear.Bottom;
+        double? keyboardGap = null;
 #if IOS
         StopInsetAdjustment();
         // Query every obstruction in the body host's coordinates. Its bottom
-        // is the viewport base in narrow and split modes alike.
+        // is the base the rows scroll to, in narrow and split modes alike.
         if (SectionBody.Handler?.PlatformView is UIKit.UIView host && host.Bounds.Height > 0)
         {
             var height = (double)host.Bounds.Height;
@@ -292,28 +292,22 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
             OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
             var glass = TabBarButtons.Occupied(host)
                 .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
-            overlayBottom = SetupActionPlacement.BottomGap(height,
+            obstruction = SetupActionPlacement.BottomGap(height,
                 CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
-            bottom = overlayBottom;
-            if (nativePill is { } measured && (measured.Height > measured.Width || measured.Top > height / 2))
-            {
-                bottom = Math.Max(0, height - measured.Bottom);
-                footer += Math.Max(0, overlayBottom - bottom);
-            }
             if (_keyboardScreen is { } screen && host.Window is { } window)
             {
                 var keyboard = host.ConvertRectFromView(window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
                 if (keyboard.Width >= host.Bounds.Width * .8 && keyboard.Bottom >= height)
-                {
-                    var keyboardGap = height - Math.Max(0, (double)keyboard.Top) + 12;
-                    bottom = Math.Max(bottom, keyboardGap);
-                    overlayBottom = Math.Max(overlayBottom, keyboardGap);
-                }
+                    keyboardGap = height - Math.Max(0, (double)keyboard.Top) + 12;
             }
         }
 #endif
-        if (FilterCard.IsVisible && FilterCard.Height > 0)
-            footer = Math.Max(footer, FilterCard.Height + overlayBottom + 12 - bottom);
+        // Rows are separate cards with no enclosing list card, so the viewport
+        // runs to the host's base, beneath the pill, and only the footer clears it.
+        var placement = SectionListPlacement.Resolve(obstruction, keyboardGap,
+            FilterCard.IsVisible && FilterCard.Height > 0 ? FilterCard.Height : null);
+        var overlayBottom = placement.Overlay;
+        var footer = placement.Footer;
 
 		var wideNeighbours = _viewModel.IsNeighbours && Width - left - right >= 800;
 		var columns = wideNeighbours ? 2 : 1;
@@ -350,8 +344,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
         if (FilterCard.MaximumHeightRequest != panelHeight) FilterCard.MaximumHeightRequest = panelHeight;
 		Busy.Margin = new Thickness(left, 8, right, 0);
 
-		// The viewport reaches the pill base; content owns final-row clearance.
-		var viewport = new Thickness(0, 0, 0, bottom);
+		// The viewport reaches the host base (or a docked keyboard); the footer owns final-row clearance.
+		var viewport = new Thickness(0, 0, 0, placement.Viewport);
 		if (Refresh.Margin != viewport) Refresh.Margin = viewport;
 
 		if (ListFoot.HeightRequest != footer)
