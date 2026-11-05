@@ -65,7 +65,7 @@ Presentation approval is recorded above. Outstanding F/U concerns are not accept
 
 #483 owns these filter/refresh concurrency corrections; they are included here, not deferred outside presentation scope. Local awaited values are cancellation-checked before publishing device/address caches or configuration. Only the current load clears its identity; superseded completion reasserts busy while a newer load remains pending. Paging and auto-refresh check that identity independently of RunAsync's busy notification. CI-only cases cover stale metadata (device 23 retained and streams loaded once), pending configuration with device switch, cancellation-ignoring resolver, and older cancellation with newer pending search. Submitted search drives query and empty status; an unsubmitted retained draft does not claim active filtering on a later range change.
 
-Stream metadata failure is optional: it reports unavailable choices in the fixed status slot and preserves the requested Dashboard stream ID in every search. No silent fallback to a wider query. Mandatory LibreNMS device policy is retained as instructed. These repairs need no new permissions decision. Synthetic tests are authored, not executed. Parent must obtain a fresh independent Opus full-diff review and assess shared-test/Android/iOS CI.
+Stream metadata failure is optional: its separate StreamProblem reports unavailable choices in the fixed status slot and preserves the requested Dashboard stream ID in every search. No silent fallback to a wider query. Mandatory LibreNMS device policy is retained as instructed. These repairs need no new permissions decision. Synthetic tests are authored, not executed. Parent must obtain a fresh independent Opus full-diff review and assess shared-test/Android/iOS CI.
 
 Graylog row buttons use PortReadout's explicit empty style and transparent Normal/Disabled states, with PrimaryTint pressed/focused feedback. Logs sibling #544 is untouched; parent follow-up owner #482 must repair its equivalent overlay if confirmed. Dashboard severity projections remain unchanged; the list alone formats Warning (4).
 
@@ -77,3 +77,48 @@ Scrolling the header must leave every choice reachable without oversized cards;
 measure native button bounds and assistive traversal. No device evidence was
 available in this implementation session. The protected dirty #475 checkout and
 parent checkout were not mutated.
+
+
+## Fresh review corrections and evidence ledger
+
+The superseded successful search-response test preserves a baseline cancellation
+guard. It is not evidence of a newly fixed failure path. New regressions complete
+an old pending search and an old device lookup with exceptions after a newer
+successful refresh. The callback inside RunAsync converts superseded failures to
+cancellation before shared error publication and Failed diagnostics. Current
+failures retain the existing error path.
+
+StreamProblem is independent of RefreshProblem. A failure notice persists through
+searches and timer ticks until a successful metadata fetch. Non-append manual
+loads retry missing metadata with one in-flight owner; ticks do not retry. Setup
+configuration generations reject metadata from a previous connection. Requested
+stream IDs remain query scope while metadata loads, fails or omits that ID.
+The label says loading while pending, unavailable after failure or a successful
+response missing the ID, and the resolved title on success. Metadata application
+suppresses redundant reloads.
+
+Core GraylogApi.SendAsync wraps HTTP transport failures and HTTP timeout
+cancellation in GraylogApiException, preserving real caller cancellation. The
+ci.56 consumer now also catches direct HttpRequestException, TimeoutException and
+uncancelled OperationCanceledException on ticks. Synthetic cases retain rows and
+report a failure time; real token cancellation is ignored. No timer exception is
+left unobserved for these failure types. Core LevelText emits a numbered prefix
+for nonnegative levels, including unknown numeric values. The list formatter now
+checks the full separator before slicing; missing separators preserve the label.
+Dashboard projections remain unchanged.
+
+The HTML proposal describes a single fixed state slot. Implementation instead
+retains BusyCard over the finite list and CollectionView.EmptyView, with primary,
+refresh and independent stream errors above it. This is an explicit engineering
+tradeoff, not additional user approval or proof of the proposed state hierarchy.
+Long simultaneous errors can reduce the viewport. Native maximum-text/short-screen
+acceptance remains U. Header plus EmptyView reach/remeasurement, x:Reference
+FilterStrip width resolution and focus PrimaryTint appearance are also U. No
+insets or guessed offsets were added. #461, #405 and #517 ownership is preserved.
+
+At previous head a59b4ca105cc859e9ca8f79853033da4c4f8be0b, shared tests,
+Android and iOS simulator checks passed in run 42011763641. That does not validate
+these follow-up changes. Final-head CI and fresh independent Opus full-diff review
+are pending and belong to the parent. No local build, test, restore or validation
+script was run. Git whitespace checks and source diff review are the only local
+validation. No watch, merge, closure, epic tick or release was performed.

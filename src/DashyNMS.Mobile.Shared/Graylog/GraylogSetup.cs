@@ -25,6 +25,8 @@ public sealed class GraylogSetup
     private readonly ILogger<GraylogSetup> _logger;
     private bool _tried;
 
+    internal int Generation { get; private set; }
+
     public GraylogSetup(
         IGraylogApi graylog,
         IGraylogPasswordProtector passwords,
@@ -84,12 +86,14 @@ public sealed class GraylogSetup
     /// <summary>Settings' "Forget password": nothing to connect with any more.</summary>
     public void ForgetPassword()
     {
+        Generation++;
         _passwords.Clear();
         _graylog.Clear();
     }
 
     private void Configure(GraylogSettings settings, string? password)
     {
+        Generation++;
         if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.Server))
         {
             _graylog.Clear();

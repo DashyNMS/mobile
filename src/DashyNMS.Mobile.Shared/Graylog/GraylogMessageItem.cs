@@ -114,7 +114,10 @@ public sealed class GraylogMessageItem
     /// <summary>List-only facts preserve Dashboard previews and the accepted detail payload.</summary>
     public string ListMessageText => string.IsNullOrWhiteSpace(FullText) ? "Message unavailable" : FullText;
     public string ListSourceText => string.IsNullOrWhiteSpace(SourceText) ? "Source unavailable" : SourceText;
-    public string ListLevelText => HasLevel ? $"{LevelText[(LevelText.IndexOf(')') + 2)..]} ({Level})" : "Level unavailable";
+    public string ListLevelText => HasLevel ? $"{LevelName(LevelText)} ({Level})" : "Level unavailable";
+    internal static string LevelName(string label) =>
+        label.IndexOf(") ", StringComparison.Ordinal) is var at && at >= 0 ? label[(at + 2)..] : label;
+
     public string ListFacilityText => string.IsNullOrWhiteSpace(FacilityText) ? "Facility unavailable" : $"Facility: {FacilityText}";
     public string OpenDescription => $"Open message, {ListSourceText}, {ListLevelText}, {DetailTimeText}, ID {Id ?? "unavailable"}. {ListMessageText}. {ListFacilityText}";
 
