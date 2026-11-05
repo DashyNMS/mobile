@@ -1387,6 +1387,56 @@ public sealed class DeviceSectionLoaderTests
 public sealed class DeviceSectionViewModelTests
 {
     [Fact]
+    public async Task Tree_options_follow_source_busy_and_visible_branch_state()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new InventoryEntry { Index = 1, Name = "Chassis", Class = "chassis" },
+            new InventoryEntry { Index = 2, ContainedIn = 1, Name = "Port", Class = "port" },
+        ]);
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation())
+            { SearchDelay = TimeSpan.Zero };
+        Assert.False(vm.HasTreeOptions);
+        await vm.LoadAsync(7, DeviceSection.Inventory);
+        Assert.True(vm.HasTreeOptions);
+        Assert.False(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.ShowInventoryPorts = true;
+        Assert.True(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.CollapseInventoryCommand.Execute(null);
+        Assert.True(vm.ExpandInventoryCommand.CanExecute(null));
+        vm.SearchText = "Port";
+        Assert.False(vm.ExpandInventoryCommand.CanExecute(null));
+        Assert.False(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.SearchText = "no match";
+        Assert.Empty(vm.Groups);
+        Assert.True(vm.HasTreeOptions);
+        vm.SearchText = "";
+        Assert.True(vm.ExpandInventoryCommand.CanExecute(null));
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.True(vm.IsFilterPanelOpen);
+        var pending = new TaskCompletionSource<IReadOnlyList<InventoryEntry>>();
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasTreeOptions);
+        Assert.False(vm.CanUseTreeOptions);
+        Assert.False(vm.IsFilterPanelOpen);
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.False(vm.IsFilterPanelOpen);
+        pending.SetException(new HttpRequestException("Synthetic failure"));
+        await refresh;
+        Assert.True(vm.CanUseTreeOptions);
+        Assert.True(vm.HasError);
+        vm.ShowInventoryPorts = false;
+        Assert.True(vm.HasTreeOptions);
+        Assert.False(vm.ExpandInventoryCommand.CanExecute(null));
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryEntry>());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.HasTreeOptions);
+        Assert.False(vm.CanUseTreeOptions);
+    }
+
+    [Fact]
     public async Task Changing_device_during_availability_load_discards_the_old_result()
     {
         var client = Fakes.Client();

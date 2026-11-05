@@ -27,6 +27,27 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 
     public bool IsInventory => Section == DeviceSection.Inventory;
 
+    public bool HasTreeOptions => IsInventory && _loaded && _all.Any(g => g.Count > 0);
+    public bool CanUseTreeOptions => HasTreeOptions && !IsBusy;
+    public string PanelTitle => IsInventory ? "Tree options" : "Sort & filter";
+
+    private bool CanExpandInventory() => CanUseTreeOptions &&
+        Groups.SelectMany(g => g).Any(r => r.CanExpand && !r.IsExpanded);
+    private bool CanCollapseInventory() => CanUseTreeOptions && SearchText.Trim().Length == 0 &&
+        Groups.SelectMany(g => g).Any(r => r.CanExpand && r.IsExpanded &&
+            r.InventoryIndex is { } id && !_collapsedInventory.Contains(id));
+
+    /// <summary>Source availability is independent of search and hidden ports.</summary>
+    private void UpdateTreeOptions()
+    {
+        OnPropertyChanged(nameof(HasTreeOptions));
+        OnPropertyChanged(nameof(CanUseTreeOptions));
+        OnPropertyChanged(nameof(PanelTitle));
+        ExpandInventoryCommand.NotifyCanExecuteChanged();
+        CollapseInventoryCommand.NotifyCanExecuteChanged();
+        if (IsInventory && !CanUseTreeOptions) IsFilterPanelOpen = false;
+    }
+
     [ObservableProperty]
     private bool _showInventoryPorts;
 
@@ -36,16 +57,18 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     public string InventorySummary => string.Join(" · ", _all.SelectMany(g => g)
         .GroupBy(r => string.IsNullOrWhiteSpace(r.Value) ? "Unknown" : r.Value).OrderBy(g => g.Key).Select(g => $"{g.Count()} {g.Key}"));
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanExpandInventory))]
     private void ExpandInventory()
     {
+        if (!CanExpandInventory()) return;
         _collapsedInventory.Clear();
         ApplyFilter();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCollapseInventory))]
     private void CollapseInventory()
     {
+        if (!CanCollapseInventory()) return;
         foreach (var row in _all.SelectMany(g => g))
         {
             if (row.InventoryIndex is { } index) _collapsedInventory.Add(index);
@@ -56,7 +79,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ToggleInventory(SectionRow? row)
     {
-        if (row?.InventoryIndex is not { } index || !row.CanExpand) return;
+        if (!CanUseTreeOptions || row?.InventoryIndex is not { } index || !row.CanExpand) return;
         if (!_collapsedInventory.Add(index)) _collapsedInventory.Remove(index);
         ApplyFilter();
     }
@@ -149,6 +172,10 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 
     public DeviceSectionViewModel(DeviceSectionLoader loader, INavigationService navigation, IAppPreferences? preferences = null)
     {
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsBusy)) UpdateTreeOptions();
+        };
         _loader = loader;
         _navigation = navigation;
         _preferences = preferences ?? new InMemoryPreferences();
@@ -245,6 +272,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         Section = section;
         OnPropertyChanged(nameof(IsPorts));
         OnPropertyChanged(nameof(IsInventory));
+        UpdateTreeOptions();
         OnPropertyChanged(nameof(IsNeighbours));
         OnPropertyChanged(nameof(SearchLabel));
         OnFiltersChanged();
@@ -307,9 +335,16 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         }
     }
 
+    [RelayCommand]
+    private void CloseFilterPanel() => IsFilterPanelOpen = false;
+
     /// <summary>The header's Sort &amp; filter icon and the card's Done, where there's no glass, and the glass button.</summary>
     [RelayCommand]
-    private void ToggleFilterPanel() => IsFilterPanelOpen = !IsFilterPanelOpen;
+    private void ToggleFilterPanel()
+    {
+        if (IsFilterPanelOpen) IsFilterPanelOpen = false;
+        else if (IsPorts || CanUseTreeOptions) IsFilterPanelOpen = true;
+    }
 
     /// <summary>
     /// Done searching - the keyboard's Search key, the keyboard put away, or
@@ -351,6 +386,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
                 .Where(g => g.Count > 0));
             OnPropertyChanged(nameof(IsEmpty));
             OnPropertyChanged(nameof(EmptyText));
+            UpdateTreeOptions();
             return;
         }
 

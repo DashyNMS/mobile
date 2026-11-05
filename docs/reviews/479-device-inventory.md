@@ -42,7 +42,7 @@ all rows regardless of source disposition.
 | --- | --- |
 | Pattern and modes | C searchable grouped pushed detail; Inventory always one column, unlike other sections. Full list has nested chassis/module/optic/port entries, summary and tree controls. Overview has count and three highlights, opens full Inventory. Empty success hides overview card. |
 | Long content | Correction: DeviceSectionPage generic grid truncates title, caps Detail at three lines and constrains Class to 180pt/two lines. Trigger is long name, firmware/serial or unknown class at narrow width/large text. Inventory-specific triggers wrap title/detail and span facts over value columns, moving Class into the content stack. Overview replaces truncated title/value row with complete wrapping facts. Expected complete existing source text without horizontal competition. |
-| Header controls | NEEDS CORRECTION / DECISION PENDING: iOS 26 page-wide Expand all, Collapse all and Show ports must be reached through glass. Back plus Search and three controls exceed the four-action policy. A concrete Tree options panel proposal is awaiting user agreement before implementation. Current wrapping fallback remains interim, not compliant glass placement. Per-row expansion and Copy serial stay contextual. |
+| Header controls | CORRECTED IN SOURCE under the user’s 5 November “Approve as proposed”: Back, Search and one Tree options glass action (three total); header icon fallback opens the same measured panel. Fixed heading/Done precede finite scrolling tree controls. InventorySummary stays in the list header. Native acceptance remains UNVERIFIED. Per-row expansion and Copy serial stay contextual. |
 | Tree ownership | C loader calls Core InventoryTree.Build and depth-first DescendantsAndSelf. Mobile does not reconstruct containment. Full details below. |
 | Expansion/search | C InventoryRows.Visible preserves matching descendants and ancestors through collapsed branches while search is active; clearing restores collapsed set. Hidden ports and their subtrees remain excluded from search until toggled on. Expandability counts visible children. Same-device refresh preserves collapsed indices and port switch. Changing device/section clears both. No durable expansion setting is added. |
 | Selection/restoration | N/A selectable rows, editor, comparison and draft Save. CollectionView SelectionMode None. Expansion is session-local state, not a selected device. Existing search/query lifetime remains unchanged. |
@@ -52,7 +52,7 @@ all rows regardless of source disposition.
 | Search/keyboard | C SearchField/ButtonSearch, header/glass/Command-F entry, actual drag/completion/unfocus dismissal and query retention; replacement/programmatic scrolling must retain focus. Matches searches existing title/subtitle/class/detail, including serial and firmware. No search/export semantics change. U native keyboard and focus. |
 | Copy/export/security | C OnCopySerial keeps explicit tap, nonblank guard, raw Serial CommandParameter and Clipboard.SetTextAsync without trimming or formatting. Clipboard OS restrictions/failure handling remain existing platform behaviour. No export exists in this mode; no new export or action permission is inferred. Credentials, server text and storage unchanged. |
 | Geometry/fades | C finite SectionBody/list, existing measured PlaceControls base, footer obstruction and 20pt header fade reservation. Native scroll adjustment Never and single inset ownership remain. No arbitrary geometry offsets added. U H/B/V, deep indentation, camera clearance and final row separately. |
-| Lifecycle | C activation restores glass/watchers; disappearance removes subscriptions. No new observers. U tab return, child return to owner detail, fold/rotation and resume without Refresh, one glass owner and no placement loop. |
+| Lifecycle | C activation restores glass/watchers; disappearance removes subscriptions. One view-model lifetime self-subscription updates command availability on busy transitions; no new native observers. U tab return, child return to owner detail, fold/rotation and resume without Refresh, one glass owner and no placement loop. |
 | Accessibility/themes | C themed labels, explicit class text, descriptive switch and serial action, existing labelled expansion controls. Overview joined speech excludes child duplicates; full section leaves facts and buttons separately accessible. U target sizes, button roles, contrast, focus order, speech, maximum text and long unbroken strings. |
 | Motion | C existing ReducedMotion search policy, no new animation. U repeated transitions and reduced-motion on/off. |
 | Other DESIGN rules | N/A fixed commit placement, immediate-save settings, chooser selection, form validation, numeric units, graph series, selected sheets and destructive confirmation. Inventory is read-only except explicit clipboard writes and local tree controls. Existing navigation and state contracts are preserved. |
@@ -117,19 +117,49 @@ Check Tab bar buttons and Top line diagnostics for loops or overlap. CI cannot
 establish native acceptance. No merge, watch, issue closure, epic tick or release
 is performed by this implementation sub-agent.
 
-## Independent review and pending proposal
+## Independent review and approved proposal
 
 Opus 5.5 Medium reviewed e2d5756. Its medium glass-action finding is accepted:
 page-wide tree controls are not exempt from the pushed-page glass rule.
 The proposed single Tree options action opens a compact measured panel with
 Expand all, Collapse all, Show ports and Done, retaining current commands and
 session state. Android/older iOS use a header Tree options icon and the same
-panel. This proposal requires agreement before implementation; it is not coded.
+panel. The user approved this exact proposal on 5 November 2026 (“Approve as proposed”). It is now implemented in source; approval does not establish device acceptance.
 Availability must follow loaded source rows and actual command availability,
-including hidden ports and empty search results, without claiming loading/error
-data is actionable. Device measurements and final independent review are pending.
+including hidden ports and empty search results, with commands disabled during loading. Valid retained rows after a failed refresh remain actionable once not busy, with the error retained and no freshness claim. Device measurements and final independent review are pending.
 
 Low source findings are corrected: blank class no longer reserves a caption in
 the full list, overview speech follows visible Title/Class/Subtitle/Detail order,
 and whitespace class summaries group under Unknown. Exact copied serial bytes
-remain untouched. These corrections do not settle the pending glass proposal.
+remain untouched. These corrections remain preserved alongside the approved Tree options implementation.
+
+## 5 November implementation disposition
+
+The sole-writer checkout remains t3-cc2626a6 on the existing PR branch.
+Before editing, inspected PlaceControls and all eleven consumers listed above:
+CoveredEdges owns camera/system clearance; SetupActionPlacement and measured
+pill/glass/keyboard bounds own overlay clearance; Refresh owns viewport base;
+ListFoot owns scrolling clearance, including FilterCard’s actual visible height
+through exit. FilterCard remains the single overlay, with its existing finite
+ScrollView, focus reveal, Done and keyboard policy. Ports picker bindings,
+saved sort/group preferences and the approved #472 grid policy are preserved.
+The shared glass action adds optional disabled state, defaulting to enabled for
+all existing callers. Inventory’s callback rechecks active owner and live source/
+busy state. Activation remains idempotent with no additional native observers.
+
+Availability uses loaded source rows, never filtered row count. Hidden ports and
+no matches retain Tree options. Source-empty hides it; busy closes the panel and
+disables commands. Expand/Collapse inspect actual visible expandable branches;
+search-forced expansion cannot be collapsed until search clears. Done only
+closes. Per-row expansion, session state and raw Serial clipboard bytes remain
+unchanged. CI-only shared regression exercises these transitions, including
+retained rows after failure and later successful empty refresh.
+
+All exact native H/B/V and V−B measurements, panel bounds and final-row reach
+with keyboard open/closed remain UNVERIFIED. All Duo outside/inside portrait/
+landscape and ordinary iPhone orientations, themes, largest text, VO/TB,
+fold/rotation, tab resume, child return and exact clipboard checks in the full
+matrix above remain UNVERIFIED. No local build, test, restore or validation
+script was run. Final-head shared, Android/iOS/security CI and fresh independent
+Opus 5.5 Medium full review are pending and owned by the parent. No merge,
+watch, issue closure, epic tick or release is authorised by this implementation.
