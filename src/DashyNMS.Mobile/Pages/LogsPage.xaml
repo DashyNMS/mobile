@@ -151,7 +151,26 @@
                                     </VerticalStackLayout>
                                     <Button BackgroundColor="Transparent" BorderWidth="0" Text="" HorizontalOptions="Fill" VerticalOptions="Fill" MinimumHeightRequest="44"
                                             SemanticProperties.Description="{Binding OpenDescription}"
-                                            Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}" CommandParameter="{Binding .}" />
+                                            Command="{Binding OpenCommand, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}" CommandParameter="{Binding .}">
+                                        <Button.Style><Style TargetType="Button" /></Button.Style>
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal" />
+                                                <VisualState x:Name="Disabled" />
+                                                <VisualState x:Name="Pressed">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Focused">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="PointerOver" />
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+                                    </Button>
                                 </Grid>
                             </VerticalStackLayout>
                         </DataTemplate>
