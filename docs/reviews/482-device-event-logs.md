@@ -1,9 +1,9 @@
 # Device event logs assessment, #482
 
 Assessment baseline: main `ccfe4b0`, 5 November 2026. Refs #482 and #442.
-This is an assessment and concrete proposal awaiting parent user agreement.
-No application code changes are included. Findings marked fix remain open;
-this document does not establish an accepted deferral or device compliance.
+The parent user approved the concrete proposal on 5 November 2026.
+The implementation record below supersedes assessment fix/pending labels.
+Native device compliance and acceptance remain unverified.
 
 Read live #482 and #442 bodies and comments, #516 and accepted #460,
 CLAUDE.md, DEVELOPING.md and DESIGN.md. #482/#442/#516 had no comments.
@@ -179,3 +179,52 @@ builds, with CodeQL as configured. No CI success or native acceptance is claimed
 Parent owns fresh independent Opus full-diff review and CI judgement. Approval
 of this proposal is separate from device acceptance. Do not close #482, tick
 #442, merge, watch or publish a release from this assessment task.
+
+## Approved implementation, 5 November 2026
+
+The user approved the complete proposal after the parent displayed synthetic
+fixed-device and network examples. The proposal and concern table above record
+the assessment baseline. Their pending-proposal labels are superseded by this
+implementation record, not by native acceptance.
+
+LogsPage now uses one virtualised day-grouped list with plain-text FullText,
+textual severity, stacked type/user and full local timestamp. A native button
+covers each entry's facts and speaks its ID and complete facts. The facts are
+excluded as duplicate accessibility descendants. Fixed scope is read-only;
+network device, type, state, range and interval remain native choices in the
+horizontal strip. Choices wrap within the measured list-column width and have
+at least 44pt targets. Any type/state and cancellation retain their existing
+semantics. Clear filters stays explicit, auto-refresh says On/Off, and empty
+state actions stack.
+
+ButtonSearch now owns reopen/refocus, retained queries and guarded deferred
+focus. KeyboardDismiss.OnScroll is disabled so programmatic list changes do
+not close search. Native drag detection remains in ButtonSearch; content taps
+use ContentPage.HideSoftInputOnTapped, completion and unfocus close the slot.
+IActivePage restores glass without fetching, subscriptions are idempotent,
+and queued page placement checks active/current-page state. The shared measured
+layout helper is unchanged. Its lifetime audit remains a shared dependency.
+The 20pt input-transparent fade matches the list-card surface and reserves
+initial content space, including the empty state.
+
+Auto-refresh still merges by event/alert ID and retains unchanged row objects.
+Comparison now covers displayed and accepted detail facts, including raw
+severity and alert hostname. Synthetic behavioural regressions change severity,
+type, user, sub-minute time, hostname and sysName independently, then refresh
+multiline literal text. They assert updated facts, retained neighbouring identity
+and unchanged default refresh settings. Existing refresh failure, overlap,
+paging and fixed-scope tests remain applicable. Tests were added for CI and were not executed locally.
+
+Caller audit covered DeviceDetailViewModel's EventLog route, Dashboard typed
+See all with optional single-device scope, Dashboard direct entry snapshots,
+TabPins/More network Logs, Alerts' Logs entry, LogsViewModel.OpenAsync and split
+LogEntryView hosting. Both network Event and Alert share this implementation.
+No route, permission request, preference or server-fetch contract changed.
+Accepted #460 FullText, Fields, IDs, raw hostname/sysName, related device/rule
+and Only narrowing contracts remain intact; detail views were not redesigned.
+
+Full intended and staged diffs and git whitespace checks are the only local
+verification. No build, test, restore or validation script ran. CI, independent
+Opus review and native evidence remain with the parent. The native matrix above
+is still unverified. #516 retains camera clip/layer ownership; no guessed native
+geometry offsets were added. Refs #482 and #442, pending device acceptance.

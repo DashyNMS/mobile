@@ -706,7 +706,7 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         var shown = items.Where(i => since is null || i.LocalTime >= since).ToList();
         if (merge)
         {
-            Entries.Merge(shown, e => (e.IsAlert, e.Id), (a, b) => a.ClockText == b.ClockText && a.Message == b.Message && a.DeviceName == b.DeviceName);
+            Entries.Merge(shown, e => (e.IsAlert, e.Id), (a, b) => a.SameFacts(b));
         }
         else
         {
