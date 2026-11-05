@@ -85,14 +85,36 @@ public sealed record SectionRow(string Title)
     public RowStatus PortVisualStatus { get; init; }
     public bool PortHasStatusBorder => PortVisualStatus != RowStatus.None;
     public string? PortVisualLabel { get; init; }
-    /// <summary>Separate from Fields so new visible facts do not change saved search semantics.</summary>
-    public IReadOnlyList<SectionField> PortDisplayFacts { get; init; } = [];
-    public string PortFactsDescription => string.Join(", ", new[] { Title, PortVisualLabel }
-        .Concat(PortDisplayFacts.Select(f => f.Name + ": " + f.Value)));
-    public string PortOverviewIdentity => string.Join("\n", new[] { Title }
-        .Concat(PortDisplayFacts.Where(f => f.Name is "ifName" or "Alias").Select(f => f.Value)));
-    public string PortOverviewTraffic => string.Join("\n", PortDisplayFacts
-        .Where(f => f.Name is "Traffic in" or "Traffic out").Select(f => f.Name + ": " + f.Value));
+    /// <summary>The operator's description under the name; null when absent or only repeating it.</summary>
+    public string? PortDescriptionText => Subtitle;
+    public bool HasPortDescription => HasSubtitle;
+    public string PortSpeedText { get; init; } = "Speed unavailable";
+    /// <summary>
+    /// Compact card readings, separate from <see cref="Value"/> and
+    /// <see cref="Detail"/> so the card can change without changing search.
+    /// Missing or invalid readings say Unavailable; they never become zero.
+    /// </summary>
+    public string PortTrafficIn { get; init; } = "Unavailable";
+    public string PortTrafficOut { get; init; } = "Unavailable";
+    public string PortErrorsIn { get; init; } = "Unavailable";
+    public string PortErrorsOut { get; init; } = "Unavailable";
+    /// <summary>Each positive error rate is red on its own side of the table.</summary>
+    public bool PortErrorsInPositive { get; init; }
+    public bool PortErrorsOutPositive { get; init; }
+    /// <summary>"VLANs" for typed memberships; a direct ifVlan alone is named for what it is.</summary>
+    public string PortVlanLabel { get; init; } = "VLANs";
+    public string PortVlanText { get; init; } = "Not reported";
+    /// <summary>Speaks exactly the facts the compact card shows, in reading order.</summary>
+    public string PortFactsDescription => string.Join(", ", new[]
+        {
+            Title, PortDescriptionText, PortVisualLabel, PortSpeedText,
+            "Traffic in: " + PortTrafficIn, "Traffic out: " + PortTrafficOut,
+            "Errors in: " + PortErrorsIn, "Errors out: " + PortErrorsOut,
+            PortVlanLabel + ": " + PortVlanText,
+        }.Where(text => !string.IsNullOrWhiteSpace(text)));
+    /// <summary>The overview's identity lines, unchanged by the compact card.</summary>
+    public string PortOverviewIdentity { get; init; } = "";
+    public string PortOverviewTraffic => "Traffic in: " + PortTrafficIn + "\nTraffic out: " + PortTrafficOut;
     public string PortOverviewDescription => string.Join(", ", PortOverviewIdentity, PortVisualLabel, PortOverviewTraffic);
     public string PortActionDescription => PortFactsDescription + (LinkPortIfName is not null
         ? ", Open interface graphs" : ", Interface graphs unavailable: ifName not reported");

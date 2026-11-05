@@ -18,7 +18,7 @@ public sealed class PortPresentationTests
             Disabled = disabled, IfInOctetsRate = 0, IfOutOctetsRate = 0, IfInErrorsRate = 0, IfOutErrorsRate = 0 });
         Assert.Equal(visual, row.PortVisualStatus);
         Assert.Equal(label, row.PortVisualLabel);
-        Assert.Contains(row.PortDisplayFacts, f => f.Name == "Monitoring disabled" && f.Value == (disabled ? "Yes" : "No"));
+        Assert.StartsWith(row.Title + ", " + label + ", ", row.PortFactsDescription);
         if (oper == "up") Assert.Equal("Up", row.Port!.StatusName);
         if (label == "Disabled") Assert.Equal("Shut down", row.Port!.StatusName);
     }
@@ -30,10 +30,14 @@ public sealed class PortPresentationTests
             IfOperStatus = "up", IfInErrorsRate = 2, IfOutErrorsRate = null, IfInOctetsRate = 10 });
         Assert.Equal(RowStatus.Critical, row.PortVisualStatus);
         Assert.Equal(RowStatus.Warning, row.Status);
-        Assert.Equal("Errors · link up", row.PortVisualLabel);
+        Assert.Equal("Up · errors", row.PortVisualLabel);
         Assert.Equal("Gi0/7", row.LinkPortIfName);
-        Assert.Contains(row.PortDisplayFacts, f => f.Name == "Traffic in" && f.Value == "80 b/s");
-        Assert.Contains(row.PortDisplayFacts, f => f.Name == "Errors out" && f.Value == "Unavailable");
+        Assert.Equal("80 b/s", row.PortTrafficIn);
+        Assert.Equal("Unavailable", row.PortTrafficOut);
+        Assert.Equal("2/s", row.PortErrorsIn);
+        Assert.True(row.PortErrorsInPositive);
+        Assert.Equal("Unavailable", row.PortErrorsOut);
+        Assert.False(row.PortErrorsOutPositive);
         Assert.False(row.Matches("Administrative state"));
     }
 
@@ -48,8 +52,9 @@ public sealed class PortPresentationTests
         var row = DeviceSectionLoader.PortRow(new Port { IfOperStatus = "up", IfInOctetsRate = rate,
             IfOutOctetsRate = 0, IfInErrorsRate = 0, IfOutErrorsRate = 0 });
         Assert.Equal(RowStatus.None, row.PortVisualStatus);
-        Assert.Contains(row.PortDisplayFacts, f => f.Name == "Traffic in" && f.Value == "Unavailable");
-        Assert.Contains(row.PortDisplayFacts, f => f.Name == "Errors in" && f.Value == "0 errors/s");
+        Assert.Equal("Unavailable", row.PortTrafficIn);
+        Assert.Equal("0/s", row.PortErrorsIn);
+        Assert.False(row.PortErrorsInPositive);
         Assert.Contains("ifName not reported", row.PortActionDescription);
     }
 
@@ -58,22 +63,63 @@ public sealed class PortPresentationTests
     {
         var row = DeviceSectionLoader.PortRow(new Port { IfOperStatus = "up", IfInErrorsRate = 0.001 });
         Assert.Equal(RowStatus.Critical, row.PortVisualStatus);
-        Assert.DoesNotContain(row.PortDisplayFacts, f => f.Name == "Errors in" && f.Value == "0 errors/s");
+        Assert.NotEqual("0/s", row.PortErrorsIn);
+        Assert.True(row.PortErrorsInPositive);
     }
 
     [Theory]
-    [InlineData(308, 308, false, 2, 308)]
-    [InlineData(702, 361, true, 3, 545.5)]
-    [InlineData(636, 308, true, 4, 624)]
-    [InlineData(1000, 308, true, 6, 940)]
-    [InlineData(200, 308, true, 2, 200)]
-    [InlineData(200, 0, true, 2, 200)]
-    public void Portrait_tracks_and_landscape_fitting_stay_within_live_pane(double width, double portrait, bool landscape, int count, double stage)
+    [InlineData(0, 1)]
+    [InlineData(361, 1)]
+    [InlineData(687, 1)]
+    [InlineData(688, 2)]
+    [InlineData(1400, 2)]
+    [InlineData(double.NaN, 1)]
+    [InlineData(double.PositiveInfinity, 1)]
+    public void Ports_show_one_card_per_row_and_at_most_two_when_both_are_comfortable(double width, int count) =>
+        Assert.Equal(count, PortColumns.Count(width, 8));
+
+    [Fact]
+    public void Compact_card_speaks_only_the_visible_facts_in_order()
     {
-        var fit = PortColumns.Fit(width, portrait, landscape, 8);
-        Assert.Equal(count, fit.Count);
-        Assert.Equal(stage, fit.Width);
-        Assert.True(fit.Width <= width);
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/1", IfAlias = "Synthetic uplink", IfOperStatus = "up",
+            IfAdminStatus = "up", IfSpeed = 1_000_000_000, IfInOctetsRate = 15_500_000, IfOutOctetsRate = 4_750_000,
+            IfInErrorsRate = 0, IfOutErrorsRate = 0,
+            Vlans = [new() { Vlan = 30 }, new() { Vlan = 10, Untagged = true }, new() { Vlan = 20 }, new() { Vlan = 10 }] }, true);
+        Assert.Equal("Gi0/1, Synthetic uplink, Up, 1 Gb/s, Traffic in: 124 Mb/s, Traffic out: 38 Mb/s, "
+            + "Errors in: 0/s, Errors out: 0/s, VLANs: 10, 20, 30, Open interface graphs", row.PortActionDescription);
+        Assert.DoesNotContain("Administrative", row.PortActionDescription);
+        Assert.DoesNotContain("Monitoring", row.PortActionDescription);
+    }
+
+    [Fact]
+    public void Missing_speed_and_non_up_traffic_stay_explicit_rather_than_zero()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/2", IfOperStatus = "down", IfInOctetsRate = 0, IfOutOctetsRate = 0 });
+        Assert.Equal("Speed unavailable", row.PortSpeedText);
+        Assert.Equal("Not shown", row.PortTrafficIn);
+        Assert.Equal("Unavailable", row.PortErrorsIn);
+        Assert.Equal(RowStatus.Warning, row.PortVisualStatus);
+    }
+
+    [Fact]
+    public void Direct_vlan_alone_is_labelled_for_what_it_is()
+    {
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/3", IfOperStatus = "up", IfVlan = 10 });
+        Assert.Equal("Access/native VLAN", row.PortVlanLabel);
+        Assert.Equal("10", row.PortVlanText);
+        Assert.Equal(10, row.Port!.Vlan);
+    }
+
+    [Fact]
+    public void Device_memberships_replace_the_direct_vlan_without_inventing_tags()
+    {
+        // A trunk can report ifVlan 1; with memberships on the device, a port
+        // reporting none says so rather than claiming that VLAN.
+        var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/4", IfOperStatus = "up", IfVlan = 1 }, true);
+        Assert.Equal("VLANs", row.PortVlanLabel);
+        Assert.Equal("Not reported", row.PortVlanText);
+        var none = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/5", IfOperStatus = "up", Vlans = [new() { Vlan = 0 }] });
+        Assert.Equal("Not reported", none.PortVlanText);
     }
 
     [Fact]
@@ -83,6 +129,7 @@ public sealed class PortPresentationTests
             IfInErrorsRate = double.MaxValue, IfOutErrorsRate = double.MaxValue,
             IfInOctetsRate = 0, IfOutOctetsRate = 0 });
         Assert.Equal(RowStatus.Critical, row.PortVisualStatus);
-        Assert.Equal("Errors · link up", row.PortVisualLabel);
+        Assert.Equal("Up · errors", row.PortVisualLabel);
+        Assert.True(row.PortErrorsInPositive && row.PortErrorsOutPositive);
     }
 }

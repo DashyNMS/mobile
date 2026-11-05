@@ -353,31 +353,19 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 			ListFoot.HeightRequest = footer;
 		}
 
-		var span = _viewModel.IsPorts ? 2 : 1;
+		var span = 1;
         var paneWidth = _viewModel.IsPorts && SectionBody.Width > 0 ? SectionBody.Width : Width;
 		var width = paneWidth - left - right;
-        var portStageWidth = width;
-        if (_viewModel.IsPorts && width > 0 && Window is { Width: > 0, Height: > 0 } windowBounds)
+        if (_viewModel.IsPorts && width > 0)
         {
-            // Live logical bounds, never remembered display/orientation metrics.
-            // Split-pane and side-pill geometry is an approved rough estimate.
-            var landscape = windowBounds.Width > windowBounds.Height;
-            var paneShare = Math.Min(1, paneWidth / windowBounds.Width);
-            // Current landscape camera/pill insets constrain available width,
-            // but do not belong to the hypothetical portrait card width.
-            var portraitAvailable = Math.Max(0, Math.Min(windowBounds.Width, windowBounds.Height) * paneShare - 32);
-            var fit = PortColumns.Fit(width, portraitAvailable, landscape, ListLayout.HorizontalItemSpacing);
-            span = fit.Count;
-            portStageWidth = fit.Width;
+            // One compact card per row; two only when both fit comfortably (#472).
+            span = PortColumns.Count(width, ListLayout.HorizontalItemSpacing);
         }
 		else if (!_viewModel.IsPorts && width > 0 && !_viewModel.IsNeighbours && !_viewModel.IsInventory && !_viewModel.Groups.Any(g => g.Any(row => row.Depth > 0)))
 		{
 			span = Math.Clamp((int)((width + ListLayout.HorizontalItemSpacing) / (MinRowWidth + ListLayout.HorizontalItemSpacing)), 1, MaxColumns);
 		}
-        // Fixed landscape tracks leave remainder at the trailing edge rather
-        // than stretching cards or a sparse final row.
-        var trailing = _viewModel.IsPorts ? Math.Max(0, width - portStageWidth) : 0;
-        var list = new Thickness(left, 0, right + trailing, 0);
+        var list = new Thickness(left, 0, right, 0);
         if (List.Margin != list) List.Margin = list;
         ListFade.Margin = List.Margin;
 

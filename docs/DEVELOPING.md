@@ -385,7 +385,7 @@ their content from `CoveredEdges.ForScrolling`, so on iPhone Duo's
 landscape screen the rows reach from the camera to the side tab bar's glass
 rather than sitting in a narrow column in the middle. Section rows go two or
 three across when there's room, except Inventory, whose nesting reads down
-one column. Inventory has expandable entries, Expand all / Collapse all,
+one column, and Ports, whose compact cards go at most two across (#472). Inventory has expandable entries, Expand all / Collapse all,
 and a Show ports toggle with ports hidden initially (#351). Search reveals
 matching entries with their ancestors without changing saved expansion
 state. Check serial copying, firmware details, the type summary and refresh

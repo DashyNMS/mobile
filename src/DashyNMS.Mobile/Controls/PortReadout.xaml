@@ -1,45 +1,80 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+    The approved compact Ports card (#472): name and description, status and
+    speed, an in/out table of traffic and errors, then VLANs. A 4pt status
+    edge sits inside the card's ordinary border; neutral states keep the
+    card's own stroke colour. Every label is decorative: the one native
+    button (or, without an ifName, one readout) speaks the same facts.
+-->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
              x:Class="DashyNMS.Mobile.Controls.PortReadout" x:DataType="sections:SectionRow">
-    <Grid MinimumHeightRequest="44">
-        <VerticalStackLayout Spacing="6" Padding="14" AutomationProperties.ExcludedWithChildren="True">
-            <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
-            <Label Text="{Binding PortVisualLabel}" TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" LineBreakMode="WordWrap">
-                <Label.Triggers>
-                    <DataTrigger TargetType="Label" Binding="{Binding PortHasStatusBorder}" Value="True">
-                        <Setter Property="TextColor" Value="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" />
-                    </DataTrigger>
-                </Label.Triggers>
-            </Label>
-            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding PortDisplayFacts}">
-                <BindableLayout.ItemTemplate>
-                    <DataTemplate x:DataType="sections:SectionField">
-                        <VerticalStackLayout Spacing="1">
-                            <Label Text="{Binding Name}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" />
-                            <Label Text="{Binding Value}" LineBreakMode="WordWrap" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </BindableLayout.ItemTemplate>
+    <Grid MinimumHeightRequest="44" ColumnDefinitions="4,*">
+        <BoxView Color="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}"
+                 AutomationProperties.ExcludedWithChildren="True">
+            <BoxView.Triggers>
+                <DataTrigger TargetType="BoxView" Binding="{Binding PortHasStatusBorder}" Value="True">
+                    <Setter Property="Color" Value="{Binding PortVisualStatus, Converter={StaticResource StatusColor}}" />
+                </DataTrigger>
+            </BoxView.Triggers>
+        </BoxView>
+        <VerticalStackLayout Grid.Column="1" Spacing="10" Padding="14" AutomationProperties.ExcludedWithChildren="True">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="{Binding Title}" FontFamily="BodySemibold" FontSize="17" LineBreakMode="WordWrap" />
+                <Label Text="{Binding PortDescriptionText}" IsVisible="{Binding HasPortDescription}" FontSize="14" LineBreakMode="WordWrap"
+                       TextColor="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
             </VerticalStackLayout>
-            <Label Text="Interface graphs unavailable: ifName not reported" LineBreakMode="WordWrap">
-                <Label.Triggers>
-                    <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
-                        <Setter Property="IsVisible" Value="False" />
-                    </DataTrigger>
-                </Label.Triggers>
-            </Label>
-            <Label Text="Open interface graphs ›" IsVisible="{Binding IsLink}" LineBreakMode="WordWrap" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="{Binding PortVisualLabel, StringFormat='● {0}'}" FontFamily="BodySemibold" LineBreakMode="WordWrap" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding PortHasStatusBorder}" Value="True">
+                            <Setter Property="TextColor" Value="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+                <Label Grid.Column="1" Text="{Binding PortSpeedText}" HorizontalTextAlignment="End" VerticalOptions="Center" LineBreakMode="WordWrap" />
+            </Grid>
+            <BoxView Style="{StaticResource Divider}" />
+            <!-- Labels in the first column; values share the remaining width, so
+                 in and out stay aligned and wrap rather than truncate. -->
+            <Grid ColumnDefinitions="Auto,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+                <Label Grid.Column="1" Text="IN ↓" Style="{StaticResource Caption}" />
+                <Label Grid.Column="2" Text="OUT ↑" Style="{StaticResource Caption}" />
+                <Label Grid.Row="1" Text="Traffic" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                <Label Grid.Row="1" Grid.Column="1" Text="{Binding PortTrafficIn}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                <Label Grid.Row="1" Grid.Column="2" Text="{Binding PortTrafficOut}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                <Label Grid.Row="2" Text="Errors" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                <Label Grid.Row="2" Grid.Column="1" Text="{Binding PortErrorsIn}" FontFamily="BodySemibold" LineBreakMode="WordWrap">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding PortErrorsInPositive}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+                <Label Grid.Row="2" Grid.Column="2" Text="{Binding PortErrorsOut}" FontFamily="BodySemibold" LineBreakMode="WordWrap">
+                    <Label.Triggers>
+                        <DataTrigger TargetType="Label" Binding="{Binding PortErrorsOutPositive}" Value="True">
+                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                        </DataTrigger>
+                    </Label.Triggers>
+                </Label>
+            </Grid>
+            <BoxView Style="{StaticResource Divider}" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Label Text="{Binding PortVlanLabel}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding PortVlanText}" LineBreakMode="WordWrap" />
+            </Grid>
         </VerticalStackLayout>
-        <Label Text="" InputTransparent="True" SemanticProperties.Description="{Binding PortActionDescription}" AutomationProperties.IsInAccessibleTree="True">
+        <Label Grid.ColumnSpan="2" Text="" InputTransparent="True" SemanticProperties.Description="{Binding PortActionDescription}" AutomationProperties.IsInAccessibleTree="True">
             <Label.Triggers>
                 <DataTrigger TargetType="Label" Binding="{Binding IsLink}" Value="True">
                     <Setter Property="IsVisible" Value="False" />
                 </DataTrigger>
             </Label.Triggers>
         </Label>
-        <Button Text="" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsLink}"
+        <Button Grid.ColumnSpan="2" Text="" BackgroundColor="Transparent" BorderWidth="0" IsVisible="{Binding IsLink}"
                 MinimumHeightRequest="44" HorizontalOptions="Fill" VerticalOptions="Fill"
                 SemanticProperties.Description="{Binding PortActionDescription}"
                 Command="{Binding OpenLinkCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"

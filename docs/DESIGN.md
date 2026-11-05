@@ -328,35 +328,64 @@ and selection contracts remain unchanged.
 
 ## Adaptive content and accessibility
 
-### Approved Device Ports presentation, 4 November 2026
+### Approved Device Ports presentation, 5 November 2026
 
-Ports alone uses two portrait columns on both displays. Landscape fits more
-columns at approximately the portrait card width, leaving trailing remainder
-instead of stretching tracks. Estimate portrait width from live logical window
-shorter dimension and pane share, less the two base 16pt gutters. Current
-landscape camera/pill clearances constrain the available landscape width only;
-subtracting them from the portrait estimate would narrow cards twice. Do not
-cache orientation dimensions. Split views can affect this approximate estimate.
+The user approved a rendered compact-card mock-up on 5 November 2026, after
+reporting that the 4 November cards were far too long. It supersedes the
+earlier policy of two portrait columns, many landscape columns at an estimated
+portrait width, and every raw fact on the card. Approval covers the source
+design only; it is not device acceptance.
+
+**Lesson: a port card is for scanning a list, not for auditing one port.**
+Show only what someone compares between ports. Raw states, the monitoring
+flag, a repeated ifName and similar audit facts lengthened every card without
+helping comparison. Keep such facts in the model for search, sorting, grouping
+and status, but off the card.
+
+Ports shows one card per row on an ordinary display, and at most two when both
+keep the 340pt minimum used by `DashboardColumns` with the list's 8pt gap
+(`PortColumns`). The breakpoint is available width, not orientation: the Duo's
+outer display shows one and its inner display two when the pane allows. Cards
+fill their track; there is no portrait-width estimate or trailing remainder.
 Other sections retain their own column policies.
 
-Cards grow with wrapping facts and text size, without fixed heights or line
-caps. Preserve display identity, actual ifName, full alias, raw operational and
-administrative states, monitoring flag, speed, directional bit rates, directional
-errors/s and direct access/native VLAN. Missing readings stay explicit. Use a
-status border and label with neutral fact text: red errors, green complete Up,
-amber known Down, and the same gray Disabled for administrative shutdown and
-disabled monitoring. Distinguish their raw facts only. Unknown and incomplete
-Up use the theme's normal card stroke. Preserve source oper-up precedence and
-existing ranking/grouping despite contradictory flags.
+Each card, top to bottom:
 
-The full card has one native graph action only with actual ifName; otherwise
-show an unavailable explanation without an action or chevron. Overview highlights
-share identity/status/traffic hierarchy and matching speech; their parent opens
-Ports. Sort & filter retains choices and immediate saving. Keep Done outside
-a finite scrolling picker body, clamp to measured available height, and reserve
-the visible panel height in the list footer through exit. Native wheel/keyboard
-clearance, maximum text and two-column feasibility remain unverified; report
-physical failures before changing this approved policy.
+- 14pt padding, the standard 16pt card radius and theme stroke, and a 4pt
+  status edge on the left inside the card.
+- The port name, semibold 17pt, with the operator description below in muted
+  14pt. Both wrap.
+- A status row: a coloured dot and label at the start, the speed at the end,
+  then a divider. Green `Up`; red `Up · errors` for any positive error rate;
+  amber known `Down`; the same gray `Disabled` for administrative shutdown and
+  disabled monitoring. Unknown and incomplete Up (`Up · readings unavailable`)
+  stay neutral, with the edge in the card's stroke colour.
+- A three-column table: Traffic and Errors labels, then IN ↓ and OUT ↑ values
+  in semibold. A positive error rate is red on its own side.
+- A divider and a VLANs footer.
+
+Missing or invalid readings say Unavailable and missing speed says Speed
+unavailable; neither becomes zero. Traffic is not shown while a port is not up.
+Error rates keep full precision, so a tiny positive rate is never shown as 0/s.
+VLANs come from the port's typed memberships, unique and in number order. If the
+device reports no memberships at all, a direct ifVlan is labelled
+Access/native VLAN. If it reports memberships, a port without any shows Not
+reported rather than its ifVlan, as Core's `VlanMembership` requires. Never
+show internal VLAN IDs or invent tags. Long descriptions and VLAN lists wrap,
+with no minimum height, line caps or extra vertical spacing.
+
+The whole card is one native transparent button of at least 44pt with an
+explicit empty style and its own Disabled, Pressed and Focused states. Its
+description speaks exactly the visible facts, in reading order, and then the
+graph action. Without an actual ifName the card has no button or chevron, and
+one readout speaks the same facts and that graphs are unavailable. Overview
+highlights keep their own identity, status and traffic layout and speech,
+sharing the card's status labels; their parent opens Ports. Sort & filter keeps its choices and saves immediately.
+Keep Done outside a finite scrolling picker body, limit the panel to the
+measured available height, and reserve its visible height in the list footer
+until it has closed. Native wheel and keyboard clearance, maximum text and
+two-column comfort remain unverified; report physical failures before changing
+this approved policy.
 
 ### Approved Settings overview hierarchy
 

@@ -54,6 +54,22 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Port_vlans_follow_the_device_wide_membership_rule()
+    {
+        // Memberships on any port mean ifVlan is not used alongside them (Core's VlanMembership).
+        var member = Port(1, "Gi0/1");
+        member.IfVlan = 1;
+        member.Vlans = [new() { Vlan = 20 }, new() { Vlan = 10, Untagged = true }];
+        var direct = Port(2, "Gi0/2");
+        direct.IfVlan = 1;
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([member, direct]);
+        var rows = (await Load(DeviceSection.Ports)).SelectMany(g => g).ToList();
+        Assert.Equal("10, 20", rows.Single(r => r.Title == "Gi0/1").PortVlanText);
+        Assert.Equal("Not reported", rows.Single(r => r.Title == "Gi0/2").PortVlanText);
+        Assert.Equal(1, rows.Single(r => r.Title == "Gi0/2").Port!.Vlan);
+    }
+
+    [Fact]
     public void Reported_zero_rates_are_available_and_ok()
     {
         var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/7", IfOperStatus = "up", IfInOctetsRate = 0, IfOutOctetsRate = 0, IfInErrorsRate = 0, IfOutErrorsRate = 0 });
