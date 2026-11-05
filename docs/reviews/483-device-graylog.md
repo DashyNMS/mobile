@@ -186,3 +186,8 @@ CI at 1a9ea9a failed to compile the new connection-isolation test because its
 GraylogQuery reference lacked the Core Graylog namespace import (CS0103).
 The missing import is corrected; no production code changed in this correction.
 Current-head CI must rerun. No local execution was performed.
+
+CI at 6f474db compiled successfully but six connection-isolation theory cases
+failed at one ambiguous NSubstitute assertion. All integer arguments and the
+stream filter now use explicit specifications, preserving the page-size, zero
+offset and new-query checks. Production code is unchanged; CI must rerun.

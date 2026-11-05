@@ -494,8 +494,8 @@ public sealed class GraylogViewModelTests
         };
         Assert.Empty(vm.Messages);
         await _api.Received(1).SearchAsync(Arg.Is<string>(q => q.Contains("new_source")),
-            Arg.Any<int>(), GraylogViewModel.PageSize, 0, Arg.Any<string>(),
-            GraylogQuery.StreamFilter("synthetic"), Arg.Any<CancellationToken>());
+            Arg.Any<int>(), Arg.Is(GraylogViewModel.PageSize), Arg.Is(0), Arg.Any<string>(),
+            Arg.Is(GraylogQuery.StreamFilter("synthetic")), Arg.Any<CancellationToken>());
         if (fails) pending.SetException(new HttpRequestException("Synthetic offline"));
         else pending.SetResult(Result(1, "192.0.2.2"));
         await load;
