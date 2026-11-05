@@ -194,6 +194,28 @@ public sealed class GraphLegendTests
     }
 
     [Fact]
+    public async Task Show_all_supersedes_a_first_load_sensor_failure_without_stale_error()
+    {
+        _appSettings.GraphHiddenSeries["7:device_temperature"] = ["Inlet"];
+        var pending = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Graphs.GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false)
+            .Returns(pending.Task);
+        var vm = new DeviceGraphsViewModel(_client, _settings);
+        var failures = 0;
+        vm.Failed += (_, _) => failures++;
+        var load = vm.LoadAsync(7, "example", "device_temperature");
+        Assert.True(vm.SomeHidden);
+        vm.ShowAllCommand.Execute(null);
+        var current = vm.GraphPage;
+        Assert.NotNull(current);
+        pending.SetException(new HttpRequestException("Superseded sensor failure"));
+        await load;
+        Assert.Equal(current, vm.GraphPage);
+        Assert.False(vm.HasError);
+        Assert.Equal(0, failures);
+    }
+
+    [Fact]
     public async Task The_range_chips_follow_the_chosen_range()
     {
         var vm = await OpenAsync();

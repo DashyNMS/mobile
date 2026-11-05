@@ -232,3 +232,14 @@ and Shown/Hidden share one wrapping caption. Accessible names join only present
 parts, avoiding stray punctuation. The PR title reflects the final scope.
 Full intended diff and whitespace reviewed, no local builds/tests run. Fresh
 review and CI are pending. Core #80 and all native outcomes remain unresolved.
+
+Fresh Opus full-diff review at 8f819d0 found no blocking mobile defect and one
+low stale-first-load error path. A superseded initial render now suppresses
+its error before RunAsync can report it; superseded raw/legend request failures
+are likewise ignored by load version. This prevents duplicate diagnostics when
+theme redraw shares a pending sensor request. A new regression starts with a
+remembered hidden set, supersedes its sensor request with Show all, then fails
+that old request: graph/error/Failed diagnostics remain current. Production
+correction and whitespace inspected; replacement CI remains pending.
+Range-chip wrapping and Android native hold delivery remain exact device checks,
+not proven defects. Core #80 and all native acceptance remain unresolved.

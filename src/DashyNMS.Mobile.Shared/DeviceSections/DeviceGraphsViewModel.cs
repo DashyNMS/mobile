@@ -369,31 +369,38 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
 
         return RunAsync(async () =>
         {
-            GraphPage = null;
-            _raw = null;
-            Series.ReplaceAll([]);
-            var raw = await RawAsync(graph, range.Range);
-            var legendColours = GraphSvgStyle.Restyle(raw, Palette).LegendColours;
-            var entries = await NameSeriesAsync(graph, legendColours);
-
-            // Only if it's still the one wanted - a quick second tap may have moved on.
-            if (version != _loadVersion)
+            try
             {
-                return;
+                GraphPage = null;
+                _raw = null;
+                Series.ReplaceAll([]);
+                var raw = await RawAsync(graph, range.Range);
+                var legendColours = GraphSvgStyle.Restyle(raw, Palette).LegendColours;
+                var entries = await NameSeriesAsync(graph, legendColours);
+
+                // Only if it's still the one wanted - a quick second tap may have moved on.
+                if (version != _loadVersion)
+                {
+                    return;
+                }
+
+                _raw = raw;
+                _entries = entries;
+                var remembered = entries is null ? [] : HiddenSetting(graph).Where(n => entries.Any(e => e.Name == n));
+                _hidden = new HashSet<string>(remembered, StringComparer.Ordinal);
+
+                // Never every series hidden: a remembered set that would empty the graph shows them all.
+                if (entries is not null && entries.All(e => _hidden.Contains(e.Name)))
+                {
+                    _hidden.Clear();
+                }
+
+                await RenderAsync(version, reportFailure: false);
             }
-
-            _raw = raw;
-            _entries = entries;
-            var remembered = entries is null ? [] : HiddenSetting(graph).Where(n => entries.Any(e => e.Name == n));
-            _hidden = new HashSet<string>(remembered, StringComparer.Ordinal);
-
-            // Never every series hidden: a remembered set that would empty the graph shows them all.
-            if (entries is not null && entries.All(e => _hidden.Contains(e.Name)))
+            catch (Exception) when (version != _loadVersion)
             {
-                _hidden.Clear();
+                // An older request cannot publish an error over the new selection.
             }
-
-            await RenderAsync(version, reportFailure: false);
         });
     }
 
@@ -451,6 +458,10 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         try
         {
             await RenderCoreAsync(Current, fetchSensor);
+        }
+        catch (Exception) when (!reportFailure && !Current())
+        {
+            // A newer redraw owns publication and diagnostics for this selection.
         }
         catch (OperationCanceledException) when (reportFailure)
         {
