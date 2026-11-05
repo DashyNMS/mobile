@@ -82,13 +82,13 @@ side-pill card clearance; introducing another helper is unnecessary.
 ## Review and validation
 
 Self-review covered the full intended and staged diff for these two documentation
-files only; working and staged whitespace checks passed. Parent owns independent Opus review and current-head CI judgement.
+files only; working and staged whitespace checks passed. Independent review and CI
+results are recorded in the PR.
 No local builds, tests, restores, validation scripts or agents ran. No source
 or test changes require new synthetic tests. CI shared tests, Android and iOS
 simulator/widget results must be recorded against the actual PR head, separately
-from document review and native evidence. All remain pending at handoff.
-Protected dirty #475 checkout is untouched; all work stays in this clean task
-worktree. No watch, merge, closure, epic tick or release is requested.
+from document review and native evidence. Results are recorded in the PR against the tested head.
+No closure, epic tick or release is requested.
 
 ## Exact native evidence still required
 
@@ -108,3 +108,9 @@ with its full installed SHA and build before recording a result.
 
 User agreement on the proposal and later installed-device acceptance are separate.
 Neither CI nor this source assessment establishes camera layering acceptance.
+
+
+Independent full-diff Opus review at 4da3b10 found no blocking problems and
+confirmed the source, timeline and decision record. The historical proposal now
+includes the user's decision on the page itself. Application source is unchanged;
+current-head CI remains separate from all unverified native results.
