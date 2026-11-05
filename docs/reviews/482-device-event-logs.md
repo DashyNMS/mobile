@@ -244,3 +244,19 @@ The epic's explicit acceptance gate overrides CLAUDE.md's general Closes rule:
 Refs is intentional until the user accepts device evidence. Native hypotheses
 from review remain unverified, including runtime resource references, content
 unfocus on Android and wrapping filter alignment. CI is separate evidence.
+
+### Row-state follow-up from the Graylog review
+
+The #483 full-diff review confirmed the same implicit Button Disabled style
+hazard in Logs: while the shared async Open command navigates, every overlay
+button becomes disabled and its opaque grey background can cover the row facts.
+This scoped follow-up uses the reviewed Graylog/PortReadout pattern: an explicit
+empty style, transparent Normal/Disabled states and PrimaryTint for pressed and
+keyboard-focused states. Row actions, facts, routes and refresh logic are unchanged.
+No shared style or other consumer is edited. Native press, disabled, focus and
+return appearance on both themes and screen readers remains UNVERIFIED. No new
+visual policy is introduced; this preserves the approved complete-row facts.
+
+Full intended/staged diff and whitespace checks only; no local build or test.
+Android/iOS CI and independent review are required. No mirrored source-string
+test is added for these native visual states. Refs #482 and #442; no acceptance.
