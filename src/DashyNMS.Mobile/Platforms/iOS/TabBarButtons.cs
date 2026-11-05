@@ -6,7 +6,7 @@ using UIKit;
 namespace DashyNMS.Mobile;
 
 /// <summary>A page's action in the tab bar's glass: an SF Symbol, what VoiceOver says, and what it does.</summary>
-internal sealed record GlassAction(string Symbol, string Label, Action Tapped, bool IsBack = false);
+internal sealed record GlassAction(string Symbol, string Label, Action Tapped, bool IsBack = false, bool IsEnabled = true);
 
 /// <summary>Glass actions more than one page shows, so they look and read the same wherever they are.</summary>
 internal static class GlassActions
@@ -710,7 +710,8 @@ internal static class TabBarButtons
                 AddSubview(_icon);
                 IsAccessibilityElement = true;
                 AccessibilityLabel = action.Label;
-                AccessibilityTraits = UIAccessibilityTrait.Button;
+                AccessibilityTraits = action.IsEnabled ? UIAccessibilityTrait.Button : UIAccessibilityTrait.Button | UIAccessibilityTrait.NotEnabled;
+                Alpha = action.IsEnabled ? 1f : .4f;
                 if (menu is not null)
                 {
                     var owner = _owner;
@@ -727,11 +728,16 @@ internal static class TabBarButtons
                         Configuration = configuration,
                         ClipsToBounds = true,
                         BackgroundColor = UIColor.Clear,
-                        Menu = UIMenu.Create(menu.Select(item => UIAction.Create(item.Label,
-                            UIImage.GetSystemImage(item.Symbol), null, _ =>
-                            {
-                                if (ReferenceEquals(owner, _owner)) item.Tapped();
-                            })).ToArray()),
+                        Menu = UIMenu.Create(menu.Select(item =>
+                        {
+                            var entry = UIAction.Create(item.Label,
+                                UIImage.GetSystemImage(item.Symbol), null, _ =>
+                                {
+                                    if (ReferenceEquals(owner, _owner) && item.IsEnabled) item.Tapped();
+                                });
+                            if (!item.IsEnabled) entry.Attributes = UIMenuElementAttributes.Disabled;
+                            return entry;
+                        }).ToArray()),
                         ShowsMenuAsPrimaryAction = true,
                         AccessibilityLabel = action.Label,
                     };
@@ -742,7 +748,7 @@ internal static class TabBarButtons
                 }
             }
 
-            public void Activate() => _action.Tapped();
+            public void Activate() { if (_action.IsEnabled) _action.Tapped(); }
 
             public override void LayoutSubviews()
             {

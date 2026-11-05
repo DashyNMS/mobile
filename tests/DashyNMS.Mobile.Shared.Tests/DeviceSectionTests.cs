@@ -1295,6 +1295,32 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task Inventory_keeps_unknown_class_and_exact_serial_under_index_parent()
+    {
+        const string serial = "  SYNTHETIC-OPTIC-079 \t";
+        _client.Devices.GetInventoryAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+        [
+            new InventoryEntry { Id = 810, Index = 31, Name = "Synthetic chassis" },
+            new InventoryEntry { Id = 811, Index = 32, ContainedIn = 31,
+                Name = "Synthetic optic", Class = "futureEntityClass", Serial = serial,
+                FirmwareRev = "synthetic firmware revision", Description = "Synthetic description",
+                Model = "Synthetic model", Manufacturer = "Synthetic manufacturer" },
+        ]);
+
+        var rows = Assert.Single(await Load(DeviceSection.Inventory));
+        Assert.Equal([0, 1], rows.Select(row => row.Depth));
+        Assert.All(rows, row => Assert.True(row.InventoryLayout));
+        var optic = rows[1];
+        Assert.Equal(32L, optic.InventoryIndex);
+        Assert.Equal(serial, optic.Serial);
+        Assert.Equal("futureEntityClass", optic.Value);
+        Assert.Contains(serial, optic.Detail!);
+        Assert.Contains("synthetic firmware revision", optic.Detail!);
+        Assert.True(optic.Matches("SYNTHETIC-OPTIC-079"));
+        Assert.False(new SectionRow("Other section").InventoryLayout);
+    }
+
+    [Fact]
     public async Task Event_log_is_newest_first_and_coloured_by_severity()
     {
         _client.Logs.ListEventLogAsync(DeviceId, DeviceSectionLoader.EventLogLimit, Arg.Any<CancellationToken>()).Returns(
@@ -1360,6 +1386,62 @@ public sealed class DeviceSectionLoaderTests
 
 public sealed class DeviceSectionViewModelTests
 {
+    [Fact]
+    public async Task Tree_options_follow_source_busy_and_visible_branch_state()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new InventoryEntry { Index = 1, Name = "Chassis", Class = "chassis" },
+            new InventoryEntry { Index = 2, ContainedIn = 1, Name = "Port", Class = "port" },
+        ]);
+        var vm = new DeviceSectionViewModel(new DeviceSectionLoader(client, Fakes.Settings()), new RecordingNavigation())
+            { SearchDelay = TimeSpan.Zero };
+        Assert.False(vm.HasTreeOptions);
+        await vm.LoadAsync(7, DeviceSection.Inventory);
+        Assert.True(vm.HasTreeOptions);
+        Assert.True(vm.OpenTreeOptionsCommand.CanExecute(null));
+        Assert.False(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.ShowInventoryPorts = true;
+        Assert.True(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.CollapseInventoryCommand.Execute(null);
+        Assert.True(vm.ExpandInventoryCommand.CanExecute(null));
+        vm.SearchText = "Port";
+        Assert.False(vm.ExpandInventoryCommand.CanExecute(null));
+        Assert.False(vm.CollapseInventoryCommand.CanExecute(null));
+        vm.SearchText = "no match";
+        Assert.Empty(vm.Groups);
+        Assert.True(vm.HasTreeOptions);
+        vm.SearchText = "";
+        Assert.True(vm.ExpandInventoryCommand.CanExecute(null));
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.True(vm.IsFilterPanelOpen);
+        var pending = new TaskCompletionSource<IReadOnlyList<InventoryEntry>>();
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasTreeOptions);
+        Assert.False(vm.CanUseTreeOptions);
+        Assert.False(vm.OpenTreeOptionsCommand.CanExecute(null));
+        Assert.False(vm.IsFilterPanelOpen);
+        var branch = vm.Groups.SelectMany(g => g).First(r => r.CanExpand);
+        vm.ToggleInventoryCommand.Execute(branch);
+        Assert.True(vm.Groups.SelectMany(g => g).First(r => r.CanExpand).IsExpanded);
+        vm.ToggleFilterPanelCommand.Execute(null);
+        Assert.False(vm.IsFilterPanelOpen);
+        pending.SetException(new HttpRequestException("Synthetic failure"));
+        await refresh;
+        Assert.True(vm.CanUseTreeOptions);
+        Assert.True(vm.OpenTreeOptionsCommand.CanExecute(null));
+        Assert.True(vm.HasError);
+        vm.ShowInventoryPorts = false;
+        Assert.True(vm.HasTreeOptions);
+        Assert.False(vm.ExpandInventoryCommand.CanExecute(null));
+        client.Devices.GetInventoryAsync(7, Arg.Any<CancellationToken>()).Returns(Array.Empty<InventoryEntry>());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.HasTreeOptions);
+        Assert.False(vm.CanUseTreeOptions);
+    }
+
     [Fact]
     public async Task Changing_device_during_availability_load_discards_the_old_result()
     {

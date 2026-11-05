@@ -624,3 +624,15 @@ neighbour nodes. A node selecting a list card must announce that selection inten
 and the complete endpoint/state facts; it must not promise device navigation.
 Verify centre role, node activation and list focus separately with assistive
 technology, including unmonitored neighbours and a filtered list.
+
+
+### Approved Inventory Tree options
+
+The 5 November 2026 #479 proposal places page-wide tree controls behind one
+Tree options glass action alongside Back and Search. Android and older iOS use
+a header icon opening the same measured FilterCard. Keep heading and Done
+outside its finite scrolling body; retain summary in the list header and
+expansion/copy in each row. Availability follows loaded source rows, including
+hidden ports and no matches; source-empty hides the action, busy disables it.
+Use the existing panel placement/footer ownership above without additional
+insets. Proposal approval is separate from native acceptance.

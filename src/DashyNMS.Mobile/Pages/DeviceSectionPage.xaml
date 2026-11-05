@@ -16,6 +16,16 @@
     SafeAreaEdges="Container"
     Title="{Binding Title}">
 
+    <ContentPage.Resources>
+        <Style x:Key="InventoryTreeButton" TargetType="Button" BasedOn="{StaticResource LinkButton}">
+            <Style.Triggers>
+                <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </ContentPage.Resources>
+
     <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" SafeAreaEdges="None">
 
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142).
@@ -28,6 +38,8 @@
                                          IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
                                          IsOn="{Binding HasPanelFilters}" IsVisible="{Binding IsPorts}" SemanticProperties.Description="Sort and filter" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding OpenTreeOptionsCommand}"
+                                         IsVisible="{Binding HasTreeOptions}" SemanticProperties.Description="Tree options" />
                 </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
@@ -71,14 +83,6 @@
                     <VerticalStackLayout Padding="0,20,0,0" Spacing="6">
                         <VerticalStackLayout IsVisible="{Binding IsInventory}" Spacing="6">
                             <Label Style="{StaticResource Caption}" Text="{Binding InventorySummary}" />
-                            <HorizontalStackLayout Spacing="12">
-                                <Button Style="{StaticResource LinkButton}" Text="Expand all" Command="{Binding ExpandInventoryCommand}" />
-                                <Button Style="{StaticResource LinkButton}" Text="Collapse all" Command="{Binding CollapseInventoryCommand}" />
-                            </HorizontalStackLayout>
-                            <HorizontalStackLayout Spacing="8">
-                                <Switch IsToggled="{Binding ShowInventoryPorts}" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding ShowInventoryPortsText}" VerticalOptions="Center" />
-                            </HorizontalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </CollectionView.Header>
@@ -213,14 +217,26 @@
                                 <BoxView Grid.RowSpan="2" WidthRequest="{Binding Indent}" Color="Transparent" />
 
                                 <VerticalStackLayout Grid.Column="1">
-                                    <Button Style="{StaticResource LinkButton}" Text="{Binding ExpansionGlyph}" IsVisible="{Binding CanExpand}"
+                                    <VerticalStackLayout.Triggers>
+                                        <DataTrigger TargetType="VerticalStackLayout" Binding="{Binding InventoryLayout}" Value="True">
+                                            <Setter Property="Grid.ColumnSpan" Value="3" />
+                                        </DataTrigger>
+                                    </VerticalStackLayout.Triggers>
+                                    <Button Style="{StaticResource LinkButton}" Text="{Binding ExpansionGlyph}" MinimumHeightRequest="44" MinimumWidthRequest="44" IsVisible="{Binding CanExpand}"
                                             HorizontalOptions="Start" SemanticProperties.Description="{Binding ExpansionLabel}"
                                             Command="{Binding ToggleInventoryCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
                                             CommandParameter="{Binding .}" />
-                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding InventoryLayout}" Value="True">
+                                                <Setter Property="LineBreakMode" Value="WordWrap" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding InventoryClassVisible}" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
                                            LineBreakMode="WordWrap" />
-                                    <Button Style="{StaticResource LinkButton}" Text="Copy serial" IsVisible="{Binding HasSerial}"
+                                    <Button Style="{StaticResource LinkButton}" Text="Copy serial" MinimumHeightRequest="44" SemanticProperties.Description="{Binding CopySerialLabel}" IsVisible="{Binding HasSerial}"
                                             HorizontalOptions="Start" Clicked="OnCopySerial" CommandParameter="{Binding Serial}" />
                                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Fields}" IsVisible="{Binding HasFields}" Spacing="2">
                                         <BindableLayout.ItemTemplate>
@@ -238,14 +254,26 @@
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
                                     <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"
-                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3" />
+                                           FontSize="12" LineBreakMode="WordWrap" MaxLines="3">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding InventoryLayout}" Value="True">
+                                                <Setter Property="MaxLines" Value="-1" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
                                 </VerticalStackLayout>
 
                                 <!-- Kept to a width so a long value can't squeeze the row's name away. -->
                                 <Label Grid.Column="2" Margin="10,0,0,0" Text="{Binding Value}" IsVisible="{Binding HasValue}"
                                        MaximumWidthRequest="180" MaxLines="2" LineBreakMode="WordWrap"
                                        VerticalOptions="Center" HorizontalTextAlignment="End"
-                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                       TextColor="{Binding Status, Converter={StaticResource StatusText}}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding InventoryLayout}" Value="True">
+                                            <Setter Property="IsVisible" Value="False" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
 
                                 <Label Grid.Column="3" Margin="10,0,0,0" Style="{StaticResource Chevron}" IsVisible="{Binding IsLink}" />
 
@@ -285,16 +313,28 @@
                 Margin="16,6,16,12" SafeAreaEdges="None">
             <Grid RowDefinitions="Auto,*" RowSpacing="6" SafeAreaEdges="None">
                 <Grid ColumnDefinitions="*,Auto" SafeAreaEdges="None">
-                    <Label Style="{StaticResource CardTitle}" Text="Sort &amp; filter" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" MinimumHeightRequest="44" Command="{Binding ToggleFilterPanelCommand}" />
+                    <Label Style="{StaticResource CardTitle}" Text="{Binding PanelTitle}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" MinimumHeightRequest="44" Command="{Binding CloseFilterPanelCommand}" />
                 </Grid>
                 <ScrollView x:Name="FilterScroll" Grid.Row="1" SafeAreaEdges="None">
-                <Grid ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="6" SafeAreaEdges="None">
+                <VerticalStackLayout IsVisible="{Binding IsInventory}" IsEnabled="{Binding CanUseTreeOptions}" Spacing="6" SafeAreaEdges="None">
+                            <FlexLayout Wrap="Wrap" Direction="Row">
+                                <Button Style="{StaticResource InventoryTreeButton}" Text="Expand all" MinimumHeightRequest="44" Command="{Binding ExpandInventoryCommand}" />
+                                <Button Style="{StaticResource InventoryTreeButton}" Text="Collapse all" MinimumHeightRequest="44" Command="{Binding CollapseInventoryCommand}" />
+                            </FlexLayout>
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Switch MinimumHeightRequest="44" IsToggled="{Binding ShowInventoryPorts}" SemanticProperties.Description="{Binding ShowInventoryPortsText}" />
+                                <Label Grid.Column="1" Style="{StaticResource Caption}" Text="{Binding ShowInventoryPortsText}" VerticalOptions="Center" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
+                            </Grid>
+                </VerticalStackLayout>
+                <Grid IsVisible="{Binding IsPorts}" ColumnDefinitions="*" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="4" SafeAreaEdges="None">
                     <Label Style="{StaticResource Caption}" Text="Sort" VerticalOptions="Center" />
                     <Picker Grid.Row="1" Title="Sort by" MinimumHeightRequest="44" Focused="OnFilterPickerFocused" ItemsSource="{Binding PortSortOptions}" SelectedItem="{Binding SelectedPortSort}" />
                     <Label Grid.Row="2" Style="{StaticResource Caption}" Text="Group" VerticalOptions="Center" />
                     <Picker Grid.Row="3" Title="Group" MinimumHeightRequest="44" Focused="OnFilterPickerFocused" ItemsSource="{Binding PortGroupingOptions}" SelectedItem="{Binding SelectedPortGrouping}" />
                 </Grid>
+                </VerticalStackLayout>
                 </ScrollView>
             </Grid>
         </Border>

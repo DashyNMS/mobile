@@ -37,7 +37,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	private bool _showing;
 
 	/// <summary>The glass last shown: the search label, and whether Ports' Sort &amp; filter is there and filled.</summary>
-	private (string Search, bool Filter, bool Filtered)? _glass;
+	private (string Search, bool Filter, bool Filtered, bool Tree, bool Busy)? _glass;
 #endif
 
 	/// <summary>The narrowest a row goes before the list drops a column.</summary>
@@ -100,7 +100,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 					Dispatcher.Dispatch(() =>
 					{
                         if (!_active) return;
-						if (_viewModel.IsPorts && _viewModel.IsFilterPanelOpen)
+						if ((_viewModel.IsPorts || _viewModel.IsInventory) && _viewModel.IsFilterPanelOpen)
 						{
 							KeyboardDismiss.Close(Search);
 							_viewModel.DismissSearch();
@@ -109,7 +109,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 						FadeDim(_viewModel.IsFilterPanelOpen);
 					});
 					break;
-				case nameof(DeviceSectionViewModel.IsPorts) or nameof(DeviceSectionViewModel.HasPanelFilters) or nameof(DeviceSectionViewModel.SearchLabel):
+				case nameof(DeviceSectionViewModel.HasTreeOptions) or nameof(DeviceSectionViewModel.CanUseTreeOptions) or nameof(DeviceSectionViewModel.IsPorts) or nameof(DeviceSectionViewModel.HasPanelFilters) or nameof(DeviceSectionViewModel.SearchLabel):
 					Dispatcher.Dispatch(UpdateGlass);
 					break;
                 case nameof(DeviceSectionViewModel.IsNeighbours):
@@ -402,7 +402,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	private void UpdateGlass()
 	{
 #if IOS
-		var state = (Search: _viewModel.SearchLabel, Filter: _viewModel.IsPorts, Filtered: _viewModel.HasPanelFilters);
+		var state = (Search: _viewModel.SearchLabel, Filter: _viewModel.IsPorts, Filtered: _viewModel.HasPanelFilters, Tree: _viewModel.HasTreeOptions, Busy: _viewModel.HasTreeOptions && _viewModel.IsBusy);
 		if (!_showing || !TabBarButtons.IsAvailable || _glass == state)
 		{
 			return;
@@ -420,6 +420,15 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 				state.Filtered ? "Sort and filter, sorted or grouped" : "Sort and filter",
 				() => { if (_active) _viewModel.ToggleFilterPanelCommand.Execute(null); }));
 		}
+
+        if (state.Tree)
+        {
+            actions.Add(new("list.bullet.indent", "Tree options", () =>
+            {
+                if (_active && _showing && _viewModel.CanUseTreeOptions)
+                    _viewModel.OpenTreeOptionsCommand.Execute(null);
+            }, IsEnabled: !state.Busy));
+        }
 
 		TabBarButtons.Show(this, OpenSearch, state.Search, actions);
 #endif
