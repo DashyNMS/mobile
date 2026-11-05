@@ -311,3 +311,14 @@ embedded glass, older-iOS/Android fallback, retained stack/resume, accessibility
 and final field reachability. Record exact SHA/build/OS per executed row;
 historical no-blocker review does not establish acceptance of this correction.
 Refs #461 and #442; no closure or device acceptance claimed.
+
+
+### Build 231 feedback reconciliation
+
+[The user's 4 November build 231 report](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6629909350),
+posted after #526, says the pills still have a layering issue. This is separate
+from the older three-quarter-width/short-base symptom. The affected surface and
+ownership versus #517 are not established. The report predates #545 and must not
+be treated as covered by the later “Keep wrapping; defer sideways underlap”
+decision without user confirmation. Reproduce and identify the surface on an
+installed build; #461 remains open and device acceptance remains pending.
