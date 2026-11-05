@@ -260,6 +260,99 @@ public sealed class GraylogViewModelTests
     };
 
     [Fact]
+    public async Task Stream_denial_keeps_the_all_streams_search_available()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new GraylogApiException("Forbidden", HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        Assert.False(vm.HasError);
+        Assert.Equal(2, vm.Messages.Count);
+        Assert.Equal("All streams", vm.StreamChipText);
+    }
+
+    [Fact]
+    public async Task Device_metadata_denial_currently_blocks_even_the_network_feed()
+    {
+        // Characterises existing policy; allowing a source-only account needs a decision.
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new LibreNmsApiException("Forbidden", HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        Assert.Empty(vm.Messages);
+        await _api.DidNotReceiveWithAnyArgs().SearchAsync(default!, default, default, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task Superseded_search_response_cannot_replace_the_newer_result()
+    {
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task, Task.FromResult(Result(1, "192.0.2.23")));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        pending.SetResult(Result(1, "192.0.2.99"));
+        await older;
+        Assert.Equal("192.0.2.23", Assert.Single(vm.Messages).SourceText);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Cancellation_ignoring_device_initialisation_can_currently_overwrite_newer_metadata()
+    {
+        // Characterisation of an unresolved initialisation race, not acceptance of it.
+        var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task,
+            Task.FromResult<IReadOnlyList<Device>>([Fakes.Device(23, "new.example.net")]));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(23, Assert.Single(vm.KnownDevices).DeviceId);
+        pending.SetResult([Fakes.Device(99, "old.example.net")]);
+        await older;
+        Assert.Equal(99, Assert.Single(vm.KnownDevices).DeviceId);
+    }
+
+    [Fact]
+    public async Task Late_stream_initialisation_applies_dashboard_requested_stream()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        pending.SetResult([new GraylogStream { Id = "synthetic", Title = "Synthetic stream" }]);
+        // Await the detached continuation through its observable change, without a delay.
+        if (vm.StreamIndex == 0)
+        {
+            var applied = new TaskCompletionSource();
+            vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.StreamIndex)) applied.TrySetResult(); };
+            if (vm.StreamIndex == 0) await applied.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.Equal(1, vm.StreamIndex);
+    }
+
+    [Fact]
+    public void List_facts_preserve_multiline_plain_text_and_name_missing_metadata()
+    {
+        var item = new GraylogMessageItem(new GraylogMessage(new Dictionary<string, JsonElement>
+        {
+            ["_id"] = JsonSerializer.SerializeToElement("synthetic-23"),
+            ["message"] = JsonSerializer.SerializeToElement("<primary>\nsecond line"),
+        }), null, _ => (string.Empty, null));
+        Assert.Equal("<primary>\nsecond line", item.ListMessageText);
+        Assert.Equal("<primary> second line", item.MessageText);
+        Assert.Contains("Source unavailable", item.OpenDescription);
+        Assert.Contains("Level unavailable", item.OpenDescription);
+        Assert.Contains("Time unavailable", item.OpenDescription);
+        Assert.Contains("synthetic-23", item.OpenDescription);
+        Assert.Equal("Facility unavailable", item.ListFacilityText);
+    }
+
+    [Fact]
     public async Task Auto_refresh_replaces_changed_same_id_fields_and_retains_unchanged_rows()
     {
         var vm = NewViewModel();

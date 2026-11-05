@@ -111,6 +111,12 @@ public sealed class GraylogMessageItem
 
     public string FullText { get; }
 
+    /// <summary>List-only facts preserve Dashboard previews and the accepted detail payload.</summary>
+    public string ListMessageText => string.IsNullOrWhiteSpace(FullText) ? "Message unavailable" : FullText;
+    public string ListSourceText => string.IsNullOrWhiteSpace(SourceText) ? "Source unavailable" : SourceText;
+    public string ListFacilityText => string.IsNullOrWhiteSpace(FacilityText) ? "Facility unavailable" : $"Facility: {FacilityText}";
+    public string OpenDescription => $"Open message, {ListSourceText}, {DetailLevelText}, {DetailTimeText}, ID {Id ?? "unavailable"}. {ListMessageText}. {ListFacilityText}";
+
     public string FacilityText { get; }
 
     /// <summary>"(4) Warning · local7" - the row's last line.</summary>

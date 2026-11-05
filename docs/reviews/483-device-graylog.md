@@ -2,7 +2,9 @@
 
 Baseline: main `a5fee22`, merged #544. Live #483, #442, #288, #517 and #461 bodies and comments read on 5 November 2026. #526 is merged and supplies the #461 implementation baseline. Its native three-quarter-width/short-bottom symptom has no proven cause or accepted fix. #544 is an approved Event log example only. It does not approve this Graylog proposal.
 
-This PR implements settled search policy and corrected same-ID refresh facts. The [self-contained HTML proposal](proposals/483-graylog.html) awaits parent rendering and user agreement before presentation implementation. This is a partial assessment PR, not completion or an accepted deferral. C means source compliant, F means confirmed fix needed, U means unverified. Source compliance does not imply native acceptance.
+The parent rendered the [HTML proposal](proposals/483-graylog.html) and obtained approval, with the latest constraint: "Yeah but should be compact enough to fit on small screens as well as larger screens". This PR implements that presentation as well as the settled search and same-ID refresh fixes. C means source compliant, F means confirmed fix needed, U means unverified. Source compliance and proposal approval do not imply native acceptance.
+
+Compact arrangement: 10pt row vertical padding and 4pt fact spacing in one list card. Wrapping choices have 44pt minimum targets and 6pt separation. Choices, scope and summary scroll in CollectionView.Header rather than reserving fixed Auto rows, leaving the finite star viewport available on short screens at maximum text. Header padding reserves the 20pt input-transparent surface fade. This is responsive engineering within the approved choices, with no additional offsets or shared layout edits.
 
 ## Modes, routes and preserved contracts
 
@@ -20,29 +22,29 @@ Only auto-refresh On/Off and interval persist on this phone under graylog prefer
 | Programmatic scroll while typing, List.Scrolled | F fixed: ButtonSearch checks actual native drag; KeyboardDismiss.OnScroll is explicitly false. Completion still submits once and closes. Unfocus/disappearance close and retain query. Shared reduced-motion/named-animation policy replaces the copied animation. Native focus timing U. |
 | Source freshness on same-ID auto-refresh, GraylogViewModel.AutoRefreshAsync | F fixed: refreshed field differences replace matching loaded rows, unchanged instances and later pages remain. Fields include the complete sorted server field projection used by details. Duplicate response keys use the first record rather than throwing. Synthetic CI regression checks changed source/raw field and unchanged row identity. |
 | Virtualisation and finite viewport, GraylogPage star row/ListDetail | C source: CollectionView stays outside ScrollView, RefreshView wraps it, header/status are Auto rows. Native H/B/V and clipping U. |
-| Filter/search hierarchy and large text, XAML horizontal strip, Chip style | F pending agreement: fixed 36pt device chip and horizontally hidden filters conflict with accessible targets/wrapping. Proposal uses native wrapping controls, explicit values, read-only fixed scope and separate device change/clear. Do not implement before agreement. |
-| Message hierarchy, XAML row and GraylogMessageItem | F pending agreement: MaxLines=1/TailTruncation, flattened MessageText and separate short-time column limit scanability. Complete FullText/Fields still available in #461 detail. Proposal uses full multiline plain text and stacked full timestamp/facility/severity. Projection shared with Dashboard must not be changed speculatively. |
-| Row activation and speech, Grid tap and nested labels | F pending agreement: native single Open action with source/level/time/ID description proposed. Existing textual MetaText provides level as well as colour; unknown level/time lacks explicit row fallback. VoiceOver/TalkBack operation U. |
-| Auto-refresh current state and targets, XAML chip | F pending agreement: visible text does not state On/Off; colour alone carries current state. Proposal states state and shows interval only when On. Timer behaviour itself C from AutoRefresh.SetShowing/activity/IsRunning and existing AutoRefresh tests; native lifecycle U. |
+| Filter/search hierarchy and large text, XAML horizontal strip, Chip style | F fixed in source: wrapping native 44pt choices in the scrolling header, explicit current values, read-only fixed scope and separate network change/clear. Native wrapping U. |
+| Message hierarchy, XAML row and GraylogMessageItem | F fixed in source: list-only properties show full plain multiline text and stacked full timestamp/facility/severity with unavailable fallbacks. Existing Dashboard MessageText/ShortTimeText and detail FullText/Fields remain unchanged. |
+| Row activation and speech, Grid tap and nested labels | F fixed in source: one native row button with Open message/source/level/time/ID plus message/facility speech; visual children excluded to avoid duplicate stops. Unknown facts state unavailable. VoiceOver/TalkBack operation U. |
+| Auto-refresh current state and targets, XAML chip | F fixed in source: visible On/Off text and interval only when On. Timer behaviour itself C from AutoRefresh.SetShowing/activity/IsRunning and existing AutoRefresh tests; native lifecycle U. |
 | Busy, first load, refresh, unconfigured | C source for BusyCard and setup route, IsEmpty suppresses loading/error. Wrapped status/viewport on short screens U. Setup route unchanged. |
-| Empty source versus no matches, IsEmpty/EmptyText | F pending presentation: current EmptyText always says filters, including no-filter empty network. Proposal distinguishes no source rows from no matches without inventing a global server count. |
+| Empty source versus no matches, IsEmpty/EmptyText | F fixed in source: default network empty says no messages returned for this time range; narrowed/fixed scope describes no matches. No global server total is claimed. |
 | Primary failure, offline, cached rows, refresh failure | C source preserves rows on failed requests via RunAsync and separate RefreshProblem. No offline cache promised. Initial errors suppress empty claims. Retry is pull refresh; reachable native retry/status at maximum text U. |
-| Optional metadata permissions, LoadAsync/LoadStreamsAsync | U for permission combinations: stream denial is swallowed and All streams remains; mandatory LibreNMS device list precedes Graylog search even on network feeds. A source-only account may be blocked by enrichment. Needs synthetic mixed-permission evidence and a decision about explicit unavailable metadata before changing source/permission behaviour; no accepted deferral claimed. |
-| Server search concurrency/cancellation | C post-search token guard and auto-refresh load generation; U for overlapping configuration/device/stream initialisation completion. RunAsync busy gating and detached LoadStreamsAsync need adversarial CI evidence before claiming stale initialisation safety. No speculative lifecycle rewrite. |
+| Optional metadata permissions, LoadAsync/LoadStreamsAsync | U for permission combinations: stream denial is swallowed and All streams remains; mandatory LibreNMS device list precedes Graylog search even on network feeds. A source-only account may be blocked by enrichment. Synthetic mixed-permission cases are authored below; execution and a decision about explicit unavailable metadata are still needed before changing source/permission behaviour; no accepted deferral claimed. |
+| Server search concurrency/cancellation | C post-search token guard and auto-refresh load generation; U for overlapping configuration/device/stream initialisation completion. F initialisation race characterised below; RunAsync does not gate overlap or count concurrent loads. Detached streams/configuration still need broader adversarial evidence. No lifecycle rewrite or claim of stale initialisation safety. |
 | Paging and cap | C 50/1000 bounds and loaded-count offset, CanLoadMore after busy. U for native final Load more reach, server result mutation across pages and expired credentials. No new numbered paging. |
-| Fade, initial content and list surface | F pending presentation: list has no 20pt input-transparent top fade/reserve. Proposal implementation must use actual ListCard surface RGB and matching margins; do not borrow event approval. |
+| Fade, initial content and list surface | F fixed in source: 20pt input-transparent fade uses SurfaceLight/SurfaceDark and their matching transparent RGB endpoints, inset 1pt within the card. Header padding reserves initial content. Native empty/header composition U. |
 | Glass and detail subscriptions | C active host guards, idempotent activation subscriptions, removal on replacement/narrowing/disappearance from #526; Moved places without republishing. Native retained tab/child/resume U. Auto-refresh lifecycle remains Appearing/Disappearing plus app activity, not restarted by Activate. |
 | Insets, camera, viewport base and final row | U: TabAlignedListLayout owns page top safe area, side column gutters, card base and footer; disables native list adjustment on attachment/load. #517 owns camera layering. Do not infer actual geometry or add offsets. |
 | Embedded/pushed details | C preserved source contract: GraylogMessageView stores supplied clearance, content owns padding, native scroll adjustment Never; GraylogMessagePage owns pushed glass, host owns embedded glass. Reported constrained width/short bottom remains U under #461, no redesign. |
-| Theme, motion, accessibility, keyboard | C theme resources and shared ButtonSearch ReducedMotion source policy; F targets/row action pending proposal above; U actual contrast, traversal, speech activation, keyboard/floating keyboard, initial content, long words and reduced-motion rapid reopen. |
+| Theme, motion, accessibility, keyboard | C theme resources and shared ButtonSearch ReducedMotion source policy; C source targets/row action implemented above; U actual contrast, traversal, speech activation, keyboard/floating keyboard, initial content, long words and reduced-motion rapid reopen. |
 
 ## Shared ownership
 
-TabAlignedListLayout serves LogsPage and GraylogPage. It is unchanged. ListDetail serves Devices, Neighbours, Logs, AlertRules, Alerts and Graylog and is unchanged. ButtonSearch already serves reviewed list pages including Logs; this PR adds a consumer without editing the helper. GraylogMessageItem serves Dashboard previews, list and detail; no projection changes. #288 retains Graylog mock-up/global light-theme ownership and has no comments or accepted Graylog mock-up in its live issue. This proposal is evidence for coordination, not completion of #288. #517 remains the sole camera/pill-layer correction owner; #461 remains detail owner. #405 acceptance is preserved. The original dirty #475 checkout was not accessed or changed.
+TabAlignedListLayout serves LogsPage and GraylogPage. It is unchanged. ListDetail serves Devices, Neighbours, Logs, AlertRules, Alerts and Graylog and is unchanged. ButtonSearch already serves reviewed list pages including Logs; this PR adds a consumer without editing the helper. GraylogMessageItem serves Dashboard previews, list and detail; added list-only properties leave existing projections unchanged. #288 retains Graylog mock-up/global light-theme ownership and has no comments or accepted Graylog mock-up in its live issue. This proposal is evidence for coordination, not completion of #288. #517 remains the sole camera/pill-layer correction owner; #461 remains detail owner. #405 acceptance is preserved. The original dirty #475 checkout was not accessed or changed.
 
 ## Validation and exact native matrix
 
-No local builds, tests, restores or validation scripts. Full intended/staged diff review and git whitespace checks only. Parent owns independent Opus review, shared-test CI, Android and iOS CI and any CI judgement. The synthetic test is for CI only; no source-string or UI-mirroring test was added. Search needs native input evidence, not a fabricated shared unit test. The commit containing this assessment identifies the exact candidate; record the full head SHA from the PR for every run. Build number and OS are currently unavailable. All native rows below are U, not accepted. After any further implementation, repeat at that new SHA/build.
+No local builds, tests, restores or validation scripts. Full intended/staged diff review and git whitespace checks only. Parent owns independent Opus review, shared-test CI, Android and iOS CI and any CI judgement. The synthetic tests are for CI only; no source-string or UI-mirroring test was added. Search needs native input evidence, not a fabricated shared unit test. The commit containing this assessment identifies the exact candidate; record the full head SHA from the PR for every run. Build number and OS are currently unavailable. All native rows below are U, not accepted. After any further implementation, repeat at that new SHA/build.
 
 | SHA/build/OS to record for each execution | Exact steps and measurements, all U |
 | --- | --- |
@@ -56,4 +58,31 @@ No local builds, tests, restores or validation scripts. Full intended/staged dif
 | Same SHA/build, synthetic server states and permissions | Unconfigured, missing password, busy, empty, no matches, Graylog denied, stream denied, LibreNMS device denied, DNS timeout, interface-address denied, no device addresses, query cap, load-more failure, offline retained rows. Record exact visible state and retry path without logging secrets. |
 | Same SHA/build, ordinary iPhone iOS 26+ and older header fallback; Android phone/tablet | Repeat narrow/wide routes where supported, safe areas, Back ownership and final row. VoiceOver/TalkBack read current filters/state and activate message/device; reduced motion rapid open/close; diagnostics for Top line/Tab bar placement loops. |
 
-Before visual implementation, parent renders the HTML proposal and obtains agreement. This PR can be assessed and tested independently for its settled code fixes. Outstanding F/U concerns are not accepted deferrals. No watch, merge, closure, epic ticks or release.
+Presentation approval is recorded above. Outstanding F/U concerns are not accepted deferrals. No watch, merge, closure, epic ticks or release.
+
+
+## Permission and concurrency dispositions after implementation
+
+No permission/API/persistence policy was changed. Added CI-only synthetic cases cover
+stream Forbidden with successful messages, device-list Forbidden suppressing even a
+network search, a cancellation-ignoring older search after a newer result, delayed
+Dashboard-requested stream selection, and cancellation-ignoring device initialisation
+completing after newer metadata. The last is a characterisation of a confirmed source
+race: `_devices ??= await ...` can overwrite newer metadata; the post-search token
+guard protects rows but not that cache. RunAsync also has no overlap busy counter.
+Do not call initialisation concurrency compliant. Repair needs a focused lifecycle
+change and adversarial coverage across configuration/streams/device scope, outside
+this presentation change. It is F, with no accepted deferral. Stream permission
+failure remains silent All streams; whether to expose unavailable metadata or allow
+a Graylog-only account through denied LibreNMS enrichment needs an explicit policy
+decision. That decision remains U, with no accepted deferral. Tests are authored,
+not executed or claimed as passing evidence. Parent review and CI must assess them.
+
+All native evidence remains U, including a short phone viewport at maximum system
+text with all filters, long unbroken source/message/stream, no messages, error and
+refresh status. Record actual screen dimensions, text setting, remaining viewport
+height, wrapping, initial fade readability and final-row reach for that SHA/build.
+Scrolling the header must leave every choice reachable without oversized cards;
+measure native button bounds and assistive traversal. No device evidence was
+available in this implementation session. The protected dirty #475 checkout and
+parent checkout were not mutated.

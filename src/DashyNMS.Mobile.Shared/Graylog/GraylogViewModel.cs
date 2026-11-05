@@ -65,20 +65,20 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     private bool _isConfigured = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeChipText), nameof(IsRangeSet), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(RangeChipText), nameof(IsRangeSet), nameof(HasActiveFilters), nameof(EmptyText))]
     private int _rangeIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(LevelChipText), nameof(IsLevelSet), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(LevelChipText), nameof(IsLevelSet), nameof(HasActiveFilters), nameof(EmptyText))]
     private int _levelIndex;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(HasActiveFilters), nameof(EmptyText))]
     private string _searchText = string.Empty;
 
     /// <summary>The Device chip: whose messages, or null for every device's.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DeviceChipText), nameof(HasDeviceFilter), nameof(CanClearDevice), nameof(ShowsSource), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(DeviceChipText), nameof(DeviceFilterText), nameof(HasDeviceFilter), nameof(CanClearDevice), nameof(ShowsSource), nameof(HasActiveFilters))]
     private GraylogDeviceFilter? _device;
 
     public GraylogViewModel(
@@ -160,6 +160,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
             OnPropertyChanged(nameof(StreamChipText));
             OnPropertyChanged(nameof(IsStreamSet));
+            OnPropertyChanged(nameof(EmptyText));
             OnPropertyChanged(nameof(HasActiveFilters));
             ReloadFromStart();
         }
@@ -171,6 +172,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
     /// <summary>The device's name, or "Device" when it's every device's messages.</summary>
     public string DeviceChipText => Device?.Name ?? "Device";
+    public string DeviceFilterText => Device?.Name ?? "All devices";
 
     public bool HasDeviceFilter => Device is not null;
 
@@ -207,7 +209,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
     public string EmptyText => HasDeviceFilter
         ? $"No messages from {Device!.Name} match these filters."
-        : "No Graylog messages match these filters.";
+        : HasActiveFilters ? "No Graylog messages match these filters."
+        : "No Graylog messages were returned for this time range.";
 
     /// <summary>"50 of 1,234 messages".</summary>
     public string SummaryText => !_hasLoaded || HasError ? string.Empty
