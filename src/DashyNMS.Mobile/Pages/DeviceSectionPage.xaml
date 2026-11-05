@@ -16,6 +16,16 @@
     SafeAreaEdges="Container"
     Title="{Binding Title}">
 
+    <ContentPage.Resources>
+        <Style x:Key="InventoryTreeButton" TargetType="Button" BasedOn="{StaticResource LinkButton}">
+            <Style.Triggers>
+                <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                    <Setter Property="Opacity" Value="0.4" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </ContentPage.Resources>
+
     <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,Auto,*" SafeAreaEdges="None">
 
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142).
@@ -28,8 +38,8 @@
                                          IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="{Binding SearchLabel}" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
                                          IsOn="{Binding HasPanelFilters}" IsVisible="{Binding IsPorts}" SemanticProperties.Description="Sort and filter" />
-                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding ToggleFilterPanelCommand}"
-                                         IsVisible="{Binding HasTreeOptions}" IsEnabled="{Binding CanUseTreeOptions}" SemanticProperties.Description="Tree options" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Filter}" Command="{Binding OpenTreeOptionsCommand}"
+                                         IsVisible="{Binding HasTreeOptions}" SemanticProperties.Description="Tree options" />
                 </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>
@@ -307,11 +317,11 @@
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Done" MinimumHeightRequest="44" Command="{Binding CloseFilterPanelCommand}" />
                 </Grid>
                 <ScrollView x:Name="FilterScroll" Grid.Row="1" SafeAreaEdges="None">
-                <VerticalStackLayout Spacing="6">
-                <VerticalStackLayout IsVisible="{Binding IsInventory}" IsEnabled="{Binding CanUseTreeOptions}" Spacing="6">
+                <VerticalStackLayout Spacing="6" SafeAreaEdges="None">
+                <VerticalStackLayout IsVisible="{Binding IsInventory}" IsEnabled="{Binding CanUseTreeOptions}" Spacing="6" SafeAreaEdges="None">
                             <FlexLayout Wrap="Wrap" Direction="Row">
-                                <Button Style="{StaticResource LinkButton}" Text="Expand all" MinimumHeightRequest="44" Command="{Binding ExpandInventoryCommand}" />
-                                <Button Style="{StaticResource LinkButton}" Text="Collapse all" MinimumHeightRequest="44" Command="{Binding CollapseInventoryCommand}" />
+                                <Button Style="{StaticResource InventoryTreeButton}" Text="Expand all" MinimumHeightRequest="44" Command="{Binding ExpandInventoryCommand}" />
+                                <Button Style="{StaticResource InventoryTreeButton}" Text="Collapse all" MinimumHeightRequest="44" Command="{Binding CollapseInventoryCommand}" />
                             </FlexLayout>
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
                                 <Switch MinimumHeightRequest="44" IsToggled="{Binding ShowInventoryPorts}" SemanticProperties.Description="{Binding ShowInventoryPortsText}" />

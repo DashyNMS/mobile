@@ -728,11 +728,16 @@ internal static class TabBarButtons
                         Configuration = configuration,
                         ClipsToBounds = true,
                         BackgroundColor = UIColor.Clear,
-                        Menu = UIMenu.Create(menu.Select(item => UIAction.Create(item.Label,
-                            UIImage.GetSystemImage(item.Symbol), null, _ =>
-                            {
-                                if (ReferenceEquals(owner, _owner) && item.IsEnabled) item.Tapped();
-                            })).ToArray()),
+                        Menu = UIMenu.Create(menu.Select(item =>
+                        {
+                            var entry = UIAction.Create(item.Label,
+                                UIImage.GetSystemImage(item.Symbol), null, _ =>
+                                {
+                                    if (ReferenceEquals(owner, _owner) && item.IsEnabled) item.Tapped();
+                                });
+                            if (!item.IsEnabled) entry.Attributes = UIMenuElementAttributes.Disabled;
+                            return entry;
+                        }).ToArray()),
                         ShowsMenuAsPrimaryAction = true,
                         AccessibilityLabel = action.Label,
                     };

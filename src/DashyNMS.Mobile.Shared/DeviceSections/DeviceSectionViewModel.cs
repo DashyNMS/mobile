@@ -45,6 +45,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(PanelTitle));
         ExpandInventoryCommand.NotifyCanExecuteChanged();
         CollapseInventoryCommand.NotifyCanExecuteChanged();
+        OpenTreeOptionsCommand.NotifyCanExecuteChanged();
         if (IsInventory && !CanUseTreeOptions) IsFilterPanelOpen = false;
     }
 
@@ -79,7 +80,7 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private void ToggleInventory(SectionRow? row)
     {
-        if (!CanUseTreeOptions || row?.InventoryIndex is not { } index || !row.CanExpand) return;
+        if (row?.InventoryIndex is not { } index || !row.CanExpand) return;
         if (!_collapsedInventory.Add(index)) _collapsedInventory.Remove(index);
         ApplyFilter();
     }
@@ -337,6 +338,12 @@ public sealed partial class DeviceSectionViewModel : ViewModelBase, IRefreshable
 
     [RelayCommand]
     private void CloseFilterPanel() => IsFilterPanelOpen = false;
+
+    [RelayCommand(CanExecute = nameof(CanUseTreeOptions))]
+    private void OpenTreeOptions()
+    {
+        if (CanUseTreeOptions) IsFilterPanelOpen = true;
+    }
 
     /// <summary>The header's Sort &amp; filter icon and the card's Done, where there's no glass, and the glass button.</summary>
     [RelayCommand]

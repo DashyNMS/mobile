@@ -402,7 +402,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 	private void UpdateGlass()
 	{
 #if IOS
-		var state = (Search: _viewModel.SearchLabel, Filter: _viewModel.IsPorts, Filtered: _viewModel.HasPanelFilters, Tree: _viewModel.HasTreeOptions, Busy: _viewModel.IsBusy);
+		var state = (Search: _viewModel.SearchLabel, Filter: _viewModel.IsPorts, Filtered: _viewModel.HasPanelFilters, Tree: _viewModel.HasTreeOptions, Busy: _viewModel.HasTreeOptions && _viewModel.IsBusy);
 		if (!_showing || !TabBarButtons.IsAvailable || _glass == state)
 		{
 			return;
@@ -426,7 +426,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
             actions.Add(new("list.bullet.indent", "Tree options", () =>
             {
                 if (_active && _showing && _viewModel.CanUseTreeOptions)
-                    _viewModel.ToggleFilterPanelCommand.Execute(null);
+                    _viewModel.OpenTreeOptionsCommand.Execute(null);
             }, IsEnabled: !state.Busy));
         }
 

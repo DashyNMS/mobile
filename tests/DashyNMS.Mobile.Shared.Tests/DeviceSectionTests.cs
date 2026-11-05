@@ -1400,6 +1400,7 @@ public sealed class DeviceSectionViewModelTests
         Assert.False(vm.HasTreeOptions);
         await vm.LoadAsync(7, DeviceSection.Inventory);
         Assert.True(vm.HasTreeOptions);
+        Assert.True(vm.OpenTreeOptionsCommand.CanExecute(null));
         Assert.False(vm.CollapseInventoryCommand.CanExecute(null));
         vm.ShowInventoryPorts = true;
         Assert.True(vm.CollapseInventoryCommand.CanExecute(null));
@@ -1420,12 +1421,17 @@ public sealed class DeviceSectionViewModelTests
         var refresh = vm.RefreshCommand.ExecuteAsync(null);
         Assert.True(vm.HasTreeOptions);
         Assert.False(vm.CanUseTreeOptions);
+        Assert.False(vm.OpenTreeOptionsCommand.CanExecute(null));
         Assert.False(vm.IsFilterPanelOpen);
+        var branch = vm.Groups.SelectMany(g => g).First(r => r.CanExpand);
+        vm.ToggleInventoryCommand.Execute(branch);
+        Assert.True(vm.Groups.SelectMany(g => g).First(r => r.CanExpand).IsExpanded);
         vm.ToggleFilterPanelCommand.Execute(null);
         Assert.False(vm.IsFilterPanelOpen);
         pending.SetException(new HttpRequestException("Synthetic failure"));
         await refresh;
         Assert.True(vm.CanUseTreeOptions);
+        Assert.True(vm.OpenTreeOptionsCommand.CanExecute(null));
         Assert.True(vm.HasError);
         vm.ShowInventoryPorts = false;
         Assert.True(vm.HasTreeOptions);

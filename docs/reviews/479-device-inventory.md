@@ -79,7 +79,7 @@ Manufacturer; Detail labels raw Serial and FirmwareRev. Serial itself retains
 exact source bytes. Class is raw server text, including unfamiliar values;
 IsPort is only case-insensitive class port. Classes have no numeric units or
 health judgement. Blank class is not invented as a known type. Summary groups
-existing Class values, falling back to Unknown only for null, unchanged.
+existing Class values, falling back to Unknown for null, blank or whitespace.
 
 The DTO also exposes HardwareRev, SoftwareRev, Alias, AssetId, IsFru, VendorType,
 ManufactureDate, IfIndex and AdditionalData. This pass does not reinterpret or
@@ -169,3 +169,16 @@ the conditional used double literals, while UIKit requires NFloat. Changed
 only those literals to float, preserving the intended opacity. Replacement CI
 is pending; no local build or test ran. Native disabled-state appearance remains
 unverified.
+
+Fresh Opus review at 86cb1d8 found seven issues. The CI alpha compile error was
+already fixed at 80463a5. The header icon now uses OpenTreeOptionsCommand with
+CanExecute notifications, letting IconButton own its enabled look and state.
+Expand/Collapse use a page-local disabled-opacity style, not a shared LinkButton
+change. Disabled overflow UIActions carry the native Disabled attribute as well
+as the tap guard. Busy is included in the glass cache only when Tree options is
+present, so other sections no longer rebuild glass on every refresh. Per-row
+expansion is again allowed during refresh; only page-wide options disable, as
+approved. Corrected the stale Unknown-summary sentence. Shared tests cover
+command availability and row expansion during a pending refresh. New panel
+stack layouts explicitly opt out of inherited safe areas. Fresh full review
+and replacement CI remain pending; every native result remains unverified.
