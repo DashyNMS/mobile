@@ -261,6 +261,24 @@ public sealed class GraylogViewModelTests
     };
 
     [Fact]
+    public async Task Repeated_activation_keeps_the_current_initial_load()
+    {
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        var vm = NewViewModel();
+        var first = vm.EnsureLoadedAsync();
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.IsBusy);
+        await _api.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        pending.SetResult(Result(1, "192.0.2.23"));
+        await first;
+        Assert.Single(vm.Messages);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
     public async Task Superseded_search_failure_cannot_publish_over_success()
     {
         var pending = new TaskCompletionSource<GraylogSearchResult>();

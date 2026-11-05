@@ -196,3 +196,15 @@ CI at 01ff8bf passed the new-query/zero-offset checks but exposed a separate
 mock verification error: Received(1) was applied to the client's Devices getter,
 not to ListAsync. The assertion now verifies the devices API's ListAsync call.
 No production code changed; current-head CI remains required.
+
+The full-diff connection-isolation review confirmed the production ownership
+logic, and identified duplicate initial activation as a low issue. EnsureLoaded
+now retains an in-flight load for the current generation; a pending-request
+regression covers repeated activation without cancelling or starting a second
+search. A changed generation still starts a new load.
+
+CI history is tied to the exact job logs: job 127204770445 at 6f474db reported
+AmbiguousArgumentsException; job 127205675074 at 01ff8bf then reported the Devices
+getter count. Both were test assertion defects and are corrected. The review
+appears to have conflated those runs. The PR remains pending current-head CI;
+no local tests were run and native acceptance remains unverified.

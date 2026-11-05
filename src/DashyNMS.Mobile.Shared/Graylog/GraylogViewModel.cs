@@ -303,7 +303,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     }
 
     /// <summary>First load when the page shows; later visits keep what's there.</summary>
-    public Task EnsureLoadedAsync() => _hasLoaded && _streamGeneration == _setup.Generation
+    public Task EnsureLoadedAsync() => (_hasLoaded || _loadCts is not null) && _streamGeneration == _setup.Generation
         ? Task.CompletedTask : LoadAsync(append: false);
 
     /// <summary>The devices LibreNMS has, once the first search has fetched them - for the Device chooser.</summary>
