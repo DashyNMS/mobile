@@ -131,3 +131,26 @@ for the old static port-description order. Its literal expectation now follows
 the required natural order; device/port graph identity and save regressions
 remain unchanged. No production change follows this CI correction. Replacement
 CI and independent review are pending; no local build or test ran.
+
+## Review corrections and decision pending
+
+Opus 5.5 Medium reviewed f9f9135 and the test-only d399486 update. Its
+Show all availability finding is substantiated: IconButton owns enabled state
+through Command.CanExecute, so a separate binding was not reliable. ShowAll
+now has SomeHidden CanExecute notifications and the header fallback is hidden
+when no series are hidden. Its icon now uses the same eye metaphor as glass.
+Shared regressions assert availability before hide, after hide and after restore.
+Repeated toggle speech now names the current Show/Hide action and target.
+
+The two large default buttons per legend row are NOT approved. A concrete
+compact-row proposal is awaiting agreement before replacement. Keep this PR
+unmerged until that decision and implementation are complete. The proposal
+retains tap-to-toggle and long press for only, adding a compact 44pt named
+Only action and explicit shown/hidden text, without two full-width primary
+buttons. Theme redraw exception reporting also remains a review correction
+to complete; it must not leave unobserved failures outside RunAsync.
+
+Confirmed upstream honesty defects are tracked in
+[Core #80](https://github.com/DashyNMS/core/issues/80). A reviewed Core package
+and consumer update are necessary before full source compliance. No formatting
+logic is copied into mobile. Native acceptance remains separately unverified.

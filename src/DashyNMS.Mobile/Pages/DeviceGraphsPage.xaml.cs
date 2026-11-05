@@ -31,9 +31,7 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 		GraphScroll.Loaded += (_, _) => StopInsetAdjustment();
 #endif
 		ShowAllButton.Command = _viewModel.ShowAllCommand;
-#if IOS
-		ShowAllButton.IsVisible = !TabBarButtons.IsAvailable;
-#endif
+        UpdateShowAllFallback();
 
 		// The page is only ever our own graph page: never follow a link or
 		// redirect out of it, whatever the (untrusted) graph contains.
@@ -74,6 +72,7 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 	{
 		if (e.PropertyName == nameof(DeviceGraphsViewModel.SomeHidden))
 		{
+            UpdateShowAllFallback();
 #if IOS
 			ShowGlass();
 #endif
@@ -142,6 +141,15 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 	}
 
 	private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateTheme();
+
+    private void UpdateShowAllFallback()
+    {
+        var visible = _viewModel.SomeHidden;
+#if IOS
+        visible &= !TabBarButtons.IsAvailable;
+#endif
+        ShowAllButton.IsVisible = visible;
+    }
 
 	private void UpdateTheme()
 	{

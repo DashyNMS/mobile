@@ -64,7 +64,7 @@ public sealed partial class GraphSeriesItem : ObservableObject
 
     public string ToggleLabel => IsShown ? "Hide series" : "Show series";
 
-    public string AccessibleName => $"{Name}. {Detail} {Value}. {(IsShown ? "Shown" : "Hidden")}. Toggle series";
+    public string AccessibleName => $"{(IsShown ? "Hide" : "Show")} {Name}. {Detail} {Value}. Currently {(IsShown ? "shown" : "hidden")}";
 
     [RelayCommand]
     private void Toggle() => _owner.Toggle(Name);
@@ -385,7 +385,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         });
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(SomeHidden))]
     private void ShowAll() => SetHidden([]);
 
     internal void Toggle(string name)
@@ -509,6 +509,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSeries));
         OnPropertyChanged(nameof(ShownCount));
         OnPropertyChanged(nameof(SomeHidden));
+        ShowAllCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>The graph with LibreNMS's legend - fetched once per graph and range.</summary>

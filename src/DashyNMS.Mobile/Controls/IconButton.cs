@@ -24,6 +24,7 @@ public static class Icons
 
     /// <summary>A viewfinder's corners: fit the whole thing in view.</summary>
     public const string Fit = "M4 9V4H9 M15 4H20V9 M20 15V20H15 M9 20H4V15";
+    public const string Eye = "M2 12C7 4 17 4 22 12C17 20 7 20 2 12Z M15 12A3 3 0 1 1 9 12A3 3 0 1 1 15 12Z";
 
     /// <summary>Three lines narrowing down: sort and filter.</summary>
     public const string Filter = "M4 7H20 M7 12H17 M10 17H14";

@@ -13,8 +13,8 @@
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None">
             <controls:PageHeader.Actions>
-                <controls:IconButton x:Name="ShowAllButton" Icon="{x:Static controls:Icons.Fit}" Kind="Plain"
-                                     IsEnabled="{Binding SomeHidden}" SemanticProperties.Description="Show all graph series" />
+                <controls:IconButton x:Name="ShowAllButton" Icon="{x:Static controls:Icons.Eye}" Kind="Plain"
+                                     SemanticProperties.Description="Show all graph series" />
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 

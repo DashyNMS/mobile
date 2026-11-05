@@ -75,6 +75,7 @@ public sealed class GraphLegendTests
         Assert.All(vm.Series, s => Assert.StartsWith("#", s.Colour));
         Assert.Equal("2 of 2 shown", vm.ShownCount);
         Assert.False(vm.SomeHidden);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
         Assert.True(vm.GraphAspect < 433.0 / 1137); // legend cropped off
         await _client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", GraphTimeRange.LastDay, 1000, 520, Arg.Any<CancellationToken>(), true);
     }
@@ -90,6 +91,7 @@ public sealed class GraphLegendTests
         Assert.False(vm.Series[0].IsShown);
         Assert.Equal("1 of 2 shown", vm.ShownCount);
         Assert.True(vm.SomeHidden);
+        Assert.True(vm.ShowAllCommand.CanExecute(null));
         Assert.Equal(["Inlet"], _appSettings.GraphHiddenSeries["7:device_temperature"]); // desktop's key, so it's shared
         await _client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), true);
         await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
@@ -105,6 +107,7 @@ public sealed class GraphLegendTests
         Assert.True(vm.Series[1].IsShown);
 
         vm.ShowAllCommand.Execute(null);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
         Assert.All(vm.Series, s => Assert.True(s.IsShown));
         Assert.False(_appSettings.GraphHiddenSeries.ContainsKey("7:device_temperature"));
     }
