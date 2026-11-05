@@ -303,7 +303,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     }
 
     /// <summary>First load when the page shows; later visits keep what's there.</summary>
-    public Task EnsureLoadedAsync() => _hasLoaded ? Task.CompletedTask : LoadAsync(append: false);
+    public Task EnsureLoadedAsync() => _hasLoaded && _streamGeneration == _setup.Generation
+        ? Task.CompletedTask : LoadAsync(append: false);
 
     /// <summary>The devices LibreNMS has, once the first search has fetched them - for the Device chooser.</summary>
     public IReadOnlyList<Device> KnownDevices => _devices ?? [];
@@ -458,8 +459,36 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         }
     }
 
+    /// <summary>Discard server-owned state before any work uses a changed connection.</summary>
+    private bool ResetConnectionGeneration()
+    {
+        if (_streamGeneration == _setup.Generation) return false;
+        _streamGeneration = _setup.Generation;
+        _streamsLoaded = false;
+        StreamProblem = null;
+        if (_pendingStreamId is null && StreamIndex > 0 && StreamIndex <= _streams.Count)
+            _pendingStreamId = _streams[StreamIndex - 1].Id;
+        _streamIndex = 0;
+        _streams = [];
+        StreamLabels = ["All streams"];
+        OnPropertyChanged(nameof(StreamLabels));
+        NotifyStreamScope();
+        _deviceAddresses = null;
+        _bySource.Clear();
+        _lastSearch = null;
+        _hasLoaded = false;
+        RefreshProblem = null;
+        ErrorMessage = null;
+        IsConfigured = _setup.IsConfigured;
+        Show([], 0, append: false);
+        return true;
+    }
+
     private async Task LoadAsync(bool append)
     {
+        var streamReset = ResetConnectionGeneration();
+        if (streamReset) append = false;
+        var generation = _setup.Generation;
         _loads++;
         if (!append) _lastSearch = null;
         RefreshProblem = null;
@@ -472,10 +501,26 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         await RunAsync(async () =>
         {
             var token = cts.Token;
+            void CheckOwner()
+            {
+                token.ThrowIfCancellationRequested();
+                if (generation != _setup.Generation)
+                {
+                    ResetConnectionGeneration();
+                    throw new OperationCanceledException(token);
+                }
+            }
             try
             {
                 var configured = await _setup.EnsureConfiguredAsync();
                 token.ThrowIfCancellationRequested();
+                // First-use configuration can establish the initial generation.
+                if (generation != _setup.Generation)
+                {
+                    streamReset = ResetConnectionGeneration();
+                    append = false;
+                    generation = _setup.Generation;
+                }
                 IsConfigured = configured;
                 if (!IsConfigured)
                 {
@@ -487,24 +532,10 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 if (_devices is null)
                 {
                     var devices = await _client.Devices.ListAsync(token);
-                    token.ThrowIfCancellationRequested();
+                    CheckOwner();
                     _devices = devices;
                 }
 
-                var streamReset = _streamGeneration != _setup.Generation;
-                if (streamReset)
-                {
-                    _streamGeneration = _setup.Generation;
-                    _streamsLoaded = false;
-                    StreamProblem = null;
-                    if (_pendingStreamId is null && StreamIndex > 0 && StreamIndex <= _streams.Count)
-                        _pendingStreamId = _streams[StreamIndex - 1].Id;
-                    _streamIndex = 0;
-                    _streams = [];
-                    StreamLabels = ["All streams"];
-                    OnPropertyChanged(nameof(StreamLabels));
-                    NotifyStreamScope();
-                }
                 if ((!append || streamReset) && !_streamsLoaded && !StreamsLoading)
                 {
                     _streamsLoadingGeneration = _setup.Generation;
@@ -523,7 +554,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                         addresses = device.DeviceId is { } deviceId
                         ? await DeviceAddressesAsync(deviceId, token)
                         : device.Address is { Length: > 0 } address ? [address] : [];
-                        token.ThrowIfCancellationRequested();
+                        CheckOwner();
                         _deviceAddresses = addresses;
                     }
                     if (addresses.Count == 0)
@@ -561,7 +592,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                     GraylogQuery.StreamFilter(stream),
                     token);
 
-                token.ThrowIfCancellationRequested();
+                CheckOwner();
                 _lastSearch = (query, range, GraylogQuery.StreamFilter(stream));
 
                 var zone = GraylogQuery.FindTimeZone(options.Timezone);
@@ -572,8 +603,9 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 _hasLoaded = true;
                 Show(items, result.TotalResults, append);
             }
-            catch (Exception) when (token.IsCancellationRequested || !ReferenceEquals(_loadCts, cts))
+            catch (Exception) when (token.IsCancellationRequested || !ReferenceEquals(_loadCts, cts) || generation != _setup.Generation)
             {
+                ResetConnectionGeneration();
                 throw new OperationCanceledException(token);
             }
         });
@@ -609,6 +641,12 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     /// </summary>
     internal async Task AutoRefreshAsync()
     {
+        if (ResetConnectionGeneration())
+        {
+            await LoadAsync(append: false);
+            return;
+        }
+        var generation = _setup.Generation;
         if (_loadCts is not null || IsBusy || !IsConfigured || _lastSearch is not { } search)
         {
             return;
@@ -618,6 +656,11 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         try
         {
             var result = await _graylog.SearchAsync(search.Query, search.Range, PageSize, 0, NewestFirst, search.Filter);
+            if (generation != _setup.Generation)
+            {
+                ResetConnectionGeneration();
+                return;
+            }
             if (loads != _loads)
             {
                 return;
@@ -655,7 +698,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         }
         catch (Exception ex) when (ex is GraylogApiException or HttpRequestException or TimeoutException or OperationCanceledException)
         {
-            if (loads == _loads)
+            if (generation != _setup.Generation) ResetConnectionGeneration();
+            else if (loads == _loads)
             {
                 RefreshProblem = $"Couldn't refresh at {_time.GetLocalNow().ToString("HH:mm", CultureInfo.CurrentCulture)}";
             }

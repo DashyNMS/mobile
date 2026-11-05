@@ -169,8 +169,15 @@ asserts the second metadata request and resolved current label, not native fit.
 Unit tests passed at the reviewed head; other CI was still running when reviewed.
 Final-head checks remain pending, and no local execution was performed.
 
-The reviewer also traced a pre-existing connection-change paging risk: retained
-rows and offsets can span old/new Graylog servers until a fresh reload. This is
-an open #483 finding, not an accepted deferral or a claim of connection-change
-compliance. It requires clearing prior-server query/rows before paging or ticks;
-user device acceptance remains outstanding for the complete scope.
+The confirmed connection-change paging finding is resolved in source, not deferred.
+Loaded rows, saved queries, stream choices and source mappings now belong to the
+setup generation. Detected changes clear old rows before a zero-offset request,
+including offline failures; old in-flight success and failure cannot publish.
+Query addresses are recomputed for changed query settings, while the independent
+LibreNMS device list is retained. Requested stream IDs remain explicit scope.
+Activation checks EnsureLoaded for Settings child return and retained host return;
+unchanged loaded generations do not fetch. Synthetic regressions cover append,
+tick and return, new query fields, retained stream scope, offline failures and
+old search/tick completions before any user reload. These tests are authored for
+CI, not run locally. Fresh review, current-head CI and native acceptance remain
+pending with the parent.

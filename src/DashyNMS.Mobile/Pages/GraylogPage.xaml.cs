@@ -81,14 +81,14 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 	{
 		base.OnAppearing();
 		Activate();
-		_ = _viewModel.EnsureLoadedAsync();
 		_viewModel.AutoRefresh.SetShowing(true);
 	}
 
-	/// <summary>Reclaims retained host controls without fetching or resetting list state.</summary>
+	/// <summary>Reclaims controls and reloads only an initial or changed connection.</summary>
 	public void Activate()
 	{
 		_showing = true;
+		_ = _viewModel.EnsureLoadedAsync();
 		Header.Apply(this);
 #if IOS
 		_glassState = null;

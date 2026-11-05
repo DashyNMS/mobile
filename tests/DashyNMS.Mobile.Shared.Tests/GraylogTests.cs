@@ -456,6 +456,90 @@ public sealed class GraylogViewModelTests
         Assert.DoesNotContain("loading", vm.StreamChipText);
     }
 
+    [Theory]
+    [InlineData("append", false)]
+    [InlineData("tick", false)]
+    [InlineData("return", false)]
+    [InlineData("append", true)]
+    [InlineData("tick", true)]
+    [InlineData("return", true)]
+    public async Task Changed_connection_restarts_without_prior_rows_or_query(string trigger, bool fails)
+    {
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ResolveHostname = (_, _) => Task.FromResult<string?>(null);
+        vm.Initialise(1, "Synthetic device");
+        vm.ShowFeed("synthetic", 0);
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(120, "192.0.2.1"));
+        await vm.EnsureLoadedAsync();
+        await vm.StreamMetadataLoad;
+        _api.ClearReceivedCalls();
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        _appSettings.Graylog.QueryField = "new_source";
+        setup.Apply("synthetic-password");
+        var load = trigger switch
+        {
+            "append" => vm.LoadMoreCommand.ExecuteAsync(null),
+            "tick" => vm.AutoRefreshAsync(),
+            _ => vm.EnsureLoadedAsync(),
+        };
+        Assert.Empty(vm.Messages);
+        await _api.Received(1).SearchAsync(Arg.Is<string>(q => q.Contains("new_source")),
+            Arg.Any<int>(), GraylogViewModel.PageSize, 0, Arg.Any<string>(),
+            GraylogQuery.StreamFilter("synthetic"), Arg.Any<CancellationToken>());
+        if (fails) pending.SetException(new HttpRequestException("Synthetic offline"));
+        else pending.SetResult(Result(1, "192.0.2.2"));
+        await load;
+        Assert.Equal(fails, vm.HasError);
+        if (fails) Assert.Empty(vm.Messages);
+        else Assert.Equal("192.0.2.2", Assert.Single(vm.Messages).SourceText);
+        await _client.Received(1).Devices.ListAsync(Arg.Any<CancellationToken>());
+        if (!fails)
+        {
+            await vm.EnsureLoadedAsync();
+            await _api.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Old_connection_completion_cannot_publish_without_user_reload(bool fails, bool tick)
+    {
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        await vm.EnsureLoadedAsync();
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        var old = tick ? vm.AutoRefreshAsync() : vm.RefreshCommand.ExecuteAsync(null);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+        if (fails) pending.SetException(new HttpRequestException("Synthetic stale failure"));
+        else pending.SetResult(Result(1, "192.0.2.99"));
+        await old;
+        Assert.Empty(vm.Messages);
+        Assert.Empty(vm.SummaryText);
+        Assert.False(vm.HasError);
+        Assert.False(vm.HasRefreshProblem);
+        Assert.False(vm.CanLoadMore);
+    }
+
     [Fact]
     public async Task Failed_new_filter_prevents_ticks_repeating_the_previous_query()
     {
