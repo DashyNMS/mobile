@@ -81,9 +81,12 @@ public sealed record SectionRow(string Title)
     public bool IsUnmonitoredNeighbour => NeighbourLayout && !CanOpenNeighbour;
     /// <summary>Port facts wrap independently of the legacy two-column rows.</summary>
     public bool PortLayout => Port is not null;
-    /// <summary>Display-only palette; ranking and grouping retain the source classification.</summary>
+    /// <summary>
+    /// The card's colour class from <see cref="PortStatus.Visual"/>: Critical
+    /// errored, Warning down, Ok up, Inactive for shut down, not monitored and
+    /// unknown. Every port has one, so the edge and label always carry it.
+    /// </summary>
     public RowStatus PortVisualStatus { get; init; }
-    public bool PortHasStatusBorder => PortVisualStatus != RowStatus.None;
     public string? PortVisualLabel { get; init; }
     /// <summary>The operator's description under the name; null when absent or only repeating it.</summary>
     public string? PortDescriptionText => Subtitle;

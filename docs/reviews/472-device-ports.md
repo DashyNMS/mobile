@@ -362,3 +362,17 @@ CI remains pending; no local tests ran.
 Android CI at 18b286e exposed a missing closing wrapper in the merged port/reading
 template. The nesting is corrected; generated-control errors were consequences
 of that parse failure. Replacement platform CI remains pending.
+
+## Status colour correction
+
+Device review of #553 found every Up port green and the other states not
+reliably coloured. Core's device-ports request carries ifInErrors_delta and
+ifOutErrors_delta, not the error rates, so no live port could show as errored,
+and the edge/label triggers bound a converter only for non-neutral states.
+`PortStatus` now decides one class per port, first match wins: admin down is
+grey Disabled; Disabled or Ignore is grey Not monitored; a positive error rate
+or, without one, delta is red; Up with zero errors both sides is green; enabled
+but down is amber; anything else is grey Unknown. Up without error readings is
+grey `Up · errors unavailable`. The Status sort and grouping lead with errored,
+then down. Card and overview labels use one fixed-colour trigger per class.
+No local builds/tests ran; all device outcomes are UNVERIFIED.

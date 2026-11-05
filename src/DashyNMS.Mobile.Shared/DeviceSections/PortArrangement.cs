@@ -16,7 +16,12 @@ public sealed record PortFacts(
     string? Alias,
     string Type)
 {
-    /// <summary>A port's facts, as LibreNMS reports them; <paramref name="statusRank"/> 0 is down, 1 up, 2 shut down, 3 unknown.</summary>
+    /// <summary>
+    /// A port's facts, as LibreNMS reports them. <paramref name="statusRank"/>
+    /// and <paramref name="statusName"/> come from <see cref="PortStatus"/>:
+    /// 0 errored, 1 down, 2 up, 3 shut down, 4 not monitored, 5 unknown, so
+    /// sorting by rank leads with the ports that need looking at.
+    /// </summary>
     public static PortFacts From(Port port, int statusRank, string statusName)
     {
         // The port's own (untagged) VLAN, from ifVlan or its untagged
@@ -102,7 +107,7 @@ public static class PortArrangement
     [
         new(PortSort.PortId, "Port ID"),
         new(PortSort.Name, "Name"),
-        new(PortSort.Status, "Status (down first)"),
+        new(PortSort.Status, "Status (errors and down first)"),
         new(PortSort.Vlan, "VLAN"),
         new(PortSort.Traffic, "Traffic (busiest first)"),
         new(PortSort.Speed, "Speed (fastest first)"),

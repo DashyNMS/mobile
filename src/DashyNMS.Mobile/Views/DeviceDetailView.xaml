@@ -160,8 +160,17 @@
                                                 <Label Text="{Binding PortOverviewIdentity}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                                 <Label Text="{Binding PortVisualLabel}" TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False">
                                                     <Label.Triggers>
-                                                        <DataTrigger TargetType="Label" Binding="{Binding PortHasStatusBorder}" Value="True">
-                                                            <Setter Property="TextColor" Value="{Binding PortVisualStatus, Converter={StaticResource StatusText}}" />
+                                                        <DataTrigger TargetType="Label" Binding="{Binding PortVisualStatus}" Value="{x:Static sections:RowStatus.Ok}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding PortVisualStatus}" Value="{x:Static sections:RowStatus.Warning}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding PortVisualStatus}" Value="{x:Static sections:RowStatus.Critical}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger TargetType="Label" Binding="{Binding PortVisualStatus}" Value="{x:Static sections:RowStatus.Inactive}">
+                                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                                                         </DataTrigger>
                                                     </Label.Triggers>
                                                 </Label>
