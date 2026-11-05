@@ -21,16 +21,16 @@ Only auto-refresh On/Off and interval persist on this phone under graylog prefer
 | Explicit search entry and refocus, GraylogPage constructor | F fixed: header now calls OpenSearch without clearing SearchText; shared ButtonSearch refocuses an open input. No gesture reveal exists. Command-F continues through ISearchHost. |
 | Programmatic scroll while typing, List.Scrolled | F fixed: ButtonSearch checks actual native drag; KeyboardDismiss.OnScroll is explicitly false. Completion still submits once and closes. Unfocus/disappearance close and retain query. Shared reduced-motion/named-animation policy replaces the copied animation. Native focus timing U. |
 | Source freshness on same-ID auto-refresh, GraylogViewModel.AutoRefreshAsync | F fixed: refreshed field differences replace matching loaded rows, unchanged instances and later pages remain. Fields include the complete sorted server field projection used by details. Duplicate response keys use the first record rather than throwing. Synthetic CI regression checks changed source/raw field and unchanged row identity. |
-| Virtualisation and finite viewport, GraylogPage star row/ListDetail | C source: CollectionView stays outside ScrollView, RefreshView wraps it, header/status are Auto rows. Native H/B/V and clipping U. |
+| Virtualisation and finite viewport, GraylogPage star row/ListDetail | C source: CollectionView stays outside ScrollView, RefreshView wraps it, page header/search/status are fixed Auto rows; choices and summary scroll in the CollectionView header. Native header plus EmptyView reach and remeasurement after wrapping/resizing remain U. Native H/B/V and clipping U. |
 | Filter/search hierarchy and large text, XAML horizontal strip, Chip style | F fixed in source: wrapping native 44pt choices in the scrolling header, explicit current values, read-only fixed scope and separate network change/clear. Native wrapping U. |
 | Message hierarchy, XAML row and GraylogMessageItem | F fixed in source: list-only properties show full plain multiline text and stacked full timestamp/facility/severity with unavailable fallbacks. Existing Dashboard MessageText/ShortTimeText and detail FullText/Fields remain unchanged. |
 | Row activation and speech, Grid tap and nested labels | F fixed in source: one native row button with Open message/source/level/time/ID plus message/facility speech; visual children excluded to avoid duplicate stops. Unknown facts state unavailable. VoiceOver/TalkBack operation U. |
-| Auto-refresh current state and targets, XAML chip | F fixed in source: visible On/Off text and interval only when On. Timer behaviour itself C from AutoRefresh.SetShowing/activity/IsRunning and existing AutoRefresh tests; native lifecycle U. |
+| Auto-refresh current state and targets, XAML chip | F fixed in source: visible On/Off text and interval only when On. Graylog gates ticks and paging on the current load identity and restores busy after superseded cancellation. CI-only adversarial tests added; execution and native lifecycle U. |
 | Busy, first load, refresh, unconfigured | C source for BusyCard and setup route, IsEmpty suppresses loading/error. Wrapped status/viewport on short screens U. Setup route unchanged. |
-| Empty source versus no matches, IsEmpty/EmptyText | F fixed in source: default network empty says no messages returned for this time range; narrowed/fixed scope describes no matches. No global server total is claimed. |
+| Empty source versus no matches, IsEmpty/EmptyText | F fixed in source: default network empty says no messages returned across all time; narrowed/fixed scope describes no matches. No global server total is claimed. |
 | Primary failure, offline, cached rows, refresh failure | C source preserves rows on failed requests via RunAsync and separate RefreshProblem. No offline cache promised. Initial errors suppress empty claims. Retry is pull refresh; reachable native retry/status at maximum text U. |
-| Optional metadata permissions, LoadAsync/LoadStreamsAsync | U for permission combinations: stream denial is swallowed and All streams remains; mandatory LibreNMS device list precedes Graylog search even on network feeds. A source-only account may be blocked by enrichment. Synthetic mixed-permission cases are authored below; execution and a decision about explicit unavailable metadata are still needed before changing source/permission behaviour; no accepted deferral claimed. |
-| Server search concurrency/cancellation | C post-search token guard and auto-refresh load generation; U for overlapping configuration/device/stream initialisation completion. F initialisation race characterised below; RunAsync does not gate overlap or count concurrent loads. Detached streams/configuration still need broader adversarial evidence. No lifecycle rewrite or claim of stale initialisation safety. |
+| Optional metadata permissions, LoadAsync/LoadStreamsAsync | F fixed: stream metadata exceptions produce visible fixed status; requested Dashboard stream ID remains the search filter even when unavailable in the chooser. Mandatory LibreNMS device-list policy retained, including denied network feeds; no bypass. CI execution U. |
+| Server search concurrency/cancellation | F fixed within #483: cancellation checked after configuration, device list and device address awaits before publication; current-load identity gates paging/ticks and restores busy after older RunAsync cleanup. Synthetic adversarial tests authored; execution U. No shared ViewModelBase change. |
 | Paging and cap | C 50/1000 bounds and loaded-count offset, CanLoadMore after busy. U for native final Load more reach, server result mutation across pages and expired credentials. No new numbered paging. |
 | Fade, initial content and list surface | F fixed in source: 20pt input-transparent fade uses SurfaceLight/SurfaceDark and their matching transparent RGB endpoints, inset 1pt within the card. Header padding reserves initial content. Native empty/header composition U. |
 | Glass and detail subscriptions | C active host guards, idempotent activation subscriptions, removal on replacement/narrowing/disappearance from #526; Moved places without republishing. Native retained tab/child/resume U. Auto-refresh lifecycle remains Appearing/Disappearing plus app activity, not restarted by Activate. |
@@ -63,20 +63,11 @@ Presentation approval is recorded above. Outstanding F/U concerns are not accept
 
 ## Permission and concurrency dispositions after implementation
 
-No permission/API/persistence policy was changed. Added CI-only synthetic cases cover
-stream Forbidden with successful messages, device-list Forbidden suppressing even a
-network search, a cancellation-ignoring older search after a newer result, delayed
-Dashboard-requested stream selection, and cancellation-ignoring device initialisation
-completing after newer metadata. The last is a characterisation of a confirmed source
-race: `_devices ??= await ...` can overwrite newer metadata; the post-search token
-guard protects rows but not that cache. RunAsync also has no overlap busy counter.
-Do not call initialisation concurrency compliant. Repair needs a focused lifecycle
-change and adversarial coverage across configuration/streams/device scope, outside
-this presentation change. It is F, with no accepted deferral. Stream permission
-failure remains silent All streams; whether to expose unavailable metadata or allow
-a Graylog-only account through denied LibreNMS enrichment needs an explicit policy
-decision. That decision remains U, with no accepted deferral. Tests are authored,
-not executed or claimed as passing evidence. Parent review and CI must assess them.
+#483 owns these filter/refresh concurrency corrections; they are included here, not deferred outside presentation scope. Local awaited values are cancellation-checked before publishing device/address caches or configuration. Only the current load clears its identity; superseded completion reasserts busy while a newer load remains pending. Paging and auto-refresh check that identity independently of RunAsync's busy notification. CI-only cases cover stale metadata (device 23 retained and streams loaded once), pending configuration with device switch, cancellation-ignoring resolver, and older cancellation with newer pending search. Submitted search drives query and empty status; an unsubmitted retained draft does not claim active filtering on a later range change.
+
+Stream metadata failure is optional: it reports unavailable choices in the fixed status slot and preserves the requested Dashboard stream ID in every search. No silent fallback to a wider query. Mandatory LibreNMS device policy is retained as instructed. These repairs need no new permissions decision. Synthetic tests are authored, not executed. Parent must obtain a fresh independent Opus full-diff review and assess shared-test/Android/iOS CI.
+
+Graylog row buttons use PortReadout's explicit empty style and transparent Normal/Disabled states, with PrimaryTint pressed/focused feedback. Logs sibling #544 is untouched; parent follow-up owner #482 must repair its equivalent overlay if confirmed. Dashboard severity projections remain unchanged; the list alone formats Warning (4).
 
 All native evidence remains U, including a short phone viewport at maximum system
 text with all filters, long unbroken source/message/stream, no messages, error and

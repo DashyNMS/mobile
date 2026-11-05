@@ -55,6 +55,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     private readonly Dictionary<string, (string Name, int? DeviceId)> _bySource = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<string>? _deviceAddresses;
     private CancellationTokenSource? _loadCts;
+    private string _submittedSearch = string.Empty;
     private bool _hasLoaded;
     private bool _suppressReload;
     private long _totalResults;
@@ -192,25 +193,25 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     /// <summary>Not at the page's own starting level - which for a device is the one set in Settings.</summary>
     public bool IsLevelSet => LevelIndex != DefaultLevelIndex;
 
-    public string StreamChipText => StreamLabels[Math.Clamp(StreamIndex, 0, StreamLabels.Count - 1)];
+    public string StreamChipText => _pendingStreamId is { Length: > 0 } ? "Requested stream (metadata unavailable)" : StreamLabels[Math.Clamp(StreamIndex, 0, StreamLabels.Count - 1)];
 
-    public bool IsStreamSet => StreamIndex != 0;
+    public bool IsStreamSet => StreamIndex != 0 || _pendingStreamId is { Length: > 0 };
 
     /// <summary>Anything Clear would undo.</summary>
-    public bool HasActiveFilters => IsRangeSet || IsLevelSet || IsStreamSet || CanClearDevice || !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasActiveFilters => IsRangeSet || IsLevelSet || IsStreamSet || CanClearDevice || !string.IsNullOrWhiteSpace(_submittedSearch);
 
     private int DefaultLevelIndex => IsDeviceFixed ? Math.Clamp(_settings.Current.Graylog.DeviceLogLevel, 0, 7) + 1 : 0;
 
     // ------------------------------------------------------------------- list
 
-    public bool CanLoadMore => _hasLoaded && !IsBusy && _loaded.Count < _totalResults && _loaded.Count < MaxMessages;
+    public bool CanLoadMore => _loadCts is null && _hasLoaded && !IsBusy && _loaded.Count < _totalResults && _loaded.Count < MaxMessages;
 
     public bool IsEmpty => _hasLoaded && IsConfigured && !IsBusy && !HasError && Messages.Count == 0;
 
     public string EmptyText => HasDeviceFilter
         ? $"No messages from {Device!.Name} match these filters."
         : HasActiveFilters ? "No Graylog messages match these filters."
-        : "No Graylog messages were returned for this time range.";
+        : "No Graylog messages were returned.";
 
     /// <summary>"50 of 1,234 messages".</summary>
     public string SummaryText => !_hasLoaded || HasError ? string.Empty
@@ -227,9 +228,21 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     /// <summary>A Graylog card's See all: its stream and time range, the stream once the streams have loaded.</summary>
     public void ShowFeed(string? streamId, int rangeSeconds)
     {
+        _suppressReload = true;
         RangeIndex = Math.Max(0, GraylogQuery.Ranges.ToList().FindIndex(r => r.Seconds == rangeSeconds));
         _pendingStreamId = streamId ?? string.Empty;
         ApplyPendingStream();
+        _suppressReload = false;
+        NotifyStreamScope();
+        ReloadFromStart();
+    }
+
+    private void NotifyStreamScope()
+    {
+        OnPropertyChanged(nameof(StreamChipText));
+        OnPropertyChanged(nameof(IsStreamSet));
+        OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(EmptyText));
     }
 
     /// <summary>A stream asked for before the streams arrived; empty for every stream.</summary>
@@ -243,8 +256,13 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         }
 
         _pendingStreamId = null;
-        // Not one this account can see: every stream, as the Stream chip's own fallback.
-        StreamIndex = _streams.ToList().FindIndex(s => s.Id == id) + 1;
+        var index = _streams.ToList().FindIndex(s => s.Id == id);
+        if (id.Length > 0 && index < 0)
+        {
+            _pendingStreamId = id;
+            return;
+        }
+        StreamIndex = index + 1;
     }
 
     public void Initialise(int? deviceId, string? deviceName)
@@ -326,6 +344,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     {
         if (string.IsNullOrWhiteSpace(value))
         {
+            _submittedSearch = string.Empty;
             ReloadFromStart();
         }
     }
@@ -335,7 +354,13 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
     /// <summary>The search box's search button - not every keystroke, since each one is a Graylog query.</summary>
     [RelayCommand]
-    private Task SearchAsync() => LoadAsync(append: false);
+    private Task SearchAsync()
+    {
+        _submittedSearch = SearchText;
+        OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(EmptyText));
+        return LoadAsync(append: false);
+    }
 
     [RelayCommand]
     private Task LoadMoreAsync() => CanLoadMore ? LoadAsync(append: true) : Task.CompletedTask;
@@ -363,7 +388,12 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     {
         if (await _dialogs.ChooseAsync("Stream", StreamLabels) is { } choice && IndexIn(StreamLabels, choice) is var index and >= 0)
         {
+            var pending = _pendingStreamId is not null;
+            _pendingStreamId = null;
+            var unchanged = StreamIndex == index;
             StreamIndex = index;
+            NotifyStreamScope();
+            if (pending && unchanged) ReloadFromStart();
         }
     }
 
@@ -384,11 +414,14 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         _suppressReload = true;
         RangeIndex = 0;
         LevelIndex = DefaultLevelIndex;
+        _pendingStreamId = null;
         StreamIndex = 0;
+        _submittedSearch = string.Empty;
         SearchText = string.Empty;
         ShowDevice(null);
         _suppressReload = false;
 
+        NotifyStreamScope();
         ReloadFromStart();
     }
 
@@ -425,7 +458,10 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
         await RunAsync(async () =>
         {
-            IsConfigured = await _setup.EnsureConfiguredAsync();
+            var token = cts.Token;
+            var configured = await _setup.EnsureConfiguredAsync();
+            token.ThrowIfCancellationRequested();
+            IsConfigured = configured;
             if (!IsConfigured)
             {
                 _hasLoaded = true;
@@ -433,9 +469,13 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 return;
             }
 
-            var token = cts.Token;
             var firstLoad = _devices is null;
-            _devices ??= await _client.Devices.ListAsync(token);
+            if (_devices is null)
+            {
+                var devices = await _client.Devices.ListAsync(token);
+                token.ThrowIfCancellationRequested();
+                _devices = devices;
+            }
 
             if (firstLoad)
             {
@@ -447,9 +487,15 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             IReadOnlyList<string>? addresses = null;
             if (Device is { } device)
             {
-                addresses = _deviceAddresses ??= device.DeviceId is { } deviceId
+                addresses = _deviceAddresses;
+                if (addresses is null)
+                {
+                    addresses = device.DeviceId is { } deviceId
                     ? await DeviceAddressesAsync(deviceId, token)
                     : device.Address is { Length: > 0 } address ? [address] : [];
+                    token.ThrowIfCancellationRequested();
+                    _deviceAddresses = addresses;
+                }
                 if (addresses.Count == 0)
                 {
                     // Without an address the query would match every device's
@@ -463,7 +509,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
 
             var options = _settings.Current.Graylog;
             var level = LevelIndex <= 0 ? (int?)null : LevelIndex - 1;
-            var query = GraylogQuery.WithMaxLevel(GraylogQuery.BuildSimpleQuery(SearchText, options.QueryField, addresses?.ToList()), level);
+            var query = GraylogQuery.WithMaxLevel(GraylogQuery.BuildSimpleQuery(_submittedSearch, options.QueryField, addresses?.ToList()), level);
 
             if (query.Length > MaxQueryLength)
             {
@@ -474,7 +520,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             }
 
             var range = GraylogQuery.Ranges[Math.Clamp(RangeIndex, 0, GraylogQuery.Ranges.Count - 1)].Seconds;
-            var stream = StreamIndex > 0 && StreamIndex <= _streams.Count ? _streams[StreamIndex - 1].Id : null;
+            var stream = _pendingStreamId ?? (StreamIndex > 0 && StreamIndex <= _streams.Count ? _streams[StreamIndex - 1].Id : null);
 
             var result = await _graylog.SearchAsync(
                 query,
@@ -502,6 +548,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             _loadCts = null;
         }
 
+        // RunAsync clears busy even when this cancelled load has a newer owner.
+        IsBusy = _loadCts is not null;
         RaiseListChanged();
     }
 
@@ -526,7 +574,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     /// </summary>
     internal async Task AutoRefreshAsync()
     {
-        if (IsBusy || !IsConfigured || _lastSearch is not { } search)
+        if (_loadCts is not null || IsBusy || !IsConfigured || _lastSearch is not { } search)
         {
             return;
         }
@@ -601,7 +649,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         OnPropertyChanged(nameof(SummaryText));
     }
 
-    /// <summary>Not fatal - every stream can still be searched without the list.</summary>
+    /// <summary>Optional chooser metadata must never widen a requested stream scope.</summary>
     private async Task LoadStreamsAsync()
     {
         try
@@ -611,8 +659,9 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 .OrderBy(s => s.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
         }
-        catch (GraylogApiException)
+        catch (Exception ex)
         {
+            RefreshProblem = $"Stream choices unavailable: {Describe(ex)}";
             return;
         }
 

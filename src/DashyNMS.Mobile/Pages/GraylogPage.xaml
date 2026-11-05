@@ -37,11 +37,14 @@
         </Grid>
 
         <!-- Graylog's own reason when a search fails, in a card of its own. -->
-        <Border Grid.Row="2" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
-                BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
-            <Label Text="{Binding ErrorMessage}" FontSize="13"
-                   TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-        </Border>
+        <VerticalStackLayout Grid.Row="2">
+            <Label Style="{StaticResource Faint}" Text="{Binding RefreshProblem}" IsVisible="{Binding HasRefreshProblem}" LineBreakMode="WordWrap" />
+            <Border Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
+                    BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
+                <Label Text="{Binding ErrorMessage}" FontSize="13"
+                       TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+            </Border>
+        </VerticalStackLayout>
 
         <!-- Switched off, or missing a password: say where to set it up. -->
         <Border Grid.Row="3" Style="{StaticResource Card}" Padding="20,24" VerticalOptions="Start" Margin="0,6,0,0"
@@ -65,7 +68,7 @@
                         <VerticalStackLayout Padding="14,20,14,6" Spacing="4">
                             <Label Text="{Binding DeviceFilterText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" />
                             <FlexLayout x:Name="FilterStrip" Wrap="Wrap" Direction="Row" AlignItems="Start">
-                                <Button Style="{StaticResource GraylogChoice}" Text="{Binding DeviceFilterText, StringFormat='Change device: {0} ▾'}" Command="{Binding ChooseDeviceCommand}" IsVisible="{Binding IsDeviceFixed, Converter={StaticResource Invert}}" />
+                                <Button Style="{StaticResource GraylogChoice}" Text="{Binding DeviceFilterText, StringFormat='Device: {0} ▾'}" Command="{Binding ChooseDeviceCommand}" IsVisible="{Binding IsDeviceFixed, Converter={StaticResource Invert}}" />
                                 <Button Style="{StaticResource GraylogChoice}" Text="Clear device" Command="{Binding ClearDeviceCommand}" IsVisible="{Binding CanClearDevice}" />
                                 <Button Style="{StaticResource GraylogChoice}" Text="{Binding RangeChipText, StringFormat='Time: {0} ▾'}" Command="{Binding ChooseRangeCommand}">
                                     <Button.Triggers>
@@ -114,7 +117,6 @@
                                 <Button Style="{StaticResource GraylogChoice}" Text="Clear filters" Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}" />
                             </FlexLayout>
                             <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" LineBreakMode="WordWrap" />
-                            <Label Style="{StaticResource Faint}" Text="{Binding RefreshProblem}" IsVisible="{Binding HasRefreshProblem}" LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
                     </CollectionView.Header>
                     <CollectionView.EmptyView>
@@ -132,13 +134,32 @@
                                 <VerticalStackLayout Padding="14,10" Spacing="4" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
                                     <Label Style="{StaticResource RowTitle}" Text="{Binding ListSourceText}" LineBreakMode="WordWrap" IsVisible="{Binding ShowsSource, Source={RelativeSource AncestorType={x:Type graylog:GraylogViewModel}}, x:DataType=graylog:GraylogViewModel}" />
                                     <Label Text="{Binding ListMessageText}" TextType="Text" LineBreakMode="WordWrap" />
-                                    <Label Text="{Binding DetailLevelText}" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding ListLevelText}" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource Faint}" Text="{Binding ListFacilityText}" LineBreakMode="WordWrap" />
                                     <Label Style="{StaticResource Faint}" Text="{Binding DetailTimeText}" LineBreakMode="WordWrap" />
                                 </VerticalStackLayout>
                                 <Button Text="" BackgroundColor="Transparent" BorderWidth="0" MinimumHeightRequest="44" HorizontalOptions="Fill" VerticalOptions="Fill"
                                         SemanticProperties.Description="{Binding OpenDescription}"
-                                        Command="{Binding OpenMessageCommand, Source={RelativeSource AncestorType={x:Type graylog:GraylogViewModel}}, x:DataType=graylog:GraylogViewModel}" CommandParameter="{Binding .}" />
+                                        Command="{Binding OpenMessageCommand, Source={RelativeSource AncestorType={x:Type graylog:GraylogViewModel}}, x:DataType=graylog:GraylogViewModel}" CommandParameter="{Binding .}">
+                                    <Button.Style><Style TargetType="Button" /></Button.Style>
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="Disabled" />
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="Focused">
+                                                <VisualState.Setters>
+                                                    <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="PointerOver" />
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                </Button>
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>

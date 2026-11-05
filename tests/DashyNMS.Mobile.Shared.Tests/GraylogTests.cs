@@ -274,7 +274,7 @@ public sealed class GraylogViewModelTests
     [Fact]
     public async Task Device_metadata_denial_currently_blocks_even_the_network_feed()
     {
-        // Characterises existing policy; allowing a source-only account needs a decision.
+        // The mandatory LibreNMS device policy must not be bypassed.
         _client.Devices.ListAsync(Arg.Any<CancellationToken>())
             .ThrowsAsync(new LibreNmsApiException("Forbidden", HttpStatusCode.Forbidden));
         var vm = NewViewModel();
@@ -301,9 +301,8 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
-    public async Task Cancellation_ignoring_device_initialisation_can_currently_overwrite_newer_metadata()
+    public async Task Cancellation_ignoring_device_initialisation_cannot_overwrite_newer_metadata()
     {
-        // Characterisation of an unresolved initialisation race, not acceptance of it.
         var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
         _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task,
             Task.FromResult<IReadOnlyList<Device>>([Fakes.Device(23, "new.example.net")]));
@@ -313,7 +312,104 @@ public sealed class GraylogViewModelTests
         Assert.Equal(23, Assert.Single(vm.KnownDevices).DeviceId);
         pending.SetResult([Fakes.Device(99, "old.example.net")]);
         await older;
-        Assert.Equal(99, Assert.Single(vm.KnownDevices).DeviceId);
+        Assert.Equal(23, Assert.Single(vm.KnownDevices).DeviceId);
+        await _api.Received(1).GetStreamsAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Older_cancellation_keeps_newer_load_busy_and_blocks_paging_and_tick()
+    {
+        var old = new TaskCompletionSource<GraylogSearchResult>();
+        var current = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Task.FromResult(Result(120, "192.0.2.1")), old.Task, current.Task);
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        vm.SearchText = "submitted";
+        var older = vm.SearchCommand.ExecuteAsync(null);
+        var newer = vm.RefreshCommand.ExecuteAsync(null);
+        old.SetCanceled();
+        await older;
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.CanLoadMore);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.AutoRefreshAsync();
+        Assert.Equal(3, _api.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "SearchAsync"));
+        current.SetResult(Result(1, "192.0.2.23"));
+        await newer;
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Device_switch_discards_cancellation_ignoring_resolver_addresses()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var pending = new TaskCompletionSource<string?>();
+        vm.ResolveHostname = (name, _) => name == "core-sw-01" ? pending.Task : Task.FromResult<string?>("192.0.2.23");
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(1, "Old"));
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(2, "New"));
+        pending.SetResult("192.0.2.99");
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var queries = _api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync")
+            .Select(c => (string)c.GetArguments()[0]!).ToList();
+        Assert.DoesNotContain(queries, q => q.Contains("192.0.2.99", StringComparison.Ordinal));
+        Assert.Contains("192.0.2.23", queries.Last());
+        Assert.DoesNotContain("core-sw-01", queries.Last());
+    }
+
+    [Fact]
+    public async Task Pending_configuration_searches_only_the_new_device()
+    {
+        var pending = new TaskCompletionSource<string?>();
+        var storage = Substitute.For<ISecureStorage>();
+        storage.GetAsync(Arg.Any<string>()).Returns(pending.Task);
+        _api.IsConfigured.Returns(false);
+        var secrets = new SecretCache(storage, NullLogger<SecretCache>.Instance);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), Fakes.Settings(_appSettings), secrets, NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, Fakes.Settings(_appSettings), _navigation, _dialogs)
+        { ResolveHostname = (_, _) => Task.FromResult<string?>(null) };
+        vm.Initialise(1, "Old");
+        var older = vm.EnsureLoadedAsync();
+        vm.Initialise(2, "New");
+        var newer = vm.EnsureLoadedAsync();
+        _api.IsConfigured.Returns(true);
+        pending.SetResult(null);
+        await Task.WhenAll(older, newer);
+        var query = Assert.Single(_api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync"));
+        Assert.Contains("edge-rtr", (string)query.GetArguments()[0]!);
+        Assert.DoesNotContain("core-sw-01", (string)query.GetArguments()[0]!);
+    }
+
+    [Fact]
+    public async Task Draft_search_does_not_claim_filtered_empty_or_enter_range_queries()
+    {
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(Result(0));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        vm.SearchText = "draft";
+        Assert.False(vm.HasActiveFilters);
+        Assert.Equal("No Graylog messages were returned.", vm.EmptyText);
+        vm.RangeIndex = 1;
+        Assert.True(vm.HasActiveFilters);
+        Assert.Contains("match these filters", vm.EmptyText);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.All(_api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync"),
+            c => Assert.Equal("*", c.GetArguments()[0]));
+        Assert.Equal("draft", vm.SearchText);
+    }
+
+    [Fact]
+    public async Task Denied_stream_metadata_preserves_dashboard_scope_and_reports_status()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("Synthetic offline"));
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.HasRefreshProblem);
+        Assert.Contains("unavailable", vm.StreamChipText);
+        await _api.Received().SearchAsync(Arg.Any<string>(), 0, GraylogViewModel.PageSize, 0,
+            "timestamp:desc", "streams:synthetic", Arg.Any<CancellationToken>());
     }
 
     [Fact]
