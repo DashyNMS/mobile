@@ -161,7 +161,7 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
 
     // ------------------------------------------------------------------ chips
 
-    public string DeviceChipText => Device?.Name ?? "Device";
+    public string DeviceChipText => Device?.Name ?? "All devices";
 
     public bool HasDeviceFilter => Device is not null;
 
@@ -171,11 +171,11 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
     /// <summary>Each row names its device - except when they're all the one device's.</summary>
     public bool ShowsDevice => Device is null;
 
-    public string TypeChipText => EventType ?? "Type";
+    public string TypeChipText => EventType ?? AnyType;
 
     public bool IsTypeSet => EventType is not null;
 
-    public string StateChipText => StateFilter?.ToDisplayString() ?? "State";
+    public string StateChipText => StateFilter?.ToDisplayString() ?? AnyState;
 
     public bool IsStateSet => StateFilter is not null;
 

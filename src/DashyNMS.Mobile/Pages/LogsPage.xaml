@@ -15,7 +15,7 @@
             <Setter Property="MinimumHeightRequest" Value="44" />
             <Setter Property="HeightRequest" Value="-1" />
             <Setter Property="LineBreakMode" Value="WordWrap" />
-            <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference ListColumn}}" />
+            <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference FilterStrip}}" />
         </Style>
     </ContentPage.Resources>
     <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88). -->
@@ -61,10 +61,10 @@
         </Grid>
 
         <!-- Native choices retain the horizontal strip; fixed scope is read-only. -->
-        <ScrollView Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
+        <ScrollView x:Name="FilterStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
 
-                <Label Text="{Binding DeviceChipText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" VerticalOptions="Center" MaximumWidthRequest="{Binding Width, Source={x:Reference ListColumn}}" />
+                <Label Text="{Binding DeviceChipText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" VerticalOptions="Center" MaximumWidthRequest="{Binding Width, Source={x:Reference FilterStrip}}" />
                 <Button Style="{StaticResource LogChoice}" Text="{Binding DeviceChipText, StringFormat='Device: {0} ▾'}" Command="{Binding ChooseDeviceCommand}" IsVisible="{Binding IsDeviceFixed, Converter={StaticResource Invert}}" />
                 <Button Style="{StaticResource LogChoice}" Text="Clear device" Command="{Binding ClearDeviceCommand}" IsVisible="{Binding CanClearDevice}" />
                 <Button Style="{StaticResource LogChoice}" Text="{Binding TypeChipText, StringFormat='Type: {0} ▾'}" Command="{Binding ChooseTypeCommand}" IsVisible="{Binding ShowingEventLog}" />
@@ -140,13 +140,13 @@
                         <DataTemplate x:DataType="logs:LogEntryItem">
                             <VerticalStackLayout>
                                 <Label Style="{StaticResource SectionHeader}" Text="{Binding DayHeader}" IsVisible="{Binding HasDayHeader}" Margin="14,14,14,2" SemanticProperties.HeadingLevel="Level2" />
-                                <Grid Padding="14,12">
-                                    <BoxView Style="{StaticResource RowLine}" />
-                                    <VerticalStackLayout Spacing="6" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
-                                        <Label Text="{Binding DeviceName}" LineBreakMode="WordWrap" IsVisible="{Binding ShowsDevice, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}" />
+                                <Grid>
+                                    <BoxView Style="{StaticResource RowLine}" Margin="0" />
+                                    <VerticalStackLayout Padding="14,11" Spacing="6" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" IsVisible="{Binding ShowsDevice, Source={RelativeSource AncestorType={x:Type logs:LogsViewModel}}, x:DataType=logs:LogsViewModel}" />
                                         <Label Text="{Binding FullText}" TextType="Text" LineBreakMode="WordWrap" />
                                         <Label Text="{Binding StatusText}" />
-                                        <Label Style="{StaticResource Faint}" Text="{Binding MetaText}" IsVisible="{Binding HasMeta}" LineBreakMode="WordWrap" />
+                                        <Label Style="{StaticResource Faint}" Text="{Binding ListMetaText}" IsVisible="{Binding HasListMeta}" LineBreakMode="WordWrap" />
                                         <Label Style="{StaticResource Faint}" Text="{Binding TimeText}" LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
                                     <Button BackgroundColor="Transparent" BorderWidth="0" Text="" HorizontalOptions="Fill" VerticalOptions="Fill" MinimumHeightRequest="44"
@@ -169,7 +169,7 @@
                     </CollectionView.Footer>
                 </CollectionView>
             </RefreshView>
-                <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+                <BoxView Margin="1,1,1,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
                     <BoxView.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                             <GradientStop Color="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" Offset="0" />

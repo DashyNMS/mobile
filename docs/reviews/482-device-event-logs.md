@@ -228,3 +228,19 @@ verification. No build, test, restore or validation script ran. CI, independent
 Opus review and native evidence remain with the parent. The native matrix above
 is still unverified. #516 retains camera clip/layer ownership; no guessed native
 geometry offsets were added. Refs #482 and #442, pending device acceptance.
+
+### Independent review corrections
+
+Full-diff Opus 5.5 Medium review at fb16e77 found no blockers and one medium
+choice-label mismatch. Unset choices now explicitly read All devices, Any type
+and Any state, with a shared regression assertion. Row activation covers the
+whole row; facts own their padding and the separator stays at the row edge.
+Choice wrapping uses the measured filter viewport, not its padded parent.
+The fade stays inside the card stroke. Alert state and identity are no longer
+repeated in list metadata or speech; spoken facts omit empty parts. Device
+emphasis and code indentation are restored. Selected filter values remain
+explicit in text; their tint consistency remains a minor visual difference.
+The epic's explicit acceptance gate overrides CLAUDE.md's general Closes rule:
+Refs is intentional until the user accepts device evidence. Native hypotheses
+from review remain unverified, including runtime resource references, content
+unfocus on Android and wrapping filter alignment. CI is separate evidence.

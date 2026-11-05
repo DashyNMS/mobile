@@ -162,7 +162,15 @@ public sealed class LogEntryItem : CommunityToolkit.Mvvm.ComponentModel.Observab
         || MetaText.Contains(term, StringComparison.CurrentCultureIgnoreCase);
 
     /// <summary>One native row action speaks the complete facts and source identity.</summary>
-    public string OpenDescription => $"Open entry #{Id}, {DeviceName}, {StatusText}, {FullText}, {MetaText}, {TimeText}";
+    public string OpenDescription => string.Join(", ",
+        new[] { $"Open entry #{Id}", DeviceName, StatusText, FullText, ListMetaText, TimeText }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>Alert state and identity already have dedicated row facts.</summary>
+    public string ListMetaText => IsAlert ? string.Empty : MetaText;
+
+    /// <summary>Do not reserve an empty metadata line for alerts.</summary>
+    public bool HasListMeta => !string.IsNullOrWhiteSpace(ListMetaText);
 
     /// <summary>Retain unchanged rows without retaining stale source facts during a refresh.</summary>
     internal bool SameFacts(LogEntryItem other) =>

@@ -107,16 +107,16 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_viewModel.AutoRefresh.SetShowing(false);
 	}
 
-    public void OpenSearch() { if (_active) _search.Open(); }
-    private void CloseSearch() => _search.Close();
-    private void OnSearchCompleted(object? sender, EventArgs e) => CloseSearch();
+	public void OpenSearch() { if (_active) _search.Open(); }
+	private void CloseSearch() => _search.Close();
+	private void OnSearchCompleted(object? sender, EventArgs e) => CloseSearch();
 
 #if IOS
-    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
-    private void PlaceFooter()
-    {
-        if (!_active || Shell.Current?.CurrentPage != this) return;
-        _listLayout.Place();
-    }
+	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
+	private void PlaceFooter()
+	{
+		if (!_active || Shell.Current?.CurrentPage != this) return;
+		_listLayout.Place();
+	}
 #endif
 }
