@@ -1762,6 +1762,56 @@ public sealed class MaintenanceViewModelTests
     }
 
     [Fact]
+    public async Task Failed_submission_retains_the_complete_draft_and_does_not_return()
+    {
+        var vm = NewViewModel();
+        vm.StartNow = false;
+        vm.StartDate = new DateTime(2026, 9, 29);
+        vm.StartTime = new TimeSpan(22, 30, 0);
+        vm.DurationHours = 4;
+        vm.DurationMinutes = 25;
+        vm.SelectedBehavior = vm.Behaviors[2];
+        vm.MaintenanceTitle = " Firmware ";
+        vm.Notes = " Keep this draft ";
+        _client.Devices.ScheduleMaintenanceAsync(7, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>())
+            .Returns<string>(_ => throw new HttpRequestException("offline"));
+
+        await vm.SaveCommand.ExecuteAsync(null);
+
+        Assert.Contains("Check your connection", vm.ErrorMessage);
+        Assert.Empty(_navigation.Visits);
+        Assert.False(vm.IsBusy);
+        Assert.False(vm.SaveCommand.IsRunning);
+        Assert.False(vm.StartNow);
+        Assert.Equal(new DateTime(2026, 9, 29), vm.StartDate);
+        Assert.Equal(new TimeSpan(22, 30, 0), vm.StartTime);
+        Assert.Equal((4, 25), (vm.DurationHours, vm.DurationMinutes));
+        Assert.Equal(MaintenanceBehavior.RunAlerts, vm.SelectedBehavior.Value);
+        Assert.Equal(" Firmware ", vm.MaintenanceTitle);
+        Assert.Equal(" Keep this draft ", vm.Notes);
+    }
+
+    [Fact]
+    public async Task Schedule_stays_running_until_confirmation_is_dismissed()
+    {
+        var confirmation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Devices.ScheduleMaintenanceAsync(7, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>()).Returns("ok");
+        _dialogs.AlertAsync("Maintenance scheduled", "ok").Returns(confirmation.Task);
+        var vm = NewViewModel();
+
+        var save = vm.SaveCommand.ExecuteAsync(null);
+        Assert.True(vm.SaveCommand.IsRunning);
+        Assert.True(vm.IsNotBusy);
+        Assert.False(vm.SaveCommand.CanExecute(null));
+        Assert.Empty(_navigation.Visits);
+        confirmation.SetResult();
+        await save;
+        Assert.False(vm.SaveCommand.IsRunning);
+        Assert.Equal(Routes.Back, Assert.Single(_navigation.Visits).Route);
+        await _client.Devices.Received(1).ScheduleMaintenanceAsync(7, Arg.Any<DeviceMaintenanceRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task A_zero_duration_or_a_past_start_is_refused()
     {
         var vm = NewViewModel();
