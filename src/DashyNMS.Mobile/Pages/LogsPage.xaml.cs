@@ -25,7 +25,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is LogEntryView detail) detail.PlaceContent(clear);
-		});
+		}, PlaceGutters);
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading the log…", "Refreshing the log…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
 		SearchButton.Command = new Command(OpenSearch);
@@ -110,6 +110,21 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	public void OpenSearch() { if (_active) _search.Open(); }
 	private void CloseSearch() => _search.Close();
 	private void OnSearchCompleted(object? sender, EventArgs e) => CloseSearch();
+
+    /// <summary>Keeps the filter clip under the camera while resting controls own safe gutters.</summary>
+    private void PlaceGutters(Thickness gutters)
+    {
+        var left = gutters.Left;
+        var right = gutters.Right;
+        Header.Margin = new Thickness(left, 0, right, 0);
+        LogSwitch.Margin = new Thickness(left, 0, right, 0);
+        SearchField.Margin = new Thickness(left, 4, right, 8);
+        FilterStrip.Padding = new Thickness(left, 0, right, 0);
+        Summary.Margin = new Thickness(left + 4, 6, right, 4);
+        ErrorCard.Margin = new Thickness(left, 0, right, 8);
+        Busy.Margin = new Thickness(left, 0, right, 0);
+        ListCard.Margin = new Thickness(left, 0, right, ListCard.Margin.Bottom);
+    }
 
 #if IOS
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);

@@ -9,9 +9,10 @@ internal sealed class TabAlignedListLayout
     private readonly Border _card;
     private readonly View _foot;
     private readonly Action<Thickness> _detail;
+    private readonly Action<Thickness>? _gutters;
 #endif
 
-    public TabAlignedListLayout(ContentPage page, ListDetail split, Layout column, Border card, CollectionView rows, View foot, Action<Thickness> detail)
+    public TabAlignedListLayout(ContentPage page, ListDetail split, Layout column, Border card, CollectionView rows, View foot, Action<Thickness> detail, Action<Thickness>? gutters = null)
     {
 #if IOS
         _page = page;
@@ -19,6 +20,7 @@ internal sealed class TabAlignedListLayout
         _card = card;
         _foot = foot;
         _detail = detail;
+        _gutters = gutters;
         page.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         CoveredEdges.Watch(page, Place);
         split.SplitChanged += (_, _) => Place();
@@ -57,9 +59,13 @@ internal sealed class TabAlignedListLayout
         }
 
         var columnWidth = _column.Width > 0 ? _column.Width : width;
-        _column.Padding = new Thickness(16 + left, 0, 16 + Math.Max(0, right - Math.Max(0, width - columnWidth)), 0);
+        var gutters = new Thickness(16 + left, 0, 16 + Math.Max(0, right - Math.Max(0, width - columnWidth)), 0);
+        // Opted-in pages keep the filter clip full-width and distribute these
+        // gutters to fixed slots and the scroller's content instead.
+        if (_gutters is null) _column.Padding = gutters;
         var foot = listFoot ?? 12 + covered;
         _card.Margin = new Thickness(0, 0, 0, foot);
+        _gutters?.Invoke(gutters);
         var over = listFoot is not null && !sideBar ? covered : 0;
         var spacer = over > foot ? over - foot + 8 : 0;
         if (_foot.HeightRequest != spacer) _foot.HeightRequest = spacer;

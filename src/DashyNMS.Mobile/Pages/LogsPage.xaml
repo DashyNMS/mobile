@@ -15,7 +15,7 @@
             <Setter Property="MinimumHeightRequest" Value="44" />
             <Setter Property="HeightRequest" Value="-1" />
             <Setter Property="LineBreakMode" Value="WordWrap" />
-            <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference FilterStrip}}" />
+            <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference ListCard}}" />
         </Style>
     </ContentPage.Resources>
     <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88). -->
@@ -23,17 +23,17 @@
 
     <!-- As the Logs mock-up (#118): Event log / Alert log, search, the filter
          chips, a summary, then the entries in one card - Graylog's layout. -->
-    <Grid x:Name="ListColumn" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" Padding="16,0,16,0" SafeAreaEdges="None">
+    <Grid x:Name="ListColumn" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*" SafeAreaEdges="None">
 
         <!-- Graylog has its own page in More, so it isn't repeated here. -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}">
+        <controls:PageHeader x:Name="Header" Margin="16,0" Title="{Binding Title}">
             <controls:PageHeader.Actions>
                 <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" SemanticProperties.Description="Search the log" />
             </controls:PageHeader.Actions>
         </controls:PageHeader>
 
         <!-- A device's Event log is the event log only. -->
-        <Border Grid.Row="1" Style="{StaticResource SegmentBar}" IsVisible="{Binding ShowsLogSwitch}">
+        <Border x:Name="LogSwitch" Grid.Row="1" Margin="16,0" Style="{StaticResource SegmentBar}" IsVisible="{Binding ShowsLogSwitch}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
                 <Button Style="{StaticResource Segment}" Text="Event log" FontSize="14" Command="{Binding ShowEventLogCommand}">
                     <Button.Triggers>
@@ -55,16 +55,16 @@
         </Border>
 
         <Grid x:Name="SearchSlot" Grid.Row="2" HeightRequest="0" IsClippedToBounds="True" SafeAreaEdges="None">
-            <controls:SearchField x:Name="SearchField" Margin="0,4,0,8" VerticalOptions="Start" IsVisible="False">
+            <controls:SearchField x:Name="SearchField" Margin="16,4,16,8" VerticalOptions="Start" IsVisible="False">
                 <Entry x:Name="Search" Text="{Binding SearchText}" Placeholder="{Binding SearchPlaceholder}" Completed="OnSearchCompleted" />
             </controls:SearchField>
         </Grid>
 
         <!-- Native choices retain the horizontal strip; fixed scope is read-only. -->
-        <ScrollView x:Name="FilterStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
+        <ScrollView x:Name="FilterStrip" SafeAreaEdges="None" Padding="16,0" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Margin="0,10,0,0">
             <HorizontalStackLayout Spacing="8">
 
-                <Label Text="{Binding DeviceChipText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" VerticalOptions="Center" MaximumWidthRequest="{Binding Width, Source={x:Reference FilterStrip}}" />
+                <Label Text="{Binding DeviceChipText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" VerticalOptions="Center" MaximumWidthRequest="{Binding Width, Source={x:Reference ListCard}}" />
                 <Button Style="{StaticResource LogChoice}" Text="{Binding DeviceChipText, StringFormat='Device: {0} ▾'}" Command="{Binding ChooseDeviceCommand}" IsVisible="{Binding IsDeviceFixed, Converter={StaticResource Invert}}" />
                 <Button Style="{StaticResource LogChoice}" Text="Clear device" Command="{Binding ClearDeviceCommand}" IsVisible="{Binding CanClearDevice}" />
                 <Button Style="{StaticResource LogChoice}" Text="{Binding TypeChipText, StringFormat='Type: {0} ▾'}" Command="{Binding ChooseTypeCommand}" IsVisible="{Binding ShowingEventLog}" />
@@ -98,7 +98,7 @@
         </ScrollView>
 
         <!-- Its height kept while the summary is still blank, so the chips never touch the list (#143). -->
-        <Grid Grid.Row="4" ColumnDefinitions="*,Auto" Margin="4,6,0,4" MinimumHeightRequest="30">
+        <Grid x:Name="Summary" Grid.Row="4" ColumnDefinitions="*,Auto" Margin="20,6,16,4" MinimumHeightRequest="30">
             <VerticalStackLayout VerticalOptions="Center">
                 <Label Style="{StaticResource Faint}" Text="{Binding SummaryText}" />
                 <!-- A failed auto-refresh: quiet, with the rows and filters left as they were. -->
@@ -110,16 +110,16 @@
         </Grid>
 
         <!-- LibreNMS's reason when a load fails, in a card of its own. -->
-        <Border Grid.Row="5" Style="{StaticResource Card}" Padding="14,12" Margin="0,0,0,8" IsVisible="{Binding HasError}"
+        <Border x:Name="ErrorCard" Grid.Row="5" Style="{StaticResource Card}" Padding="14,12" Margin="16,0,16,8" IsVisible="{Binding HasError}"
                 BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
             <Label Text="{Binding ErrorMessage}" FontSize="13"
                    TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
         </Border>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
-        <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
+        <controls:BusyCard x:Name="Busy" Margin="16,0" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <!-- The rows share one card, as the other lists do (#69). -->
-        <Border x:Name="ListCard" Grid.Row="6" SafeAreaEdges="None" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+        <Border x:Name="ListCard" Grid.Row="6" SafeAreaEdges="None" Style="{StaticResource ListCard}" Margin="16,0,16,12">
             <Grid>
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
