@@ -52,6 +52,67 @@ public sealed class GraphLegendTests
         return vm;
     }
 
+    [Theory]
+    [InlineData(null, null, null, null, "–", "–")]
+    [InlineData(125d, null, null, null, "1 kb/s (incomplete)", "–")]
+    [InlineData(0d, 0d, 0d, 0d, "0 b/s", "0 b/s")]
+    [InlineData(125d, 250d, 125d, 0d, "2 kb/s", "2 kb/s")]
+    public async Task Device_traffic_legend_preserves_availability_and_bit_units(
+        double? firstIn, double? firstOut, double? secondIn, double? secondOut,
+        string expectedIn, string expectedOut)
+    {
+        _client.Graphs.ListAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new GraphType { Name = "device_bits", Description = "Traffic" }]);
+        _client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new Port { IfName = "eth0", IfInOctetsRate = firstIn, IfOutOctetsRate = firstOut },
+            new Port { IfName = "eth1", IfInOctetsRate = secondIn, IfOutOctetsRate = secondOut },
+        ]);
+
+        var vm = await OpenAsync("device_bits");
+
+        // Two SVG colour squares must map to both API entries, even without readings.
+        Assert.Equal(["In", "Out"], vm.Series.Select(s => s.Name));
+        Assert.Equal([expectedIn, expectedOut], vm.Series.Select(s => s.Value));
+        Assert.Equal("2 of 2 shown", vm.ShownCount);
+        Assert.NotNull(vm.GraphPage);
+        Assert.False(vm.HasError);
+        Assert.All(vm.Series, s => Assert.Contains(s.Value!, s.AccessibleName));
+        Assert.True(vm.GraphAspect < 433.0 / 1137);
+    }
+
+    [Theory]
+    [InlineData(null, "–")]
+    [InlineData(double.NaN, "–")]
+    [InlineData(double.PositiveInfinity, "–")]
+    [InlineData(double.NegativeInfinity, "–")]
+    [InlineData(-1d, "–")]
+    [InlineData(101d, "–")]
+    [InlineData(0d, "0%")]
+    [InlineData(42d, "42%")]
+    [InlineData(100d, "100%")]
+    public async Task Processor_legend_preserves_unavailable_and_valid_percentages(double? reading, string expected)
+    {
+        _client.Graphs.ListHealthAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new GraphType { Name = "device_processor", Description = "Processors" }]);
+        // Deliberately reverse API order: Core's processor identity order maps the SVG.
+        _client.Health.ListProcessorsAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ProcessorSensor { ProcessorId = 20, Description = "CPU 20", UsagePercent = 25 },
+            new ProcessorSensor { ProcessorId = 10, Description = "CPU 10", UsagePercent = reading },
+        ]);
+
+        var vm = await OpenAsync("device_processor");
+
+        Assert.Equal(["CPU 10", "CPU 20"], vm.Series.Select(s => s.Name));
+        Assert.Equal([expected, "25%"], vm.Series.Select(s => s.Value));
+        Assert.Equal("2 of 2 shown", vm.ShownCount);
+        Assert.NotNull(vm.GraphPage);
+        Assert.False(vm.HasError);
+        Assert.Contains(expected, vm.Series[0].AccessibleName);
+        Assert.True(vm.GraphAspect < 433.0 / 1137);
+    }
+
     [Fact]
     public async Task Mismatched_sensor_entries_keep_the_server_legend()
     {

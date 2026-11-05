@@ -3,7 +3,7 @@
 Baseline: live main and clean isolated HEAD
 `26ee61babe42a406cdd057c81b06d52dec7b567b`, 5 November 2026.
 Refs #480 and #442. Implementation self-assessment; independent parent review,
-CI and all hardware acceptance remain outstanding. No local build, restore,
+New-head CI and all hardware acceptance remain outstanding. No local build, restore,
 test or validation script executed.
 
 ## Ownership and source inspection
@@ -72,24 +72,49 @@ N/A = absent capability; U = unverified runtime/device outcome.
 | Motion | C no new animation; N/A custom selected-sheet transitions. U Reduce Motion, repeated native picker/route transitions. |
 | Persistence/security | C no schema, credentials, permissions, endpoint or settings-key changes. Range remains page state; hidden series remain persisted. U real account permissions and malformed payloads. |
 
-## Core ownership blocker
+## Core dependency integration (current evidence, 5 November)
 
-Pinned package remains 2.0.0-ci.52, provenance Core CI run 52, commit
-`5f7bde53ac05ea75f7cb6dd06a8fae62606f0769`. Inspected that revision's actual
-GraphLegend.cs through the repository API; no guessed model fields introduced.
-ForTraffic sums `IfInOctetsRate ?? 0` / `IfOutOctetsRate ?? 0`, then multiplies by
-8. Missing rates therefore become apparent known zero and partial totals are
-not labelled incomplete. ForProcessors interpolates UsagePercent without a
-finite-number guard. These are genuine upstream-owned honesty defects blocking
-full source compliance, not a reason to copy formatting/API logic into mobile.
-Core must correct these and supply a reviewed package; parent should track the
-upstream follow-up before claiming #480 complete. ForPort converts octets to bits
-and nullable/non-finite rate/sensor formatters otherwise use an unavailable dash;
-unknown sensor classes retain supplied units. Payload completeness and server
-legend/series alignment beyond count matching remain U. Do not reorder drawn
-legend series naturally: their order maps the server SVG colours.
+Core #80's upstream honesty defects are fixed by merged
+[Core PR #81](https://github.com/DashyNMS/core/pull/81), merge commit
+`8774898a8a3ba3e487fc076722f020ffd19e6981`. Mobile now pins
+`DashyNMS.Core` **2.0.0-ci.56** in its sole Core PackageReference,
+`src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj` (previously ci.52).
+Before editing, all project PackageReferences were inspected: shared consumes
+Core, and the MAUI head/tests consume shared. No other dependency changed.
 
-## Review and CI-only verification
+[Development publication run 56](https://github.com/DashyNMS/core/actions/runs/41949476685)
+completed successfully at that merge SHA. Its Pack log explicitly passes
+`Version=2.0.0-ci.56` and `RepositoryCommit=8774898a8a3ba3e487fc076722f020ffd19e6981`,
+records creation of that exact nupkg, and the publish step records "Your package
+was pushed." The summary records the same version and commit. No downloadable
+Actions artifacts exist. Direct authenticated nupkg retrieval returned HTTP 403,
+so package-embedded nuspec metadata was not independently inspected; provenance
+is verified from the successful publication workflow and its explicit pack
+metadata, not from a local restore or assumed run stamp.
+
+Core preserves GraphLegendEntry, method signatures, names/count/order, SensorIds
+and SVG identity. Values alone now distinguish missing/invalid from zero, label
+known traffic subtotals incomplete, reject processor percentages outside 0–100
+and non-finite values, normalise signed zero and retain null for unsupported
+port series. Existing GraphLegend/GraphTarget/PortGraphCard/DashboardCards and
+ResourceVisibility consumer semantics remain unchanged. No mobile formatter
+mirror, fetch, API, storage, navigation or permission change is introduced.
+
+New CI-only consumer regressions use DeviceGraphsViewModel.LoadAsync with two
+synthetic SVG colour squares and two matching traffic/processor entries. They
+assert all-missing dashes, independent partial subtotal/unknown direction,
+measured zero, valid bit-rate units, missing/NaN/infinite/out-of-range processor
+values and valid 0/42/100 percentages, series identity/order, cropped chart and
+accessible values. Existing sensor unit, SensorId and mismatched-count fallback
+coverage remains intact. Tests were authored only; no local execution occurred.
+
+The upstream blocker is resolved at source and publication. Full source
+completeness is still limited by typed API payloads and count-based SVG matching;
+actual server payload completeness and series identity beyond counts remain U.
+Every native matrix item below remains U. This dependency integration does not
+establish #480 completion or #481 interface-mode acceptance.
+
+## Initial review and CI-only verification (historical)
 
 Added a behavioural regression combining device/health/wireless natural order,
 port target natural order, theme redraw and no extra fetch. Updated port-mode
@@ -132,7 +157,7 @@ the required natural order; device/port graph identity and save regressions
 remain unchanged. No production change follows this CI correction. Replacement
 CI and independent review are pending; no local build or test ran.
 
-## Review corrections and approved disposition
+## Historical review corrections (superseded Core status above)
 
 Opus 5.5 Medium reviewed f9f9135 and the test-only d399486 update. Its
 Show all availability finding is substantiated: IconButton owns enabled state
@@ -154,7 +179,7 @@ Confirmed upstream honesty defects are tracked in
 and consumer update are necessary before full source compliance. No formatting
 logic is copied into mobile. Native acceptance remains separately unverified.
 
-## Approved correction ownership (before edits, 5 November)
+## Historical approved correction ownership (before edits, 5 November)
 
 User approved `/tmp/mobile-442/legend-proposal.html` as proposed. This approves
 visual direction only. Sole writer remains this checkout on PR #542.
@@ -168,7 +193,7 @@ Failed diagnostic event; expose that same reporting without RunAsync's busy/rese
 side effects for redraws. No Core or shared placement logic belongs here.
 
 
-## Implemented approved proposal and review disposition
+## Historical proposal implementation and review disposition
 
 Medium 1 remains fixed: ShowAll CanExecute follows SomeHidden, RaiseSeriesChanged
 notifies it, and UpdateShowAllFallback owns header presence with the matching eye
@@ -209,7 +234,7 @@ keyboard, fold/rotation, tab/child return and resume outcomes are UNVERIFIED.
 H/B/V usable-base geometry and final legend/Only reach require separate evidence.
 Fresh parent Opus 5.5 Medium full review and CI judgement remain outstanding.
 
-## Review of 14cf333 and corrections
+## Historical review of 14cf333 and corrections
 
 Opus found one medium state-transition bug and five lower findings. LoadGraph
 now invalidates redraws, clears raw/entries/hidden/Series and notifies availability
@@ -248,3 +273,21 @@ CI at 3c02caf found CS0176 in the new regression's Failed-event subscription.
 Failed is static; the test now subscribes through ViewModelBase, filters by the
 tested sender and removes the listener in finally. Production code is unchanged.
 Replacement CI remains pending; no local test or build ran.
+
+## Final integration review and verification
+
+At pre-integration mobile head `7cd9ca8d921f789a8d883e7c46bd1b713a295085`,
+GitHub reports shared tests, Android, iOS simulator and CodeQL checks successful.
+The prior Opus full review at 8f819d0 found no blocking mobile issue; its low
+stale-initial-failure finding was fixed at 3c02caf and its static event test
+compile correction at 7cd9ca8. These results predate this package integration.
+Core PR #81's full Opus review at 95d7e59 had only the stale test blocker fixed
+at 51e4910; the parent negative-zero correction is dfa5326. Cross-platform
+net9/net10 CI success at dfa5326 is parent-supplied evidence; the successful
+publication workflow independently ran Core tests at the merge commit.
+
+Full intended diff against main 26ee61b and DESIGN inspected; staged whitespace
+checked before commit. No local builds, tests, restores or validation scripts.
+New-head consumer CI and a fresh parent Opus 5.5 Medium review of the complete
+final diff remain required before merge. No watch, merge, closure, epic tick,
+release, tag or manual publication is performed here.
