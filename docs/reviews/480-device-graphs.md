@@ -243,3 +243,8 @@ that old request: graph/error/Failed diagnostics remain current. Production
 correction and whitespace inspected; replacement CI remains pending.
 Range-chip wrapping and Android native hold delivery remain exact device checks,
 not proven defects. Core #80 and all native acceptance remain unresolved.
+
+CI at 3c02caf found CS0176 in the new regression's Failed-event subscription.
+Failed is static; the test now subscribes through ViewModelBase, filters by the
+tested sender and removes the listener in finally. Production code is unchanged.
+Replacement CI remains pending; no local test or build ran.

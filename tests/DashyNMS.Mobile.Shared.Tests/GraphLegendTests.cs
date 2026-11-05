@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.DeviceSections;
+using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
@@ -202,17 +203,28 @@ public sealed class GraphLegendTests
             .Returns(pending.Task);
         var vm = new DeviceGraphsViewModel(_client, _settings);
         var failures = 0;
-        vm.Failed += (_, _) => failures++;
-        var load = vm.LoadAsync(7, "example", "device_temperature");
-        Assert.True(vm.SomeHidden);
-        vm.ShowAllCommand.Execute(null);
-        var current = vm.GraphPage;
-        Assert.NotNull(current);
-        pending.SetException(new HttpRequestException("Superseded sensor failure"));
-        await load;
-        Assert.Equal(current, vm.GraphPage);
-        Assert.False(vm.HasError);
-        Assert.Equal(0, failures);
+        EventHandler<Exception> onFailed = (sender, _) =>
+        {
+            if (ReferenceEquals(sender, vm)) Interlocked.Increment(ref failures);
+        };
+        ViewModelBase.Failed += onFailed;
+        try
+        {
+            var load = vm.LoadAsync(7, "example", "device_temperature");
+            Assert.True(vm.SomeHidden);
+            vm.ShowAllCommand.Execute(null);
+            var current = vm.GraphPage;
+            Assert.NotNull(current);
+            pending.SetException(new HttpRequestException("Superseded sensor failure"));
+            await load;
+            Assert.Equal(current, vm.GraphPage);
+            Assert.False(vm.HasError);
+            Assert.Equal(0, failures);
+        }
+        finally
+        {
+            ViewModelBase.Failed -= onFailed;
+        }
     }
 
     [Fact]
