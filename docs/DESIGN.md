@@ -648,3 +648,12 @@ state. A separate quiet Only action has a 44pt minimum target and announces
 firing the toggle; do not add a parent tap. Let the action wrap below facts
 when text requires it. Preserve drawn series order and last-visible protection.
 Proposal approval is separate from native acceptance.
+
+### Approved event log list facts
+
+The #482 proposal keeps complete plain-text multiline messages in the virtualised
+list, with textual severity and stacked metadata and local timestamps. A single
+native entry action includes its ID in speech. Raw source fields remain in the
+accepted #460 detail. Fixed device scope is read-only; filter choices wrap and
+name their current value, and auto-refresh states On or Off. This records the
+approved presentation; native acceptance remains pending in the #482 assessment.

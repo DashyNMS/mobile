@@ -161,6 +161,26 @@ public sealed class LogEntryItem : CommunityToolkit.Mvvm.ComponentModel.Observab
         || Message.Contains(term, StringComparison.CurrentCultureIgnoreCase)
         || MetaText.Contains(term, StringComparison.CurrentCultureIgnoreCase);
 
+    /// <summary>One native row action speaks the complete facts and source identity.</summary>
+    public string OpenDescription => string.Join(", ",
+        new[] { $"Open entry #{Id}", DeviceName, StatusText, FullText, ListMetaText, TimeText }
+            .Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>Alert state and identity already have dedicated row facts.</summary>
+    public string ListMetaText => IsAlert ? string.Empty : MetaText;
+
+    /// <summary>Do not reserve an empty metadata line for alerts.</summary>
+    public bool HasListMeta => !string.IsNullOrWhiteSpace(ListMetaText);
+
+    /// <summary>Retain unchanged rows without retaining stale source facts during a refresh.</summary>
+    internal bool SameFacts(LogEntryItem other) =>
+        IsAlert == other.IsAlert && Id == other.Id && DeviceId == other.DeviceId
+        && DeviceName == other.DeviceName && FullText == other.FullText
+        && Status == other.Status && StatusText == other.StatusText
+        && Type == other.Type && RuleId == other.RuleId && MetaText == other.MetaText
+        && LocalTime == other.LocalTime && Fields.SequenceEqual(other.Fields)
+        && Event?.Severity == other.Event?.Severity && Alert?.Hostname == other.Alert?.Hostname;
+
     /// <summary>LibreNMS's event severities: 1 ok, 2 info, 3 notice, 4 warning, 5 critical.</summary>
     internal static string SeverityText(int? severity) => severity switch
     {

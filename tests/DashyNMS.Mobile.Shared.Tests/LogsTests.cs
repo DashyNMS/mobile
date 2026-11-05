@@ -49,6 +49,15 @@ public sealed class LogsViewModelTests
     }
 
     [Fact]
+    public void Unset_choices_name_their_current_values()
+    {
+        var vm = NewViewModel();
+        Assert.Equal("All devices", vm.DeviceChipText);
+        Assert.Equal("Any type", vm.TypeChipText);
+        Assert.Equal("Any state", vm.StateChipText);
+    }
+
+    [Fact]
     public async Task An_event_log_cards_see_all_shows_its_type()
     {
         Returns([.. Events(2), .. Events(1, type: "reboot")]);

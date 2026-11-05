@@ -126,6 +126,74 @@ public sealed class LogsAutoRefreshTests
     private void Returns(params EventLogEntry[] entries) =>
         _client.Logs.ListEventLogAsync(Arg.Any<int?>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(entries);
 
+    [Theory]
+    [InlineData("severity")]
+    [InlineData("type")]
+    [InlineData("user")]
+    [InlineData("time")]
+    [InlineData("hostname")]
+    [InlineData("sysName")]
+    public async Task Same_identity_refresh_updates_metadata_and_exact_detail_facts_without_resetting_other_rows(string field)
+    {
+        Returns(Event(2), Event(1));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var old = vm.Entries[0];
+        var retained = vm.Entries[1];
+        var changed = Event(2);
+        switch (field)
+        {
+            case "severity": changed.Severity = 4; break;
+            case "type": changed.Type = "reboot"; break;
+            case "user": changed.Username = "operator"; break;
+            case "time": changed.Timestamp = Noon.AddMinutes(-98).AddSeconds(12); break;
+            case "hostname": changed.Hostname = "device-01.example.net"; break;
+            case "sysName": changed.SysName = "device-01"; break;
+        }
+        Returns(changed, Event(1));
+        await vm.AutoRefreshAsync();
+
+        var current = vm.Entries[0];
+        Assert.NotSame(old, current);
+        Assert.Same(retained, vm.Entries[1]);
+        Assert.Equal(old.Id, current.Id);
+        var expected = LogEntryItem.ForEvent(changed, current.DeviceName, false, Noon);
+        Assert.Equal(expected.StatusText, current.StatusText);
+        Assert.Equal(expected.MetaText, current.MetaText);
+        Assert.Equal(expected.TimeText, current.TimeText);
+        Assert.Equal(expected.Fields, current.Fields);
+        Assert.Equal(30, vm.AutoRefresh.Seconds);
+        Assert.False(vm.AutoRefresh.IsOn);
+
+        changed.Message = "<literal>\nsecond line";
+        Returns(changed, Event(1));
+        await vm.AutoRefreshAsync();
+        Assert.Equal("<literal>\nsecond line", vm.Entries[0].FullText);
+        Assert.Same(retained, vm.Entries[1]);
+    }
+
+    [Fact]
+    public async Task Alert_refresh_replaces_changed_state_and_seconds_for_the_same_id()
+    {
+        _client.Logs.ListAlertLogAsync(null, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            [new AlertLogEntry { Id = 7, RuleId = 4, DeviceId = 1, StateValue = 0, TimeLogged = Noon }]);
+        var vm = NewViewModel();
+        vm.ShowAlertLogCommand.Execute(null);
+        await vm.EnsureLoadedAsync();
+        var old = Assert.Single(vm.Entries);
+        _client.Logs.ListAlertLogAsync(null, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(
+            [new AlertLogEntry { Id = 7, RuleId = 4, DeviceId = 1, StateValue = 1, TimeLogged = Noon.AddSeconds(12) }]);
+
+        await vm.AutoRefreshAsync();
+
+        var current = Assert.Single(vm.Entries);
+        Assert.NotSame(old, current);
+        Assert.Equal(old.Id, current.Id);
+        Assert.NotEqual(old.StatusText, current.StatusText);
+        Assert.Equal(Noon.AddSeconds(12), current.LocalTime);
+        Assert.Equal(4, current.RuleId);
+    }
+
     [Fact]
     public async Task New_entries_come_in_at_the_top_and_the_rows_below_stay()
     {
