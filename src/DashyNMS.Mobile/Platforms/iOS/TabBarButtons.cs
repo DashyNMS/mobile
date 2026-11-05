@@ -711,7 +711,7 @@ internal static class TabBarButtons
                 IsAccessibilityElement = true;
                 AccessibilityLabel = action.Label;
                 AccessibilityTraits = action.IsEnabled ? UIAccessibilityTrait.Button : UIAccessibilityTrait.Button | UIAccessibilityTrait.NotEnabled;
-                Alpha = action.IsEnabled ? 1 : .4;
+                Alpha = action.IsEnabled ? 1f : .4f;
                 if (menu is not null)
                 {
                     var owner = _owner;

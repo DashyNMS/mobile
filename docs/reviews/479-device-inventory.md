@@ -163,3 +163,9 @@ matrix above remain UNVERIFIED. No local build, test, restore or validation
 script was run. Final-head shared, Android/iOS/security CI and fresh independent
 Opus 5.5 Medium full review are pending and owned by the parent. No merge,
 watch, issue closure, epic tick or release is authorised by this implementation.
+
+CI at 86cb1d8 found CS0266 in the new disabled glass-action alpha assignment:
+the conditional used double literals, while UIKit requires NFloat. Changed
+only those literals to float, preserving the intended opacity. Replacement CI
+is pending; no local build or test ran. Native disabled-state appearance remains
+unverified.
