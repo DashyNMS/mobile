@@ -142,6 +142,33 @@ public sealed class GraphLegendTests
         Assert.Equal(433.0 / 1137, vm.GraphAspect, 3); // uncropped
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Redraw_failure_is_observed_and_stale_failure_cannot_replace_current_state(bool superseded)
+    {
+        var vm = await OpenAsync();
+        var pending = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Graphs.GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false)
+            .Returns(pending.Task);
+        vm.Series[0].ToggleCommand.Execute(null);
+        var redraw = vm.RedrawThemeAsync(); // shares the pending sensor request
+        if (superseded)
+        {
+            await vm.LoadAsync(7, "example", "device_mystery");
+            vm.ErrorMessage = "Current selection error";
+        }
+
+        var page = vm.GraphPage;
+        pending.SetException(new HttpRequestException("Synthetic redraw failure"));
+        await redraw;
+
+        Assert.False(vm.IsBusy);
+        Assert.Equal(page, vm.GraphPage);
+        Assert.Equal(superseded ? "Current selection error" : "Couldn't reach the LibreNMS server. Check your connection and try again.", vm.ErrorMessage);
+        await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+    }
+
     [Fact]
     public async Task The_range_chips_follow_the_chosen_range()
     {

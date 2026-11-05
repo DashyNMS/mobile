@@ -70,39 +70,57 @@
                     <!-- Our own legend; a graph Core can't name keeps LibreNMS's, so there's none of ours. -->
                     <VerticalStackLayout x:Name="SeriesPanel" Grid.Row="1" Spacing="8" IsVisible="{Binding HasSeries}" SafeAreaEdges="None">
                         <Grid ColumnDefinitions="*,Auto" Padding="4,0">
-                            <Label Style="{StaticResource SectionHeader}" Text="{Binding ShownCount, StringFormat='SERIES · {0}'}" VerticalOptions="Center" />
+                            <Label Style="{StaticResource SectionHeader}" Text="{Binding ShownCount, StringFormat='Series · {0}'}" VerticalOptions="Center" />
                         </Grid>
                         <Border Style="{StaticResource Card}" Padding="14,0">
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Series}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:GraphSeriesItem">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" MinimumHeightRequest="52">
-                                            <Border WidthRequest="14" HeightRequest="14" StrokeThickness="2" StrokeShape="RoundRectangle 4"
-                                                    Stroke="{Binding Colour, Converter={StaticResource HexColour}}" BackgroundColor="{Binding Colour, Converter={StaticResource HexColour}}" VerticalOptions="Center">
-                                                <Border.Triggers>
-                                                    <DataTrigger TargetType="Border" Binding="{Binding IsShown}" Value="False">
-                                                        <Setter Property="BackgroundColor" Value="Transparent" />
-                                                    </DataTrigger>
-                                                </Border.Triggers>
-                                            </Border>
-                                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center">
-                                                <Label Text="{Binding Name}" FontSize="15">
-                                                    <Label.Triggers>
-                                                        <DataTrigger TargetType="Label" Binding="{Binding IsShown}" Value="False">
-                                                            <Setter Property="TextDecorations" Value="Strikethrough" />
-                                                        </DataTrigger>
-                                                    </Label.Triggers>
-                                                </Label>
-                                                <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" />
-                                            </VerticalStackLayout>
-                                            <VerticalStackLayout Grid.Column="1" Grid.Row="1" Spacing="4">
-                                                <Label Text="{Binding Value}" FontFamily="Mono" FontSize="14" />
-                                                <Button Text="{Binding ToggleLabel}" SemanticProperties.Description="{Binding AccessibleName}" Command="{Binding ToggleCommand}" MinimumHeightRequest="44" />
-                                                <Button Text="Show only this series" SemanticProperties.Description="{Binding Name, StringFormat='Show only {0}'}"
-                                                        Command="{Binding OnlyCommand}" MinimumHeightRequest="44" />
-                                            </VerticalStackLayout>
-                                            <BoxView Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource Divider}" />
-                                        </Grid>
+                                        <VerticalStackLayout Spacing="0">
+                                            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                                <Grid FlexLayout.Basis="75%" FlexLayout.Grow="1" FlexLayout.Shrink="0"
+                                                      ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="0,12,8,12" MinimumHeightRequest="44">
+                                                    <Grid Grid.ColumnSpan="2" ColumnDefinitions="Auto,*" ColumnSpacing="12"
+                                                          InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                        <Border WidthRequest="14" HeightRequest="14" StrokeThickness="2" StrokeShape="RoundRectangle 4"
+                                                                Stroke="{Binding Colour, Converter={StaticResource HexColour}}" BackgroundColor="{Binding Colour, Converter={StaticResource HexColour}}" VerticalOptions="Center">
+                                                            <Border.Triggers>
+                                                                <DataTrigger TargetType="Border" Binding="{Binding IsShown}" Value="False">
+                                                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                                                </DataTrigger>
+                                                            </Border.Triggers>
+                                                        </Border>
+                                                        <VerticalStackLayout Grid.Column="1" Spacing="4">
+                                                            <Label Text="{Binding Name}" FontSize="15" LineBreakMode="CharacterWrap" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="CharacterWrap" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding ToggleLabel}" />
+                                                            <Label Text="{Binding Value}" FontFamily="Mono" FontSize="14" LineBreakMode="CharacterWrap" />
+                                                        </VerticalStackLayout>
+                                                    </Grid>
+                                                    <Button x:Name="ToggleButton" Grid.ColumnSpan="2" Text="" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                                            MinimumHeightRequest="44" MinimumWidthRequest="44"
+                                                            SemanticProperties.Description="{Binding AccessibleName}" Command="{Binding ToggleCommand}"
+                                                            controls:LongPress.Command="{Binding OnlyCommand}">
+                                                        <Button.Style><Style TargetType="Button" /></Button.Style>
+                                                        <VisualStateManager.VisualStateGroups>
+                                                            <VisualStateGroup Name="CommonStates">
+                                                                <VisualState Name="Normal" />
+                                                                <VisualState Name="Focused">
+                                                                    <VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters>
+                                                                </VisualState>
+                                                                <VisualState Name="Pressed">
+                                                                    <VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters>
+                                                                </VisualState>
+                                                            </VisualStateGroup>
+                                                        </VisualStateManager.VisualStateGroups>
+                                                    </Button>
+                                                </Grid>
+                                                <Button Text="Only" TextTransform="None" Style="{StaticResource LinkButton}" Padding="8" MinimumHeightRequest="44" MinimumWidthRequest="44"
+                                                        SemanticProperties.Description="{Binding Name, StringFormat='Show only {0}'}"
+                                                        Command="{Binding OnlyCommand}" />
+                                            </FlexLayout>
+                                            <BoxView Style="{StaticResource Divider}" />
+                                        </VerticalStackLayout>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>

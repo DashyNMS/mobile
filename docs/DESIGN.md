@@ -636,3 +636,15 @@ expansion/copy in each row. Availability follows loaded source rows, including
 hidden ports and no matches; source-empty hides the action, busy disables it.
 Use the existing panel placement/footer ownership above without additional
 insets. Proposal approval is separate from native acceptance.
+
+### Approved compact graph legends
+
+The 5 November 2026 #480 proposal uses wrapping name/detail/value facts with
+explicit Shown or Hidden text and a filled or outlined series-colour marker.
+Keep hidden facts readable. Put one transparent native toggle over the facts,
+with an accessible actual Hide/Show action naming the series, detail, value and
+state. A separate quiet Only action has a 44pt minimum target and announces
+"Show only [name]". Preserve long-press isolation on the facts without also
+firing the toggle; do not add a parent tap. Let the action wrap below facts
+when text requires it. Preserve drawn series order and last-visible protection.
+Proposal approval is separate from native acceptance.

@@ -132,7 +132,7 @@ the required natural order; device/port graph identity and save regressions
 remain unchanged. No production change follows this CI correction. Replacement
 CI and independent review are pending; no local build or test ran.
 
-## Review corrections and decision pending
+## Review corrections and approved disposition
 
 Opus 5.5 Medium reviewed f9f9135 and the test-only d399486 update. Its
 Show all availability finding is substantiated: IconButton owns enabled state
@@ -142,15 +142,69 @@ when no series are hidden. Its icon now uses the same eye metaphor as glass.
 Shared regressions assert availability before hide, after hide and after restore.
 Repeated toggle speech now names the current Show/Hide action and target.
 
-The two large default buttons per legend row are NOT approved. A concrete
-compact-row proposal is awaiting agreement before replacement. Keep this PR
-unmerged until that decision and implementation are complete. The proposal
+The two large default buttons per legend row were NOT approved. The user
+approved the exact compact-row proposal on 5 November ("Approve as proposed").
+The replacement implements that proposal; this is not native acceptance. The proposal
 retains tap-to-toggle and long press for only, adding a compact 44pt named
 Only action and explicit shown/hidden text, without two full-width primary
-buttons. Theme redraw exception reporting also remains a review correction
-to complete; it must not leave unobserved failures outside RunAsync.
+buttons. Theme redraw exception reporting is corrected below; CI and review remain pending.
 
 Confirmed upstream honesty defects are tracked in
 [Core #80](https://github.com/DashyNMS/core/issues/80). A reviewed Core package
 and consumer update are necessary before full source compliance. No formatting
 logic is copied into mobile. Native acceptance remains separately unverified.
+
+## Approved correction ownership (before edits, 5 November)
+
+User approved `/tmp/mobile-442/legend-proposal.html` as proposed. This approves
+visual direction only. Sole writer remains this checkout on PR #542.
+DeviceGraphsPage and its view model serve device graphs and every #481 interface
+mode; GraphPicker retains independent source ordering and persisted identity.
+LongPress currently serves Alerts and Devices row gestures. Its Android detector
+cannot consume a native Button click; add a Button-only native LongClick path,
+leaving those row consumers unchanged. UIKit's long-press recogniser cancels
+native touches. ViewModelBase owns failure description/classification and the
+Failed diagnostic event; expose that same reporting without RunAsync's busy/reset
+side effects for redraws. No Core or shared placement logic belongs here.
+
+
+## Implemented approved proposal and review disposition
+
+Medium 1 remains fixed: ShowAll CanExecute follows SomeHidden, RaiseSeriesChanged
+notifies it, and UpdateShowAllFallback owns header presence with the matching eye
+icon. No IsEnabled binding was reintroduced. Existing behavioural assertions cover
+before hide, after hide and after restore.
+
+Medium 2 fixed: DeviceGraphsPage has one empty native ToggleButton overlay on
+input-transparent, accessibility-excluded facts, then the independent Only sibling.
+No parent tap exists. Full labels wrap; ToggleLabel displays Shown/Hidden without
+fading or strikethrough. Filled/outlined markers retain Core series colours.
+FlexLayout's wrapping row gives facts a proportional basis and lets the measured
+Only target move below, with no fixed card height. The empty explicit Button
+style avoids primary styling; Only uses the existing LinkButton. The existing
+last-visible guard and named actual Hide/Show speech remain intact.
+LongPress attaches to ToggleButton: UIKit explicitly cancels native touches;
+Android native LongClick consumes release, while Alerts/Devices retain their
+original row detectors. Native single activation still requires device evidence.
+
+Low 5 fixed: every RenderAsync caller uses one observed exception boundary.
+ViewModelBase.ReportReadFailure reuses Failed, Describe and read-failure
+classification without resetting Busy or clearing current errors. Load and redraw
+versions suppress stale failure and graph publication. Optional sensor requests
+share one in-flight task by the unchanged cache key; theme redraw uses only cache
+or an existing request, never initiates a fetch. Expected LibreNMS sensor failures
+retain the existing shared-scale fallback. CI-only regression covers current and
+superseded HTTP redraw failures, retained graph/error and single sensor request.
+
+No review finding is rejected. Core #80 remains a blocking upstream requirement:
+ForTraffic missing rates become zero and ForProcessors lacks a finite guard in
+ci.52. All mobile DeviceGraphs device-traffic/processor legends consume it;
+#481 interface-mode auditing is still required. Parent must pursue the Core fix
+and reviewed package update before claiming source compliance. No mobile mirror,
+package bump or claim of upstream correction is included here.
+
+Full original assessment and native matrix above remain applicable. All Duo outer,
+inner portrait/landscape, iPhone, both-theme, maximum-text, VoiceOver/TalkBack,
+keyboard, fold/rotation, tab/child return and resume outcomes are UNVERIFIED.
+H/B/V usable-base geometry and final legend/Only reach require separate evidence.
+Fresh parent Opus 5.5 Medium full review and CI judgement remain outstanding.
