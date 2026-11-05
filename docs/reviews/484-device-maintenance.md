@@ -45,7 +45,7 @@ These helpers and all existing consumers are unchanged. Maintenance opts in.
 | F: later date/time and duration rows | Narrow pane or large text; simultaneous pickers and beside-label controls compete for width | Separate SetupSection fields above each native control; existing 800pt section breakpoint retained and recalculated on width/padding changes |
 | F: field semantics | Values replace placeholders; switch/pickers and optional text fields lack stable names | Explicit semantic descriptions and persistent visible labels; native activation remains U |
 | F: submit error reachability | Schedule pressed with error outside current viewport | Await the existing SaveCommand, scroll to ValidationError and announce its full message |
-| F: busy submit | HTTP finishes but confirmation is still open; IsNotBusy permits apparent reactivation | Disable using SaveCommand.IsRunning through confirmation and navigation; command remains single execution |
+| C: busy submit | The baseline command binding already disabled Schedule through confirmation and navigation | The new click-handler path binds enabled state to SaveCommand.IsRunning to preserve this behaviour; IsNotBusy alone would not cover confirmation |
 | C: cancellation | Draft abandoned | Existing Back and Cancel both returned via `..`; remove the duplicate scrolling Cancel, retain Back and explain discard. iOS 26 has glass Back; Android/older iOS have header Back |
 | C: hierarchy/themes | Any form | Existing subject, sections, cards, wrapping presets, theme resources and input-transparent 20pt surface fade retained; body reserves 20pt above its first card |
 | C: server content | Confirmation or failure | Existing dialog/error strings remain complete; no truncation, sanitisation or substituted server facts |
@@ -77,7 +77,7 @@ would require a concrete HTML proposal and parent-rendered approval first.
 | End maintenance | C: absent, still blocked under #137; no list/update/delete window capability added |
 
 MaintenanceViewModel and server-write code are unchanged. No real server writes
-were made. A mock-only regression covers offline draft retention and another
+were made. A mock-only contract pin covers offline draft retention and another
 covers command execution through confirmation before returning. Existing tests
 cover request formatting, defaults, duration/past validation, bulk partial success,
 permission scope and entry routing. These tests are added/read, not run locally.
@@ -89,7 +89,7 @@ and its 20pt fade. V is the Auto-row Schedule button with 12pt top margin and
 zero bottom margin, hidden on refusal. The action row reserves actual measured
 button height. iOS native page owns top only; SetupPageLayout owns 16pt gutters
 plus measured side clearance and bottom placement; native scroll adjustment is
-Never. Android retains native All safe areas and soft-input handling. No local
+Never. Android changes from Container to All safe areas, enabling native keyboard resizing under the shared layout contract. No local
 bottom spacer or guessed keyboard offset remains.
 
 For side pills, verify V.bottom equals pill.bottom in the same native coordinate
@@ -115,7 +115,7 @@ popovers and native wheels are U, not proved by shared arithmetic tests.
 | --- | --- |
 | Implementation full-diff review | Source review completed against guide; parent independent Opus review outstanding |
 | Whitespace | `git diff --check` and staged equivalent recorded in implementation handoff |
-| Shared tests | U: not run locally; CI must run existing suite including new mock regressions |
+| Shared tests | U: not run locally; CI must run existing suite including new mock contract pins |
 | Android / iOS simulator builds | U: no local builds, restore or validation scripts; CI judgement belongs to parent |
 | Light / dark | U: capture each theme including disabled Schedule, refusal, errors and native picker |
 | Maximum text / VoiceOver / TalkBack | U: verify every target name/value, single activation and readable final content |
@@ -128,3 +128,18 @@ popovers and native wheels are U, not proved by shared arithmetic tests.
 Device submission checks must use an authorised synthetic test environment.
 This task performed no server writes. Parent owns independent full review and CI
 judgement. No merge, monitoring, release or acceptance action is part of this PR.
+
+
+## Independent review corrections
+
+Full-diff Opus review at 0416bdd found no blocking defects and confirmed the
+server-write contract is unchanged. Busy-submit behaviour was already compliant;
+the tests pin existing view-model contracts rather than reproduce production
+defects. The click-handler binding preserves that baseline. The error message
+is checked again after scrolling before announcement. The obsolete page-level
+safe-area attribute is removed so the helper is the single owner. Android
+Container-to-All keyboard resizing is explicitly recorded as a change. Native
+first-error scrolling, TalkBack editing, stepper value speech and all placement
+checks remain unverified. Back during an in-flight submit is a pre-existing
+follow-up risk: the write is not cancelled and confirmation may navigate later.
+No accepted deferral or device acceptance is inferred. Current-head CI is pending.

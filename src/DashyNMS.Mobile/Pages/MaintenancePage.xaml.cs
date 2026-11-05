@@ -45,7 +45,7 @@ public partial class MaintenancePage : ContentPage, IQueryAttributable, IActiveP
 		await _viewModel.SaveCommand.ExecuteAsync(null);
 		if (_viewModel.ErrorMessage is not { Length: > 0 } error) return;
 		await FormScroll.ScrollToAsync(ValidationError, ScrollToPosition.Start, false);
-		SemanticScreenReader.Default.Announce(error);
+		if (_viewModel.ErrorMessage == error) SemanticScreenReader.Default.Announce(error);
 	}
 
 	/// <summary>Retains the existing section breakpoint within the shared measured gutters.</summary>

@@ -6,7 +6,6 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:MaintenanceViewModel"
-    SafeAreaEdges="Container"
     Title="Schedule maintenance">
     <controls:SetupLayout x:Name="Setup">
         <controls:SetupLayout.Header>

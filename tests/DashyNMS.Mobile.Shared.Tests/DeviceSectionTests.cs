@@ -1801,6 +1801,7 @@ public sealed class MaintenanceViewModelTests
 
         var save = vm.SaveCommand.ExecuteAsync(null);
         Assert.True(vm.SaveCommand.IsRunning);
+        Assert.True(vm.IsNotBusy);
         Assert.False(vm.SaveCommand.CanExecute(null));
         Assert.Empty(_navigation.Visits);
         confirmation.SetResult();

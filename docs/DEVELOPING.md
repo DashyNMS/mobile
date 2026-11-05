@@ -451,8 +451,9 @@ Schedule maintenance uses the full usable width with glass Back on iOS 26
 and later (#358). Its four form sections use two columns at 800pt and one
 below that, with 12pt gaps. Schedule occupies the shared fixed action slot
 and Back discards the draft. The shared setup layout owns keyboard and
-measured glass clearance. Check one device and multiple selected devices, Start now and a
-later date, duration presets and custom values, denied scheduling, keyboard
+measured glass clearance. Check one device and multiple selected devices,
+Start now and a later date, duration presets and custom values, denied scheduling,
+keyboard
 entry, rotation, and side/bottom glass.
 
 Glass actions avoid the whole system-reserved region, including active Live
