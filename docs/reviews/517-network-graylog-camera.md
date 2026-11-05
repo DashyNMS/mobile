@@ -35,26 +35,24 @@ scroll direction. Changing z-order cannot create that missing movement.
 
 ## Decision and concrete proposal
 
-[The HTML proposal](proposals/517-graylog-camera.html) is ready for the parent
-to render and seek user agreement. It recommends retaining #545's wrapping
-scrolling header, safe resting choices and complete facts. On this layout,
-filters leave through the list's top edge as messages scroll. It makes no claim
-that they pass beneath a side camera. Native evidence must establish whether
-any actual camera region intersects that vertical path.
+[The HTML proposal](proposals/517-graylog-camera.html) was displayed by the
+parent on 5 November 2026. Automated preview was unavailable because the host
+lacked browser libraries; the rendered schematic is not native evidence.
 
-The unresolved choice is whether this vertical treatment satisfies #517 or the
-user requires horizontal camera travel. The latter needs a separately approved
-layout that preserves short-screen reachability and full facts; the historical
-root strip is not authorised. A full-width list clip with inset content alone
-would expand the background/clip, not move the choices into a side camera lane.
-It also changes card presentation and side-pill ownership for every row. It is
-not a minimal settled fix and is not implemented here.
+The user explicitly chose: **“Keep wrapping; defer sideways underlap.”** This
+accepts deferral of sideways camera underlap under this issue, while retaining
+#545's approved compact wrapping filters and full facts. No horizontal filter
+strip or full-width card redesign is authorised or implemented. The linked owner
+is [#517](https://github.com/DashyNMS/mobile/issues/517); reconsider horizontal
+travel there only if the user requests a new proposal. This decision supersedes
+the proposal's pending-choice wording, retained as historical material.
 
-No application source change is justified until that decision or native evidence
-identifies a defect in the approved wrapping path. This is an assessment/proposal
-PR, not a delivered camera correction or an accepted deferral. #517 stays open.
-DESIGN.md is unchanged: this finding awaits parent review before becoming a
-reusable design lesson. The existing #545 approval remains the design baseline.
+The deferral does not establish a camera-layering fix or device acceptance.
+#517 and #442 remain open/unticked pending the scoped native outcome and user
+acceptance. The vertical path, safe resting controls, viewport and final-row
+matrix below still require installed-device evidence. Application source and
+DESIGN.md remain unchanged; existing scroll-direction guidance and the #545
+approval suffice without a new reusable design rule.
 
 ## Shared helper audit and preserved contracts
 
