@@ -374,6 +374,13 @@ reported rather than its ifVlan, as Core's `VlanMembership` requires. Never
 show internal VLAN IDs or invent tags. Long descriptions and VLAN lists wrap,
 with no minimum height, line caps or extra vertical spacing.
 
+Port status colour (edge and label) follows one rule, `PortStatus`: grey for
+admin shutdown (Disabled), monitoring disabled or ignored (Not monitored) and
+unknown; red for a positive error reading on either side; green for Up with
+zero errors on both sides; amber for enabled but down. Up without error
+readings stays grey. The edge uses the decorative status colour and the label
+the readable status text colour; the label always names the state.
+
 The whole card is one native transparent button of at least 44pt with an
 explicit empty style and its own Disabled, Pressed and Focused states. Its
 description speaks exactly the visible facts, in reading order, and then the

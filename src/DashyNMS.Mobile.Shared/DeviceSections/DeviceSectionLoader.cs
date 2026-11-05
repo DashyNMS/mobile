@@ -318,55 +318,45 @@ public sealed class DeviceSectionLoader
     {
         var ports = (await _client.Ports.ListForDeviceAsync(deviceId, ct)).Where(p => !p.Deleted).ToList();
 
-        // Down but meant to be up first - the ones that need looking at.
-        var down = ports.Where(p => PortState(p).State == "Down");
-        var up = ports.Where(p => p.IsUp);
-        var shut = ports.Where(p => !p.IsUp && IsAdminDown(p));
-
         // Core's rule: once the device reports memberships, a port's ifVlan
         // is not used alongside them (a trunk can report VLAN 1).
         var memberships = VlanMembership.HasMembershipData(ports);
         SectionRow Row(Port port) => PortRow(port, memberships);
 
-        return Groups(
-            ("Down", down.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(Row)),
-            ("Up", up.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(Row)),
-            ("Shut down", shut.OrderBy(p => p.IfIndex ?? int.MaxValue).Select(Row)),
-            ("Unknown", ports.Where(p => PortState(p).State == "Unknown").OrderBy(p => p.IfIndex ?? int.MaxValue).Select(Row)));
-    }
+        // By link state, down first - the ones that need looking at. An
+        // errored port stays with its link state, so the overview's "up"
+        // count still counts it; the Ports page's Status sort puts it first.
+        IEnumerable<SectionRow> In(string state) => ports
+            .Where(p => PortStatus.Of(p).StateName == state)
+            .OrderBy(p => p.IfIndex ?? int.MaxValue)
+            .Select(Row);
 
-    private static bool IsAdminDown(Port port) =>
-        string.Equals(port.IfAdminStatus, "down", StringComparison.OrdinalIgnoreCase) || port.Disabled;
+        return Groups(
+            ("Down", In("Down")),
+            ("Up", In("Up")),
+            ("Shut down", In("Shut down")),
+            ("Not monitored", In("Not monitored")),
+            ("Unknown", In("Unknown")));
+    }
 
     /// <param name="deviceReportsMemberships">Whether any of the device's ports report VLAN memberships; only then is a port without any shown as reporting none, rather than falling back to its ifVlan.</param>
     internal static SectionRow PortRow(Port port, bool deviceReportsMemberships = false)
     {
-        var errors = PortFacts.SumValidRates(port.IfInErrorsRate, port.IfOutErrorsRate);
-        var (rank, state) = PortState(port);
-        var knownErrors = ValidRate(port.IfInErrorsRate) && ValidRate(port.IfOutErrorsRate)
-            && ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
-        var complete = knownErrors && double.IsFinite(port.IfInOctetsRate!.Value * 8)
-            && double.IsFinite(port.IfOutOctetsRate!.Value * 8);
-        // Either positive source rate is enough; summing two finite rates can
-        // overflow and must not turn an error card green.
-        var errorsIn = ValidRate(port.IfInErrorsRate) && port.IfInErrorsRate > 0;
-        var errorsOut = ValidRate(port.IfOutErrorsRate) && port.IfOutErrorsRate > 0;
-        var hasErrors = errorsIn || errorsOut;
-        var visual = port.IsUp ? hasErrors ? RowStatus.Critical : complete ? RowStatus.Ok : RowStatus.None
-            : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Warning : RowStatus.None;
+        var status = PortStatus.Of(port);
+        var state = status.StateName;
+        var trafficKnown = ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate);
         var (vlanLabel, vlanText) = PortVlans(port, deviceReportsMemberships);
         return new SectionRow(port.DisplayName)
         {
-            PortVisualStatus = visual,
-            PortVisualLabel = port.IsUp ? hasErrors ? "Up · errors" : complete ? "Up" : "Up · readings unavailable"
-                : state == "Shut down" ? "Disabled" : state,
+            PortVisualStatus = status.Visual,
+            PortVisualLabel = status.Label,
             PortSpeedText = port.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : "Speed unavailable",
             PortTrafficIn = port.IsUp ? PortTraffic(port.IfInOctetsRate) : "Not shown",
             PortTrafficOut = port.IsUp ? PortTraffic(port.IfOutOctetsRate) : "Not shown",
-            PortErrorsIn = PortErrors(port.IfInErrorsRate),
-            PortErrorsOut = PortErrors(port.IfOutErrorsRate),
-            PortErrorsInPositive = errorsIn,
-            PortErrorsOutPositive = errorsOut,
+            PortErrorsIn = PortErrors(port.IfInErrorsRate, port.IfInErrorsDelta),
+            PortErrorsOut = PortErrors(port.IfOutErrorsRate, port.IfOutErrorsDelta),
+            PortErrorsInPositive = status.ErrorsInPositive,
+            PortErrorsOutPositive = status.ErrorsOutPositive,
             PortVlanLabel = vlanLabel,
             PortVlanText = vlanText,
             PortOverviewIdentity = string.Join("\n", new[]
@@ -375,33 +365,52 @@ public sealed class DeviceSectionLoader
                 string.IsNullOrWhiteSpace(port.IfName) || port.IfName == port.DisplayName ? null : port.IfName,
                 string.IsNullOrWhiteSpace(port.IfAlias) ? null : port.IfAlias,
             }.Where(s => s is not null)),
-            Port = PortFacts.From(port, rank, state),
-            PortStatusText = state + (port.IsUp ? errors > 0 && double.IsFinite(errors) ? ", Warning" : knownErrors ? ", OK" : ValidRate(port.IfInOctetsRate) && ValidRate(port.IfOutOctetsRate) ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
+            Port = PortFacts.From(port, status.Rank, status.Name),
+            PortStatusText = state + (port.IsUp ? status.HasErrors ? ", Warning" : status.ErrorsKnown ? ", OK" : trafficKnown ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
             SortValue = port.IsUp ? PortFacts.SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
             Subtitle = port.IfAlias is { Length: > 0 } alias && alias != port.DisplayName ? alias : null,
             Value = port.IsUp ? $"In: {PortTraffic(port.IfInOctetsRate)} · Out: {PortTraffic(port.IfOutOctetsRate)}" : state,
-            Status = port.IsUp ? (errors > 0 && double.IsFinite(errors) ? RowStatus.Warning : knownErrors ? RowStatus.Ok : RowStatus.None) : state == "Shut down" ? RowStatus.Inactive : state == "Down" ? RowStatus.Critical : RowStatus.None,
+            Status = status.Condition switch
+            {
+                PortCondition.Errored => port.IsUp ? RowStatus.Warning : RowStatus.Critical,
+                PortCondition.Down => RowStatus.Critical,
+                PortCondition.Up => status.ErrorsKnown ? RowStatus.Ok : RowStatus.None,
+                PortCondition.ShutDown or PortCondition.NotMonitored => RowStatus.Inactive,
+                _ => RowStatus.None,
+            },
             Detail = string.Join(" · ", new[]
             {
                 port.IfSpeed is > 0 ? Units.Speed(port.IfSpeed) : null,
                 port.IfVlan is { } vlan and > 0 ? $"VLAN {vlan}" : null,
-                errors > 0 && double.IsFinite(errors) ? $"{errors.ToString("0.##", CultureInfo.CurrentCulture)} errors/s" : null,
+                ErrorsDetail(port),
             }.Where(s => s is not null)),
         };
     }
 
-    private static (int Rank, string State) PortState(Port port) => port.IsUp ? (1, "Up")
-        : IsAdminDown(port) ? (2, "Shut down")
-        : port.IfOperStatus?.ToLowerInvariant() is "down" or "lowerlayerdown" or "notpresent" ? (0, "Down")
-        : (3, "Unknown");
+    /// <summary>The searchable errors fact: a total rate when Core has rates, otherwise the last poll's count.</summary>
+    private static string? ErrorsDetail(Port port)
+    {
+        var rate = PortFacts.SumValidRates(port.IfInErrorsRate, port.IfOutErrorsRate);
+        if (rate > 0 && double.IsFinite(rate))
+            return $"{rate.ToString("0.##", CultureInfo.CurrentCulture)} errors/s";
+        var delta = (port.IfInErrorsDelta is > 0 ? port.IfInErrorsDelta.Value : 0)
+            + (port.IfOutErrorsDelta is > 0 ? port.IfOutErrorsDelta.Value : 0);
+        return delta > 0 ? $"{delta.ToString("N0", CultureInfo.CurrentCulture)} errors in last poll" : null;
+    }
 
     private static bool ValidRate(double? value) => value is { } rate && double.IsFinite(rate) && rate >= 0;
 
-    /// <summary>Full precision, so a tiny positive rate is never shown as a reported zero.</summary>
-    private static string PortErrors(double? rate) => ValidRate(rate)
-        ? rate!.Value.ToString("G", CultureInfo.CurrentCulture) + "/s" : "Unavailable";
+    /// <summary>
+    /// Full precision, so a tiny positive rate is never shown as a reported
+    /// zero. Without a rate, the last poll's count (what Core's device-ports
+    /// request actually carries) rather than Unavailable.
+    /// </summary>
+    private static string PortErrors(double? rate, long? delta) => ValidRate(rate)
+        ? rate!.Value.ToString("G", CultureInfo.CurrentCulture) + "/s"
+        : delta is >= 0 ? delta.Value.ToString("N0", CultureInfo.CurrentCulture) + " in last poll"
+        : "Unavailable";
 
     /// <summary>
     /// The VLANs a port actually carries, from its typed memberships, unique
