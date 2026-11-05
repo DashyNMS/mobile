@@ -121,6 +121,19 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		_search.Open();
 	}
 
+	/// <summary>Constrain native choices to the measured strip so long labels wrap.</summary>
+	private void OnFilterStripSizeChanged(object? sender, EventArgs e)
+	{
+		var width = FilterStrip.Width;
+		if (!double.IsFinite(width) || width <= 0) return;
+		foreach (var child in FilterStrip.Children.OfType<View>())
+		{
+			var available = width - child.Margin.HorizontalThickness;
+			if (double.IsFinite(available) && available > 0 && child.MaximumWidthRequest != available)
+				child.MaximumWidthRequest = available;
+		}
+	}
+
 	private void CloseSearch() => _search.Close();
 
 	private void OnSearchCompleted(object? sender, EventArgs e)

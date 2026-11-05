@@ -52,8 +52,11 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     private IReadOnlyList<GraylogStream> _streams = [];
     private IReadOnlyList<Device>? _devices;
     private bool _streamsLoaded;
-    private bool _streamsLoading;
+    private int? _streamsLoadingGeneration;
+    private bool StreamsLoading => _streamsLoadingGeneration == _setup.Generation;
     private int _streamGeneration = -1;
+    /// <summary>Completion of the current optional metadata fetch, independent of message loading.</summary>
+    internal Task StreamMetadataLoad { get; private set; } = Task.CompletedTask;
     /// <summary>Each message source's device, found once while the page is open.</summary>
     private readonly Dictionary<string, (string Name, int? DeviceId)> _bySource = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<string>? _deviceAddresses;
@@ -202,7 +205,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     /// <summary>Not at the page's own starting level - which for a device is the one set in Settings.</summary>
     public bool IsLevelSet => LevelIndex != DefaultLevelIndex;
 
-    public string StreamChipText => _pendingStreamId is { Length: > 0 } ? (!_streamsLoading && (StreamProblem is not null || _streamsLoaded) ? "Requested stream (metadata unavailable)" : "Requested stream (loading metadata)") : StreamLabels[Math.Clamp(StreamIndex, 0, StreamLabels.Count - 1)];
+    public string StreamChipText => _pendingStreamId is { Length: > 0 } ? (!StreamsLoading && (StreamProblem is not null || _streamsLoaded) ? "Requested stream (metadata unavailable)" : "Requested stream (loading metadata)") : StreamLabels[Math.Clamp(StreamIndex, 0, StreamLabels.Count - 1)];
 
     public bool IsStreamSet => StreamIndex != 0 || _pendingStreamId is { Length: > 0 };
 
@@ -458,6 +461,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
     private async Task LoadAsync(bool append)
     {
         _loads++;
+        if (!append) _lastSearch = null;
         RefreshProblem = null;
 
         // A newer search always wins over one still on its way.
@@ -491,18 +495,20 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 {
                     _streamGeneration = _setup.Generation;
                     _streamsLoaded = false;
+                    StreamProblem = null;
                     if (_pendingStreamId is null && StreamIndex > 0 && StreamIndex <= _streams.Count)
                         _pendingStreamId = _streams[StreamIndex - 1].Id;
                     _streamIndex = 0;
                     _streams = [];
                     StreamLabels = ["All streams"];
                     OnPropertyChanged(nameof(StreamLabels));
-                }
-                if (!append && !_streamsLoaded && !_streamsLoading)
-                {
-                    _streamsLoading = true;
                     NotifyStreamScope();
-                    _ = LoadStreamsAsync(_setup.Generation);
+                }
+                if (!append && !_streamsLoaded && !StreamsLoading)
+                {
+                    _streamsLoadingGeneration = _setup.Generation;
+                    NotifyStreamScope();
+                    StreamMetadataLoad = LoadStreamsAsync(_setup.Generation);
                 }
 
                 // The Device chip: a known device by every address its own page
@@ -646,10 +652,6 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             Messages.Merge(_loaded.ToList(), Key, (a, b) => ReferenceEquals(a, b));
             RaiseListChanged();
         }
-        catch (OperationCanceledException ex) when (ex.CancellationToken.IsCancellationRequested)
-        {
-            // A caller cancelled the operation; this is not an offline failure.
-        }
         catch (Exception ex) when (ex is GraylogApiException or HttpRequestException or TimeoutException or OperationCanceledException)
         {
             if (loads == _loads)
@@ -690,7 +692,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                 .Where(s => !s.Disabled)
                 .OrderBy(s => s.Title, StringComparer.CurrentCultureIgnoreCase)
                 .ToList();
-            if (generation != _setup.Generation) return;
+            if (generation != _setup.Generation || _streamsLoadingGeneration != generation) return;
             _streams = streams;
             _streamsLoaded = true;
             StreamProblem = null;
@@ -704,13 +706,16 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
         }
         catch (Exception ex)
         {
-            if (generation == _setup.Generation)
+            if (generation == _setup.Generation && _streamsLoadingGeneration == generation)
                 StreamProblem = $"Stream choices unavailable. Pull to refresh to retry: {Describe(ex)}";
         }
         finally
         {
-            _streamsLoading = false;
-            NotifyStreamScope();
+            if (generation == _setup.Generation && _streamsLoadingGeneration == generation)
+            {
+                _streamsLoadingGeneration = null;
+                NotifyStreamScope();
+            }
         }
     }
 

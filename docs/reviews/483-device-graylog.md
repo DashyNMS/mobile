@@ -90,7 +90,7 @@ failures retain the existing error path.
 
 StreamProblem is independent of RefreshProblem. A failure notice persists through
 searches and timer ticks until a successful metadata fetch. Non-append manual
-loads retry missing metadata with one in-flight owner; ticks do not retry. Setup
+loads retry missing metadata with one in-flight owner per connection generation; ticks do not retry. Setup
 configuration generations reject metadata from a previous connection. Requested
 stream IDs remain query scope while metadata loads, fails or omits that ID.
 The label says loading while pending, unavailable after failure or a successful
@@ -100,8 +100,8 @@ suppresses redundant reloads.
 Core GraylogApi.SendAsync wraps HTTP transport failures and HTTP timeout
 cancellation in GraylogApiException, preserving real caller cancellation. The
 ci.56 consumer now also catches direct HttpRequestException, TimeoutException and
-uncancelled OperationCanceledException on ticks. Synthetic cases retain rows and
-report a failure time; real token cancellation is ignored. No timer exception is
+OperationCanceledException on ticks, including exceptions carrying a cancelled token. Synthetic cases retain rows and
+report a failure time. Auto-refresh supplies no caller cancellation token, so a cancelled exception is also a failure. No timer exception is
 left unobserved for these failure types. Core LevelText emits a numbered prefix
 for nonnegative levels, including unknown numeric values. The list formatter now
 checks the full separator before slicing; missing separators preserve the label.
@@ -112,8 +112,8 @@ retains BusyCard over the finite list and CollectionView.EmptyView, with primary
 refresh and independent stream errors above it. This is an explicit engineering
 tradeoff, not additional user approval or proof of the proposed state hierarchy.
 Long simultaneous errors can reduce the viewport. Native maximum-text/short-screen
-acceptance remains U. Header plus EmptyView reach/remeasurement, x:Reference
-FilterStrip width resolution and focus PrimaryTint appearance are also U. No
+acceptance remains U. Header plus EmptyView reach/remeasurement, measured FilterStrip child widths
+and focus PrimaryTint appearance are also U. No
 insets or guessed offsets were added. #461, #405 and #517 ownership is preserved.
 
 At previous head a59b4ca105cc859e9ca8f79853033da4c4f8be0b, shared tests,
@@ -122,3 +122,40 @@ these follow-up changes. Final-head CI and fresh independent Opus full-diff revi
 are pending and belong to the parent. No local build, test, restore or validation
 script was run. Git whitespace checks and source diff review are the only local
 validation. No watch, merge, closure, epic tick or release was performed.
+
+
+## Connection ownership follow-up
+
+Stream fetch ownership is scoped to the setup connection generation. A new
+connection starts its own metadata fetch while the previous fetch is pending.
+Only the matching current owner can publish metadata or a failure, clear loading,
+or notify completion. Reviewed old success and failure before and after new
+completion, same-connection reloads, and reset during append. Connection reset
+clears StreamProblem and notifies stream scope even when append defers fetching.
+Authored regression cases cover both completion orders and both old outcomes.
+
+Auto-refresh supplies no user token. Every OperationCanceledException therefore
+reports the refresh failure timestamp while retaining rows. A new non-append
+query clears the timer's saved search before awaiting anything. Failed new
+filters retain old rows and their error without permitting ticks to request an
+old query beneath new chips. Submitted search and retained draft policy remain.
+
+FilterStrip.SizeChanged now applies the measured available width to its native
+children, subtracting their actual margins. Finite positive guards and unchanged
+value checks avoid invalid sizing and repeated writes. The page owns this XAML
+event; there are no external subscriptions or additional watcher loops. Wrapping
+and 44pt minimum targets remain. Native size and accessibility evidence is U.
+
+All synthetic regressions are authored, never run locally. No local build, test,
+restore or validation script was executed. At previous head d982245, shared tests,
+Android and iOS simulator CI passed in runs 42013054971 and 42013047990. These
+results do not validate this follow-up. Current-head CI and a fresh full-diff
+review belong to the parent and remain pending. Local checks consist only of
+source diff review and git whitespace checks.
+
+Refs #483 and #442 remain non-closing. The user's #442 device-acceptance
+instruction overrides CLAUDE.md's general Closes convention. No native acceptance
+or accepted deferral is claimed. Approved compact presentation, mandatory device
+permissions and #461, #405 and #517 ownership remain unchanged. Parent and
+protected #475 checkouts are untouched. No watch, merge, closure, epic tick or
+release is authorised here.

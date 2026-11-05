@@ -15,7 +15,6 @@
             <Setter Property="HeightRequest" Value="-1" />
             <Setter Property="LineBreakMode" Value="WordWrap" />
             <Setter Property="Margin" Value="0,0,6,6" />
-            <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference FilterStrip}}" />
         </Style>
     </ContentPage.Resources>
     <!-- On an iPad or a Mac, the message you tap shows beside the list (#88). -->
@@ -68,7 +67,7 @@
                     <CollectionView.Header>
                         <VerticalStackLayout Padding="14,20,14,6" Spacing="4">
                             <Label Text="{Binding DeviceFilterText, StringFormat='Device: {0}'}" IsVisible="{Binding IsDeviceFixed}" LineBreakMode="WordWrap" />
-                            <FlexLayout x:Name="FilterStrip" Wrap="Wrap" Direction="Row" AlignItems="Start">
+                            <FlexLayout x:Name="FilterStrip" SizeChanged="OnFilterStripSizeChanged" Wrap="Wrap" Direction="Row" AlignItems="Start">
                                 <Button Style="{StaticResource GraylogChoice}" Text="{Binding DeviceFilterText, StringFormat='Device: {0} ▾'}" Command="{Binding ChooseDeviceCommand}" IsVisible="{Binding IsDeviceFixed, Converter={StaticResource Invert}}" />
                                 <Button Style="{StaticResource GraylogChoice}" Text="Clear device" Command="{Binding ClearDeviceCommand}" IsVisible="{Binding CanClearDevice}" />
                                 <Button Style="{StaticResource GraylogChoice}" Text="{Binding RangeChipText, StringFormat='Time: {0} ▾'}" Command="{Binding ChooseRangeCommand}">

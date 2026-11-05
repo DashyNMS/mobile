@@ -340,17 +340,18 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
-    public async Task Auto_refresh_user_cancellation_does_not_report_offline()
+    public async Task Auto_refresh_cancelled_token_failure_retains_rows_and_reports_time()
     {
         var vm = NewViewModel();
         await vm.EnsureLoadedAsync();
+        var current = vm.Messages.ToArray();
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         _api.SearchAsync(default!, default, default, default, default, default, default)
             .ThrowsAsyncForAnyArgs(new OperationCanceledException(cancelled.Token));
         await vm.AutoRefreshAsync();
-        Assert.False(vm.HasRefreshProblem);
-        Assert.Equal(2, vm.Messages.Count);
+        Assert.Contains("Couldn't refresh at", vm.RefreshProblem);
+        Assert.Equal(current, vm.Messages.ToArray());
     }
 
     [Fact]
@@ -372,6 +373,78 @@ public sealed class GraylogViewModelTests
             if (!vm.HasStreamProblem) await changed.Task.WaitAsync(TimeSpan.FromSeconds(5));
         }
         Assert.Contains("unavailable", vm.StreamChipText);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Connection_change_fetches_new_streams_without_waiting_for_old_owner(bool oldFails, bool newFinishesFirst)
+    {
+        var old = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        var current = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(old.Task, current.Task);
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        var oldLoad = vm.StreamMetadataLoad;
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+        Assert.Contains("loading", vm.StreamChipText);
+
+        async Task FinishCurrent()
+        {
+            current.SetResult([new GraylogStream { Id = "synthetic", Title = "Current stream" }]);
+            await vm.StreamMetadataLoad.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        async Task FinishOld()
+        {
+            if (oldFails) old.SetException(new HttpRequestException("Synthetic old failure"));
+            else old.SetResult([new GraylogStream { Id = "synthetic", Title = "Old stream" }]);
+            await oldLoad.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        if (newFinishesFirst) await FinishCurrent();
+        await FinishOld();
+        Assert.False(vm.HasStreamProblem);
+        if (!newFinishesFirst)
+        {
+            Assert.Contains("loading", vm.StreamChipText);
+            await vm.RefreshCommand.ExecuteAsync(null);
+            await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+            await FinishCurrent();
+        }
+        Assert.Contains("Current stream", vm.StreamChipText);
+        Assert.DoesNotContain("Old stream", vm.StreamLabels);
+        Assert.False(vm.HasStreamProblem);
+    }
+
+    [Fact]
+    public async Task Failed_new_filter_prevents_ticks_repeating_the_previous_query()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var rows = vm.Messages.ToArray();
+        vm.SearchText = "new submitted filter";
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ThrowsAsyncForAnyArgs(new HttpRequestException("Synthetic offline"));
+        await vm.SearchCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.Empty(vm.SummaryText);
+        Assert.Equal(rows, vm.Messages.ToArray());
+        _api.ClearReceivedCalls();
+        await vm.AutoRefreshAsync();
+        await _api.DidNotReceiveWithAnyArgs().SearchAsync(default!, default, default, default, default, default, default);
+        Assert.True(vm.HasError);
+        Assert.Equal(rows, vm.Messages.ToArray());
     }
 
     [Theory]
