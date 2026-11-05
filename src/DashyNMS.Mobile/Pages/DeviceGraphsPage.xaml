@@ -11,29 +11,35 @@
     Title="{Binding Title}">
     <Grid RowDefinitions="Auto,*" SafeAreaEdges="None">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
-        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None" />
+        <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None">
+            <controls:PageHeader.Actions>
+                <controls:IconButton x:Name="ShowAllButton" Icon="{x:Static controls:Icons.Fit}" Kind="Plain"
+                                     IsEnabled="{Binding SomeHidden}" SemanticProperties.Description="Show all graph series" />
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <!-- As desktop's Graphs in cards (#158): the graph and range on top, the graph in the
-             app's colours, and our own legend beside or under it - a row per series, tap to turn it off
-             or on, press and hold for only that one. -->
+             app's colours, and our own legend beside or under it, with native series controls. -->
         <ScrollView x:Name="GraphScroll" Grid.Row="1" SafeAreaEdges="None">
             <VerticalStackLayout x:Name="ContentColumn" Padding="16,8,16,24" Spacing="12" SafeAreaEdges="None">
 
                 <Label Style="{StaticResource Caption}" Text="Show" />
-                <Picker Title="Show" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
+                <Picker Title="Show" SemanticProperties.Description="Show graph target" ItemsSource="{Binding Targets}" SelectedItem="{Binding SelectedTarget}"
                         ItemDisplayBinding="{Binding Label, x:DataType=sections:GraphTarget}" IsEnabled="{Binding IsNotBusy}" />
                 <Label Style="{StaticResource Caption}" Text="{Binding TargetsError}" IsVisible="{Binding HasTargetsError}" />
 
-                <Picker Title="Graph"
+                <Label Style="{StaticResource Caption}" Text="Graph" />
+                <Picker Title="Graph" SemanticProperties.Description="Graph"
                         ItemsSource="{Binding Graphs}"
                         SelectedItem="{Binding SelectedGraph}"
                         ItemDisplayBinding="{Binding Description, x:DataType=models:GraphType}" />
 
-                <FlexLayout Direction="Row" JustifyContent="SpaceBetween" BindableLayout.ItemsSource="{Binding RangeChips}">
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding RangeChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="sections:GraphRangeChip">
                             <Button Style="{StaticResource Chip}" Text="{Binding Label}" Padding="0" Margin="0,0,6,0"
-                                    FlexLayout.Grow="1" FlexLayout.Basis="0"
+                                    MinimumHeightRequest="44" MinimumWidthRequest="64"
+                                    SemanticProperties.Description="{Binding AccessibleName}"
                                     Command="{Binding SelectRangeCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceGraphsViewModel}}, x:DataType=sections:DeviceGraphsViewModel}"
                                     CommandParameter="{Binding Option}">
                                 <Button.Triggers>
@@ -65,24 +71,12 @@
                     <VerticalStackLayout x:Name="SeriesPanel" Grid.Row="1" Spacing="8" IsVisible="{Binding HasSeries}" SafeAreaEdges="None">
                         <Grid ColumnDefinitions="*,Auto" Padding="4,0">
                             <Label Style="{StaticResource SectionHeader}" Text="{Binding ShownCount, StringFormat='SERIES · {0}'}" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Show all" Command="{Binding ShowAllCommand}"
-                                    IsVisible="{Binding SomeHidden}" />
                         </Grid>
                         <Border Style="{StaticResource Card}" Padding="14,0">
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Series}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:GraphSeriesItem">
-                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12" MinimumHeightRequest="52"
-                                              controls:LongPress.Command="{Binding OnlyCommand}"
-                                              SemanticProperties.Hint="Turns this series off or on. Press and hold to show only this one.">
-                                            <Grid.GestureRecognizers>
-                                                <TapGestureRecognizer Command="{Binding ToggleCommand}" />
-                                            </Grid.GestureRecognizers>
-                                            <Grid.Triggers>
-                                                <DataTrigger TargetType="Grid" Binding="{Binding IsShown}" Value="False">
-                                                    <Setter Property="Opacity" Value="0.45" />
-                                                </DataTrigger>
-                                            </Grid.Triggers>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" MinimumHeightRequest="52">
                                             <Border WidthRequest="14" HeightRequest="14" StrokeThickness="2" StrokeShape="RoundRectangle 4"
                                                     Stroke="{Binding Colour, Converter={StaticResource HexColour}}" BackgroundColor="{Binding Colour, Converter={StaticResource HexColour}}" VerticalOptions="Center">
                                                 <Border.Triggers>
@@ -101,8 +95,13 @@
                                                 </Label>
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" />
                                             </VerticalStackLayout>
-                                            <Label Grid.Column="2" Text="{Binding Value}" FontFamily="Mono" FontSize="14" VerticalOptions="Center" />
-                                            <BoxView Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Divider}" />
+                                            <VerticalStackLayout Grid.Column="1" Grid.Row="1" Spacing="4">
+                                                <Label Text="{Binding Value}" FontFamily="Mono" FontSize="14" />
+                                                <Button Text="{Binding ToggleLabel}" SemanticProperties.Description="{Binding AccessibleName}" Command="{Binding ToggleCommand}" MinimumHeightRequest="44" />
+                                                <Button Text="Show only this series" SemanticProperties.Description="{Binding Name, StringFormat='Show only {0}'}"
+                                                        Command="{Binding OnlyCommand}" MinimumHeightRequest="44" />
+                                            </VerticalStackLayout>
+                                            <BoxView Grid.Row="2" Grid.ColumnSpan="3" Style="{StaticResource Divider}" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>

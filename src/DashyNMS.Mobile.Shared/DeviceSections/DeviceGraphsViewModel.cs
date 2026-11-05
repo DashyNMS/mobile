@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Graphs;
@@ -22,7 +23,10 @@ public sealed partial class GraphRangeChip(GraphRangeOption option) : Observable
     public string Label => Option.Label;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccessibleName))]
     private bool _isSelected;
+
+    public string AccessibleName => $"{Label}. {(IsSelected ? "Selected" : "Not selected")}";
 }
 
 /// <summary>
@@ -55,7 +59,12 @@ public sealed partial class GraphSeriesItem : ObservableObject
     private string _colour;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccessibleName), nameof(ToggleLabel))]
     private bool _isShown = true;
+
+    public string ToggleLabel => IsShown ? "Hide series" : "Show series";
+
+    public string AccessibleName => $"{Name}. {Detail} {Value}. {(IsShown ? "Shown" : "Hidden")}. Toggle series";
 
     [RelayCommand]
     private void Toggle() => _owner.Toggle(Name);
@@ -255,7 +264,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                         var ports = await _client.Ports.ListForDeviceAsync(deviceId);
                         targets.AddRange(ports.Where(p => !string.IsNullOrWhiteSpace(p.IfName))
                             .GroupBy(p => p.IfName, StringComparer.Ordinal).Select(g => g.First())
-                            .OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(p => p.DisplayName, NaturalOrder.Instance)
                             .Select(p => new GraphTarget(p.DisplayName, p.IfName)));
                         _targetsDeviceId = deviceId;
                     }
@@ -307,10 +316,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                     var wireless = WirelessGraphsAsync(DeviceId);
                     await Task.WhenAll(deviceWide, health, wireless);
                     _deviceGraphs = deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
-                        .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase).ToList();
+                        .OrderBy(g => g.Description, NaturalOrder.Instance).ToList();
                 }
-                Graphs.ReplaceAll(target.IfName is null ? _deviceGraphs! : PortGraphs);
-                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs.FirstOrDefault();
+                Graphs.ReplaceAll((target.IfName is null ? _deviceGraphs! : PortGraphs)
+                    .OrderBy(g => g.Description, NaturalOrder.Instance));
+                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == (graph ?? (target.IfName is null ? null : "port_bits"))) ?? Graphs.FirstOrDefault();
             });
         }
         finally { _loadingList = false; }
@@ -328,6 +338,9 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Recolours retained raw data without fetching a graph on activation.</summary>
+    public void RedrawTheme() => _ = RenderAsync(_loadVersion);
+
     /// <summary>
     /// Draws the chosen graph - fetched once per graph and range, then
     /// redrawn from that for the theme or a series turned off or on.
@@ -335,13 +348,13 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     [RelayCommand]
     public Task LoadGraphAsync()
     {
+        var version = ++_loadVersion;
         if (SelectedGraph is not { } graph || SelectedRange is not { } range)
         {
             GraphPage = null;
             return Task.CompletedTask;
         }
 
-        var version = ++_loadVersion;
         return RunAsync(async () =>
         {
             GraphPage = null;
@@ -461,7 +474,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             }
         }
 
-        Show(styled.Svg);
+        if (version == _loadVersion) Show(styled.Svg);
     }
 
     private void Show(string svg)

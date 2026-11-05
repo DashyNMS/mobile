@@ -25,6 +25,25 @@ public sealed class GraphTargetTests
     }
 
     [Fact]
+    public async Task All_device_sources_and_port_targets_use_human_reading_order()
+    {
+        _client.Graphs.ListAsync(7, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "g10", Description = "Reading 10" }]);
+        _client.Graphs.ListHealthAsync(7, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "g2", Description = "Reading 2" }]);
+        _client.Graphs.ListWirelessAsync(7, Arg.Any<CancellationToken>()).Returns([new GraphType { Name = "g1", Description = "Reading 1" }]);
+        _client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new Port { IfName = "Gi0/10" }, new Port { IfName = "Gi0/2" }]);
+        var vm = new DeviceGraphsViewModel(_client);
+        await vm.LoadAsync(7);
+        Assert.Equal(["g1", "g2", "g10"], vm.Graphs.Select(g => g.Name));
+        Assert.Equal([null, "Gi0/2", "Gi0/10"], vm.Targets.Select(t => t.IfName));
+        var before = vm.GraphPage;
+        vm.DarkTheme = true;
+        vm.RedrawTheme();
+        Assert.NotEqual(before, vm.GraphPage);
+        await _client.Graphs.Received(1).GetSvgAsync(7, "g1", GraphTimeRange.LastDay, 1000, 520, Arg.Any<CancellationToken>(), true);
+    }
+
+    [Fact]
     public async Task Switching_between_device_and_ports_retains_range_and_separates_cached_graphs()
     {
         var vm = new DeviceGraphsViewModel(_client);
