@@ -5,21 +5,18 @@ using DashyNMS.Mobile.ViewModels;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.Maintenance"/>, with the device id and name - or several devices (#85).</summary>
-public partial class MaintenancePage : ContentPage, IQueryAttributable
+public partial class MaintenancePage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly MaintenanceViewModel _viewModel;
+	private readonly SetupPageLayout _layout;
 
 	public MaintenancePage(MaintenanceViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-#if IOS
-		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
-		Header.BackInGlass = TabBarButtons.IsAvailable;
-		FormScroll.HandlerChanged += (_, _) => StopInsetAdjustment();
-		FormScroll.Loaded += (_, _) => StopInsetAdjustment();
-#endif
-		CoveredEdges.Watch(this, PlaceControls);
+		_layout = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.SizeChanged += (_, _) => PlaceControls();
+		Setup.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Padding)) PlaceControls(); };
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -38,55 +35,23 @@ public partial class MaintenancePage : ContentPage, IQueryAttributable
 		}
 	}
 
-	/// <summary>The app's own header, as every page (#142).</summary>
-	protected override void OnAppearing()
+	/// <summary>Reclaims shared placement and Back on retained-tab return and resume.</summary>
+	public void Activate() => _layout.Activate();
+
+	/// <summary>Reveals validation and server failures even after submitting from the first field.</summary>
+	private async void OnScheduleClicked(object? sender, EventArgs e)
 	{
-		base.OnAppearing();
-		Header.Apply(this);
-#if IOS
-		if (TabBarButtons.IsAvailable)
-		{
-			TabBarButtons.Show(this, null, string.Empty,
-			[
-				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
-			]);
-		}
-		TabBarButtons.Moved += OnTabBarButtonsMoved;
-#endif
-		PlaceControls();
+		if (_viewModel.SaveCommand.IsRunning) return;
+		await _viewModel.SaveCommand.ExecuteAsync(null);
+		if (_viewModel.ErrorMessage is not { Length: > 0 } error) return;
+		await FormScroll.ScrollToAsync(ValidationError, ScrollToPosition.Start, false);
+		SemanticScreenReader.Default.Announce(error);
 	}
 
-	protected override void OnDisappearing()
-	{
-		base.OnDisappearing();
-#if IOS
-		TabBarButtons.Moved -= OnTabBarButtonsMoved;
-		TabBarButtons.Hide(this);
-#endif
-	}
-
-#if IOS
-	private void StopInsetAdjustment()
-	{
-		if (FormScroll.Handler?.PlatformView is UIKit.UIScrollView scroll)
-		{
-			scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
-		}
-	}
-
-	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
-#endif
-
-	/// <summary>Form controls stay inside the clear edges; the action buttons scroll clear of the glass.</summary>
+	/// <summary>Retains the existing section breakpoint within the shared measured gutters.</summary>
 	private void PlaceControls()
 	{
-		if (Width <= 0) return;
-		var clear = CoveredEdges.ForScrolling(this);
-		var left = 16 + clear.Left;
-		var right = 16 + clear.Right;
-		Header.Margin = new Thickness(left, 0, right, 0);
-		ContentColumn.Padding = new Thickness(left, 20, right, 24 + clear.Bottom);
-		var wide = Width - left - right >= 800;
+		var wide = Setup.Width - Setup.Padding.HorizontalThickness >= 800;
 		var columns = wide ? 2 : 1;
 		if (FormCards.ColumnDefinitions.Count != columns)
 		{
