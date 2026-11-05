@@ -260,6 +260,25 @@ public sealed class GraylogViewModelTests
     };
 
     [Fact]
+    public async Task Auto_refresh_replaces_changed_same_id_fields_and_retains_unchanged_rows()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var first = vm.Messages[0];
+        var second = vm.Messages[1];
+
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(total: 2, "192.0.2.23", "10.9.9.9"));
+        await vm.AutoRefreshAsync();
+
+        Assert.Equal(first.Id, vm.Messages[0].Id);
+        Assert.NotSame(first, vm.Messages[0]);
+        Assert.Equal("192.0.2.23", vm.Messages[0].SourceText);
+        Assert.Equal("192.0.2.23", vm.Messages[0].Fields.Single(f => f.Key == "source").Value);
+        Assert.Same(second, vm.Messages[1]);
+    }
+
+    [Fact]
     public async Task Sources_match_devices_by_full_or_short_name_sysName_and_any_case()
     {
         _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(

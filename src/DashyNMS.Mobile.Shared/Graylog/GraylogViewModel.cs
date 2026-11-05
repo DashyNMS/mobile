@@ -25,7 +25,7 @@ namespace DashyNMS.Mobile.Graylog;
 /// </summary>
 /// <remarks>
 /// Pages are appended on "Load more" rather than numbered, as the other
-/// mobile lists do. Desktop's auto-update isn't here - pull to refresh.
+/// mobile lists do. Auto-refresh repeats the first page while visible.
 /// </remarks>
 public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDeviceChipList
 {
@@ -548,6 +548,17 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
             }
             else
             {
+                // Matching IDs can still carry corrected server fields. Keep
+                // unchanged instances, including pages beyond this response.
+                var current = items.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+                for (var i = 0; i < _loaded.Count; i++)
+                {
+                    if (current.TryGetValue(Key(_loaded[i]), out var updated)
+                        && !_loaded[i].Fields.SequenceEqual(updated.Fields))
+                    {
+                        _loaded[i] = updated;
+                    }
+                }
                 _loaded.InsertRange(0, items.Take(newer));
             }
 

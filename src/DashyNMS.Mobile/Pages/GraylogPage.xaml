@@ -149,7 +149,7 @@
         <!-- The rows share one card, as the other lists do (#69). -->
         <Border x:Name="ListCard" Grid.Row="5" SafeAreaEdges="None" Style="{StaticResource ListCard}" Margin="0,0,0,12" IsVisible="{Binding IsConfigured}">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
-                <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding Messages}" SelectionMode="None" x:Name="List">
+                <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Messages}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Spacing="8" Padding="20,32" IsVisible="{Binding IsEmpty}">
                             <Label Text="No messages" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
