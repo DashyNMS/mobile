@@ -607,17 +607,25 @@ alone does not establish viewport alignment. #462 owns this shared correction;
 #463 contents then #464 differences consume it sequentially and retain their
 own action, search, source and export contracts.
 
-Device-section consumers apply the same distinction between viewport base and
-content clearance. Measure the pill, glass and keyboard in the actual finite
-body host. Verify the sibling graph's bounds separately on-device. The list reaches the measured
-pill base and clears bottom obstruction in its footer. A wide graph without
-a content footer must clear the bar and glass in its viewport margin; a narrow
-graph reserves its actual layout row above the list. Keep a
-visible filter panel's measured height in the footer through its exit animation.
-Record host height H, pill bottom B, viewport bottom V and V−B separately from
-complete final-row reachability. A footer that clears the row does not prove
-that the viewport reaches the usable base. #469 owns this correction before
-sequential reassessment of #470–#479; source correction is not device acceptance.
+Device sections are cardless: each row is its own card, so the viewport's
+clip edge is the visible end of the content. Do not copy the card hosts' pill
+base there. The list viewport runs to the actual finite body host's base,
+beneath the pill and glass, as on the Dashboard, and stops short only for a
+docked keyboard. `SectionListPlacement` gives the footer the whole measured
+obstruction (side-pill gap, bottom bar and glass, or covered edges) plus 24pt,
+and a visible filter panel's measured height through its exit animation.
+Anchoring a cardless viewport at `H - pill.Bottom` clipped rows above the
+screen's base on both Duo displays (#469–#479). A wide graph without a content
+footer keeps the bar and glass clearance in its own margin; a narrow graph
+reserves its actual layout row above the list. Verify the graph's bounds
+separately on-device.
+
+Record host height H, pill bottom B and viewport bottom V per mode: a cardless
+viewport passes only with V = H (or the docked keyboard top), and the final row
+must still scroll fully above B and the glass. Check these separately; one does
+not prove the other. Card hosts (`PushedListLayout`, `TabAlignedListLayout`,
+Devices, Alerts, Health) keep their card base at the pill base. Source
+correction is not device acceptance.
 
 For device-neighbour graphs, distinguish a current-device readout from actionable
 neighbour nodes. A node selecting a list card must announce that selection intent
