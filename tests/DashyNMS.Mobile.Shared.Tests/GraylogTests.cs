@@ -428,6 +428,35 @@ public sealed class GraylogViewModelTests
     }
 
     [Fact]
+    public async Task Connection_reset_during_load_more_fetches_current_stream_metadata()
+    {
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(total: 120, "10.0.0.1", "10.0.0.2"));
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<IReadOnlyList<GraylogStream>>([new GraylogStream { Id = "synthetic", Title = "Old stream" }]),
+            Task.FromResult<IReadOnlyList<GraylogStream>>([new GraylogStream { Id = "synthetic", Title = "Current stream" }]));
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        await vm.StreamMetadataLoad;
+        Assert.True(vm.CanLoadMore);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.StreamMetadataLoad;
+
+        await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+        Assert.Contains("Current stream", vm.StreamChipText);
+        Assert.DoesNotContain("loading", vm.StreamChipText);
+    }
+
+    [Fact]
     public async Task Failed_new_filter_prevents_ticks_repeating_the_previous_query()
     {
         var vm = NewViewModel();

@@ -491,7 +491,8 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                     _devices = devices;
                 }
 
-                if (_streamGeneration != _setup.Generation)
+                var streamReset = _streamGeneration != _setup.Generation;
+                if (streamReset)
                 {
                     _streamGeneration = _setup.Generation;
                     _streamsLoaded = false;
@@ -504,7 +505,7 @@ public sealed partial class GraylogViewModel : ViewModelBase, IRefreshable, IDev
                     OnPropertyChanged(nameof(StreamLabels));
                     NotifyStreamScope();
                 }
-                if (!append && !_streamsLoaded && !StreamsLoading)
+                if ((!append || streamReset) && !_streamsLoaded && !StreamsLoading)
                 {
                     _streamsLoadingGeneration = _setup.Generation;
                     NotifyStreamScope();

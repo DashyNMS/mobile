@@ -159,3 +159,18 @@ or accepted deferral is claimed. Approved compact presentation, mandatory device
 permissions and #461, #405 and #517 ownership remain unchanged. Parent and
 protected #475 checkouts are untouched. No watch, merge, closure, epic tick or
 release is authorised here.
+
+### Final review at ff85f8c
+
+Independent full-diff Opus review found no medium or high findings. The remaining
+low stream-metadata reset during Load more is corrected: a connection reset
+starts its own fetch even on append, covered by a synthetic regression. This
+asserts the second metadata request and resolved current label, not native fit.
+Unit tests passed at the reviewed head; other CI was still running when reviewed.
+Final-head checks remain pending, and no local execution was performed.
+
+The reviewer also traced a pre-existing connection-change paging risk: retained
+rows and offsets can span old/new Graylog servers until a fresh reload. This is
+an open #483 finding, not an accepted deferral or a claim of connection-change
+compliance. It requires clearing prior-server query/rows before paging or ticks;
+user device acceptance remains outstanding for the complete scope.
