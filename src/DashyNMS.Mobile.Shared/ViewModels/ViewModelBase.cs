@@ -138,6 +138,26 @@ public abstract partial class ViewModelBase : ObservableObject
         }
     }
 
+    /// <summary>Reports a current retained-data redraw failure without resetting a load's busy state.</summary>
+    protected void ReportReadFailure(Exception exception)
+    {
+        Failed?.Invoke(this, exception);
+        _failure = exception;
+        ErrorMessage = Describe(exception);
+        OnPropertyChanged(nameof(FailureOutcome));
+        OnPropertyChanged(nameof(ReadFailureText));
+    }
+
+    /// <summary>Clears only the failure owned by a recovered retained-data operation.</summary>
+    protected void ClearReadFailure(Exception expected)
+    {
+        if (!ReferenceEquals(_failure, expected) || ErrorMessage != Describe(expected)) return;
+        _failure = null;
+        ErrorMessage = null;
+        OnPropertyChanged(nameof(FailureOutcome));
+        OnPropertyChanged(nameof(ReadFailureText));
+    }
+
     internal static string Describe(Exception ex) => ex switch
     {
         LibreNmsApiException api => api.Message,

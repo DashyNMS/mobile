@@ -13,8 +13,8 @@ establish only the evidence stated, not every configuration in the checklist.
 `GraphPickerPage` is the stepped setup reference. Headers are "Choose a device"
 and "Choose a graph". The selected Device section has Change device, then the
 optional card title is the first draft field. Device and device-wide graph
-choices use natural order. Ports retain interface order; their graph
-descriptions still use static order, a known gap against DESIGN.md. An empty
+choices use natural order. Ports retain interface order; graph descriptions in both source modes use
+natural order. DeviceGraphs keeps Traffic as the initial port graph. An empty
 graph source explains that the device has no graphs. Save and stored fields
 retain their existing draft contract.
 

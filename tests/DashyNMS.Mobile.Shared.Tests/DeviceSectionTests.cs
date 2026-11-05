@@ -1693,14 +1693,14 @@ public sealed class GraphTests
         await vm.LoadPortAsync(7, "Gi0/5", "GigabitEthernet0/5", "edge-rtr");
 
         Assert.Equal("GigabitEthernet0/5 · edge-rtr", vm.Title);
-        Assert.Equal(["port_bits", "port_upkts", "port_nupkts", "port_errors"], vm.Graphs.Select(g => g.Name));
+        Assert.Equal(["port_nupkts", "port_errors", "port_bits", "port_upkts"], vm.Graphs.Select(g => g.Name));
         Assert.Equal("port_bits", vm.SelectedGraph!.Name);
         Assert.NotNull(vm.GraphPage);
         await client.Graphs.Received(1).GetPortSvgAsync(7, "Gi0/5", "port_bits", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         await client.Graphs.DidNotReceiveWithAnyArgs().GetSvgAsync(default, default!, default, default, default, default);
         await client.Graphs.DidNotReceiveWithAnyArgs().ListAsync(default, default);
 
-        vm.SelectedGraph = vm.Graphs[3];
+        vm.SelectedGraph = vm.Graphs.Single(g => g.Name == "port_errors");
         await vm.LoadGraphAsync();
         await client.Graphs.Received(1).GetPortSvgAsync(7, "Gi0/5", "port_errors", GraphTimeRange.LastDay, Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }

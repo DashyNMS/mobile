@@ -6,9 +6,15 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.DeviceGraphs"/>, with the device id and name.</summary>
-public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
+public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly DeviceGraphsViewModel _viewModel;
+	private IDisposable? _edges;
+	private bool _active;
+	private Application? _themeOwner;
+#if IOS
+	private bool? _glassShowsAll;
+#endif
 
 	public DeviceGraphsPage(DeviceGraphsViewModel viewModel)
 	{
@@ -24,7 +30,8 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 		GraphScroll.HandlerChanged += (_, _) => StopInsetAdjustment();
 		GraphScroll.Loaded += (_, _) => StopInsetAdjustment();
 #endif
-		CoveredEdges.Watch(this, PlaceControls);
+		ShowAllButton.Command = _viewModel.ShowAllCommand;
+        UpdateShowAllFallback();
 
 		// The page is only ever our own graph page: never follow a link or
 		// redirect out of it, whatever the (untrusted) graph contains.
@@ -36,14 +43,6 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 			}
 		};
 
-		if (Application.Current is { } app)
-		{
-			app.RequestedThemeChanged += (_, e) =>
-			{
-				_viewModel.DarkTheme = e.RequestedTheme == AppTheme.Dark;
-				_ = _viewModel.LoadGraphAsync();
-			};
-		}
 	}
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -71,6 +70,13 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 
 	private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
 	{
+		if (e.PropertyName == nameof(DeviceGraphsViewModel.SomeHidden))
+		{
+            UpdateShowAllFallback();
+#if IOS
+			ShowGlass();
+#endif
+		}
 		if (e.PropertyName == nameof(DeviceGraphsViewModel.HasSeries))
 		{
 			Dispatcher.Dispatch(PlaceControls);
@@ -110,28 +116,81 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+	}
+
+	/// <summary>Restores controls on retained return without fetching or changing selection.</summary>
+	public void Activate()
+	{
+		_active = true;
 		Header.Apply(this);
-#if IOS
-		if (TabBarButtons.IsAvailable)
+		_edges ??= CoveredEdges.Watch(this, PlaceControls);
+		if (_themeOwner is null && Application.Current is { } app)
 		{
-			TabBarButtons.Show(this, null, string.Empty,
-			[
-				new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
-			]);
+			_themeOwner = app;
+			app.RequestedThemeChanged += OnThemeChanged;
 		}
+		UpdateTheme();
+#if IOS
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
+		ShowGlass(force: true);
+		StopInsetAdjustment();
 #endif
 		PlaceControls();
 	}
 
+	private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateTheme();
+
+    private void UpdateShowAllFallback()
+    {
+        var visible = _viewModel.SomeHidden;
+#if IOS
+        visible &= !TabBarButtons.IsAvailable;
+#endif
+        ShowAllButton.IsVisible = visible;
+    }
+
+	private void UpdateTheme()
+	{
+		var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+		if (_viewModel.DarkTheme == dark) return;
+		_viewModel.DarkTheme = dark;
+		_viewModel.RedrawTheme();
+	}
+
 	protected override void OnDisappearing()
 	{
+		_active = false;
+		_edges?.Dispose();
+		_edges = null;
+		if (_themeOwner is { } app) app.RequestedThemeChanged -= OnThemeChanged;
+		_themeOwner = null;
 		base.OnDisappearing();
 #if IOS
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Hide(this);
+		_glassShowsAll = null;
 #endif
 	}
+
+#if IOS
+	private void ShowGlass(bool force = false)
+	{
+		if (!_active || !TabBarButtons.IsAvailable) return;
+		var showAll = _viewModel.SomeHidden;
+		if (!force && _glassShowsAll == showAll) return;
+		_glassShowsAll = showAll;
+		List<GlassAction> actions =
+		[
+			new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+				() => { if (_active) _ = Shell.Current.GoToAsync(".."); }, IsBack: true),
+		];
+		if (showAll) actions.Add(new("eye", "Show all graph series",
+			() => { if (_active && _viewModel.ShowAllCommand.CanExecute(null)) _viewModel.ShowAllCommand.Execute(null); }));
+		TabBarButtons.Show(this, null, string.Empty, actions);
+	}
+#endif
 
 #if IOS
 	private void StopInsetAdjustment()
@@ -148,7 +207,7 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable
 	/// <summary>Uses the whole usable width, with series beside the graph when both have room.</summary>
 	private void PlaceControls()
 	{
-		if (Width <= 0) return;
+		if (!_active || Shell.Current?.CurrentPage != this || Width <= 0) return;
 		var clear = CoveredEdges.ForScrolling(this);
 		var left = 16 + clear.Left;
 		var right = 16 + clear.Right;

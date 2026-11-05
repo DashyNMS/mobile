@@ -96,17 +96,32 @@ public static class LongPress
         {
             Name = Tag,
             MinimumPressDuration = 0.45,
+            CancelsTouchesInView = true,
         };
         platform.UserInteractionEnabled = true;
         platform.AddGestureRecognizer(recogniser);
     }
 #elif ANDROID
-    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Android.Views.View, Android.Views.GestureDetector> Detectors = new();
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Android.Views.View, object> Detectors = new();
 
     private static void Attach(View view)
     {
         if (view.Handler?.PlatformView is not Android.Views.View platform || Detectors.TryGetValue(platform, out _))
         {
+            return;
+        }
+
+        // Native buttons must consume a hold so release cannot also invoke Click.
+        // Existing Alerts/Devices row detectors keep their gesture handling below.
+        if (view is Button)
+        {
+            platform.LongClickable = true;
+            platform.LongClick += (_, e) =>
+            {
+                Fire(view);
+                e.Handled = true;
+            };
+            Detectors.Add(platform, new object());
             return;
         }
 

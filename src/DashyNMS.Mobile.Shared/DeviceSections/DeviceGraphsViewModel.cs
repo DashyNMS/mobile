@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.ViewModels;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Graphs;
@@ -22,7 +23,10 @@ public sealed partial class GraphRangeChip(GraphRangeOption option) : Observable
     public string Label => Option.Label;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccessibleName))]
     private bool _isSelected;
+
+    public string AccessibleName => $"{Label}. {(IsSelected ? "Selected" : "Not selected")}";
 }
 
 /// <summary>
@@ -55,7 +59,14 @@ public sealed partial class GraphSeriesItem : ObservableObject
     private string _colour;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccessibleName), nameof(ToggleLabel), nameof(StateDescription))]
     private bool _isShown = true;
+
+    public string ToggleLabel => IsShown ? "Shown" : "Hidden";
+    public string StateDescription => string.Join(" · ", new[] { Detail, ToggleLabel }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    public string AccessibleName => string.Join(". ", new[] { $"{(IsShown ? "Hide" : "Show")} {Name}", Detail, Value,
+        $"Currently {(IsShown ? "shown" : "hidden")}" }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
     [RelayCommand]
     private void Toggle() => _owner.Toggle(Name);
@@ -113,6 +124,9 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         if (!_loadingList && value is not null) _ = SelectTargetAsync(value);
     }
     private int _loadVersion;
+    private int _renderVersion;
+    private Exception? _redrawFailure;
+    private readonly Dictionary<(string Key, GraphTimeRange Range), Task<string>> _sensorRequests = new();
     private string? _raw;
     private IReadOnlyList<GraphLegendEntry>? _entries;
     private HashSet<string> _hidden = new(StringComparer.Ordinal);
@@ -255,7 +269,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                         var ports = await _client.Ports.ListForDeviceAsync(deviceId);
                         targets.AddRange(ports.Where(p => !string.IsNullOrWhiteSpace(p.IfName))
                             .GroupBy(p => p.IfName, StringComparer.Ordinal).Select(g => g.First())
-                            .OrderBy(p => p.DisplayName, StringComparer.OrdinalIgnoreCase)
+                            .OrderBy(p => p.DisplayName, NaturalOrder.Instance)
                             .Select(p => new GraphTarget(p.DisplayName, p.IfName)));
                         _targetsDeviceId = deviceId;
                     }
@@ -307,10 +321,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                     var wireless = WirelessGraphsAsync(DeviceId);
                     await Task.WhenAll(deviceWide, health, wireless);
                     _deviceGraphs = deviceWide.Result.Concat(health.Result).Concat(wireless.Result)
-                        .OrderBy(g => g.Description, StringComparer.OrdinalIgnoreCase).ToList();
+                        .OrderBy(g => g.Description, NaturalOrder.Instance).ToList();
                 }
-                Graphs.ReplaceAll(target.IfName is null ? _deviceGraphs! : PortGraphs);
-                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == graph) ?? Graphs.FirstOrDefault();
+                Graphs.ReplaceAll((target.IfName is null ? _deviceGraphs! : PortGraphs)
+                    .OrderBy(g => g.Description, NaturalOrder.Instance));
+                SelectedGraph = Graphs.FirstOrDefault(g => g.Name == (graph ?? (target.IfName is null ? null : "port_bits"))) ?? Graphs.FirstOrDefault();
             });
         }
         finally { _loadingList = false; }
@@ -328,6 +343,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>Recolours retained raw data without fetching a graph on activation.</summary>
+    public void RedrawTheme() => _ = RedrawThemeAsync();
+
+    internal Task RedrawThemeAsync() => RenderAsync(_loadVersion, fetchSensor: false);
+
     /// <summary>
     /// Draws the chosen graph - fetched once per graph and range, then
     /// redrawn from that for the theme or a series turned off or on.
@@ -335,45 +355,59 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     [RelayCommand]
     public Task LoadGraphAsync()
     {
+        var version = ++_loadVersion;
+        _redrawFailure = null;
+        ++_renderVersion;
+        _raw = null;
+        _entries = null;
+        _hidden.Clear();
+        Series.ReplaceAll([]);
+        RaiseSeriesChanged();
         if (SelectedGraph is not { } graph || SelectedRange is not { } range)
         {
             GraphPage = null;
             return Task.CompletedTask;
         }
 
-        var version = ++_loadVersion;
         return RunAsync(async () =>
         {
-            GraphPage = null;
-            _raw = null;
-            Series.ReplaceAll([]);
-            var raw = await RawAsync(graph, range.Range);
-            var legendColours = GraphSvgStyle.Restyle(raw, Palette).LegendColours;
-            var entries = await NameSeriesAsync(graph, legendColours);
-
-            // Only if it's still the one wanted - a quick second tap may have moved on.
-            if (version != _loadVersion)
+            try
             {
-                return;
+                GraphPage = null;
+                _raw = null;
+                Series.ReplaceAll([]);
+                var raw = await RawAsync(graph, range.Range);
+                var legendColours = GraphSvgStyle.Restyle(raw, Palette).LegendColours;
+                var entries = await NameSeriesAsync(graph, legendColours);
+
+                // Only if it's still the one wanted - a quick second tap may have moved on.
+                if (version != _loadVersion)
+                {
+                    return;
+                }
+
+                _raw = raw;
+                _entries = entries;
+                var remembered = entries is null ? [] : HiddenSetting(graph).Where(n => entries.Any(e => e.Name == n));
+                _hidden = new HashSet<string>(remembered, StringComparer.Ordinal);
+
+                // Never every series hidden: a remembered set that would empty the graph shows them all.
+                if (entries is not null && entries.All(e => _hidden.Contains(e.Name)))
+                {
+                    _hidden.Clear();
+                }
+
+                await RenderAsync(version, reportFailure: false);
             }
-
-            _raw = raw;
-            _entries = entries;
-            var remembered = entries is null ? [] : HiddenSetting(graph).Where(n => entries.Any(e => e.Name == n));
-            _hidden = new HashSet<string>(remembered, StringComparer.Ordinal);
-
-            // Never every series hidden: a remembered set that would empty the graph shows them all.
-            if (entries is not null && entries.All(e => _hidden.Contains(e.Name)))
+            catch (Exception) when (version != _loadVersion)
             {
-                _hidden.Clear();
+                // An older request cannot publish an error over the new selection.
             }
-
-            await RenderAsync(version);
         });
     }
 
-    [RelayCommand]
-    private void ShowAll() => SetHidden([]);
+    [RelayCommand(CanExecute = nameof(SomeHidden))]
+    private void ShowAll() { if (SomeHidden) SetHidden([]); }
 
     internal void Toggle(string name)
     {
@@ -395,7 +429,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         var next = new HashSet<string>(hidden, StringComparer.Ordinal);
 
         // Turning the last one off too would leave an empty graph - not something to ask for.
-        if (_entries is null || _entries.All(e => next.Contains(e.Name)))
+        if (Series.Count == 0 || _entries is null || _entries.All(e => next.Contains(e.Name)))
         {
             return;
         }
@@ -419,7 +453,38 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         _ = RenderAsync(_loadVersion);
     }
 
-    private async Task RenderAsync(int version)
+    private async Task RenderAsync(int version, bool fetchSensor = true, bool reportFailure = true)
+    {
+        var render = ++_renderVersion;
+        bool Current() => version == _loadVersion && render == _renderVersion;
+        try
+        {
+            await RenderCoreAsync(Current, fetchSensor);
+            if (reportFailure && Current() && _redrawFailure is { } recovered)
+            {
+                ClearReadFailure(recovered);
+                _redrawFailure = null;
+            }
+        }
+        catch (Exception) when (!reportFailure && !Current())
+        {
+            // A newer redraw owns publication and diagnostics for this selection.
+        }
+        catch (OperationCanceledException) when (reportFailure)
+        {
+            // A cancelled optional redraw retains the current graph.
+        }
+        catch (Exception ex) when (reportFailure)
+        {
+            if (Current())
+            {
+                _redrawFailure = ex;
+                ReportReadFailure(ex);
+            }
+        }
+    }
+
+    private async Task RenderCoreAsync(Func<bool> current, bool fetchSensor)
     {
         if (_raw is not { } raw)
         {
@@ -446,8 +511,15 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             try
             {
                 var colour = styled.SeriesColours[entries.ToList().IndexOf(only)];
+                var key = ($"{DeviceId}:" + graph.Name + "/" + sensorId.ToString(CultureInfo.InvariantCulture), range.Range);
+                if (!fetchSensor && !_cache.ContainsKey(key) && !_sensorRequests.ContainsKey(key))
+                {
+                    if (current()) Show(styled.Svg);
+                    return;
+                }
+
                 var single = await SensorRawAsync(graph.Name, sensorId, range.Range);
-                if (version != _loadVersion || !_hidden.SetEquals(entries.Where(e => e != only).Select(e => e.Name)))
+                if (!current() || !_hidden.SetEquals(entries.Where(e => e != only).Select(e => e.Name)))
                 {
                     return;
                 }
@@ -459,9 +531,16 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             {
                 // Keep the shared scale.
             }
+            catch (Exception)
+            {
+                // Keep the current visibility/theme consistent with the legend
+                // even when the optional single-sensor request fails.
+                if (current()) Show(styled.Svg);
+                throw;
+            }
         }
 
-        Show(styled.Svg);
+        if (current()) Show(styled.Svg);
     }
 
     private void Show(string svg)
@@ -496,6 +575,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSeries));
         OnPropertyChanged(nameof(ShownCount));
         OnPropertyChanged(nameof(SomeHidden));
+        ShowAllCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>The graph with LibreNMS's legend - fetched once per graph and range.</summary>
@@ -517,14 +597,27 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     private async Task<string> SensorRawAsync(string graphName, int sensorId, GraphTimeRange range)
     {
         var key = ($"{DeviceId}:" + graphName + "/" + sensorId.ToString(CultureInfo.InvariantCulture), range);
-        if (!_cache.TryGetValue(key, out var raw))
+        if (_cache.TryGetValue(key, out var cached)) return cached;
+        if (_sensorRequests.TryGetValue(key, out var pending))
         {
-            raw = await _client.Graphs.GetSensorSvgAsync(DeviceId, graphName, sensorId, range, GraphWidth, GraphHeight, legend: false);
-            GraphImages.ThrowIfDenied(raw);
-            _cache[key] = raw;
+            var shared = await pending;
+            GraphImages.ThrowIfDenied(shared);
+            return shared;
         }
 
-        return raw;
+        var request = _client.Graphs.GetSensorSvgAsync(DeviceId, graphName, sensorId, range, GraphWidth, GraphHeight, legend: false);
+        _sensorRequests[key] = request;
+        try
+        {
+            var raw = await request;
+            GraphImages.ThrowIfDenied(raw);
+            _cache[key] = raw;
+            return raw;
+        }
+        finally
+        {
+            _sensorRequests.Remove(key);
+        }
     }
 
     /// <summary>

@@ -87,7 +87,7 @@ public sealed class PortGraphCardTests
         vm.SelectedGraph = vm.Graphs[0];
         vm.SelectedSource = vm.Sources[1];
 
-        Assert.Equal(["Traffic", "Unicast packets", "Broadcast and multicast packets", "Errors"], vm.Graphs.Select(g => g.Description));
+        Assert.Equal(["Broadcast and multicast packets", "Errors", "Traffic", "Unicast packets"], vm.Graphs.Select(g => g.Description));
         Assert.Null(vm.SelectedGraph); // device_bits isn't a port graph
     }
 

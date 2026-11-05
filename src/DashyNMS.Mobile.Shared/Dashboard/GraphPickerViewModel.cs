@@ -128,7 +128,8 @@ public sealed partial class GraphPickerViewModel : ViewModelBase
         }
 
         var wanted = SelectedGraph?.Name;
-        Graphs.ReplaceAll(value.IsPort ? DeviceSections.DeviceGraphsViewModel.PortGraphs : _deviceGraphs);
+        Graphs.ReplaceAll((value.IsPort ? DeviceSections.DeviceGraphsViewModel.PortGraphs : _deviceGraphs)
+            .OrderBy(g => g.Description, NaturalOrder.Instance));
         SelectedGraph = Graphs.FirstOrDefault(g => g.Name == wanted);
     }
 

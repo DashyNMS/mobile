@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.DeviceSections;
+using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
@@ -51,6 +52,67 @@ public sealed class GraphLegendTests
         return vm;
     }
 
+    [Theory]
+    [InlineData(null, null, null, null, "–", "–")]
+    [InlineData(125d, null, null, null, "1 kb/s (incomplete)", "–")]
+    [InlineData(0d, 0d, 0d, 0d, "0 b/s", "0 b/s")]
+    [InlineData(125d, 250d, 125d, 0d, "2 kb/s", "2 kb/s")]
+    public async Task Device_traffic_legend_preserves_availability_and_bit_units(
+        double? firstIn, double? firstOut, double? secondIn, double? secondOut,
+        string expectedIn, string expectedOut)
+    {
+        _client.Graphs.ListAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new GraphType { Name = "device_bits", Description = "Traffic" }]);
+        _client.Ports.ListForDeviceAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new Port { IfName = "eth0", IfInOctetsRate = firstIn, IfOutOctetsRate = firstOut },
+            new Port { IfName = "eth1", IfInOctetsRate = secondIn, IfOutOctetsRate = secondOut },
+        ]);
+
+        var vm = await OpenAsync("device_bits");
+
+        // Two SVG colour squares must map to both API entries, even without readings.
+        Assert.Equal(["In", "Out"], vm.Series.Select(s => s.Name));
+        Assert.Equal([expectedIn, expectedOut], vm.Series.Select(s => s.Value));
+        Assert.Equal("2 of 2 shown", vm.ShownCount);
+        Assert.NotNull(vm.GraphPage);
+        Assert.False(vm.HasError);
+        Assert.All(vm.Series, s => Assert.Contains(s.Value!, s.AccessibleName));
+        Assert.True(vm.GraphAspect < 433.0 / 1137);
+    }
+
+    [Theory]
+    [InlineData(null, "–")]
+    [InlineData(double.NaN, "–")]
+    [InlineData(double.PositiveInfinity, "–")]
+    [InlineData(double.NegativeInfinity, "–")]
+    [InlineData(-1d, "–")]
+    [InlineData(101d, "–")]
+    [InlineData(0d, "0%")]
+    [InlineData(42d, "42%")]
+    [InlineData(100d, "100%")]
+    public async Task Processor_legend_preserves_unavailable_and_valid_percentages(double? reading, string expected)
+    {
+        _client.Graphs.ListHealthAsync(7, Arg.Any<CancellationToken>()).Returns(
+            [new GraphType { Name = "device_processor", Description = "Processors" }]);
+        // Deliberately reverse API order: Core's processor identity order maps the SVG.
+        _client.Health.ListProcessorsAsync(7, Arg.Any<CancellationToken>()).Returns(
+        [
+            new ProcessorSensor { ProcessorId = 20, Description = "CPU 20", UsagePercent = 25 },
+            new ProcessorSensor { ProcessorId = 10, Description = "CPU 10", UsagePercent = reading },
+        ]);
+
+        var vm = await OpenAsync("device_processor");
+
+        Assert.Equal(["CPU 10", "CPU 20"], vm.Series.Select(s => s.Name));
+        Assert.Equal([expected, "25%"], vm.Series.Select(s => s.Value));
+        Assert.Equal("2 of 2 shown", vm.ShownCount);
+        Assert.NotNull(vm.GraphPage);
+        Assert.False(vm.HasError);
+        Assert.Contains(expected, vm.Series[0].AccessibleName);
+        Assert.True(vm.GraphAspect < 433.0 / 1137);
+    }
+
     [Fact]
     public async Task Mismatched_sensor_entries_keep_the_server_legend()
     {
@@ -75,6 +137,7 @@ public sealed class GraphLegendTests
         Assert.All(vm.Series, s => Assert.StartsWith("#", s.Colour));
         Assert.Equal("2 of 2 shown", vm.ShownCount);
         Assert.False(vm.SomeHidden);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
         Assert.True(vm.GraphAspect < 433.0 / 1137); // legend cropped off
         await _client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", GraphTimeRange.LastDay, 1000, 520, Arg.Any<CancellationToken>(), true);
     }
@@ -90,6 +153,7 @@ public sealed class GraphLegendTests
         Assert.False(vm.Series[0].IsShown);
         Assert.Equal("1 of 2 shown", vm.ShownCount);
         Assert.True(vm.SomeHidden);
+        Assert.True(vm.ShowAllCommand.CanExecute(null));
         Assert.Equal(["Inlet"], _appSettings.GraphHiddenSeries["7:device_temperature"]); // desktop's key, so it's shared
         await _client.Graphs.Received(1).GetSvgAsync(7, "device_temperature", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), true);
         await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
@@ -105,6 +169,7 @@ public sealed class GraphLegendTests
         Assert.True(vm.Series[1].IsShown);
 
         vm.ShowAllCommand.Execute(null);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
         Assert.All(vm.Series, s => Assert.True(s.IsShown));
         Assert.False(_appSettings.GraphHiddenSeries.ContainsKey("7:device_temperature"));
     }
@@ -137,6 +202,97 @@ public sealed class GraphLegendTests
         Assert.False(vm.HasSeries);
         Assert.Empty(vm.Series);
         Assert.Equal(433.0 / 1137, vm.GraphAspect, 3); // uncropped
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Redraw_failure_is_observed_and_stale_failure_cannot_replace_current_state(bool superseded)
+    {
+        var vm = await OpenAsync();
+        var pending = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Graphs.GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false)
+            .Returns(pending.Task);
+        vm.Series[0].ToggleCommand.Execute(null);
+        var redraw = vm.RedrawThemeAsync(); // shares the pending sensor request
+        if (superseded)
+        {
+            await vm.LoadAsync(7, "example", "device_mystery");
+            vm.ErrorMessage = "Current selection error";
+        }
+
+        var page = vm.GraphPage;
+        pending.SetException(new HttpRequestException("Synthetic redraw failure"));
+        await redraw;
+
+        Assert.False(vm.IsBusy);
+        if (superseded) Assert.Equal(page, vm.GraphPage);
+        else Assert.NotEqual(page, vm.GraphPage); // current hidden state gets the shared-scale fallback
+        Assert.Equal(superseded ? "Current selection error" : "Couldn't reach the LibreNMS server. Check your connection and try again.", vm.ErrorMessage);
+        await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+        if (!superseded)
+        {
+            vm.ShowAllCommand.Execute(null);
+            Assert.False(vm.HasError);
+            Assert.Null(vm.FailureOutcome);
+            Assert.Null(vm.ReadFailureText);
+        }
+    }
+
+    [Fact]
+    public async Task Loading_or_failed_graph_cannot_restore_series_for_the_previous_graph()
+    {
+        var vm = await OpenAsync();
+        vm.Series[0].ToggleCommand.Execute(null);
+        Assert.True(vm.ShowAllCommand.CanExecute(null));
+        _appSettings.GraphHiddenSeries["7:device_mystery"] = ["Keep saved"];
+        var pending = new TaskCompletionSource<string>();
+        _client.Graphs.GetSvgAsync(7, "device_mystery", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), true).Returns(pending.Task);
+        var load = vm.LoadAsync(7, "example", "device_mystery");
+        Assert.Empty(vm.Series);
+        Assert.False(vm.HasSeries);
+        Assert.False(vm.SomeHidden);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
+        vm.ShowAllCommand.Execute(null); // direct command execution must also guard stale taps
+        Assert.Equal(["Keep saved"], _appSettings.GraphHiddenSeries["7:device_mystery"]);
+        pending.SetException(new HttpRequestException("Synthetic graph failure"));
+        await load;
+        Assert.False(vm.SomeHidden);
+        Assert.False(vm.HasSeries);
+        Assert.Equal(["Keep saved"], _appSettings.GraphHiddenSeries["7:device_mystery"]);
+    }
+
+    [Fact]
+    public async Task Show_all_supersedes_a_first_load_sensor_failure_without_stale_error()
+    {
+        _appSettings.GraphHiddenSeries["7:device_temperature"] = ["Inlet"];
+        var pending = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _client.Graphs.GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false)
+            .Returns(pending.Task);
+        var vm = new DeviceGraphsViewModel(_client, _settings);
+        var failures = 0;
+        EventHandler<Exception> onFailed = (sender, _) =>
+        {
+            if (ReferenceEquals(sender, vm)) Interlocked.Increment(ref failures);
+        };
+        ViewModelBase.Failed += onFailed;
+        try
+        {
+            var load = vm.LoadAsync(7, "example", "device_temperature");
+            Assert.True(vm.SomeHidden);
+            vm.ShowAllCommand.Execute(null);
+            var current = vm.GraphPage;
+            Assert.NotNull(current);
+            pending.SetException(new HttpRequestException("Superseded sensor failure"));
+            await load;
+            Assert.Equal(current, vm.GraphPage);
+            Assert.False(vm.HasError);
+            Assert.Equal(0, failures);
+        }
+        finally
+        {
+            ViewModelBase.Failed -= onFailed;
+        }
     }
 
     [Fact]
