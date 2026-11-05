@@ -29,7 +29,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is GraylogMessageView detail) detail.PlaceContent(clear);
-		});
+		}, PlaceGutters);
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
 		SearchButton.Command = new Command(OpenSearch);
@@ -121,17 +121,23 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		_search.Open();
 	}
 
-	/// <summary>Constrain native choices to the measured strip so long labels wrap.</summary>
-	private void OnFilterStripSizeChanged(object? sender, EventArgs e)
+	/// <summary>
+	/// As Logs (#516): the filter strip's clip stays full width so choices can
+	/// scroll beneath the camera, while each resting slot and the strip's
+	/// content take the measured safe gutters.
+	/// </summary>
+	private void PlaceGutters(Thickness gutters)
 	{
-		var width = FilterStrip.Width;
-		if (!double.IsFinite(width) || width <= 0) return;
-		foreach (var child in FilterStrip.Children.OfType<View>())
-		{
-			var available = width - child.Margin.HorizontalThickness;
-			if (double.IsFinite(available) && available > 0 && child.MaximumWidthRequest != available)
-				child.MaximumWidthRequest = available;
-		}
+		var left = gutters.Left;
+		var right = gutters.Right;
+		Header.Margin = new Thickness(left, 0, right, 0);
+		SearchField.Margin = new Thickness(left, 4, right, 8);
+		FilterStrip.Padding = new Thickness(left, 0, right, 0);
+		Summary.Margin = new Thickness(left + 4, 6, right, 4);
+		ErrorCard.Margin = new Thickness(left, 0, right, 8);
+		SetupCard.Margin = new Thickness(left, 6, right, 0);
+		Busy.Margin = new Thickness(left, 0, right, 0);
+		ListCard.Margin = new Thickness(left, 0, right, ListCard.Margin.Bottom);
 	}
 
 	private void CloseSearch() => _search.Close();
