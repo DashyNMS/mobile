@@ -13,10 +13,10 @@ preserved. Epic ticks, closure alone, merged source and CI do not prove acceptan
 Explicit acceptance below means a live comment records the user's decision; its
 scope is only the reported result (not a fresh exhaustive hardware pass).
 
-Live totals: 24 closed and 16 open. Nineteen children have explicit acceptance
+Live totals: 25 closed and 15 open. Twenty children have explicit acceptance
 comments, including build 231 acceptance for #454, #458 and #462 in addition
 to the initial eleven, and 5 November acceptance with no notes for #463, #464,
-#482, #484 and #516 (updated with the Graylog structure PR). Five closed children (#443, #446, #450, #452, #453)
+#482, #484 and #516, plus explicit #461 detail acceptance (updated with this PR). Five closed children (#443, #446, #450, #452, #453)
 have no explicit acceptance in the fetched comments; preserve their closures.
 
 ## Complete child ledger
@@ -47,7 +47,7 @@ acceptance, including older negative feedback; it does not request reopening.
 | [#458](https://github.com/DashyNMS/mobile/issues/458) CLOSED | [458-whats-new](458-whats-new.md) | [#525](https://github.com/DashyNMS/mobile/pull/525) `63466c80fdab8a1300d61ce4d6f7d52ead85bcf3` | single heading/fixed Got it | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/458#issuecomment-6629907781) |
 | [#459](https://github.com/DashyNMS/mobile/issues/459) CLOSED | [459-licences](459-licences.md) | [#501](https://github.com/DashyNMS/mobile/pull/501) `a52994ca0af20ac7b0764d02d08c477347242dee` | licence reading | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/459#issuecomment-6618921043) |
 | [#460](https://github.com/DashyNMS/mobile/issues/460) CLOSED | [460-log-entry-details](460-log-entry-details.md) | [#502](https://github.com/DashyNMS/mobile/pull/502) `c25b71cf34fad3286ddebb6e93fa2a4b5e712865` | complete entry facts | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/460#issuecomment-6618968741) |
-| [#461](https://github.com/DashyNMS/mobile/issues/461) OPEN | [461-graylog-message-details](461-graylog-message-details.md) | [#526](https://github.com/DashyNMS/mobile/pull/526) `e67448928e7aaa37d0b81b474ebc6c24f5c26a3d` | pane clearance/actions; post-#526 build 231 layering report unresolved | **U**; [latest negative feedback](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6629909350), no explicit device acceptance |
+| [#461](https://github.com/DashyNMS/mobile/issues/461) CLOSED | [461-graylog-message-details](461-graylog-message-details.md) | [#526](https://github.com/DashyNMS/mobile/pull/526) `e67448928e7aaa37d0b81b474ebc6c24f5c26a3d` | accepted details; list layering owned by #483/#517 | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6665115476) |
 | [#462](https://github.com/DashyNMS/mobile/issues/462) CLOSED | [462-backup-history](462-backup-history.md) | [#527](https://github.com/DashyNMS/mobile/pull/527) `0c55d06496a70f55bc887bb35fbd5e1f35eb808c` | history/comparison glass/base | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/462#issuecomment-6629908503) |
 | [#463](https://github.com/DashyNMS/mobile/issues/463) CLOSED | [463-backup-contents](463-backup-contents.md) | [#528](https://github.com/DashyNMS/mobile/pull/528) `d78b33592812076cb8e8f6678a6acaff57776727` | contents Search/Share | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/463#issuecomment-6664900181), no notes |
 | [#464](https://github.com/DashyNMS/mobile/issues/464) CLOSED | [464-backup-diff](464-backup-diff.md) | [#529](https://github.com/DashyNMS/mobile/pull/529) `f7c71306b40fd33f6ad86e68bfb8c2e1d161967e` | diff Share/base | [Explicit user acceptance](https://github.com/DashyNMS/mobile/issues/464#issuecomment-6664901483), no notes |
@@ -123,12 +123,11 @@ native correctness. Later publication run 57 does not change the pinned ci.56.
   while OK, and Availability 99.86 as 99.9% while Warning or 98.96 as 99% while
   Critical. Core tiny-positive rounding is also preserved. Record raw value,
   text and status; no wider rounding redesign or accepted deferral is inferred.
-- **Native hypotheses, not invented source blockers:** #461's reported
-  three-quarter-width/short base has no proven root cause despite #526's source
-  corrections. Separately, [the user's build 231 report after #526](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6629909350)
-  says the pills still have a layering issue. The affected surface and ownership
-  versus #517 are unknown. The superseding Graylog strip may address it;
-  retest on an installed build rather than assuming so.
+- **Accepted detail / remaining list checks:** #461's details were explicitly
+  accepted and closed on 5 November ([decision](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6665115476)).
+  The older width/base symptoms are not outstanding acceptance work. Retest the
+  historical build 231 pill-layering report under the #483/#517 list correction;
+  do not infer native success from the source change.
   Graylog long fixed errors may reduce the viewport; floating
   keyboard geometry, recycling/semantic focus and graph payload/SVG identity
   beyond count matching remain U where their assessments say so.
@@ -156,12 +155,9 @@ Historical explicit approvals and closed states above remain preserved.
    reach clear of glass; footer reach does not prove viewport-base alignment.
    Prioritise #469–#479 shared geometry and #483/#517 Graylog horizontal
    strip camera travel; #463/#464 backups and #516 Logs are accepted.
-2. **Graylog #461:** measure pushed and embedded detail width, pane/host bounds,
-   viewport/base and content clearance on every entry, including Dashboard direct
-   messages and narrow/wide changes. Reproduce the 3/4-width/short-base symptom
-   before attributing a cause. Also reproduce the post-#526 build 231 pill-layering
-   report, identifying the surface and ownership versus #517; do not attribute it
-   to #517 without evidence. Retest it against the new Graylog strip.
+2. **Graylog #483/#517:** retest the horizontal strip and historical build 231
+   pill-layering report on an installed build. Detail #461 is accepted and closed;
+   preserve that implementation while checking list-to-detail return paths.
 3. **Ports #472 and all eleven section modes:** measured filter panel/wheel
    height through open/close animation, maximum text, VO/TB focus and activation,
    recycled cards, search/sort/grouping, graph entry and complete final facts.

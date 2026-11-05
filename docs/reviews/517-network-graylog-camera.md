@@ -200,3 +200,9 @@ and device for each; no local build, test or device run was available.
 
 Code review, CI (shared tests, Android, iOS) and this device matrix are recorded
 separately. Refs #483, #517 and #442 remain non-closing until the user accepts.
+
+
+Latest acceptance reconciliation: #461 details were explicitly accepted and closed
+on 5 November ([user decision](https://github.com/DashyNMS/mobile/issues/461#issuecomment-6665115476)).
+Earlier statements that #461 remains open are historical and superseded. List
+structure and pill-layering checks remain with #483/#517; details are unchanged.
