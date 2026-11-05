@@ -673,3 +673,19 @@ Reserve the 20pt surface-matched fade in content. Dashboard previews, #461 detai
 #405 setup and #517 camera ownership remain separate. Proposal approval is not
 native acceptance; small viewport and maximum-text evidence remains U in the
 [#483 assessment](reviews/483-device-graylog.md).
+
+### Log filter camera layering
+
+A horizontal filter strip needs a full-width outer native clip and internal
+resting gutters. Padding its ancestor column narrows that clip, so scrolled
+choices stop before the camera. Distribute measured side gutters to the fixed
+header, switch, search, summary, error and list slots, and to the filter
+ScrollView's Padding. Bound wrapping choice width to the guttered list card,
+so a long choice fits when scrolled into view. Preserve the finite list viewport
+and its separate pill-base margin and content footer. `TabAlignedListLayout`
+allows a page-owned gutter callback for this pattern; its default column-padding
+mode remains for consumers awaiting their own camera assessment. #516 owns Logs
+in both scopes; #517 must audit Graylog's distinct scrolling-header placement
+before opting in. Source correction and native acceptance are separate; record
+actual clip/choice/camera frames and H/B/V in the
+[#516 assessment](reviews/516-network-log-camera.md).
