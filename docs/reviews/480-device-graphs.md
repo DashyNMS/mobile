@@ -125,3 +125,9 @@ Every item below is separately UNVERIFIED, regardless of CI result:
 #481 must repeat its full original traffic/packets/errors mode assessment after
 integration, including changed natural ordering, controls, lifetime and glass.
 No issue closure, epic tick, merge, watch or release is performed by this child.
+
+CI at f9f9135 passed 1,385 tests and found one stale GraphPicker expectation
+for the old static port-description order. Its literal expectation now follows
+the required natural order; device/port graph identity and save regressions
+remain unchanged. No production change follows this CI correction. Replacement
+CI and independent review are pending; no local build or test ran.
