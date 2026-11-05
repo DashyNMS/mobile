@@ -21,9 +21,9 @@ The remaining remote graph branch points to that merged head, not unfinished
 work to recreate. #534 is also merged and records the approved Ports cards.
 
 Read CLAUDE.md, DEVELOPING.md, DESIGN.md, DESIGN-REFERENCES.md, the full
-#480 assessment and `/tmp/mobile-442/reconciled-assessment.md` central/shared
-rules, recurring matrix M and #481 checkpoint. Read the exact approved compact
-legend proposal at `/tmp/mobile-442/legend-proposal.html`. Historical assessments
+#480 assessment and local-only reconciled worklist central/shared
+rules, recurring matrix M and #481 checkpoint. Read the exact locally retained
+compact legend proposal approved on 5 November and recorded in DESIGN.md. Historical assessments
 describe their own heads; current source takes precedence.
 
 This checkout is the sole writer for this assessment and its scoped view-model
@@ -189,7 +189,7 @@ No local build, tests, restore or validation script
 ran. Whitespace and full intended/staged diff inspection precede commit/push;
 new-head CI results must be read separately from baseline #542's green checks.
 
-No new DESIGN lesson is added because no new defect/fix establishes one. The
+The two fixes concern view-model logic and establish no new DESIGN lesson. The
 existing approved legend and shared placement guidance already cover this scope.
 Parent must obtain fresh Opus 5.5 Medium full-diff review and judge CI before
 any authorised merge. This implementation child starts no agents and performs
@@ -212,3 +212,11 @@ wording. The ledger's selection and current-reading source dispositions include
 these fixes; malformed/real payload completeness and every native result remain
 UNVERIFIED. Full intended diff and whitespace inspected; final independent
 review and CI remain pending. No local builds/tests ran.
+
+Fresh full-diff Opus 5.5 Medium review at 92bf43a approved both corrections,
+confirmed meaningful passing regressions and found no blocking issue. Its stale
+no-fix wording and externally inaccessible local-path references are corrected.
+No production change followed review. A direct link whose only matching port
+record is deleted should retain the requested graph but have no current values;
+that optional additional mobile test remains a coverage gap. All actual device
+outcomes above remain UNVERIFIED. Final-head CI is pending.
