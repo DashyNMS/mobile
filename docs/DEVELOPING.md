@@ -515,16 +515,20 @@ slides and fades, with Reduce Motion respected. Check drag reordering across
 columns, folding, rotation, large text, the final Add action and the full
 Dashboard → Edit → Add/Set up → Back chain on both platforms.
 
-DeviceSectionPage now uses the measured pill base for its finite viewport
-(#469 correction of #392); bottom glass and measured visible filter-panel
-clearance belong to its virtualised footer, after a normal 24pt content gap.
-Missing measurements retain the existing safe-area fallback. This shared path covers Availability,
-Sensors, Resources, Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and
-Inventory. Neighbours' wide graph pane has no scrolling footer, so its viewport
-clears the bottom bar and glass instead of extending underneath them.
-Graphs, logs and config backups have independent page layouts. Verify each
-shared section on inner/outer displays in portrait/landscape, including short
-and long lists, Ports filters, Inventory expansion and Neighbours' graph.
+DeviceSectionPage's rows have no enclosing list card, so its viewport runs to
+the base of the body host, beneath the pill and glass, as on the Dashboard; only
+a docked keyboard stops it short (#469–#479, correcting the pill-base viewport
+from #530). `SectionListPlacement` (shared, unit tested) puts the whole measured
+obstruction plus a 24pt gap, and any visible filter panel's measured height, in
+the virtualised footer. Missing measurements fall back to 12pt plus the covered
+bottom, in the footer. This shared path covers Availability, Sensors, Resources,
+Ports, Neighbours, VLANs, FDB, ARP, Routing, Wireless and Inventory. Neighbours'
+wide graph pane has no scrolling footer, so it keeps clearing the bottom bar and
+glass in its own margin. Graphs (a full-height ScrollView), logs and Graylog
+(list cards), maintenance (setup form with a fixed action) and backups (list
+cards) have independent page layouts. Verify each shared section on inner/outer
+displays in portrait/landscape, including short and long lists, Ports filters,
+Inventory expansion and Neighbours' graph.
 
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
