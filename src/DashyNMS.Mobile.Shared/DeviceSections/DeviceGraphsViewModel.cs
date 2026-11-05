@@ -125,6 +125,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     }
     private int _loadVersion;
     private int _renderVersion;
+    private Exception? _redrawFailure;
     private readonly Dictionary<(string Key, GraphTimeRange Range), Task<string>> _sensorRequests = new();
     private string? _raw;
     private IReadOnlyList<GraphLegendEntry>? _entries;
@@ -355,6 +356,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     public Task LoadGraphAsync()
     {
         var version = ++_loadVersion;
+        _redrawFailure = null;
         ++_renderVersion;
         _raw = null;
         _entries = null;
@@ -458,6 +460,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         try
         {
             await RenderCoreAsync(Current, fetchSensor);
+            if (reportFailure && Current() && _redrawFailure is { } recovered)
+            {
+                ClearReadFailure(recovered);
+                _redrawFailure = null;
+            }
         }
         catch (Exception) when (!reportFailure && !Current())
         {
@@ -469,7 +476,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         }
         catch (Exception ex) when (reportFailure)
         {
-            if (Current()) ReportReadFailure(ex);
+            if (Current())
+            {
+                _redrawFailure = ex;
+                ReportReadFailure(ex);
+            }
         }
     }
 

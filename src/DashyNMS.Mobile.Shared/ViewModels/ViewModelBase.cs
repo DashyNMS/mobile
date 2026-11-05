@@ -148,6 +148,16 @@ public abstract partial class ViewModelBase : ObservableObject
         OnPropertyChanged(nameof(ReadFailureText));
     }
 
+    /// <summary>Clears only the failure owned by a recovered retained-data operation.</summary>
+    protected void ClearReadFailure(Exception expected)
+    {
+        if (!ReferenceEquals(_failure, expected) || ErrorMessage != Describe(expected)) return;
+        _failure = null;
+        ErrorMessage = null;
+        OnPropertyChanged(nameof(FailureOutcome));
+        OnPropertyChanged(nameof(ReadFailureText));
+    }
+
     internal static string Describe(Exception ex) => ex switch
     {
         LibreNmsApiException api => api.Message,

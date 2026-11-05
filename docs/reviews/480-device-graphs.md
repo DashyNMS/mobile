@@ -61,7 +61,7 @@ N/A = absent capability; U = unverified runtime/device outcome.
 | --- | --- |
 | Retained activation | Correction: IActivePage restores header, watch, idempotent Moved hook, theme subscription and glass without Appearing or fetch. Disappearance disposes watch and unsubscribes the actual Application. Queued placement checks active current page. U actual tab/child return and resume. |
 | Secondary action audit | Correction: Show all moves from inline page action to state-cached iOS26 glass beside caller Back. SomeHidden notification updates presence; callbacks guard activation. Android/older iOS use header IconButton, enabled only when there are hidden series. Toggle and Only remain target-specific native buttons. N/A share/export/search/More/compare/fixed primary action. U native guards and activation once. |
-| Selection and order | Correction: all three device graph sources, port graph descriptions and Show port labels use NaturalOrder. Traffic remains initial port choice; explicit graph/range links take precedence. GraphPicker's separate port source consumes its existing sorted path. C retained settings and IfName; U actual server payload completeness. |
+| Selection and order | Correction: all three device graph sources, port graph descriptions and Show port labels use NaturalOrder. Traffic remains initial port choice; explicit graph/range links take precedence. GraphPicker's separate port source now sorts descriptions explicitly. C retained settings and IfName; U actual server payload completeness. |
 | Time ranges and long text | Correction: range chips wrap with 44pt minimum height and 64pt minimum width instead of five squeezed equal columns. Accessible names update selection. Pickers have persistent semantic field names. U maximum text and actual picker speech. |
 | Legend interaction/readability | Correction: native Toggle/Only buttons provide keyboard/screen-reader alternative to long press; full name/detail/value/state in Toggle description. Values wrap below names rather than competing Auto columns. Hidden text no longer dims to 45% opacity. U both-theme contrast, speech, focus order and single activation. |
 | Generation | Correction: null graph selection invalidates older requests; failed single-sensor render cannot overwrite a newer generation's graph with its old fallback. C existing quick-range version guard. U delayed real network handoffs. |
@@ -291,3 +291,13 @@ checked before commit. No local builds, tests, restores or validation scripts.
 New-head consumer CI and a fresh parent Opus 5.5 Medium review of the complete
 final diff remain required before merge. No watch, merge, closure, epic tick,
 release, tag or manual publication is performed here.
+
+Final full-diff Opus 5.5 Medium review at e2999f2 found no blocking defects
+and confirmed restored ci.56 in passing consumer CI. Its low recovery finding
+is corrected: a successful current redraw clears only its own recorded exception
+and classification. Exception identity and displayed-message checks preserve
+unrelated/newer failures; full loads reset redraw ownership. The current/stale
+redraw regression now asserts recovery clears error and failure text. Added the
+Eye icon comment and corrected picker-order wording. Replacement final CI is
+pending; every native outcome remains unverified. The upstream dependency is
+resolved, not a remaining blocker.

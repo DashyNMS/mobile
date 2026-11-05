@@ -230,6 +230,13 @@ public sealed class GraphLegendTests
         else Assert.NotEqual(page, vm.GraphPage); // current hidden state gets the shared-scale fallback
         Assert.Equal(superseded ? "Current selection error" : "Couldn't reach the LibreNMS server. Check your connection and try again.", vm.ErrorMessage);
         await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+        if (!superseded)
+        {
+            vm.ShowAllCommand.Execute(null);
+            Assert.False(vm.HasError);
+            Assert.Null(vm.FailureOutcome);
+            Assert.Null(vm.ReadFailureText);
+        }
     }
 
     [Fact]
