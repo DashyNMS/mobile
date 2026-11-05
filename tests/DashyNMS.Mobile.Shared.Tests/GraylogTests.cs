@@ -8,6 +8,7 @@ using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Graylog;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -258,6 +259,556 @@ public sealed class GraylogViewModelTests
             }),
         }).ToList(),
     };
+
+    [Fact]
+    public async Task Repeated_activation_keeps_the_current_initial_load()
+    {
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        var vm = NewViewModel();
+        var first = vm.EnsureLoadedAsync();
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.IsBusy);
+        await _api.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(),
+            Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        pending.SetResult(Result(1, "192.0.2.23"));
+        await first;
+        Assert.Single(vm.Messages);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task Superseded_search_failure_cannot_publish_over_success()
+    {
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task, Task.FromResult(Result(1, "192.0.2.23")));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var current = Assert.Single(vm.Messages);
+        pending.SetException(new GraylogApiException("Synthetic old failure"));
+        await older;
+        Assert.False(vm.HasError);
+        Assert.False(string.IsNullOrWhiteSpace(vm.SummaryText));
+        Assert.Same(current, Assert.Single(vm.Messages));
+    }
+
+    [Fact]
+    public async Task Superseded_device_failure_cannot_publish_over_success()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task,
+            Task.FromResult<IReadOnlyList<Device>>([Fakes.Device(23, "new.example.net")]));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var current = vm.Messages.ToArray();
+        pending.SetException(new HttpRequestException("Synthetic old metadata failure"));
+        await older;
+        Assert.False(vm.HasError);
+        Assert.False(string.IsNullOrWhiteSpace(vm.SummaryText));
+        Assert.Equal(current, vm.Messages.ToArray());
+    }
+
+    [Fact]
+    public async Task Failed_stream_metadata_survives_tick_and_retries_on_pull()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<GraylogStream>>(new HttpRequestException("Synthetic offline")),
+                Task.FromResult<IReadOnlyList<GraylogStream>>([new GraylogStream { Id = "synthetic", Title = "Synthetic stream" }]));
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        var notice = vm.StreamProblem;
+        Assert.NotNull(notice);
+        await vm.AutoRefreshAsync();
+        Assert.Equal(notice, vm.StreamProblem);
+        await _api.Received(1).GetStreamsAsync(Arg.Any<CancellationToken>());
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.False(vm.HasStreamProblem);
+        Assert.Contains("Synthetic stream", vm.StreamChipText);
+        Assert.All(_api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync"),
+            c => Assert.Equal("streams:synthetic", c.GetArguments()[5]));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Auto_refresh_transport_failures_retain_rows_and_report_time(int kind)
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var current = vm.Messages.ToArray();
+        Exception failure = kind switch
+        {
+            0 => new HttpRequestException("Synthetic offline"),
+            1 => new TimeoutException("Synthetic timeout"),
+            2 => new TaskCanceledException("Synthetic HTTP timeout"),
+            _ => new GraylogApiException("Synthetic Core timeout", innerException: new TaskCanceledException()),
+        };
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ThrowsAsyncForAnyArgs(failure);
+        await vm.AutoRefreshAsync();
+        Assert.Contains("Couldn't refresh at", vm.RefreshProblem);
+        Assert.False(vm.HasError);
+        Assert.Equal(current, vm.Messages.ToArray());
+    }
+
+    [Fact]
+    public async Task Auto_refresh_cancelled_token_failure_retains_rows_and_reports_time()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var current = vm.Messages.ToArray();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ThrowsAsyncForAnyArgs(new OperationCanceledException(cancelled.Token));
+        await vm.AutoRefreshAsync();
+        Assert.Contains("Couldn't refresh at", vm.RefreshProblem);
+        Assert.Equal(current, vm.Messages.ToArray());
+    }
+
+    [Fact]
+    public async Task Pending_stream_metadata_has_one_owner_across_manual_reloads()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await _api.Received(1).GetStreamsAsync(Arg.Any<CancellationToken>());
+        Assert.Contains("loading", vm.StreamChipText);
+        pending.SetException(new HttpRequestException("Synthetic offline"));
+        if (!vm.HasStreamProblem)
+        {
+            var changed = new TaskCompletionSource();
+            vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.StreamProblem)) changed.TrySetResult(); };
+            if (!vm.HasStreamProblem) await changed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.Contains("unavailable", vm.StreamChipText);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Connection_change_fetches_new_streams_without_waiting_for_old_owner(bool oldFails, bool newFinishesFirst)
+    {
+        var old = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        var current = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(old.Task, current.Task);
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        var oldLoad = vm.StreamMetadataLoad;
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+        Assert.Contains("loading", vm.StreamChipText);
+
+        async Task FinishCurrent()
+        {
+            current.SetResult([new GraylogStream { Id = "synthetic", Title = "Current stream" }]);
+            await vm.StreamMetadataLoad.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        async Task FinishOld()
+        {
+            if (oldFails) old.SetException(new HttpRequestException("Synthetic old failure"));
+            else old.SetResult([new GraylogStream { Id = "synthetic", Title = "Old stream" }]);
+            await oldLoad.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        if (newFinishesFirst) await FinishCurrent();
+        await FinishOld();
+        Assert.False(vm.HasStreamProblem);
+        if (!newFinishesFirst)
+        {
+            Assert.Contains("loading", vm.StreamChipText);
+            await vm.RefreshCommand.ExecuteAsync(null);
+            await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+            await FinishCurrent();
+        }
+        Assert.Contains("Current stream", vm.StreamChipText);
+        Assert.DoesNotContain("Old stream", vm.StreamLabels);
+        Assert.False(vm.HasStreamProblem);
+    }
+
+    [Fact]
+    public async Task Connection_reset_during_load_more_fetches_current_stream_metadata()
+    {
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(total: 120, "10.0.0.1", "10.0.0.2"));
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<IReadOnlyList<GraylogStream>>([new GraylogStream { Id = "synthetic", Title = "Old stream" }]),
+            Task.FromResult<IReadOnlyList<GraylogStream>>([new GraylogStream { Id = "synthetic", Title = "Current stream" }]));
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        await vm.StreamMetadataLoad;
+        Assert.True(vm.CanLoadMore);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.StreamMetadataLoad;
+
+        await _api.Received(2).GetStreamsAsync(Arg.Any<CancellationToken>());
+        Assert.Contains("Current stream", vm.StreamChipText);
+        Assert.DoesNotContain("loading", vm.StreamChipText);
+    }
+
+    [Theory]
+    [InlineData("append", false)]
+    [InlineData("tick", false)]
+    [InlineData("return", false)]
+    [InlineData("append", true)]
+    [InlineData("tick", true)]
+    [InlineData("return", true)]
+    public async Task Changed_connection_restarts_without_prior_rows_or_query(string trigger, bool fails)
+    {
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        vm.ResolveHostname = (_, _) => Task.FromResult<string?>(null);
+        vm.Initialise(1, "Synthetic device");
+        vm.ShowFeed("synthetic", 0);
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(120, "192.0.2.1"));
+        await vm.EnsureLoadedAsync();
+        await vm.StreamMetadataLoad;
+        _api.ClearReceivedCalls();
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        _appSettings.Graylog.QueryField = "new_source";
+        setup.Apply("synthetic-password");
+        var load = trigger switch
+        {
+            "append" => vm.LoadMoreCommand.ExecuteAsync(null),
+            "tick" => vm.AutoRefreshAsync(),
+            _ => vm.EnsureLoadedAsync(),
+        };
+        Assert.Empty(vm.Messages);
+        await _api.Received(1).SearchAsync(Arg.Is<string>(q => q.Contains("new_source")),
+            Arg.Any<int>(), Arg.Is(GraylogViewModel.PageSize), Arg.Is(0), Arg.Any<string>(),
+            Arg.Is(GraylogQuery.StreamFilter("synthetic")), Arg.Any<CancellationToken>());
+        if (fails) pending.SetException(new HttpRequestException("Synthetic offline"));
+        else pending.SetResult(Result(1, "192.0.2.2"));
+        await load;
+        Assert.Equal(fails, vm.HasError);
+        if (fails) Assert.Empty(vm.Messages);
+        else Assert.Equal("192.0.2.2", Assert.Single(vm.Messages).SourceText);
+        await _client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
+        if (!fails)
+        {
+            await vm.EnsureLoadedAsync();
+            await _api.Received(1).SearchAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<int>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Old_connection_completion_cannot_publish_without_user_reload(bool fails, bool tick)
+    {
+        var settings = Fakes.Settings(_appSettings);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), settings,
+            Fakes.Secrets(), NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, settings, _navigation, _dialogs);
+        await vm.EnsureLoadedAsync();
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task);
+        var old = tick ? vm.AutoRefreshAsync() : vm.RefreshCommand.ExecuteAsync(null);
+        _appSettings.Graylog.Enabled = true;
+        _appSettings.Graylog.Server = "graylog.example.net";
+        _appSettings.Graylog.Username = "synthetic-user";
+        setup.Apply("synthetic-password");
+        if (fails) pending.SetException(new HttpRequestException("Synthetic stale failure"));
+        else pending.SetResult(Result(1, "192.0.2.99"));
+        await old;
+        Assert.Empty(vm.Messages);
+        Assert.Empty(vm.SummaryText);
+        Assert.False(vm.HasError);
+        Assert.False(vm.HasRefreshProblem);
+        Assert.False(vm.CanLoadMore);
+    }
+
+    [Fact]
+    public async Task Failed_new_filter_prevents_ticks_repeating_the_previous_query()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var rows = vm.Messages.ToArray();
+        vm.SearchText = "new submitted filter";
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ThrowsAsyncForAnyArgs(new HttpRequestException("Synthetic offline"));
+        await vm.SearchCommand.ExecuteAsync(null);
+        Assert.True(vm.HasError);
+        Assert.Empty(vm.SummaryText);
+        Assert.Equal(rows, vm.Messages.ToArray());
+        _api.ClearReceivedCalls();
+        await vm.AutoRefreshAsync();
+        await _api.DidNotReceiveWithAnyArgs().SearchAsync(default!, default, default, default, default, default, default);
+        Assert.True(vm.HasError);
+        Assert.Equal(rows, vm.Messages.ToArray());
+    }
+
+    [Theory]
+    [InlineData(-1, "Level unavailable")]
+    [InlineData(99, "99 (99)")]
+    public void List_level_handles_out_of_range_core_values(int level, string expected)
+    {
+        var item = new GraylogMessageItem(new GraylogMessage(new Dictionary<string, JsonElement>
+        {
+            ["level"] = JsonSerializer.SerializeToElement(level),
+        }), null, _ => (string.Empty, null));
+        Assert.Equal(expected, item.ListLevelText);
+    }
+
+    [Theory]
+    [InlineData("Warning", "Warning")]
+    [InlineData(")", ")")]
+    [InlineData("(4) Warning", "Warning")]
+    [InlineData("(99) 99", "99")]
+    public void List_level_name_preserves_labels_without_a_separator(string label, string expected)
+        => Assert.Equal(expected, GraylogMessageItem.LevelName(label));
+
+    [Fact]
+    public async Task Stream_denial_keeps_the_all_streams_search_available()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new GraylogApiException("Forbidden", HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        Assert.False(vm.HasError);
+        Assert.Equal(2, vm.Messages.Count);
+        Assert.Equal("All streams", vm.StreamChipText);
+    }
+
+    [Fact]
+    public async Task Device_metadata_denial_currently_blocks_even_the_network_feed()
+    {
+        // The mandatory LibreNMS device policy must not be bypassed.
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>())
+            .ThrowsAsync(new LibreNmsApiException("Forbidden", HttpStatusCode.Forbidden));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.HasError);
+        Assert.False(vm.IsEmpty);
+        Assert.Empty(vm.Messages);
+        await _api.DidNotReceiveWithAnyArgs().SearchAsync(default!, default, default, default, default, default, default);
+    }
+
+    [Fact]
+    public async Task Superseded_search_response_cannot_replace_the_newer_result()
+    {
+        var pending = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(pending.Task, Task.FromResult(Result(1, "192.0.2.23")));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        pending.SetResult(Result(1, "192.0.2.99"));
+        await older;
+        Assert.Equal("192.0.2.23", Assert.Single(vm.Messages).SourceText);
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Cancellation_ignoring_device_initialisation_cannot_overwrite_newer_metadata()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<Device>>();
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(pending.Task,
+            Task.FromResult<IReadOnlyList<Device>>([Fakes.Device(23, "new.example.net")]));
+        var vm = NewViewModel();
+        var older = vm.EnsureLoadedAsync();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.Equal(23, Assert.Single(vm.KnownDevices).DeviceId);
+        pending.SetResult([Fakes.Device(99, "old.example.net")]);
+        await older;
+        Assert.Equal(23, Assert.Single(vm.KnownDevices).DeviceId);
+        await _api.Received(1).GetStreamsAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Older_cancellation_keeps_newer_load_busy_and_blocks_paging_and_tick()
+    {
+        var old = new TaskCompletionSource<GraylogSearchResult>();
+        var current = new TaskCompletionSource<GraylogSearchResult>();
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Task.FromResult(Result(120, "192.0.2.1")), old.Task, current.Task);
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        vm.SearchText = "submitted";
+        var older = vm.SearchCommand.ExecuteAsync(null);
+        var newer = vm.RefreshCommand.ExecuteAsync(null);
+        old.SetCanceled();
+        await older;
+        Assert.True(vm.IsBusy);
+        Assert.False(vm.CanLoadMore);
+        await vm.LoadMoreCommand.ExecuteAsync(null);
+        await vm.AutoRefreshAsync();
+        Assert.Equal(3, _api.ReceivedCalls().Count(c => c.GetMethodInfo().Name == "SearchAsync"));
+        current.SetResult(Result(1, "192.0.2.23"));
+        await newer;
+        Assert.False(vm.IsBusy);
+    }
+
+    [Fact]
+    public async Task Device_switch_discards_cancellation_ignoring_resolver_addresses()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var pending = new TaskCompletionSource<string?>();
+        vm.ResolveHostname = (name, _) => name == "core-sw-01" ? pending.Task : Task.FromResult<string?>("192.0.2.23");
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(1, "Old"));
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(2, "New"));
+        pending.SetResult("192.0.2.99");
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var queries = _api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync")
+            .Select(c => (string)c.GetArguments()[0]!).ToList();
+        Assert.DoesNotContain(queries, q => q.Contains("192.0.2.99", StringComparison.Ordinal));
+        Assert.Contains("192.0.2.23", queries.Last());
+        Assert.DoesNotContain("core-sw-01", queries.Last());
+    }
+
+    [Fact]
+    public async Task Pending_configuration_searches_only_the_new_device()
+    {
+        var pending = new TaskCompletionSource<string?>();
+        var storage = Substitute.For<ISecureStorage>();
+        storage.GetAsync(Arg.Any<string>()).Returns(pending.Task);
+        _api.IsConfigured.Returns(false);
+        var secrets = new SecretCache(storage, NullLogger<SecretCache>.Instance);
+        var setup = new GraylogSetup(_api, Substitute.For<IGraylogPasswordProtector>(), Fakes.Settings(_appSettings), secrets, NullLogger<GraylogSetup>.Instance);
+        var vm = new GraylogViewModel(setup, _api, _client, Fakes.Settings(_appSettings), _navigation, _dialogs)
+        { ResolveHostname = (_, _) => Task.FromResult<string?>(null) };
+        vm.Initialise(1, "Old");
+        var older = vm.EnsureLoadedAsync();
+        vm.Initialise(2, "New");
+        var newer = vm.EnsureLoadedAsync();
+        _api.IsConfigured.Returns(true);
+        pending.SetResult(null);
+        await Task.WhenAll(older, newer);
+        var query = Assert.Single(_api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync"));
+        Assert.Contains("edge-rtr", (string)query.GetArguments()[0]!);
+        Assert.DoesNotContain("core-sw-01", (string)query.GetArguments()[0]!);
+    }
+
+    [Fact]
+    public async Task Draft_search_does_not_claim_filtered_empty_or_enter_range_queries()
+    {
+        _api.SearchAsync(default!, default, default, default, default, default, default).ReturnsForAnyArgs(Result(0));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        vm.SearchText = "draft";
+        Assert.False(vm.HasActiveFilters);
+        Assert.Equal("No Graylog messages were returned.", vm.EmptyText);
+        vm.RangeIndex = 1;
+        Assert.True(vm.HasActiveFilters);
+        Assert.Contains("match these filters", vm.EmptyText);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.All(_api.ReceivedCalls().Where(c => c.GetMethodInfo().Name == "SearchAsync"),
+            c => Assert.Equal("*", c.GetArguments()[0]));
+        Assert.Equal("draft", vm.SearchText);
+    }
+
+    [Fact]
+    public async Task Denied_stream_metadata_preserves_dashboard_scope_and_reports_status()
+    {
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).ThrowsAsync(new HttpRequestException("Synthetic offline"));
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.HasStreamProblem);
+        Assert.Contains("unavailable", vm.StreamChipText);
+        await _api.Received().SearchAsync(Arg.Any<string>(), 0, GraylogViewModel.PageSize, 0,
+            "timestamp:desc", "streams:synthetic", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Late_stream_initialisation_applies_dashboard_requested_stream()
+    {
+        var pending = new TaskCompletionSource<IReadOnlyList<GraylogStream>>();
+        _api.GetStreamsAsync(Arg.Any<CancellationToken>()).Returns(pending.Task);
+        var vm = NewViewModel();
+        vm.ShowFeed("synthetic", 0);
+        await vm.EnsureLoadedAsync();
+        Assert.Contains("loading", vm.StreamChipText);
+        pending.SetResult([new GraylogStream { Id = "synthetic", Title = "Synthetic stream" }]);
+        // Await the detached continuation through its observable change, without a delay.
+        if (vm.StreamIndex == 0)
+        {
+            var applied = new TaskCompletionSource();
+            vm.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(vm.StreamIndex)) applied.TrySetResult(); };
+            if (vm.StreamIndex == 0) await applied.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        Assert.Equal(1, vm.StreamIndex);
+        Assert.DoesNotContain("loading", vm.StreamChipText);
+        Assert.Contains("Synthetic stream", vm.StreamChipText);
+    }
+
+    [Fact]
+    public void List_facts_preserve_multiline_plain_text_and_name_missing_metadata()
+    {
+        var item = new GraylogMessageItem(new GraylogMessage(new Dictionary<string, JsonElement>
+        {
+            ["_id"] = JsonSerializer.SerializeToElement("synthetic-23"),
+            ["message"] = JsonSerializer.SerializeToElement("<primary>\nsecond line"),
+        }), null, _ => (string.Empty, null));
+        Assert.Equal("<primary>\nsecond line", item.ListMessageText);
+        Assert.Equal("<primary> second line", item.MessageText);
+        Assert.Contains("Source unavailable", item.OpenDescription);
+        Assert.Contains("Level unavailable", item.OpenDescription);
+        Assert.Contains("Time unavailable", item.OpenDescription);
+        Assert.Contains("synthetic-23", item.OpenDescription);
+        Assert.Equal("Facility unavailable", item.ListFacilityText);
+    }
+
+    [Fact]
+    public async Task Auto_refresh_replaces_changed_same_id_fields_and_retains_unchanged_rows()
+    {
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+        var first = vm.Messages[0];
+        var second = vm.Messages[1];
+
+        _api.SearchAsync(default!, default, default, default, default, default, default)
+            .ReturnsForAnyArgs(Result(total: 2, "192.0.2.23", "10.9.9.9"));
+        await vm.AutoRefreshAsync();
+
+        Assert.Equal(first.Id, vm.Messages[0].Id);
+        Assert.NotSame(first, vm.Messages[0]);
+        Assert.Equal("192.0.2.23", vm.Messages[0].SourceText);
+        Assert.Equal("192.0.2.23", vm.Messages[0].Fields.Single(f => f.Key == "source").Value);
+        Assert.Same(second, vm.Messages[1]);
+    }
 
     [Fact]
     public async Task Sources_match_devices_by_full_or_short_name_sysName_and_any_case()

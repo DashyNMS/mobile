@@ -657,3 +657,19 @@ native entry action includes its ID in speech. Raw source fields remain in the
 accepted #460 detail. Fixed device scope is read-only; filter choices wrap and
 name their current value, and auto-refresh states On or Off. This records the
 approved presentation; native acceptance remains pending in the #482 assessment.
+
+
+### Approved compact Graylog list
+
+The #483 proposal was approved with the constraint "Yeah but should be compact
+enough to fit on small screens as well as larger screens". Use modest row spacing,
+wrapping native choices with 44pt targets, read-only fixed scope and separate
+network change/clear actions. Put the choices and summary in the scrolling list
+header so maximum text on a short screen cannot reserve the entire viewport for
+filters. Keep the CollectionView finite and virtualised. Show complete plain
+multiline messages and stacked severity, facility and full time; missing facts say
+unavailable. One native Open message target announces source, level, time and ID.
+Reserve the 20pt surface-matched fade in content. Dashboard previews, #461 detail,
+#405 setup and #517 camera ownership remain separate. Proposal approval is not
+native acceptance; small viewport and maximum-text evidence remains U in the
+[#483 assessment](reviews/483-device-graylog.md).
