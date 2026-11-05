@@ -208,3 +208,27 @@ inner portrait/landscape, iPhone, both-theme, maximum-text, VoiceOver/TalkBack,
 keyboard, fold/rotation, tab/child return and resume outcomes are UNVERIFIED.
 H/B/V usable-base geometry and final legend/Only reach require separate evidence.
 Fresh parent Opus 5.5 Medium full review and CI judgement remain outstanding.
+
+## Review of 14cf333 and corrections
+
+Opus found one medium state-transition bug and five lower findings. LoadGraph
+now invalidates redraws, clears raw/entries/hidden/Series and notifies availability
+before any await, including null selection. ShowAll guards direct Execute and
+the glass tap rechecks CanExecute. The regression holds a new graph request,
+attempts the stale action, then fails the load: saved settings stay unchanged
+and neither empty series nor obsolete Show all remains visible.
+
+Every waiter on a shared sensor task now applies ThrowIfDenied. A non-API
+optional-sensor failure publishes the computed shared-scale SVG for the current
+visibility/theme before reporting, while stale results/errors remain ignored.
+The revised regression distinguishes current fallback from superseded graph
+preservation. Initial-load render errors propagate into RunAsync, preserving
+Failed diagnostics; optional redraw errors use ReportReadFailure. Such an error
+remains visible until a subsequent full load rather than clearing unrelated
+current errors during a redraw.
+
+Only now has the approved quiet border, 10pt radius and 12x8 padding; detail
+and Shown/Hidden share one wrapping caption. Accessible names join only present
+parts, avoiding stray punctuation. The PR title reflects the final scope.
+Full intended diff and whitespace reviewed, no local builds/tests run. Fresh
+review and CI are pending. Core #80 and all native outcomes remain unresolved.

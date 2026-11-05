@@ -164,9 +164,33 @@ public sealed class GraphLegendTests
         await redraw;
 
         Assert.False(vm.IsBusy);
-        Assert.Equal(page, vm.GraphPage);
+        if (superseded) Assert.Equal(page, vm.GraphPage);
+        else Assert.NotEqual(page, vm.GraphPage); // current hidden state gets the shared-scale fallback
         Assert.Equal(superseded ? "Current selection error" : "Couldn't reach the LibreNMS server. Check your connection and try again.", vm.ErrorMessage);
         await _client.Graphs.Received(1).GetSensorSvgAsync(7, "device_temperature", 41, Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), false);
+    }
+
+    [Fact]
+    public async Task Loading_or_failed_graph_cannot_restore_series_for_the_previous_graph()
+    {
+        var vm = await OpenAsync();
+        vm.Series[0].ToggleCommand.Execute(null);
+        Assert.True(vm.ShowAllCommand.CanExecute(null));
+        _appSettings.GraphHiddenSeries["7:device_mystery"] = ["Keep saved"];
+        var pending = new TaskCompletionSource<string>();
+        _client.Graphs.GetSvgAsync(7, "device_mystery", Arg.Any<GraphTimeRange>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>(), true).Returns(pending.Task);
+        var load = vm.LoadAsync(7, "example", "device_mystery");
+        Assert.Empty(vm.Series);
+        Assert.False(vm.HasSeries);
+        Assert.False(vm.SomeHidden);
+        Assert.False(vm.ShowAllCommand.CanExecute(null));
+        vm.ShowAllCommand.Execute(null); // direct command execution must also guard stale taps
+        Assert.Equal(["Keep saved"], _appSettings.GraphHiddenSeries["7:device_mystery"]);
+        pending.SetException(new HttpRequestException("Synthetic graph failure"));
+        await load;
+        Assert.False(vm.SomeHidden);
+        Assert.False(vm.HasSeries);
+        Assert.Equal(["Keep saved"], _appSettings.GraphHiddenSeries["7:device_mystery"]);
     }
 
     [Fact]

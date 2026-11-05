@@ -9,6 +9,14 @@
     x:DataType="sections:DeviceGraphsViewModel"
     SafeAreaEdges="Container"
     Title="{Binding Title}">
+    <ContentPage.Resources>
+        <Style x:Key="LegendOnlyButton" TargetType="Button" BasedOn="{StaticResource LinkButton}">
+            <Setter Property="BorderWidth" Value="1" />
+            <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource StrokeLight}, Dark={StaticResource StrokeDark}}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12,8" />
+        </Style>
+    </ContentPage.Resources>
     <Grid RowDefinitions="Auto,*" SafeAreaEdges="None">
         <!-- The app's own header, as every page: the title, "‹ Back" when pushed (#142). -->
         <controls:PageHeader x:Name="Header" Title="{Binding Title}" Margin="16,0,16,0" SafeAreaEdges="None">
@@ -92,8 +100,7 @@
                                                         </Border>
                                                         <VerticalStackLayout Grid.Column="1" Spacing="4">
                                                             <Label Text="{Binding Name}" FontSize="15" LineBreakMode="CharacterWrap" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}" LineBreakMode="CharacterWrap" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding ToggleLabel}" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding StateDescription}" LineBreakMode="CharacterWrap" />
                                                             <Label Text="{Binding Value}" FontFamily="Mono" FontSize="14" LineBreakMode="CharacterWrap" />
                                                         </VerticalStackLayout>
                                                     </Grid>
@@ -115,7 +122,7 @@
                                                         </VisualStateManager.VisualStateGroups>
                                                     </Button>
                                                 </Grid>
-                                                <Button Text="Only" TextTransform="None" Style="{StaticResource LinkButton}" Padding="8" MinimumHeightRequest="44" MinimumWidthRequest="44"
+                                                <Button Text="Only" TextTransform="None" Style="{StaticResource LegendOnlyButton}" MinimumHeightRequest="44" MinimumWidthRequest="44"
                                                         SemanticProperties.Description="{Binding Name, StringFormat='Show only {0}'}"
                                                         Command="{Binding OnlyCommand}" />
                                             </FlexLayout>

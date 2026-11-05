@@ -59,12 +59,14 @@ public sealed partial class GraphSeriesItem : ObservableObject
     private string _colour;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(AccessibleName), nameof(ToggleLabel))]
+    [NotifyPropertyChangedFor(nameof(AccessibleName), nameof(ToggleLabel), nameof(StateDescription))]
     private bool _isShown = true;
 
     public string ToggleLabel => IsShown ? "Shown" : "Hidden";
+    public string StateDescription => string.Join(" · ", new[] { Detail, ToggleLabel }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
-    public string AccessibleName => $"{(IsShown ? "Hide" : "Show")} {Name}. {Detail} {Value}. Currently {(IsShown ? "shown" : "hidden")}";
+    public string AccessibleName => string.Join(". ", new[] { $"{(IsShown ? "Hide" : "Show")} {Name}", Detail, Value,
+        $"Currently {(IsShown ? "shown" : "hidden")}" }.Where(s => !string.IsNullOrWhiteSpace(s)));
 
     [RelayCommand]
     private void Toggle() => _owner.Toggle(Name);
@@ -353,6 +355,12 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     public Task LoadGraphAsync()
     {
         var version = ++_loadVersion;
+        ++_renderVersion;
+        _raw = null;
+        _entries = null;
+        _hidden.Clear();
+        Series.ReplaceAll([]);
+        RaiseSeriesChanged();
         if (SelectedGraph is not { } graph || SelectedRange is not { } range)
         {
             GraphPage = null;
@@ -385,12 +393,12 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
                 _hidden.Clear();
             }
 
-            await RenderAsync(version);
+            await RenderAsync(version, reportFailure: false);
         });
     }
 
     [RelayCommand(CanExecute = nameof(SomeHidden))]
-    private void ShowAll() => SetHidden([]);
+    private void ShowAll() { if (SomeHidden) SetHidden([]); }
 
     internal void Toggle(string name)
     {
@@ -412,7 +420,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         var next = new HashSet<string>(hidden, StringComparer.Ordinal);
 
         // Turning the last one off too would leave an empty graph - not something to ask for.
-        if (_entries is null || _entries.All(e => next.Contains(e.Name)))
+        if (Series.Count == 0 || _entries is null || _entries.All(e => next.Contains(e.Name)))
         {
             return;
         }
@@ -436,7 +444,7 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         _ = RenderAsync(_loadVersion);
     }
 
-    private async Task RenderAsync(int version, bool fetchSensor = true)
+    private async Task RenderAsync(int version, bool fetchSensor = true, bool reportFailure = true)
     {
         var render = ++_renderVersion;
         bool Current() => version == _loadVersion && render == _renderVersion;
@@ -444,11 +452,11 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
         {
             await RenderCoreAsync(Current, fetchSensor);
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException) when (reportFailure)
         {
             // A cancelled optional redraw retains the current graph.
         }
-        catch (Exception ex)
+        catch (Exception ex) when (reportFailure)
         {
             if (Current()) ReportReadFailure(ex);
         }
@@ -500,6 +508,13 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
             catch (LibreNmsApiException)
             {
                 // Keep the shared scale.
+            }
+            catch (Exception)
+            {
+                // Keep the current visibility/theme consistent with the legend
+                // even when the optional single-sensor request fails.
+                if (current()) Show(styled.Svg);
+                throw;
             }
         }
 
@@ -561,7 +576,12 @@ public sealed partial class DeviceGraphsViewModel : ViewModelBase
     {
         var key = ($"{DeviceId}:" + graphName + "/" + sensorId.ToString(CultureInfo.InvariantCulture), range);
         if (_cache.TryGetValue(key, out var cached)) return cached;
-        if (_sensorRequests.TryGetValue(key, out var pending)) return await pending;
+        if (_sensorRequests.TryGetValue(key, out var pending))
+        {
+            var shared = await pending;
+            GraphImages.ThrowIfDenied(shared);
+            return shared;
+        }
 
         var request = _client.Graphs.GetSensorSvgAsync(DeviceId, graphName, sensorId, range, GraphWidth, GraphHeight, legend: false);
         _sensorRequests[key] = request;

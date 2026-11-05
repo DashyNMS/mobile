@@ -187,7 +187,7 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 				() => { if (_active) _ = Shell.Current.GoToAsync(".."); }, IsBack: true),
 		];
 		if (showAll) actions.Add(new("eye", "Show all graph series",
-			() => { if (_active) _viewModel.ShowAllCommand.Execute(null); }));
+			() => { if (_active && _viewModel.ShowAllCommand.CanExecute(null)) _viewModel.ShowAllCommand.Execute(null); }));
 		TabBarButtons.Show(this, null, string.Empty, actions);
 	}
 #endif
