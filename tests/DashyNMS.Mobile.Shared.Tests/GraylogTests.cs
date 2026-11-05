@@ -8,6 +8,7 @@ using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Graylog;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
 using Microsoft.Extensions.Logging.Abstractions;

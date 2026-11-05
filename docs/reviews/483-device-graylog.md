@@ -181,3 +181,8 @@ tick and return, new query fields, retained stream scope, offline failures and
 old search/tick completions before any user reload. These tests are authored for
 CI, not run locally. Fresh review, current-head CI and native acceptance remain
 pending with the parent.
+
+CI at 1a9ea9a failed to compile the new connection-isolation test because its
+GraylogQuery reference lacked the Core Graylog namespace import (CS0103).
+The missing import is corrected; no production code changed in this correction.
+Current-head CI must rerun. No local execution was performed.
