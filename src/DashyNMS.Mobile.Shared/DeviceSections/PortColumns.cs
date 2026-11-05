@@ -1,17 +1,23 @@
+using DashyNMS.Mobile.Dashboard;
+
 namespace DashyNMS.Mobile.DeviceSections;
 
-/// <summary>Ports alone keep two portrait tracks and approximately the same width in landscape.</summary>
+/// <summary>
+/// Ports show one compact card per row, and two only when both keep the
+/// Dashboard's comfortable 340pt minimum. The breakpoint is the shared card
+/// width rather than orientation, so the Duo's outer display stays at one
+/// and its inner display reaches two, without an orientation estimate.
+/// </summary>
 public static class PortColumns
 {
-    public static (int Count, double Width) Fit(double available, double portraitAvailable, bool landscape, double gap)
-    {
-        if (!double.IsFinite(available) || available <= 0)
-            return (2, 0);
-        if (!double.IsFinite(portraitAvailable) || portraitAvailable <= 0)
-            return (2, available);
-        var card = Math.Max(0, (Math.Min(available, portraitAvailable) - gap) / 2);
-        if (!landscape) return (2, available);
-        var count = Math.Max(2, (int)Math.Floor((available + gap) / (card + gap)));
-        return (count, Math.Min(available, count * (card + gap) - gap));
-    }
+    /// <summary>Matches <see cref="DashboardColumns"/>, so cards read alike across pages.</summary>
+    public const double MinimumCardWidth = 340;
+
+    /// <summary>More than two across made each port harder to scan, however wide the screen.</summary>
+    public const int MaximumColumns = 2;
+
+    public static int Count(double available, double gap) =>
+        double.IsFinite(available) && double.IsFinite(gap)
+            ? DashboardColumns.Count(available, MinimumCardWidth, Math.Max(0, gap), MaximumColumns)
+            : 1;
 }

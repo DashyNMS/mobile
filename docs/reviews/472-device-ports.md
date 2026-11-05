@@ -1,5 +1,73 @@
 # Device Ports review, #472
 
+## Approved compact cards on main 3bbac99, 5 November 2026
+
+This section supersedes the 4 November revision below, including its two
+portrait columns, many landscape columns at an estimated portrait width, and
+every raw fact on the card. Those sections remain history for their own heads.
+The baseline is origin/main `3bbac9978cda9f48020c530ce179c46657ba6b1c`, in a
+new isolated worktree; no earlier work is replayed.
+
+**User feedback and approval.** The user reported that the cards were far too
+long. Each card should show only the port name and description, the operational
+state, speed, traffic in/out, errors in/out and VLANs. Normal displays show one
+card per row and larger displays two at most. The user then explicitly approved
+the parent's rendered mock-up as proposed: 14pt padding, a 4pt left status edge,
+the standard radius, a semibold 17pt name over a muted 14pt description, a
+status row with `● Up` at the start and speed at the end, a three-column table
+(Traffic/Errors, IN ↓, OUT ↑) and a VLANs footer. Errors cards say `Up · errors`
+in red, with positive error values in red. This is source approval only, not
+device acceptance.
+
+**Lesson recorded in DESIGN.md.** A port card is for scanning a list, not for
+auditing one port. The audit facts doubled card height without helping anyone
+compare ports. They remain model data for search, sort, grouping and status.
+
+### Implementation and preserved contracts
+
+| Concern | Source disposition |
+| --- | --- |
+| Columns | `PortColumns.Count` reuses `DashboardColumns.Count` with a 340pt minimum, the list's 8pt gap and at most two. Non-finite widths give one. The Duo's outer display gives one and its inner display two where the pane is at least 688pt. The portrait estimate, landscape floor-fit and trailing remainder are removed; cards fill their track. Other sections keep 340pt/three columns. Corrected; physical widths U |
+| Card hierarchy | `PortReadout` puts a 4pt `BoxView` edge inside the ordinary 1pt Card border, which clips it to the 16pt radius. The page's Ports border trigger now only clears padding, so it no longer sets a 2pt stroke or status stroke. Name, description, status/speed row, divider, Auto/star/star table, divider and VLANs footer, with no fixed heights or line caps. Corrected |
+| Status palette | Unchanged classification. Green Up, red `Up · errors` (the label was previously `Errors · link up`), amber Down, the same gray Disabled for admin shutdown and disabled monitoring. Unknown and `Up · readings unavailable` stay neutral, using theme stroke and text. The edge and label use one trigger each, as before. Positive error cells use live theme Critical text. Corrected |
+| Readings | Missing or invalid traffic says Unavailable; non-up traffic says Not shown; missing speed says Speed unavailable; errors keep full precision as `n/s`, so 0.001 never reads 0/s. Overflow and NaN guards unchanged. Corrected |
+| VLANs | Verified in Core: `/devices/{id}/ports?with=vlans` fills typed `Port.Vlans` (802.1Q numbers, `Untagged`). The card lists positive memberships, unique and ascending. If the device reports no memberships at all, a direct ifVlan is labelled Access/native VLAN. Otherwise a port without memberships says Not reported, following Core's `VlanMembership.HasMembershipData` rule (a trunk can report ifVlan 1). No extra request, fleet permission, dependency, internal ID or invented tag. Corrected |
+| Removed from the card | ifName repeat, raw operational/admin states, the monitoring flag, the extra heading, the `Open interface graphs ›` line and the visible missing-ifName explanation. The matching readout still says graphs are unavailable. Deliberate per approval |
+| Speech | `PortActionDescription` speaks name, description, status label, speed, traffic in/out, errors in/out and VLANs in visual order, then the action or the unavailability reason. All visible labels stay decorative. Corrected; native order U |
+| Action | Unchanged: one transparent native button of at least 44pt, spanning both columns, with an explicit empty style and transparent Normal/Disabled and tinted Pressed/Focused states. It routes the actual ifName with the same DeviceId. Without an ifName there is no button. `OnRowBindingContextChanged` is unchanged. Compliant |
+| Search, sort and group | `Value`, `Detail`, `Subtitle`, `PortStatusText`, `LinkPortIfName` and `PortFacts`, including the VLAN fallback/trunk, are unchanged, so matching, the seven sorts, four groupings, saved preferences and the legacy rank/traffic/error totals are unchanged. Compliant |
+| Overview | `DeviceDetailView` keeps its layout. `PortOverviewIdentity` is now set by the loader, with the same name/ifName/alias lines. Traffic lines are unchanged for the positive-traffic rows it selects. It shares the status-label wording. Compliant |
+| Other modes | Availability, Sensors, Resources, Neighbours, VLANs, FDB, ARP, Routing, Wireless, Inventory and EventLog templates, flags and policies are untouched. The window-size subscription stays as a harmless placement refresh. Compliant |
+
+**PR #551 coordination.** #551 is open, unmerged and owns the shared section
+base (`SectionListPlacement`, the viewport/footer code in `PlaceControls` and
+two XAML comments). This change touches only the later Ports span/margin block
+and the row Border's Ports trigger. It does not replay, revert or conflict with
+the #551 geometry. Whichever merges second must keep both; #551 is not merged here.
+
+### Validation and pending native evidence
+
+The full intended and staged diffs were reviewed against DESIGN.md and
+`git diff --check`. No local restore, build, tests, scripts or agents were run.
+New CI-only tests cover the column breakpoint (one, two, maximum two, non-finite),
+compact speech order and contents, explicit missing speed and non-up traffic,
+`Up · errors` with per-side positive errors, typed VLAN ordering/uniqueness,
+the direct-only label, the device-wide membership rule through the loader, and
+the existing palette, overflow and tiny-rate cases. Shared-test, Android and
+iOS CI, the parent's review and every device result are **U**.
+
+| Check | Required evidence, all U |
+| --- | --- |
+| Duo outer, inner portrait and landscape; ordinary iPhone; fold and rotate | Column count and card widths: one on outer and ordinary phones, two on the inner display only when each card is at least 340pt |
+| Compact layout | Card height, aligned table columns, no clipping at maximum text, status edge clipped by the radius, long description and VLAN wrapping, light and dark |
+| States | Up, `Up · errors` with a positive side in red, Down, both Disabled causes, Unknown, incomplete Up, missing speed, invalid traffic, partial errors |
+| VLANs | Payload memberships compared with the card; device without memberships shows Access/native VLAN; a port without memberships on a device with them shows Not reported |
+| VoiceOver/TalkBack | One readout per card in visual order with the action; no button on a card without an ifName; 44pt target; recycling across mixed states |
+| Behaviour | Search, every sort and grouping, relaunch persistence, graph entry with the actual ifName and return, refresh/failure, final card clear of the pill with #551 |
+
+Use synthetic example.net names and device IDs 7 and 8 only. Refs #472 and
+#442; the parent owns review, CI, merge and acceptance. #472 stays open.
+
 ## Approved revision on main 2010d7b, 4 November 2026
 
 This section supersedes historical presentation and geometry-compliant findings

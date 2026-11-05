@@ -99,17 +99,11 @@
                     <DataTemplate x:DataType="sections:SectionRow">
                         <Border Style="{StaticResource Card}" BindingContextChanged="OnRowBindingContextChanged">
                             <Border.Triggers>
+                                <!-- PortReadout owns its padding and 4pt status edge;
+                                     the card keeps its ordinary theme stroke. -->
                                 <DataTrigger TargetType="Border" Binding="{Binding PortLayout}" Value="True">
-                                    <Setter Property="StrokeThickness" Value="2" />
                                     <Setter Property="Padding" Value="0" />
                                 </DataTrigger>
-                                <MultiTrigger TargetType="Border">
-                                    <MultiTrigger.Conditions>
-                                        <BindingCondition Binding="{Binding PortLayout}" Value="True" />
-                                        <BindingCondition Binding="{Binding PortHasStatusBorder}" Value="True" />
-                                    </MultiTrigger.Conditions>
-                                    <Setter Property="Stroke" Value="{Binding PortVisualStatus, Converter={StaticResource StatusColor}}" />
-                                </MultiTrigger>
                             </Border.Triggers>
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup Name="CommonStates">
