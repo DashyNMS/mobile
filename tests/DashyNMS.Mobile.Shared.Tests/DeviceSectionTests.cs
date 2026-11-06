@@ -66,7 +66,9 @@ public sealed class DeviceSectionLoaderTests
         var rows = (await Load(DeviceSection.Ports)).SelectMany(g => g).ToList();
         Assert.Equal("10, 20", rows.Single(r => r.Title == "Gi0/1").PortVlanText);
         Assert.Equal("Not reported", rows.Single(r => r.Title == "Gi0/2").PortVlanText);
-        Assert.Equal(1, rows.Single(r => r.Title == "Gi0/2").Port!.Vlan);
+        // Group by VLAN reads the same rule (DashyNMS/desktop#571): a trunk, not VLAN 1, and the other no VLAN.
+        Assert.Equal([10, 20], rows.Single(r => r.Title == "Gi0/1").Port!.Vlans);
+        Assert.Empty(rows.Single(r => r.Title == "Gi0/2").Port!.Vlans);
     }
 
     [Fact]

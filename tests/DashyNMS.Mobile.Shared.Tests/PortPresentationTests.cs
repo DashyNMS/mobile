@@ -211,7 +211,7 @@ public sealed class PortPresentationTests
         var row = DeviceSectionLoader.PortRow(new Port { IfName = "Gi0/3", IfOperStatus = "up", IfVlan = 10 });
         Assert.Equal("Access/native VLAN", row.PortVlanLabel);
         Assert.Equal("10", row.PortVlanText);
-        Assert.Equal(10, row.Port!.Vlan);
+        Assert.Equal([10], row.Port!.Vlans);
     }
 
     [Fact]

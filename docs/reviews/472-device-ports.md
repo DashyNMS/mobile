@@ -35,7 +35,7 @@ compare ports. They remain model data for search, sort, grouping and status.
 | Removed from the card | ifName repeat, raw operational/admin states, the monitoring flag, the extra heading, the `Open interface graphs ›` line and the visible missing-ifName explanation. The matching readout still says graphs are unavailable. Deliberate per approval |
 | Speech | `PortActionDescription` speaks name, description, status label, speed, traffic in/out, errors in/out and VLANs in visual order, then the action or the unavailability reason. All visible labels stay decorative. Corrected; native order U |
 | Action | Unchanged: one transparent native button of at least 44pt, spanning both columns, with an explicit empty style and transparent Normal/Disabled and tinted Pressed/Focused states. It routes the actual ifName with the same DeviceId. Without an ifName there is no button. `OnRowBindingContextChanged` is unchanged. Compliant |
-| Search, sort and group | `Value`, `Detail`, `Subtitle`, `PortStatusText`, `LinkPortIfName` and `PortFacts`, including the VLAN fallback/trunk, are unchanged, so matching, the seven sorts, four groupings, saved preferences and the legacy rank/traffic/error totals are unchanged. Compliant |
+| Search, sort and group | `Value`, `Detail`, `Subtitle`, `PortStatusText` and `LinkPortIfName` are unchanged, so matching, saved preferences and the legacy rank/traffic/error totals are unchanged. #556 corrected the VLAN facts. `PortFacts.Vlans` now comes from `PortFacts.CarriedVlans`, the same rule as the card's VLANs footer. Group by VLAN and Sort by VLAN put Trunk (more than one VLAN) first, then VLAN n by number, then No VLAN. The ifVlan/untagged fallback and the tagged-means-trunk test are gone. Corrected |
 | Overview | `DeviceDetailView` keeps its layout. `PortOverviewIdentity` is now set by the loader, with the same name/ifName/alias lines. Traffic lines are unchanged for the positive-traffic rows it selects. It shares the status-label wording. Compliant |
 | Other modes | Availability, Sensors, Resources, Neighbours, VLANs, FDB, ARP, Routing, Wireless, Inventory and EventLog templates, flags and policies are untouched. The window-size subscription stays as a harmless placement refresh. Compliant |
 
@@ -96,7 +96,8 @@ width preservation is approximate and UNVERIFIED.
 The overview still selects five positive-traffic rows and preserves totals,
 up/down/unknown counts and Ports tile semantics. `PortArrangement` consumes
 PortFacts, not display fields. Existing rank/state, natural name, index, alias,
-VLAN fallback/trunk, traffic bytes/s and speed sort/group facts are unchanged.
+traffic bytes/s and speed sort/group facts are unchanged. The VLAN facts now
+follow the card's VLANs rule (#556; see Search, sort and group).
 New PortDisplayFacts are separate from searchable Fields, preserving Matches.
 PortSummary/PortDescription remain compatibility properties for existing tests;
 new visible/spoken projections use PortFactsDescription/PortActionDescription.
@@ -315,7 +316,7 @@ and aliases; record final integrated SHA and CI build with each result.
 | Check | Required steps | Result |
 | --- | --- | --- |
 | States/readings | Up/down/admin-down/disabled/missing/testing; zero/positive/missing/NaN/infinite/negative rates and errors; verify explicit text, bits versus byte sorting and speed/VLAN | Unverified |
-| Arrangement | Every sort and grouping, natural numbered names, duplicate indexes, VLAN/trunk/no VLAN; relaunch and confirm persisted sort/group; search then reset query | Unverified |
+| Arrangement | Every sort and grouping, natural numbered names, duplicate indexes, Trunk/VLAN n by number/No VLAN matching each card's VLANs (#556); relaunch and confirm persisted sort/group; search then reset query | Unverified |
 | Loading/failure | Cold/empty/unmatched/offline/denied; refresh success/failure/Retry and slow device switch after #507; distinguish retained last-loaded data | Unverified |
 | Keyboard/filters | Header/glass/Command-F, typing replacements retain focus, native drag/completion/unfocus close and retain query; open filters while typing, choose sort/group and Done | Unverified |
 | Graph route/return | Tile/card to Ports, named row to actual ifName graph, missing name unavailable; graph Back retains term/order; Devices narrow/split, Dashboard and alert callers return correctly | Unverified |
