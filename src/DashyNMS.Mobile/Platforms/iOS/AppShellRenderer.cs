@@ -24,9 +24,12 @@ internal sealed class AppShellRenderer : ShellRenderer
 
     private sealed class AppShellItemRenderer : ShellItemRenderer
     {
+        private readonly TabSettlePolicy _settle = new();
         private bool _appeared;
         private bool _initialLayoutCompleted;
         private bool _initialLayoutQueued;
+        private bool _settleQueued;
+        private TabSettleStage _lastStage;
 
         public AppShellItemRenderer(IShellContext context) : base(context)
         {
@@ -45,6 +48,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             base.ViewDidLayoutSubviews();
             TabBarButtons.Relayout(this);
             QueueInitialLayout();
+            QueueSettle();
         }
 
         public override void ViewDidAppear(bool animated)
@@ -52,6 +56,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             base.ViewDidAppear(animated);
             _appeared = true;
             QueueInitialLayout();
+            QueueSettle();
         }
 
         public override void ViewDidDisappear(bool animated)
@@ -84,34 +89,119 @@ internal sealed class AppShellRenderer : ShellRenderer
                 _initialLayoutCompleted = true;
                 TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
                 SetTabBarHidden(!ShellItemController.ShowTabs, false);
-                view.SetNeedsLayout();
-                view.LayoutIfNeeded();
-                TabBar.SetNeedsLayout();
-                TabBar.LayoutIfNeeded();
-                TabBarButtons.Relayout(this);
+                LayOut(view);
+                NoteTabs("Initial tabs", view);
+            });
+        }
 
-                // Diagnostics from #372 show visible=true but an empty tab column
-                // until rotation. Refresh the native items once after attachment;
-                // do not recreate MAUI pages, change traits or simulate rotation.
-                var refreshed = false;
-                if (ShellItemController.ShowTabs && view.Bounds.Width > view.Bounds.Height
-                    && TabBarButtons.IsAwaitingPill(this) && ViewControllers is { Length: > 0 } controllers)
-                {
+        /// <summary>
+        /// On the Duo's inner display a landscape cold launch can leave the tab
+        /// bar with all its items but no pill until the phone is turned (#372),
+        /// and one refresh on the first run-loop turn was not enough. Checks a
+        /// few times over about a second, nudging harder each time, as
+        /// <see cref="TabSettlePolicy"/> decides; starts again when the view's
+        /// size changes. Portrait and narrow views are never nudged.
+        /// </summary>
+        /// <remarks>
+        /// Only cheap checks run here, as this follows every layout; the window
+        /// search for the pill waits for the queued check. Liquid Glass (iOS 26)
+        /// is needed: earlier tab bars have no pill to find.
+        /// </remarks>
+        private void QueueSettle()
+        {
+            if (!TabBarButtons.IsAvailable || !_appeared || View is not { Window: not null } view)
+                return;
+
+            if (_settle.Resize(view.Bounds.Width, view.Bounds.Height))
+                _lastStage = TabSettleStage.None;
+
+            if (_settleQueued || _settle.IsFinished || !_initialLayoutCompleted
+                || !ShellItemController.ShowTabs || view.Bounds.Width <= view.Bounds.Height)
+                return;
+
+            _settleQueued = true;
+            NSRunLoop.Main.BeginInvokeOnMainThread(Settle);
+        }
+
+        private void Settle()
+        {
+            _settleQueued = false;
+            if (!_appeared || View is not { Window: not null } view || ShellItem is null)
+                return;
+
+            var showTabs = ShellItemController.ShowTabs;
+            var isWide = view.Bounds.Width > view.Bounds.Height;
+            var controllers = ViewControllers is { Length: > 0 };
+            var pillFound = showTabs && isWide && controllers && TabBarButtons.HasPill(this);
+            var step = _settle.Check(showTabs, isWide, controllers, pillFound);
+            switch (step.Action)
+            {
+                case TabSettleAction.Nudge:
+                    // Queued before nudging: the nudge lays out, and that must not
+                    // queue a second, immediate check that skips the wait.
+                    _settleQueued = true;
+                    Nudge(step.Stage, view);
+                    _lastStage = step.Stage;
+                    NoteTabs($"Initial tabs: nudged ({step.Stage})", view);
+                    var weak = new WeakReference<AppShellItemRenderer>(this);
+                    NSTimer.CreateScheduledTimer(step.NextCheck.TotalSeconds, false, _ =>
+                    {
+                        if (weak.TryGetTarget(out var renderer))
+                            renderer.Settle();
+                    });
+                    break;
+                case TabSettleAction.GiveUp:
+                    NoteTabs($"Initial tabs: no pill after {_lastStage}", view);
+                    break;
+                case TabSettleAction.None when pillFound && _lastStage != TabSettleStage.None:
+                    NoteTabs($"Initial tabs: pill after {_lastStage}", view);
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// Pushes UIKit to build the pill a rotation would. Each stage puts back
+        /// what it changes, keeping the selection and the compact tab layout.
+        /// </summary>
+        private void Nudge(TabSettleStage stage, UIView view)
+        {
+            if (!OperatingSystem.IsIOSVersionAtLeast(26))
+                return;
+
+            switch (stage)
+            {
+                case TabSettleStage.Refresh when ViewControllers is { Length: > 0 } controllers:
                     var selected = SelectedViewController;
                     SetViewControllers(controllers.ToArray(), false);
                     if (selected is not null && !ReferenceEquals(SelectedViewController, selected))
                         SelectedViewController = selected;
-                    view.SetNeedsLayout();
-                    view.LayoutIfNeeded();
-                    TabBar.SetNeedsLayout();
-                    TabBar.LayoutIfNeeded();
-                    TabBarButtons.Relayout(this);
-                    refreshed = true;
-                }
+                    break;
+                case TabSettleStage.ToggleBar:
+                    SetTabBarHidden(true, false);
+                    LayOut(view);
+                    SetTabBarHidden(false, false);
+                    break;
+                case TabSettleStage.FlipTraits:
+                    TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Regular;
+                    LayOut(view);
+                    TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
+                    break;
+            }
 
-                (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
-                    "Layout", $"Initial tabs: horizontal={TraitCollection.HorizontalSizeClass}, vertical={TraitCollection.VerticalSizeClass}, show={ShellItemController.ShowTabs}, hidden={TabBarHidden}, bounds={view.Bounds}, bar={TabBar.Frame}, controllers={ViewControllers?.Length ?? 0}, items={TabBar.Items?.Length ?? 0}, refreshed={refreshed}, awaitingPill={TabBarButtons.IsAwaitingPill(this)}");
-            });
+            LayOut(view);
         }
+
+        private void LayOut(UIView view)
+        {
+            view.SetNeedsLayout();
+            view.LayoutIfNeeded();
+            TabBar.SetNeedsLayout();
+            TabBar.LayoutIfNeeded();
+            TabBarButtons.Relayout(this);
+        }
+
+        private void NoteTabs(string what, UIView view) =>
+            (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
+                "Layout", $"{what}: horizontal={TraitCollection.HorizontalSizeClass}, vertical={TraitCollection.VerticalSizeClass}, show={ShellItemController.ShowTabs}, hidden={(OperatingSystem.IsIOSVersionAtLeast(18) ? TabBarHidden : TabBar.Hidden)}, bounds={view.Bounds}, bar={TabBar.Frame}, controllers={ViewControllers?.Length ?? 0}, items={TabBar.Items?.Length ?? 0}");
     }
 }

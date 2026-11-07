@@ -205,10 +205,22 @@ internal static class TabBarButtons
     public static CGRect? PillIn(UIView view) =>
         _host is { Window: not null, Hidden: false } host && !_pill.IsEmpty ? host.ConvertRectToView(_pill, view) : null;
 
-    /// <summary>The current controller has a visible bar container but no rendered tab pill yet.</summary>
-    public static bool IsAwaitingPill(UITabBarController tabs) =>
-        _host is { Hidden: false, Window: not null } host
-        && ReferenceEquals(host.Superview, tabs.View) && _pill.IsEmpty;
+    /// <summary>
+    /// Whether UIKit has drawn <paramref name="tabs"/>' pill (or its tab
+    /// buttons) in the window: false while the bar is hidden, empty or still
+    /// only a column, as on the Duo's landscape cold launch (#372).
+    /// </summary>
+    /// <remarks>
+    /// Searched for directly rather than taken from the last placement, which
+    /// only runs once a page owns the buttons: the check must not depend on
+    /// which page has appeared. The window, not a view inside it, is the
+    /// search's reference view, so no part of the controller is skipped.
+    /// Callers check a bounded number of times; see <c>TabSettlePolicy</c>.
+    /// </remarks>
+    public static bool HasPill(UITabBarController tabs) =>
+        tabs.TabBar is { Hidden: false, Window: { } window } tabBar
+        && tabBar.Items is { Length: > 0 }
+        && !Pill(tabs, tabBar, window).From.StartsWith("bar", StringComparison.Ordinal);
 
     /// <summary>
     /// The tab bar's pill and the buttons, in <paramref name="view"/>'s points,
