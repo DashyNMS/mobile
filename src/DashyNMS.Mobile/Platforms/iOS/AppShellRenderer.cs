@@ -29,8 +29,10 @@ internal sealed class AppShellRenderer : ShellRenderer
         private bool _initialLayoutCompleted;
         private bool _initialLayoutQueued;
         private bool _settleQueued;
+        private int _settleGeneration;
         private TabSettleStage _lastStage;
 
+        /// <summary>Pins the compact tab layout before Shell creates the child controllers.</summary>
         public AppShellItemRenderer(IShellContext context) : base(context)
         {
             // Set this before Shell creates the child controllers, so a cold
@@ -62,6 +64,11 @@ internal sealed class AppShellRenderer : ShellRenderer
         public override void ViewDidDisappear(bool animated)
         {
             _appeared = false;
+
+            // A timer still pending from this appearance must not run beside
+            // the chain a later appearance starts.
+            _settleGeneration++;
+            _settleQueued = false;
             base.ViewDidDisappear(animated);
         }
 
@@ -123,6 +130,10 @@ internal sealed class AppShellRenderer : ShellRenderer
             NSRunLoop.Main.BeginInvokeOnMainThread(Settle);
         }
 
+        /// <summary>
+        /// One timed check: looks for the pill and, if it is still missing,
+        /// applies the next nudge and books the following check.
+        /// </summary>
         private void Settle()
         {
             _settleQueued = false;
@@ -144,9 +155,10 @@ internal sealed class AppShellRenderer : ShellRenderer
                     _lastStage = step.Stage;
                     NoteTabs($"Initial tabs: nudged ({step.Stage})", view);
                     var weak = new WeakReference<AppShellItemRenderer>(this);
+                    var generation = _settleGeneration;
                     NSTimer.CreateScheduledTimer(step.NextCheck.TotalSeconds, false, _ =>
                     {
-                        if (weak.TryGetTarget(out var renderer))
+                        if (weak.TryGetTarget(out var renderer) && renderer._settleGeneration == generation)
                             renderer.Settle();
                     });
                     break;
@@ -191,6 +203,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             LayOut(view);
         }
 
+        /// <summary>Lays the controller and its bar out now, then repositions the glass buttons.</summary>
         private void LayOut(UIView view)
         {
             view.SetNeedsLayout();
@@ -200,6 +213,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             TabBarButtons.Relayout(this);
         }
 
+        /// <summary>Writes the tab layout to the diagnostics log, for device checks of #372.</summary>
         private void NoteTabs(string what, UIView view) =>
             (IPlatformApplication.Current?.Services.GetService(typeof(DiagnosticsLog)) as DiagnosticsLog)?.Note(
                 "Layout", $"{what}: horizontal={TraitCollection.HorizontalSizeClass}, vertical={TraitCollection.VerticalSizeClass}, show={ShellItemController.ShowTabs}, hidden={(OperatingSystem.IsIOSVersionAtLeast(18) ? TabBarHidden : TabBar.Hidden)}, bounds={view.Bounds}, bar={TabBar.Frame}, controllers={ViewControllers?.Length ?? 0}, items={TabBar.Items?.Length ?? 0}");
