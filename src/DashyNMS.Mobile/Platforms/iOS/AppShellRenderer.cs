@@ -43,8 +43,10 @@ internal sealed class AppShellRenderer : ShellRenderer
             }
         }
 
-        // The tab bar may have moved - iPhone Duo folded, opened or turned -
-        // so the search button by it moves too.
+        /// <summary>
+        /// The tab bar may have moved - iPhone Duo folded, opened or turned - so
+        /// the search button by it moves too, and the pill is checked for again.
+        /// </summary>
         public override void ViewDidLayoutSubviews()
         {
             base.ViewDidLayoutSubviews();
@@ -53,6 +55,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             QueueSettle();
         }
 
+        /// <summary>Starts the first layout pass and the pill checks, which wait for the view to be on screen.</summary>
         public override void ViewDidAppear(bool animated)
         {
             base.ViewDidAppear(animated);
@@ -61,6 +64,7 @@ internal sealed class AppShellRenderer : ShellRenderer
             QueueSettle();
         }
 
+        /// <summary>Stops the pill checks until the controller appears again.</summary>
         public override void ViewDidDisappear(bool animated)
         {
             _appeared = false;
