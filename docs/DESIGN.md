@@ -370,7 +370,10 @@ Error rates keep full precision, so a tiny positive rate is never shown as 0/s.
 VLANs come from the port's typed memberships, unique and in number order. If the
 device reports no memberships at all, a direct ifVlan is labelled
 Access/native VLAN. If it reports memberships, a port without any shows Not
-reported rather than its ifVlan, as Core's `VlanMembership` requires. Never
+reported rather than its ifVlan, as Core's `VlanMembership` requires. Group
+by VLAN and Sort by VLAN read the same VLANs as the card (#556), in this order:
+Trunk (more than one VLAN), then one VLAN n group per VLAN by number, then No
+VLAN. A port never sits under a VLAN its card doesn't list. Never
 show internal VLAN IDs or invent tags. Long descriptions and VLAN lists wrap,
 with no minimum height, line caps or extra vertical spacing.
 

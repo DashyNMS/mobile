@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using DesktopNMS.Core.Models;
 
@@ -9,8 +10,7 @@ public sealed record PortFacts(
     string Name,
     int StatusRank,
     string StatusName,
-    int? Vlan,
-    bool IsTrunk,
+    IReadOnlyList<int> Vlans,
     double Traffic,
     long? Speed,
     string? Alias,
@@ -22,25 +22,38 @@ public sealed record PortFacts(
     /// 0 errored, 1 down, 2 up, 3 shut down, 4 not monitored, 5 unknown, so
     /// sorting by rank leads with the ports that need looking at.
     /// </summary>
-    public static PortFacts From(Port port, int statusRank, string statusName)
-    {
-        // The port's own (untagged) VLAN, from ifVlan or its untagged
-        // membership; tagged memberships beyond that make it a trunk.
-        var untagged = port.Vlans.Where(v => v.Untagged).Select(v => v.Vlan).FirstOrDefault(v => v > 0);
-        var vlan = port.IfVlan is > 0 ? port.IfVlan : untagged > 0 ? untagged : null;
-        var tagged = port.Vlans.Count(v => !v.Untagged && v.Vlan > 0);
+    /// <param name="deviceReportsMemberships">Whether any of the device's ports report VLAN memberships; see <see cref="CarriedVlans"/>.</param>
+    public static PortFacts From(Port port, int statusRank, string statusName, bool deviceReportsMemberships = false) => new(
+        port.IfIndex,
+        port.DisplayName,
+        statusRank,
+        statusName,
+        CarriedVlans(port, deviceReportsMemberships).Numbers,
+        port.IsUp ? SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
+        port.IfSpeed is > 0 ? port.IfSpeed : null,
+        string.IsNullOrWhiteSpace(port.IfAlias) || port.IfAlias == port.DisplayName ? null : port.IfAlias.Trim(),
+        TypeName(port.IfType));
 
-        return new PortFacts(
-            port.IfIndex,
-            port.DisplayName,
-            statusRank,
-            statusName,
-            vlan,
-            tagged > 0,
-            port.IsUp ? SumValidRates(port.IfInOctetsRate, port.IfOutOctetsRate) : 0,
-            port.IfSpeed is > 0 ? port.IfSpeed : null,
-            string.IsNullOrWhiteSpace(port.IfAlias) || port.IfAlias == port.DisplayName ? null : port.IfAlias.Trim(),
-            TypeName(port.IfType));
+    /// <summary>
+    /// The VLANs a port carries: its typed memberships, unique and in number
+    /// order, and whether they came from memberships. Only when the port has
+    /// none and the device reports none at all (Core's
+    /// <see cref="VlanMembership"/> rule) does its direct ifVlan stand in.
+    /// The card's VLANs line and Group by VLAN both read this one rule, so a
+    /// trunk with ifVlan 1 carrying 10 and 20 can no longer sit under
+    /// "VLAN 1" while its card lists 10 and 20 (DashyNMS/desktop#571).
+    /// </summary>
+    internal static (IReadOnlyList<int> Numbers, bool FromMemberships) CarriedVlans(Port port, bool deviceReportsMemberships)
+    {
+        var members = port.Vlans.Select(v => v.Vlan).Where(v => v > 0).Distinct().Order().ToList();
+        if (members.Count > 0)
+        {
+            return (members, true);
+        }
+
+        return !deviceReportsMemberships && port.IfVlan is > 0 and var vlan
+            ? ([vlan], false)
+            : ([], false);
     }
 
     /// <summary>Invalid counters must not dominate traffic ranking or offset valid errors.</summary>
@@ -162,7 +175,7 @@ public static class PortArrangement
         {
             PortSort.Name => rows.OrderBy(r => r.Port!.Name, NaturalComparer.Instance).ThenBy(r => r, byIndex),
             PortSort.Status => rows.OrderBy(r => r.Port!.StatusRank).ThenBy(r => r, byIndex),
-            PortSort.Vlan => rows.OrderBy(r => r.Port!.Vlan ?? int.MaxValue).ThenBy(r => r, byIndex),
+            PortSort.Vlan => rows.OrderBy(r => VlanKey(r.Port!).Order).ThenBy(r => VlanKey(r.Port!).Vlan).ThenBy(r => r, byIndex),
             PortSort.Traffic => rows.OrderByDescending(r => r.Port!.Traffic).ThenBy(r => r, byIndex),
             PortSort.Speed => rows.OrderByDescending(r => r.Port!.Speed ?? -1).ThenBy(r => r, byIndex),
             PortSort.Description => rows
@@ -173,11 +186,19 @@ public static class PortArrangement
         };
     }
 
-    /// <summary>A port's VLAN heading: its own VLAN, "Trunk" for tagged ports with none of their own, or "No VLAN" - those two last.</summary>
-    private static (int Order, int Vlan, string Name) VlanKey(PortFacts port) =>
-        port.Vlan is { } vlan ? (0, vlan, $"VLAN {vlan}")
-        : port.IsTrunk ? (1, 0, "Trunk")
-        : (2, 0, "No VLAN");
+    /// <summary>
+    /// A port's VLAN heading, following the VLANs its card lists
+    /// (DashyNMS/desktop#571): "Trunk" first for a port carrying more than
+    /// one, then "VLAN n" by number (2, 10, 100) for a port carrying just
+    /// that one, so access and single-tagged ports sit together, and
+    /// "No VLAN" last. Sorting by VLAN uses the same order, so the two agree.
+    /// </summary>
+    private static (int Order, int Vlan, string Name) VlanKey(PortFacts port) => port.Vlans switch
+    {
+        { Count: > 1 } => (0, 0, "Trunk"),
+        [var vlan] => (1, vlan, string.Create(CultureInfo.InvariantCulture, $"VLAN {vlan}")),
+        _ => (2, 0, "No VLAN"),
+    };
 }
 
 /// <summary>Compares names with their numbers as numbers: Gi1/0/2 before Gi1/0/10.</summary>

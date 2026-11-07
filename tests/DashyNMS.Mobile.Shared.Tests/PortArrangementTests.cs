@@ -59,13 +59,139 @@ public sealed class PortArrangementTests
         Assert.Equal(["Gi1/0/1", "Gi1/0/2", "Gi1/0/10", "Te1/1/1", "Vlan10"], Names(groups));
     }
 
+    /// <summary>Group by VLAN lists Trunk first and No VLAN last, with the busiest port first inside a group.</summary>
     [Fact]
-    public void Grouped_by_vlan_with_trunks_and_ports_without_one_last()
+    public void Grouped_by_vlan_with_trunks_first_and_ports_without_one_last()
     {
         var groups = PortArrangement.Arrange(Rows, PortSort.Traffic, PortGrouping.Vlan);
 
-        Assert.Equal(["VLAN 10", "VLAN 20", "Trunk", "No VLAN"], groups.Select(g => g.Name));
-        Assert.Equal(["Gi1/0/1", "Gi1/0/2"], groups[0].Select(r => r.Title)); // busiest first within
+        Assert.Equal(["Trunk", "VLAN 10", "VLAN 20", "No VLAN"], groups.Select(g => g.Name));
+        Assert.Equal(["Gi1/0/1", "Gi1/0/2"], groups[1].Select(r => r.Title)); // busiest first within
+    }
+
+    /// <summary>A port with an ifVlan and typed memberships, as LibreNMS reports them; each tuple is a VLAN number and whether it is untagged.</summary>
+    private static Port Member(int index, string name, int? ifVlan, params (int Vlan, bool Untagged)[] vlans)
+    {
+        var port = Port(index, name, vlan: ifVlan);
+        foreach (var (vlan, untagged) in vlans)
+        {
+            port.Vlans.Add(new PortVlanMembership { Vlan = vlan, Untagged = untagged });
+        }
+
+        return port;
+    }
+
+    /// <summary>The VLAN groups for ports on a device that does or does not report memberships, built through the loader so the card text is the real one.</summary>
+    private static IReadOnlyList<SectionGroup> ByVlan(bool deviceReportsMemberships, params Port[] ports) =>
+        PortArrangement.Arrange(ports.Select(p => DeviceSectionLoader.PortRow(p, deviceReportsMemberships)), PortSort.PortId, PortGrouping.Vlan);
+
+    /// <summary>A trunk with a stray ifVlan groups as Trunk, matching its card (desktop#571).</summary>
+    [Fact]
+    public void A_port_carrying_several_vlans_is_a_trunk_whatever_its_ifvlan()
+    {
+        // DashyNMS/desktop#571: ifVlan 1 with memberships 10 and 20 sat under "VLAN 1" while the card listed 10 and 20.
+        var groups = ByVlan(true, Member(1, "Gi1/0/1", 1, (10, true), (20, false)));
+
+        var group = Assert.Single(groups);
+        Assert.Equal("Trunk", group.Name);
+        Assert.Equal("10, 20", Assert.Single(group).PortVlanText);
+    }
+
+    /// <summary>Ports carrying only one VLAN share its group, tagged or untagged, and repeated or zero memberships don't make a trunk.</summary>
+    [Fact]
+    public void A_single_tagged_vlan_groups_with_the_untagged_ports_on_it()
+    {
+        var groups = ByVlan(true,
+            Member(1, "Gi1/0/1", null, (10, true)),
+            Member(2, "Gi1/0/2", 1, (10, false)),
+            Member(3, "Gi1/0/3", null, (10, false), (10, true), (0, false)));
+
+        var group = Assert.Single(groups);
+        Assert.Equal("VLAN 10", group.Name);
+        Assert.Equal(["Gi1/0/1", "Gi1/0/2", "Gi1/0/3"], group.Select(r => r.Title)); // duplicates count once, so no trunk
+    }
+
+    /// <summary>Groups run Trunk, then VLANs by number (2, 10, 100, not as text), then No VLAN.</summary>
+    [Fact]
+    public void Vlan_groups_put_trunks_first_then_vlans_by_number_then_no_vlan()
+    {
+        var groups = ByVlan(true,
+            Member(1, "Gi1/0/1", 1, (10, false), (20, false)),
+            Member(2, "Gi1/0/2", 5),
+            Member(3, "Gi1/0/3", null, (100, true)),
+            Member(4, "Gi1/0/4", null, (2, true)),
+            Member(5, "Gi1/0/5", 1, (10, false)),
+            Member(6, "Gi1/0/6", null, (2, false), (100, false)));
+
+        Assert.Equal(["Trunk", "VLAN 2", "VLAN 10", "VLAN 100", "No VLAN"], groups.Select(g => g.Name));
+        Assert.Equal(["Gi1/0/1", "Gi1/0/6"], groups[0].Select(r => r.Title));
+    }
+
+    /// <summary>A device that reports no memberships falls back to each port's ifVlan, named Access/native VLAN.</summary>
+    [Fact]
+    public void Without_memberships_on_the_device_a_port_groups_by_its_own_vlan()
+    {
+        // ifVlan 1 on an uplink is all there is to go on, so it is just VLAN 1.
+        var groups = ByVlan(false, Member(1, "Gi1/0/1", 1), Member(2, "Gi1/0/2", 30), Member(3, "Gi1/0/3", null));
+
+        Assert.Equal(["VLAN 1", "VLAN 30", "No VLAN"], groups.Select(g => g.Name));
+        Assert.Equal("Access/native VLAN", groups[0].Single().PortVlanLabel);
+    }
+
+    /// <summary>Once a device reports memberships, a port reporting none is No VLAN, even with an ifVlan.</summary>
+    [Fact]
+    public void A_port_without_memberships_on_a_device_with_them_has_no_vlan_group()
+    {
+        var group = Assert.Single(ByVlan(true, Member(1, "Gi1/0/1", 30)));
+
+        Assert.Equal("No VLAN", group.Name);
+        Assert.Equal("Not reported", group.Single().PortVlanText);
+    }
+
+    /// <summary>Whatever the device reports, every port's group agrees with the VLANs its card lists.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Every_port_sits_under_the_vlans_its_card_lists(bool deviceReportsMemberships)
+    {
+        var groups = ByVlan(deviceReportsMemberships,
+            Member(1, "Gi1/0/1", 1, (10, true), (20, false)),
+            Member(2, "Gi1/0/2", 1, (10, false)),
+            Member(3, "Gi1/0/3", 30),
+            Member(4, "Gi1/0/4", null),
+            Member(5, "Gi1/0/5", null, (0, true)));
+
+        foreach (var group in groups)
+        {
+            foreach (var row in group)
+            {
+                var listed = row.PortVlanText == "Not reported" ? [] : row.PortVlanText!.Split(", ").Select(int.Parse).ToArray();
+                var expected = listed.Length switch
+                {
+                    > 1 => "Trunk",
+                    1 => $"VLAN {listed[0]}",
+                    _ => "No VLAN",
+                };
+                Assert.Equal(expected, group.Name);
+            }
+        }
+    }
+
+    /// <summary>Sort by VLAN uses the group order, so a sorted list and a grouped one agree.</summary>
+    [Fact]
+    public void Sorting_by_vlan_follows_the_group_order()
+    {
+        var rows = new[]
+        {
+            Member(1, "Gi1/0/1", null),
+            Member(2, "Gi1/0/2", null, (100, true)),
+            Member(3, "Gi1/0/3", null, (10, true), (20, false)),
+            Member(4, "Gi1/0/4", null, (2, true)),
+        }.Select(p => DeviceSectionLoader.PortRow(p, true));
+
+        var groups = PortArrangement.Arrange(rows, PortSort.Vlan, PortGrouping.None);
+
+        Assert.Equal(["Gi1/0/3", "Gi1/0/4", "Gi1/0/2", "Gi1/0/1"], Names(groups));
     }
 
     [Fact]
