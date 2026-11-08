@@ -347,6 +347,11 @@ rotation) is not yet accepted on a device. The renderer now settles a wide
 tab bar: `TabSettlePolicy` checks for UIKit's pill over about a second and
 nudges harder each time (refresh the items, hide and show the bar, flip the
 horizontal size class for one pass), then gives up until the size changes.
+MAUI is pinned to 10.0.120 in the app's csproj, newer than the 10.0.110 the
+workload set ships: 10.0.110's iOS `ShellItemRenderer` never passes
+`traitCollectionDidChange:` to UIKit's tab controller, the likely cause of
+#372 (dotnet/maui#39263, fixed by #39264). If a Duo cold launch no longer
+logs "Initial tabs: nudged", `TabSettlePolicy` can be removed.
 Narrow and portrait views are never nudged. The "Initial tabs" diagnostics
 say which nudge, if any, produced the pill. Keep that failure distinct from
 portrait presentation and verify both paths on the Duo. Simulator CI does
