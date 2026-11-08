@@ -9,7 +9,7 @@ namespace DashyNMS.Mobile.Controls;
 /// as the network map does (#109) - so the app shows loading one way.
 /// </summary>
 /// <remarks>
-/// Only a pull, or the first load, shows the card: the refreshes a page does
+/// Only a pull, a Refresh button or the first load shows the card: the refreshes a page does
 /// on its own (coming back to the tab, a timer) stay quiet, so it doesn't
 /// flash up with every tab switch. The list stays visible beneath it until
 /// the new one arrives.
@@ -21,7 +21,12 @@ internal static class PullToRefresh
     /// shown while <paramref name="viewModel"/> loads for the first time
     /// (<paramref name="loading"/>) or after a pull (<paramref name="refreshing"/>).
     /// </summary>
-    public static void ShowBusyCard(RefreshView refresh, BusyCard card, ViewModelBase viewModel, string loading, string refreshing)
+    /// <returns>
+    /// A refresh the user asked for some other way - a Refresh button - which
+    /// shows the card as a pull does. Running the command alone stays quiet,
+    /// so a tapped button would otherwise give no sign it did anything.
+    /// </returns>
+    public static Action ShowBusyCard(RefreshView refresh, BusyCard card, ViewModelBase viewModel, string loading, string refreshing)
     {
         var pulled = false;
 
@@ -31,7 +36,7 @@ internal static class PullToRefresh
             card.IsVisible = viewModel.IsLoadingFirstTime || (pulled && viewModel.IsBusy);
         }
 
-        HideSpinner(refresh, () =>
+        void Asked()
         {
             pulled = true;
             Update();
@@ -46,7 +51,9 @@ internal static class PullToRefresh
                     Update();
                 }
             });
-        });
+        }
+
+        HideSpinner(refresh, Asked);
 
         viewModel.PropertyChanged += (_, e) =>
         {
@@ -62,6 +69,16 @@ internal static class PullToRefresh
         };
 
         Update();
+
+        // Shown even if a quiet refresh is already running: the tap waits on that one.
+        return () =>
+        {
+            Asked();
+            if (refresh.Command?.CanExecute(refresh.CommandParameter) == true)
+            {
+                refresh.Command.Execute(refresh.CommandParameter);
+            }
+        };
     }
 
     /// <summary>
