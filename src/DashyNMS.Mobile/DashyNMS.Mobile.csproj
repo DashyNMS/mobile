@@ -23,6 +23,14 @@
 		<OutputType>Exe</OutputType>
 		<RootNamespace>DashyNMS.Mobile</RootNamespace>
 		<UseMaui>true</UseMaui>
+
+		<!-- Newer than the 10.0.110 the workload set ships. 10.0.110's iOS
+		     ShellItemRenderer overrides TraitCollectionDidChange without calling
+		     base, so UIKit's tab controller never re-resolves its layout when it
+		     gets a window: no tab pill on a landscape cold launch on the Duo's
+		     inner display (#372). Fixed in 10.0.120 (dotnet/maui#39264). Move
+		     this with the workload set; the Android Work pin below follows it. -->
+		<MauiVersion>10.0.120</MauiVersion>
 		<SingleProject>true</SingleProject>
 
 		<!-- XAML compiled to C# at build time: faster start-up, and binding
