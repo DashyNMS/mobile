@@ -12,11 +12,14 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 	private IDisposable? _edges;
     private readonly ButtonSearch _search;
 
+    /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
+    private readonly Action _refresh;
+
 	public GroupsLocationsPage(GroupsLocationsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-        PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel,
+        _refresh = PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel,
             "Loading groups and locations…", "Refreshing groups and locations…");
         _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
@@ -49,7 +52,7 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
         if (PageHeader.IsPushed(this))
             actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh groups and locations", () => _viewModel.RefreshCommand.Execute(null)));
+        actions.Add(new("arrow.clockwise", "Refresh groups and locations", _refresh));
         TabBarButtons.Show(this, OpenSearch, "Search groups and locations", actions);
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;

@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 /// screen is one display: the chips scroll in from under the camera, and
 /// the list runs on down to the foot of the Liquid Glass tab bar - under a
 /// bottom one, its rows scrolling clear; short of a side one's column, its
-/// foot level with the pill's. Search, Refresh and Export are glass by the
+/// foot level with the pill's. Search, Export and Refresh are glass by the
 /// tab bar on iOS 26 and later, and header icons before that and on
 /// Android. What can be tapped is placed clear of the camera and glass here
 /// (see <see cref="CoveredEdges"/>); beside a detail pane (#88) only the
@@ -40,6 +40,9 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 	/// <summary>The alert beside the list (#88), padded clear of the glass with the list.</summary>
 	private AlertDetailView? _detail;
 
+	/// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
+	private readonly Action _refresh;
+
 	public AlertsPage(AlertsViewModel viewModel)
 	{
 		InitializeComponent();
@@ -48,7 +51,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
 #endif
 		BindingContext = _viewModel = viewModel;
-		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading alerts…", "Refreshing alerts…");
+		_refresh = PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading alerts…", "Refreshing alerts…");
 		Split.SplitChanged += (_, _) =>
 		{
 			_viewModel.SelectKey(Split.IsSplit ? _shown : null);
@@ -108,7 +111,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		List.HandlerChanged += (_, _) => StopInsetAdjustment();
 		List.Loaded += (_, _) => StopInsetAdjustment();
 
-		// Search, Refresh and Export are Liquid Glass by the tab bar instead.
+		// Search, Export and Refresh are Liquid Glass by the tab bar instead.
 		if (TabBarButtons.IsAvailable)
 		{
 			HeaderActions.IsVisible = false;
@@ -198,10 +201,11 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		base.OnAppearing();
 		Header.Apply(this);
 #if IOS
+		// Refresh below Export (to its right under a bottom tab bar).
 		TabBarButtons.Show(this, OpenSearch, "Search alerts",
 		[
-			new("arrow.clockwise", "Refresh alerts", () => _viewModel.RefreshCommand.Execute(null)),
 			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
+			new("arrow.clockwise", "Refresh alerts", _refresh),
 		]);
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif

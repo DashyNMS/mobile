@@ -342,10 +342,22 @@ must show the pinned tab bar without needing another launch. The iOS
 `AppShellRenderer` uses the compact compatibility layout on phones and
 tablets. The native-trait experiment in #381 was reverted after device
 reports showed changed portrait tabs and no improvement to landscape launch.
-The earlier attached-layout/native-item refresh remains, but #372 is still
-unresolved: cold launch can have five native items with no visible pill
-until rotation. Keep that failure distinct from portrait presentation and
-verify both paths on the Duo. Simulator CI does not reproduce this timing.
+#372 (cold launch with five native items but no visible pill until
+rotation) is not yet accepted on a device. The renderer now settles a wide
+tab bar: `TabSettlePolicy` checks for UIKit's pill over about a second and
+nudges harder each time (refresh the items, hide and show the bar, flip the
+horizontal size class for one pass), then gives up until the size changes.
+MAUI is pinned to 10.0.120 in the app's csproj, newer than the 10.0.110 the
+workload set ships: 10.0.110's iOS `ShellItemRenderer` never passes
+`traitCollectionDidChange:` to UIKit's tab controller, the likely cause of
+#372 (dotnet/maui#39263, fixed by #39264). If a Duo cold launch shows the
+pill without rotating and also no longer logs "Initial tabs: nudged",
+`TabSettlePolicy` can be removed. The missing log alone proves nothing: the
+settle check may not have run, or may have been waiting for controllers.
+Narrow and portrait views are never nudged. The "Initial tabs" diagnostics
+say which nudge, if any, produced the pill. Keep that failure distinct from
+portrait presentation and verify both paths on the Duo. Simulator CI does
+not reproduce this timing.
 On the inner display in portrait, every page's top line (the Dashboard's
 logo and Customise, other pages' titles or "‹ Back") should sit level with
 the clock, its right-hand buttons stopping short of the status bar and

@@ -11,11 +11,14 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
     private bool _active;
     private readonly ButtonSearch _search;
 
+    /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
+    private readonly Action _refresh;
+
     public HealthPage(HealthViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading sensors…", "Refreshing sensors…");
+        _refresh = PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading sensors…", "Refreshing sensors…");
         _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
 #if IOS
@@ -45,7 +48,7 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         if (PageHeader.IsPushed(this))
             actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh sensors", () => _viewModel.RefreshCommand.Execute(null)));
+        actions.Add(new("arrow.clockwise", "Refresh sensors", _refresh));
         TabBarButtons.Show(this, OpenSearch, "Search sensors", actions);
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;

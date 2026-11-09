@@ -365,7 +365,7 @@ public sealed class DeviceSectionLoader
                 string.IsNullOrWhiteSpace(port.IfName) || port.IfName == port.DisplayName ? null : port.IfName,
                 string.IsNullOrWhiteSpace(port.IfAlias) ? null : port.IfAlias,
             }.Where(s => s is not null)),
-            Port = PortFacts.From(port, status.Rank, status.Name),
+            Port = PortFacts.From(port, status.Rank, status.Name, deviceReportsMemberships),
             PortStatusText = state + (port.IsUp ? status.HasErrors ? ", Warning" : status.ErrorsKnown ? ", OK" : trafficKnown ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.
             LinkPortIfName = string.IsNullOrWhiteSpace(port.IfName) ? null : port.IfName,
@@ -413,18 +413,18 @@ public sealed class DeviceSectionLoader
         : "Unavailable";
 
     /// <summary>
-    /// The VLANs a port actually carries, from its typed memberships, unique
-    /// and in number order. Without memberships the direct ifVlan is named
-    /// for what it is; nothing reported stays explicit, never a guessed tag.
+    /// The VLANs a port actually carries, from <see cref="PortFacts.CarriedVlans"/>
+    /// so the card always matches its Group by VLAN heading. A direct ifVlan
+    /// standing in is named for what it is; nothing reported stays explicit,
+    /// never a guessed tag.
     /// </summary>
     internal static (string Label, string Text) PortVlans(Port port, bool deviceReportsMemberships)
     {
-        var members = port.Vlans.Select(v => v.Vlan).Where(v => v > 0).Distinct().Order().ToList();
-        if (members.Count > 0)
-            return ("VLANs", string.Join(", ", members.Select(v => v.ToString(CultureInfo.CurrentCulture))));
-        if (!deviceReportsMemberships && port.IfVlan is > 0)
-            return ("Access/native VLAN", port.IfVlan.Value.ToString(CultureInfo.CurrentCulture));
-        return ("VLANs", "Not reported");
+        var (numbers, fromMemberships) = PortFacts.CarriedVlans(port, deviceReportsMemberships);
+        if (numbers.Count == 0)
+            return ("VLANs", "Not reported");
+        var text = string.Join(", ", numbers.Select(v => v.ToString(CultureInfo.CurrentCulture)));
+        return (fromMemberships ? "VLANs" : "Access/native VLAN", text);
     }
 
     private static string PortTraffic(double? rate) => ValidRate(rate) && double.IsFinite(rate!.Value * 8)
