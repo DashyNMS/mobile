@@ -1,744 +1,319 @@
-# DashyNMS Mobile page design spec
+# DashyNMS Mobile design guide
 
-Updated 4 November 2026. Use this spec when creating, changing or reviewing
-any mobile page, including tabs, pushed pages, forms, pickers, editors,
-canvases and detail panes. Rules describe the target design; the pattern
-table distinguishes existing implementations awaiting migration.
+This guide tells an implementer how to build or change a mobile page so it matches the approved UI. Follow the steps in order. Each step ends with a check you can see, measure or run. The steps hold approved targets. Some pages have recorded device acceptance and others are source targets still awaiting it. Section 12 lists the pages still awaiting device acceptance. For an existing setup page or the dashboard editor, also apply its contract in section 10a.
 
-For an existing setup page or dashboard editor, also read its contract in
-[Page contracts and acceptance evidence](DESIGN-REFERENCES.md). Consult that
-reference for historical acceptance; keep reusable design rules here.
+H is the native body host height, B is the pill bottom and V is the list or graph viewport bottom. A card host is a page whose list sits inside one bordered card. The card hosts are the tab-aligned lists and the `PushedListLayout` lists (backup history, contents and diff). Logs and Graylog use `TabAlignedListLayout`. Devices, Alerts, Health, Groups and locations, Alert rules and Neighbours apply the same policy in page code. A cardless list gives every row its own card. Glass means the iOS 26+ tab bar buttons.
 
-## Implementation workflow
+## 1. Pick the page pattern
 
-1. Classify the page using the pattern table. Read its reference, shared
-   controls and view model. Identify every entry route and whether changes
-   save immediately, on Save or through a separate immediate action.
-   Finish with each entry/return path and persistence contract accounted for.
-2. Identify the owner of each inset: native page safe area, native scroll inset,
-   content padding or overlay margin. Choose one owner per edge. Finish when
-   every tappable control and the final list item can clear system and glass UI.
-3. Implement the relevant rules below. Reuse shared controls and preserve the
-   page's persistence contract. Finish when resizing, navigation and keyboard
-   dismissal all update the layout without duplicate controls or insets.
-4. Validate changed behaviour with relevant shared tests and Android/iOS
-   builds through the PR process. On a code-only machine, use CI for these
-   checks. Inspect available layout diagnostics. Finish with each check
-   recorded as passed, failed or unavailable.
-5. Before merging, have the coding agent review the PR's full diff against
-   this guide: `/code-review` in Claude Code, `/review` in Codex, or the same
-   request in plain words elsewhere. Fix confirmed findings in the PR, or note
-   in the PR why one stands. A review does not replace CI or device checks.
-6. Record the acceptance checklist with code review, CI and device results
-   separately. Finish device-gated work only after the user's explicit
-   acceptance; use non-closing PR references until then. Close only the
-   accepted issues and tick their epic entries, leaving other work pending.
-
-### Batch delivery
-
-The user may authorise a batch of page issues for one device test. A batch
-changes when device verification happens; acceptance history belongs in
-DESIGN-REFERENCES.md:
-
-- Keep one issue per PR with a non-closing `Refs #NN`. Each PR passes CI and
-  the step 5 review before squash-merging; a code-only machine runs no local
-  builds or tests.
-- When managing a batch sequentially, finish each PR's branch update, CI and
-  merge before updating the next. Follow the agreed issue order and land
-  dependencies before their consumers.
-- Land a shared-control change before the pages using it, in its own PR or the
-  first consumer's. Name the accepted pages it affects and keep their contracts.
-- Build one TestFlight after the final merge. The user accepts or rejects each
-  issue separately; issues and epic boxes stay open until then.
-- A rejected page gets a follow-up PR referencing its issue. Record accepted
-  results in DESIGN-REFERENCES.md afterwards.
-
-## Choose the page pattern
-
-Paths in this table are under `src/DashyNMS.Mobile/`.
+Paths are under `src/DashyNMS.Mobile/`. Read the reference page, its shared controls and its view model before writing code.
 
 | Page type | Reference | Layout contract |
 | --- | --- | --- |
-| Map or canvas tab | `Pages/NetworkMapPage.xaml` and `.xaml.cs` | Background fills the screen; safe controls overlay it |
-| Scrolling dashboard | `Pages/DashboardPage.xaml` and `.xaml.cs` | Content scrolls beneath a bottom bar; its column clears side glass |
-| Searchable list with detail | `Pages/DevicesPage.xaml` and `.xaml.cs` | Virtualised list, footer clearance, optional detail column |
-| Pushed detail | `Pages/DeviceDetailPage.cs` | Back returns to the actual previous page; detail takes glass ownership |
-| Dashboard layout editor | `Pages/CustomiseDashboardPage.xaml` and `.xaml.cs` | Adaptive virtualised grid, measured side margins and footer clearance |
-| Setup form or picker adopting #406 | `Controls/SetupLayout.cs`, `SetupPageLayout.cs`, `Pages/GraphPickerPage.xaml` | Fixed header, finite viewport, optional fixed action; explicit inset ownership |
-| Setup pages awaiting migration | `Controls/DashboardBackNavigation.cs` and its callers | Keeps native page safe areas and adds only extra glass clearance |
+| Map or canvas tab | `Pages/NetworkMapPage.xaml` | Background fills the screen. Safe controls overlay it. |
+| Scrolling dashboard | `Pages/DashboardPage.xaml` | Content scrolls beneath a bottom bar. Its column clears side glass. |
+| Searchable list with detail | `Pages/LogsPage.xaml` | Virtualised list, footer clearance, optional detail column. |
+| Pushed detail | `Pages/DeviceDetailPage.cs` | Back returns to the actual previous page. The detail owns glass. |
+| Dashboard layout editor | `Pages/CustomiseDashboardPage.xaml` | Adaptive virtualised grid, measured side margins, footer clearance. |
+| Setup form or picker | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs`, `Pages/GraphPickerPage.xaml` | Fixed header, finite viewport, optional fixed action, explicit inset ownership. |
+| Older setup page | `Controls/DashboardBackNavigation.cs` and callers | Keeps native safe areas. Migrate it to the setup form pattern in one change that removes the helper, the old page padding and the native safe-area declaration together. |
 
-The final row describes the form implementation retained after #391. The editor
-moved to the scrolling pattern in #401. A form migration needs its own layout
-review; copying the editor's inset calculation into the form helper would count
-native safe areas twice. The agreed target for setup-page unification is recorded below and in #405.
-This table is a pattern index. DESIGN-REFERENCES.md records accepted pages
-and remaining implementation gaps.
+Then record every entry route and whether changes save immediately, on Save or through a separate immediate action. Change a page's persistence only with an explicit decision recorded in its issue.
 
-## Forms and fixed primary actions
+Done when the page has one pattern, a list of entry and return paths, and a stated persistence contract.
 
-Use this pattern for draft forms and pickers. Preserve each existing page's
-contract as recorded in DESIGN-REFERENCES.md.
+## 2. Assign insets and lay out the page
 
-- Forms fill the available width with 16pt gutters and measured camera/glass
-  clearance. Remove form-only ReadableColumn/680pt caps.
-- Draft forms have one primary Save fixed at the base of the page, outside
-  scrolling content. With a vertical side pill, align the button's bottom
-  with the pill's bottom. With a bottom bar, keep Save above glass actions.
-  Treat an iPad top pill separately from a bottom bar.
-- The form/list viewport clears the fixed action. Keep the final field and
-  focused entry reachable with the keyboard open; restore pill alignment
-  after dismissal. Use the shared policy rather than per-page fixed spacers.
-- Share heading, section, field, search and status presentation across forms
-  and pickers. Keep virtualised lists height-constrained.
-- Immediate-save settings retain their behaviour and need no Save button.
-  Change persistence only with an explicit decision recorded in the issue.
-- Use the implicit primary `Button` style for the main Add or Save action;
-  it owns primary colours, contrast and disabled states. Use secondary
-  buttons for subordinate actions.
+1. Give each edge exactly one owner. The candidates are the native page safe area, the native scroll inset, content padding and an overlay margin. Extra padding must never shrink the usable area or lift an action above the pill base.
+2. On iOS keep only the page's top container safe area. Set `SafeAreaEdges="None"` on supporting layouts, `ScrollView` and `RefreshView`. On Android, `SetupPageLayout`, `PushedListLayout`, the Graylog message page and the neighbour link page set `SafeAreaEdges.All` explicitly, and new pushed detail pages follow them. More, Health and the device sections declare `SafeAreaEdges="Container"` in XAML. Settings declares Container on all four edges in C#. In C# write the four-edge constructor, because `SafeAreaEdges.Container` is not a member.
+3. `CollectionView` has no `SafeAreaEdges`. On iOS find its native `UIScrollView` from the handler and set `ContentInsetAdjustmentBehavior` to `Never` on `HandlerChanged`, `Loaded` and placement. Copy the pattern in Devices or Edit dashboard. Let the footer supply final-item clearance.
+4. Use `CoveredEdges.ForScrolling(page)` for scrolling columns. Its bottom includes the glass action row and its sides include a 12pt gap before a side pill. Add 16pt gutters once. Pad a `ScrollView` content column. Give a `CollectionView` side margins and footer space.
+5. Put placement in `PlaceControls()`. Call it on appearing, through `CoveredEdges.Watch`, and after `TabBarButtons.Moved`. Dispatch it so it runs after native frames exist. Recompute column counts on width change so folding and rotation work without reopening.
+6. Fit header side clearance with `TopBar.Fit` on a `Layout` after setting its padding. Where `TopLineSpace` owns the header Padding, apply side clearance as Margin. When the BackBar is hidden on iOS 26+, use `PageHeader` so `TopBar.Fit` owns the title line. `TopLineSpace` releases the native top inset only on iOS 27.1+ when reserved regions permit. On iOS 26 keep the native top plus standard header padding and never guess a top offset.
+7. Keep scrolling viewports finite, in a star row, outside any wrapping `ScrollView`. Reserve the real wrapped height of fixed actions outside the viewport.
+8. Background content, canvas layers and chips scrolled out of sight may pass beneath glass and the camera. Scrolling cards clear a side pill's column. Cards, buttons and every other interactable rest inside the safe area.
+9. Add a 20pt input-transparent top fade inside the scrolling viewport, below fixed search and status rows, with a matching 20pt list header spacer (also for group headings and empty states). Empty and failed-load text carries a 32pt margin. Fade endpoints use the viewport surface RGB, including the transparent endpoint. Use `BackgroundLightClear` and `BackgroundDarkClear` over the page background (light hex F4F6F9, dark hex 11141A) and `SurfaceLightClear` and `SurfaceDarkClear` over a card. Over code, fade `SurfaceAltLight` (hex EEF1F5 to 00EEF1F5) and `CodeDark` (hex 0D1015 to 000D1015), as set inline in the backup contents and diff pages. Inside a card, inset the fade 1pt from the stroke. When the BackBar scrolls with the content, show the fade and reserve 20pt only while Back is hidden. With a visible BackBar, start at zero with no fade.
+10. Toasts sit 12pt plus side clearance from the sides. Their foot clears bottom glass or aligns with the foot of a vertical pill. A wide pill is a bottom bar only when its top is below the page midpoint, since iPad can put a wide pill at the top.
+11. Reserve a visible overlay's measured height, bottom margin and gap (12pt for editor Undo) in the scrolling footer. Recompute after wrapping, text-size change and resize. Keep the reservation through the exit animation.
+12. Place the list viewport base by host type.
+    - For a tab-aligned card host with a side or bottom pill, anchor the card base at `max(0, H - B)` with no clamp to the native bottom inset. When the bottom glass obstruction exceeds the card base, the footer spacer is the difference plus 8pt. Otherwise, and always with a side pill or the fallback, it is zero. A top-wide pill uses the fallback of 12 plus `clear.Bottom`. Missing geometry uses the fallback and never a cached pill.
+    - For a `PushedListLayout` page, use the same card base. The footer is 20pt plus `max(0, SetupActionPlacement gap - card base)`, with no 8pt. Query the pill and glass in the exact native Body host. A visible fixed action takes its gap from `SetupActionPlacement` alone.
+    - For a device section (`DeviceSectionPage`), run the cardless viewport to H beneath the pill and glass, stopping short only for a docked keyboard. `SectionListPlacement.Resolve(obstruction, keyboardGap, panelHeight)` owns it. The footer is 24pt plus the overlay obstruction, raised to panel height plus overlay plus 12pt while a panel is visible. Measure the obstruction in the `SectionBody` host with `SetupActionPlacement.BottomGap` on iOS, or 12 plus `ForScrolling.Bottom` elsewhere. A wide graph keeps its own bottom clearance. A narrow graph takes its measured Auto row.
+    - For full-height scrolling surfaces, apply side gutters once with `ForScrolling`. Neighbourhoods sets the footer to 12pt plus `ForScrolling.Bottom`, and Settings and More set it to 16pt plus `clear.Bottom`. The footer sits inside the scrolling content and never shrinks the viewport.
+    - For a pushed detail page, give the final field a 24pt gap plus bottom clearance.
+13. For a list beside a detail pane, apply only insets that reach that column, `max(0, page right clearance - space to the column's right)`. Pad the detail's scrolling content so its background reaches the screen foot. Pass `clear.Right` and `clear.Bottom` directly from the trailing pane. Replace the old detail view model's subscription when the detail changes.
+14. Horizontal chip or filter strips sit in a full-width outer native clip with internal resting gutters, so scrolled chips pass beneath the camera. Distribute measured side gutters to the header, search, summary, error and list slots and to the strip's Padding, and leave the strip's ancestor column unpadded. Bound each wrapping choice to the guttered list card width. `TabAlignedListLayout` offers a page-owned gutter callback and both log pages use it.
+15. After XAML changes, compile both platforms. Parsing XML does not validate MAUI properties or binding types.
 
-### Action hierarchy
+Done when the source shows one owner per edge and the footer formula for your host type. On a device, every tappable control and the final list item scroll clear of glass and overlays, resizing and folding update the layout without reopening, and you recorded H, B, V and V minus B for each pill mode. A card host passes at V minus B equal to zero. A cardless list passes at V equal to H, with the last row still scrolling above B.
 
-**Every fixed primary action, including “Got it”, must align its bottom edge
-with the base of a vertical menu/tab pill. Use measured shared placement, with
-no extra bottom margin or safe-area padding lifting it above that base. For a
-bottom menu bar, clear the bar and its glass actions; treat a top pill separately.
-Verify this on inside and outside screens, after folding/rotation, keyboard
-dismissal, tab return and resume. A page fails visual acceptance if this
-alignment is wrong.**
+## 3. Place the header and navigation
 
-Each page has at most one primary action, in the fixed action slot. Remove
-any header or in-form copy of it. Other actions take the lowest role that fits:
+On iOS 26+, every page action except the fixed primary action, plus optional search, belongs to `TabBarButtons` on top-level and pushed pages. Back-only glass is not enough when a pushed page has other actions. Android and older iOS keep header icons through `IconButton` and `Icons`. Keep two to four page actions and put rare actions in context menus. Show data-dependent actions only while their command can execute, observe `CanExecuteChanged`, and rebuild glass only when state changes.
+
+1. Call `TabBarButtons.Show` on appearing and `Hide` on disappearing. Subscribe and unsubscribe `Moved` on the same lifecycle, removing before adding. `Hide` clears only its own ownership, so either page may receive its event first.
+2. With no search pass `null` and `string.Empty`.
+3. Pushed pages use `chevron.backward`, `BackBar.PreviousTitle(page)` for the accessible label, and relative back navigation. Hide the header Back on iOS 26+ and keep it on older iOS and Android. The Back title is the explicit previous title first, then the root page's title, then the tab title. Pinned roots have no Back.
+4. Open every descendant with a relative route so Back returns to the actual caller from both pushed and embedded origins. Test each entry path, child return and resume for one glass owner. Cover Dashboard, Edit, Add or Set up, then Back. Cover alert, device, then backups. A nested alert, rule or template keeps the selected tab.
+5. Reclaim glass on retained-tab return, child return and resume with one active glass owner. Implement `IActivePage` on retained-tab and pushed pages. `Activate` restores header, edge watcher, caller-aware Back, search and placement with idempotent registrations. It never fetches, rebuilds groups, clears the query or filters, or replaces the detail. Only a real Appearing runs the refresh or stale check. AppShell alone owns resume activation.
+6. On disappearing, clear the active flag before closing search, dispose the watcher, remove `Moved` and hide glass only when this page owns it. `PlaceControls` checks both the active flag and the Shell's current page at delivery, so a departed page ignores queued geometry. Retain the `Window` instance used for resume subscription and unsubscribe from that instance.
+7. Offer setup only for entity kinds that have an editor able to load that kind. Test route and entity ID for each kind.
+8. Glass placement measures the actual pill. A vertical pill has actions at the column top and search above the pill. A bottom pill has actions beside or above its right end. Off-screen or missing pills leave the buttons hidden. Placement belongs in `TabBarButtons`.
+9. Actions tied to one displayed field, such as Open device and Open rule on a log entry, stay inline as content actions.
+10. Embedded detail views add no glass owner and no Back. The host owns glass. Detail actions move into host glass while shown, narrowing removes them and widening restores them without route re-entry.
+11. These glass constraints protect cold launch. Only a controller showing its tab bar takes ownership. Cache and recheck the pill before searching the window, skipping `MauiView` subtrees and the app's views. Queue at most one placement per run-loop turn. The breaker pauses for a second after excessive placements, and a "Tab bar buttons: paused" diagnostic means a loop to investigate. Lay out newly supplied actions immediately, including during a pause. Use the shared glass search rather than UIKit `UISearchTab`.
+
+Done when each entry path, child return and resume shows exactly one glass owner and Back lands on the page that opened it.
+
+## 4. Build forms and actions
+
+Draft forms and pickers use `SetupLayout` with `SetupPageLayout`.
+
+1. `SetupLayout` has Auto, star, Auto rows with `Header`, `Body` and optional `PrimaryAction` slots. Put a `PageHeader` in the header, a `ScrollView` or a grid holding a `CollectionView` in the body, and the real Save command in the action slot. The action row reserves its measured height including margin. Omit the action on immediate-save pages.
+2. Construct `SetupPageLayout(page, layout, header, scrollers)` once, passing each scroll or list view. It subscribes while visible, disposes its watcher and native tokens on disappearing, and restores glass Back on return and resume. Pair every subscription with its removal and make repeated Appearing add at most one handler.
+3. On iOS the native page owns the top inset. The layout owns 16pt gutters plus `CoveredEdges` side clearance and the bottom action gap. Native inset adjustment is off on the scrollers.
+4. Forms fill the available width with 16pt gutters. Share heading, section, field, search and status presentation across forms and pickers.
+5. Every fixed primary action, including "Got it", aligns its bottom edge with the base of a vertical pill. `SetupActionPlacement` measures the gap as `max(0, native height - pill bottom)`, matching `TabAlignedListLayout`, with no clamp to the native bottom inset. Within `SetupLayout` the action's own bottom margin is zero because the layout owns the gap. Another host may put the gap in the action margin, but the gap has one owner. A bottom bar is cleared with its glass actions. A top pill is treated separately. Without measurement, fall back to the native bottom plus extra glass clearance.
+6. The primary action uses the implicit `Button` style, which owns primary colours, contrast and disabled states. Keep a fixed Save visibly disabled while its command runs. Explicit styles such as `SecondaryButton` lose the implicit disabled colours, so give them a themed disabled appearance and check enabled, busy and disabled states in both themes.
+7. Each page has at most one primary action, in the fixed slot. Remove any header or in-form copy of it. Other actions take the lowest role that fits.
 
 | Role | Examples | Placement and behaviour |
 | --- | --- | --- |
-| Primary commit | Save, Add 3 cards | Fixed action slot, implicit `Button` style; label names what it commits |
-| Draft check | Test connection | `SecondaryButton` after the fields it tests; tests the draft and saves nothing; busy and result text directly beneath |
-| Draft change | Reset to desktop's defaults | `SecondaryButton` after the fields; changes the draft only; caption says Save applies it |
-| Immediate action | Forget saved password, Update now, Use whole network | `SecondaryButton` beside text or in a section saying it applies straight away; confirm irreversible removal |
-| Scope choice | Any device | First option above the results, not in the header; selects and returns immediately |
+| Primary commit | Save, Add 3 cards | Fixed slot, implicit `Button`. The label names what it commits. |
+| Draft check | Test connection | `SecondaryButton` after the fields it tests. It saves nothing. Busy and result text sit directly beneath. |
+| Draft change | Reset to desktop's defaults | `SecondaryButton` after the fields. It changes the draft only, and the caption says Save applies it. |
+| Immediate action | Forget saved password, Update now, Use whole network | `SecondaryButton` beside text or in a labelled section saying it applies straight away. Confirm irreversible removal. |
+| Destructive action | Delete, Sign out | `DangerButton`, with the existing confirmation. |
+| Scope choice | Any device | First option above the results. It selects and returns immediately. |
 
-An immediate action acts on saved settings, never the unsaved draft. When a
-draft blocks it, disable it and say why, for example "Save first to update
-from this repository". State results in text as well as colour.
+8. Immediate actions act on saved settings, never the unsaved draft. When a draft blocks one, disable it and say why, for example "Save first to update from this repository". State results in text as well as colour. Save commits the draft together and Back discards it without confirmation.
+9. Immediate-save pages keep automatic saving, show "Changes save automatically." once beneath the heading, and have no Save, action slot or per-change confirmation. A setting the system refuses, such as a denied permission, shows its actual state and why.
+10. A docked keyboard lifts the action and shrinks the viewport, and dismissal restores pill alignment. While visible, the helper disables MAUI's iOS automatic page translation and restores it on exit. Scroll focused fields into view after keyboard geometry changes. `ManualKeyboardScroll` owners Acquire and Release, so only the final Release reconnects. New setup pages implement `IActivePage`.
+11. After a failed Save, scroll the error into view and announce it. Capture the non-empty error before dispatching or awaiting the scroll, announce only while it is still current, and repeat for identical failures. A cleared error is not announced. A failed Save keeps its draft. A persistence failure restores in-memory state and does not navigate.
+12. Signed numeric fields on iOS use `NumbersAndPunctuation` so a minus sign is available. Android keeps the numeric keyboard.
+13. A stepped form names its current step in the header. A chosen entity shows in a labelled section with a Change action naming the entity it replaces. A form with no choose step uses its subject as the header.
+14. Four pages sit outside `SetupPageLayout`, and each keeps page-local placement.
+    - Sign in and web sign-in let the native page own every safe-area edge (Container on iOS), claim no glass, and avoid `SetupPageLayout` because it installs logged-in glass Back. Sign in is full width with 16pt gutters. Its submit sits in an Auto row outside the finite viewport with a minimum height. The token is always masked and the clipboard is read only on the explicit paste action. Entries, switches and stacked token-help buttons have names and 44pt targets. A failure reveals and announces its error. Busy shows a spinner with text and disables the form. QR import goes through the system camera route, and a valid link always asks for confirmation.
+    - Web sign-in stacks a 44pt Cancel above a wrapping title and host. It defers the first web source until the size is positive and finite, and keeps the WebView in a star row outside any `ScrollView`. Failure stays in the modal with a scrollable explanation and a Return to sign-in action. Cancel and Android Back both return Cancelled and commit nothing. Cookies and storage clear in a finally block for every outcome.
+    - What's new keeps page-local placement because `SetupPageLayout`'s glass Back would bypass its completion latch. It shows one `PageHeader` title, then Version and the parsed version, with Got it as the fixed action aligned through `SetupActionPlacement.BottomGap` in Auto, star, Auto rows. Only Got it marks the version seen.
+    - Diagnostics consent keeps page-local placement because it has no draft Save and both mutually exclusive actions must stay reachable. It stacks them full width in the scrolling body. Allow selected is primary and stays disabled until a choice is made. Don't share derives from `SecondaryButton`, appears first and needs no selection. Both switches default off and are draft-only, and Back writes nothing. One completion latch guards rapid taps and every Back route.
 
-Check every secondary action in its enabled, busy and disabled states in both
-themes. An explicit style such as `SecondaryButton` may omit the implicit
-Button style's disabled colours. Supply a themed disabled appearance and keep
-a fixed Save visibly disabled while its command is running.
+Done when the page shows one primary action aligned to the pill base or clear of the bottom bar, the last field is reachable with the keyboard open, and pill alignment returns after dismissal, fold, rotation, tab return and resume.
 
-`DashboardBackNavigation` still uses native page safe areas. Pages adopting
-`SetupPageLayout` must remove that helper and their previous page padding and
-native-safe-area declaration together. Validate the #391 cases before migrating
-another page.
+## 5. Add search and choosers
 
-### Shared setup implementation
+1. Every search box is `Controls/SearchField.xaml`. It supplies the 46pt well (radius 23, `SurfaceAlt` fill, themed stroke, magnifier), Search return type, no spell check or prediction, no clear button or keyboard accessory, and `KeyboardDismiss`. Put the page's `Entry` inside it. Pages use this control rather than native `SearchBar` or copied Border markup.
+2. List search starts hidden on Android and iOS. Open it from the header search button, the glass magnifier or Command-F. Scrolling, pulling and swiping never open it. Use `ButtonSearch` and `ISearchHost`, with `KeyboardDismiss.OnScroll` false and no `SearchReveal` or swipe handlers.
+3. Opening focuses the field and tapping the magnifier again refocuses it. Search, unfocus, a content touch or a real native user drag closes it and keeps the query. Filtering and programmatic scrolling retain focus, so close search on a user drag and not on every `Scrolled` event. Call `KeyboardDismiss.Close` before hiding a focused field. Devices and Alerts still close search on every `Scrolled` event, so copy search handling from Health or Logs. Show a wrapping "Filtered by" caption of the retained query while the field is closed.
+4. Setup pickers keep an always-visible search. Keep scope actions, search and status in fixed rows above the results viewport. `CollectionView.Header` holds only list content such as the fade spacer.
+5. Use a clipped search slot and animate height and translation together. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
+6. Choosers fed by the server use a `CollectionView`, grouped where headings help, inside the finite viewport. `BindableLayout` is for short fixed lists. Choosing a row in an immediate chooser commits and returns with no Save.
+7. Sort human-facing device, graph, group and location choices with `NaturalOrder.Instance` across every source feeding a picker, including port graph descriptions. Ports keep interface order.
+8. Picker status sits between search and list, one state at a time. States are loading, load failure with its retry route, empty source, no matches for the query, and a capped result count with a prompt to refine. Rows that cannot be chosen stay visible with their reason in the row text and accessible name.
 
-`SetupLayout` provides `Header`, `Body` and optional `PrimaryAction` slots.
-Its rows are Auto, star and Auto. Put a `PageHeader` in the header, a
-`ScrollView` or a grid containing a `CollectionView` in the body, and the real
-Save command in the action slot. A list must stay in a star row and outside
-any wrapping `ScrollView`. The action row reserves its measured height,
-including its margin, so the viewport and final scroll position clear it.
-Omit the action on immediate-save pages.
+Done when typing keeps focus through filtering, Command-F reaches search after scrolling, a drag closes search without losing the query, and every picker shows natural order and one status state at a time.
 
-Construct `SetupPageLayout(page, layout, header, scrollers)` once, passing each
-scroll or list view. It subscribes while the page is visible and disposes its
-safe-area watcher and native notification tokens on disappearing. It restores
-glass Back ownership on return and app resume. Existing callers of
-`CoveredEdges.Watch` may retain their lifetime behaviour; new helpers should
-retain and dispose the returned subscription.
+## 6. Handle adaptive layout and accessibility
 
-Make page subscriptions idempotent: repeated Appearing adds at most one
-handler or native observer. Retain the Window instance used for resume
-subscriptions and unsubscribe from that instance on disappearing, even if
-the page's Window has changed. Finish with each subscription paired with
-its removal and each native observer disposed.
+1. Dashboard and editor share `DashboardColumns.Count` (340pt minimum column, 12pt gap, at most three). Read across then down. Choice grids such as Add card use 160pt minimum tiles, 10pt gaps and at most four columns, recomputed on resize and text-size change.
+2. Titles, summaries and field labels wrap. Labels sit above pickers through `SetupSection` (4pt field spacing, 8pt section margin). A control sits beside its label only when both fit at the current width and text size. Use no fixed label or value column widths. Numeric fields show their unit in the label or heading and keep the full value visible.
+3. Give each picker an accessible name matching its field, even after a value replaces the Title placeholder. A switch beside wrapping text has its own accessible description.
+4. Each selection row or tile is one accessible element with its whole area tappable. Combine name, details, availability reason and selected state in one description. Exclude child labels, preview images, icons and checkboxes from announcements. Checkbox means several choices, tick means one. Update the description when selection changes, state the real action (including whether a notification rule is included or excluded), and make each tap or toggle change selection once.
+5. Repeated Set up, More, Change and Remove actions name their target and keep a tap area of at least 44pt height. Keep vertical padding between row content and card borders or dividers.
+6. Provide menu reordering (Move earlier, Move later) alongside drag reordering. Keep titles and summaries together with Set up beneath.
+7. State severity and unavailable state in text, including in each actionable row's accessible description. Unknown readings are neutral and never OK.
+8. List and selection tap targets are whole-row native buttons with an explicit empty style, transparent Normal and Disabled states, and PrimaryTint for pressed and focused. They avoid multiline `Button` text and nested duplicate gestures. A monitored Neighbours card is the exception and keeps its single Border gesture.
 
-On iOS the native page owns only the top container inset. The layout owns
-16pt gutters plus `CoveredEdges` side clearance, and the bottom action gap.
-Native scroll inset adjustment is disabled on the supplied scrollers.
-`SetupActionPlacement` aligns the action with a measured side pill, clears a
-bottom pill and its actions, and treats a top pill separately. If measurement
-is unavailable, it falls back to native bottom and extra glass clearance.
-Within SetupLayout, the action's own bottom margin must be zero because
-the layout owns the gap. Other fixed-action hosts may put the measured gap in
-the action margin instead; it must still have exactly one owner.
-Side-pill alignment uses `max(0, native height - pill bottom)`, matching
-Devices/Alerts in `TabAlignedListLayout`. Do not clamp this measured gap to
-the native bottom inset, which can lift the action a few points above the
-pill. Keyboard clearance still takes precedence.
+Done when every action has a name that identifies its target, no text clips or overlaps at maximum text size in both themes, and a screen reader announces each row once.
 
-Docked keyboard notifications lift the action and reduce the viewport;
-dismissal restores placement. The helper disables MAUI's iOS automatic page
-translation while visible so it cannot move the fixed header/action a second
-time, and restores it on exit. Focused fields inside native scroll views are
-scrolled into view after keyboard geometry changes. Android retains native
-safe-area and soft-input handling through `SafeAreaEdges.All` on the page.
-Floating iPad keyboard obstruction remains a device check.
+## 7. Handle data states and persistence
 
-## Placement and scrolling
+1. Handle an optional source's 404 at that source before joining reads. Missing membership then cannot discard valid primary records or mask another source's denial, timeout or server failure. Keep primary-source denial, server errors and timeouts distinct from missing metadata. Never invent zero counts for unavailable facts.
+2. Preserve complete server messages, expressions, configuration, licence content, SQL and notes. Wrapping never changes copied, shared or compared text. Prose wraps by word and code or long values wrap by character. A truncated preview leads to the complete content.
+3. Reuse themed `Error`, `Caption`, `ActivityIndicator` and shared controls. Keep loading, error and status content apart from the finite results viewport. Loading uses one shared busy card (`PullToRefresh.ShowBusyCard`) over the viewport with the native spinner hidden, so the list never jumps.
+4. Separate an empty source from an unmatched search, with distinct text. Suppress empty claims while loading or when an error explains the gap. Counts describe the full source and filters change displayed rows only.
+5. Setup pages state the retry route beneath an error, such as reopening the page, with no separate button. Section and detail pages show a Retry named for its target as a whole 44pt button, disabled while busy. A supplementary Retry hides while a main error is visible. On a section page, the error line's Retry is the only Retry.
+6. Enable Save only after every source needed for the draft has loaded. A failed or superseded load never overwrites saved choices with empty data. Ignore slower earlier loads with a generation guard. Keep saved selections missing from a response until cleared. Update selection rows in place to keep scroll position.
+7. A failed refresh keeps the last good rows and shows the error, with cached, stale and offline states keeping readings and a timestamp where one exists. Availability and Resources clear their rows before a refresh and show only the error on failure, because they carry no freshness timestamp.
+8. A snapshot detail has no loading, retry or save state. A missing or invalid record clears the view and shows return and reselect guidance.
 
-Content may move beneath glass as it scrolls. Controls at rest and the final
-scroll position must stay reachable. Scrolling cards always clear a side pill's
-column. Canvas backgrounds and chips scrolled out of sight may pass beneath it.
+Done when each state (loading, error, empty, no match, denied, stale) shows its own text, keeps valid data where the page retains it, and offers its retry route.
 
-**Use all available pane space after measured camera/glass clearance and the
-page gutters. Keep scrolling viewports finite and reserve the actual wrapped
-height of fixed actions outside them. Give each inset one owner so extra
-padding cannot shrink the usable area or lift an action above the pill base.**
+## 8. Add motion
 
-For pages adopting the edge-to-edge pattern:
+1. Use named `view.Animate` calls so a new transition aborts the previous. With `ReducedMotion.IsOn` apply the final state immediately.
+2. Entrances slide and fade over 220 to 250ms with cubic out. Exits use cubic in. Set initial opacity and translation before showing a view.
+3. Selected-item sheets start below their measured height plus bottom margin and 8pt. Hide after exit completes, then clear the selection so the departing sheet keeps its content. Switching selection keeps the sheet up. Version each selection so a stale close cannot clear a newer one.
+4. Align a sheet's foot with a side pill, otherwise clear covered bottom and glass actions. Sides are 12pt plus covered edges. Controls above the sheet clear its measured height.
+5. Collapsed sheets cap at 200pt on a screen below 740pt high, otherwise 300pt, with a measured Close row, a 44pt title and a 44pt list reserve taking precedence. Expanded sheets use `max(240pt, 60% of content height)` with an internal scrolling list. Measure natural collapsed height before animating a change.
+6. Fade surrounding content over 250ms and keep the selected reference until the fade ends. Follow Network map's dimming. Reuse `DashboardToastView` for dashboard Undo.
 
-- On iOS, keep only the page's top container safe area. Set `SafeAreaEdges="None"`
-  on supporting layouts and `ScrollView`/`RefreshView` where supported. Keep
-  Android's native safe-area handling in shared views.
-- `CollectionView` has no `SafeAreaEdges` property. On iOS, find its native
-  `UIScrollView` from the handler and set `ContentInsetAdjustmentBehavior` to
-  `Never` on `HandlerChanged` and `Loaded`. Reuse the pattern in Devices or
-  Edit dashboard. Let the footer supply the final-item clearance.
-- Use `CoveredEdges.ForScrolling(page)` for scrolling-column clearance. Its
-  bottom includes the glass action row; its sides include a 12pt gap before a
-  side pill. Add the page's 16pt gutters once. For a `ScrollView`, pad its
-  content column. For a `CollectionView`, use side margins and footer space.
-- Put placement in `PlaceControls()`. Call it on appearing, through
-  `CoveredEdges.Watch`, and after `TabBarButtons.Moved`. Recompute column counts
-  when the list width changes. Folding and rotation must work without reopening.
-- Align header side clearance with the content. Use `TopBar.Fit` on a `Layout`
-  after setting its padding; a `Label` is not a valid argument.
-- Overlay an input-transparent 20pt gradient at the content's top, from page
-  background to transparent. Keep it within the scrolling viewport, below
-  fixed search and status rows, with matching list margins. Reserve its 20pt
-  region with a list header spacer or equivalent content padding, including
-  group headings and empty states. Verify initial content is fully readable
-  at rest and the fade passes taps and drags through to the list.
-- Toast sides are 12pt plus side clearance. Its foot clears bottom glass, or
-  aligns with the foot of a vertical pill. A wide pill is a bottom bar only if
-  its top is below the page midpoint; iPad can put a wide pill at the top.
-- Reserve a visible overlay's measured height, bottom margin and gap in the
-  scrolling footer or viewport. Recompute after wrapping, large-text changes
-  and resizing; retain clearance through its exit animation. For editor Undo,
-  use a 12pt gap so the final Add action can scroll fully above the toast.
+Done when repeated transitions finish in the right state and Reduce Motion produces no animation.
 
-Inside native scroll views, MAUI handles child safe areas differently from
-outer layouts. Check the actual control type and existing native inset code
-before adding more padding. Compile both platforms after XAML changes; parsing
-XML alone does not validate MAUI properties or binding types.
+## 9. Reuse shared controls
 
-## Header, glass and navigation
-
-**On iOS 26+, all page actions other than the fixed primary action, and
-optional search, on top-level and pushed pages alike, belong to `TabBarButtons`. Back-only glass does not satisfy this
-rule when a pushed page has other actions.**
-Android and older iOS keep header icons through `IconButton` and `Icons`.
-Form submission follows the fixed primary-action layout above; preserve each
-form's save rules unless its issue explicitly changes them. Keep page actions
-to two to four and leave rare actions in context menus.
-
-- Call `TabBarButtons.Show` on appearing and `Hide` on disappearing. Subscribe
-  and unsubscribe `Moved` with that lifecycle. Hide clears only its owner, so
-  either page may receive its lifecycle event first during navigation.
-- With no search, pass `null` and `string.Empty`. Avoid a redundant magnifier.
-- Pushed pages use `chevron.backward`, `BackBar.PreviousTitle(page)` for the
-  accessible label and relative back navigation. Hide their header Back on
-  iOS 26+; keep it on older iOS and Android.
-  **Every pushed page must reclaim its caller Back in glass on iOS 26+ after
-  child return, retained-tab return and resume, with one active glass owner.**
-- Open descendants with relative routes so Back returns to the actual
-  caller. Test each entry path, child return and app resume for one glass
-  owner. Cover Dashboard → Edit → Add/Set up → Back and alert → device → backups.
-- Offer setup only for explicitly supported entity kinds, each routed to
-  an editor that can load that kind. Capabilities such as duplication do not
-  imply setup support. Test route and entity ID for every supported kind.
-- Show data-dependent actions only when their command can execute. Observe
-  `CanExecuteChanged`; rebuild stateful glass actions only when state changes.
-
-Glass placement measures the actual pill, not `UITabBar`'s empty bounds. A
-vertical pill has actions at the column's top and search above the pill; a
-bottom pill has actions beside or above its right end. Off-screen or missing
-pill positions leave the buttons hidden. Placement belongs in `TabBarButtons`,
-not in individual pages.
-
-### Glass implementation constraints
-
-These protect cold launch as well as tab switching:
-
-- Only a controller showing its tab bar takes ownership. A hidden controller
-  clears glass only if it already owns it. Competing sign-in and main
-  controllers previously caused a launch loop (#332, #335).
-- Cache and recheck the pill before searching the window. Searches skip
-  `MauiView` subtrees and the app's views (#334). Placement runs during native
-  layout and must stay cheap without causing another controller to lay out.
-- Keep at most one placement queued for the next run-loop turn. The breaker
-  pauses for a second after excessive placements, then retries. A
-  "Tab bar buttons: paused" diagnostic means investigate the loop.
-- Lay out newly supplied actions immediately, including during a pause (#336).
-  UIKit `UISearchTab` is not this app's search control; earlier attempts
-  overflowed the pill and broke Shell navigation (#308 to #315).
-
-## Search and choosers
-
-All app search boxes use `Controls/SearchField.xaml`. It provides the
-46pt rounded well, radius 23, `SurfaceAlt` fill, themed stroke and magnifier.
-Put the page's `Entry` inside it so compiled text/placeholder bindings and
-page-specific focus callbacks remain on the actual input. The control sets
-Search return type, disables spell checking and prediction, removes clear
-buttons and iOS keyboard accessories, and opts the Entry into `KeyboardDismiss`.
-Do not use native `SearchBar` or copy the search Border markup into pages.
-
-Tab/list search starts hidden on Android and iOS. Open it only from the header
-search button (Android/older iOS), the glass magnifier (iOS 26+), or Command-F.
-Upward scrolling, pull gestures and swipe-to-search must never open it.
-During future list-page passes, remove legacy `SearchReveal.Attach` and swipe
-handlers from the scoped page rather than preserving the old platform policy.
-Migrate pages individually; do not change shared SearchReveal underneath pages
-that have not been reviewed. Health, Groups & locations, Alert rules and
-Neighbours use `ButtonSearch`.
-Known follow-ups for future scoped passes: Devices still dismisses search on
-any Scrolled event.
-Migrate those handlers to real user-drag checks rather than treating row
-replacement during filtering as a gesture.
-Setup pickers retain their always-visible search. Filtering, query retention
-and selection contracts remain unchanged.
-
-- Opening tab search focuses the field; tapping its magnifier again refocuses
-  it. Close on Search, unfocus or a content touch, retaining the query. List
-  user dragging also hides the field and dismisses the keyboard. Filtering and
-  programmatic scrolling must retain focus, as established by DeviceSectionPage
-  in #402. ButtonSearch checks native drag state; its lists explicitly disable
-  `KeyboardDismiss.OnScroll`. Use `KeyboardDismiss.Close` before
-  hiding a focused field.
-- Use no clear/close X or keyboard accessory. `SearchField` owns this policy,
-  including on setup pickers.
-- Use a clipped search slot. Animate height and translation together when the
-  chips/list should move; overlay search only when the canvas pattern calls
-  for it. Use `CoveredEdges.Beside(page, field)` for row-specific clearance.
-- Keep setup picker scope actions, search and status in fixed rows above the
-  results viewport. A `CollectionView.Header` may scroll away or be recycled;
-  reserve it for content that belongs to the list, such as its fade spacer.
-  Verify typing retains focus and Command-F reaches search after scrolling.
-- Implement `ISearchHost` for Entry-based pages supporting Command-F.
-- Choosers whose rows come from the server use a `CollectionView`, grouped
-  where headings are needed, inside the finite viewport. `BindableLayout` is
-  for short fixed lists only. Choosing a row in an immediate chooser commits
-  and returns, with no Save.
-- Use `NaturalOrder.Instance` for human-facing device, graph, group and location
-  choices across every source feeding a picker, including port graph
-  descriptions. Ports themselves may retain interface order; that exception
-  does not apply to their graph descriptions. Test each source separately.
-
-## Adaptive content and accessibility
-
-### Approved Device Ports presentation, 5 November 2026
-
-The user approved a rendered compact-card mock-up on 5 November 2026, after
-reporting that the 4 November cards were far too long. It supersedes the
-earlier policy of two portrait columns, many landscape columns at an estimated
-portrait width, and every raw fact on the card. Approval covers the source
-design only; it is not device acceptance.
-
-**Lesson: a port card is for scanning a list, not for auditing one port.**
-Show only what someone compares between ports. Raw states, the monitoring
-flag, a repeated ifName and similar audit facts lengthened every card without
-helping comparison. Keep such facts in the model for search, sorting, grouping
-and status, but off the card.
-
-Ports shows one card per row on an ordinary display, and at most two when both
-keep the 340pt minimum used by `DashboardColumns` with the list's 8pt gap
-(`PortColumns`). The breakpoint is available width, not orientation: the Duo's
-outer display shows one and its inner display two when the pane allows. Cards
-fill their track; there is no portrait-width estimate or trailing remainder.
-Other sections retain their own column policies.
-
-Each card, top to bottom:
-
-- 14pt padding, the standard 16pt card radius and theme stroke, and a 4pt
-  status edge on the left inside the card.
-- The port name, semibold 17pt, with the operator description below in muted
-  14pt. Both wrap.
-- A status row: a coloured dot and label at the start, the speed at the end,
-  then a divider. Green `Up`; red `Up · errors` for any positive error rate;
-  amber known `Down`; the same gray `Disabled` for administrative shutdown and
-  disabled monitoring. Unknown and incomplete Up (`Up · readings unavailable`)
-  stay neutral, with the edge in the card's stroke colour.
-- A three-column table: Traffic and Errors labels, then IN ↓ and OUT ↑ values
-  in semibold. A positive error rate is red on its own side.
-- A divider and a VLANs footer.
-
-Missing or invalid readings say Unavailable and missing speed says Speed
-unavailable; neither becomes zero. Traffic is not shown while a port is not up.
-Error rates keep full precision, so a tiny positive rate is never shown as 0/s.
-VLANs come from the port's typed memberships, unique and in number order. If the
-device reports no memberships at all, a direct ifVlan is labelled
-Access/native VLAN. If it reports memberships, a port without any shows Not
-reported rather than its ifVlan, as Core's `VlanMembership` requires. Group
-by VLAN and Sort by VLAN read the same VLANs as the card (#556), in this order:
-Trunk (more than one VLAN), then one VLAN n group per VLAN by number, then No
-VLAN. A port never sits under a VLAN its card doesn't list. Never
-show internal VLAN IDs or invent tags. Long descriptions and VLAN lists wrap,
-with no minimum height, line caps or extra vertical spacing.
-
-Port status colour (edge and label) follows one rule, `PortStatus`: grey for
-admin shutdown (Disabled), monitoring disabled or ignored (Not monitored) and
-unknown; red for a positive error reading on either side; green for Up with
-zero errors on both sides; amber for enabled but down. Up without error
-readings stays grey. The edge uses the decorative status colour and the label
-the readable status text colour; the label always names the state.
-
-The whole card is one native transparent button of at least 44pt with an
-explicit empty style and its own Disabled, Pressed and Focused states. Its
-description speaks exactly the visible facts, in reading order, and then the
-graph action. Without an actual ifName the card has no button or chevron, and
-one readout speaks the same facts and that graphs are unavailable. Overview
-highlights keep their own identity, status and traffic layout and speech,
-sharing the card's status labels; their parent opens Ports. Sort & filter keeps its choices and saves immediately.
-Keep Done outside a finite scrolling picker body, limit the panel to the
-measured available height, and reserve its visible height in the list footer
-until it has closed. Native wheel and keyboard clearance, maximum text and
-two-column comfort remain unverified; report physical failures before changing
-this approved policy.
-
-### Approved Settings overview hierarchy
-
-The 4 November 2026 #454 proposal was explicitly approved for implementation.
-Settings uses one full-width column on narrow and wide displays. Restore the
-repository DashyNMS mark beside the wrapping session server identity. Separate
-Preferences, Services, embedded About and conditional Diagnostics with generous
-space, quiet headings and hairline navigation rows. Lock screen widgets belongs
-after Health thresholds in Preferences. Keep Sign out isolated below the groups.
-This decision is specific to Settings and does not approve other page redesigns.
-
-Retain every existing dynamic summary and explanatory sentence in full.
-Component versions are read-only name/version/state stacks; About stays inline.
-Navigation gets a chevron; explanations, switches and immediate actions keep
-distinct targets. Logo and chevrons are decorative. The overview must not claim
-all children save automatically, because services and thresholds use drafts.
-Proposal approval does not establish device acceptance. See the complete source
-map, historical rejected layout and pending matrix in
-[the Settings assessment](reviews/454-settings-about.md).
-
-### Shared adaptive rules
-
-- Dashboard and editor share `DashboardColumns.Count`, with 340pt minimum
-  columns, 12pt gaps and a three-column limit. Use available content width
-  after clearances, and read across then down. Other page types use their
-  reference pattern's breakpoint; folding and rotation update without reopening.
-- Let titles, summaries and field labels wrap. Put labels above pickers with
-  `SetupSection`, which supplies 4pt field spacing and 8pt section margin.
-  Give each picker an accessible name matching its field, even after a value
-  replaces its Title placeholder. A switch may sit beside wrapping text and
-  has its own accessible description.
-- Label/control rows put the control beside its label only when both fit at
-  the current width and text size; otherwise stack the label above. Use no
-  fixed label or value column widths. Numeric fields show their unit in the
-  label or section heading and keep the full value visible.
-- For signed numeric fields on iOS, use a keyboard that offers a minus sign;
-  the decimal keypad selected by `Keyboard.Numeric` cannot re-enter negative
-  thresholds. Thresholds uses `NumbersAndPunctuation` on iOS and retains the
-  numeric keyboard on Android. Verify clearing and re-entering a negative
-  value, decimal input and access to Save with the keyboard open.
-- Choice grids such as Add card use their own breakpoint: 160pt minimum tiles,
-  10pt gaps and at most four columns, recomputed on resize and text-size
-  change. Dashboard column counts do not apply to catalogue previews.
-- Name a stepped form's current step in its header. Show the chosen entity
-  in a labelled section with a Change action naming the entity it replaces.
-  A form with no choose step uses its subject as the header.
-- Make each selection row or tile one accessible element and make its whole
-  area tappable. Combine its wrapping name, details, availability reason and
-  selected state; exclude child labels, previews, icons and checkboxes from
-  duplicate announcements. Use a checkbox for several choices and a tick for
-  one choice. Keep unavailable reasons at readable contrast.
-- Update row, tile and segment descriptions when selection changes. State
-  the current action accurately, including whether choosing a notification
-  rule includes or excludes it. Verify meaningful names, action semantics
-  and VoiceOver/TalkBack activation; each tap or toggle changes selection once.
-- Repeated Set up, More, Change and Remove actions name their target. Keep
-  each action's tap area at least 44pt high when rows stack, and preserve
-  vertical padding between row content and card borders or dividers.
-- Offer menu reordering alongside drag reordering, using Move earlier/later
-  in reading order. Keep titles and summaries together and Set up below them.
-
-- Show severity and unavailable state in text as well as colour, including in
-  each actionable row's accessible description. Unknown readings must not be
-  presented as OK.
-
-For More’s navigation catalogue, use quiet headings and lightweight rows separated
-by hairlines. Keep one wrapping column at narrow and wide widths; use summaries
-where destination names need context. Open and pin are separate accessible
-actions, each at least 44pt, with no parent gesture enclosing the pin. Use an
-outlined pin for not pinned and a filled pin for pinned, with explicit target,
-membership and action in its accessible name. State capacity once above the
-catalogue; this pattern replaces visible per-row unavailable text with that
-line and explicit accessible state. A full-bar pin remains operable to
-explain how to make room.
-This visual direction was approved for More on 4 November 2026; native device
-acceptance remains separate in [its assessment](reviews/453-more-navigation.md).
-
-## Data states and persistence
-
-For sections combining independent reads, handle an optional source's 404 at
-that source boundary before joining the requests. Missing membership must not
-discard valid primary records or mask a different source's denial, timeout or
-server failure. Preserve unavailable facts rather than inventing zero counts.
-Exercise mixed faulted tasks as well as synchronous failures in CI regressions.
-
-Optional enrichment must not require stronger permissions to view authorised
-primary records. If metadata alone is denied, preserve those records and state
-the denied fact and reason explicitly. Keep primary-source denial, server errors
-and timeouts distinct from missing metadata; test the differing permissions.
-
-- Preserve complete server-provided messages, expressions, configuration and
-  licence content. Presentation wrapping must not change copied, shared or
-  compared source text. Truncated previews must lead to the complete content.
-- Reuse themed `Error`, `Caption`, `ActivityIndicator` and shared controls.
-  Keep loading/error/status content separate from a finite results viewport.
-- Distinguish an empty source from an unmatched search. Suppress empty claims
-  while loading or when an error explains missing data.
-- State an actionable retry route beneath a setup error, such as reopening
-  the page or choosing the device again. Setup pages use these existing
-  routes rather than separate retry buttons. A failed Save keeps its draft.
-- Enable Save only after every source required to initialise its draft has
-  loaded. A failed or superseded load must not overwrite saved choices with
-  empty data. Ignore slower earlier loads when a page reloads.
-- Retain saved selections missing from a response until explicitly cleared.
-  Update selection rows in place so toggling preserves scroll position.
-- Separate immediate actions from draft fields in a labelled section with
-  text saying they apply straight away. Save commits the draft together;
-  Back discards it. Immediate-save pages preserve automatic saving.
-- An automatic-save page says "Changes save automatically." once, beneath its
-  heading. It has no Save, action slot or per-change confirmation. A setting
-  the system refuses, such as a denied permission, shows its actual state and why.
-- After a failed Save, scroll its error into view and announce it, because the
-  fixed action may be far from the error's position at the top. Capture the
-  non-empty error before dispatching or awaiting scrolling; announce that
-  captured message only if it is still current. Repeated identical failures
-  must still reveal feedback, and a cleared error must not be announced.
-- Picker status sits between search and the list, one state at a time:
-  loading, load failure with its retry route, empty source, no matches for
-  the query, or a capped result count with a prompt to refine the search.
-  Rows that cannot be chosen stay visible with their reason in the row text
-  and accessible name; dimming alone is insufficient.
-
-## Motion and selected-item cards
-
-Use named `view.Animate` calls so a new transition can abort the previous one.
-With `ReducedMotion.IsOn`, apply the final state immediately.
-
-- Slide and fade entrances over 220–250ms with cubic out; exits use cubic in.
-  Set initial opacity and translation before making a view visible.
-- Selected-item sheets start below their measured height plus bottom margin
-  and 8pt. Hide after exit completes; clear selection afterwards so the
-  departing sheet keeps its content. Switching selection keeps the sheet up.
-- Align a sheet's foot with a side pill; otherwise clear covered bottom and
-  glass actions. Use 12pt side gutters plus covered edges. Controls above the
-  sheet clear its actual height.
-- Cap collapsed sheets at 200pt on a screen below 740pt high, otherwise 300pt.
-  Expanded sheets use max(240pt, 60% of content height) and an internal scrolling
-  list. Measure natural collapsed height before animating a size change.
-- Fade surrounding content and retain the selected reference until the fade
-  finishes. Follow Network map's dimming implementation for canvas content.
-- Reuse `DashboardToastView` for dashboard Undo transitions. Its measured
-  clearance follows the placement and scrolling rules.
-
-## Detail columns
-
-For a list beside a detail pane, apply only insets reaching that column:
-right clearance = max(0, page right clearance − space to the column's right).
-Pad the detail's scrolling content, not the pane itself, so its background
-reaches the screen's foot. Device detail actions join the list's glass while
-shown. Unsubscribe the old detail view model when replacing it.
-
-## Shared controls and diagnostics
-
-Paths below are relative to `src/DashyNMS.Mobile/`, except shared models.
+Paths are under `src/DashyNMS.Mobile/` unless noted.
 
 | Need | Reuse |
 | --- | --- |
-| Page/row/scroll clearance and resize callbacks | `Controls/CoveredEdges.cs`: `Of`, `Beside`, `ForScrolling`, `Watch` |
-| Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs`: `Show`, `Hide`, `Moved`, `PillIn`, `Occupied` |
-| Camera/system occlusion | `Platforms/iOS/ReservedRegions.cs` |
+| Page, row and scroll clearance | `Controls/CoveredEdges.cs` (`Of`, `Beside`, `ForScrolling`, `Watch`) |
+| Glass ownership, pill and action bounds | `Platforms/iOS/TabBarButtons.cs` (`Show`, `Hide`, `Moved`, `PillIn`, `Occupied`) |
+| Camera and system occlusion | `Platforms/iOS/ReservedRegions.cs` |
 | Header fitting and native safe-area updates | `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Platforms/iOS/SafeAreaWatcher.cs` |
-| Search appearance and input policy | `Controls/SearchField.xaml`, `Controls/SearchField.xaml.cs`, `Controls/ButtonSearch.cs` for migrated button-only lists; `Controls/SearchReveal.cs` for legacy pages |
-| Keyboard and motion | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
-| Header icons | `Controls/IconButton.cs`: `IconButton`, `Icons` |
-| Adaptive dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
-| Primary button colours and states | `Resources/Styles/Styles.xaml` implicit Button style |
-| Shared setup slots, placement and sections | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs`, `Controls/SetupSection.cs`, `../DashyNMS.Mobile.Shared/Services/SetupActionPlacement.cs` |
-| Existing form Back and inset handling | `Controls/DashboardBackNavigation.cs` |
-| Human reading order | `../DashyNMS.Mobile.Shared/Services/NaturalOrder.cs` |
-| Device evidence | Settings diagnostics, "Tab bar buttons:" and "Top line on" entries |
+| Search | `Controls/SearchField.xaml`, `Controls/ButtonSearch.cs` |
+| Keyboard, motion, search host | `Controls/KeyboardDismiss.cs`, `Controls/ReducedMotion.cs`, `Pages/ISearchHost.cs` |
+| Header icons | `Controls/IconButton.cs` (`IconButton`, `Icons`) |
+| Dashboard columns | `../DashyNMS.Mobile.Shared/Dashboard/DashboardColumns.cs`, `Controls/CardGrid.cs` |
+| Primary button | `Resources/Styles/Styles.xaml` implicit Button style |
+| Setup slots, placement, sections | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs`, `Controls/SetupSection.cs`, `../DashyNMS.Mobile.Shared/Services/SetupActionPlacement.cs` |
+| Reading order | `../DashyNMS.Mobile.Shared/Services/NaturalOrder.cs` |
+| Device evidence | Settings diagnostics entries "Tab bar buttons:" and "Top line on" |
 
-For native geometry, use `nfloat` where CoreGraphics expects it. Use
-`pill.Left + pill.Width / 2` or import CoreGraphics for its midpoint extensions.
+Use `nfloat` where CoreGraphics expects it. Use `pill.Left + pill.Width / 2` or import CoreGraphics for its midpoint extensions. A change to a shared setup helper needs regression checks of every existing setup consumer's layout and lifetime. Land a shared-control change before the pages that use it.
 
-## Acceptance checklist
+Done when no page copies markup or inset code that a shared control already provides.
 
-For each page change, record applicable results, including unverified items:
+## 10. Build the page-specific parts
 
-- [ ] Each supported kind routes to a compatible editor with the selected ID; Back returns through every caller and glass has one owner
-- [ ] Insets have one owner per edge; final content and actions clear glass and visible overlays through transitions
-- [ ] Initial text and empty states are readable below fades at rest
-- [ ] Titles and controls fit narrow screens and larger text in both themes
-- [ ] Folding/rotation recomputes clearance and columns without reopening
-- [ ] Search closes the keyboard correctly and preserves its query
-- [ ] Loading, empty, error and selected states remain readable and retryable
-- [ ] Save/automatic-save and Back cancellation follow the approved contract; failed loads cannot save an empty draft
-- [ ] One primary action; secondary and immediate actions follow the action hierarchy and say what they change
-- [ ] **Fixed primary action aligns with the base of a vertical menu/tab pill, or clears a bottom bar and its actions; verify inside/outside screens and after fold, rotate, keyboard dismissal, tab return and resume**
-- [ ] Screen-reader names, selection states and activation work; drag actions have an accessible alternative
-- [ ] Motion respects Reduce Motion; repeated transitions finish correctly
-- [ ] Relevant shared tests and Android/iOS builds pass
-- [ ] Device check covers Duo outer, inner portrait and inner landscape, app resume,
-      and an ordinary iPhone if available; first-tab changes include cold launch
-- [ ] Diagnostics checked for any reported overlap or placement loop
-- [ ] Fixtures and screenshots use synthetic network data
+Apply the section that matches your page, on top of steps 2 to 9.
 
-Repository issue, PR and release conventions live in `docs/DEVELOPING.md`.
-Ship one coherent page change at a time and verify it on the Duo before
-expanding the rollout, unless the user authorises a batch as described under
-Batch delivery. CI success alone does not establish visual correctness.
+### Status text and readings
 
-## Pending corrective regression rules
+- Every row states status in text (OK, Warning, Critical, Inactive, Unknown, Unavailable) and in its joined accessible description. Null, NaN or infinite readings show a dash, a neutral status and the word "unavailable", and the spoken description leaves out the dash. Sensors and Resources say "Reading unavailable". Health and Availability say "Unavailable".
+- Wrap titles, subtitles, values and detail in a stacked readout with no 180pt cap, two-line cap or tail truncation. Overview highlights use the same facts as the full page.
+- A sensor with no limits and no state definition shows neutral "No limits", and a non-finite limit shows neutral "Limits unavailable". A defined state follows its resolved severity.
+- Resource usage defaults to Warning at 80 and Critical at 95. A valid server warning replaces 80, and critical is `max(valid warning or 90, 95)`. Null, non-finite, negative and over-100 usage is neutral with no bar. Show capacity only when used is non-negative, total positive and used no more than total. Format values from 99.9 up to but excluding 100 with shortest round-trip digits.
+- Availability windows sort by duration, shortest first. A non-finite or out-of-range percentage reads Unavailable. An outage with a missing start is a neutral recorded-outage row, and a null end means ongoing.
+- Health totals count the whole category before severity and query filtering. Severity memory persists, while query and category stay page-local. Chips are 44pt minimum with a 22pt radius. Health has no server writes.
+- Device section rows for VLANs, FDB, ARP, routing and wireless are neutral and nonactionable, with no link, chevron or health claim. Each is a stacked wrapping readout used in both the full list and the overview highlights, with one joined accessible description that excludes child labels. Each section's search covers its displayed missing-value labels, and filtering keeps focus.
+- VLAN rows show the 802.1Q VlanNumber (never the internal VlanId) in numeric order, the raw name untrimmed, and the member-port count. An absent or blank name reads "Name unavailable" and a missing count reads "No member ports reported", never zero. Count each returned port once per VLAN, through distinct membership plus IfVlan, with no operational, admin or deleted filtering. Read VLANs and ports each with their own 404 handling. A VLAN 404 with a ports 403, 500 or timeout shows an error and Retry. Valid VLANs with a ports 404 stay with "No member ports reported". Both 404s give a successful empty section. The overview hides its card when empty, clears highlights on failure and keeps a card that retries on open, and its summary counts VLAN records.
+- FDB rows show MAC, interface and VLAN, ordered by looked-up interface name then raw MAC (ordinal, ignore case) with unmapped ports first and duplicates kept. An unmapped port reads "port {PortId}". A MAC shows as lowercase colon pairs only when stripping non-hex characters leaves exactly 12 digits. Otherwise it keeps its raw nonblank text, and a blank MAC reads "MAC address not reported". FdbEntry.VlanId is an internal row ID, so resolve it through the selected device's VLAN rows (filtered by DeviceId) to an unambiguous positive VlanNumber. Identical duplicates are accepted and conflicting ones stay unknown. An unresolved or non-positive reference reads "VLAN not reported", with no IfVlan fallback. A VLAN mapping 404 keeps the FDB rows. A fleet VLAN 403 keeps rows that have a positive reference and reads "VLAN unavailable: permission denied" in the list, search, speech and overview. FDB or ports denial, a lookup 500, a timeout and cancellation still fail the section. FDB 404 with a ports error shows an error and Retry. Valid FDB with a ports 404 keeps the port-ID fallback. Both 404s give an empty section. The overview totals every returned entry and shows three highlights in source order.
+- ARP rows show IP, MAC and interface in IpSortKey order, so .9 precedes .100. Invalid or missing addresses follow valid ones, and duplicates keep stable order and raw spelling. A missing IP or MAC reads as named unavailable text, an unmapped port shows its port ID, and a blank interface reads "Interface not reported". Normalise a MAC only when it is compact, consistently paired with colons or hyphens, or dotted hex. Leave every other string verbatim. A 404 on ARP never hides a ports 403, 500, timeout or cancellation. A ports 404 keeps valid ARP rows with the port-ID fallback, and both missing gives an empty section. Show IPv6 text without claiming IPv6 coverage. Failed refreshes keep the last rows, and a generation guard stops an old device publishing into a new scope.
+- Routing rows wrap titles, subtitles, state, distinguisher and detail independently, with no truncation or two-line or 180pt cap. Overview highlights show the full facts, with an explicit protocol label when the group heading is absent. A 404 on one routing endpoint makes only that protocol empty, keeps the other protocols' rows, and still fails the section on denial, 500, timeout or cancellation.
+- Wireless rows use the shared sensor stack with full identity, the class as subtitle, a joined description and explicit status text, and the overview and full section share the same wrapping facts. A missing or non-finite reading reads unavailable, never OK. A sensor with no limits shows neutral "No limits" and one with a non-finite limit shows neutral "Limits unavailable".
+- Neighbours classify only explicit local up and down, label the state "Local port state", and treat inactive discovery as "Not active". A monitored neighbour opens relative DeviceDetail and appends "Open neighbouring device" to its description. Graph nodes only select and scroll to the matching list card and announce the full summary with "Show neighbour card". The centre node is an inert "Current device" readout. The narrow graph is `min(280pt, 35% of body height)` and the wide layout starts at 800pt width after sides. Graph colours rebuild on theme change.
 
-Implementation-grounded proposals, pending Claude review and device acceptance:
-button-only list search closes on actual native drag, completion or unfocus;
-filter replacement and programmatic Scrolled must retain focus. Opening is only
-through a search action or Command-F. Retained tab stacks must reclaim page
-glass on actual activation and resume without requiring Refresh. Pushed nested
-alerts must retain the selected tab and pop to their actual caller, with caller
-Back in glass or the header fallback. Fade endpoints must share the actual
-viewport surface RGB, span that viewport and reserve 20pt without blocking input.
-See [the corrective assessment and exact regression matrix](reviews/alert-navigation-correction.md).
+### Device ports card
 
-Geographic-map startup must use live DOM viewport dimensions to gate first layout.
-Keep first-camera draw handlers safe before load: layer groups attach through
-whenReady and marker icons can be undefined during the first zoomend. Supply
-initial dimming through marker options. The #468 unguarded icon access can stop
-any populated map before tile attachment; stale cached-zero size is a separate
-startup failure. Leaflet's cached getSize and pre-view invalidateSize cannot
-establish readiness. Seed a view only when cached dimensions differ from live
-dimensions, then invalidate and fit inside the programmatic guard. Otherwise fit
-directly to avoid seed world tiles. CI must execute the embedded bridge
-with document load before geometry, cached zero size, later native clearance and
-resize, normal/empty pins and pending selection, requiring camera and draw
-activity rather than source substrings. Model deferred layer attachment, missing
-pre-load marker icons and first-view events through load; assert pending focus
-centre and safe offset. Keep fitting zoom controls visible and
-retain the defined insufficient-space pinch fallback. Real tiles, native clips,
-gestures, glass and fold/rotation still require the device matrix in
-[the map correction assessment](reviews/map-loading-correction.md).
+A card scans a list and does not audit one port. Show one card per row, and two when each keeps the 340pt minimum with an 8pt gap (`PortColumns`). The breakpoint is available width, not orientation. Cards fill their track.
 
-### Pushed backup viewport ownership
+- From top to bottom, a card has 14pt padding, a 16pt radius with theme stroke and a 4pt left status edge inside the card. Next come the port name (semibold 17pt) over the muted 14pt description, both wrapping. Then a status row with dot and label at the start and speed at the end, followed by a divider. A three-column table follows, with Traffic and Errors labels and semibold IN ↓ and OUT ↑ values. A divider and the VLANs footer close the card. It has no fixed heights or line caps.
+- Raw states, the monitoring flag, a repeated ifName and the graphs line stay off the card and in the model for search, sort, grouping and status.
+- `PortStatus` gives one class per port, first match wins. Admin down is grey Disabled. Monitoring disabled or ignored is grey Not monitored. A positive error reading on either side is red. Its label is "Up · errors" for an up port, "Down · errors" for a down port and "Errors" otherwise. Up with zero errors on both sides is green Up. Up with no reading on either errors or rates (the rate, or the last-poll delta when no rate exists) reads grey "Up · errors unavailable", placed beside green Up. Enabled but down is amber Down. Anything else is grey Unknown. Only an explicit down state is Down. The edge uses the decorative status colour and the label the readable text colour, and one trigger sets each.
+- Error rates show at full precision per second, red on their own side. A delta-only reading shows "N in last poll". Missing or invalid readings say Unavailable, missing speed says "Speed unavailable" and non-up traffic says "Not shown". Traffic displays in bits and sorting stays in bytes.
+- VLANs list unique positive memberships in number order. With no memberships on the device, a direct ifVlan reads "Access/native VLAN". When the device reports memberships, a port without any reads "Not reported". Group by VLAN and Sort by VLAN read the same VLANs as the card, in this order: Trunk (more than one VLAN), then one "VLAN n" group per VLAN by number, then "No VLAN". A port never sits under a VLAN its card does not list.
+- The card is one native transparent button of at least 44pt, with its own Disabled, Pressed and Focused states. Its description speaks the visible facts in reading order, then the graph action. Without a real ifName there is no button or chevron, and a readout says graphs are unavailable. Overview highlights keep their own layout, share the card's status labels, and open Ports through their parent.
+- Sort & filter keeps seven sorts and four groupings and saves immediately. Done only closes. Keep the heading and Done outside the scrolling body, cap the panel to the measured available height, and reserve its visible height in the list footer until it closes.
 
-`PushedListLayout` owns the full-height Body host's side and bottom padding;
-fixed headers/status rows precede a finite star viewport. Query the pill and
-glass in that exact native host. With no fixed action, match Devices/Alerts:
-a side or bottom pill anchors the viewport base at `max(0, H - pill.Bottom)`.
-A bottom pill's obstructing glass belongs in the scrolling footer; a side
-pill must not clamp the measured base to the safe-area bottom. A top-wide pill
-is separate. With a visible fixed action, use `SetupActionPlacement` for the
-host's only bottom gap and reserve the action's actual wrapped Auto-row height.
-Do not combine an action bottom margin with the same host inset.
+### Settings and More
 
-Check normal and comparison modes independently against actual native host,
-card/list and pill bounds, including dynamic selection/busy actions, child
-return, retained tab/resume, fold/rotation and keyboard dismissal. Footer reach
-alone does not establish viewport alignment. #462 owns this shared correction;
-#463 contents then #464 differences consume it sequentially and retain their
-own action, search, source and export contracts.
+- Settings is one full-width column. Show the DashyNMS mark (54pt, decorative) beside the wrapping server identity. Groups are Preferences (Appearance, Devices, Alert checks, Notifications, Health thresholds, conditional Lock screen widgets), Services, embedded About and conditional Diagnostics, with quiet Level2 headings, generous space and hairline navigation rows. Sign out sits isolated 38pt below the groups. Keep every dynamic summary sentence. The footer shows AppVersion and Trademarks.
+- Settings rows are at least 60pt, wrap, and use one native button over the measured row with a joined description. Navigation rows have a chevron and non-navigating rows have none. Use the plain input-transparent `Divider` between visible neighbours, since `RowLine` carries a negative margin. Only the hostname character-wraps. Component versions are read-only stacks of name, full version and state. Service summaries show only the parsed host name, and On or Off means saved enablement, not connectivity. Say which children use drafts (Services, Health thresholds).
+- More is a single full-width catalogue with four groups in enum order, quiet headings and hairline rows. Only Health, Map, Network map, Neighbours and Graylog show a summary. Each row has an Open button (wrapping, 48pt minimum) and a separate 44x44 Pin button, with no parent gesture. Pin is an outlined muted shape when unpinned and a filled PrimaryText shape when pinned, with round caps and press and focus feedback. Its name states target, membership and action. State capacity once above the list. A full bar keeps the pin operable and explains how to make room. The bar has three slots, defaulting to Devices, Alerts and Health. Pins save immediately in enum order, and a caption says so. Pinned pages select their tab, unpinned push a relative route, and pinning never navigates. Where SourceGen cannot convert an `x:Static` string to `Path.Data`, inline the path geometry with a provenance comment.
 
-Device sections are cardless: each row is its own card, so the viewport's
-clip edge is the visible end of the content. Do not copy the card hosts' pill
-base there. The list viewport runs to the actual finite body host's base,
-beneath the pill and glass, as on the Dashboard, and stops short only for a
-docked keyboard. `SectionListPlacement` gives the footer the whole measured
-obstruction (side-pill gap, bottom bar and glass, or covered edges) plus 24pt,
-and a visible filter panel's measured height through its exit animation.
-Anchoring a cardless viewport at `H - pill.Bottom` clipped rows above the
-screen's base on both Duo displays (#469–#479). A wide graph without a content
-footer keeps the bar and glass clearance in its own margin; a narrow graph
-reserves its actual layout row above the list. Verify the graph's bounds
-separately on-device.
+### Logs, Graylog and details
 
-Record host height H, pill bottom B and viewport bottom V per mode: a cardless
-viewport passes only with V = H (or the docked keyboard top), and the final row
-must still scroll fully above B and the glass. Check these separately; one does
-not prove the other. Card hosts (`PushedListLayout`, `TabAlignedListLayout`,
-Devices, Alerts, Health) keep their card base at the pill base. Source
-correction is not device acceptance.
+- Logs and Graylog share one structure. The page has a fixed header and search, a horizontal strip of native 44pt choices in a full-width outer clip, fixed summary and status rows, then the finite virtualised list card. `CollectionView.Header` keeps only the 20pt fade spacer. A fixed device scope is a read-only wrapping label. Network scope keeps separate change and clear choices. Clear filters is the summary's 44pt link.
+- Each row is one native Open button over complete plain multiline text with stacked textual severity, facility or type, user and full local time, with "unavailable" fallbacks. The button's accessible name includes the entry ID. Logs rows use 11pt vertical padding and 6pt between facts. Graylog rows use 10pt and 4pt. Unknown severity reads Event and never OK. Filter choices name their current value ("All devices", "Any type", "Any state"). Auto-refresh states On or Off. Compare same-ID refreshed rows on every displayed fact.
+- Log entry details show the message as the primary heading in character-wrapped plain text that keeps exact whitespace, with stacked fields and the raw hostname or sysName. Unknown severity reads Event. Open device and Open rule are inline 44pt content actions, and the device link is omitted for device-scoped entries. An invalid or missing record clears the view and shows return and reselect guidance.
+- Graylog message details stack labels over character-wrapped plain-text values in a monospaced face, keeping every raw field. Unavailable time, level or source says so. On iOS 26+, eligible Show only and Open device move into host glass, with an inline fallback on Android and older iOS. Open device is hidden in device scope.
+- Alert rules show Selected in text in split mode only, with the highlight tied to rule ID. Wide width embeds the detail in place with its Back hidden. Narrow width pushes the rule route with the unchanged integer ID. Notification Change and Undo save local preferences immediately and Back does not cancel them.
+- Rule and template detail pages are read-only and preserve text exactly, with no trimming and no invented fallback. Alert detail keeps one primary acknowledge action, and unacknowledge, fault, device and notification controls stay subordinate. Detail pages use full width with measured gutters. Supplementary failures show an explicit status and a Retry.
+- Neighbourhoods are local settings with a finite virtualised list, named Edit and More actions at 44pt, and adjacent-only moves. Reorder and delete save immediately with a destructive confirmation and no Undo. The editor is a draft form. Save requires a nonblank name and valid regex, keeps unsupported rules and extension fields, and uses stacked native pickers.
+- Inventory is one column. Put Back, Search and one "Tree options" glass action in the header, or a header icon opening the same measured FilterCard on Android and older iOS. The panel holds Expand all, Collapse all, Show ports and Done in a finite scrolling body, with the heading and Done outside it. The summary stays in the list header, and expansion and Copy serial stay on each row. Tree options appears whenever loaded rows exist, hides on an empty source and disables while busy.
+- Graph legends are wrapping facts (name, detail, value, Shown or Hidden text) with a filled or outlined series-colour marker. One transparent native toggle covers the facts with a Hide or Show name. A separate Only action has a 44pt minimum and announces "Show only [name]". Long-press isolation does not also fire the toggle. Keep drawn series order and the last visible series. Hidden text stays readable. Show all goes in the glass action beside Back while a series is hidden, or a header eye icon elsewhere. Range chips wrap at 44pt high and 64pt wide minimum. The wide layout puts the graph beside a 300pt legend at 800pt available width.
+- Backup history lists loaded rows newest first, labels the newest dated one Current as a version label only, and compares at most two backups, older first. Contents show numbered monospaced character-wrapped lines in a finite `CollectionView`, and Share exports the original raw bytes. Diff keeps its existing presentation and exports the complete unified diff. On iOS 26+ compare, search and share move into glass.
+- Maintenance schedule has one Schedule button in the fixed slot, disabled for the whole command including confirmation. Blank title or notes become null. Back discards the draft.
+- Licences use package H2, licence H3, scalable themed body text that word-wraps prose and character-wraps URLs, and the full destination in a wrapping label under a whole-row 44pt native button. A failed read shows a truthful error and Retry, never replacement text. The website opens externally from the exact catalogue URI.
 
-For device-neighbour graphs, distinguish a current-device readout from actionable
-neighbour nodes. A node selecting a list card must announce that selection intent
-and the complete endpoint/state facts; it must not promise device navigation.
-Verify centre role, node activation and list focus separately with assistive
-technology, including unmonitored neighbours and a filtered list.
+### Map
 
+- Keep WebView geometry stable beneath overlays. Zoom targets are 44px. Hide zoom only when both targets cannot fit with overlay clearance, and keep pinch. Gate first layout on live container width and height, not cached `getSize`. Attach layer groups through `whenReady`, guard marker icon access before load, and pass initial dimming through marker options. Seed a view only when cached and live dimensions differ, then invalidate and fit inside the programmatic guard.
+- Selecting a location centres it above the card using an offset camera centre. Resize never centres. Clearance changes pan by the change in uncovered centre. Marker clicks store a keyed target zoom. Dim non-selected groups over 250ms.
+- A searchable finite location picker, pushed through `SetupPageLayout`, offers an accessible alternative to tapping pins. Choosing selects on the original map and pops one page.
+- Header side clearance uses Margin, with a full-width opaque BoxView behind the gutters and an invisible 44pt `TopBar.Height` spacer in an Auto first row.
+- Preserve bundled Leaflet, the nonce CSP, JSON escaping, the bridge allowlist, external-browser attribution and the custom tile setting. Unknown devices count in the pin total with a grey ring segment. CI runs the embedded bridge with a Leaflet camera model, covering document load before geometry, cached zero size, later clearance, resize, empty pins and pending selection.
 
-### Approved Inventory Tree options
+Done when each bullet in your page's section has a recorded pass.
 
-The 5 November 2026 #479 proposal places page-wide tree controls behind one
-Tree options glass action alongside Back and Search. Android and older iOS use
-a header icon opening the same measured FilterCard. Keep heading and Done
-outside its finite scrolling body; retain summary in the list header and
-expansion/copy in each row. Availability follows loaded source rows, including
-hidden ports and no matches; source-empty hides the action, busy disables it.
-Use the existing panel placement/footer ownership above without additional
-insets. Proposal approval is separate from native acceptance.
+## 10a. Existing page contracts
 
-### Approved compact graph legends
+Apply the contract of the page you change. Each setup page uses `SetupLayout` and the role table in step 4.
 
-The 5 November 2026 #480 proposal uses wrapping name/detail/value facts with
-explicit Shown or Hidden text and a filled or outlined series-colour marker.
-Keep hidden facts readable. Put one transparent native toggle over the facts,
-with an accessible actual Hide/Show action naming the series, detail, value and
-state. A separate quiet Only action has a 44pt minimum target and announces
-"Show only [name]". Preserve long-press isolation on the facts without also
-firing the toggle; do not add a parent tap. Let the action wrap below facts
-when text requires it. Preserve drawn series order and last-visible protection.
-Proposal approval is separate from native acceptance.
+### Setup pickers and forms
 
-### Approved event log list facts
+- The graph picker (`GraphPickerPage`) is the stepped setup reference. Its headers read "Choose a device" and then "Choose a graph". The chosen Device section offers Change device, and the optional card title is the first draft field. Device and device-wide graph choices use natural order. Ports keep interface order, while port graph descriptions in both source modes use natural order. DeviceGraphs keeps Traffic as the initial port graph. An empty graph source explains that the device has no graphs.
+- The sensor picker (`SensorPickerPage`) has a scrolling card-title header that starts below the fade, a finite sensor list and a fixed Save. Each row's accessible content is sensor name, device, reading and selected state, with the checkbox excluded. Reopening retries a failed load, and another Save retries a failed save while keeping the draft.
+- Ranked cards (`TopCardSetUpPage`) have no choose step, and the heading is the card kind's title. The fields are card title, Rows, Rank by and, for Top errors, Quiet ports, in that order. Each field uses `SetupSection`, and the switch keeps its own accessible description.
+- Spotlight (`SpotlightPickerPage`) opens from a log card's Dashboard Spotlight line or its Set up action in Edit dashboard, and both pass the selected widget ID. The header is "Spotlight". Whole network is a separate immediate-action section with "Every device. Applies straight away." and Use whole network. Below it, an "Or keep it to" section holds Devices, Group and Location, search, selected count and prompt, status, then a finite list. Devices allow several selections and a group or location is a single choice. Missing saved choices stay at the top until unticked. The fixed Save waits for every source to load. Whole network saves and returns at once, and other choices wait for Save.
+- Add card uses `SearchField` and the choice grid breakpoint from step 6. Category counts, unavailable reasons, multi-selection and add-below position are kept. A single Sensors or Graph card opens its setup automatically. Add is the fixed primary action and names what it adds.
+- The Graylog and Unimus connection forms share one shape. The order is enablement, server, login or token, then options. Save is fixed. Test connection checks the draft, saves nothing and may add a trusted certificate to the draft only. Forget saved password or token removes the stored secret immediately after confirmation and stays subordinate.
+- Sensor definitions treat the switch and source as the draft. Installed version, last check and status are read-only. Update now acts on the saved source and explains when an unsaved draft disables it.
+- Thresholds stack value rows when crowded. Reset to desktop's defaults changes the draft only, Save validates and applies, and Back discards.
+- All seven settings sections share one layout and save automatically. Dependent visibility, permissions, privacy text and the notification rule list stay as they are.
+- The rule picker and Graylog device picker are immediate choosers with picker statuses. Already-added rules state why they cannot be added. Any device is the scope choice above the results. Keep suggestions, group headings, the result cap and natural order.
 
-The #482 proposal keeps complete plain-text multiline messages in the virtualised
-list, with textual severity and stacked metadata and local timestamps. A single
-native entry action includes its ID in speech. Raw source fields remain in the
-accepted #460 detail. Fixed device scope is read-only; filter choices wrap and
-name their current value, and auto-refresh states On or Off. This records the
-approved presentation; the user accepted it on device on 5 November 2026 with
-no notes, as recorded in the [#442 ledger](reviews/442-delivery-status.md).
+### Dashboard editor
 
+- `CustomiseDashboardPage` uses the dashboard's adaptive columns and saves immediately. The More menu offers Duplicate where supported, Add a card after, Move earlier or later, and Remove. Removal keeps Undo, shown through the shared `DashboardToastView`. Sensors and Graph cards open their pickers, Top cards open ranked-card setup, and Event log and Graylog cards open Spotlight.
+- Add card opens setup automatically only for a single Sensors or Graph card. Returning from any child refreshes the saved cards.
+- The six-dot grab handle uses `Aspect="None"` and is hidden from screen readers, because `Aspect="Uniform"` stretches its geometry into clipped bars. Bind custom properties on `DashboardToastView` through an explicit `Binding` object.
 
-### Approved Graylog list structure
+### Sensor persistence
 
-On 5 November 2026 the user directed: "we should mirror Event and Alert Log for
-this with the pills and the layering under it - the structure of the event and
-alert log page is what we want." This supersedes the earlier #483 compact
-wrapping header and the #517 "Keep wrapping; defer sideways underlap" decision.
+- The sensor picker drafts its title and selections, commits them together on Save and discards changes on Back. Opening without a card ID creates a card only on Save. A card added explicitly from the editor remains when its later setup is cancelled.
+- Empty selections are supported. A failed save keeps the draft. Saved sensors absent from the server response are retained.
 
-Graylog uses the Logs structure: fixed header and search, a horizontal strip of
-native 44pt choices in a full-width outer clip, then fixed summary/status rows
-and the finite virtualised list card. Choices and the summary leave
-CollectionView.Header, which keeps only the 20pt fade spacer. Each choice wraps
-within the guttered list card's width. Fixed device scope is a read-only label;
-network scope keeps separate change and clear choices; Clear filters is the
-summary's link, as in Logs. Rows keep modest spacing, complete plain multiline
-messages, stacked level, facility and full time with unavailable fallbacks, and
-one native Open message target. Dashboard previews, #461 detail and #405 setup
-are separate. Source and approval are not native acceptance; see the
-[#483 assessment](reviews/483-device-graylog.md) and
-[#517 assessment](reviews/517-network-graylog-camera.md).
+Done when your page matches its contract bullet by bullet and keeps its draft, Save and stored fields as listed.
 
-### Log filter camera layering
+## 11. Run the acceptance checklist
 
-A horizontal filter strip needs a full-width outer native clip and internal
-resting gutters. Padding its ancestor column narrows that clip, so scrolled
-choices stop before the camera. Distribute measured side gutters to the fixed
-header, switch, search, summary, error and list slots, and to the filter
-ScrollView's Padding. Bound wrapping choice width to the guttered list card,
-so a long choice fits when scrolled into view. Preserve the finite list viewport
-and its separate pill-base margin and content footer. `TabAlignedListLayout`
-allows a page-owned gutter callback for this pattern; its default column-padding
-mode is retained, but both current consumers opt in. #516 owns Logs in both
-scopes; #517 and #483 own Graylog, which adopts the same callback with its own
-fixed status slots. Source correction and native acceptance are separate; record
-actual clip/choice/camera frames and H/B/V in the
-[#516 assessment](reviews/516-network-log-camera.md) and the Graylog assessments.
+Record each applicable item as passed, failed or unavailable. Record code review, CI and device results separately. Have the coding agent review the PR's full diff against this guide with its review command. Fix confirmed findings in the PR, or note in the PR why a finding stands. Native success is unverified until an installed build is measured. Device results state the build, device and OS, entry mode, theme, text size, expected against actual, and evidence. Test write flows with mock writes only.
+
+- [ ] Each supported kind routes to a compatible editor with the selected ID. Back returns through every caller with one glass owner.
+- [ ] Insets have one owner per edge, and the footer formula for the host type is applied. Final content and actions clear glass and visible overlays through transitions.
+- [ ] Initial text and empty states read clearly below the fade at rest.
+- [ ] Titles and controls fit narrow screens and larger text in both themes.
+- [ ] Folding and rotation recompute clearance and columns without reopening.
+- [ ] Search closes the keyboard correctly and keeps its query.
+- [ ] Loading, empty, error and selected states stay readable and retryable.
+- [ ] Save or automatic save and Back follow the approved contract. A failed load cannot save an empty draft.
+- [ ] One primary action. Secondary, immediate and destructive actions follow the role table and say what they change.
+- [ ] The fixed primary action aligns with the vertical pill base or clears a bottom bar and its actions, on inside and outside screens and after fold, rotate, keyboard dismissal, tab return and resume.
+- [ ] Screen-reader names, selection states and activation work. Drag actions have an accessible alternative.
+- [ ] Motion respects Reduce Motion and repeated transitions finish correctly.
+- [ ] Relevant shared tests and Android and iOS builds pass.
+- [ ] Device criterion for layout. H, B and V are recorded on Duo outer, inner portrait and inner landscape, after app resume, and on an ordinary iPhone when available. First-tab changes include cold launch. Add both themes, maximum text, VoiceOver, TalkBack and Reduce Motion.
+- [ ] Diagnostics are checked for overlap or placement loops.
+- [ ] Fixtures and screenshots use synthetic network data.
+
+Keep one issue per PR. Use a non-closing reference until the user accepts the device result, then close only the accepted issue, and tick its epic entry on closure. CI success alone does not establish visual correctness.
+
+When the user authorises a batch of page issues for one device test, follow these three workflow lines.
+- Merge the batch PRs one at a time in the agreed order, landing dependencies before their consumers.
+- Build one TestFlight after the final merge.
+- The user accepts each issue separately.
+
+Done when every item is recorded as passed, failed or unavailable, and each device-gated issue has explicit user acceptance.
+
+## 12. Still to verify
+
+These device checks remain open. Confirm each on a device, then fold any result into the steps above.
+
+- Measure H, B and V on both Duo displays for Health, Alert rules, Neighbourhoods, Neighbours, More, the device sections (including Device graphs and Interface graphs) and the Graylog list, which have no device acceptance.
+- Check Ports at maximum text, with two columns, and in short landscape with the picker wheel and keyboard clearing Sort, Group and Done.
+- Check a floating iPad keyboard on forms, and activation with a keyboard already visible at retained-tab return and resume.
+- Check Neighbourhoods top text on iOS 26.x and 27.1+, and record title glyph and camera bounds. `CoveredEdges.Beside` uses real reserved regions only on iOS 27.1+.
+- Check the map's WKWebView gestures with zero insets and no bounce, attribution links above the selected card, huge text in short landscape and large chooser catalogues.
+- Check the Graylog list's camera layering and pill base on an installed build, and record frames before changing offsets.
+- Check boundary text that rounds into a different status (94.96 as 95% Warning, 79.96 as 80% OK, 99.86 as 99.9% Warning, 98.96 as 99% Critical).
+- Check that Dashboard, SensorPicker and WidgetSnapshot treat custom no-limit sensors as neutral.
+- Check the Back-during-submit race on maintenance and other forms that pop on success.
+- Sensors, device handoff: open the section from Health, from Devices (narrow and split), from the Dashboard and from an alert. Each must show the right device, return to the real caller with Back, and never show the previous device's rows or error under a new device while a slow load finishes.
+- Sensors, threshold refresh: save a changed synthetic limit in Settings, return to the retained Sensors page and refresh. The new severity must agree with Health. Repeat with Back-discard and reset-draft without saving, and with a definitions update, disable, source change and offline refresh. Nothing may show a false OK or an immediate update that was not fetched.
+- Sensors, data states: check cold load, a genuinely empty source, no search matches, cached offline, timeout and server error, denied with no cache, and Retry success and failure. Loading, error and age must be honest, and a retained reading must be distinguishable from a new one.
+- Sensors, readings: check temperature, dBm, signal, fan and custom sensors with positive and negative values, null, NaN and infinite readings, and known, unresolved and label-only states. Unknown, missing and unassessed values stay neutral.
+- Map, cold launch and refresh: open the pinned and More-pushed Map, return from device detail and from Show in Devices, switch tabs, resume, rotate and fold repeatedly. Exercise an empty server, all devices unlocated, a mix of located and unlocated, a failed first load, and a failed refresh followed by Refresh. The old map must survive a failed refresh, and there must be one glass owner and no placement loop diagnostics.
+- Map, selection and tiles: select a pin or chooser location and check that it centres above the card and closing does not flash. Check merged pins, identical coordinates, long location and device names, the last device row, VoiceOver and TalkBack chooser operation, default and custom HTTP(S) tile settings, external attribution navigation and Reduce Motion.
+
+Record each of these separately as passed, failed or unavailable against the build and device tested. An earlier code review or CI result is not device acceptance.
