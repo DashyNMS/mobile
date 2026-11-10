@@ -65,6 +65,9 @@ public sealed class DeviceDetailPage : ContentPage, IQueryAttributable
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
+
+		// Back from Schedule maintenance, a window starting now shows in the header.
+		_ = _viewModel.ShownAgainAsync();
 	}
 
 	protected override void OnDisappearing()
