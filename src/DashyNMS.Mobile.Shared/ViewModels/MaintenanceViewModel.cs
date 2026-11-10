@@ -144,6 +144,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     public string? RefusedText => MaySchedule ? null : _client.Permissions?.IsRefused(ApiPermission.EditDevices) == true
         ? ApiPermissions.Describe(ApiPermission.EditDevices) : "This account cannot schedule maintenance for the selected devices.";
 
+    /// <summary>
+    /// Schedules the window for one device or several, then goes back. A
+    /// success clears the Devices tab's maintenance scan, so a window starting
+    /// now shows there, and on the device's page, straight away.
+    /// </summary>
     [RelayCommand]
     private async Task SaveAsync()
     {

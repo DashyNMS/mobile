@@ -591,6 +591,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         }
     }
 
+    /// <summary>
+    /// Loads the device, its open alerts and whether it's in a maintenance
+    /// window together, so the header's first state is the one to trust;
+    /// the section cards and extras follow behind.
+    /// </summary>
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
