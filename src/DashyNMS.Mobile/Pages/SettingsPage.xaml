@@ -19,6 +19,8 @@
      <VerticalStackLayout>
       <controls:SettingsOverviewRow Title="Appearance" Summary="{Binding AppearanceSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Appearance}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
+      <controls:SettingsOverviewRow Title="Intelligence" Summary="On-device answers and chat preferences" IsVisible="{Binding CanConfigureIntelligence}" Command="{Binding OpenIntelligenceSettingsCommand}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding CanConfigureIntelligence}" />
       <controls:SettingsOverviewRow Title="Devices" Summary="{Binding DevicesSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.Devices}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="Alert checks" Summary="{Binding AlertChecksSummary}" Command="{Binding OpenSectionCommand}" CommandParameter="{x:Static vm:SettingsSection.AlertChecks}" />

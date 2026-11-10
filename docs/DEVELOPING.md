@@ -846,6 +846,35 @@ with desktop's full tool set. Two things gate it:
 If the package still can't run in-process once those land, the ChatGPT
 route uses 2.0's compact lookups, extended.
 
+### Intelligence settings (#571)
+
+Settings › Intelligence is a pushed setup page that saves changes
+immediately. Back returns to Settings and keeps saved choices. The entry is
+hidden on Android and before iOS 26. Other unavailable states explain the
+reason; when Apple Intelligence is off, Open Settings uses the public
+app-settings URL and tells the person where to go.
+
+Mobile consumers must use `IntelligencePreferences.Enabled`, together with
+model availability, rather than Core's `IntelligenceEnabled` alone. Core's
+desktop default is on. Mobile requires its own versioned on-device notice
+marker before that flag can enable anything. This marker is separate from
+Core's third-party consent fields. Cancelling the first notice leaves the
+mobile gate off. Turning the feature off retains the notice acceptance.
+
+Detail, colour indicators and single-chat mode use Core's setting keys.
+The on-device detail choices are Brief, Balanced and Detailed. Legacy
+styles are normalised, and Full reads as Detailed without changing the
+stored value until the person chooses. The single-chat setting is in place;
+chat-history behaviour follows in #230. The chat entry follows in #227.
+
+The page uses `SetupLayout` and `SetupPageLayout` for inset and Back ownership,
+with no Save action. It refreshes availability on appearing and activation.
+Shared tests cover each availability state, the opt-in notice, persistence,
+legacy detail values, failed saves and the Settings handoff. Platform
+compilation is checked in CI. Device checks remain outstanding: supported
+and unsupported devices, Apple Intelligence turned off, resume, light/dark,
+large text and VoiceOver, plus glass clearance on both Duo displays.
+
 ### Compact network lookups (#572)
 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the

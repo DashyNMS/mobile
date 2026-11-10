@@ -45,6 +45,7 @@ public partial class AppShell : Shell
 		Routing.RegisterRoute(Routes.Thresholds, typeof(ThresholdsPage));
 		Routing.RegisterRoute(Routes.Licences, typeof(LicencesPage));
 		Routing.RegisterRoute(Routes.IntelligenceCheck, typeof(IntelligenceCheckPage));
+        Routing.RegisterRoute(Routes.IntelligenceSettings, typeof(IntelligenceSettingsPage));
 		Routing.RegisterRoute(Routes.AddNotifyRule, typeof(NotifyRulePickerPage));
 		Routing.RegisterRoute(Routes.CustomiseDashboard, typeof(CustomiseDashboardPage));
 		Routing.RegisterRoute(Routes.AddCard, typeof(AddCardPage));
