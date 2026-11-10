@@ -723,15 +723,101 @@ The constraints that shape it:
   and weak-linked so the app still runs on iOS 15.
 - It needs iOS 26 or later, a device that supports Apple Intelligence, and
   Apple Intelligence turned on. Elsewhere Intelligence is hidden or says why.
-- The on-device context is small (4,096 tokens on iOS 26, covering
-  instructions, tools, question, lookups and answer together). Desktop's 22
-  MCP tools and GPT prompts don't fit, so the phone has about five compact
-  lookups over Core's clients that return short text, and its own short
-  instructions. #570 measures the real budget on a device before the rest is
-  built.
+- The on-device context is small: 8,192 tokens measured on iOS 27.2, and
+  4,096 by Apple's notes for iOS 26.4. It covers instructions, tools,
+  question, lookups and answer together. Desktop's 22 MCP tools and GPT
+  prompts don't fit, so the phone has five compact lookups over Core's
+  clients that return short text, and its own short instructions. #570
+  measured the budget on a device; see below.
 - The model sits behind an `IIntelligenceModel` interface in Mobile.Shared.
   The pages, saved chats, Spotlight, reporting and export are shared, so later
   models need no new pages.
+
+### What the on-device model can do (#570)
+
+**Result: the overview question completed on the tested device.** Measured on 2026-11-10 with
+Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
+27.2, a TestFlight Release build of `3d36e85`, against a LibreNMS server
+with 946 devices and 208 open alerts. One question, "How is the network
+doing?", asked once, so the times are a single reading and not an average.
+
+| What | Measured |
+| --- | --- |
+| Context size (`contextSize`) | 8,192 tokens |
+| Whole question, by the model's own count | 559 tokens in, 239 out |
+| Instructions (285 characters) | about 60 tokens |
+| One lookup's definition (137 characters, one argument) | about 30 tokens |
+| The overview lookup's result (809 characters) | about 310 tokens |
+| The answer (634 characters) | 239 tokens |
+| LibreNMS's part of the lookup | 2.0 s |
+| First words | 3.5 s after asking, lookup included |
+| Whole answer | 6.1 s after asking |
+| App memory | 248.8 MB before, 246.6 MB after |
+| App size | 42.9 MB to 43.1 MB between the uploads either side |
+
+How to read these:
+
+- **The diagnostic counts suggest about 47 tokens of framing**
+  when counting text as instructions: the 25-character question counted as
+  53. The per-piece rows above have that taken off. The model's own count
+  (`Usage` on the response, iOS 27) supplies the total for this reading. About 150 of the
+  559 input tokens are framing, the lookup's schema and the call itself.
+- **Network text costs about 2.5 characters a token**, not the four of
+  ordinary prose, because host names, addresses and rule names split badly.
+  Budget lookups in characters at that rate.
+- **App memory did not rise in this reading.** The app grew
+  by about 0.2 MB, which is the Swift bridge (the upload sizes also include a
+  few unrelated changes).
+- **The answer repeated the supplied counts.** Every count matched the
+  lookup, and it named the same devices and alerts in the same order. It
+  restated more than it summarised, and it dropped a leading number from
+  several device names. So the lookups have to do the judging, and names
+  must come from lookup data, not from the model's wording.
+
+**The budget for the rest of #236.** Sized for the 4,096-token context of
+iOS 26.4, which wasn't measured and is assumed to count tokens the same
+way; iOS 27 then has room to spare.
+
+| Part | Budget |
+| --- | --- |
+| Instructions | 150 tokens (about 400 characters) |
+| Lookups | 5, each defined in 80 tokens or fewer: a name, one sentence and one argument |
+| A lookup's result | 900 characters (about 360 tokens), whatever the network's size |
+| Lookups per question | 2 at most |
+| An answer | about 300 tokens; the detail dial moves it between 150 and 400 |
+| Turns the model sees | The newest that fit in 80% of `contextSize`: about 3 on 4,096 and 7 on 8,192 |
+
+That is 550 tokens fixed for instructions and lookups, and about 750 for
+each turn with one lookup. Older turns stay on screen but are dropped from
+what the model sees (#573). The 2.5-characters-per-token rate is an estimate
+from this single lookup, not a safe upper bound. Other text and languages,
+including Japanese, Chinese and Korean, may use more tokens. Read
+`contextSize` at run time and never assume either figure.
+
+For #573, if the model reports a context-limit error, discard the failed
+session and retry the current question once in a fresh session without
+older turns. Keep the earlier conversation visible and explain that it was
+left out. If the question still exceeds the limit without older turns,
+ask the person to shorten it or narrow its scope. Do not retry indefinitely
+or mark the partial answer complete.
+
+What this means for the lookups (#572) and the conversation (#573):
+
+- A lookup puts what needs attention first: unacknowledged alerts before
+  acknowledged ones, then by severity. The model repeats the order it's
+  given.
+- The instructions tell the model to copy names exactly. Links to devices,
+  alerts and sensors (#228) come from the lookup's own data, matched to the
+  answer, never from the model's spelling.
+- Show that a lookup is running. LibreNMS took a third of the wait.
+
+The check supports keeping the on-device model as the default for 2.0.0.
+Private Cloud Compute (32,000 tokens, #575) stays what it was: an optional
+way to get deeper answers on iOS 27, not a replacement.
+
+Still to check on a device, under #571: the 4,096-token context on iOS
+26.4, a launch before iOS 26 (CI proves Foundation Models is weak-linked,
+not that the app starts), and Stop partway through an answer.
 
 **2.1.0: ChatGPT, and Android (#577).** The person's own ChatGPT plan, as on
 desktop, becomes a second model on iPhone and the first on Android (#576),
