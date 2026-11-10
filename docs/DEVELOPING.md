@@ -558,7 +558,7 @@ type(scope): what changes, as the user would notice it
 ```
 
 - **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
-- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
 - **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
@@ -689,21 +689,55 @@ What's left is the less everyday:
 
 ## Intelligence on the phone
 
-Where Batch 7 (Intelligence, #236) stands, checked for #297 on 2026-10-31
-against Core 2.0.0-ci.49 and DashyNMS/mcp at `61161c4`.
+Intelligence is split across two releases (re-planned on 2026-11-10, after
+#297's groundwork check on 2026-10-31 against Core 2.0.0-ci.49 and
+DashyNMS/mcp at `61161c4`).
 
-**Core has the engine.** The pinned package has everything except the network
-tools: the ChatGPT sign-in (`ChatGptSignIn`, `IdTokenValidator`), the
-Responses client, the conversation loop and its instructions
-(`IntelligenceConversation`, `IntelligenceInstructions`), saved chats
-(`FileIntelligenceChatStore`, `SavedIntelligenceChat`), consent, the detail
-dial, and the allowlist of 22 tool names (`IntelligenceToolAllowlist`). So
-#222 to #234 can be built in Mobile.Shared on Core alone, with desktop's view
-models as the spec.
+**2.0.0: Apple's models on iPhone and iPad (#236).** Intelligence uses
+Apple's Foundation Models framework. It runs on the device and, from iOS 27,
+can optionally use Apple's Private Cloud Compute. This route was chosen
+because:
 
-**The network tools can't be used yet.** A phone can't start desktop's
-`dashynms-mcp` process, so the tools have to run in the app, from
-DashyNMS/mcp's `DashyNMS.Agent`. Against #221's four upstream needs:
+- it needs no account, sign-in or API key, and costs the person nothing;
+- on the device, nothing leaves the phone, so there's no third-party AI
+  sharing to ask permission for (App Store guideline 5.1.2(i));
+- it avoids the ChatGPT route's open questions: OpenAI's terms for a store
+  app, and the in-app purchase rules;
+- it doesn't wait on the DashyNMS/mcp changes below.
+
+The constraints that shape it:
+
+- Foundation Models is Swift-only. A small Swift framework wraps it, bound to
+  .NET with Native Library Interop, built with xcodegen as `ios-widget/` is,
+  and weak-linked so the app still runs on iOS 15.
+- It needs iOS 26 or later, a device that supports Apple Intelligence, and
+  Apple Intelligence turned on. Elsewhere Intelligence is hidden or says why.
+- The on-device context is small (4,096 tokens on iOS 26, covering
+  instructions, tools, question, lookups and answer together). Desktop's 22
+  MCP tools and GPT prompts don't fit, so the phone has about five compact
+  lookups over Core's clients that return short text, and its own short
+  instructions. #570 measures the real budget on a device before the rest is
+  built.
+- The model sits behind an `IIntelligenceModel` interface in Mobile.Shared.
+  The pages, saved chats, Spotlight, reporting and export are shared, so later
+  models need no new pages.
+
+**2.1.0: ChatGPT, and Android (#577).** The person's own ChatGPT plan, as on
+desktop, becomes a second model on iPhone and the first on Android (#576),
+with desktop's full tool set. Two things gate it:
+
+- **OpenAI's terms.** OpenAI documents plan usage for "open-source and
+  locally hosted apps" and offers other apps a commercial partner programme.
+  This app's licence isn't open source, so confirm with OpenAI before any
+  ChatGPT build reaches testers.
+- **The DashyNMS/mcp changes.** Core already has the ChatGPT engine: the
+  sign-in (`ChatGptSignIn`, `IdTokenValidator`), the Responses client, the
+  conversation loop and its instructions (`IntelligenceConversation`,
+  `IntelligenceInstructions`), consent, the detail dial, and the allowlist of
+  22 tool names (`IntelligenceToolAllowlist`). The network tools are the
+  missing piece. A phone can't start desktop's `dashynms-mcp` process, so the
+  tools have to run in the app, from DashyNMS/mcp's `DashyNMS.Agent`. Against
+  #221's four upstream needs:
 
 | Need | Where it stands |
 | --- | --- |
@@ -712,16 +746,8 @@ DashyNMS/mcp's `DashyNMS.Agent`. Against #221's four upstream needs:
 | Plain options | Done: `AgentOptions` is plain; only the `DashyNMS.Mcp` host reads environment variables |
 | A tool table safe for AOT | Not yet: the 39 tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
 
-Until those land, #221's on-device check (a Release build on an iPhone and
-an Android phone, the four tools' results, size, first-question cost and
-memory) can't be run.
-
-**Recommendation.** Move Batch 7 to 2.1.0 rather than hold 2.0.0 for it.
-First make the three remaining changes in DashyNMS/mcp (publish the package,
-`TryAdd` the clients or take them from the host, and give the tools a
-generated or hand-written table), then run #221 on devices. The fallback, if
-the package still can't run in-process, is re-implementing the commonest
-tools over Core's clients in Mobile.Shared, which is the most work.
+If the package still can't run in-process once those land, the ChatGPT
+route uses 2.0's compact lookups, extended.
 
 ## Upstream notes
 
