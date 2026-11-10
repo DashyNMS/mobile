@@ -111,8 +111,10 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 			// A lookup in flight is cancelled too, or Stop would wait for LibreNMS to answer or time out.
 			using var stopping = cancellationToken.Register(() =>
 			{
-				asking.Cancel();
+				// The model first: cancelling runs the lookup's own callbacks, and
+				// one that threw mustn't leave the model writing.
 				_session.Stop();
+				asking.Cancel();
 			});
 			try
 			{
