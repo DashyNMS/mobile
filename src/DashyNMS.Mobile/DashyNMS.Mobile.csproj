@@ -102,6 +102,13 @@
 		<ProjectReference Include="..\DashyNMS.Mobile.Shared\DashyNMS.Mobile.Shared.csproj" />
 	</ItemGroup>
 
+	<!-- Apple's on-device language model (#570): the Swift bridge in
+	     ios-intelligence/ and its binding. iOS only; its Xcode project is
+	     generated first (`xcodegen generate` in ios-intelligence/). -->
+	<ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">
+		<ProjectReference Include="..\DashyNMS.Mobile.Intelligence.iOS\DashyNMS.Mobile.Intelligence.iOS.csproj" />
+	</ItemGroup>
+
 	<!-- The iOS home-screen widget: a Swift WidgetKit extension (ios-widget/),
 	     built by xcodebuild beforehand and embedded with -p:IncludeIosWidget=true.
 	     Opt-in because it needs the App Group capability on the App ID and a

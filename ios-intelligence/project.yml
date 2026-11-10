@@ -1,0 +1,45 @@
+# XcodeGen spec for the Swift bridge to Apple's Foundation Models framework
+# (#570). Foundation Models is Swift-only, so this small framework wraps it
+# in an Objective-C API that src/DashyNMS.Mobile.Intelligence.iOS binds for
+# .NET. CI runs `xcodegen generate`; the binding project's XcodeProject item
+# then builds it for device and simulator.
+name: DashyNMSIntelligence
+options:
+  deploymentTarget:
+    # The app's minimum, not Foundation Models' (iOS 26): the framework has
+    # to load on every iPhone the app runs on. See OTHER_LDFLAGS below.
+    iOS: "15.0"
+targets:
+  DashyNMSIntelligence:
+    type: framework
+    platform: iOS
+    sources:
+      - DashyNMSIntelligence
+    # A shared scheme, which the binding project builds by name.
+    scheme: {}
+    info:
+      path: generated/Info.plist
+      properties:
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.pckp.DashyNMS.intelligence
+        MARKETING_VERSION: "2.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        # Swift 5 mode, as the widget: the bridge hands C#'s callbacks
+        # between threads, which Swift 6's strict checking can't see into.
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: "NO"
+        DEFINES_MODULE: "YES"
+        # Needed to package the device and simulator builds as one xcframework.
+        BUILD_LIBRARY_FOR_DISTRIBUTION: "YES"
+        SKIP_INSTALL: "NO"
+        # Unsigned here: the .NET build signs it with the app's identity
+        # when it embeds it, so this needs no team or profile.
+        CODE_SIGNING_ALLOWED: "NO"
+        # Weak: before iOS 26 there's no FoundationModels.framework, and a
+        # strong link would stop the whole app launching there. CI checks
+        # the built framework for it.
+        OTHER_LDFLAGS: "-weak_framework FoundationModels"
