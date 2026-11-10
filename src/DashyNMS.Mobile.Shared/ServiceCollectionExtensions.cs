@@ -73,6 +73,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAppBadge, NoAppBadge>();
         services.AddSingleton<INotificationPrivacy, SystemNotificationPrivacy>();
         services.AddSingleton<IHomeWidgets, NoHomeWidgets>();
+        services.AddSingleton<Intelligence.IIntelligenceModel, Intelligence.NoIntelligenceModel>();
         services.AddSingleton<IAppearance, InMemoryAppearance>();
         services.AddSingleton<IAppPreferences, InMemoryPreferences>();
         services.AddSingleton<TabPins>();
@@ -125,6 +126,10 @@ public static class ServiceCollectionExtensions
         // One for Settings and its section pages (#67), which all show and change the same values.
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<MoreViewModel>();
+
+        // The on-device model check (#570), until #571's Settings › Intelligence replaces it.
+        services.AddTransient<Intelligence.NetworkOverviewLookup>();
+        services.AddTransient<Intelligence.IntelligenceCheckViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 
         // Graylog: independent of the LibreNMS sign-in, as on desktop - see GraylogSetup.

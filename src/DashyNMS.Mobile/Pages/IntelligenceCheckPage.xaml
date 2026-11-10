@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.IntelligenceCheckPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:intelligence="clr-namespace:DashyNMS.Mobile.Intelligence;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="intelligence:IntelligenceCheckViewModel"
+    Title="Intelligence check">
+    <controls:SetupLayout x:Name="Setup">
+        <controls:SetupLayout.Header>
+            <controls:PageHeader x:Name="Header" Title="Intelligence check" />
+        </controls:SetupLayout.Header>
+        <controls:SetupLayout.Body>
+            <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="8">
+                    <Label Style="{StaticResource Caption}"
+                           Text="Asks this phone's own model one question about your network and measures what it costs. The question and what it looks up in LibreNMS stay on this phone. Nothing is saved." />
+                    <Label Text="{Binding AvailabilityText}" LineBreakMode="WordWrap" />
+                    <controls:SetupSection Label="Question">
+                        <Entry Text="{Binding Question}" ReturnType="Done" IsEnabled="{Binding IsNotRunning}"
+                               SemanticProperties.Description="Question" />
+                    </controls:SetupSection>
+                    <Button Style="{StaticResource SecondaryButton}" Text="Ask the model" Command="{Binding RunCommand}">
+                        <Button.Triggers>
+                            <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                            </Trigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Button Style="{StaticResource SecondaryButton}" Text="Stop" Command="{Binding StopCommand}" IsVisible="{Binding IsRunning}" />
+                    <ActivityIndicator IsRunning="{Binding IsRunning}" IsVisible="{Binding IsRunning}" />
+                    <Label Style="{StaticResource Caption}" Text="{Binding Status}" IsVisible="{Binding HasStatus}" LineBreakMode="WordWrap" />
+                    <controls:SetupSection Label="Answer" IsVisible="{Binding HasAnswer}">
+                        <Label Text="{Binding Answer}" LineBreakMode="WordWrap" TextType="Text" />
+                    </controls:SetupSection>
+                    <controls:SetupSection Label="Measurements" IsVisible="{Binding HasReport}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding Report}" FontFamily="Mono" FontSize="13" LineBreakMode="CharacterWrap" TextType="Text" />
+                            <Label Style="{StaticResource Caption}" IsVisible="{Binding CanShare}"
+                                   Text="The shared file holds the lookup's result and the answer, so it names devices on your network. Remove them before posting it anywhere." />
+                            <Button Style="{StaticResource SecondaryButton}" Text="Share measurements" Command="{Binding ShareCommand}" IsVisible="{Binding CanShare}" />
+                        </VerticalStackLayout>
+                    </controls:SetupSection>
+                </VerticalStackLayout>
+            </ScrollView>
+        </controls:SetupLayout.Body>
+    </controls:SetupLayout>
+</ContentPage>

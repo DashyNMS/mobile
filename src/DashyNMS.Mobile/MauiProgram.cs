@@ -109,7 +109,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, IosAlertScheduler>();
 		builder.Services.AddSingleton<IAppBadge, IosAppBadge>();
 		builder.Services.AddSingleton<Widgets.IHomeWidgets, IosHomeWidgets>();
+		// Apple's on-device model (#570), through the Swift bridge in ios-intelligence/.
+		builder.Services.AddSingleton<Intelligence.IIntelligenceModel, AppleIntelligenceModel>();
 #endif
+
+		// The on-device model check (#570) also reports the app's memory.
+		builder.Services.AddSingleton<Func<Diagnostics.MemoryReading>>(_ => MemoryReader.Read);
 
 		// Shell resolves registered pages through DI, so each gets its view model.
 		builder.Services.AddSingleton<AppShell>();
@@ -132,6 +137,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
+		builder.Services.AddTransient<IntelligenceCheckPage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<AddCardPage>();

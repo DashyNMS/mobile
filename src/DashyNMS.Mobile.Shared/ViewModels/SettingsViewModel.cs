@@ -80,8 +80,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         SensorDefinitions? definitions = null,
         WhatsNew? whatsNew = null,
         DiagnosticsConsent? consent = null,
-        Unimus.UnimusSetup? unimus = null)
+        Unimus.UnimusSetup? unimus = null,
+        Intelligence.IIntelligenceModel? intelligence = null)
     {
+        _intelligence = intelligence;
         _unimus = unimus;
         _whatsNew = whatsNew;
         _consent = consent;
@@ -538,7 +540,20 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public bool CanChooseSharing => _consent?.IsAvailable == true;
 
     /// <summary>The Diagnostics card has something to show.</summary>
-    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing;
+    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing || CanCheckIntelligence;
+
+    private readonly Intelligence.IIntelligenceModel? _intelligence;
+
+    /// <summary>
+    /// The on-device model check (#570) is offered wherever the phone could
+    /// have a model, so it can also say why one isn't ready. Temporary: #571
+    /// replaces it with Settings › Intelligence.
+    /// </summary>
+    public bool CanCheckIntelligence =>
+        _intelligence is not null && _intelligence.Availability != Intelligence.IntelligenceAvailability.Unsupported;
+
+    [RelayCommand]
+    private Task OpenIntelligenceCheckAsync() => _navigation.GoToAsync(Routes.IntelligenceCheck);
 
     /// <summary>Settings' Error reports switch (#216): on at once, and off deletes what's waiting to be sent.</summary>
     public bool ShareErrorReports

@@ -143,6 +143,14 @@ jobs:
             build
           echo "WIDGET_ARGS=-p:IncludeIosWidget=true -p:IosWidgetBuildOutput=Release-iphoneos" >> "$GITHUB_ENV"
 
+      # The Swift bridge to Apple's on-device model (ios-intelligence/, #570).
+      # The IPA build below builds and signs it; it only needs its project.
+      - name: Generate the Intelligence bridge's Xcode project
+        working-directory: ios-intelligence
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate
+
       # MobilePlatform=ios (see the csproj) so restore doesn't also want the
       # Android workload; publish still insists on -f as well. The display
       # version comes from Directory.Build.props.

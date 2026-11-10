@@ -61,6 +61,11 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
+      - name: Generate the Intelligence bridge's Xcode project
+        if: matrix.language == 'swift'
+        working-directory: ios-intelligence
+        run: xcodegen generate
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
@@ -72,6 +77,14 @@ jobs:
         working-directory: ios-widget
         run: |
           xcodebuild -project DashyNMSWidget.xcodeproj -target DashyNMSWidget \
+            -configuration Debug -sdk iphonesimulator \
+            SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
+
+      - name: Build Intelligence bridge
+        if: matrix.language == 'swift'
+        working-directory: ios-intelligence
+        run: |
+          xcodebuild -project DashyNMSIntelligence.xcodeproj -target DashyNMSIntelligence \
             -configuration Debug -sdk iphonesimulator \
             SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
 

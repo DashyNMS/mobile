@@ -45,6 +45,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]
     [InlineData(typeof(CertificatePrompt))]
+    [InlineData(typeof(Intelligence.IntelligenceCheckViewModel))]
     public void Every_view_model_and_alert_service_resolves(Type viewModel)
     {
         var services = new ServiceCollection()

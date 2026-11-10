@@ -148,6 +148,9 @@ public static class Routes
     /// <summary>Health thresholds, pushed from Settings.</summary>
     public const string Thresholds = "thresholds";
 
+    /// <summary>The on-device model check, pushed from Settings › Diagnostics (#570).</summary>
+    public const string IntelligenceCheck = "intelligencecheck";
+
     /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
     public const string Licences = "licences";
 

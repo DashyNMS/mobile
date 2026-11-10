@@ -93,6 +93,13 @@ jobs:
             -configuration Debug -sdk iphonesimulator \
             SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
 
+      # The Swift bridge to Apple's on-device model (ios-intelligence/, #570):
+      # only its Xcode project is generated here. The app build below builds
+      # it, through the binding project's XcodeProject item.
+      - name: Generate the Intelligence bridge's Xcode project
+        working-directory: ios-intelligence
+        run: xcodegen generate
+
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
       # Android, and restore would otherwise want that workload too.
       # A simulator build needs no signing identity; device builds and
@@ -109,3 +116,17 @@ jobs:
           ls "$APP/PlugIns"
           test -d "$APP/PlugIns/DashyNMSWidget.appex"
           plutil -p "$APP/PlugIns/DashyNMSWidget.appex/Info.plist"
+
+      # Before iOS 26 there's no FoundationModels.framework. Unless the bridge
+      # loads it weakly, the app can't launch there at all (#570).
+      - name: Check the Intelligence bridge is embedded and weak-linked
+        run: |
+          APP=$(find src/DashyNMS.Mobile/bin/Debug/net10.0-ios -maxdepth 3 -type d -name "*.app" | head -1)
+          BRIDGE="$APP/Frameworks/DashyNMSIntelligence.framework/DashyNMSIntelligence"
+          test -f "$BRIDGE"
+          otool -l "$BRIDGE" | grep -A 3 LC_LOAD_WEAK_DYLIB | tee "$RUNNER_TEMP/weak.txt"
+          grep -q "FoundationModels.framework" "$RUNNER_TEMP/weak.txt"
+          if otool -l "$BRIDGE" | grep -A 3 "cmd LC_LOAD_DYLIB" | grep -q FoundationModels; then
+            echo "FoundationModels is strongly linked"; exit 1
+          fi
+          otool -l "$BRIDGE" | grep -A 4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" | grep -E "minos|version" || true

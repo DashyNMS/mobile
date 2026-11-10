@@ -318,8 +318,9 @@ The app itself:
 dotnet workload install maui-android
 dotnet build src/DashyNMS.Mobile -f net10.0-android -t:Run
 
-# iOS (macOS with a matching Xcode)
+# iOS (macOS with a matching Xcode, and xcodegen for the Swift bridge)
 dotnet workload install maui-ios --version 10.0.402.1
+(cd ios-intelligence && xcodegen generate)
 DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -t:Run
 ```
 
@@ -331,6 +332,16 @@ select this toolchain explicitly. The iOS 27.1 SDK enables the Duo's full
 display and vertical system bars; changing page padding cannot remove the
 compatibility strip produced by older SDKs. The minimum supported iOS
 version remains 15.0.
+
+The iOS build includes a small Swift framework, `ios-intelligence/`, which
+wraps Apple's Swift-only Foundation Models framework in an Objective-C API
+(#570). `src/DashyNMS.Mobile.Intelligence.iOS` binds it for .NET by hand in
+`ApiDefinition.cs` and builds it through an `XcodeProject` item, so the only
+extra step is `xcodegen generate`, which writes the Xcode project that isn't
+checked in. Each selector in `ApiDefinition.cs` is spelled out in an
+`@objc(...)` in `Intelligence.swift`; change both together. The framework
+weak-links Foundation Models so the app still launches before iOS 26, and CI
+fails if that link turns strong.
 
 Before shipping, check a Duo on both displays: launch closed and open,
 fold and unfold while on Dashboard and a list/detail page, rotate, and
@@ -558,7 +569,7 @@ type(scope): what changes, as the user would notice it
 ```
 
 - **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
-- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `demo`, `intelligence`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
 - **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
