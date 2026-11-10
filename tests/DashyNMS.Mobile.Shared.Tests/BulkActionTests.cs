@@ -397,6 +397,7 @@ public sealed class BulkMaintenanceTests
         vm.Initialize(devices.Take(count).Select(d => (d.DeviceId, d.Hostname!)).ToList());
 
         await vm.SaveCommand.ExecuteAsync(null);
+        Assert.Equal(Routes.Back, _navigation.Visits.Single().Route);
         await scan.ScanAsync(devices);
 
         // Within the minute a scan would normally reuse, both devices are asked again.

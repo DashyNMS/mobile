@@ -564,6 +564,7 @@ public sealed class DeviceDetailViewModelTests
         client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(false), slow.Task, Task.FromResult(true));
         var vm = NewDetail(client);
+        vm.MaintenanceWait = Timeout.InfiniteTimeSpan;
         await vm.LoadAsync(7);
         await vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
 
@@ -572,6 +573,26 @@ public sealed class DeviceDetailViewModelTests
         await vm.ShownAgainAsync();
         slow.SetResult(false);
         await refresh;
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+    }
+
+    [Fact]
+    public async Task A_slow_maintenance_check_does_not_hold_up_the_page()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var slow = new TaskCompletionSource<bool>();
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(slow.Task);
+        var vm = NewDetail(client);
+        vm.MaintenanceWait = TimeSpan.Zero;
+
+        await vm.LoadAsync(7);
+        Assert.Equal("edge-rtr", vm.Title);
+        Assert.Equal(DeviceState.Up, vm.State);
+
+        slow.SetResult(true);
+        await vm.LateMaintenance;
 
         Assert.Equal(DeviceState.Maintenance, vm.State);
     }
