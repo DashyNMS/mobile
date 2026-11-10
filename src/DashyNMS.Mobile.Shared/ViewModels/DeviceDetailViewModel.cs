@@ -548,9 +548,11 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// <summary>
     /// Shows check <paramref name="check"/>'s answer for <paramref name="device"/>.
     /// Another device's answer is dropped; one from a check that has since been
-    /// superseded counts as no answer, so it can't undo a newer one. Disabled
-    /// devices aren't polled, so maintenance means nothing for them (as
-    /// <see cref="MaintenanceScan"/>).
+    /// superseded counts as no answer, so it can't undo a newer one. A
+    /// disabled device's answer is ignored: LibreNMS doesn't poll it, so
+    /// maintenance means nothing for it. It was asked about anyway, alongside
+    /// the device fetch, before the app knew it was disabled (unlike
+    /// <see cref="MaintenanceScan"/>, which has the list and never asks).
     /// </summary>
     private void ApplyMaintenance(int check, int deviceId, Device? device, bool? open)
     {
