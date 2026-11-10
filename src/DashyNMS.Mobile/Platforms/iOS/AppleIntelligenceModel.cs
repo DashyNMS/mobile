@@ -46,6 +46,9 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 		private readonly DnmLookup[] _lookups;
 		private readonly DnmIntelligenceSession _session;
 
+		/// <summary>The question being answered: stopping it also stops a lookup it's waiting on.</summary>
+		private CancellationTokenSource? _asking;
+
 		public Session(string instructions, IReadOnlyList<IntelligenceLookup> lookups)
 		{
 			_lookups = lookups.Select(Bridge).ToArray();
@@ -58,21 +61,39 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 		/// exception's, which could carry an address or a token.
 		/// </summary>
 		private DnmLookup Bridge(IntelligenceLookup lookup) =>
-			new(lookup.Name, lookup.Purpose, (query, reply) => _ = Task.Run(async () =>
+			new(lookup.Name, lookup.Purpose, (query, reply) =>
 			{
+				// Read now, on the model's thread, so the lookup belongs to the
+				// question that asked for it. One that arrives after its question
+				// or the session has ended starts already cancelled.
+				CancellationToken token;
 				try
 				{
-					reply.Finish(await lookup.Run(query ?? string.Empty, _disposed.Token));
+					token = (_asking ?? _disposed).Token;
 				}
-				catch (Exception)
+				catch (ObjectDisposedException)
 				{
-					reply.Finish("The lookup failed. LibreNMS could not be reached.");
+					token = new CancellationToken(canceled: true);
 				}
-			}));
+
+				_ = Task.Run(async () =>
+				{
+					try
+					{
+						reply.Finish(await lookup.Run(query ?? string.Empty, token));
+					}
+					catch (Exception)
+					{
+						reply.Finish("The lookup failed. LibreNMS could not be reached.");
+					}
+				});
+			});
 
 		public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
 		{
 			var finished = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+			using var asking = CancellationTokenSource.CreateLinkedTokenSource(_disposed.Token);
+			_asking = asking;
 			_session.Ask(
 				question,
 				text => onText(text ?? string.Empty),
@@ -87,8 +108,20 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				});
 
 			// Stopping is the model's to confirm: the answer ends when its completion arrives.
-			using var stopping = cancellationToken.Register(_session.Stop);
-			return await finished.Task;
+			// A lookup in flight is cancelled too, or Stop would wait for LibreNMS to answer or time out.
+			using var stopping = cancellationToken.Register(() =>
+			{
+				asking.Cancel();
+				_session.Stop();
+			});
+			try
+			{
+				return await finished.Task;
+			}
+			finally
+			{
+				_asking = null;
+			}
 		}
 
 		/// <summary>The error's own name first ("contextSizeExceeded"), which is what the write-up needs.</summary>
