@@ -59,8 +59,8 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     private int _maintenanceCheck;
 
     /// <summary>
-    /// How long a refresh waits for the maintenance answer once the device
-    /// has arrived: long enough that the header usually shows the right state
+    /// How long a refresh waits for the maintenance answer once the page's
+    /// other requests have arrived: long enough that the header usually shows the right state
     /// first time, short enough that a slow maintenance endpoint doesn't hold
     /// up the page. A later answer still lands when it comes.
     /// </summary>
@@ -539,7 +539,10 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         _maintenanceMayHaveChanged = false;
         var deviceId = DeviceId;
         var check = ++_maintenanceCheck;
-        ApplyMaintenance(check, deviceId, Device, await CheckMaintenanceAsync(deviceId));
+        var open = await CheckMaintenanceAsync(deviceId);
+
+        // The device as it is now: a refresh may have landed meanwhile.
+        ApplyMaintenance(check, deviceId, Device, open);
     }
 
     /// <summary>
@@ -608,10 +611,7 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         var answered = maintenanceTask.IsCompleted;
         ApplyMaintenance(check, deviceId, deviceTask.Result, answered ? maintenanceTask.Result : null);
         Device = deviceTask.Result;
-        if (!answered)
-        {
-            LateMaintenance = ApplyLateMaintenanceAsync(check, deviceId, maintenanceTask);
-        }
+        LateMaintenance = answered ? Task.CompletedTask : ApplyLateMaintenanceAsync(check, deviceId, maintenanceTask);
         _ = ShowLogoAsync(Device?.Icon);
         OnPropertyChanged(nameof(MaintenanceRefusedText));
         if (Device is null)

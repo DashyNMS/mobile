@@ -572,7 +572,7 @@ public sealed class DeviceDetailViewModelTests
         var refresh = vm.RefreshCommand.ExecuteAsync(null);
         await vm.ShownAgainAsync();
         slow.SetResult(false);
-        await refresh;
+        await refresh.WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.Equal(DeviceState.Maintenance, vm.State);
     }
