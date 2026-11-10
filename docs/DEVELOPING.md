@@ -867,6 +867,11 @@ styles are normalised, and Full reads as Detailed without changing the
 stored value until the person chooses. The single-chat setting is in place;
 chat-history behaviour follows in #230. The chat entry follows in #227.
 
+Persistence requires Core's `ICheckedSettingsStore.TrySave()` acknowledgement
+from package `2.0.0-ci.64` or later. A best-effort-only store cannot report a
+saved change. Tests force a real temporary-file write failure and reload the
+previous file for both first enablement and disabling after notice acceptance.
+
 The page uses `SetupLayout` and `SetupPageLayout` for inset and Back ownership,
 with no Save action. It refreshes availability on appearing and activation.
 Shared tests cover each availability state, the opt-in notice, persistence,

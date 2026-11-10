@@ -11,13 +11,15 @@ public sealed class IntelligenceSettingsTests
     private readonly ILauncherService _launcher = Substitute.For<ILauncherService>();
     private readonly AppSettings _values = new();
     private readonly InMemoryPreferences _preferences = new();
-    private readonly ISettingsStore _settings;
+    private readonly ICheckedSettingsStore _settings;
     private readonly IntelligencePreferences _policy;
     private readonly IntelligenceSettingsViewModel _vm;
 
     public IntelligenceSettingsTests()
     {
-        _settings = Fakes.Settings(_values);
+        _settings = Substitute.For<ICheckedSettingsStore>();
+        _settings.Current.Returns(_values);
+        _settings.TrySave().Returns(true);
         _model.Availability.Returns(IntelligenceAvailability.Available);
         _policy = new IntelligencePreferences(_settings, _preferences);
         _vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher);
@@ -55,7 +57,7 @@ public sealed class IntelligenceSettingsTests
         await _vm.ToggleCommand.ExecuteAsync(null);
         Assert.False(_policy.Enabled);
         Assert.False(_policy.NoticeAccepted);
-        _settings.DidNotReceive().Save();
+        _settings.DidNotReceive().TrySave();
     }
 
     [Fact]
@@ -115,14 +117,14 @@ public sealed class IntelligenceSettingsTests
         Assert.Equal("brief", _values.IntelligenceReplyStyle);
         Assert.False(_values.IntelligenceColourStatusIndicators);
         Assert.True(_values.IntelligenceSingleChatMode);
-        _settings.Received(3).Save();
+        _settings.Received(3).TrySave();
     }
 
     [Fact]
     public async Task A_failed_save_keeps_the_mobile_gate_off_and_does_not_expose_exception_text()
     {
         _dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(true);
-        _settings.When(s => s.Save()).Do(_ => throw new IOException("private data"));
+        _settings.TrySave().Returns(false);
         await _vm.ToggleCommand.ExecuteAsync(null);
         Assert.False(_policy.Enabled);
         Assert.False(_policy.NoticeAccepted);
@@ -145,14 +147,14 @@ public sealed class IntelligenceSettingsTests
         Assert.False(_values.IntelligenceEnabled);
         Assert.False(policy.Enabled);
         Assert.Equal(0, notifications);
-        _settings.DidNotReceive().Save();
+        _settings.DidNotReceive().TrySave();
     }
 
     [Fact]
     public void A_failed_Core_save_restores_the_notice_and_does_not_notify()
     {
         _values.IntelligenceEnabled = false;
-        _settings.When(s => s.Save()).Do(_ => throw new IOException("write failed"));
+        _settings.TrySave().Returns(false);
         var notifications = 0;
         _policy.Changed += (_, _) => notifications++;
         Assert.Throws<IOException>(() => _policy.SetEnabled(true));
@@ -172,6 +174,49 @@ public sealed class IntelligenceSettingsTests
         policy.SetEnabled(true);
         Assert.True(policy.Enabled);
         preferences.DidNotReceive().Set(Arg.Any<string>(), Arg.Any<string?>());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_real_write_failure_preserves_enablement_after_reload(bool enabling)
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "mobile-intelligence-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var path = Path.Combine(folder, "settings.json");
+            var store = new SettingsStore(Microsoft.Extensions.Logging.Abstractions.NullLogger<SettingsStore>.Instance, path);
+            store.Current.IntelligenceEnabled = !enabling;
+            Assert.True(store.TrySave());
+            if (!enabling) _preferences.Set(IntelligencePreferences.NoticeKey, "accepted");
+            var policy = new IntelligencePreferences(store, _preferences);
+            var vm = new IntelligenceSettingsViewModel(_model, policy, _dialogs, _launcher);
+            _dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(true);
+            // Forces a real write failure on every platform without relying on permissions.
+            Directory.CreateDirectory(path + ".tmp");
+            var notifications = 0;
+            policy.Changed += (_, _) => notifications++;
+            await vm.ToggleCommand.ExecuteAsync(null);
+            Assert.Equal(!enabling, policy.Enabled);
+            Assert.Equal(!enabling, store.Current.IntelligenceEnabled);
+            var reloaded = new SettingsStore(Microsoft.Extensions.Logging.Abstractions.NullLogger<SettingsStore>.Instance, path);
+            Assert.Equal(!enabling, new IntelligencePreferences(reloaded, _preferences).Enabled);
+            Assert.Equal(enabling ? null : "accepted", _preferences.Get(IntelligencePreferences.NoticeKey));
+            Assert.Equal(0, notifications);
+            Assert.Equal("The Intelligence setting couldn't be saved. Try again.", vm.ErrorMessage);
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    [Fact]
+    public void An_unchecked_store_cannot_report_a_saved_change()
+    {
+        var store = Fakes.Settings(_values);
+        var policy = new IntelligencePreferences(store, _preferences);
+        Assert.Throws<IOException>(() => policy.SetDetail("brief"));
+        Assert.Equal("balanced", _values.IntelligenceReplyStyle);
+        store.DidNotReceive().Save();
     }
 
     [Fact]

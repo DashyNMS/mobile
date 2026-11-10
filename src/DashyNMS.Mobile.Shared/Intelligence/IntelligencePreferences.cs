@@ -48,7 +48,14 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
         var detail = s.IntelligenceReplyStyle;
         var colour = s.IntelligenceColourStatusIndicators;
         var single = s.IntelligenceSingleChatMode;
-        try { change(s); settings.Save(); }
+        try
+        {
+            change(s);
+            // A best-effort Save cannot acknowledge a durable opt-out. Fail
+            // closed for stores without the explicit persistence contract.
+            if (settings is not ICheckedSettingsStore checkedStore || !checkedStore.TrySave())
+                throw new IOException("Settings could not be saved.");
+        }
         catch
         {
             s.IntelligenceEnabled = enabled;
