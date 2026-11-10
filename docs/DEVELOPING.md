@@ -765,7 +765,8 @@ route uses 2.0's compact lookups, extended.
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the
 session's client: overview, device search, device summary, active alerts and
 device sensors. Each reply is at most 900 characters. Rows include entity
-IDs for later links; omitted rows are counted. Alerts put unacknowledged
+IDs for later links, including source-qualified `alert:` and `fault:` keys;
+omitted rows are counted. Alerts put unacknowledged
 items first, then severity. Sensor values are raw readings, not a health
 assessment.
 

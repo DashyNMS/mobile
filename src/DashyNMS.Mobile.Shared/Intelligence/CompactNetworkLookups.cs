@@ -66,7 +66,7 @@ public sealed class CompactNetworkLookups(
                 var als = await alerts.ConfigureAwait(false);
                 return Rows($"Devices: {ds.Count} total, {ds.Count(d => d.ReportedState == DeviceState.Up)} up, {ds.Count(d => d.ReportedState == DeviceState.Down)} down. Open alerts: {als.Count}, {als.Count(a => a.Severity == AlertSeverity.Critical)} critical, {als.Count(a => a.Severity == AlertSeverity.Warning)} warning, {als.Count(a => a.State == AlertState.Acknowledged)} acknowledged.",
                     als.OrderBy(a => a.State == AlertState.Acknowledged ? 1 : 0)
-                        .ThenBy(a => a.Severity == AlertSeverity.Critical ? 0 : 1)
+                        .ThenBy(a => a.Severity == AlertSeverity.Critical ? 0 : a.Severity == AlertSeverity.Warning ? 1 : 2)
                         .Select(AlertRow).Concat(ds.Where(d => d.ReportedState == DeviceState.Down).OrderBy(d => d.DeviceId).Select(DeviceRow)));
             }),
             Lookup("find_device", "Find devices by name or IP. Query is the search text.", async (query, ct) =>
@@ -111,7 +111,7 @@ public sealed class CompactNetworkLookups(
 
     /// <summary>Keeps source ids alongside alert text for later links.</summary>
     private static string AlertRow(Alert a) =>
-        $"alert {a.Id}, device {a.DeviceId}: {a.Severity}; {a.State}; {Clean(a.DisplayRuleName)} on {Clean(a.DisplayHostname)}";
+        $"{a.Identity}, device {a.DeviceId}: {a.Severity}; {a.State}; {Clean(a.DisplayRuleName)} on {Clean(a.DisplayHostname)}";
 
     /// <summary>One line per entity, with ids kept intact and room reserved for the omitted count.</summary>
     internal static string Rows(string heading, IEnumerable<string> rows)

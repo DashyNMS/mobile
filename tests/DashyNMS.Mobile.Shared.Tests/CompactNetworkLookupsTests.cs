@@ -46,8 +46,21 @@ public sealed class CompactNetworkLookupsTests
             var text = await lookup.Run(query, default);
             Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
             Assert.NotEqual(CompactNetworkLookups.Failed, text);
-            Assert.Contains(lookup.Name == "device_sensors" ? "sensor 1" : lookup.Name is "active_alerts" or "network_overview" ? "alert 1" : "device 1", text);
+            Assert.Contains(lookup.Name == "device_sensors" ? "sensor 1" : lookup.Name is "active_alerts" or "network_overview" ? "alert:1" : "device 1", text);
         }
+    }
+
+    [Fact]
+    public async Task Overview_keeps_warning_details_ahead_of_ok_rows_when_space_is_limited()
+    {
+        var alerts = Enumerable.Range(1, 100).Select(i => Fakes.Alert(i, 1, "ok"))
+            .Append(Fakes.Alert(101, 1, "warning")).ToList();
+        var lookup = new CompactNetworkLookups(Fakes.Client(alerts: alerts), Fakes.Settings(), Session())
+            .Create().Single(l => l.Name == "network_overview");
+        var text = await lookup.Run("", default);
+        Assert.Contains("alert:101,", text);
+        Assert.True(text.IndexOf("alert:101,", StringComparison.Ordinal) < text.IndexOf("alert:1,", StringComparison.Ordinal));
+        Assert.Contains("more results omitted", text);
     }
 
     [Fact]
@@ -58,7 +71,23 @@ public sealed class CompactNetworkLookupsTests
         foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
         {
             var text = await lookup.Run("", default);
-            Assert.True(text.IndexOf("alert 2", StringComparison.Ordinal) < text.IndexOf("alert 1", StringComparison.Ordinal));
+            Assert.True(text.IndexOf("alert:2", StringComparison.Ordinal) < text.IndexOf("alert:1", StringComparison.Ordinal));
+        }
+    }
+
+    [Theory]
+    [InlineData(AlertSource.Alert, "alert:7")]
+    [InlineData(AlertSource.Fault, "fault:7")]
+    public async Task Alert_results_keep_the_source_qualified_identity(AlertSource source, string key)
+    {
+        var alert = Fakes.Alert(7, 1, "critical");
+        alert.Source = source;
+        var lookups = new CompactNetworkLookups(Fakes.Client(alerts: [alert]), Fakes.Settings(), Session()).Create();
+        foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
+        {
+            var text = await lookup.Run("", default);
+            Assert.True(text.Contains($"{key}, device 1:", StringComparison.Ordinal), text);
+            Assert.Equal(alert.Identity, DashyNMS.Mobile.Alerts.AlertTargets.ParseKey(key));
         }
     }
 
