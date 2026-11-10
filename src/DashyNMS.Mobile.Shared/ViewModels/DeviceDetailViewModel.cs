@@ -51,6 +51,13 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// </summary>
     private bool _maintenanceMayHaveChanged;
 
+    /// <summary>
+    /// Counts maintenance checks started, so only the latest one's answer is
+    /// used: a refresh and a check on coming back can overlap, and the older
+    /// answer may arrive last.
+    /// </summary>
+    private int _maintenanceCheck;
+
     public DeviceDetailViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -513,19 +520,20 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// </summary>
     public async Task ShownAgainAsync()
     {
-        if (!_maintenanceMayHaveChanged || Device is not { } device)
+        if (!_maintenanceMayHaveChanged || Device is null)
         {
             return;
         }
 
         _maintenanceMayHaveChanged = false;
         var deviceId = DeviceId;
+        var check = ++_maintenanceCheck;
         var open = await CheckMaintenanceAsync(deviceId);
 
-        // A refresh or another device may have landed while it was asked.
-        if (deviceId == DeviceId && ReferenceEquals(device, Device))
+        // A refresh started since asks the same and is newer; another device's page says nothing here.
+        if (check == _maintenanceCheck && deviceId == DeviceId && Device is { } current)
         {
-            IsUnderMaintenance = !device.Disabled && (open ?? IsUnderMaintenance);
+            IsUnderMaintenance = !current.Disabled && (open ?? IsUnderMaintenance);
         }
     }
 
@@ -556,12 +564,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
         // Alongside the device rather than after it, so the header doesn't
         // show up/down and then change; a disabled device's answer is ignored.
+        var check = ++_maintenanceCheck;
         var maintenanceTask = CheckMaintenanceAsync(DeviceId);
         await Task.WhenAll(deviceTask, alertsTask, graylogTask, unimusTask, maintenanceTask);
 
         // Disabled devices aren't polled, so maintenance means nothing for them (as MaintenanceScan).
-        // Set before Device, so the header's first look at the device is already right.
-        IsUnderMaintenance = deviceTask.Result is { Disabled: false } && (maintenanceTask.Result ?? IsUnderMaintenance);
+        // Set before Device, so the header's first look at the device is already right. A check
+        // started since (coming back from Schedule maintenance) is newer, so its answer stands.
+        var open = check == _maintenanceCheck ? maintenanceTask.Result : null;
+        IsUnderMaintenance = deviceTask.Result is { Disabled: false } && (open ?? IsUnderMaintenance);
         Device = deviceTask.Result;
         _ = ShowLogoAsync(Device?.Icon);
         OnPropertyChanged(nameof(MaintenanceRefusedText));

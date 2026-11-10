@@ -384,4 +384,23 @@ public sealed class BulkMaintenanceTests
         await _dialogs.Received(1).AlertAsync("Maintenance scheduled", "Scheduled maintenance for 2 of 3 devices. 1 failed: access-sw (HTTP 500).");
         Assert.Equal(Routes.Back, _navigation.Visits.Single().Route);
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task Scheduling_has_the_Devices_tab_check_maintenance_again_straight_away(int count)
+    {
+        IReadOnlyList<Device> devices = [Fakes.Device(1, "core-sw"), Fakes.Device(2, "access-sw")];
+        var scan = new MaintenanceScan(_client, TimeProvider.System);
+        await scan.ScanAsync(devices);
+        var vm = new MaintenanceViewModel(_client, _dialogs, _navigation, TimeProvider.System, scan);
+        vm.Initialize(devices.Take(count).Select(d => (d.DeviceId, d.Hostname!)).ToList());
+
+        await vm.SaveCommand.ExecuteAsync(null);
+        await scan.ScanAsync(devices);
+
+        // Within the minute a scan would normally reuse, both devices are asked again.
+        await _client.Devices.Received(2).IsUnderMaintenanceAsync(1, Arg.Any<CancellationToken>());
+        await _client.Devices.Received(2).IsUnderMaintenanceAsync(2, Arg.Any<CancellationToken>());
+    }
 }

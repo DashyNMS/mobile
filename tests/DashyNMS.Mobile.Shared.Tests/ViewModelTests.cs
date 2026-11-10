@@ -499,15 +499,13 @@ public sealed class DeviceDetailViewModelTests
     public async Task A_disabled_device_shows_as_disabled_even_in_a_maintenance_window()
     {
         var client = Fakes.Client();
-        var device = Fakes.Device(7, "edge-rtr", disabled: true);
-        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(device);
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", disabled: true));
         client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(true);
         var vm = NewDetail(client);
 
         await vm.LoadAsync(7);
 
-        Assert.Equal(device.ReportedState, vm.State);
-        Assert.NotEqual(DeviceState.Maintenance, vm.State);
+        Assert.Equal(DeviceState.Disabled, vm.State);
     }
 
     [Fact]
@@ -555,6 +553,27 @@ public sealed class DeviceDetailViewModelTests
 
         Assert.Equal(DeviceState.Maintenance, vm.State);
         await client.Devices.Received(2).IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_slow_refresh_does_not_undo_the_newer_check_on_coming_back()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var slow = new TaskCompletionSource<bool>();
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false), slow.Task, Task.FromResult(true));
+        var vm = NewDetail(client);
+        await vm.LoadAsync(7);
+        await vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
+
+        // The refresh asked before the window began; its answer arrives after the newer one.
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        await vm.ShownAgainAsync();
+        slow.SetResult(false);
+        await refresh;
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
     }
 
     [Fact]
