@@ -129,6 +129,7 @@ public static class ServiceCollectionExtensions
 
         // The on-device model check (#570), until #571's Settings › Intelligence replaces it.
         services.AddTransient<Intelligence.NetworkOverviewLookup>();
+        services.AddTransient<Intelligence.IIntelligenceLookups, Intelligence.CompactNetworkLookups>();
         services.AddTransient<Intelligence.IntelligenceCheckViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 
