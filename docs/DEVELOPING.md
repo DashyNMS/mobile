@@ -760,6 +760,23 @@ with desktop's full tool set. Two things gate it:
 If the package still can't run in-process once those land, the ChatGPT
 route uses 2.0's compact lookups, extended.
 
+### Compact network lookups (#572)
+
+`IIntelligenceLookups.Create()` supplies five read-only lookups over the
+session's client: overview, device search, device summary, active alerts and
+device sensors. Each reply is at most 900 characters. Rows include entity
+IDs for later links; omitted rows are counted. Alerts put unacknowledged
+items first, then severity. Sensor values are raw readings, not a health
+assessment.
+
+Create a fresh lookup set for each new model session. A set refuses calls
+after the connection object changes and discards replies arriving from the
+previous connection. Requests have a 15-second deadline and fixed failure
+text; cancellation propagates to the caller. No questions, replies or
+exception details are logged. The diagnostic check retains its original
+overview lookup so measurements remain comparable. The conversation in
+#573 will consume the new interface.
+
 ## Upstream notes
 
 Things found while porting that would be better fixed in the desktop repo.
