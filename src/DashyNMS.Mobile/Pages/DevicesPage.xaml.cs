@@ -259,6 +259,9 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		// Every time, like the other tabs: after a sign-out and sign-in the
 		// page is reused, and a once-only load would keep the old server's list.
 		_viewModel.RefreshCommand.Execute(null);
+
+		// The device beside the list, back from Schedule maintenance.
+		_ = _detail?.ViewModel.ShownAgainAsync();
 	}
 
 	protected override void OnDisappearing()

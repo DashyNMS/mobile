@@ -36,6 +36,21 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     [NotifyPropertyChangedFor(nameof(PinText))]
     private bool _isPinned;
 
+    /// <summary>
+    /// Whether a maintenance window is open now. LibreNMS's device record
+    /// doesn't say, so it's asked separately, as the Devices tab does
+    /// through <see cref="MaintenanceScan"/>.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(State), nameof(StateText))]
+    private bool _isUnderMaintenance;
+
+    /// <summary>
+    /// Set on the way to Schedule maintenance: a window starting now should
+    /// show when this page comes back, without a full refresh.
+    /// </summary>
+    private bool _maintenanceMayHaveChanged;
+
     public DeviceDetailViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -277,9 +292,10 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
 
     public string PinText => IsPinned ? "Unpin" : "Pin";
 
-    public DeviceState? State => Device?.ReportedState;
+    /// <summary>As the Devices tab and desktop: maintenance takes over from up/down while a window is open.</summary>
+    public DeviceState? State => Device is null ? null : IsUnderMaintenance ? DeviceState.Maintenance : Device.ReportedState;
 
-    public string StateText => Device?.ReportedState.ToDisplayString() ?? string.Empty;
+    public string StateText => State?.ToDisplayString() ?? string.Empty;
 
     /// <summary>Desktop's Uptime tile: a dash for a device that isn't up, as uptime means nothing then.</summary>
     public string UptimeText => Device?.ReportedUptime is not { } uptime ? "Unknown" : Device.ReportedState == DeviceState.Up ? Formatting.Uptime(uptime) : "—";
@@ -479,8 +495,55 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// <summary>Loads (or reloads) <paramref name="deviceId"/>.</summary>
     public Task LoadAsync(int deviceId)
     {
+        if (deviceId != DeviceId)
+        {
+            // The last device's window says nothing about this one.
+            IsUnderMaintenance = false;
+        }
+
         DeviceId = deviceId;
         return RefreshAsync();
+    }
+
+    /// <summary>
+    /// Called each time the page or pane shows again: after Schedule
+    /// maintenance, asks again whether a window is open, so one starting now
+    /// shows straight away. Otherwise does nothing - coming back from a
+    /// section or graph needn't ask LibreNMS anything.
+    /// </summary>
+    public async Task ShownAgainAsync()
+    {
+        if (!_maintenanceMayHaveChanged || Device is not { } device)
+        {
+            return;
+        }
+
+        _maintenanceMayHaveChanged = false;
+        var deviceId = DeviceId;
+        var open = await CheckMaintenanceAsync(deviceId);
+
+        // A refresh or another device may have landed while it was asked.
+        if (deviceId == DeviceId && ReferenceEquals(device, Device))
+        {
+            IsUnderMaintenance = !device.Disabled && (open ?? IsUnderMaintenance);
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="deviceId"/> is in a maintenance window, or null
+    /// when LibreNMS didn't answer: the header then keeps what it showed,
+    /// rather than failing the whole page or flipping back to up/down.
+    /// </summary>
+    private async Task<bool?> CheckMaintenanceAsync(int deviceId)
+    {
+        try
+        {
+            return await _client.Devices.IsUnderMaintenanceAsync(deviceId);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     [RelayCommand]
@@ -490,7 +553,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         var alertsTask = _client.Alerts.ListAsync(AlertQuery.Open);
         var graylogTask = _graylog?.EnsureConfiguredAsync() ?? Task.FromResult(false);
         var unimusTask = _unimus?.EnsureConfiguredAsync() ?? Task.FromResult(false);
-        await Task.WhenAll(deviceTask, alertsTask, graylogTask, unimusTask);
+
+        // Alongside the device rather than after it, so the header doesn't
+        // show up/down and then change; a disabled device's answer is ignored.
+        var maintenanceTask = CheckMaintenanceAsync(DeviceId);
+        await Task.WhenAll(deviceTask, alertsTask, graylogTask, unimusTask, maintenanceTask);
+
+        // Disabled devices aren't polled, so maintenance means nothing for them (as MaintenanceScan).
+        // Set before Device, so the header's first look at the device is already right.
+        IsUnderMaintenance = deviceTask.Result is { Disabled: false } && (maintenanceTask.Result ?? IsUnderMaintenance);
         Device = deviceTask.Result;
         _ = ShowLogoAsync(Device?.Icon);
         OnPropertyChanged(nameof(MaintenanceRefusedText));
@@ -597,11 +668,15 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         ? ApiPermissions.Describe(ApiPermission.EditDevices) : "This account cannot schedule maintenance for this device.";
 
     [RelayCommand(CanExecute = nameof(CanScheduleMaintenance))]
-    private Task ScheduleMaintenanceAsync() => _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>
+    private Task ScheduleMaintenanceAsync()
     {
-        [Routes.DeviceIdParameter] = DeviceId,
-        [Routes.DeviceNameParameter] = Title,
-    });
+        _maintenanceMayHaveChanged = true;
+        return _navigation.GoToAsync(Routes.Maintenance, new Dictionary<string, object>
+        {
+            [Routes.DeviceIdParameter] = DeviceId,
+            [Routes.DeviceNameParameter] = Title,
+        });
+    }
 
     private bool CanOpenInApp() => DeviceLinks.For(DeviceLinks.Ssh, Device) is not null;
 
