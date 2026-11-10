@@ -789,8 +789,17 @@ way; iOS 27 then has room to spare.
 
 That is 550 tokens fixed for instructions and lookups, and about 750 for
 each turn with one lookup. Older turns stay on screen but are dropped from
-what the model sees (#573), counted in characters at 2.5 a token. Read
+what the model sees (#573). The 2.5-characters-per-token rate is an estimate
+from this single lookup, not a safe upper bound. Other text and languages,
+including Japanese, Chinese and Korean, may use more tokens. Read
 `contextSize` at run time and never assume either figure.
+
+For #573, if the model reports a context-limit error, discard the failed
+session and retry the current question once in a fresh session without
+older turns. Keep the earlier conversation visible and explain that it was
+left out. If the question still exceeds the limit without older turns,
+ask the person to shorten it or narrow its scope. Do not retry indefinitely
+or mark the partial answer complete.
 
 What this means for the lookups (#572) and the conversation (#573):
 
