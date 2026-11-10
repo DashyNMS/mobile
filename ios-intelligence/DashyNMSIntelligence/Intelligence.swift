@@ -64,14 +64,9 @@ public final class Lookup: NSObject, @unchecked Sendable {
     }
 }
 
-/// What the model fills in to call a lookup.
-@available(iOS 26.0, *)
-@Generable
-struct LookupArguments {
-    @Guide(description: "What to look for, or an empty string for everything")
-    var query: String
-}
-
+/// A lookup as Foundation Models sees it. Its one argument, `query`, is
+/// described by hand rather than with the @Generable macro: CodeQL builds
+/// this under Rosetta, where the compiler's macro plugin can't load.
 @available(iOS 26.0, *)
 struct LookupTool: Tool {
     let lookup: Lookup
@@ -79,8 +74,21 @@ struct LookupTool: Tool {
     var name: String { lookup.name }
     var description: String { lookup.purpose }
 
-    func call(arguments: LookupArguments) async throws -> String {
-        await lookup.run(arguments.query)
+    var parameters: GenerationSchema {
+        GenerationSchema(
+            type: GeneratedContent.self,
+            description: "What to look up",
+            properties: [
+                GenerationSchema.Property(
+                    name: "query",
+                    description: "What to look for, or an empty string for everything",
+                    type: String.self)
+            ])
+    }
+
+    func call(arguments: GeneratedContent) async throws -> String {
+        let query = (try? arguments.value(String.self, forProperty: "query")) ?? ""
+        return await lookup.run(query)
     }
 }
 
