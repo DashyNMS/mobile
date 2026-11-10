@@ -19,8 +19,20 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
     /// <summary>Records the on-device notice separately from desktop's third-party consent.</summary>
     public void SetEnabled(bool enabled)
     {
-        Save(s => s.IntelligenceEnabled = enabled, notify: false);
-        if (enabled) preferences.Set(NoticeKey, "accepted");
+        var previousNotice = preferences.Get(NoticeKey);
+        var writeNotice = enabled && !NoticeAccepted;
+        try
+        {
+            // Write the notice first, so its failure cannot leave a committed
+            // enablement. Accepted notices need no second write on re-enabling.
+            if (writeNotice) preferences.Set(NoticeKey, "accepted");
+            Save(s => s.IntelligenceEnabled = enabled, notify: false);
+        }
+        catch
+        {
+            if (writeNotice) preferences.Set(NoticeKey, previousNotice);
+            throw;
+        }
         Changed?.Invoke(this, EventArgs.Empty);
     }
 

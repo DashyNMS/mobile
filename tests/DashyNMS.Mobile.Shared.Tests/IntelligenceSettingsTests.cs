@@ -132,6 +132,49 @@ public sealed class IntelligenceSettingsTests
     }
 
     [Fact]
+    public void A_notice_write_failure_never_commits_enablement_or_notifies()
+    {
+        _values.IntelligenceEnabled = false;
+        var preferences = Substitute.For<IAppPreferences>();
+        preferences.When(p => p.Set(IntelligencePreferences.NoticeKey, "accepted"))
+            .Do(_ => throw new IOException("preferences write failed"));
+        var policy = new IntelligencePreferences(_settings, preferences);
+        var notifications = 0;
+        policy.Changed += (_, _) => notifications++;
+        Assert.Throws<IOException>(() => policy.SetEnabled(true));
+        Assert.False(_values.IntelligenceEnabled);
+        Assert.False(policy.Enabled);
+        Assert.Equal(0, notifications);
+        _settings.DidNotReceive().Save();
+    }
+
+    [Fact]
+    public void A_failed_Core_save_restores_the_notice_and_does_not_notify()
+    {
+        _values.IntelligenceEnabled = false;
+        _settings.When(s => s.Save()).Do(_ => throw new IOException("write failed"));
+        var notifications = 0;
+        _policy.Changed += (_, _) => notifications++;
+        Assert.Throws<IOException>(() => _policy.SetEnabled(true));
+        Assert.False(_values.IntelligenceEnabled);
+        Assert.Null(_preferences.Get(IntelligencePreferences.NoticeKey));
+        Assert.False(_policy.Enabled);
+        Assert.Equal(0, notifications);
+    }
+
+    [Fact]
+    public void An_accepted_notice_is_not_rewritten_when_re_enabling()
+    {
+        _values.IntelligenceEnabled = false;
+        var preferences = Substitute.For<IAppPreferences>();
+        preferences.Get(IntelligencePreferences.NoticeKey).Returns("accepted");
+        var policy = new IntelligencePreferences(_settings, preferences);
+        policy.SetEnabled(true);
+        Assert.True(policy.Enabled);
+        preferences.DidNotReceive().Set(Arg.Any<string>(), Arg.Any<string?>());
+    }
+
+    [Fact]
     public async Task Opening_Settings_uses_a_public_URL_and_has_a_safe_fallback()
     {
         _model.Availability.Returns(IntelligenceAvailability.NotEnabled);
