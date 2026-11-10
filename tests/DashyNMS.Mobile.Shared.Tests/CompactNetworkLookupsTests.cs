@@ -16,6 +16,19 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
+    public async Task Signed_out_lookups_ask_for_sign_in_without_calling_LibreNMS()
+    {
+        var client = Fakes.Client();
+        var session = Substitute.For<ISessionService>();
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), session).Create();
+        foreach (var lookup in lookups)
+            Assert.Equal("Sign in to LibreNMS to use network lookups.", await lookup.Run("1", default));
+        await client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+        await client.Alerts.DidNotReceive().ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+        await client.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Each_lookup_returns_identified_data_within_the_budget()
     {
         var devices = Enumerable.Range(1, 5000).Select(i => Fakes.Device(i, $"switch-{i}.example.net")).ToList();

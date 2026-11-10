@@ -10,6 +10,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// <summary>Creates read-only lookups scoped to the current connection, for a model session.</summary>
 public interface IIntelligenceLookups
 {
+    /// <summary>Creates a fresh set for one model session and the current connection.</summary>
     IReadOnlyList<IntelligenceLookup> Create();
 }
 
@@ -25,6 +26,7 @@ public sealed class CompactNetworkLookups(
     internal const string Failed = "The lookup failed. LibreNMS could not be reached.";
     internal const string Changed = "The connection changed. Start a new chat.";
 
+    /// <summary>Captures the connection so replies cannot cross between networks.</summary>
     public IReadOnlyList<IntelligenceLookup> Create()
     {
         var connection = session.Connection;
@@ -35,6 +37,8 @@ public sealed class CompactNetworkLookups(
             new(name, purpose, async (query, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                if (connection is null && session.Connection is null)
+                    return "Sign in to LibreNMS to use network lookups.";
                 if (!IsCurrent()) return Changed;
                 using var deadline = new CancellationTokenSource(Timeout, timeProvider ?? TimeProvider.System);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
@@ -102,8 +106,10 @@ public sealed class CompactNetworkLookups(
         ];
     }
 
+    /// <summary>Accepts only positive ids returned by device search.</summary>
     private static bool TryId(string query, out int id) => int.TryParse(query, NumberStyles.None, CultureInfo.InvariantCulture, out id) && id > 0;
 
+    /// <summary>Keeps source ids alongside alert text for later links.</summary>
     private static string AlertRow(Alert a) =>
         $"alert {a.Id}, device {a.DeviceId}: {a.Severity}; {a.State}; {Clean(a.DisplayRuleName)} on {Clean(a.DisplayHostname)}";
 
@@ -123,6 +129,7 @@ public sealed class CompactNetworkLookups(
         return text.ToString();
     }
 
+    /// <summary>Bounds network labels and prevents control characters from creating extra rows.</summary>
     private static string Clean(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return "unknown";
