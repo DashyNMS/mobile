@@ -29,6 +29,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     private readonly IDialogService _dialogs;
     private readonly INavigationService _navigation;
     private readonly TimeProvider _time;
+    private readonly MaintenanceScan? _maintenance;
 
     [ObservableProperty]
     private string _maintenanceTitle = string.Empty;
@@ -57,8 +58,9 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     [ObservableProperty]
     private MaintenanceBehaviorOption _selectedBehavior;
 
-    public MaintenanceViewModel(ILibreNmsClient client, IDialogService dialogs, INavigationService navigation, TimeProvider time)
+    public MaintenanceViewModel(ILibreNmsClient client, IDialogService dialogs, INavigationService navigation, TimeProvider time, MaintenanceScan? maintenance = null)
     {
+        _maintenance = maintenance;
         _client = client;
         _dialogs = dialogs;
         _navigation = navigation;
@@ -142,6 +144,11 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
     public string? RefusedText => MaySchedule ? null : _client.Permissions?.IsRefused(ApiPermission.EditDevices) == true
         ? ApiPermissions.Describe(ApiPermission.EditDevices) : "This account cannot schedule maintenance for the selected devices.";
 
+    /// <summary>
+    /// Schedules the window for one device or several, then goes back. A
+    /// success clears the Devices tab's maintenance scan, so a window starting
+    /// now shows there, and on the device's page, straight away.
+    /// </summary>
     [RelayCommand]
     private async Task SaveAsync()
     {
@@ -197,6 +204,7 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
         string? message = null;
         if (await RunAsync(async () => message = await _client.Devices.ScheduleMaintenanceAsync(DeviceId, request)))
         {
+            _maintenance?.Forget();
             // LibreNMS's own confirmation ("will begin maintenance mode at ...").
             await _dialogs.AlertAsync("Maintenance scheduled", string.IsNullOrWhiteSpace(message) ? $"Maintenance scheduled for {DeviceName}." : message);
             await _navigation.GoToAsync(Routes.Back);
@@ -225,6 +233,8 @@ public sealed partial class MaintenanceViewModel : ViewModelBase
             ErrorMessage = summary;
             return;
         }
+
+        _maintenance?.Forget();
 
         await _dialogs.AlertAsync("Maintenance scheduled", summary);
         await _navigation.GoToAsync(Routes.Back);

@@ -49,6 +49,13 @@ public sealed class MaintenanceScan
         return _scan = RunAsync(devices.Where(d => !d.Disabled).Select(d => d.DeviceId).ToList());
     }
 
+    /// <summary>
+    /// Drops the last result, so the next scan asks again: after maintenance
+    /// is scheduled, a window starting now should show on the Devices tab
+    /// beside the device's own page, not up to <see cref="RescanInterval"/> later.
+    /// </summary>
+    public void Forget() => _lastScan = null;
+
     private async Task<IReadOnlySet<int>> RunAsync(IReadOnlyList<int> deviceIds)
     {
         var found = new HashSet<int>();
