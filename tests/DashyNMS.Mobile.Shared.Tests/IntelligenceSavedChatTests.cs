@@ -1003,6 +1003,33 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Enabling_private_mode_invalidates_a_held_load_before_deferred_cleanup_runs()
+    {
+        var seed = Start();
+        await seed.Chats.LoadAsync();
+        Assert.True(await seed.Conversation.AskAsync("Saved history must not reappear"));
+        await seed.Chats.SaveNowAsync();
+        var callbacks = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var app = Start(action => callbacks.Enqueue(action));
+        var faults = Faulty(app);
+        var reading = faults.HoldNext();
+        var loading = app.Chats.LoadAsync();
+        await reading.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _preferences.SetSingleChatMode(true);
+        reading.Release.SetResult();
+        await loading.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // No preference UI callback ran: synchronous generation invalidation
+        // alone must prevent the completed read from restoring saved history.
+        Assert.Empty(app.Conversation.Turns);
+        Assert.Null(app.Chats.Active);
+        Assert.False(app.Chats.CanPersist);
+        while (callbacks.TryDequeue(out var callback)) callback();
+        Assert.Empty(app.Conversation.Turns);
+        Assert.True(app.Chats.IsSingleChatMode);
+    }
+
+    [Fact]
     public async Task Suspension_waits_for_inflight_loading_before_capturing_the_new_chat()
     {
         var app = Start();
