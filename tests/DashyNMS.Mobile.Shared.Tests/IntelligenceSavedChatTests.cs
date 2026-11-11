@@ -864,6 +864,40 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Deleting_history_blocks_reentrant_loads_before_collection_notifications()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("History to remove"));
+        await app.Chats.SaveNowAsync();
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _keys.FailRemove = true;
+        _keys.BeforeRead = async () => { await blocked.Task; _keys.Values.Clear(); };
+        var reentrant = new List<Task>();
+        app.Chats.Groups.CollectionChanged += (_, _) => reentrant.Add(app.Chats.LoadAsync());
+        var deleting = app.Chats.DeleteSavedChatsAsync();
+        try
+        {
+            Assert.False(deleting.IsCompleted);
+            Assert.NotEmpty(reentrant);
+            await Task.WhenAll(reentrant.ToArray()).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Empty(app.Chats.Chats);
+            Assert.False(app.Chats.CanPersist);
+        }
+        finally
+        {
+            _keys.BeforeRead = null;
+            _keys.FailRemove = false;
+            blocked.TrySetResult();
+        }
+        Assert.Equal(ChatWipeResult.Removed, await deleting.WaitAsync(TimeSpan.FromSeconds(5)));
+        await app.Chats.LoadAsync();
+        Assert.Empty(app.Chats.Chats);
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+        Assert.Empty(ChatFiles());
+    }
+
+    [Fact]
     public async Task Delete_saved_chats_drops_waiting_and_running_saves_and_never_resaves_the_open_chat()
     {
         var app = Start();

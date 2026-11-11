@@ -216,6 +216,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private string _unsavedText = UnsavedStatus;
 
     private Task<ChatWipeResult>? _deletingSaved;
+    private bool _deletingAll;
     private bool _singleChatMode;
 
     /// <summary>
@@ -288,7 +289,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     /// <summary>Chats are being kept: loaded for this server, writable and not in single-chat mode.</summary>
     /// <remarks>Reads the setting itself too, and a recorded entry, so no save slips in before its change is handled.</remarks>
-    public bool CanPersist => !_disposed && !InSingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
+    public bool CanPersist => !_disposed && !_deletingAll && !InSingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
         && _loadedGeneration == Interlocked.Read(ref _scopeGeneration);
 
     /// <summary>Opening, pinning, renaming and deleting wait for an answer to finish.</summary>
@@ -324,7 +325,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private async Task LoadCoreAsync()
     {
         _wanted = true;
-        if (_disposed) return;
+        if (_disposed || _deletingAll) return;
         var generation = Interlocked.Read(ref _scopeGeneration);
         // The setting itself too: its posted clean-up may not have run yet.
         if (InSingleChatMode)
@@ -337,7 +338,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         var scope = IntelligenceSavedChats.Scope(connection);
         if (_loadedGeneration == generation && _store is not null) return;
         var version = ++_loadVersion;
-        bool Stale() => _disposed || version != _loadVersion || generation != Interlocked.Read(ref _scopeGeneration);
+        bool Stale() => _disposed || _deletingAll || version != _loadVersion || generation != Interlocked.Read(ref _scopeGeneration);
 
         IIntelligenceChatStore? store;
         try { store = await _storage.OpenAsync(); }
@@ -637,6 +638,8 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private async Task<ChatWipeResult> DeleteSavedChatsCoreAsync()
     {
+        // Block reentrant loads before Regroup or any other notification.
+        _deletingAll = true;
         _writer.Invalidate();
         Interlocked.Increment(ref _scopeGeneration);
         CancelTimer();
@@ -663,6 +666,16 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         {
             // The storage reports its own failures; anything else is still "not all removed".
             result = ChatWipeResult.Retained;
+        }
+        finally
+        {
+            // No load admitted before/during cleanup may publish a reusable
+            // store. The successful reload must open a fresh generation.
+            _loadVersion++;
+            _store = null;
+            _loadedScope = null;
+            _loadedGeneration = -1;
+            _deletingAll = false;
         }
 
         _logger.LogInformation("Delete saved chats finished: {Result}", result.ToString());
