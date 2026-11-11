@@ -589,6 +589,27 @@ public sealed class IntelligenceChatStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task A_removal_error_cannot_be_overruled_by_an_absent_memory_read()
+    {
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, Chat());
+        // Android can hide the key in memory before a disk commit fails.
+        _keys.OnRemove = () =>
+        {
+            _keys.Values.Clear();
+            throw new IOException("synthetic commit failure");
+        };
+
+        Assert.Equal(ChatWipeResult.Retained, await storage.WipeAsync());
+        Assert.True(File.Exists(NotePath));
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
+        Assert.Null(await NewStorage().OpenAsync());
+        _keys.OnRemove = null;
+        Assert.NotNull(await NewStorage().OpenAsync());
+        Assert.False(File.Exists(NotePath));
+    }
+
+    [Fact]
     public async Task An_already_absent_key_counts_as_a_successful_wipe()
     {
         Assert.Equal(ChatWipeResult.Removed, await NewStorage().WipeAsync());

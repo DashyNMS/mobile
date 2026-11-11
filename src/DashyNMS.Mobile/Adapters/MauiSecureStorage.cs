@@ -96,7 +96,10 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
             // Always change the snapshot, including a retry after a failed
             // commit whose deletion may already be visible in memory.
             editor.PutString("intelligence-chats-commit-v1", Guid.NewGuid().ToString("N"));
-            return editor.Commit();
+            // False means persistence failed, not confirmed absence. The
+            // memory cache may already hide a key still present on disk.
+            if (!editor.Commit()) throw new InvalidOperationException("The chat key could not be removed.");
+            return true;
         }
 #endif
         return SecureStorage.Default.Remove(key);
