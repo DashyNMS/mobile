@@ -33,6 +33,7 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
 
     private readonly IIntelligenceModel _model;
     private readonly NetworkOverviewLookup _overview;
+    private readonly IntelligencePreferences _preferences;
     private readonly IShareService? _share;
     private readonly Func<MemoryReading>? _memory;
     private readonly TimeProvider _time;
@@ -41,12 +42,14 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
     public IntelligenceCheckViewModel(
         IIntelligenceModel model,
         NetworkOverviewLookup overview,
+        IntelligencePreferences preferences,
         IShareService? share = null,
         Func<MemoryReading>? memory = null,
         TimeProvider? time = null)
     {
         _model = model;
         _overview = overview;
+        _preferences = preferences;
         _share = share;
         _memory = memory;
         _time = time ?? TimeProvider.System;
@@ -88,7 +91,9 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
     public bool CanShare => _share is not null;
 
     /// <summary>Why the model can or can't answer, in plain words.</summary>
-    public string AvailabilityText => Describe(_model.Availability);
+    public string AvailabilityText => IsAvailable && !_preferences.Enabled
+        ? "Turn on Intelligence in Settings to run this check."
+        : Describe(_model.Availability);
 
     internal static string Describe(IntelligenceAvailability availability) => availability switch
     {
@@ -100,11 +105,27 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
         _ => "The on-device model isn't available.",
     };
 
-    private bool CanRun() => !IsRunning && IsAvailable && !string.IsNullOrWhiteSpace(Question);
+    private bool CanRun() => _preferences.Enabled && !IsRunning && IsAvailable && !string.IsNullOrWhiteSpace(Question);
+
+    /// <summary>Refresh the gate and availability when this diagnostic page is reopened or resumed.</summary>
+    public void Refresh()
+    {
+        OnPropertyChanged(nameof(IsAvailable));
+        OnPropertyChanged(nameof(AvailabilityText));
+        RunCommand.NotifyCanExecuteChanged();
+    }
+
+    private void RequireEnabled(CancellationTokenSource running)
+    {
+        if (!_preferences.Enabled) running.Cancel();
+        running.Token.ThrowIfCancellationRequested();
+    }
 
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task RunAsync()
     {
+        // Commands may also be invoked directly, without checking CanExecute.
+        if (!CanRun()) return;
         using var running = _running = new CancellationTokenSource();
         var cancellationToken = running.Token;
         var question = Question.Trim();
@@ -137,6 +158,7 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
             // The lookup on its own first, so its size and LibreNMS's time are
             // known even if the model never calls it.
             var started = _time.GetTimestamp();
+            RequireEnabled(running);
             lookupText = await _overview.RunAsync(cancellationToken);
             var lookupTook = _time.GetElapsedTime(started);
 
@@ -153,6 +175,7 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
             {
                 Run = async (query, token) =>
                 {
+                    RequireEnabled(running);
                     Interlocked.Increment(ref lookupsRun);
                     return await lookup.Run(query, token);
                 },
@@ -161,6 +184,7 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
             Status = "Asking the model…";
             TimeSpan? firstWords = null;
             started = _time.GetTimestamp();
+            RequireEnabled(running);
             using var session = _model.StartSession(Instructions, [counted]);
             IntelligenceAnswer? answer = null;
             try

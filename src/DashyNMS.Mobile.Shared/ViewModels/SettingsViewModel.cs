@@ -545,12 +545,16 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly Intelligence.IIntelligenceModel? _intelligence;
 
     /// <summary>
-    /// The on-device model check (#570) is offered wherever the phone could
-    /// have a model, so it can also say why one isn't ready. Temporary: #571
-    /// replaces it with Settings › Intelligence.
+    /// The diagnostic check stays available alongside Intelligence settings
+    /// so model availability and measurements can be inspected on a device.
     /// </summary>
     public bool CanCheckIntelligence =>
         _intelligence is not null && _intelligence.Availability != Intelligence.IntelligenceAvailability.Unsupported;
+
+    public bool CanConfigureIntelligence => CanCheckIntelligence;
+
+    [RelayCommand]
+    private Task OpenIntelligenceSettingsAsync() => _navigation.GoToAsync(Routes.IntelligenceSettings);
 
     [RelayCommand]
     private Task OpenIntelligenceCheckAsync() => _navigation.GoToAsync(Routes.IntelligenceCheck);
@@ -727,6 +731,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Called when the page shows, since the session may have changed since it was built.</summary>
     public void Refresh()
     {
+        OnPropertyChanged(nameof(CanConfigureIntelligence));
+        OnPropertyChanged(nameof(CanCheckIntelligence));
         OnPropertyChanged(nameof(ServerHost));
         OnPropertyChanged(nameof(ServerSummary));
         OnPropertyChanged(nameof(AppearanceSummary));

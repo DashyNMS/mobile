@@ -61,13 +61,23 @@ public sealed class IntelligenceTests
         }
     }
 
+    private static IntelligencePreferences Preferences(bool accepted = true)
+    {
+        var settings = Substitute.For<ICheckedSettingsStore>();
+        settings.Current.Returns(new AppSettings());
+        settings.TrySave().Returns(true);
+        var preferences = new InMemoryPreferences();
+        if (accepted) preferences.Set(IntelligencePreferences.NoticeKey, "accepted");
+        return new IntelligencePreferences(settings, preferences);
+    }
+
     private static IntelligenceCheckViewModel Check(
         FakeModel model,
         IReadOnlyList<Device>? devices = null,
         IReadOnlyList<Alert>? alerts = null,
         IShareService? share = null,
         TimeProvider? time = null) =>
-        new(model, new NetworkOverviewLookup(Fakes.Client(devices, alerts), Fakes.Settings()), share,
+        new(model, new NetworkOverviewLookup(Fakes.Client(devices, alerts), Fakes.Settings()), Preferences(), share,
             () => new MemoryReading(200 * 1048576L, 0), time);
 
     /// <summary>Without a context to post to, so the answer is in place the moment the run ends.</summary>
@@ -83,6 +93,28 @@ public sealed class IntelligenceTests
         {
             SynchronizationContext.SetSynchronizationContext(previous);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_disabled_or_unaccepted_diagnostic_cannot_query_or_start_a_model(bool accepted)
+    {
+        var preferences = Preferences(accepted);
+        if (accepted) preferences.SetEnabled(false);
+        var client = Fakes.Client();
+        var model = new FakeModel();
+        var check = new IntelligenceCheckViewModel(model, new NetworkOverviewLookup(client, Fakes.Settings()), preferences);
+        Assert.True(check.IsAvailable); // Availability remains inspectable while the gate is off.
+        Assert.Contains("Turn on Intelligence", check.AvailabilityText);
+        Assert.False(check.RunCommand.CanExecute(null));
+        await RunAsync(check); // Also covers direct ExecuteAsync calls bypassing CanExecute.
+        await client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+        await client.Alerts.DidNotReceive().ListAsync(Arg.Any<DesktopNMS.Core.Api.AlertQuery?>(), Arg.Any<CancellationToken>());
+        Assert.Null(model.Instructions);
+        preferences.SetEnabled(true);
+        check.Refresh();
+        Assert.True(check.RunCommand.CanExecute(null));
     }
 
     [Fact]
@@ -223,7 +255,7 @@ public sealed class IntelligenceTests
         client.Devices.ListAsync(Arg.Any<CancellationToken>())
             .Returns(Task.FromException<IReadOnlyList<Device>>(new HttpRequestException("refused")));
         var model = new FakeModel();
-        var check = new IntelligenceCheckViewModel(model, new NetworkOverviewLookup(client, Fakes.Settings()));
+        var check = new IntelligenceCheckViewModel(model, new NetworkOverviewLookup(client, Fakes.Settings()), Preferences());
 
         await RunAsync(check);
 

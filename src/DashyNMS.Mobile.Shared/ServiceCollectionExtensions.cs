@@ -131,6 +131,8 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Intelligence.NetworkOverviewLookup>();
         services.AddTransient<Intelligence.IIntelligenceLookups, Intelligence.CompactNetworkLookups>();
         services.AddTransient<Intelligence.IntelligenceCheckViewModel>();
+        services.AddSingleton<Intelligence.IntelligencePreferences>();
+        services.AddTransient<Intelligence.IntelligenceSettingsViewModel>();
         services.AddTransient<MaintenanceViewModel>();
 
         // Graylog: independent of the LibreNMS sign-in, as on desktop - see GraylogSetup.
