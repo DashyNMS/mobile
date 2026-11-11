@@ -41,6 +41,7 @@ public sealed class IntelligenceSnapshotShieldTests : IDisposable
     {
         _preferences.SetSingleChatMode(true);
         _chatOnScreen = false;
+        _shield.Refresh(); // The head refreshes when navigation changes.
         Assert.False(_shield.Leaving());
         Assert.False(_shield.IsSecure);
     }

@@ -303,7 +303,7 @@ public sealed class IntelligenceSettingsTests
         await chats.Received(1).DeleteSavedChatsAsync();
         Assert.Equal(IntelligenceSettingsViewModel.NotDeletedText, vm.SavedChatsStatus);
         Assert.True(vm.SavedChatsFailed);
-        Assert.DoesNotContain("deleted.", vm.SavedChatsStatus);
+        Assert.NotEqual(IntelligenceSettingsViewModel.DeletedText, vm.SavedChatsStatus);
         Assert.True(vm.CanDeleteSavedChats);
     }
 
