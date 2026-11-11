@@ -71,7 +71,9 @@ public sealed class ChatCleanupFiles : IChatCleanupFiles
         }
         catch (DirectoryNotFoundException)
         {
-            // Definitely absent, including a missing parent directory.
+            // Unix also reports ENOTDIR this way when a file occupies the
+            // path. Verify absence; Exists propagates unknown/access errors.
+            if (Exists(path)) throw new IOException("The chats path is not a directory.");
         }
     }
 }
