@@ -63,9 +63,15 @@ public sealed class ChatCleanupFiles : IChatCleanupFiles
 
     public void DeleteDirectory(string path)
     {
-        if (Directory.Exists(path))
+        try
         {
+            // Directory.Exists hides access errors. Only definite absence is
+            // success; inaccessible files must retain the cleanup marker.
             Directory.Delete(path, recursive: true);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Definitely absent, including a missing parent directory.
         }
     }
 }

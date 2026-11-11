@@ -370,7 +370,12 @@ public sealed class IntelligenceChatStorage
             {
                 // Only now, with both gone. If the note won't go, the next
                 // open finds nothing left to remove and tries again.
-                cleared = ClearNote();
+                lock (_gate)
+                {
+                    // A queued wipe already owns this marker too. Only the
+                    // final wipe may remove it, under the registration lock.
+                    cleared = _pendingWipes == 1 && ClearNote();
+                }
             }
 
             ChatWipeResult result;
@@ -378,11 +383,12 @@ public sealed class IntelligenceChatStorage
             {
                 if (removed)
                 {
-                    _cleanupRequired = false;
+                    _cleanupRequired = _pendingWipes > 1;
                     _cleanupUnguarded = false;
                 }
                 else
                 {
+                    _cleanupRequired = true;
                     _cleanupUnguarded = !noted;
                 }
 

@@ -483,6 +483,51 @@ public sealed class IntelligenceChatStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task A_queued_wipe_keeps_its_marker_when_an_earlier_wipe_succeeds()
+    {
+        var storage = NewStorage();
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _keys.BeforeRead = () => blocked.Task;
+        // An absent key makes the first removal wait for verification.
+        var first = storage.WipeAsync();
+        var second = storage.WipeAsync();
+        var removals = 0;
+        _keys.OnRemove = () =>
+        {
+            removals++;
+            // This is the second wipe's removal; the first already finished.
+            Assert.True(File.Exists(NotePath));
+            _disk.FailDeleteDirectory = true;
+        };
+        _keys.BeforeRead = null;
+        blocked.SetResult();
+
+        Assert.Equal(ChatWipeResult.Removed, await first);
+        Assert.Equal(ChatWipeResult.Retained, await second);
+        Assert.Equal(1, removals);
+        Assert.True(File.Exists(NotePath));
+        Assert.Null(await NewStorage().OpenAsync());
+        _keys.OnRemove = null;
+        _disk.FailDeleteDirectory = false;
+        Assert.NotNull(await NewStorage().OpenAsync());
+        Assert.False(File.Exists(NotePath));
+    }
+
+    [Fact]
+    public void A_path_that_cannot_be_deleted_as_a_directory_is_not_reported_absent()
+    {
+        // Directory.Exists returns false for this file, even though the path
+        // remains on disk. Cleanup must surface the failed directory removal.
+        File.WriteAllText(_root, "synthetic obstruction");
+        try
+        {
+            Assert.NotNull(Record.Exception(() => new ChatCleanupFiles().DeleteDirectory(_root)));
+            Assert.True(File.Exists(_root));
+        }
+        finally { File.Delete(_root); }
+    }
+
+    [Fact]
     public async Task A_note_that_cannot_be_removed_keeps_saved_chats_closed_until_it_can()
     {
         var storage = NewStorage();
