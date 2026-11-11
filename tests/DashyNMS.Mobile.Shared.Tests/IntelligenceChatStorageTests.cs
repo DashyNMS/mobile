@@ -204,6 +204,28 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         Assert.NotEqual(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("not-a-key")]
+    public async Task A_present_but_damaged_key_never_replaces_the_key_or_existing_chat_files(string damaged)
+    {
+        var chat = Chat();
+        (await NewStorage().OpenAsync())!.Save(Scope, chat);
+        var bytes = File.ReadAllBytes(FileOf(chat));
+        _keys.Values[IntelligenceChatStorage.KeyName] = damaged;
+        var writes = _keys.Writes;
+        var storage = NewStorage();
+
+        Assert.Null(await storage.OpenAsync());
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
+        Assert.Equal(damaged, _keys.Values[IntelligenceChatStorage.KeyName]);
+        Assert.Equal(writes, _keys.Writes);
+        Assert.Equal(bytes, File.ReadAllBytes(FileOf(chat)));
+        Assert.Empty(ChatFiles("*.chat.bad"));
+        _keys.FailRemove = true;
+        Assert.Equal(ChatWipeResult.Retained, await storage.WipeAsync());
+    }
+
     [Fact]
     public async Task A_damaged_key_is_left_in_place_and_nothing_is_saved()
     {

@@ -263,7 +263,7 @@ public sealed class IntelligenceChatStorage
             }
 
             byte[]? key;
-            if (string.IsNullOrEmpty(stored))
+            if (stored is null)
             {
                 key = await CreateKeyAsync().ConfigureAwait(false);
                 if (key is null)
@@ -449,7 +449,7 @@ public sealed class IntelligenceChatStorage
             {
                 // False also means absent. Verify absence rather than
                 // treating a silent platform refusal as a successful wipe.
-                removed = string.IsNullOrEmpty(await _secure.GetAsync(KeyName).ConfigureAwait(false));
+                removed = await _secure.GetAsync(KeyName).ConfigureAwait(false) is null;
             }
         }
         catch (Exception)
