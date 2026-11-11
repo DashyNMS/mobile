@@ -42,6 +42,14 @@ public sealed class IntelligenceChatItem(SavedIntelligenceChat data) : Observabl
     /// <summary>The newest save of this chat that failed or was refused.</summary>
     internal long FailedSave { get; set; }
 
+    /// <summary>
+    /// The save that first carried what the chat now holds - its text, draft or
+    /// detail - by the list's save number; 0 for a chat as it was read from disk.
+    /// The chat is on disk once a save at least this new is written; saves that
+    /// only move the reopen marker, pin or rename don't raise it.
+    /// </summary>
+    internal long RequiredSave { get; set; }
+
     /// <summary>The save queued last, so suspension can wait for its outcome.</summary>
     internal (long Number, long Generation, Task<ChatWriteResult> Saving)? LastSave { get; set; }
 
@@ -110,8 +118,17 @@ public sealed class IntelligenceChatGroup(string label, IEnumerable<Intelligence
 /// The writer reports what became of each save and delete. A chat leaves the list
 /// only once its file is gone; a failed or dropped delete keeps it there to try
 /// again. A failed save keeps the chat marked for retry, so suspension and the next
-/// change write it again, and starting a new chat asks first rather than treating
-/// the unsaved transcript as kept.
+/// change write it again.
+/// </para>
+/// <para>
+/// Leaving the chat on screen - New chat or opening another - goes through one
+/// decision (<see cref="NewChatAsync"/>, <see cref="OpenAsync"/>), whichever
+/// button, swipe, menu or VoiceOver action asked. The latest is queued and waited
+/// for, at most <see cref="LeaveWait"/> so the screen never hangs on a slow disk.
+/// Only a chat whose latest text is confirmed written counts as kept; a save that
+/// failed, or is still waiting when the wait ends, is not, and nor is a chat that
+/// isn't being saved at all. Those ask first: try saving again, discard the chat,
+/// or cancel and keep it on screen.
 /// </para>
 /// </remarks>
 public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposable
@@ -125,6 +142,15 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     internal const string SaveFailedStatus = "This chat couldn't be saved. It stays on screen, and saving is tried again with the next change and when you leave the app.";
     internal const string UnavailableStatus = "Saved chats are unavailable, so this chat isn't being saved.";
     internal const string DeleteFailedStatus = "That chat couldn't be deleted, so it's still saved. Try again.";
+
+    /// <summary>How long leaving a chat waits for its latest save before asking; short, as the screen waits with it.</summary>
+    public static readonly TimeSpan LeaveWait = TimeSpan.FromSeconds(2);
+
+    internal const string TryAgainChoice = "Try again";
+    internal const string DiscardChoice = "Discard chat";
+    internal const string SaveFailedQuestion = "This chat couldn't be saved. Try saving it again, or discard its questions and answers?";
+    internal const string SavePendingQuestion = "This chat hasn't finished saving. Try again, or discard its questions and answers?";
+    internal const string NotSavedMessage = "This chat isn't being saved, so its questions and answers will be cleared. " + Confirmations.CannotBeUndone;
 
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly IntelligenceChatStorage _storage;
@@ -156,6 +182,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private bool _changing;
     private bool _disposed;
     private bool _wanted;
+    private bool _leaving;
 
     private ITimer? _timer;
     private long _timerVersion;
@@ -223,8 +250,15 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// <summary>Whether the list has anything to show or say.</summary>
     public bool IsListAvailable => CanPersist;
 
-    /// <summary>Whether starting a new chat keeps the current one: not while its last save failed.</summary>
-    public bool KeepsCurrentChat => CanPersist && _unsavedRevision != _conversation.ChatRevision && Active is not { NeedsRetry: true };
+    /// <summary>
+    /// Whether leaving the chat on screen keeps it: it is empty, or its latest
+    /// text is confirmed on disk. A save waiting, superseded or failed doesn't count.
+    /// </summary>
+    public bool KeepsCurrentChat => CanPersist && _unsavedRevision != _conversation.ChatRevision
+        && (!HasContent() || Active is { } item && IsWritten(item));
+
+    /// <summary>A New chat or open is deciding what becomes of the chat on screen.</summary>
+    public bool IsLeaving => _leaving;
 
     /// <summary>
     /// Reads this server's chats, once per connection, and reopens the chat that
@@ -309,22 +343,123 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         Changed();
     }
 
-    /// <summary>Shows a saved chat, saving the one that was showing first.</summary>
-    public bool Open(IntelligenceChatItem item)
+    /// <summary>
+    /// Shows a saved chat in place of the one on screen, through the same
+    /// decision as <see cref="NewChatAsync"/>: the one on screen is kept only
+    /// once its latest text is on disk, and otherwise discarded only when the user says so.
+    /// </summary>
+    public Task<bool> OpenAsync(IntelligenceChatItem item)
     {
-        if (!CanManage || !_chats.Contains(item) || item.IsDeleting) return false;
-        if (ReferenceEquals(item, Active)) return true;
+        if (!CanOpen(item)) return Task.FromResult(false);
+        if (ReferenceEquals(item, Active)) return Task.FromResult(true);
+        return LeaveAsync(item);
+    }
+
+    /// <summary>Starts an empty chat once the one on screen is kept, or the user agrees to discard it.</summary>
+    public Task<bool> NewChatAsync() => CanStartNew() ? LeaveAsync(null) : Task.FromResult(false);
+
+    private bool CanOpen(IntelligenceChatItem item) => CanManage && _chats.Contains(item) && !item.IsDeleting;
+
+    private bool CanStartNew() => !_disposed && !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
+
+    /// <summary>
+    /// Saves the chat on screen and waits for it, then asks when it isn't
+    /// confirmed on disk. Each answer is checked against the scope generation,
+    /// the transcript revision and the target, so a sign-out, server switch,
+    /// single-chat change or another chat appearing while a question is up
+    /// cancels instead of acting on what was decided for something else.
+    /// </summary>
+    private async Task<bool> LeaveAsync(IntelligenceChatItem? target)
+    {
+        if (_leaving) return false;
+        _leaving = true;
+        Changed();
+        try
+        {
+            var generation = Interlocked.Read(ref _scopeGeneration);
+            var revision = _conversation.ChatRevision;
+            bool Current() => !_disposed && generation == Interlocked.Read(ref _scopeGeneration)
+                && revision == _conversation.ChatRevision && (target is null ? CanStartNew() : CanOpen(target));
+
+            while (true)
+            {
+                var state = await SaveForLeavingAsync();
+                if (!Current()) return false;
+                if (state == LeaveState.Kept) break;
+
+                var title = target is null ? "Start a new chat?" : $"Open “{target.Title}”?";
+                if (state == LeaveState.NotSaved)
+                {
+                    if (!await _dialogs.ConfirmDestructiveAsync(title, NotSavedMessage, DiscardChoice) || !Current()) return false;
+                    break;
+                }
+
+                var choice = await _dialogs.ChooseAsync(state == LeaveState.Failed ? SaveFailedQuestion : SavePendingQuestion,
+                    [TryAgainChoice], DiscardChoice);
+                if (!Current()) return false;
+                if (choice == DiscardChoice) break;
+                if (choice != TryAgainChoice) return false;
+            }
+
+            return target is null ? StartNew() : ShowOther(target);
+        }
+        finally
+        {
+            _leaving = false;
+            Changed();
+        }
+    }
+
+    private enum LeaveState { Kept, NotSaved, Failed, Pending }
+
+    /// <summary>
+    /// Queues the latest of the chat on screen and waits, at most <see cref="LeaveWait"/>,
+    /// for the save that holds it. Acknowledged here rather than through the posted
+    /// outcome, so a save that has just finished counts, and one still waiting never does.
+    /// </summary>
+    private async Task<LeaveState> SaveForLeavingAsync()
+    {
         SaveActive();
+        if (!HasContent()) return LeaveState.Kept;
+        if (!CanPersist || _conversation.ChatRevision == _unsavedRevision || Active is not { } item) return LeaveState.NotSaved;
+
+        var deadline = _time.GetUtcNow() + LeaveWait;
+        while (!IsWritten(item) && item.LastSave is { } last && last.Number >= item.RequiredSave)
+        {
+            var remaining = deadline - _time.GetUtcNow();
+            if (remaining <= TimeSpan.Zero) break;
+            ChatWriteResult result;
+            try { result = await last.Saving.WaitAsync(remaining, _time); }
+            catch (TimeoutException) { break; }
+            Acknowledge(item, last.Number, last.Generation, result);
+            // Superseded: a newer save took its place and holds the same text; wait for that one.
+            if (result != ChatWriteResult.Superseded || item.LastSave?.Number == last.Number) break;
+        }
+
+        if (!ReferenceEquals(item, Active) || !CanPersist) return LeaveState.NotSaved;
+        if (IsWritten(item)) return LeaveState.Kept;
+        return item.FailedSave >= item.RequiredSave && item.NeedsRetry ? LeaveState.Failed : LeaveState.Pending;
+    }
+
+    /// <summary>
+    /// The chat's latest text is on disk: a save at least as new as <see cref="IntelligenceChatItem.RequiredSave"/>
+    /// was written. Also reads the save's own outcome, as its acknowledgement is posted and may not have run yet.
+    /// </summary>
+    private bool IsWritten(IntelligenceChatItem item) =>
+        item.WrittenSave >= item.RequiredSave
+        || item.LastSave is { } last && last.Number >= item.RequiredSave && last.Generation == Interlocked.Read(ref _scopeGeneration)
+            && last.Saving is { IsCompletedSuccessfully: true, Result: ChatWriteResult.Written };
+
+    private bool ShowOther(IntelligenceChatItem item)
+    {
         var shown = Show(item);
         Regroup();
+        Changed();
         return shown;
     }
 
-    /// <summary>Starts an empty chat; the one showing stays saved.</summary>
-    public bool NewChat()
+    private bool StartNew()
     {
-        if (_conversation.IsRunning || !_conversation.IsTranscriptCurrent) return false;
-        SaveActive();
         if (!Replace(() => _conversation.NewChat())) return false;
         Unbind();
         if (_singleChatMode) _unsavedRevision = _conversation.ChatRevision;
@@ -503,20 +638,22 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private void SaveActive(bool force = false)
     {
         CancelTimer();
-        if (Capture(force) is { } snapshot && Active is { } item)
+        if (Capture(force, out var content) is { } snapshot && Active is { } item)
         {
-            Queue(item, snapshot, makeActive: true);
+            var number = Queue(item, snapshot, makeActive: true);
+            if (content) item.RequiredSave = number;
         }
     }
 
     /// <summary>Queues a save, numbered so its outcome is recorded against the right capture.</summary>
-    private void Queue(IntelligenceChatItem item, SavedIntelligenceChat snapshot, bool makeActive)
+    private long Queue(IntelligenceChatItem item, SavedIntelligenceChat snapshot, bool makeActive)
     {
         var number = ++_saveNumber;
         var generation = _loadedGeneration;
         var saving = _writer.Save(_store!, _loadedScope!, snapshot, makeActive, generation);
         item.LastSave = (number, generation, saving);
         _ = TrackAsync(item, number, generation, saving);
+        return number;
     }
 
     private async Task TrackAsync(IntelligenceChatItem item, long number, long generation, Task<ChatWriteResult> saving)
@@ -542,8 +679,10 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         if (retry != item.NeedsRetry) Changed();
     }
 
-    private SavedIntelligenceChat? Capture(bool force)
+    /// <param name="content">Whether the capture carries text, a draft or detail the disk may not have yet.</param>
+    private SavedIntelligenceChat? Capture(bool force, out bool content)
     {
+        content = false;
         if (_changing || !CanPersist || _conversation.ChatRevision == _unsavedRevision || !_conversation.IsTranscriptCurrent
             || _session.Connection is not { } connection || IntelligenceSavedChats.Scope(connection) != _loadedScope)
         {
@@ -551,6 +690,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         }
 
         var item = Active;
+        var created = item is null;
         if (item is null)
         {
             // Bound to another revision: that transcript is gone, so is any edit to it.
@@ -567,11 +707,11 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         var chat = item.Data;
         var messages = IntelligenceSavedChats.Messages(_conversation.Turns);
         var activity = Activity();
-        if (!force && !item.NeedsRetry && activity == _activity && chat.Draft == _conversation.Draft
-            && chat.ReplyStyle == _conversation.SelectedDetail && SameMessages(chat.Messages, messages))
-        {
-            return null;
-        }
+        var unchanged = !created && activity == _activity && chat.Draft == _conversation.Draft
+            && chat.ReplyStyle == _conversation.SelectedDetail && SameMessages(chat.Messages, messages);
+        if (!force && !item.NeedsRetry && unchanged) return null;
+        // A retry of unchanged text leaves the save that first carried it as the one to confirm.
+        content = !unchanged;
 
         chat.Draft = _conversation.Draft;
         chat.ReplyStyle = _conversation.SelectedDetail;
@@ -651,6 +791,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         OnPropertyChanged(nameof(IsListAvailable));
         OnPropertyChanged(nameof(IsSingleChatMode));
         OnPropertyChanged(nameof(KeepsCurrentChat));
+        OnPropertyChanged(nameof(IsLeaving));
         OnPropertyChanged(nameof(Active));
     }
 

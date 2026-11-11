@@ -1029,13 +1029,30 @@ the list is still loading is saved as soon as loading finishes.
 
 Every save and delete returns what became of it (`ChatWriteResult`). A failed
 or refused save leaves the chat marked for retry, so the next change and
-suspension write it again even if nothing changed, and New chat waits briefly
-for the latest save and then asks before clearing a chat that isn't on disk. A
+suspension write it again even if nothing changed. A
 delete clears the open chat at once, but the chat leaves the list, and VoiceOver
 says it was deleted, only once its file is gone. If the delete fails, or a
 sign-out, server switch or single-chat mode drops it from the queue, the chat
 stays (or comes back with the list) and can be deleted again; a failed or
 dropped delete stops refusing saves of that chat.
+
+New chat and opening another saved chat share one leave decision
+(`NewChatAsync`, `OpenAsync`), so the header, glass, sheet rows, long-press
+menu, swipes and VoiceOver actions can't skip it. It queues the latest and
+waits at most `LeaveWait` (two seconds) for the save that carries the chat's
+current text, draft or detail (`RequiredSave`). Only a chat that is empty, or
+whose save is confirmed written, is left without a question. A loaded chat
+nobody changed counts as written; saves that only move the reopen marker, pin
+or rename don't need confirming. A save that failed asks "couldn't be saved";
+one still going when the wait ends asks "hasn't finished saving". Both offer
+Try again, Discard chat or Cancel. A chat that isn't being saved at all
+(single-chat mode, a transcript used in it, unavailable storage) gets the red
+discard confirmation. The outcome is read from the save itself as well as from
+the posted acknowledgement, so a save that has just finished counts and one
+still waiting never does. After each question, the scope generation,
+transcript revision and target are checked again, so a sign-out, server
+switch, single-chat change or reload during the question cancels rather than
+opening a chat from the old scope.
 
 A damaged file is set aside by Core while the rest load, and the list says how
 many couldn't be read. When the storage is unavailable the list's status is the
@@ -1049,7 +1066,8 @@ For now the list honours it for saving: while it is on, nothing is read or
 written, the list is hidden, waiting debounces are cancelled, and the chat that
 was showing is unbound so its new text can't reach its file. A transcript that
 has text when the mode ends stays unsaved until New chat, including one started
-by a reconnect while the mode was on.
+by a reconnect while the mode was on. Leaving it by New chat or by opening a
+saved chat asks before discarding it.
 Saved chats aren't deleted by the mode.
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
@@ -1058,8 +1076,11 @@ activity grouping, rename, pin and confirmed delete, restart restore of draft,
 detail, model, evidence filters and images, streaming and Interrupted restore,
 suspension, coalescing, delete, sign-out and wipe ordering, damaged files, an
 unreadable key store and single-chat mode, plus changes made while loading,
-failed and dropped deletes, failed saves retried unchanged, and a reconnect in
-single-chat mode. Force-quit mid-answer, performance
+failed and dropped deletes, failed saves retried unchanged, a reconnect in
+single-chat mode, and the leave decision: a save held past the wait, a save
+failing after it, declined discards, opening history after single-chat mode,
+an answer arriving after the scope moved on, and a chat that follows the
+Settings detail until it picks its own. Force-quit mid-answer, performance
 with long chats, and the sheet's layout and accessibility still need
 installed-device acceptance.
 
@@ -1078,11 +1099,14 @@ A chat revision also clears the composer draft on connection changes, including
 when a retained page next activates. Ordinary page departure and return keep
 the chat and draft. The transcript and draft are hidden while a connection
 reset is queued. Back is present only for the pushed route. Command-N asks
-the chat page to start a new chat. Clearing an existing in-memory transcript is confirmed.
+the chat page to start a new chat, through the saved-chat leave decision below.
 
 Ask clears an accepted question from the composer. Stop retains partial text;
 Retry appends an attempt and Edit copies the original question into the field.
-The detail picker applies to the next question without changing Settings.
+The detail picker applies to the next question without changing Settings. Until
+the chat has its own pick it follows the Settings default: each activation
+shows the conversation's detail without recording it as a pick, and Ask uses
+the conversation's detail rather than reading the picker.
 Copy exports only the chosen answer through the system clipboard. Starter
 questions fill the field without submitting. Labels display plain text and
 streaming updates are coalesced at 100ms intervals. Scrolling follows while

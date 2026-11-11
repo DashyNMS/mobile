@@ -48,6 +48,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private bool _newChatPending;
     private bool _reporting;
     private bool _listOpening;
+    private bool _showingDetail;
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
@@ -66,12 +67,14 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         Shell.SetNavBarIsVisible(this, false);
         SemanticProperties.SetDescription(_question, "Question about your network");
         SemanticProperties.SetDescription(_detail, "Detail for the next answer");
-        _detail.SelectedIndex = DetailIndex(conversation.SelectedDetail);
+        ShowDetail();
         _question.Text = conversation.Draft;
         _detail.SelectedIndexChanged += (_, _) =>
         {
             // The conversation owns the choice, so a saved chat keeps it (#229).
-            if (_detail.SelectedIndex >= 0) _conversation.SelectedDetail = DetailValue(_detail.SelectedIndex);
+            // Only the user's own pick is recorded: showing the conversation's
+            // detail must leave a chat that follows the Settings default following it.
+            if (!_showingDetail && _detail.SelectedIndex >= 0) _conversation.SelectedDetail = DetailValue(_detail.SelectedIndex);
         };
         _notice.Style = ResourceStyle("Caption");
         _notice.HorizontalOptions = LayoutOptions.Center;
@@ -255,10 +258,21 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _chatRevision = _conversation.ChatRevision;
             // A new, reopened or cleared chat brings its own draft and detail.
             _question.Text = _conversation.Draft;
-            _detail.SelectedIndex = DetailIndex(_conversation.SelectedDetail);
             _following = true;
             _scrollPending = true;
         }
+
+        // Every time, not only for another chat: the Settings default may have
+        // changed while this page was away, and a chat without its own pick follows it.
+        ShowDetail();
+    }
+
+    /// <summary>Shows the conversation's detail without recording it as the chat's own choice.</summary>
+    private void ShowDetail()
+    {
+        _showingDetail = true;
+        try { _detail.SelectedIndex = DetailIndex(_conversation.SelectedDetail); }
+        finally { _showingDetail = false; }
     }
 
     private void UpdateControls()
@@ -284,7 +298,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         var question = _question.Text ?? "";
         var count = _conversation.Turns.Count;
         _following = true;
-        var task = _conversation.AskAsync(question, DetailValue(_detail.SelectedIndex));
+        // Null: the conversation's own detail, which the picker shows - the chat's pick or the current default.
+        var task = _conversation.AskAsync(question);
         if (_conversation.Turns.Count > count) _question.Text = "";
         await task;
         Flush();
@@ -313,10 +328,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     }
 
     /// <summary>
-    /// A saved chat stays in the list, so a new one starts straight away. Clearing
-    /// a chat that isn't being saved still asks first; Stop remains a separate action.
-    /// The latest is written first, briefly waited for, so a chat whose save failed
-    /// is retried and, if it fails again, counts as unsaved.
+    /// New chat goes through the list's shared leave decision
+    /// (<see cref="IntelligenceChatListViewModel.NewChatAsync"/>), as opening a
+    /// saved chat does: a chat whose latest text is confirmed saved is left at once,
+    /// after a wait of at most two seconds; otherwise the user chooses to try
+    /// again, discard it or cancel. Stop remains a separate action.
     /// </summary>
     public async void RequestNewChat()
     {
@@ -326,11 +342,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         ShowActions();
         try
         {
-            try { await _chats.SaveNowAsync().WaitAsync(TimeSpan.FromSeconds(2)); }
-            catch (TimeoutException) { /* Still writing: treated as kept, as a save under way is. */ }
-            if (!_chats.KeepsCurrentChat && _conversation.Turns.Count > 0
-                && !await _dialogs.ConfirmAsync("Start a new chat?", "This clears the current questions and answers. This chat isn't being saved.", "New chat", "Cancel")) return;
-            if (_chats.NewChat())
+            if (await _chats.NewChatAsync())
             {
                 _question.Text = "";
                 _following = true;

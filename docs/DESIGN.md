@@ -260,9 +260,12 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   when, and taps to open. Swiping right reveals Pin or Unpin; swiping left
   reveals Rename and Delete. A long press opens the same actions as a menu, and
   VoiceOver offers Pin or Unpin, Rename and Delete as custom actions. Delete
-  always confirms. The open chat is tinted and read as "Open now". With saving
-  on, New chat starts at once; it asks first only when the chat isn't being
-  saved. Device acceptance is pending.
+  always confirms. The open chat is tinted and read as "Open now". New chat
+  and opening another chat share one decision: a chat whose latest text is
+  confirmed saved is left at once, after waiting no more than two seconds. A
+  save that failed or hasn't finished offers Try again, a red Discard chat and
+  Cancel. A chat that isn't being saved gets the red discard confirmation.
+  Cancel keeps the question, answer and draft on screen. Device acceptance is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
   sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.

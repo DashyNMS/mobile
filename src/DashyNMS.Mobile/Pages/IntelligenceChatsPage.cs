@@ -143,12 +143,21 @@ public sealed class IntelligenceChatsPage : ContentPage
         return true;
     }
 
+    /// <summary>
+    /// Opens through the list's shared leave decision, which may ask about the
+    /// chat on screen first. Cancelling there says nothing more: the chat stays as it was.
+    /// </summary>
     private async Task OpenAsync(IntelligenceChatItem item)
     {
         if (_busy) return;
-        if (_chats.Open(item)) await CloseAsync();
-        else SemanticScreenReader.Default.Announce(_conversation.IsRunning
-            ? "Wait for the answer to finish" : "That chat can't be opened right now");
+        _busy = true;
+        try
+        {
+            if (await _chats.OpenAsync(item)) await CloseAsync();
+            else if (_conversation.IsRunning) SemanticScreenReader.Default.Announce("Wait for the answer to finish");
+            else if (!_chats.CanManage || !_chats.Chats.Contains(item)) SemanticScreenReader.Default.Announce("That chat can't be opened right now");
+        }
+        finally { _busy = false; }
     }
 
     private void TogglePin(IntelligenceChatItem item)

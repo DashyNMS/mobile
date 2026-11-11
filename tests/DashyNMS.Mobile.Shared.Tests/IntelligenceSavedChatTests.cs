@@ -395,7 +395,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var app = Start();
         await app.Chats.LoadAsync();
         Assert.True(await app.Conversation.AskAsync("First question"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         _time.Advance(TimeSpan.FromMinutes(1));
         Assert.True(await app.Conversation.AskAsync("Second question"));
         await app.SettleAsync();
@@ -515,10 +515,10 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var app = Start();
         await app.Chats.LoadAsync();
         Assert.True(await app.Conversation.AskAsync("Healthy chat"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         _time.Advance(TimeSpan.FromMinutes(1));
         Assert.True(await app.Conversation.AskAsync("Chat to damage"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         await app.SettleAsync();
         var damaged = app.Chats.Chats.Single(chat => chat.Title == "Chat to damage");
         var file = ChatFiles(damaged.Id.ToString("N") + ".chat").Single();
@@ -614,7 +614,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.Single((await ReadAsync(ServerA)).Chats);
 
         // A new chat saves again.
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         Assert.True(await app.Conversation.AskAsync("Saved after single-chat mode"));
         await app.SettleAsync();
         Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
@@ -691,7 +691,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var faults = Faulty(app);
         await app.Chats.LoadAsync();
         Assert.True(await app.Conversation.AskAsync("Chat to keep"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         _time.Advance(TimeSpan.FromMinutes(1));
         Assert.True(await app.Conversation.AskAsync("Chat to delete"));
         await app.SettleAsync();
@@ -710,7 +710,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.True(app.Chats.TogglePin(doomed));
         await app.SettleAsync();
         Assert.True((await ReadAsync(ServerA)).Chats.Single(chat => chat.Id == doomed.Id).IsPinned);
-        Assert.True(app.Chats.Open(doomed));
+        Assert.True(await app.Chats.OpenAsync(doomed));
         Assert.Equal("Chat to delete", Assert.Single(app.Conversation.Turns).Question);
 
         faults.FailDeletes = false;
@@ -728,10 +728,10 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var faults = Faulty(app);
         await app.Chats.LoadAsync();
         Assert.True(await app.Conversation.AskAsync("Chat to keep"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         _time.Advance(TimeSpan.FromMinutes(1));
         Assert.True(await app.Conversation.AskAsync("Chat to delete"));
-        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Chats.NewChatAsync());
         await app.SettleAsync();
         var keep = app.Chats.Chats.Single(chat => chat.Title == "Chat to keep");
         var doomed = app.Chats.Chats.Single(chat => chat.Title == "Chat to delete");
@@ -830,6 +830,177 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.DoesNotContain(saved.Messages, message => message.Text.Contains("private-sentinel"));
         Assert.DoesNotContain("private-sentinel", saved.Draft ?? "");
         Assert.Single(app.Chats.Chats);
+    }
+
+    [Fact]
+    public async Task A_new_chat_while_the_latest_save_is_held_past_the_wait_asks_and_a_later_failure_is_never_discarded_silently()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question on screen"));
+        await app.SettleAsync();
+
+        // The next write - the draft's - is held past the wait, then fails.
+        var held = faults.HoldNext();
+        faults.FailSaves = true;
+        app.Conversation.Draft = "draft-sentinel unsaved";
+        _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(Task.FromResult<string?>(null));
+        var leaving = app.Chats.NewChatAsync();
+        await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(leaving.IsCompleted);
+        Assert.False(app.Chats.KeepsCurrentChat);
+        _time.Advance(IntelligenceChatListViewModel.LeaveWait);
+
+        // Still saving when the wait ends: asked, never counted as kept, and Cancel keeps everything.
+        Assert.False(await leaving.WaitAsync(TimeSpan.FromSeconds(5)));
+        _ = _dialogs.Received(1).ChooseAsync(IntelligenceChatListViewModel.SavePendingQuestion,
+            Arg.Is<IReadOnlyList<string>>(options => options.SequenceEqual(new[] { IntelligenceChatListViewModel.TryAgainChoice })),
+            IntelligenceChatListViewModel.DiscardChoice);
+        Assert.Equal("Question on screen", Assert.Single(app.Conversation.Turns).Question);
+        Assert.Equal("draft-sentinel unsaved", app.Conversation.Draft);
+        Assert.NotNull(app.Chats.Active);
+
+        held.Release.SetResult();
+        await app.SettleAsync();
+        Assert.Equal("", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+        Assert.False(app.Chats.KeepsCurrentChat);
+
+        // The held save failed: the next New chat asks as a failure, Try again fails again and
+        // asks again, and only an explicit discard clears it.
+        _dialogs.ClearReceivedCalls();
+        _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(
+            Task.FromResult<string?>(IntelligenceChatListViewModel.TryAgainChoice),
+            Task.FromResult<string?>(IntelligenceChatListViewModel.DiscardChoice));
+        Assert.True(await app.Chats.NewChatAsync());
+        _ = _dialogs.Received(2).ChooseAsync(IntelligenceChatListViewModel.SaveFailedQuestion,
+            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.DiscardChoice);
+        Assert.Empty(app.Conversation.Turns);
+        Assert.Equal("", app.Conversation.Draft);
+    }
+
+    [Fact]
+    public async Task Opening_another_chat_while_the_latest_save_fails_asks_and_opens_only_once_it_is_written()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Chat to open"));
+        Assert.True(await app.Chats.NewChatAsync());
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Assert.True(await app.Conversation.AskAsync("Chat on screen"));
+        await app.SettleAsync();
+        var target = app.Chats.Chats.Single(chat => chat.Title == "Chat to open");
+        var onScreen = app.Chats.Chats.Single(chat => chat.Title == "Chat on screen");
+
+        // Saved chats move between each other without a question.
+        Assert.True(await app.Chats.OpenAsync(target));
+        Assert.True(await app.Chats.OpenAsync(onScreen));
+        Assert.Equal("Chat on screen", Assert.Single(app.Conversation.Turns).Question);
+        _ = _dialogs.DidNotReceiveWithAnyArgs().ChooseAsync(default!, default!, default!);
+        _ = _dialogs.DidNotReceiveWithAnyArgs().ConfirmDestructiveAsync(default!, default!, default!);
+
+        faults.FailSaves = true;
+        app.Conversation.Draft = "draft-sentinel unsaved";
+        _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(Task.FromResult<string?>(null));
+        Assert.False(await app.Chats.OpenAsync(target));
+        _ = _dialogs.Received(1).ChooseAsync(IntelligenceChatListViewModel.SaveFailedQuestion,
+            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.DiscardChoice);
+        Assert.False(app.Chats.KeepsCurrentChat);
+        Assert.Same(onScreen, app.Chats.Active);
+        Assert.Equal("Chat on screen", Assert.Single(app.Conversation.Turns).Question);
+        Assert.Equal("draft-sentinel unsaved", app.Conversation.Draft);
+
+        // The disk recovers: the next attempt writes it first, then opens the other chat without asking.
+        faults.FailSaves = false;
+        _dialogs.ClearReceivedCalls();
+        Assert.True(await app.Chats.OpenAsync(target));
+        _ = _dialogs.DidNotReceiveWithAnyArgs().ChooseAsync(default!, default!, default!);
+        Assert.Same(target, app.Chats.Active);
+        Assert.Equal("Chat to open", Assert.Single(app.Conversation.Turns).Question);
+        await app.SettleAsync();
+        Assert.Equal("draft-sentinel unsaved", (await ReadAsync(ServerA)).Chats.Single(chat => chat.Id == onScreen.Id).Draft);
+    }
+
+    [Fact]
+    public async Task Opening_a_saved_chat_after_single_chat_mode_asks_first_and_declining_keeps_the_private_chat()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+
+        _preferences.SetSingleChatMode(true);
+        Assert.True(await app.Chats.NewChatAsync());
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+        app.Conversation.Draft = "private-sentinel draft";
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        var saved = Assert.Single(app.Chats.Chats);
+
+        void AssertPrivateChatKept()
+        {
+            var turn = Assert.Single(app.Conversation.Turns);
+            Assert.Equal("private-sentinel question", turn.Question);
+            Assert.Equal("private-sentinel answer", turn.Answer);
+            Assert.Equal("private-sentinel draft", app.Conversation.Draft);
+            Assert.Null(app.Chats.Active);
+        }
+
+        // Opening history and New chat both ask; declining keeps the private chat on screen.
+        _dialogs.ClearReceivedCalls();
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(false);
+        Assert.False(await app.Chats.OpenAsync(saved));
+        _ = _dialogs.Received(1).ConfirmDestructiveAsync("Open “Saved before single-chat mode”?",
+            IntelligenceChatListViewModel.NotSavedMessage, IntelligenceChatListViewModel.DiscardChoice);
+        AssertPrivateChatKept();
+        Assert.False(await app.Chats.NewChatAsync());
+        _ = _dialogs.Received(1).ConfirmDestructiveAsync("Start a new chat?",
+            IntelligenceChatListViewModel.NotSavedMessage, IntelligenceChatListViewModel.DiscardChoice);
+        AssertPrivateChatKept();
+
+        // An answer given after the scope moved on is not acted on.
+        var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(answer.Task);
+        var opening = app.Chats.OpenAsync(saved);
+        Assert.False(await app.Chats.NewChatAsync());
+        _preferences.SetSingleChatMode(true);
+        answer.SetResult(true);
+        Assert.False(await opening.WaitAsync(TimeSpan.FromSeconds(5)));
+        AssertPrivateChatKept();
+
+        // Confirming discards it and opens the saved chat, whose file never sees the private text.
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        saved = Assert.Single(app.Chats.Chats);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        Assert.True(await app.Chats.OpenAsync(saved));
+        Assert.Same(saved, app.Chats.Active);
+        Assert.Equal("Saved before single-chat mode", Assert.Single(app.Conversation.Turns).Question);
+        await app.SettleAsync();
+        var file = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.DoesNotContain(file.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", file.Draft ?? "");
+    }
+
+    [Fact]
+    public async Task A_chat_without_its_own_detail_follows_the_settings_default_and_asks_with_it()
+    {
+        var app = Start();
+        _preferences.SetDetail(IntelligenceDetail.Brief);
+        Assert.Equal(IntelligenceDetail.Brief, app.Conversation.SelectedDetail);
+
+        // Changed in Settings while the chat had no pick of its own: the next answer uses the new default.
+        _preferences.SetDetail(IntelligenceDetail.Detailed);
+        Assert.Equal(IntelligenceDetail.Detailed, app.Conversation.SelectedDetail);
+        Assert.True(await app.Conversation.AskAsync("Question at the default"));
+        Assert.Equal(IntelligenceDetail.Detailed, Assert.Single(app.Conversation.Turns).Detail);
+
+        // The chat's own pick stays, whatever the default does.
+        app.Conversation.SelectedDetail = IntelligenceDetail.Brief;
+        _preferences.SetDetail(IntelligenceDetail.Balanced);
+        Assert.Equal(IntelligenceDetail.Brief, app.Conversation.SelectedDetail);
     }
 
     private static FaultyStore Faulty(App app)
