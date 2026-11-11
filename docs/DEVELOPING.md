@@ -949,8 +949,10 @@ The presentation follows desktop's Sparkle navigation identity and separates
 right-aligned user bubbles from left-aligned assistant answer bubbles. Both
 transcript and composer use the measured viewport width, capped at 860pt; user bubbles
 cap at 560pt and 85% of the column. A static themed accent wash provides an
-ambient backdrop without animation. The composer is one rounded surface
-with a 48 to 140pt auto-growing input, compact detail choice and an accessible
+ambient backdrop without animation. The page background owns the wash,
+including behind safe-area gutters, header, composer and glass; the transcript
+has no separate background plate or opaque viewport-top fade. The composer is
+one rounded surface with a 48 to 140pt auto-growing input, compact detail choice and an accessible
 Send control that becomes Stop while running. Lookup activity folds behind
 an expandable summary. Successful answers omit the redundant Completed
 line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
