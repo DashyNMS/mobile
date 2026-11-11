@@ -243,6 +243,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 {
                     await OnUiAsync(() =>
                     {
+                        if (run.Stop.IsCancellationRequested) return;
                         if (ex.PartialAnswer is not null) turn.Answer = ex.PartialAnswer;
                         turn.HistoryOmitted = true;
                     });
@@ -265,6 +266,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         {
             await OnUiAsync(() =>
             {
+                if (run.Stop.IsCancellationRequested) return;
                 if (ex.PartialAnswer is not null) turn.Answer = ex.PartialAnswer;
                 turn.State = IntelligenceTurnState.Failed;
                 turn.Message = ex.Kind switch

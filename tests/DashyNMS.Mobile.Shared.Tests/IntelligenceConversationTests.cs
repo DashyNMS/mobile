@@ -140,6 +140,38 @@ public sealed class IntelligenceConversationTests
     }
 
     [Theory]
+    [InlineData(IntelligenceFailureKind.Failed)]
+    [InlineData(IntelligenceFailureKind.ContextLimit)]
+    public async Task Stop_before_a_queued_failure_update_preserves_the_displayed_partial(IntelligenceFailureKind kind)
+    {
+        IntelligenceConversationViewModel? vm = null;
+        var stopBeforeUpdate = false;
+        vm = Open(action =>
+        {
+            if (stopBeforeUpdate)
+            {
+                stopBeforeUpdate = false;
+                Assert.True(vm!.Stop());
+            }
+            action();
+        });
+        using (vm)
+        {
+            await vm.AskAsync("Seed question");
+            _model.Scripts.Enqueue((_, _, text, _) =>
+            {
+                text("Displayed partial");
+                stopBeforeUpdate = true;
+                return Task.FromException<IntelligenceAnswer>(new IntelligenceException("private", "Late failure partial", kind));
+            });
+            await vm.AskAsync("Current question");
+            Assert.Equal("Displayed partial", vm.Turns[1].Answer);
+            Assert.Equal(IntelligenceTurnState.Stopped, vm.Turns[1].State);
+            Assert.Equal(2, _model.Prompts.Count);
+        }
+    }
+
+    [Theory]
     [InlineData(IntelligenceFailureKind.Failed, "failed")]
     [InlineData(IntelligenceFailureKind.Refused, "rephrasing")]
     [InlineData(IntelligenceFailureKind.ContextLimit, "context")]
