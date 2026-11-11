@@ -39,9 +39,11 @@ public sealed class IntelligenceConversationTests
     {
         public int Calls;
         public bool Fail;
+        public bool CancelIndependently;
         public IReadOnlyList<IntelligenceLookup> Create() => [new("network_overview", "Overview", (_, _) =>
         {
             Calls++;
+            if (CancelIndependently) return Task.FromException<string>(new OperationCanceledException("private cancellation details"));
             return Fail ? Task.FromException<string>(new IOException("private URL and token")) : Task.FromResult("Devices: 10 total.");
         })];
     }
@@ -294,6 +296,24 @@ public sealed class IntelligenceConversationTests
         Assert.Equal(2, vm.Turns[0].Lookups.Count);
         Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[0].State);
         Assert.Contains("lookups failed", vm.Turns[0].Message);
+    }
+
+    [Fact]
+    public async Task An_independently_cancelled_lookup_reports_failure_while_the_answer_completes()
+    {
+        _lookups.CancelIndependently = true;
+        _model.Scripts.Enqueue(async (_, tools, _, token) =>
+        {
+            Assert.Equal(CompactNetworkLookups.Failed, await tools[0].Run("", token));
+            Assert.False(token.IsCancellationRequested);
+            return new IntelligenceAnswer("Some data is missing.", null);
+        });
+        using var vm = Open();
+        await vm.AskAsync("Question");
+        var turn = Assert.Single(vm.Turns);
+        Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+        Assert.Equal(IntelligenceLookupState.Failed, Assert.Single(turn.Lookups).State);
+        Assert.Contains("lookups failed", turn.Message);
     }
 
     [Fact]

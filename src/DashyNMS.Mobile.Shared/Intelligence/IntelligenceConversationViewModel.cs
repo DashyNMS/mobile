@@ -215,7 +215,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                             Post(run, attemptId, () => { progress.Result = result; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
                             return result;
                         }
-                        catch (OperationCanceledException) { throw; }
+                        catch (OperationCanceledException) when (call.Token.IsCancellationRequested) { throw; }
                         catch
                         {
                             Interlocked.Increment(ref run.LookupFailures);
