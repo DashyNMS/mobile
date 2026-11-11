@@ -129,6 +129,9 @@ public sealed class SensorDefinitionsTests : IDisposable
 
         Assert.False(vm.HasError);
         Assert.Equal("https://github.com/example/definitions", definitions.Store.Options.Repository);
+        // Save starts an index refresh without awaiting it. Join the store's
+        // serialised work before Dispose deletes the temporary catalogue folder.
+        await definitions.Store.SynchroniseAsync(Array.Empty<string>());
     }
 
     [Theory]
