@@ -458,6 +458,157 @@ public sealed class DeviceDetailViewModelTests
         Assert.False(vm.HasLogo);
         await logos.DidNotReceiveWithAnyArgs().GetAsync(default, default);
     }
+
+    private static DeviceDetailViewModel NewDetail(ILibreNmsClient client, INavigationService? navigation = null)
+    {
+        var settings = Fakes.Settings();
+        return new DeviceDetailViewModel(client, settings, Substitute.For<ILauncherService>(), new DeviceBookmarks(settings, TimeProvider.System),
+            Substitute.For<IDialogService>(), navigation ?? new RecordingNavigation());
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_device_in_maintenance_shows_as_in_maintenance_whether_up_or_down(bool up)
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", up: up));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(true);
+        var vm = NewDetail(client);
+
+        await vm.LoadAsync(7);
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+        Assert.Equal(DeviceState.Maintenance.ToDisplayString(), vm.StateText);
+    }
+
+    [Fact]
+    public async Task A_device_out_of_maintenance_shows_its_reported_state()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", up: false));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(false);
+        var vm = NewDetail(client);
+
+        await vm.LoadAsync(7);
+
+        Assert.Equal(DeviceState.Down, vm.State);
+    }
+
+    [Fact]
+    public async Task A_disabled_device_shows_as_disabled_even_in_a_maintenance_window()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr", disabled: true));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(true);
+        var vm = NewDetail(client);
+
+        await vm.LoadAsync(7);
+
+        Assert.Equal(DeviceState.Disabled, vm.State);
+    }
+
+    [Fact]
+    public async Task A_failed_maintenance_check_still_loads_the_device()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns<bool>(_ => throw new HttpRequestException("timeout"));
+        var vm = NewDetail(client);
+
+        await vm.LoadAsync(7);
+
+        Assert.False(vm.HasError);
+        Assert.Equal(DeviceState.Up, vm.State);
+    }
+
+    [Fact]
+    public async Task A_failed_maintenance_check_on_refresh_keeps_showing_maintenance()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult(true), _ => throw new HttpRequestException("timeout"));
+        var vm = NewDetail(client);
+
+        await vm.LoadAsync(7);
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+    }
+
+    [Fact]
+    public async Task Back_from_scheduling_maintenance_shows_a_window_that_started()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(false, true);
+        var navigation = new RecordingNavigation();
+        var vm = NewDetail(client, navigation);
+        await vm.LoadAsync(7);
+        Assert.Equal(DeviceState.Up, vm.State);
+
+        await vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
+        await vm.ShownAgainAsync();
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+        await client.Devices.Received(2).IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_slow_refresh_does_not_undo_the_newer_check_on_coming_back()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var slow = new TaskCompletionSource<bool>();
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false), slow.Task, Task.FromResult(true));
+        var vm = NewDetail(client);
+        vm.MaintenanceWait = Timeout.InfiniteTimeSpan;
+        await vm.LoadAsync(7);
+        await vm.ScheduleMaintenanceCommand.ExecuteAsync(null);
+
+        // The refresh asked before the window began; its answer arrives after the newer one.
+        var refresh = vm.RefreshCommand.ExecuteAsync(null);
+        await vm.ShownAgainAsync();
+        slow.SetResult(false);
+        await refresh.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+    }
+
+    [Fact]
+    public async Task A_slow_maintenance_check_does_not_hold_up_the_page()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var slow = new TaskCompletionSource<bool>();
+        client.Devices.IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>()).Returns(slow.Task);
+        var vm = NewDetail(client);
+        vm.MaintenanceWait = TimeSpan.Zero;
+
+        await vm.LoadAsync(7);
+        Assert.Equal("edge-rtr", vm.Title);
+        Assert.Equal(DeviceState.Up, vm.State);
+
+        slow.SetResult(true);
+        await vm.LateMaintenance;
+
+        Assert.Equal(DeviceState.Maintenance, vm.State);
+    }
+
+    [Fact]
+    public async Task Showing_again_without_scheduling_maintenance_asks_nothing()
+    {
+        var client = Fakes.Client();
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "edge-rtr"));
+        var vm = NewDetail(client);
+        await vm.LoadAsync(7);
+
+        await vm.ShownAgainAsync();
+
+        await client.Devices.Received(1).IsUnderMaintenanceAsync(7, Arg.Any<CancellationToken>());
+    }
 }
 
 public sealed class SignInViewModelTests

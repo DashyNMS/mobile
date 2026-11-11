@@ -43,6 +43,9 @@ internal sealed class SetupPageLayout
         page.Disappearing += OnDisappearing;
     }
 
+    /// <summary>Pages used as pinned roots supply their own Back and page actions.</summary>
+    internal Action? ShowActions { get; set; }
+
     private void OnAppearing(object? sender, EventArgs e)
     {
         if (_showing) return;
@@ -149,7 +152,7 @@ internal sealed class SetupPageLayout
 
     private void Place()
     {
-        if (!_showing || _layout.Height <= 0) return;
+        if (!_showing || _layout.Height <= 0 || Shell.Current?.CurrentPage != _page) return;
         var edges = CoveredEdges.ForScrolling(_page);
         var bottom = SetupActionPlacement.BottomGap(_layout.Height, edges.Bottom, null, []);
 #if IOS
@@ -187,6 +190,7 @@ internal sealed class SetupPageLayout
 #if IOS
     private void ShowBack()
     {
+        if (ShowActions is { } show) { show(); return; }
         if (TabBarButtons.IsAvailable)
             TabBarButtons.Show(_page, null, string.Empty,
             [new("chevron.backward", "Back to " + BackBar.PreviousTitle(_page),

@@ -68,6 +68,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IShareService, ShareService>();
 		builder.Services.AddSingleton<INoticePlatform, NoticePlatform>();
 		builder.Services.AddSingleton<IClipboardText, MauiClipboard>();
+		builder.Services.AddSingleton<IEmailComposer, EmailComposer>();
 		builder.Services.AddSingleton<DesktopNMS.Core.SignIn.IWebSignIn, WebSignIn>();
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
@@ -99,6 +100,27 @@ public static class MauiProgram
 			sp.GetRequiredService<IDiagnosticsConsent>(),
 			Path.Combine(FileSystem.AppDataDirectory, "session-health")));
 
+		// Saved chats (#222): AES-GCM under a key in the keychain or keystore,
+		// in the app's own folder and out of backups - iOS marks the folder,
+		// Android's manifest keeps the whole app out (allowBackup="false").
+#if IOS
+		builder.Services.AddSingleton<IBackupExclusion, IosBackupExclusion>();
+#else
+		builder.Services.AddSingleton<IBackupExclusion, AppBackupDisabled>();
+#endif
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceChatStorage(
+			Path.Combine(FileSystem.AppDataDirectory, "chats"),
+			sp.GetRequiredService<Security.ISecureStorage>(),
+			sp.GetRequiredService<IBackupExclusion>(),
+			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatStorage>>()));
+
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
+			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
+			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),
+			sp.GetRequiredService<Intelligence.IIntelligenceLookups>(),
+			sp.GetRequiredService<DesktopNMS.Services.ISessionService>(),
+			action => MainThread.BeginInvokeOnMainThread(action)));
+
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();
@@ -109,7 +131,12 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IBackgroundAlertScheduler, IosAlertScheduler>();
 		builder.Services.AddSingleton<IAppBadge, IosAppBadge>();
 		builder.Services.AddSingleton<Widgets.IHomeWidgets, IosHomeWidgets>();
+		// Apple's on-device model (#570), through the Swift bridge in ios-intelligence/.
+		builder.Services.AddSingleton<Intelligence.IIntelligenceModel, AppleIntelligenceModel>();
 #endif
+
+		// The on-device model check (#570) also reports the app's memory.
+		builder.Services.AddSingleton<Func<Diagnostics.MemoryReading>>(_ => MemoryReader.Read);
 
 		// Shell resolves registered pages through DI, so each gets its view model.
 		builder.Services.AddSingleton<AppShell>();
@@ -132,6 +159,9 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
+		builder.Services.AddTransient<IntelligenceCheckPage>();
+		builder.Services.AddTransient<IntelligenceSettingsPage>();
+        builder.Services.AddTransient<IntelligencePage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<AddCardPage>();

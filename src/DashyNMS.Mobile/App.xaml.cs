@@ -15,14 +15,17 @@ public partial class App : Application
 	private readonly Diagnostics.UiStallMonitor _stalls;
 	private readonly Diagnostics.MemoryMonitor _memory;
 	private readonly Diagnostics.SessionHealth _sessions;
+	private readonly Intelligence.IntelligenceConversationViewModel _intelligence;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
 		Services.WhatsNew whatsNew, Diagnostics.DiagnosticsReporter errors, Diagnostics.AppMetrics metrics,
 		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport,
-		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions)
+		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions,
+		Intelligence.IntelligenceConversationViewModel intelligence)
 	{
 		InitializeComponent();
+		_intelligence = intelligence;
 
 		// Errors, memory, the network and the theme; settings changes and slow pages (#126).
 		SystemWatch.Start(this, diagnostics, errors);
@@ -122,8 +125,9 @@ public partial class App : Application
 			_memory.Resume();
 			CheckSensorDefinitions();
 		};
-		window.Stopped += (_, _) =>
+		window.Stopped += async (_, _) =>
 		{
+			var endingIntelligence = InterruptIntelligenceAsync();
 			_alerts.SetForeground(false);
 			_stalls.Pause();
 			_memory.Pause();
@@ -131,6 +135,7 @@ public partial class App : Application
 
 			// What's gathered goes to the queue before iOS or Android may end the app.
 			_metrics.Flush();
+			await endingIntelligence;
 		};
 
 		// Pages and the app coming and going, for diagnostics - and a page left
@@ -138,6 +143,46 @@ public partial class App : Application
 		PageHealth.Watch(this, window, _diagnostics);
 
 		return window;
+	}
+
+	/// <summary>Give cancellation a short iOS reservation before suspension; never log model content.</summary>
+	private async Task InterruptIntelligenceAsync()
+	{
+		if (!_intelligence.IsRunning) return;
+#if IOS
+		var application = UIKit.UIApplication.SharedApplication;
+		var identifier = UIKit.UIApplication.BackgroundTaskInvalid;
+		void EndReservation()
+		{
+			if (identifier == UIKit.UIApplication.BackgroundTaskInvalid) return;
+			var ending = identifier;
+			identifier = UIKit.UIApplication.BackgroundTaskInvalid;
+			application.EndBackgroundTask(ending);
+		}
+#endif
+		var interruptionRequested = false;
+		try
+		{
+#if IOS
+			await MainThread.InvokeOnMainThreadAsync(() =>
+				identifier = application.BeginBackgroundTask("Interrupt Intelligence", () =>
+					MainThread.BeginInvokeOnMainThread(EndReservation)));
+#endif
+			interruptionRequested = true;
+			await _intelligence.InterruptAsync().WaitAsync(TimeSpan.FromSeconds(4));
+		}
+		catch
+		{
+			// Cancellation is requested once. A late expiration/timeout must
+			// not interrupt a newer answer after the app has resumed.
+			if (!interruptionRequested) _intelligence.Interrupt();
+		}
+		finally
+		{
+#if IOS
+			await MainThread.InvokeOnMainThreadAsync(EndReservation);
+#endif
+		}
 	}
 
 	private Task? _definitionsStarted;

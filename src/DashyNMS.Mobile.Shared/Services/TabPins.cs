@@ -1,3 +1,5 @@
+using DashyNMS.Mobile.Intelligence;
+
 namespace DashyNMS.Mobile.Services;
 
 /// <summary>A page the More tab lists (#68), any of which can be pinned to the tab bar.</summary>
@@ -13,6 +15,7 @@ public enum AppPage
     GroupsLocations,
     Logs,
     Graylog,
+    Intelligence,
     Settings,
 }
 
@@ -51,10 +54,17 @@ public sealed class TabPins
     internal const string Key = "tabpins";
 
     private readonly IAppPreferences _preferences;
+    private readonly IntelligencePreferences? _intelligence;
+    private readonly IIntelligenceModel? _model;
+    private bool _intelligenceVisible;
 
-    public TabPins(IAppPreferences preferences)
+    public TabPins(IAppPreferences preferences, IntelligencePreferences? intelligence = null, IIntelligenceModel? model = null)
     {
         _preferences = preferences;
+        _intelligence = intelligence;
+        _model = model;
+        _intelligenceVisible = IsAvailable(AppPage.Intelligence);
+        if (intelligence is not null) intelligence.Changed += (_, _) => RefreshAvailability();
     }
 
     public static IReadOnlyList<AppPage> Defaults { get; } = [AppPage.Devices, AppPage.Alerts, AppPage.Health];
@@ -80,11 +90,25 @@ public sealed class TabPins
             return saved.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(name => Enum.TryParse<AppPage>(name, out var page) && Enum.IsDefined(page) ? page : (AppPage?)null)
                 .OfType<AppPage>()
+                .Where(IsAvailable)
                 .Distinct()
                 .Order()
                 .Take(MaxPinned)
                 .ToList();
         }
+    }
+
+    /// <summary>Hidden destinations retain their saved pin until the next explicit pin edit.</summary>
+    public bool IsAvailable(AppPage page) => page != AppPage.Intelligence
+        || (_intelligence?.Enabled == true && _model?.Availability == IntelligenceAvailability.Available);
+
+    /// <summary>Native availability can change while Settings is open or the app is suspended.</summary>
+    public void RefreshAvailability()
+    {
+        var visible = IsAvailable(AppPage.Intelligence);
+        if (visible == _intelligenceVisible) return;
+        _intelligenceVisible = visible;
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     public bool IsPinned(AppPage page) => Pinned.Contains(page);
@@ -98,6 +122,7 @@ public sealed class TabPins
     /// </summary>
     public bool Toggle(AppPage page)
     {
+        if (!IsAvailable(page)) return false;
         var pinned = Pinned.ToList();
         if (!pinned.Remove(page))
         {
@@ -132,6 +157,7 @@ public static class AppPages
         AppPage.GroupsLocations => "Groups & locations",
         AppPage.Logs => "Event and alert logs",
         AppPage.Graylog => "Graylog",
+        AppPage.Intelligence => "Intelligence",
         AppPage.Settings => "Settings",
         _ => page.ToString(),
     };
@@ -158,6 +184,7 @@ public static class AppPages
         AppPage.GroupsLocations => "Device counts and what's down",
         AppPage.Logs => "The whole network, newest first",
         AppPage.Graylog => "Messages from your Graylog server",
+        AppPage.Intelligence => "Ask about your network on this device",
         AppPage.Settings => "Server, notifications, thresholds and more",
         _ => string.Empty,
     };

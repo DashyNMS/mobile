@@ -14,6 +14,12 @@ namespace DashyNMS.Mobile;
 /// </remarks>
 public static class KeyboardShortcuts
 {
+    /// <summary>Starts a chat only when its page is visible; the page confirms clearing a transcript.</summary>
+    public static void NewChat()
+    {
+        if (Current is Pages.IntelligencePage page) page.RequestNewChat();
+    }
+
     /// <summary>The number of tab shortcuts: ⌘1 to ⌘9.</summary>
     public const int TabCount = 9;
 

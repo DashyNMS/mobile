@@ -41,6 +41,7 @@ public class AppDelegate : MauiUIApplicationDelegate
 		{
 			KeyCommand("f", "Search", "shortcutSearch:"),
 			KeyCommand("r", "Refresh", "shortcutRefresh:"),
+            KeyCommand("n", "New chat", "shortcutNewChat:"),
 		};
 		for (var tab = 1; tab <= KeyboardShortcuts.TabCount; tab++)
 		{
@@ -59,6 +60,9 @@ public class AppDelegate : MauiUIApplicationDelegate
 
 	[Export("shortcutSearch:")]
 	public void ShortcutSearch(UIKeyCommand command) => KeyboardShortcuts.Search();
+
+    [Export("shortcutNewChat:")]
+    public void ShortcutNewChat(UIKeyCommand command) => KeyboardShortcuts.NewChat();
 
 	[Export("shortcutRefresh:")]
 	public void ShortcutRefresh(UIKeyCommand command) => KeyboardShortcuts.Refresh();

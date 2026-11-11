@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The .NET binding for ios-intelligence/, the Swift bridge to Apple's
+    on-device language model (#570). Foundation Models is Swift-only, so the
+    app reaches it through that framework's Objective-C API, declared here
+    by hand in ApiDefinition.cs (Native Library Interop).
+
+    Referenced by the app head for iOS only. It needs the generated Xcode
+    project first: `xcodegen generate` in ios-intelligence/, as CI does.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <RootNamespace>DashyNMS.Mobile.Intelligence.Native</RootNamespace>
+    <IsBindingProject>true</IsBindingProject>
+    <IsTrimmable>true</IsTrimmable>
+    <!-- The app's minimum: the binding loads everywhere the app does, and
+         the framework itself says "unsupported" before iOS 26. -->
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ObjcBindingApiDefinition Include="ApiDefinition.cs" />
+    <ObjcBindingCoreSource Include="StructsAndEnums.cs" />
+  </ItemGroup>
+
+  <!-- Builds the framework for device and simulator and embeds it in the app. -->
+  <ItemGroup>
+    <XcodeProject Include="..\..\ios-intelligence\DashyNMSIntelligence.xcodeproj">
+      <SchemeName>DashyNMSIntelligence</SchemeName>
+    </XcodeProject>
+  </ItemGroup>
+
+</Project>

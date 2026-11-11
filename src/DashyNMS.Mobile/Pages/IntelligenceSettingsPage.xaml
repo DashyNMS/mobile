@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="DashyNMS.Mobile.Pages.IntelligenceSettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:vm="clr-namespace:DashyNMS.Mobile.Intelligence;assembly=DashyNMS.Mobile.Shared"
+    x:DataType="vm:IntelligenceSettingsViewModel" Title="Intelligence">
+    <ContentPage.Resources>
+        <Style x:Key="SettingsAction" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Style.Triggers>
+                <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </ContentPage.Resources>
+    <controls:SetupLayout x:Name="Setup">
+        <controls:SetupLayout.Header>
+            <controls:PageHeader x:Name="Header" Title="Intelligence" Note="Changes save automatically." />
+        </controls:SetupLayout.Header>
+        <controls:SetupLayout.Body>
+            <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
+                <VerticalStackLayout Spacing="8" Padding="0,20,0,8">
+                    <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
+                    <Label Text="{Binding AvailabilityText}" />
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsVisible}">
+                        <Button Style="{StaticResource SettingsAction}" Text="Open Settings" IsVisible="{Binding CanOpenSettings}" Command="{Binding OpenSettingsCommand}" MinimumHeightRequest="44" />
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Show Intelligence" FontFamily="BodySemibold" />
+                                <Label Style="{StaticResource Caption}" Text="Ask about your network using Apple's on-device model. Off until you turn it on. Answers can be wrong; check the source before acting." />
+                                <Button Style="{StaticResource SettingsAction}" Text="{Binding ToggleText}" Command="{Binding ToggleCommand}" MinimumHeightRequest="44" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="8">
+                                <controls:SetupSection Label="Default detail">
+                                    <Picker Title="Default detail" ItemsSource="{Binding DetailLabels}" SelectedIndex="{Binding DetailIndex}" SemanticProperties.Description="Default answer detail" />
+                                </controls:SetupSection>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Label Text="Colour status indicators" VerticalOptions="Center" />
+                                    <Switch Grid.Column="1" IsToggled="{Binding ColourStatusIndicators}" SemanticProperties.Description="Colour status indicators" MinimumHeightRequest="44" />
+                                </Grid>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <VerticalStackLayout VerticalOptions="Center">
+                                        <Label Text="Single-chat mode" />
+                                        <Label Style="{StaticResource Caption}" Text="Use one chat without saving conversation history." />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1" IsToggled="{Binding SingleChatMode}" SemanticProperties.Description="Single-chat mode, without saved history" MinimumHeightRequest="44" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </controls:SetupLayout.Body>
+    </controls:SetupLayout>
+</ContentPage>

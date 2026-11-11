@@ -318,8 +318,9 @@ The app itself:
 dotnet workload install maui-android
 dotnet build src/DashyNMS.Mobile -f net10.0-android -t:Run
 
-# iOS (macOS with a matching Xcode)
+# iOS (macOS with a matching Xcode, and xcodegen for the Swift bridge)
 dotnet workload install maui-ios --version 10.0.402.1
+(cd ios-intelligence && xcodegen generate)
 DEVELOPER_DIR=/Applications/Xcode_27.1.app/Contents/Developer dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -t:Run
 ```
 
@@ -331,6 +332,16 @@ select this toolchain explicitly. The iOS 27.1 SDK enables the Duo's full
 display and vertical system bars; changing page padding cannot remove the
 compatibility strip produced by older SDKs. The minimum supported iOS
 version remains 15.0.
+
+The iOS build includes a small Swift framework, `ios-intelligence/`, which
+wraps Apple's Swift-only Foundation Models framework in an Objective-C API
+(#570). `src/DashyNMS.Mobile.Intelligence.iOS` binds it for .NET by hand in
+`ApiDefinition.cs` and builds it through an `XcodeProject` item, so the only
+extra step is `xcodegen generate`, which writes the Xcode project that isn't
+checked in. Each selector in `ApiDefinition.cs` is spelled out in an
+`@objc(...)` in `Intelligence.swift`; change both together. The framework
+weak-links Foundation Models so the app still launches before iOS 26, and CI
+fails if that link turns strong.
 
 Before shipping, check a Duo on both displays: launch closed and open,
 fold and unfold while on Dashboard and a list/detail page, rotate, and
@@ -558,7 +569,7 @@ type(scope): what changes, as the user would notice it
 ```
 
 - **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
-- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
 - **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
@@ -605,6 +616,19 @@ version is built on its own branch, `release/<version>` (for example
 3. The build appears in App Store Connect → **TestFlight** once Apple has
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit.
+
+**App Review notes.** From 2.0.0, keep this in the version's App Review
+Information notes, because guidelines 1.2 and 4.7.1 ask where generated
+content can be reported:
+
+> Intelligence answers can be reported from the chat. Open More ›
+> Intelligence (or the Intelligence tab, if pinned) and ask a question. Then
+> press and hold the answer and choose Report this answer. With VoiceOver,
+> use the answer's Report this answer action from the Actions rotor. Choose
+> Offensive, Wrong or misleading, or Other. A preview shows the question,
+> answer and reason, which can be edited to remove names and addresses. It
+> then opens a draft email to dashynms@pckp.net, the address on the support
+> page. Nothing is sent until the person sends that email.
 
 **The workflow's secrets** live in the `iOS-Build` environment (only `main`
 and `release/*` can use them, and a maintainer approves each run), not in
@@ -689,21 +713,141 @@ What's left is the less everyday:
 
 ## Intelligence on the phone
 
-Where Batch 7 (Intelligence, #236) stands, checked for #297 on 2026-10-31
-against Core 2.0.0-ci.49 and DashyNMS/mcp at `61161c4`.
+Intelligence is split across two releases (re-planned on 2026-11-10, after
+#297's groundwork check on 2026-10-31 against Core 2.0.0-ci.49 and
+DashyNMS/mcp at `61161c4`).
 
-**Core has the engine.** The pinned package has everything except the network
-tools: the ChatGPT sign-in (`ChatGptSignIn`, `IdTokenValidator`), the
-Responses client, the conversation loop and its instructions
-(`IntelligenceConversation`, `IntelligenceInstructions`), saved chats
-(`FileIntelligenceChatStore`, `SavedIntelligenceChat`), consent, the detail
-dial, and the allowlist of 22 tool names (`IntelligenceToolAllowlist`). So
-#222 to #234 can be built in Mobile.Shared on Core alone, with desktop's view
-models as the spec.
+**2.0.0: Apple's models on iPhone and iPad (#236).** Intelligence uses
+Apple's Foundation Models framework. It runs on the device and, from iOS 27,
+can optionally use Apple's Private Cloud Compute. This route was chosen
+because:
 
-**The network tools can't be used yet.** A phone can't start desktop's
-`dashynms-mcp` process, so the tools have to run in the app, from
-DashyNMS/mcp's `DashyNMS.Agent`. Against #221's four upstream needs:
+- it needs no account, sign-in or API key, and costs the person nothing;
+- on the device, nothing leaves the phone, so there's no third-party AI
+  sharing to ask permission for (App Store guideline 5.1.2(i));
+- it avoids the ChatGPT route's open questions: OpenAI's terms for a store
+  app, and the in-app purchase rules;
+- it doesn't wait on the DashyNMS/mcp changes below.
+
+The constraints that shape it:
+
+- Foundation Models is Swift-only. A small Swift framework wraps it, bound to
+  .NET with Native Library Interop, built with xcodegen as `ios-widget/` is,
+  and weak-linked so the app still runs on iOS 15.
+- It needs iOS 26 or later, a device that supports Apple Intelligence, and
+  Apple Intelligence turned on. Elsewhere Intelligence is hidden or says why.
+- The on-device context is small: 8,192 tokens measured on iOS 27.2, and
+  4,096 by Apple's notes for iOS 26.4. It covers instructions, tools,
+  question, lookups and answer together. Desktop's 22 MCP tools and GPT
+  prompts don't fit, so the phone has five compact lookups over Core's
+  clients that return short text, and its own short instructions. #570
+  measured the budget on a device; see below.
+- The model sits behind an `IIntelligenceModel` interface in Mobile.Shared.
+  The pages, saved chats, Spotlight, reporting and export are shared, so later
+  models need no new pages.
+
+### What the on-device model can do (#570)
+
+**Result: the overview question completed on the tested device.** Measured on 2026-11-10 with
+Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
+27.2, a TestFlight Release build of `3d36e85`, against a LibreNMS server
+with 946 devices and 208 open alerts. One question, "How is the network
+doing?", asked once, so the times are a single reading and not an average.
+
+| What | Measured |
+| --- | --- |
+| Context size (`contextSize`) | 8,192 tokens |
+| Whole question, by the model's own count | 559 tokens in, 239 out |
+| Instructions (285 characters) | about 60 tokens |
+| One lookup's definition (137 characters, one argument) | about 30 tokens |
+| The overview lookup's result (809 characters) | about 310 tokens |
+| The answer (634 characters) | 239 tokens |
+| LibreNMS's part of the lookup | 2.0 s |
+| First words | 3.5 s after asking, lookup included |
+| Whole answer | 6.1 s after asking |
+| App memory | 248.8 MB before, 246.6 MB after |
+| App size | 42.9 MB to 43.1 MB between the uploads either side |
+
+How to read these:
+
+- **The diagnostic counts suggest about 47 tokens of framing**
+  when counting text as instructions: the 25-character question counted as
+  53. The per-piece rows above have that taken off. The model's own count
+  (`Usage` on the response, iOS 27) supplies the total for this reading. About 150 of the
+  559 input tokens are framing, the lookup's schema and the call itself.
+- **Network text costs about 2.5 characters a token**, not the four of
+  ordinary prose, because host names, addresses and rule names split badly.
+  Budget lookups in characters at that rate.
+- **App memory did not rise in this reading.** The app grew
+  by about 0.2 MB, which is the Swift bridge (the upload sizes also include a
+  few unrelated changes).
+- **The answer repeated the supplied counts.** Every count matched the
+  lookup, and it named the same devices and alerts in the same order. It
+  restated more than it summarised, and it dropped a leading number from
+  several device names. So the lookups have to do the judging, and names
+  must come from lookup data, not from the model's wording.
+
+**The budget for the rest of #236.** Sized for the 4,096-token context of
+iOS 26.4, which wasn't measured and is assumed to count tokens the same
+way; iOS 27 then has room to spare.
+
+| Part | Budget |
+| --- | --- |
+| Instructions | 150 tokens (about 400 characters) |
+| Lookups | 5, each defined in 80 tokens or fewer: a name, one sentence and one argument |
+| A lookup's result | 900 characters (about 360 tokens), whatever the network's size |
+| Lookups per question | 2 at most |
+| An answer | about 300 tokens; the detail dial moves it between 150 and 400 |
+| Turns the model sees | The newest that fit in 80% of `contextSize`: about 3 on 4,096 and 7 on 8,192 |
+
+That is 550 tokens fixed for instructions and lookups, and about 750 for
+each turn with one lookup. Older turns stay on screen but are dropped from
+what the model sees (#573). The 2.5-characters-per-token rate is an estimate
+from this single lookup, not a safe upper bound. Other text and languages,
+including Japanese, Chinese and Korean, may use more tokens. Read
+`contextSize` at run time and never assume either figure.
+
+For #573, if the model reports a context-limit error, discard the failed
+session and retry the current question once in a fresh session without
+older turns. Keep the earlier conversation visible and explain that it was
+left out. If the question still exceeds the limit without older turns,
+ask the person to shorten it or narrow its scope. Do not retry indefinitely
+or mark the partial answer complete.
+
+What this means for the lookups (#572) and the conversation (#573):
+
+- A lookup puts what needs attention first: unacknowledged alerts before
+  acknowledged ones, then by severity. The model repeats the order it's
+  given.
+- The instructions tell the model to copy names exactly. Links to devices,
+  alerts and sensors (#228) come from the lookup's own data, matched to the
+  answer, never from the model's spelling.
+- Show that a lookup is running. LibreNMS took a third of the wait.
+
+The check supports keeping the on-device model as the default for 2.0.0.
+Private Cloud Compute (32,000 tokens, #575) stays what it was: an optional
+way to get deeper answers on iOS 27, not a replacement.
+
+Still to check on a device, under #571: the 4,096-token context on iOS
+26.4, a launch before iOS 26 (CI proves Foundation Models is weak-linked,
+not that the app starts), and Stop partway through an answer.
+
+**2.1.0: ChatGPT, and Android (#577).** The person's own ChatGPT plan, as on
+desktop, becomes a second model on iPhone and the first on Android (#576),
+with desktop's full tool set. Two things gate it:
+
+- **OpenAI's terms.** OpenAI documents plan usage for "open-source and
+  locally hosted apps" and offers other apps a commercial partner programme.
+  This app's licence isn't open source, so confirm with OpenAI before any
+  ChatGPT build reaches testers.
+- **The DashyNMS/mcp changes.** Core already has the ChatGPT engine: the
+  sign-in (`ChatGptSignIn`, `IdTokenValidator`), the Responses client, the
+  conversation loop and its instructions (`IntelligenceConversation`,
+  `IntelligenceInstructions`), consent, the detail dial, and the allowlist of
+  22 tool names (`IntelligenceToolAllowlist`). The network tools are the
+  missing piece. A phone can't start desktop's `dashynms-mcp` process, so the
+  tools have to run in the app, from DashyNMS/mcp's `DashyNMS.Agent`. Against
+  #221's four upstream needs:
 
 | Need | Where it stands |
 | --- | --- |
@@ -712,16 +856,325 @@ DashyNMS/mcp's `DashyNMS.Agent`. Against #221's four upstream needs:
 | Plain options | Done: `AgentOptions` is plain; only the `DashyNMS.Mcp` host reads environment variables |
 | A tool table safe for AOT | Not yet: the 39 tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
 
-Until those land, #221's on-device check (a Release build on an iPhone and
-an Android phone, the four tools' results, size, first-question cost and
-memory) can't be run.
+If the package still can't run in-process once those land, the ChatGPT
+route uses 2.0's compact lookups, extended.
 
-**Recommendation.** Move Batch 7 to 2.1.0 rather than hold 2.0.0 for it.
-First make the three remaining changes in DashyNMS/mcp (publish the package,
-`TryAdd` the clients or take them from the host, and give the tools a
-generated or hand-written table), then run #221 on devices. The fallback, if
-the package still can't run in-process, is re-implementing the commonest
-tools over Core's clients in Mobile.Shared, which is the most work.
+### Intelligence settings (#571)
+
+Settings › Intelligence is a pushed setup page that saves changes
+immediately. Back returns to Settings and keeps saved choices. The entry is
+hidden on Android and before iOS 26. Other unavailable states explain the
+reason; when Apple Intelligence is off, Open Settings uses the public
+app-settings URL and tells the person where to go.
+
+Mobile consumers must use `IntelligencePreferences.Enabled`, together with
+model availability, rather than Core's `IntelligenceEnabled` alone. Core's
+desktop default is on. Mobile requires its own versioned on-device notice
+marker before that flag can enable anything. This marker is separate from
+Core's third-party consent fields. Cancelling the first notice leaves the
+mobile gate off. Turning the feature off retains the notice acceptance.
+
+Detail, colour indicators and single-chat mode use Core's setting keys.
+The on-device detail choices are Brief, Balanced and Detailed. Legacy
+styles are normalised, and Full reads as Detailed without changing the
+stored value until the person chooses. The single-chat setting is in place;
+chat-history behaviour follows in #230. The chat entry follows in #227.
+The diagnostic check also requires the mobile opt-in gate before reading
+LibreNMS or starting a model session; availability remains visible while off.
+
+Persistence requires Core's `ICheckedSettingsStore.TrySave()` acknowledgement
+from package `2.0.0-ci.64` or later. A best-effort-only store cannot report a
+saved change. Tests force a real temporary-file write failure and reload the
+previous file for both first enablement and disabling after notice acceptance.
+
+The page uses `SetupLayout` and `SetupPageLayout` for inset and Back ownership,
+with no Save action. It refreshes availability on appearing and activation.
+Shared tests cover each availability state, the opt-in notice, persistence,
+legacy detail values, failed saves and the Settings handoff. Platform
+compilation is checked in CI. Device checks remain outstanding: supported
+and unsupported devices, Apple Intelligence turned off, resume, light/dark,
+large text and VoiceOver, plus glass clearance on both Duo displays.
+
+### Conversation engine (#573)
+
+`IntelligenceConversationViewModel` keeps questions, partial answers and
+lookup evidence in memory. It runs one question at a time. Stop cancels the
+current attempt, and late callbacks cannot rewrite a finished answer.
+Retry appends a new attempt with the original detail level. A per-question
+detail choice does not change the saved default. Edit returns the original question while the
+old partial answer stays visible. A lookup failure leaves a completed answer
+with a warning. Refusals, context limits and unavailable models have fixed
+messages, without native exception details.
+
+Each question uses a fresh model session with explicit recent completed
+turns. The input budget reserves instructions, five lookup definitions,
+two 900-character results and output space within 80% of runtime context.
+Older turns remain visible but may be omitted from the prompt. A context
+failure retries once in a fresh session without history; another failure
+asks for a shorter or narrower question. Character estimates remain only
+estimates, so the native failure path is required.
+
+Mobile supplies a main-thread dispatcher for streaming, lookup progress
+and terminal state. Every question requires the mobile opt-in, an available
+model and a signed-in connection. Connection events advance a generation
+so an old connection reference cannot revive a run after a switch. Every
+connection event interrupts the run and clears retained turns, including
+sign-out, sign-in and reconnect. An immediate ownership gate blocks old-turn
+copy, retry and edit while UI cleanup is queued. Only the latest queued
+reset can authorise a new chat. Opt-out also interrupts the current answer.
+Each question permits at most two actual lookup calls, including a
+context-recovery attempt.
+
+The engine never logs or uploads questions, answers or lookup evidence.
+It has no disk persistence yet. On app suspension, the host requests a short
+iOS background reservation and awaits `InterruptAsync` for up to four seconds.
+Both expiration and completion end the reservation. Partial text stays in memory;
+there is no promise of surviving process termination. The encrypted store
+below (#222) is in place; saving and reopening history follow under #229.
+Native suspension and model-failure cases still need device verification.
+
+### Saved-chat storage (#222)
+
+`IntelligenceChatStorage` wraps Core's `FileIntelligenceChatStore` (per-chat
+files, written to `.tmp` and renamed, a damaged file renamed `.chat.bad`
+while the rest load) in `FileSystem.AppDataDirectory/chats`. Each file is
+AES-256-GCM under one random key in secure storage (`intelligence-chats-key-v1`;
+iOS keychain "this device only", Android Keystore), as desktop's keyring
+protector does. A key is only created when secure storage says there is none.
+If it can't be read or stored, or the folder can't be excluded from backups,
+the state is `Unavailable` with a reason for the user: nothing is written,
+nothing plain, and existing files are left for when the key returns. A
+missing key means a new one, and old files are set aside as they fail to
+decrypt. iOS marks the folder with `NSURLIsExcludedFromBackupKey` every time it
+opens; Android relies on the manifest's `allowBackup="false"`.
+
+`OpenAsync` returns a store bound to the current generation, or null when
+unavailable. Its calls block on file I/O, so run them off the UI thread. Either
+sign-out choice awaits `WipeAsync`. It moves the generation on under the store's
+lock before anything else, so a late save from an older store throws
+`ChatStorageUnavailableException` and writes nothing. Then it removes the key and
+the folder. Opening and wiping take turns over the key, so concurrent opens make
+one key, and a key being created can't land after a wipe. Opens queued before
+or started during cleanup are refused. A false key-removal result is checked
+against secure storage.
+
+Cleanup has to hold across a restart, so `WipeAsync` first writes a fixed-content
+note, `chats.cleanup-pending`, beside the folder (flushed to disk), and deletes
+it only after the key and the folder are both gone. While the note exists, from
+a refused removal or a wipe cut off by a crash, `OpenAsync` retries the removal
+before reading any key. It stays `Unavailable` until both removals and the note's
+deletion succeed, then starts afresh under a new key. If the note's existence
+can't be checked, it opens nothing and deletes nothing. `WipeAsync` returns
+`Removed`, `Retained` (note saved: locked across restarts) or
+`RetainedUntilRestart` (the note couldn't be written either, so the lock lasts
+only for this run; later opens try to write it again). Sign-out shows the
+matching warning with Retry cleanup and Continue signing out. The note sits
+outside the folder, preferences and secure storage, so neither the wipe nor
+"forget everything" (`ILocalDataWipe`) removes it first. `IChatCleanupFiles`
+wraps the note and folder operations so tests can make each one fail. Logs name only the
+step that failed. Chat text, scopes, keys and exception messages are never
+logged. The chat list, autosave and restore are #229. Single-chat privacy mode
+is #230. Unreadable files without the key and absence from device backups still
+need checking on an iPhone and an Android phone.
+
+Android chat-key access uses the same AndroidX encrypted preferences and Keystore
+alias as pinned MAUI, with checked synchronous `Commit` for writes and removal.
+Reading an existing key recommits it before accepting it, since a failed commit
+may leave a value visible in memory. Chat-key reads propagate storage errors
+without MAUI's credential-clearing recovery. Other credentials keep MAUI's
+existing behaviour. Native persistence and failure handling still need device
+acceptance; shared failure tests establish the storage's response to adapter errors.
+
+### Chat page (#227)
+
+More opens Intelligence as a relative route; pinning selects its retained tab.
+Both the catalogue and the tab use the mobile opt-in and model-availability
+gate. A hidden saved pin is retained until the next explicit pin edit, which
+saves the visible selection. Availability is checked again on return and resume.
+Direct routes show an explanation and refuse work when the gate is closed.
+
+The page uses the setup layout for one top inset owner, a finite transcript
+viewport and a measured fixed composer above the docked keyboard and glass.
+New chat and Settings use glass on iOS 26+, with header actions elsewhere.
+A chat revision also clears the composer draft on connection changes, including
+when a retained page next activates. Ordinary page departure and return keep
+the chat and draft. The transcript and draft are hidden while a connection
+reset is queued. Back is present only for the pushed route. Command-N asks
+the chat page to start a new chat. Clearing an existing in-memory transcript is confirmed.
+
+Ask clears an accepted question from the composer. Stop retains partial text;
+Retry appends an attempt and Edit copies the original question into the field.
+The detail picker applies to the next question without changing Settings.
+Copy exports only the chosen answer through the system clipboard. Starter
+questions fill the field without submitting. Labels display plain text and
+streaming updates are coalesced at 100ms intervals. Scrolling follows while
+within 64pt of the end, otherwise Jump to latest restores following.
+
+The presentation follows desktop's Sparkle navigation identity and separates
+right-aligned user bubbles from left-aligned assistant answer bubbles. Both
+transcript and composer use the measured viewport width, capped at 860pt; user bubbles
+cap at 560pt and 85% of the column. A static themed accent wash provides an
+ambient backdrop without animation. The page background owns the wash,
+including behind safe-area gutters, header, composer and glass; the transcript
+has no separate background plate or opaque viewport-top fade. The composer is
+one rounded surface with a 48 to 140pt auto-growing input, compact detail choice and an accessible
+Send control that becomes Stop while running. Lookup activity folds behind
+an expandable summary. Successful answers omit the redundant Completed
+line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
+44pt action. Installed-device visual acceptance remains pending under #227.
+
+The initial page permits the existing client's cached lookup results; it does
+not claim live authentication or fresh readings. A visible note says lookups
+may be cached and asks readers to check readings and their age in LibreNMS.
+No conversation data is written to disk or included in diagnostics. Saved-chat
+sheets and Spotlight remain under #229 and #231. Formatted answers and answer
+reports are described under #228 and #574 below. Device acceptance for #227 and #573
+remains open: test long streaming answers, Stop and suspension, both entry
+routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
+keyboard clearance and following while reading older text. No installed-device
+result is inferred from shared tests or platform CI builds.
+
+### Compact network lookups (#572)
+
+`IIntelligenceLookups.Create()` supplies five read-only lookups over the
+session's client: overview, device search, device summary, active alerts and
+device sensors. Each reply is at most 900 characters. Rows lead with the
+LibreNMS name in the person's device-name choice, followed by Core's marker,
+for example `core-sw1 [[device:708]]`, so the model names devices rather than
+writing "device 708". A device without a usable name reads
+"Device 708 (name unavailable)". Alert rows keep their source-qualified
+`alert:` or `fault:` key beside the `[[alert:ID]]` marker. Alert and overview
+lookups name every alert's device from one device-list request, never one
+request per alert; if that list can't be read, rows fall back to the alert's
+own hostname and carry no device link. Omitted rows are counted. Alerts put unacknowledged
+items first, then severity. Sensor values are raw readings, not a health
+assessment. Network labels cannot form a marker of their own.
+
+`Create(evidence)` also reports the `IntelligenceEvidence` behind each accepted
+reply, only for rows that fitted in the reply and only while the connection is
+unchanged. Each item pairs Core's `IntelligenceInlineReference`, whose name is the
+cleaned display label (at most 80 characters, no control characters or marker
+brackets), with `Filter`: a group or location name exactly as LibreNMS returned
+it. Devices filters by that exact name, so a chip never filters by its shortened
+label. The record is plain data so saved chats (#229) can keep it.
+
+Create a fresh lookup set for each new model session. A set refuses calls
+after the connection object changes and discards replies arriving from the
+previous connection. Requests have a 15-second deadline and fixed failure
+text; cancellation propagates to the caller. No questions, replies or
+exception details are logged. The diagnostic check retains its original
+overview lookup so measurements remain comparable. The conversation in
+#573 will consume the new interface.
+
+### Formatted answers (#228)
+
+Answers render as Markdown: headings, paragraphs, bullet and numbered lists,
+tables that scroll sideways, fenced and inline code, quotes, rules, bold,
+italic and links. `IntelligenceMarkdown` in Mobile.Shared parses the text into
+blocks, following desktop's `MarkdownView`; `IntelligenceMarkdownView` in the
+head draws them as native labels and spans. No HTML is interpreted, nothing is
+executed, and Markdown image syntax shows only its description, so no image is
+fetched. No renderer library was added, so the Licences page is unchanged.
+
+Core's inline markers resolve through `IntelligenceInlineMarkup` against the
+turn's lookup evidence (and earlier turns of the same chat), so a chip shows the
+LibreNMS name and, where known, its status in words. A well-formed object marker
+whose id no lookup returned reads as Core's fallback ("Device 12") and links
+nowhere. A malformed marker stays literal text. Status colour follows
+Settings › Intelligence › Colour status indicators and always accompanies the words.
+
+Each verified device, alert or fault, sensor, group or location also appears as
+a 44pt chip beneath the answer. `IntelligenceAnswerActions` opens it through the
+existing pages: Device View, alert detail with the qualified key, the device's
+Sensors section, or Devices filtered by the evidence's exact group or location
+name, never the chip's display text. A group or location without that name stays
+plain text. It refuses a reference not in the turn's evidence, a mismatched or
+invalid target, and any turn from a previous connection. Destination pages handle a target that has
+since been deleted. Links open in the system browser only if Core's
+`WebSearchCitations.TryGetLink` accepts them (http or https, no user
+information) and the answer still contains them.
+
+Graph images and web citations arrive only with the ChatGPT route (#577), so
+their display is tested with recorded answers. `IntelligenceAnswer.Images`
+carries Core's `IntelligenceImage`; PNG and JPEG within Core's 2 MB limit, at
+most eight, show inline and enlarge in a modal view. An enlarged preview
+clears its image when its turn loses connection ownership and rechecks on
+return, so the modal cannot keep the previous network’s evidence visible. A model
+that cites sources hands its finished output items over unformatted in
+`IntelligenceAnswer.Output`, in the Responses `message` shape Core's own
+conversation reads. When the turn completes, `IntelligenceAnswer.ToMarkdown`
+joins their text as Core does, with Core's `WebSearchCitations.FormatMessage`
+turning each accepted citation into a visible Markdown link; the turn shows,
+copies and vets that Markdown. Answers without message output, including every
+on-device answer, keep `Text` unchanged. A recorded citation is tested through
+this model, conversation and renderer path. Saving images
+with a chat follows under #222 and #229. Copy answer copies the original
+Markdown, markers included.
+
+The on-device instructions now ask for Markdown and markers within the
+400-character budget. Golden tests cover a table with markers, malformed
+markers, safe and unsafe links, nested lists, quotes, code and a recorded
+citation. Device acceptance remains pending for layout, large text, VoiceOver,
+themes, sideways table scrolling, chip navigation and the image view.
+
+### Answer reports (#574)
+
+Each answer offers Report this answer, as App Store guidelines 1.2 and 4.7.1
+ask of generated content, and as Google Play's AI-generated content policy
+will ask once Android has Intelligence. Press and hold the answer bubble for a
+menu with Copy answer and Report this answer. VoiceOver offers Report this
+answer as a custom action on every part of the answer. The reasons are
+Offensive, Wrong or misleading, and Other. Only a finished, stopped or failed
+answer with text can be reported, never one still streaming.
+
+`IntelligenceAnswerReporter` (Mobile.Shared) captures the chosen turn, its exact
+question and answer and the chat revision before the reason sheet opens. It
+checks them again when a reason is chosen. A sign-out, connection change, new
+chat or changed text in the meantime discards the report and says that
+nothing was sent. `IntelligenceReportViewModel` drives the modal preview and
+keeps watching the chat while it is open. If ownership is lost, it clears the
+question and answer, disables sending and shows that the report was discarded.
+It checks once more just before handing anything over.
+
+The preview shows the recipient, the subject, the reason, and the question
+and answer in editable fields, with a reminder to remove device names and
+addresses. `IntelligenceReportFormat` builds both the preview and the email,
+so the email holds exactly this:
+
+```
+Reason: <reason>
+
+Question:
+<question as shown>
+
+Answer:
+<answer as shown, Markdown and markers included>
+```
+
+Nothing else goes in: no lookup results or evidence, other turns, server
+address, token, app or device identifiers, images or attachments. Line endings
+are normalised and control characters other than new lines and tabs are
+dropped. A body over 8,000 characters is never cut off. The person is asked to
+remove text instead.
+
+Open in email app hands the draft to `IEmailComposer`. In the head this is
+MAUI's email API: Mail's compose sheet on iOS, or a mailto intent on Android.
+The person reviews and sends the email there, so the app sends nothing itself
+and has no reporting backend. The address is `AppLinks.SupportEmail`
+(dashynms@pckp.net), the one already published on the support page and in the
+privacy policy. `mailto` is declared in `LSApplicationQueriesSchemes` and the
+Android `queries` element so availability can be checked. Without an email app
+the preview says so and offers Copy report, which copies the same recipient,
+subject and body. A composer failure says it couldn't open, without native
+details. The App Review notes under Releasing say where reporting is.
+
+Shared tests cover the exact body and draft, exclusion of evidence and other
+turns, redaction, cancelling the reason sheet, connection and new-chat changes
+while choosing and while previewing, running, empty and other-chat turns,
+stopped partial answers, unavailable and failing composers, the length bound
+and control-character cleaning. Device acceptance is pending. Check the long
+press on touch, the VoiceOver action, the preview at large text in both themes
+and with the keyboard, Mail's compose sheet, and the no-mail-account path.
 
 ## Upstream notes
 

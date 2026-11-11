@@ -1,0 +1,1 @@
+{"type":"message","role":"assistant","content":[{"type":"output_text","text":"LibreNMS 26.10 groups faults by rule.","annotations":[{"type":"url_citation","url":"https://docs.example.org/releases/26.10","title":"Release notes","start_index":0,"end_index":37},{"type":"url_citation","url":"javascript:alert(1)","title":"Unsafe","start_index":0,"end_index":8}]}]}

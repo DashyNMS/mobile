@@ -52,6 +52,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly DiagnosticsLog? _diagnostics;
     private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
+    private readonly Intelligence.IntelligenceChatStorage? _chats;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -80,8 +81,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
         SensorDefinitions? definitions = null,
         WhatsNew? whatsNew = null,
         DiagnosticsConsent? consent = null,
-        Unimus.UnimusSetup? unimus = null)
+        Unimus.UnimusSetup? unimus = null,
+        Intelligence.IIntelligenceModel? intelligence = null,
+        Intelligence.IntelligenceChatStorage? chats = null)
     {
+        _intelligence = intelligence;
+        _chats = chats;
         _unimus = unimus;
         _whatsNew = whatsNew;
         _consent = consent;
@@ -538,7 +543,24 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public bool CanChooseSharing => _consent?.IsAvailable == true;
 
     /// <summary>The Diagnostics card has something to show.</summary>
-    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing;
+    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing || CanCheckIntelligence;
+
+    private readonly Intelligence.IIntelligenceModel? _intelligence;
+
+    /// <summary>
+    /// The diagnostic check stays available alongside Intelligence settings
+    /// so model availability and measurements can be inspected on a device.
+    /// </summary>
+    public bool CanCheckIntelligence =>
+        _intelligence is not null && _intelligence.Availability != Intelligence.IntelligenceAvailability.Unsupported;
+
+    public bool CanConfigureIntelligence => CanCheckIntelligence;
+
+    [RelayCommand]
+    private Task OpenIntelligenceSettingsAsync() => _navigation.GoToAsync(Routes.IntelligenceSettings);
+
+    [RelayCommand]
+    private Task OpenIntelligenceCheckAsync() => _navigation.GoToAsync(Routes.IntelligenceCheck);
 
     /// <summary>Settings' Error reports switch (#216): on at once, and off deletes what's waiting to be sent.</summary>
     public bool ShareErrorReports
@@ -712,6 +734,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Called when the page shows, since the session may have changed since it was built.</summary>
     public void Refresh()
     {
+        OnPropertyChanged(nameof(CanConfigureIntelligence));
+        OnPropertyChanged(nameof(CanCheckIntelligence));
         OnPropertyChanged(nameof(ServerHost));
         OnPropertyChanged(nameof(ServerSummary));
         OnPropertyChanged(nameof(AppearanceSummary));
@@ -752,6 +776,23 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _bookmarks.Clear();
         _share?.ClearExports();
 
+        // Saved chats and their key, on either choice (#222): they're this
+        // server's conversations. Awaited, so a save still on its way is
+        // refused before the sign-in page appears. Before "forget everything"
+        // too, which leaves the storage's cleanup note alone, so a removal
+        // that fails here is still finished after a restart.
+        if (_chats is not null)
+        {
+            Intelligence.ChatWipeResult result;
+            while ((result = await _chats.WipeAsync()) != Intelligence.ChatWipeResult.Removed)
+            {
+                _diagnostics?.Note("Sign out", "Could not delete saved chats");
+                if (!await _dialogs.ConfirmAsync("Saved chats could not all be removed",
+                    result == Intelligence.ChatWipeResult.Retained ? ChatsRetainedMessage : ChatsRetainedUntilRestartMessage,
+                    "Retry cleanup", "Continue signing out")) break;
+            }
+        }
+
         if (choice == ForgetEverythingChoice)
         {
             ForgetEverything();
@@ -761,6 +802,18 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     internal const string SignOutChoice = "Sign out";
+
+    /// <summary>Saved chats outlived the wipe, but stay locked across restarts until they're gone (#222).</summary>
+    internal const string ChatsRetainedMessage =
+        "You are signed out, but saved chat files or their encryption key may remain on this phone. "
+        + "They stay locked, even after the app restarts, and removing them is tried again before saved chats are next used. "
+        + "Retry now, or continue signing out.";
+
+    /// <summary>As <see cref="ChatsRetainedMessage"/>, but the note keeping them locked couldn't be saved, so that's only until the app closes.</summary>
+    internal const string ChatsRetainedUntilRestartMessage =
+        "You are signed out, but saved chat files or their encryption key may remain on this phone, "
+        + "and the note to finish removing them couldn't be saved. They're locked only until the app closes: "
+        + "after a restart they could be readable again. Retry now, or continue signing out.";
 
     internal const string ForgetEverythingChoice = "Sign out and forget everything";
 

@@ -12,4 +12,11 @@ public static class AppLinks
     public static Uri Support { get; } = new("https://dashynms.pckp.net/mobile/support/");
 
     public static Uri Website { get; } = new("https://dashynms.pckp.net/mobile/");
+
+    /// <summary>
+    /// The contact address published on the <see cref="Support"/> page and in the
+    /// privacy policy. Intelligence answer reports (#574) go here rather than to
+    /// a DashyNMS service, so the app keeps no backend of its own.
+    /// </summary>
+    public const string SupportEmail = "dashynms@pckp.net";
 }
