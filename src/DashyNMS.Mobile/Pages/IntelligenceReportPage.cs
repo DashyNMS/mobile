@@ -10,7 +10,7 @@ namespace DashyNMS.Mobile.Pages;
 /// is sent from here. Like web sign-in it stacks a 44pt Cancel above a wrapping
 /// title and owns its own safe area, because it's a modal with no glass owner.
 /// </summary>
-public sealed class IntelligenceReportPage : ContentPage
+public sealed class IntelligenceReportPage : ContentPage, IPrivateChatSurface
 {
     private readonly IntelligenceReportViewModel _report;
     private readonly Editor _question = new() { AutoSize = EditorAutoSizeOption.TextChanges, MinimumHeightRequest = 48, BackgroundColor = Colors.Transparent };

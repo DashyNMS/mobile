@@ -95,8 +95,10 @@ public enum ChatWipeResult
 /// are never logged, as their messages can carry paths or data.
 /// </para>
 /// <para>
-/// History, autosave and the chat list are #229; single-chat privacy mode,
-/// which must skip this altogether, is #230. This is only where they keep chats.
+/// History, autosave and the chat list are #229. Single-chat mode (#230)
+/// never opens this for its chat, and Delete saved chats in Settings ›
+/// Intelligence uses the same <see cref="WipeAsync"/> as sign-out, with the
+/// same note and key handling. This is only where they keep chats.
 /// </para>
 /// </remarks>
 public sealed class IntelligenceChatStorage
@@ -321,7 +323,7 @@ public sealed class IntelligenceChatStorage
     }
 
     /// <summary>
-    /// Sign-out (#222, #139): stops every store opened so far, notes on disk
+    /// Sign-out (#222, #139) and Delete saved chats (#230): stops every store opened so far, notes on disk
     /// that cleanup is under way, removes the key, then the <c>chats</c>
     /// folder, then the note. Without the key, anything left can't be read;
     /// while the note is there, nothing opens until removal succeeds.
@@ -430,10 +432,10 @@ public sealed class IntelligenceChatStorage
     }
 
     private const string RetainedReason =
-        "Saved chats could not all be removed when you signed out. They stay locked, even after the app restarts, until removing them succeeds, which is tried again each time saved chats are opened.";
+        "Saved chats could not all be removed. They stay locked, even after the app restarts, until removing them succeeds, which is tried again each time saved chats are opened.";
 
     private const string RetainedUntilRestartReason =
-        "Saved chats could not all be removed when you signed out, and the note to finish removing them couldn't be saved. They're locked only until the app closes; after a restart they could be readable again. Removing them is tried again each time saved chats are opened.";
+        "Saved chats could not all be removed, and the note to finish removing them couldn't be saved. They're locked only until the app closes; after a restart they could be readable again. Removing them is tried again each time saved chats are opened.";
 
     /// <summary>
     /// Removes the key (checking a "false" against secure storage, as that also
@@ -651,9 +653,9 @@ public sealed class IntelligenceChatStorage
         Cause.KeyUnreadable => "Saved chats are unavailable: the phone's secure storage couldn't be read. Nothing is saved until it can be, and chats already saved are left as they are.",
         Cause.KeyUnwritable => "Saved chats are unavailable: their key couldn't be stored in the phone's secure storage, so nothing is saved.",
         Cause.KeyDamaged => "Saved chats are unavailable: their key in the phone's secure storage is damaged. Signing out clears it.",
-        Cause.CleanupPending => "Saved chats from an earlier sign-out haven't all been removed yet, so none are opened or saved. Removing them is tried again each time saved chats are opened, and signing out retries it too.",
+        Cause.CleanupPending => "Saved chats from an earlier sign-out or deletion haven't all been removed yet, so none are opened or saved. Removing them is tried again each time saved chats are opened, and signing out or deleting saved chats retries it too.",
         Cause.CleanupUnguarded => RetainedUntilRestartReason,
-        Cause.CleanupUnknown => "Saved chats are unavailable: the phone couldn't confirm that an earlier sign-out finished removing them, so none are opened or saved.",
+        Cause.CleanupUnknown => "Saved chats are unavailable: the phone couldn't confirm that an earlier sign-out or deletion finished removing them, so none are opened or saved.",
         _ => "Saved chats are unavailable: their folder couldn't be prepared and kept out of backups, so nothing is saved.",
     };
 

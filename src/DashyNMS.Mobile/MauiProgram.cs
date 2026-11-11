@@ -132,6 +132,13 @@ public static class MauiProgram
 			sp.GetRequiredService<TimeProvider>(),
 			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatListViewModel>>(),
 			action => MainThread.BeginInvokeOnMainThread(action)));
+		// Settings › Intelligence › Delete saved chats (#230) goes through the list,
+		// which owns the writer and the scope the deletion must move on.
+		builder.Services.AddSingleton<Intelligence.ISavedChatsDeletion>(sp =>
+			sp.GetRequiredService<Intelligence.IntelligenceChatListViewModel>());
+		// Single-chat mode keeps the chat out of the app switcher (#230).
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceSnapshotShield(
+			sp.GetRequiredService<Intelligence.IntelligencePreferences>(), PrivateChatSurfaces.OnScreen));
 
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();

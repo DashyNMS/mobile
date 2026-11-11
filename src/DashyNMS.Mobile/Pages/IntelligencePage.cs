@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 /// setup layout's keyboard and glass clearance.
 /// Streaming labels are coalesced to ten updates a second rather than relaid out per token.
 /// </summary>
-public sealed class IntelligencePage : ContentPage, IActivePage
+public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
 {
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly IntelligenceChatListViewModel _chats;
@@ -659,7 +659,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     /// An enlarged graph from the answer's own bytes: no network fetch. Close is a
     /// 44pt button inside the safe area; the dark backdrop runs edge to edge.
     /// </summary>
-    private sealed class ImagePreviewPage : ContentPage
+    private sealed class ImagePreviewPage : ContentPage, IPrivateChatSurface
     {
         private readonly IntelligenceConversationViewModel _conversation;
         private readonly IntelligenceTurn _turn;

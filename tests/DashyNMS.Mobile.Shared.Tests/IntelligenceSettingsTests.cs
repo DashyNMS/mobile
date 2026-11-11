@@ -227,4 +227,91 @@ public sealed class IntelligenceSettingsTests
         await _launcher.Received(1).TryOpenAppAsync(new Uri("app-settings:"));
         Assert.Contains("Apple Intelligence & Siri", _vm.ErrorMessage);
     }
+
+    [Fact]
+    public async Task Delete_saved_chats_asks_first_and_declining_deletes_nothing()
+    {
+        var chats = Substitute.For<ISavedChatsDeletion>();
+        var vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher, chats);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(false);
+
+        await vm.DeleteSavedChatsCommand.ExecuteAsync(null);
+
+        await _dialogs.Received(1).ConfirmDestructiveAsync(IntelligenceSettingsViewModel.DeleteChatsTitle,
+            IntelligenceSettingsViewModel.DeleteChatsMessage, IntelligenceSettingsViewModel.DeleteChatsAction);
+        await chats.DidNotReceive().DeleteSavedChatsAsync();
+        Assert.Equal("", vm.SavedChatsStatus);
+        Assert.True(vm.CanDeleteSavedChats);
+    }
+
+    [Fact]
+    public async Task Delete_saved_chats_reports_success_only_once_removal_is_complete()
+    {
+        var chats = Substitute.For<ISavedChatsDeletion>();
+        var vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher, chats);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        var removal = new TaskCompletionSource<ChatWipeResult>();
+        chats.DeleteSavedChatsAsync().Returns(removal.Task);
+
+        var deleting = vm.DeleteSavedChatsCommand.ExecuteAsync(null);
+        Assert.Equal(IntelligenceSettingsViewModel.DeletingText, vm.SavedChatsStatus);
+        Assert.False(vm.CanDeleteSavedChats);
+        Assert.False(vm.DeleteSavedChatsCommand.CanExecute(null));
+
+        removal.SetResult(ChatWipeResult.Removed);
+        await deleting;
+        Assert.Equal(IntelligenceSettingsViewModel.DeletedText, vm.SavedChatsStatus);
+        Assert.False(vm.SavedChatsFailed);
+        Assert.True(vm.CanDeleteSavedChats);
+        // Deleting is its own choice: the mode is untouched.
+        Assert.False(_values.IntelligenceSingleChatMode);
+    }
+
+    [Theory]
+    [InlineData(ChatWipeResult.Retained)]
+    [InlineData(ChatWipeResult.RetainedUntilRestart)]
+    public async Task A_partial_deletion_says_so_and_try_again_retries_until_it_succeeds(ChatWipeResult failure)
+    {
+        var chats = Substitute.For<ISavedChatsDeletion>();
+        var vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher, chats);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        chats.DeleteSavedChatsAsync().Returns(failure, ChatWipeResult.Removed);
+        var text = failure == ChatWipeResult.Retained
+            ? IntelligenceSettingsViewModel.NotDeletedText : IntelligenceSettingsViewModel.NotDeletedUntilRestartText;
+
+        await vm.DeleteSavedChatsCommand.ExecuteAsync(null);
+
+        await _dialogs.Received(1).ConfirmAsync(IntelligenceSettingsViewModel.NotDeletedTitle, text,
+            IntelligenceSettingsViewModel.TryAgainChoice, IntelligenceSettingsViewModel.NotNowChoice);
+        await chats.Received(2).DeleteSavedChatsAsync();
+        Assert.Equal(IntelligenceSettingsViewModel.DeletedText, vm.SavedChatsStatus);
+        Assert.False(vm.SavedChatsFailed);
+    }
+
+    [Fact]
+    public async Task Stopping_after_a_partial_deletion_leaves_the_failure_showing()
+    {
+        var chats = Substitute.For<ISavedChatsDeletion>();
+        var vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher, chats);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(false);
+        chats.DeleteSavedChatsAsync().Returns(ChatWipeResult.Retained);
+
+        await vm.DeleteSavedChatsCommand.ExecuteAsync(null);
+
+        await chats.Received(1).DeleteSavedChatsAsync();
+        Assert.Equal(IntelligenceSettingsViewModel.NotDeletedText, vm.SavedChatsStatus);
+        Assert.True(vm.SavedChatsFailed);
+        Assert.DoesNotContain("deleted.", vm.SavedChatsStatus);
+        Assert.True(vm.CanDeleteSavedChats);
+    }
+
+    [Fact]
+    public void Without_saved_chats_the_delete_action_is_not_offered()
+    {
+        Assert.False(_vm.HasSavedChats);
+        Assert.False(_vm.CanDeleteSavedChats);
+        Assert.False(_vm.DeleteSavedChatsCommand.CanExecute(null));
+    }
 }
