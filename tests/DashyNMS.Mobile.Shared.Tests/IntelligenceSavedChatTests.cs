@@ -1079,12 +1079,17 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         await app.Chats.LoadAsync();
         Assert.True(await app.Conversation.AskAsync("Saved question"));
         await app.Chats.SaveNowAsync();
-        holdUi = true;
         faults.FailSaves = true;
+        var held = faults.HoldNext();
         app.Conversation.Draft = "draft waiting for acknowledgement";
+        // Let the timer execute and queue the write before holding UI work.
         _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        holdUi = true;
+        held.Release.SetResult();
         await app.SettleAsync();
-        Assert.False(app.Chats.Active!.NeedsRetry);
+        Assert.Equal(ChatWriteResult.Failed, await app.Chats.Active!.LastSave!.Value.Saving);
+        Assert.False(app.Chats.Active.NeedsRetry);
         Assert.False(callbacks.IsEmpty);
         Assert.Equal("", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
 
