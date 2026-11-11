@@ -103,13 +103,19 @@ public static partial class IntelligenceMarkdown
             {
                 var alignments = Cells(lines[i + 1].Trim()).Select(Alignment).Take(MaxTableColumns).ToList();
                 var rows = new List<IReadOnlyList<IReadOnlyList<MarkdownSpan>>> { Row(trimmed, evidence) };
+                var truncated = Cells(trimmed).Count > MaxTableColumns || Cells(lines[i + 1]).Count > MaxTableColumns;
                 i += 2;
                 while (i < lines.Length && lines[i].Trim().StartsWith('|'))
                 {
+                    if (Cells(lines[i]).Count > MaxTableColumns) truncated = true;
                     if (rows.Count <= MaxTableRows) rows.Add(Row(lines[i].Trim(), evidence));
+                    else truncated = true;
                     i++;
                 }
                 blocks.Add(new MarkdownTableBlock(rows, alignments));
+                if (truncated)
+                    blocks.Add(new MarkdownTextBlock(MarkdownTextKind.Notes,
+                        [new MarkdownSpan("Table shortened: additional rows or columns were omitted. Copy the answer to read the complete table.")]));
                 continue;
             }
 

@@ -69,7 +69,7 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
 
     private View Block(MarkdownBlock block) => block switch
     {
-        MarkdownTextBlock { Kind: MarkdownTextKind.Heading } heading => Text(heading.Spans, heading.Level switch { 1 => 20, 2 => 18, _ => 16 }, bold: true),
+        MarkdownTextBlock { Kind: MarkdownTextKind.Heading } heading => Heading(heading),
         MarkdownTextBlock { Kind: MarkdownTextKind.Quote } quote => Barred(Text(quote.Spans, secondary: true), ThemePair("StrokeLight", "ChipStrokeDark")),
         MarkdownTextBlock { Kind: MarkdownTextKind.Recommendation } recommendation => Barred(Text(recommendation.Spans, prefix: "Recommendation. "), ThemePair("PrimaryTextLight", "PrimaryTextDark")),
         MarkdownTextBlock { Kind: MarkdownTextKind.Notes } notes => Notes(notes.Spans),
@@ -79,6 +79,18 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
         MarkdownCodeBlock code => Code(code.Text),
         _ => Line(new Thickness(0, 4)),
     };
+
+    private Label Heading(MarkdownTextBlock heading)
+    {
+        var label = Text(heading.Spans, heading.Level switch { 1 => 20, 2 => 18, _ => 16 }, bold: true);
+        SemanticProperties.SetHeadingLevel(label, heading.Level switch
+        {
+            1 => SemanticHeadingLevel.Level1,
+            2 => SemanticHeadingLevel.Level2,
+            _ => SemanticHeadingLevel.Level3,
+        });
+        return label;
+    }
 
     private Label Text(IReadOnlyList<MarkdownSpan> spans, double size = 15, bool bold = false, bool secondary = false, string? prefix = null)
     {

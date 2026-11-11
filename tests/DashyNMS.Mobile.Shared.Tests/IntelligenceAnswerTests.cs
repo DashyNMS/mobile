@@ -92,6 +92,23 @@ public sealed class IntelligenceAnswerTests
             Normalise(IntelligenceMarkdown.Describe(blocks)));
     }
 
+    [Theory]
+    [InlineData(101, 2)]
+    [InlineData(1, 13)]
+    public void Oversized_tables_disclose_omissions(int rows, int columns)
+    {
+        var header = "| " + string.Join(" | ", Enumerable.Range(0, columns).Select(i => "Column " + i)) + " |";
+        var separator = "| " + string.Join(" | ", Enumerable.Repeat("---", columns)) + " |";
+        var row = "| " + string.Join(" | ", Enumerable.Repeat("Cell", columns)) + " |";
+        var markdown = header + "\n" + separator + "\n" + string.Join("\n", Enumerable.Repeat(row, rows));
+        var blocks = IntelligenceMarkdown.Parse(markdown, Evidence);
+        var table = Assert.IsType<MarkdownTableBlock>(blocks[0]);
+        Assert.True(table.Columns <= 12);
+        Assert.True(table.Rows.Count <= 101);
+        var notice = Assert.IsType<MarkdownTextBlock>(blocks[1]);
+        Assert.Contains("omitted", string.Concat(notice.Spans.Select(span => span.Text)));
+    }
+
     [Fact]
     public void A_streaming_answer_with_an_unclosed_fence_still_parses()
     {
