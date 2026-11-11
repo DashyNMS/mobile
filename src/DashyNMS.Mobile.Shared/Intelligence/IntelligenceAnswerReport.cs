@@ -120,7 +120,7 @@ public sealed class IntelligenceAnswerReporter(
 /// </summary>
 public sealed class IntelligenceReportViewModel : ObservableObject
 {
-    public const string ExpiredMessage = "This chat is no longer available, so the report was discarded. Nothing was sent.";
+    public const string ExpiredMessage = "This chat is no longer available, so the report preview was discarded.";
 
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly IntelligenceReportSelection _selection;
@@ -166,7 +166,7 @@ public sealed class IntelligenceReportViewModel : ObservableObject
     public bool IsBusy { get => _busy; private set { if (SetProperty(ref _busy, value)) OnPropertyChanged(nameof(CanCompose)); } }
 
     private bool _opened;
-    /// <summary>The draft reached the email app; the person sends it from there.</summary>
+    /// <summary>The composer was invoked; dismissal does not tell us whether the person sent or cancelled.</summary>
     public bool IsOpened { get => _opened; private set => SetProperty(ref _opened, value); }
 
     private bool _canCopy;
@@ -243,15 +243,17 @@ public sealed class IntelligenceReportViewModel : ObservableObject
         try
         {
             await _email.ComposeAsync(new EmailDraft(To, Subject, Body));
+            if (!CheckOwnership()) return IntelligenceReportOutcome.Expired;
             IsOpened = true;
             CanCopy = false;
-            Status = "The report is in your email app. Nothing is sent until you send it there.";
+            Status = "The email composer was opened. This app cannot tell whether you sent or cancelled the report. You can open it again.";
             return IntelligenceReportOutcome.Opened;
         }
         catch (Exception)
         {
-            CanCopy = !IsExpired;
-            Status = IsExpired ? ExpiredMessage : $"Your email app couldn't open the report. Copy it and send it to {To} from another app.";
+            if (!CheckOwnership()) return IntelligenceReportOutcome.Expired;
+            CanCopy = true;
+            Status = $"Your email app couldn't open the report. Copy it and send it to {To} from another app.";
             return IntelligenceReportOutcome.Failed;
         }
         finally { IsBusy = false; }

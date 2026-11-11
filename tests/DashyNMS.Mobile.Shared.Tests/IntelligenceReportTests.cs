@@ -91,7 +91,7 @@ public sealed class IntelligenceReportTests
             "DashyNMS Intelligence answer report: Offensive",
             "Reason: Offensive\n\nQuestion:\nHow is the network?\n\nAnswer:\nAll good.\n"));
         Assert.True(report.IsOpened);
-        Assert.Contains("Nothing is sent until you send it there", report.Status);
+        Assert.Contains("cannot tell whether you sent or cancelled", report.Status);
     }
 
     [Fact]
@@ -269,6 +269,45 @@ public sealed class IntelligenceReportTests
         Assert.Contains("couldn't open the report", report.Status);
         Assert.DoesNotContain("native detail", report.Status);
         Assert.False(report.IsBusy);
+    }
+
+    [Fact]
+    public async Task Dismissing_the_composer_allows_the_same_report_to_be_opened_again()
+    {
+        var turn = await AnswerAsync("Question", "Answer");
+        Choose("Other");
+        var report = (await _reporter.ChooseReasonAsync(turn))!;
+
+        // MAUI returns normally for both Send and Cancel on iOS.
+        Assert.Equal(IntelligenceReportOutcome.Opened, await report.ComposeAsync());
+        Assert.True(report.CanCompose);
+        Assert.Contains("cannot tell whether you sent or cancelled", report.Status);
+        Assert.Equal(IntelligenceReportOutcome.Opened, await report.ComposeAsync());
+        await _email.Received(2).ComposeAsync(Arg.Any<EmailDraft>());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_chat_change_during_email_handoff_keeps_the_preview_expired(bool fails)
+    {
+        var turn = await AnswerAsync("Question", "Answer");
+        Choose("Other");
+        var report = (await _reporter.ChooseReasonAsync(turn))!;
+        var dismissal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _email.ComposeAsync(Arg.Any<EmailDraft>()).Returns(dismissal.Task);
+        var opening = report.ComposeAsync();
+        Assert.True(report.IsBusy);
+        ChangeConnection();
+        if (fails) dismissal.SetException(new InvalidOperationException("native detail"));
+        else dismissal.SetResult();
+
+        Assert.Equal(IntelligenceReportOutcome.Expired, await opening);
+        Assert.Equal(IntelligenceReportViewModel.ExpiredMessage, report.Status);
+        Assert.Equal("", report.Answer);
+        Assert.False(report.CanCompose);
+        Assert.False(report.CanCopy);
+        Assert.False(report.IsOpened);
     }
 
     [Fact]

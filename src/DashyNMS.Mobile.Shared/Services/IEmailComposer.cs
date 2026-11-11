@@ -13,6 +13,6 @@ public interface IEmailComposer
     /// <summary>False when the device has no email app or account that can take a draft.</summary>
     bool IsAvailable { get; }
 
-    /// <summary>Hands the draft to the email app. Throws when the platform refuses it.</summary>
+    /// <summary>Hands the draft to the email app. Throws when the platform refuses it. Completion does not distinguish sending from cancellation.</summary>
     Task ComposeAsync(EmailDraft draft);
 }

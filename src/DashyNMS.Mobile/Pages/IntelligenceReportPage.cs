@@ -105,7 +105,7 @@ public sealed class IntelligenceReportPage : ContentPage
             _question.Text = _answer.Text = "";
             _form.IsVisible = false;
         }
-        _open.IsEnabled = _report.CanCompose && !_report.IsOpened;
+        _open.IsEnabled = _report.CanCompose;
         _open.IsVisible = !_report.IsExpired;
         _copy.IsVisible = _report.CanCopy;
         _close.Text = _report.IsOpened || _report.IsExpired ? "Done" : "Cancel";

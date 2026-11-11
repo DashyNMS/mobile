@@ -31,7 +31,7 @@ public sealed class AccessibilityActions(View view, string name, Func<bool> perf
     {
 #if IOS
         if (View.Handler?.PlatformView is not UIKit.UIView root) return;
-        _action ??= new UIKit.UIAccessibilityCustomAction(Name, _ => Perform());
+        _action ??= new UIKit.UIAccessibilityCustomAction(Name, new Func<UIKit.UIAccessibilityCustomAction, bool>(_ => Perform()));
         Apply(root, _action, enabled);
 #endif
     }
