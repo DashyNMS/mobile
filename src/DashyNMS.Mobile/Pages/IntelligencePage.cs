@@ -1,5 +1,6 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
+using Microsoft.Maui.Controls.Shapes;
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Services;
@@ -25,9 +26,10 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private readonly VerticalStackLayout _starters = new() { Spacing = 8 };
     private readonly Label _notice = new();
     private readonly Button _jump = new ChatActionButton() { Text = "Jump to latest", MinimumHeightRequest = 44, IsVisible = false };
-    private readonly Editor _question = new() { Placeholder = "Ask about your network", HeightRequest = 96, AutoSize = EditorAutoSizeOption.Disabled };
+    private readonly Editor _question = new() { Placeholder = "Ask about your network…", MinimumHeightRequest = 48, MaximumHeightRequest = 140, AutoSize = EditorAutoSizeOption.TextChanges, BackgroundColor = Colors.Transparent };
     private readonly Picker _detail = new() { Title = "Answer detail", ItemsSource = new[] { "Brief", "Balanced", "Detailed" } };
-    private readonly Button _ask = new() { Text = "Ask", MinimumHeightRequest = 44 };
+    private readonly Button _ask = new() { Text = "↑", FontSize = 24, MinimumHeightRequest = 48, MinimumWidthRequest = 48, CornerRadius = 24, Padding = new Thickness(12, 4) };
+    private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center };
     private readonly IconButton _settings = new() { Icon = Icons.Maintenance, Kind = IconButtonKind.Plain };
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
@@ -54,6 +56,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         SemanticProperties.SetDescription(_detail, "Detail for the next answer");
         _detail.SelectedIndex = preferences.Detail switch { "brief" => 0, "detailed" => 2, _ => 1 };
         _notice.Style = ResourceStyle("Caption");
+        _notice.HorizontalOptions = LayoutOptions.Center;
         SemanticProperties.SetDescription(_new, "New chat");
         SemanticProperties.SetDescription(_settings, "Intelligence settings");
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
@@ -67,7 +70,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _jump.IsVisible = !_following && _conversation.Turns.Count > 0;
         };
         _transcript.SizeChanged += (_, _) => { if (_following) _scrollPending = true; };
-        _scroll.SizeChanged += (_, _) => { if (_following) _scrollPending = true; };
+        _scroll.SizeChanged += (_, _) => { PlaceConversation(); if (_following) _scrollPending = true; };
         _jump.Clicked += (_, _) => { _following = true; _scrollPending = true; Flush(); };
         _ask.Clicked += async (_, _) =>
         {
@@ -75,13 +78,37 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             else await AskAsync();
         };
         _question.TextChanged += (_, _) => UpdateControls();
-        var composer = new VerticalStackLayout { SafeAreaEdges = SafeAreaEdges.None, Spacing = 4, Padding = new Thickness(0, 8, 0, 0) };
-        composer.Children.Add(_detail);
-        composer.Children.Add(_question);
-        composer.Children.Add(_ask);
+        _transcript.HorizontalOptions = LayoutOptions.Center;
+        _composer.SetAppThemeColor(BackgroundColorProperty, ThemeColour("SurfaceLight"), ThemeColour("SurfaceAltDark"));
+        var composerStroke = new SolidColorBrush();
+        composerStroke.SetAppThemeColor(SolidColorBrush.ColorProperty, ThemeColour("StrokeLight"), ThemeColour("StrokeDark"));
+        _composer.Stroke = composerStroke;
+        _detail.BackgroundColor = Colors.Transparent;
+        _detail.MinimumHeightRequest = 44;
+        _detail.MaximumWidthRequest = 180;
+        _detail.HorizontalOptions = LayoutOptions.Start;
+        var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
+        composer.Add(_question, 0, 0);
+        var choices = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
+        choices.Add(_detail, 0, 0);
+        choices.Add(_ask, 1, 0);
+        composer.Add(choices, 0, 1);
+        _composer.Content = composer;
+        _composer.Margin = new Thickness(0, 8, 0, 0);
         var body = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
         body.Add(_notice, 0, 0);
-        body.Add(_scroll, 0, 1);
+        var atmosphere = new Grid { IsClippedToBounds = true, SafeAreaEdges = SafeAreaEdges.None };
+        // A static soft accent wash gives desktop's ambient identity without motion
+        // or another animation timer on the phone.
+        var glow = new RadialGradientBrush { Center = new Point(.35, .35), Radius = .85 };
+        var glowStart = new GradientStop { Offset = 0 };
+        glowStart.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#183B82F6"), Color.FromArgb("#203B82F6"));
+        var glowEnd = new GradientStop { Offset = 1 };
+        glowEnd.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#003B82F6"), Color.FromArgb("#003B82F6"));
+        glow.GradientStops = [glowStart, glowEnd];
+        atmosphere.Add(new Border { Background = glow, StrokeThickness = 0, InputTransparent = true });
+        atmosphere.Add(_scroll);
+        body.Add(atmosphere, 0, 1);
         body.Add(_jump, 0, 2);
         var start = new GradientStop { Offset = 0 };
         start.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#F4F6F9"), Color.FromArgb("#11141A"));
@@ -92,7 +119,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             HeightRequest = 20, VerticalOptions = LayoutOptions.Start, StrokeThickness = 0, InputTransparent = true,
             Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [start, end] },
         }, 0, 1);
-        var setup = new SetupLayout { Header = _header, Body = body, PrimaryAction = composer };
+        var setup = new SetupLayout { Header = _header, Body = body, PrimaryAction = _composer };
         Content = setup;
         _placement = new SetupPageLayout(this, setup, _header, _scroll) { ShowActions = ShowActions };
         _timer = Dispatcher.CreateTimer();
@@ -122,6 +149,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _placement.Activate();
         UpdateControls();
         ShowActions();
+        PlaceConversation();
     }
 
     protected override void OnDisappearing()
@@ -176,6 +204,18 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         var card = new TurnCard(turn, this);
         _cards.Add(card);
         _transcript.Children.Add(card);
+        if (_scroll.Width > 0) card.Place(Math.Min(860, _scroll.Width));
+    }
+
+    /// <summary>Use the measured, already guttered viewport for one readable column on any display.</summary>
+    private void PlaceConversation()
+    {
+        if (!_showing || Shell.Current?.CurrentPage != this || _scroll.Width <= 0) return;
+        var width = Math.Min(860, _scroll.Width);
+        _transcript.WidthRequest = width;
+        _notice.WidthRequest = width;
+        _composer.WidthRequest = width;
+        foreach (var card in _cards) card.Place(width);
     }
 
     private void UpdateControls()
@@ -188,7 +228,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _scrollPending = true;
         }
         _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
-        _ask.Text = _conversation.IsRunning ? "Stop" : "Ask";
+        _ask.Text = _conversation.IsRunning ? "■" : "↑";
+        SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
@@ -270,6 +311,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
 #endif
     }
 
+    private static Color ThemeColour(string key) => (Color)Application.Current!.Resources[key];
+
     private static Style ResourceStyle(string key) => (Style)Application.Current!.Resources[key];
 
     /// <summary>Keep disabled secondary actions readable in either theme.</summary>
@@ -296,15 +339,18 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     }
 
     /// <summary>Plain text is never parsed as HTML. Each retained attempt owns its subscriptions while visible.</summary>
-    private sealed class TurnCard : Border, IDisposable
+    private sealed class TurnCard : VerticalStackLayout, IDisposable
     {
         private readonly IntelligenceTurn _turn;
         private readonly IntelligencePage _page;
+        private readonly Border _questionBubble;
+        private readonly Button _activity = new ChatActionButton { MinimumHeightRequest = 44, CornerRadius = 18, HorizontalOptions = LayoutOptions.Start };
+        private bool _activityExpanded;
         private readonly Label _answer = new() { LineBreakMode = LineBreakMode.WordWrap };
         private readonly Label _state = new();
         private readonly Label _evidence = new();
         private readonly Label _omitted = new() { Text = "Earlier turns were left out of this answer's context." };
-        private readonly Button _copy = new ChatActionButton() { Text = "Copy answer" };
+        private readonly Button _copy = new ChatActionButton() { Text = "Copy" };
         private readonly Button _retry = new ChatActionButton() { Text = "Retry" };
         private readonly Button _edit = new ChatActionButton() { Text = "Edit question" };
         private bool _dirty = true;
@@ -314,26 +360,44 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         {
             _turn = turn;
             _page = page;
-            Style = IntelligencePage.ResourceStyle("Card");
+            Spacing = 12;
+            var question = new Label { Text = turn.Question, LineBreakMode = LineBreakMode.WordWrap };
+            SemanticProperties.SetDescription(question, "You. " + turn.Question);
+            _questionBubble = new Border
+            {
+                Content = question, Padding = new Thickness(14, 10), StrokeThickness = 0,
+                StrokeShape = new RoundRectangle { CornerRadius = 16 }, HorizontalOptions = LayoutOptions.End,
+            };
+            _questionBubble.SetAppThemeColor(BackgroundColorProperty, ThemeColour("SurfaceAltLight"), ThemeColour("SurfaceAltDark"));
+            Children.Add(_questionBubble);
             var content = new VerticalStackLayout { Spacing = 8 };
-            var question = new Label { Text = turn.Question, FontFamily = "BodySemibold", LineBreakMode = LineBreakMode.WordWrap };
-            SemanticProperties.SetHeadingLevel(question, SemanticHeadingLevel.Level2);
-            content.Children.Add(question);
-            content.Children.Add(_answer);
-            _state.Style = _evidence.Style = _omitted.Style = IntelligencePage.ResourceStyle("Caption");
+            content.Children.Add(new Label { Text = "Intelligence", Style = ResourceStyle("Caption"), FontFamily = "BodySemibold" });
+            _activity.Clicked += (_, _) => { _activityExpanded = !_activityExpanded; _dirty = true; Render(); };
+            content.Children.Add(_activity);
             content.Children.Add(_evidence);
+            content.Children.Add(_answer);
+            _state.Style = _evidence.Style = _omitted.Style = ResourceStyle("Caption");
             content.Children.Add(_omitted);
             content.Children.Add(_state);
-            // Wrapping actions remain at least 44pt and do not force a phone-wide row.
             var actions = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
             foreach (var button in new[] { _copy, _retry, _edit })
             {
+                button.Style = ResourceStyle("LinkButton");
                 button.MinimumHeightRequest = 44;
                 button.Margin = new Thickness(0, 0, 8, 0);
                 actions.Children.Add(button);
             }
             content.Children.Add(actions);
-            Content = content;
+            var reply = new Border
+            {
+                Content = content, Padding = 14, StrokeThickness = 1,
+                StrokeShape = new RoundRectangle { CornerRadius = 14 }, Margin = new Thickness(0, 0, 0, 12),
+            };
+            reply.SetAppThemeColor(BackgroundColorProperty, Color.FromArgb("#ECF3FC"), Color.FromArgb("#0A1526"));
+            var replyStroke = new SolidColorBrush();
+            replyStroke.SetAppThemeColor(SolidColorBrush.ColorProperty, Color.FromArgb("#CCDDF1"), Color.FromArgb("#20334B"));
+            reply.Stroke = replyStroke;
+            Children.Add(reply);
             SemanticProperties.SetDescription(_copy, "Copy answer to: " + turn.Question);
             SemanticProperties.SetDescription(_retry, "Retry: " + turn.Question);
             SemanticProperties.SetDescription(_edit, "Edit question: " + turn.Question);
@@ -350,6 +414,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         }
 
         internal IntelligenceTurn Turn => _turn;
+        internal void Place(double width) => _questionBubble.MaximumWidthRequest = Math.Min(560, width * .85);
         internal void Resume()
         {
             _turn.PropertyChanged -= OnChanged;
@@ -374,7 +439,17 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _answer.Text = _turn.Answer;
             _state.Text = _turn.State == IntelligenceTurnState.Running ? "Answering…" : _turn.Message;
             _evidence.Text = string.Join("\n", _turn.Lookups.Select(lookup => $"{LookupName(lookup.Name)}: {lookup.State switch { IntelligenceLookupState.Completed => "✓ Completed", IntelligenceLookupState.Failed => "⚠ Failed", IntelligenceLookupState.Stopped => "Stopped", _ => "Looking up…" }}"));
-            _evidence.IsVisible = _turn.Lookups.Count > 0;
+            var count = _turn.Lookups.Count;
+            var working = _turn.Lookups.Any(lookup => lookup.State == IntelligenceLookupState.Running);
+            var failed = _turn.Lookups.Any(lookup => lookup.State == IntelligenceLookupState.Failed);
+            var stopped = _turn.Lookups.Any(lookup => lookup.State == IntelligenceLookupState.Stopped);
+            _activity.IsVisible = count > 0;
+            var outcome = working ? "Looking up…" : failed ? "Warning" : stopped ? "Stopped" : "Done";
+            _activity.Text = $"{count} {(count == 1 ? "lookup" : "lookups")} · {outcome} {(_activityExpanded ? "▴" : "▾")}";
+            SemanticProperties.SetDescription(_activity, $"{(_activityExpanded ? "Hide" : "Show")} lookup details. {count} {(count == 1 ? "lookup" : "lookups")}. {outcome}");
+            _evidence.IsVisible = count > 0 && _activityExpanded;
+            // The activity summary already conveys success. Keep exceptional outcomes explicit.
+            _state.IsVisible = _turn.State != IntelligenceTurnState.Completed || _turn.Message != "Completed";
             _omitted.IsVisible = _turn.HistoryOmitted;
             UpdateActions();
         }

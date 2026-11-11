@@ -211,6 +211,28 @@ A card scans a list and does not audit one port. Show one card per row, and two 
 - Settings rows are at least 60pt, wrap, and use one native button over the measured row with a joined description. Navigation rows have a chevron and non-navigating rows have none. Use the plain input-transparent `Divider` between visible neighbours, since `RowLine` carries a negative margin. Only the hostname character-wraps. Component versions are read-only stacks of name, full version and state. Service summaries show only the parsed host name, and On or Off means saved enablement, not connectivity. Say which children use drafts (Services, Health thresholds).
 - More is a single full-width catalogue with four groups in enum order, quiet headings and hairline rows. Only Health, Map, Network map, Neighbours and Graylog show a summary. Each row has an Open button (wrapping, 48pt minimum) and a separate 44x44 Pin button, with no parent gesture. Pin is an outlined muted shape when unpinned and a filled PrimaryText shape when pinned, with round caps and press and focus feedback. Its name states target, membership and action. State capacity once above the list. A full bar keeps the pin operable and explains how to make room. The bar has three slots, defaulting to Devices, Alerts and Health. Pins save immediately in enum order, and a caption says so. Pinned pages select their tab, unpinned push a relative route, and pinning never navigates. Where SourceGen cannot convert an `x:Static` string to `Path.Data`, inline the path geometry with a provenance comment.
 
+### Intelligence chat
+
+- More-pushed and pinned routes share the setup layout's header, finite
+  transcript viewport and fixed composer. Its measured keyboard/glass gap
+  has one owner in `SetupPageLayout`. Keep retained-page activation and
+  connection ownership guards.
+- Centre transcript, notice and composer in a column capped at 860pt. User
+  messages are compact right-aligned bubbles capped at 560pt and 85% of the
+  column; assistant replies use their own themed bubble on the left, separate
+  from the question. The themed accent backdrop is decorative, static and input-transparent.
+- The rounded composer contains a 48 to 140pt growing field, compact native
+  detail picker and one primary Send/Stop control with explicit accessible
+  names and at least a 48pt target. Native text scrolling must keep the caret
+  reachable at the height cap; verify this on device at maximum text size.
+- Lookup activity has a 44pt expandable summary with a name saying Show or
+  Hide and the outcome. Success needs no second Completed line. Warnings,
+  stopped/interrupted states and Retry/Edit remain visible. Copy is a quiet
+  44pt action. Plain answer text and numeric entity naming remain #228 work.
+- Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
+  until the user accepts the installed appearance, keyboard, themes, text
+  sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.
+
 ### Logs, Graylog and details
 
 - Logs and Graylog share one structure. The page has a fixed header and search, a horizontal strip of native 44pt choices in a full-width outer clip, fixed summary and status rows, then the finite virtualised list card. `CollectionView.Header` keeps only the 20pt fade spacer. A fixed device scope is a read-only wrapping label. Network scope keeps separate change and clear choices. Clear filters is the summary's 44pt link.

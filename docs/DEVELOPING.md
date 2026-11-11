@@ -945,6 +945,17 @@ questions fill the field without submitting. Labels display plain text and
 streaming updates are coalesced at 100ms intervals. Scrolling follows while
 within 64pt of the end, otherwise Jump to latest restores following.
 
+The presentation follows desktop's Sparkle navigation identity and separates
+right-aligned user bubbles from left-aligned assistant answer bubbles. Both
+transcript and composer use the measured viewport width, capped at 860pt; user bubbles
+cap at 560pt and 85% of the column. A static themed accent wash provides an
+ambient backdrop without animation. The composer is one rounded surface
+with a 48 to 140pt auto-growing input, compact detail choice and an accessible
+Send control that becomes Stop while running. Lookup activity folds behind
+an expandable summary. Successful answers omit the redundant Completed
+line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
+44pt action. Installed-device visual acceptance remains pending under #227.
+
 The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
 may be cached and asks readers to check readings and their age in LibreNMS.
