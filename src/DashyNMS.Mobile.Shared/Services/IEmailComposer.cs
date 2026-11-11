@@ -4,7 +4,8 @@ namespace DashyNMS.Mobile.Services;
 public sealed record EmailDraft(string To, string Subject, string Body)
 {
     /// <summary>Encodes each component separately so report text cannot add recipients or URI parameters.</summary>
-    public Uri ToMailtoUri() => new("mailto:" + Uri.EscapeDataString(To)
+    // System.Uri parses mailto addresses and requires the recipient separator literally.
+    public Uri ToMailtoUri() => new("mailto:" + Uri.EscapeDataString(To).Replace("%40", "@", StringComparison.Ordinal)
         + "?subject=" + Uri.EscapeDataString(Subject) + "&body=" + Uri.EscapeDataString(Body));
 }
 

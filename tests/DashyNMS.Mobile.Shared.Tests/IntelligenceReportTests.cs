@@ -344,7 +344,7 @@ public sealed class IntelligenceReportTests
         var draft = new EmailDraft("support@example.net", "Question &bcc=other@example.net",
             "Line one\nUnicode: café? # &body=extra %20");
         var uri = draft.ToMailtoUri().OriginalString;
-        Assert.StartsWith("mailto:support%40example.net?subject=", uri);
+        Assert.StartsWith("mailto:support@example.net?subject=", uri);
         var fields = uri[(uri.IndexOf('?') + 1)..].Split('&');
         Assert.Equal(2, fields.Length);
         Assert.Equal(draft.Subject, Uri.UnescapeDataString(fields[0]["subject=".Length..]));
