@@ -187,7 +187,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
             : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
             : "Answers can be wrong. Lookups may use cached data; check readings and their age in LibreNMS.";
-        ((Command)_new.Command).ChangeCanExecute();
+        (_new.Command as Command)?.ChangeCanExecute();
         foreach (var card in _cards) card.UpdateActions();
     }
 
