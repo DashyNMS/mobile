@@ -866,6 +866,8 @@ The on-device detail choices are Brief, Balanced and Detailed. Legacy
 styles are normalised, and Full reads as Detailed without changing the
 stored value until the person chooses. The single-chat setting is in place;
 chat-history behaviour follows in #230. The chat entry follows in #227.
+The diagnostic check also requires the mobile opt-in gate before reading
+LibreNMS or starting a model session; availability remains visible while off.
 
 Persistence requires Core's `ICheckedSettingsStore.TrySave()` acknowledgement
 from package `2.0.0-ci.64` or later. A best-effort-only store cannot report a
