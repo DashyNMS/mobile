@@ -14,6 +14,9 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
 {
     public string Question { get; } = question;
     public string Detail { get; } = detail;
+
+    /// <summary>When it was asked; a saved chat (#229) keeps it, so a reopened chat shows its own times.</summary>
+    public DateTimeOffset AskedAt { get; internal init; } = DateTimeOffset.UtcNow;
     private string _answer = "";
     public string Answer { get => _answer; internal set => SetProperty(ref _answer, value); }
     private string _message = "";
@@ -107,6 +110,21 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     private string _notice = "";
     public string Notice { get => _notice; private set => SetProperty(ref _notice, value); }
     public ObservableCollection<IntelligenceTurn> Turns { get; } = [];
+
+    private string _draft = "";
+    /// <summary>
+    /// The composer's unsent text. Kept here, not only in the page, so a saved
+    /// chat (#229) reopens with it and a connection change clears it with the turns.
+    /// </summary>
+    public string Draft { get => _draft; set => SetProperty(ref _draft, value ?? ""); }
+
+    private string? _selectedDetail;
+    /// <summary>The detail chosen for the next answer, or null for the saved default; a saved chat keeps it.</summary>
+    public string SelectedDetail
+    {
+        get => _selectedDetail ?? _preferences.Detail;
+        set => SetProperty(ref _selectedDetail, NormaliseDetail(value));
+    }
     public bool IsRunning => Volatile.Read(ref _active) is not null;
     /// <summary>False immediately at a connection transition, before queued UI cleanup runs.</summary>
     public bool IsTranscriptCurrent => _chatGeneration == Volatile.Read(ref _networkGeneration);
@@ -159,9 +177,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             if (generation != Volatile.Read(ref _networkGeneration)) return;
             // Retention across page departure is useful, but another authenticated
             // connection must never inherit the previous connection's network data.
-            Turns.Clear();
-            _chatGeneration = generation;
+            // The revision moves first: a saved chat bound to the old one (#229)
+            // must never see the cleared transcript as an edit to save.
             ChatRevision++;
+            Turns.Clear();
+            Draft = "";
+            _selectedDetail = null;
+            OnPropertyChanged(nameof(SelectedDetail));
+            _chatGeneration = generation;
             OnPropertyChanged(nameof(ChatRevision));
             Notice = _session.Connection is null ? "Signed out. The previous chat was cleared."
                 : "The connection changed. The previous chat was cleared.";
@@ -230,8 +253,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         if (connection is null) return false;
         var generation = Volatile.Read(ref _networkGeneration);
         if (_chatGeneration != generation) { Notice = "The connection changed. Wait for the previous chat to clear."; return false; }
-        var chosenDetail = IntelligenceDetail.Normalize(detail ?? _preferences.Detail);
-        if (chosenDetail == IntelligenceDetail.Full) chosenDetail = IntelligenceDetail.Detailed;
+        var chosenDetail = NormaliseDetail(detail ?? SelectedDetail);
         var turn = new IntelligenceTurn(question, chosenDetail);
         // Earlier answers in this chat (the same connection) may mention objects
         // their lookups returned; the history the model sees can repeat those markers.
@@ -410,15 +432,38 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
 
     public Task<bool> RetryAsync(IntelligenceTurn turn) => OwnsTurn(turn) ? AskAsync(turn.Question, turn.Detail) : Task.FromResult(false);
     public string EditQuestion(IntelligenceTurn turn) => OwnsTurn(turn) ? turn.Question : "";
-    public bool NewChat()
+    public bool NewChat() => Replace([], "", null);
+
+    /// <summary>
+    /// Shows a saved chat (#229) in place of the current transcript, as a new
+    /// revision. Refused while an answer runs or a connection change is clearing
+    /// the transcript, so a reopened chat can't land under another connection.
+    /// </summary>
+    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail) =>
+        Replace(turns, draft, detail is null ? null : NormaliseDetail(detail));
+
+    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail)
     {
         if (IsRunning || !IsTranscriptCurrent) return false;
-        Turns.Clear();
-        Notice = "";
+        // The revision moves before the turns change, so anything bound to the
+        // previous transcript sees a different chat, never an emptied one.
         ChatRevision++;
+        Turns.Clear();
+        foreach (var turn in turns) Turns.Add(turn);
+        Notice = "";
+        Draft = draft;
+        _selectedDetail = detail;
+        OnPropertyChanged(nameof(SelectedDetail));
         OnPropertyChanged(nameof(ChatRevision));
         Notify();
         return true;
+    }
+
+    /// <summary>Full is desktop's; the phone's model answers at most Detailed.</summary>
+    private static string NormaliseDetail(string? detail)
+    {
+        var normalised = IntelligenceDetail.Normalize(detail);
+        return normalised == IntelligenceDetail.Full ? IntelligenceDetail.Detailed : normalised;
     }
 
     /// <summary>The host can request a short background task and await interruption before suspension.</summary>

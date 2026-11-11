@@ -16,16 +16,18 @@ public partial class App : Application
 	private readonly Diagnostics.MemoryMonitor _memory;
 	private readonly Diagnostics.SessionHealth _sessions;
 	private readonly Intelligence.IntelligenceConversationViewModel _intelligence;
+	private readonly Intelligence.IntelligenceChatListViewModel _chats;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
 		Services.WhatsNew whatsNew, Diagnostics.DiagnosticsReporter errors, Diagnostics.AppMetrics metrics,
 		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport,
 		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions,
-		Intelligence.IntelligenceConversationViewModel intelligence)
+		Intelligence.IntelligenceConversationViewModel intelligence, Intelligence.IntelligenceChatListViewModel chats)
 	{
 		InitializeComponent();
 		_intelligence = intelligence;
+		_chats = chats;
 
 		// Errors, memory, the network and the theme; settings changes and slow pages (#126).
 		SystemWatch.Start(this, diagnostics, errors);
@@ -145,10 +147,13 @@ public partial class App : Application
 		return window;
 	}
 
-	/// <summary>Give cancellation a short iOS reservation before suspension; never log model content.</summary>
+	/// <summary>
+	/// Give cancellation and the saved chat (#229) a short iOS reservation before
+	/// suspension: an answer still running is interrupted, then the chat - with its
+	/// partial answer marked Interrupted - is queued and written. Never logs model content.
+	/// </summary>
 	private async Task InterruptIntelligenceAsync()
 	{
-		if (!_intelligence.IsRunning) return;
 #if IOS
 		var application = UIKit.UIApplication.SharedApplication;
 		var identifier = UIKit.UIApplication.BackgroundTaskInvalid;
@@ -163,19 +168,37 @@ public partial class App : Application
 		var interruptionRequested = false;
 		try
 		{
+			try
+			{
 #if IOS
-			await MainThread.InvokeOnMainThreadAsync(() =>
-				identifier = application.BeginBackgroundTask("Interrupt Intelligence", () =>
-					MainThread.BeginInvokeOnMainThread(EndReservation)));
+				await MainThread.InvokeOnMainThreadAsync(() =>
+					identifier = application.BeginBackgroundTask("Save Intelligence chat", () =>
+						MainThread.BeginInvokeOnMainThread(EndReservation)));
 #endif
-			interruptionRequested = true;
-			await _intelligence.InterruptAsync().WaitAsync(TimeSpan.FromSeconds(4));
-		}
-		catch
-		{
-			// Cancellation is requested once. A late expiration/timeout must
-			// not interrupt a newer answer after the app has resumed.
-			if (!interruptionRequested) _intelligence.Interrupt();
+				if (_intelligence.IsRunning)
+				{
+					interruptionRequested = true;
+					await _intelligence.InterruptAsync().WaitAsync(TimeSpan.FromSeconds(4));
+				}
+			}
+			catch
+			{
+				// Cancellation is requested once. A late expiration/timeout must
+				// not interrupt a newer answer after the app has resumed.
+				if (!interruptionRequested) _intelligence.Interrupt();
+			}
+
+			try
+			{
+				// Captured on the main thread, written off it. A write still
+				// going when this gives up carries on; the streaming saves
+				// already on disk are what a forced quit leaves.
+				await _chats.SaveNowAsync().WaitAsync(TimeSpan.FromSeconds(4));
+			}
+			catch
+			{
+				// The writer reports its own failures to the chat list.
+			}
 		}
 		finally
 		{

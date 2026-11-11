@@ -251,6 +251,18 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   fixed Open in email app action. Copy report appears only when no email app
   can take the draft. If the chat changes, the preview clears its text and
   Cancel becomes Done. Device acceptance is pending.
+- Saved chats (#229) open from a list button beside New chat (glass on
+  iOS 26+, header elsewhere) in a modal sheet. Like the report preview, it has a 44pt Done
+  above a wrapping "Chats" title, says chats are saved on this phone for the
+  signed-in server, shows any status (unreadable files, unavailable key store,
+  single-chat mode) and offers New chat. Chats are grouped under Core's activity
+  headings (Pinned, Today, Yesterday…). Each row is at least 56pt with title and
+  when, and taps to open. Swiping right reveals Pin or Unpin; swiping left
+  reveals Rename and Delete. A long press opens the same actions as a menu, and
+  VoiceOver offers Pin or Unpin, Rename and Delete as custom actions. Delete
+  always confirms. The open chat is tinted and read as "Open now". With saving
+  on, New chat starts at once; it asks first only when the chat isn't being
+  saved. Device acceptance is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
   sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.
@@ -359,5 +371,7 @@ These device checks remain open. Confirm each on a device, then fold any result 
 - Sensors, readings: check temperature, dBm, signal, fan and custom sensors with positive and negative values, null, NaN and infinite readings, and known, unresolved and label-only states. Unknown, missing and unassessed values stay neutral.
 - Map, cold launch and refresh: open the pinned and More-pushed Map, return from device detail and from Show in Devices, switch tabs, resume, rotate and fold repeatedly. Exercise an empty server, all devices unlocated, a mix of located and unlocated, a failed first load, and a failed refresh followed by Refresh. The old map must survive a failed refresh, and there must be one glass owner and no placement loop diagnostics.
 - Map, selection and tiles: select a pin or chooser location and check that it centres above the card and closing does not flash. Check merged pins, identical coordinates, long location and device names, the last device row, VoiceOver and TalkBack chooser operation, default and custom HTTP(S) tile settings, external attribution navigation and Reduce Motion.
+
+- Intelligence saved chats (#229): open the sheet from glass and header, open, pin, rename and delete chats by swipe, long press and VoiceOver, and check the sheet at maximum text and in both themes. End the app mid-answer and relaunch: the question and partial answer return marked Interrupted. Check that a long chat streams without stutter while saving, and that a second server and a fresh sign-in list none of the first's chats.
 
 Record each of these separately as passed, failed or unavailable against the build and device tested. An earlier code review or CI result is not device acceptance.

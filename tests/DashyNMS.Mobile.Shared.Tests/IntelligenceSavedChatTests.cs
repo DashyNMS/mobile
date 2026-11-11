@@ -1,0 +1,691 @@
+using DashyNMS.Mobile.Intelligence;
+using DashyNMS.Mobile.Services;
+using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Intelligence;
+using DesktopNMS.Services;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Time.Testing;
+
+namespace DashyNMS.Mobile.Tests;
+
+/// <summary>
+/// Saved chats to reopen, rename, pin and delete (#229), over the real encrypted
+/// storage (#222). Each "app start" makes a new storage, conversation and list
+/// over the same folder and keychain. Every name, address and line here is synthetic.
+/// </summary>
+public sealed class IntelligenceSavedChatTests : IDisposable
+{
+    private static readonly LibreNmsConnection ServerA = new(new Uri("https://nms-a.example.net/"), "token-a");
+    private static readonly LibreNmsConnection ServerB = new(new Uri("https://nms-b.example.net/"), "token-b");
+
+    // A Wednesday, so this week, last week and earlier this month are distinct.
+    private static readonly DateTimeOffset Now = new(2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+    private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3];
+
+    private static readonly IntelligenceInlineReference Device =
+        new("device:7", "sw-zz-01", "up", "up", Now, "Switch") { Object = new IntelligenceObjectReference("device", 7) };
+
+    private static readonly IntelligenceInlineReference Group =
+        new("group:3", "Core switches", "", "", Now, "") { Object = new IntelligenceObjectReference("group", 3) };
+
+    private const string GroupFilter = "Core  switches / exact";
+
+    private readonly string _root = Path.Combine(Path.GetTempPath(), $"dashynms-saved-chats-{Guid.NewGuid():N}");
+    private readonly ChatKeyStorage _keys = new();
+    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
+    private readonly FakeTimeProvider _time = new(Now);
+    private readonly AppSettings _settings = new();
+    private readonly IntelligencePreferences _preferences;
+    private readonly Model _model = new();
+    private readonly List<IDisposable> _open = [];
+    private readonly List<App> _apps = [];
+
+    public IntelligenceSavedChatTests()
+    {
+        _time.SetLocalTimeZone(TimeZoneInfo.Utc);
+        var store = Substitute.For<ICheckedSettingsStore>();
+        store.Current.Returns(_settings);
+        store.TrySave().Returns(true);
+        var preferences = new InMemoryPreferences();
+        preferences.Set(IntelligencePreferences.NoticeKey, "accepted");
+        _preferences = new IntelligencePreferences(store, preferences);
+        _session.Connection.Returns(ServerA);
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+    }
+
+    public void Dispose()
+    {
+        // Writes still going would race the folder's removal.
+        foreach (var app in _apps) app.Chats.Writer.FlushAsync().Wait(TimeSpan.FromSeconds(10));
+        foreach (var item in _open) item.Dispose();
+        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        File.Delete(_root + ".cleanup-pending");
+    }
+
+    /// <summary>One app start: a fresh storage, conversation and chat list over the same disk and keychain.</summary>
+    private sealed record App(IntelligenceChatStorage Storage, IntelligenceConversationViewModel Conversation, IntelligenceChatListViewModel Chats)
+    {
+        public async Task SettleAsync() => await Chats.Writer.FlushAsync();
+    }
+
+    private App Start()
+    {
+        var storage = new IntelligenceChatStorage(_root, _keys, new NoBackup(), NullLogger<IntelligenceChatStorage>.Instance);
+        var conversation = new IntelligenceConversationViewModel(_model, _preferences, new Lookups(), _session, action => action());
+        var chats = new IntelligenceChatListViewModel(conversation, storage, _preferences, _session, _dialogs, _time,
+            NullLogger<IntelligenceChatListViewModel>.Instance, action => action());
+        _open.Add(chats);
+        _open.Add(conversation);
+        var app = new App(storage, conversation, chats);
+        _apps.Add(app);
+        return app;
+    }
+
+    private async Task<SavedChatCollection> ReadAsync(LibreNmsConnection server)
+    {
+        var storage = new IntelligenceChatStorage(_root, _keys, new NoBackup(), NullLogger<IntelligenceChatStorage>.Instance);
+        var store = await storage.OpenAsync();
+        Assert.NotNull(store);
+        return store.Load(IntelligenceSavedChats.Scope(server));
+    }
+
+    private void SwitchTo(LibreNmsConnection? server)
+    {
+        _session.Connection.Returns(server);
+        _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+    }
+
+    private string[] ChatFiles(string pattern = "*.chat") =>
+        Directory.Exists(_root) ? Directory.GetFiles(_root, pattern, SearchOption.AllDirectories) : [];
+
+    [Fact]
+    public async Task A_chat_reopens_after_a_restart_with_its_draft_detail_model_evidence_filters_and_images()
+    {
+        _model.Scripts.Enqueue(async (_, tools, text, token) =>
+        {
+            await tools[0].Run("", token);
+            text("Partial");
+            return new IntelligenceAnswer("[[device:7]] is up. Group [[group:3]].", null)
+            {
+                Images = [new IntelligenceImage(Png, "image/png")],
+            };
+        });
+        var first = Start();
+        await first.Chats.LoadAsync();
+        first.Conversation.SelectedDetail = IntelligenceDetail.Brief;
+        Assert.True(await first.Conversation.AskAsync("Which switches are up?"));
+        first.Conversation.Draft = "draft-sentinel follow-up";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await first.SettleAsync();
+
+        var restarted = Start();
+        await restarted.Chats.LoadAsync();
+        var chat = Assert.Single(restarted.Chats.Chats);
+        Assert.Same(chat, restarted.Chats.Active);
+        Assert.Equal("Which switches are up?", chat.Title);
+        Assert.Equal(IntelligenceSavedChats.OnDeviceModel, chat.Data.Model);
+        Assert.Equal("draft-sentinel follow-up", restarted.Conversation.Draft);
+        Assert.Equal(IntelligenceDetail.Brief, restarted.Conversation.SelectedDetail);
+
+        var turn = Assert.Single(restarted.Conversation.Turns);
+        Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+        Assert.Equal(IntelligenceDetail.Brief, turn.Detail);
+        Assert.Equal("[[device:7]] is up. Group [[group:3]].", turn.Answer);
+        Assert.Equal(IntelligenceLookupState.Completed, Assert.Single(turn.Lookups).State);
+        Assert.Equal(Png, Assert.Single(turn.Images).Data);
+        Assert.Equal(new[] { new IntelligenceEvidence(Device), new IntelligenceEvidence(Group, GroupFilter) }, turn.Evidence);
+
+        // A reopened chip opens what the live one did: the exact group name, not the display text.
+        Assert.True(restarted.Conversation.OwnsTurn(turn));
+        Assert.True(IntelligenceAnswerActions.TryRoute(Group, turn.Evidence, out var route, out var parameters));
+        Assert.Equal(Routes.Devices, route);
+        Assert.Equal(GroupFilter, parameters[Routes.GroupParameter]);
+        Assert.True(IntelligenceAnswerActions.TryRoute(Device, turn.Evidence, out _, out var device));
+        Assert.Equal(7, device[Routes.DeviceIdParameter]);
+    }
+
+    [Fact]
+    public void Forged_or_stale_references_in_a_file_open_nothing()
+    {
+        var chat = new SavedIntelligenceChat
+        {
+            Messages =
+            [
+                new() { IsUser = true, Text = "Question", CreatedAt = Now },
+                new()
+                {
+                    Text = "Answer", Outcome = IntelligenceReplyOutcome.Completed,
+                    PriorReferences =
+                    [
+                        Device,
+                        // Its key names another object than it stands for.
+                        Device with { Key = "device:8" },
+                        // No typed object at all, and an invalid one.
+                        new("device:9", "sw-zz-09", "", "", Now, ""),
+                        new("sensor:4", "Temp", "", "", Now, "") { Object = new IntelligenceObjectReference("sensor", 4) },
+                        Group,
+                    ],
+                    StatusCards =
+                    [
+                        new(IntelligenceSavedChats.FilterCardTitle, "", Now,
+                        [
+                            // A filter for a device is ignored; the group's own is kept.
+                            new IntelligenceStatusRow("forged-device-filter", "", "", "") { Object = Device.Object },
+                            new IntelligenceStatusRow(GroupFilter, "", "", "") { Object = Group.Object },
+                        ]),
+                        new("Some other card", "", Now, [new IntelligenceStatusRow("other", "", "", "") { Object = Group.Object }]),
+                    ],
+                },
+            ],
+        };
+
+        var turn = Assert.Single(IntelligenceSavedChats.Turns(chat));
+        Assert.Equal(new[] { new IntelligenceEvidence(Device), new IntelligenceEvidence(Group, GroupFilter) }, turn.Evidence);
+        Assert.False(IntelligenceAnswerActions.TryRoute(Device with { Key = "device:8" }, turn.Evidence, out _, out _));
+    }
+
+    [Fact]
+    public void Images_from_a_file_still_pass_the_size_and_type_checks()
+    {
+        var chat = new SavedIntelligenceChat
+        {
+            Messages =
+            [
+                new() { IsUser = true, Text = "Question" },
+                new()
+                {
+                    Text = "Answer", Outcome = IntelligenceReplyOutcome.Completed,
+                    Images = [new IntelligenceImage(Png, "image/png"), new IntelligenceImage(Png, "image/svg+xml"), new IntelligenceImage([], "image/png")],
+                },
+            ],
+        };
+
+        Assert.Equal(Png, Assert.Single(Assert.Single(IntelligenceSavedChats.Turns(chat)).Images).Data);
+    }
+
+    [Fact]
+    public async Task Chats_are_kept_per_server_and_another_server_never_shows_them()
+    {
+        Assert.NotEqual(IntelligenceSavedChats.Scope(ServerA), IntelligenceSavedChats.Scope(ServerB));
+        Assert.Equal(IntelligenceSavedChats.Scope(ServerA),
+            IntelligenceSavedChats.Scope(new LibreNmsConnection(new Uri("https://nms-a.example.net"), "other-token")));
+
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question on server A"));
+        await app.SettleAsync();
+
+        SwitchTo(ServerB);
+        Assert.Empty(app.Conversation.Turns);
+        await app.Chats.LoadAsync();
+        Assert.Empty(app.Chats.Chats);
+        Assert.Empty(app.Conversation.Turns);
+        Assert.True(await app.Conversation.AskAsync("Question on server B"));
+        await app.SettleAsync();
+        Assert.Equal("Question on server B", Assert.Single(app.Chats.Chats).Title);
+
+        SwitchTo(ServerA);
+        await app.Chats.LoadAsync();
+        Assert.Equal("Question on server A", Assert.Single(app.Chats.Chats).Title);
+        Assert.Equal("Question on server A", Assert.Single(app.Conversation.Turns).Question);
+
+        Assert.Equal("Question on server A", Assert.Single((await ReadAsync(ServerA)).Chats).Title);
+        Assert.Equal("Question on server B", Assert.Single((await ReadAsync(ServerB)).Chats).Title);
+    }
+
+    [Fact]
+    public async Task Signing_out_drops_waiting_saves_and_the_next_session_sees_no_earlier_chat()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question before sign-out"));
+        await app.SettleAsync();
+
+        // A draft change waiting on the debounce when the user signs out.
+        app.Conversation.Draft = "draft-sentinel unsent";
+        SwitchTo(null);
+        var wipe = await app.Storage.WipeAsync();
+        Assert.Equal(ChatWipeResult.Removed, wipe);
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 3);
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        Assert.Empty(ChatFiles());
+        Assert.Empty(app.Chats.Chats);
+
+        SwitchTo(ServerA);
+        await app.Chats.LoadAsync();
+        Assert.Empty(app.Chats.Chats);
+        Assert.Empty(app.Conversation.Turns);
+        Assert.Equal("", app.Conversation.Draft);
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+    }
+
+    [Fact]
+    public async Task A_save_queued_before_a_wipe_is_refused_by_the_wiped_store()
+    {
+        var storage = new IntelligenceChatStorage(_root, _keys, new NoBackup(), NullLogger<IntelligenceChatStorage>.Instance);
+        var stale = await storage.OpenAsync();
+        Assert.NotNull(stale);
+        var writer = new IntelligenceChatWriter(NullLogger.Instance);
+        var failures = new List<bool>();
+        writer.Failed += (_, unavailable) => { lock (failures) failures.Add(unavailable); };
+
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
+        Assert.True(writer.Save(stale, IntelligenceSavedChats.Scope(ServerA), new SavedIntelligenceChat { Title = "late" }, makeActive: true));
+        await writer.FlushAsync();
+
+        Assert.Empty(ChatFiles());
+        Assert.Equal(new[] { true }, failures);
+    }
+
+    [Fact]
+    public async Task Invalidating_drops_every_waiting_write_behind_one_in_progress()
+    {
+        var store = new GateStore();
+        var writer = new IntelligenceChatWriter(NullLogger.Instance);
+        var first = new SavedIntelligenceChat { Title = "first" };
+        writer.Save(store, "scope", first, makeActive: true);
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        writer.Save(store, "scope", new SavedIntelligenceChat { Title = "second" }, makeActive: true);
+        writer.Delete(store, "scope", first.Id);
+        writer.Invalidate();
+        Assert.Equal(0, writer.Pending);
+        store.Release.SetResult();
+        await writer.FlushAsync();
+        Assert.Equal(new[] { "save first" }, store.Calls);
+    }
+
+    [Fact]
+    public async Task Saves_of_one_chat_coalesce_so_only_the_latest_waits()
+    {
+        var store = new GateStore();
+        var writer = new IntelligenceChatWriter(NullLogger.Instance);
+        var chat = new SavedIntelligenceChat { Title = "v0" };
+        var other = new SavedIntelligenceChat { Title = "other" };
+        writer.Save(store, "scope", chat, makeActive: true);
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        for (var i = 1; i <= 50; i++)
+        {
+            writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v" + i }, makeActive: true);
+        }
+
+        writer.Save(store, "scope", other, makeActive: false);
+        writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v51" }, makeActive: true);
+
+        // One waiting save per chat, however many arrived.
+        Assert.Equal(2, writer.Pending);
+        store.Release.SetResult();
+        await writer.FlushAsync();
+        Assert.Equal(new[] { "save v0", "save other", "save v51" }, store.Calls);
+    }
+
+    [Fact]
+    public async Task A_delete_drops_waiting_saves_and_refuses_later_ones()
+    {
+        var store = new GateStore();
+        var writer = new IntelligenceChatWriter(NullLogger.Instance);
+        var blocker = new SavedIntelligenceChat { Title = "blocker" };
+        var chat = new SavedIntelligenceChat { Title = "doomed" };
+        writer.Save(store, "scope", blocker, makeActive: true);
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        writer.Save(store, "scope", chat, makeActive: true);
+        writer.Delete(store, "scope", chat.Id);
+        Assert.False(writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "late" }, makeActive: true));
+        // The same chat in another server's scope is a different chat.
+        Assert.True(writer.Save(store, "other-scope", new SavedIntelligenceChat { Id = chat.Id, Title = "elsewhere" }, makeActive: true));
+        store.Release.SetResult();
+        await writer.FlushAsync();
+        Assert.Equal(new[] { "save blocker", "delete " + chat.Id, "save elsewhere" }, store.Calls);
+    }
+
+    [Fact]
+    public async Task Chats_are_grouped_by_activity_with_pinned_first_and_newest_first_within_each_group()
+    {
+        var storage = new IntelligenceChatStorage(_root, _keys, new NoBackup(), NullLogger<IntelligenceChatStorage>.Instance);
+        var store = await storage.OpenAsync();
+        Assert.NotNull(store);
+        var scope = IntelligenceSavedChats.Scope(ServerA);
+        void Save(string title, DateTimeOffset at, bool pinned = false) =>
+            store.Save(scope, new SavedIntelligenceChat { Title = title, UpdatedAt = at, IsPinned = pinned }, makeActive: false);
+        Save("pinned old", new DateTimeOffset(2024, 1, 2, 9, 0, 0, TimeSpan.Zero), pinned: true);
+        Save("today early", Now.AddHours(-3));
+        Save("today late", Now.AddHours(-1));
+        Save("yesterday", Now.AddDays(-1));
+        Save("monday", new DateTimeOffset(2026, 11, 9, 8, 0, 0, TimeSpan.Zero));
+        Save("last week", new DateTimeOffset(2026, 11, 3, 8, 0, 0, TimeSpan.Zero));
+        Save("first of month", new DateTimeOffset(2026, 11, 1, 8, 0, 0, TimeSpan.Zero));
+        Save("august", new DateTimeOffset(2026, 8, 15, 8, 0, 0, TimeSpan.Zero));
+        Save("last year", new DateTimeOffset(2025, 5, 1, 8, 0, 0, TimeSpan.Zero));
+
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.Equal(
+            new[] { "Pinned", "Today", "Yesterday", "This week", "Last week", "Earlier this month", new DateTime(2026, 8, 1).ToString("MMMM"), "2025" },
+            app.Chats.Groups.Select(group => group.Label));
+        Assert.Equal(new[] { "today late", "today early" }, app.Chats.Groups[1].Select(chat => chat.Title));
+        Assert.Equal("pinned old", app.Chats.Chats[0].Title);
+        Assert.Equal("last year", app.Chats.Chats[^1].Title);
+    }
+
+    [Fact]
+    public async Task Rename_pin_and_confirmed_delete_are_saved_and_a_declined_delete_keeps_the_chat()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("First question"));
+        Assert.True(app.Chats.NewChat());
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Assert.True(await app.Conversation.AskAsync("Second question"));
+        await app.SettleAsync();
+        Assert.Equal(new[] { "Second question", "First question" }, app.Chats.Chats.Select(chat => chat.Title));
+
+        var first = app.Chats.Chats.Single(chat => chat.Title == "First question");
+        Assert.True(app.Chats.Rename(first, "  Renamed \n chat  "));
+        Assert.False(app.Chats.Rename(first, "   "));
+        Assert.True(app.Chats.TogglePin(first));
+        Assert.Equal("Pinned", app.Chats.Groups[0].Label);
+        Assert.Same(first, app.Chats.Chats[0]);
+        await app.SettleAsync();
+
+        var restarted = Start();
+        await restarted.Chats.LoadAsync();
+        var renamed = restarted.Chats.Chats[0];
+        Assert.Equal("Renamed chat", renamed.Title);
+        Assert.True(renamed.IsPinned);
+        Assert.True(renamed.Data.IsRenamed);
+        // Renaming and pinning aren't activity: the open chat is still the second.
+        Assert.Equal("Second question", Assert.Single(restarted.Conversation.Turns).Question);
+
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(false);
+        Assert.False(await restarted.Chats.DeleteAsync(renamed));
+        Assert.Equal(2, restarted.Chats.Chats.Count);
+
+        _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+        Assert.True(await restarted.Chats.DeleteAsync(renamed));
+        await restarted.SettleAsync();
+        Assert.Equal("Second question", Assert.Single((await ReadAsync(ServerA)).Chats).Title);
+        _ = _dialogs.Received().ConfirmDestructiveAsync("Delete chat?", Arg.Is<string>(m => m.Contains("Renamed chat") && m.Contains(Confirmations.CannotBeUndone)), "Delete");
+    }
+
+    [Fact]
+    public async Task Deleting_the_open_chat_clears_it_and_no_later_save_brings_it_back()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question to delete"));
+        await app.SettleAsync();
+        var open = Assert.Single(app.Chats.Chats);
+
+        // A draft save waiting on the debounce, then deleted.
+        app.Conversation.Draft = "draft-sentinel";
+        Assert.True(await app.Chats.DeleteAsync(open));
+        Assert.Empty(app.Conversation.Turns);
+        Assert.Equal("", app.Conversation.Draft);
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 3);
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+
+        Assert.Empty(app.Chats.Chats);
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+        Assert.Empty(ChatFiles());
+    }
+
+    [Fact]
+    public async Task A_partial_answer_is_saved_while_streaming_and_reopens_as_interrupted()
+    {
+        var held = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Action<string>? stream = null;
+        _model.Scripts.Enqueue((_, _, text, _) => { stream = text; text("Partial"); return held.Task; });
+        var app = Start();
+        await app.Chats.LoadAsync();
+        var asking = app.Conversation.AskAsync("Question cut off");
+
+        // The question was kept straight away; streaming waits for the next save.
+        await app.SettleAsync();
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Question cut off", saved.Messages[0].Text);
+        Assert.Equal("", saved.Messages[1].Text);
+        Assert.Equal(IntelligenceReplyOutcome.Generating, saved.Messages[1].Outcome);
+
+        stream!("Partial answer so far");
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay - TimeSpan.FromMilliseconds(1));
+        await app.SettleAsync();
+        Assert.Equal("", Assert.Single((await ReadAsync(ServerA)).Chats).Messages[1].Text);
+        _time.Advance(TimeSpan.FromMilliseconds(1));
+        await app.SettleAsync();
+        Assert.Equal("Partial answer so far", Assert.Single((await ReadAsync(ServerA)).Chats).Messages[1].Text);
+
+        // The app is ended here, mid-answer: no completion, no suspension save.
+        var restarted = Start();
+        await restarted.Chats.LoadAsync();
+        var turn = Assert.Single(restarted.Conversation.Turns);
+        Assert.Equal("Question cut off", turn.Question);
+        Assert.Equal("Partial answer so far", turn.Answer);
+        Assert.Equal(IntelligenceTurnState.Interrupted, turn.State);
+        Assert.Equal(IntelligenceSavedChats.ClosedMidAnswer, turn.Message);
+        Assert.True(restarted.Conversation.CanAsk);
+
+        app.Conversation.Stop();
+        await asking.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
+    [Fact]
+    public async Task Suspension_interrupts_then_saves_the_partial_answer()
+    {
+        var held = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _model.Scripts.Enqueue((_, _, text, _) => { text("Partial before suspension"); return held.Task; });
+        var app = Start();
+        await app.Chats.LoadAsync();
+        var asking = app.Conversation.AskAsync("Question at suspension");
+        await app.Conversation.InterruptAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await app.Chats.SaveNowAsync().WaitAsync(TimeSpan.FromSeconds(5));
+        await asking.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var answer = Assert.Single((await ReadAsync(ServerA)).Chats).Messages[1];
+        Assert.Equal("Partial before suspension", answer.Text);
+        Assert.Equal(IntelligenceReplyOutcome.Interrupted, answer.Outcome);
+        Assert.False(answer.IsIncomplete);
+    }
+
+    [Fact]
+    public async Task A_damaged_file_is_set_aside_counted_and_the_healthy_chats_load()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Healthy chat"));
+        Assert.True(app.Chats.NewChat());
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Assert.True(await app.Conversation.AskAsync("Chat to damage"));
+        Assert.True(app.Chats.NewChat());
+        await app.SettleAsync();
+        var damaged = app.Chats.Chats.Single(chat => chat.Title == "Chat to damage");
+        var file = ChatFiles(damaged.Id.ToString("N") + ".chat").Single();
+        var bytes = File.ReadAllBytes(file);
+        bytes[^1] ^= 0xFF;
+        File.WriteAllBytes(file, bytes);
+
+        var restarted = Start();
+        await restarted.Chats.LoadAsync();
+        Assert.Equal("Healthy chat", Assert.Single(restarted.Chats.Chats).Title);
+        Assert.Equal("One saved chat couldn't be read and was set aside. Your other chats are here.", restarted.Chats.Status);
+        Assert.Single(ChatFiles("*.chat.bad"));
+        Assert.True(restarted.Chats.CanPersist);
+    }
+
+    [Fact]
+    public async Task An_unreadable_key_store_says_so_and_writes_nothing()
+    {
+        _keys.FailReads = true;
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.False(app.Chats.CanPersist);
+        Assert.False(app.Chats.IsListAvailable);
+        Assert.Equal(app.Storage.UnavailableReason, app.Chats.Status);
+        Assert.Contains("secure storage", app.Chats.Status);
+
+        Assert.True(await app.Conversation.AskAsync("Question while locked"));
+        app.Conversation.Draft = "draft-sentinel";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        Assert.Empty(ChatFiles());
+        Assert.Empty(app.Chats.Chats);
+        Assert.False(app.Chats.KeepsCurrentChat);
+    }
+
+    [Fact]
+    public async Task Single_chat_mode_writes_nothing_hides_the_list_and_keeps_old_chats()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+
+        _preferences.SetSingleChatMode(true);
+        Assert.True(app.Chats.IsSingleChatMode);
+        Assert.False(app.Chats.IsListAvailable);
+        Assert.Empty(app.Chats.Chats);
+        Assert.Equal(IntelligenceChatListViewModel.SingleChatStatus, app.Chats.Status);
+
+        // Private text added to the chat that was open, by every route that saves.
+        _model.Scripts.Enqueue((_, _, text, _) => { text("private-sentinel partial"); return Task.FromResult(new IntelligenceAnswer("private-sentinel answer", null)); });
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+        app.Conversation.Draft = "private-sentinel draft";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 3);
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(2, saved.Messages.Count);
+        Assert.DoesNotContain(saved.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", saved.Draft);
+
+        // Leaving the mode shows the old chat again, but the private transcript stays unsaved.
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        Assert.Single(app.Chats.Chats);
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+        Assert.False(app.Chats.KeepsCurrentChat);
+        app.Conversation.Draft = "private-sentinel more";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        Assert.Single((await ReadAsync(ServerA)).Chats);
+
+        // A new chat saves again.
+        Assert.True(app.Chats.NewChat());
+        Assert.True(await app.Conversation.AskAsync("Saved after single-chat mode"));
+        await app.SettleAsync();
+        Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
+        Assert.Equal("", app.Chats.Status);
+    }
+
+    [Fact]
+    public async Task Starting_in_single_chat_mode_reads_and_writes_nothing()
+    {
+        _settings.IntelligenceSingleChatMode = true;
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+        await app.Chats.SaveNowAsync();
+        Assert.Equal(IntelligenceChatStorageState.Closed, app.Storage.State);
+        Assert.Empty(ChatFiles());
+    }
+
+    [Fact]
+    public async Task Draft_typing_is_debounced_and_unchanged_chats_are_not_rewritten()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question"));
+        await app.SettleAsync();
+
+        for (var i = 0; i < 10; i++)
+        {
+            app.Conversation.Draft = "draft " + i;
+            _time.Advance(IntelligenceChatListViewModel.SaveDelay / 2);
+        }
+
+        await app.SettleAsync();
+        Assert.Equal("", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await app.SettleAsync();
+        Assert.Equal("draft 9", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+
+        // Nothing changed: nothing queued.
+        await app.Chats.SaveNowAsync();
+        Assert.Equal(0, app.Chats.Writer.Pending);
+    }
+
+    private sealed class NoBackup : IBackupExclusion
+    {
+        public void Exclude(string directory) { }
+    }
+
+    /// <summary>A store whose first write waits to be released, recording every call in order.</summary>
+    private sealed class GateStore : IIntelligenceChatStore
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public List<string> Calls { get; } = [];
+        private int _first;
+
+        public SavedChatCollection Load(string scope) => new(null, []);
+
+        public void Save(string scope, SavedIntelligenceChat chat, bool makeActive = true)
+        {
+            Hold();
+            lock (Calls) Calls.Add("save " + chat.Title);
+        }
+
+        public void Delete(string scope, Guid id)
+        {
+            Hold();
+            lock (Calls) Calls.Add("delete " + id);
+        }
+
+        private void Hold()
+        {
+            if (Interlocked.Exchange(ref _first, 1) != 0) return;
+            Entered.SetResult();
+            Release.Task.Wait(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    private delegate Task<IntelligenceAnswer> Script(string prompt, IReadOnlyList<IntelligenceLookup> tools, Action<string> text, CancellationToken token);
+
+    private sealed class Model : IIntelligenceModel
+    {
+        public IntelligenceAvailability Availability => IntelligenceAvailability.Available;
+        public int? ContextSize => 4096;
+        public Queue<Script> Scripts { get; } = new();
+        public Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult<int?>(null);
+
+        public IIntelligenceSession StartSession(string instructions, IReadOnlyList<IntelligenceLookup> lookups) =>
+            new Session(lookups, Scripts.Count > 0 ? Scripts.Dequeue() : (_, _, _, _) => Task.FromResult(new IntelligenceAnswer("Answer", null)));
+
+        private sealed class Session(IReadOnlyList<IntelligenceLookup> tools, Script script) : IIntelligenceSession
+        {
+            public Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default) =>
+                script(question, tools, onText, cancellationToken);
+
+            public void Dispose() { }
+        }
+    }
+
+    /// <summary>One lookup, which reports a device and a group with its exact LibreNMS name.</summary>
+    private sealed class Lookups : IIntelligenceLookups
+    {
+        public IReadOnlyList<IntelligenceLookup> Create() => Create(_ => { });
+
+        public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) =>
+        [
+            new("network_overview", "Overview", (_, _) =>
+            {
+                evidence([new IntelligenceEvidence(Device), new IntelligenceEvidence(Group, GroupFilter)]);
+                return Task.FromResult("Devices: 10 total.");
+            }),
+        ];
+    }
+}
