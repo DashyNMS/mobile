@@ -23,6 +23,10 @@ public sealed class IntelligenceAnswerTests
         new("location:4", "Example lab", "", "unknown", Observed, "Location") { Object = new("location", 4) },
     ];
 
+    /// <summary>The same objects as lookups report them: groups and locations keep LibreNMS's exact name.</summary>
+    private static readonly IReadOnlyList<IntelligenceEvidence> EvidenceItems = Evidence
+        .Select(r => new IntelligenceEvidence(r, r.Object?.Kind is "group" or "location" ? r.Name : null)).ToArray();
+
     private static string Fixture(string name) =>
         File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "Intelligence", name));
 
@@ -79,19 +83,6 @@ public sealed class IntelligenceAnswerTests
         Assert.Empty(IntelligenceMarkdown.Links(blocks));
     }
 
-    [Fact]
-    public void A_recorded_web_citation_becomes_one_safe_source_link()
-    {
-        var message = JsonNode.Parse(Fixture("recorded-citation.json"))!.AsObject();
-        var blocks = IntelligenceMarkdown.Parse(WebSearchCitations.FormatMessage(message), Evidence);
-
-        var link = Assert.Single(IntelligenceMarkdown.Links(blocks));
-        Assert.Equal("Release notes", link.Text);
-        Assert.Equal(new Uri("https://docs.example.org/releases/26.10"), link.Link);
-        Assert.Equal("paragraph: LibreNMS 26.10 groups faults by rule. <Release notes|https://docs.example.org/releases/26.10>",
-            Normalise(IntelligenceMarkdown.Describe(blocks)));
-    }
-
     [Theory]
     [InlineData(101, 2)]
     [InlineData(1, 13)]
@@ -125,7 +116,7 @@ public sealed class IntelligenceAnswerTests
     public void Each_verified_kind_opens_its_existing_page(string key, string expected)
     {
         var reference = Evidence.Single(r => r.Key == key);
-        Assert.True(IntelligenceAnswerActions.TryRoute(reference, Evidence, out var route, out var parameters));
+        Assert.True(IntelligenceAnswerActions.TryRoute(reference, EvidenceItems, out var route, out var parameters));
         Assert.Equal(expected, route);
         switch (key)
         {
@@ -155,15 +146,36 @@ public sealed class IntelligenceAnswerTests
     public void References_outside_the_evidence_or_with_mismatched_targets_open_nothing()
     {
         var forged = Evidence[0] with { Name = "forged" };
-        Assert.False(IntelligenceAnswerActions.TryRoute(forged, Evidence, out _, out _));
+        Assert.False(IntelligenceAnswerActions.TryRoute(forged, EvidenceItems, out _, out _));
         var mismatched = new IntelligenceInlineReference("device:12", "edge-router-a", "Down", "down", Observed, "") { Object = new("device", 99) };
-        Assert.False(IntelligenceAnswerActions.TryRoute(mismatched, [mismatched], out _, out _));
+        Assert.False(IntelligenceAnswerActions.TryRoute(mismatched, [new(mismatched)], out _, out _));
         var invalid = new IntelligenceInlineReference("alert:8", "No device", "Warning", "warning", Observed, "") { Object = new("alert", 8) };
-        Assert.False(IntelligenceAnswerActions.TryRoute(invalid, [invalid], out _, out _));
+        Assert.False(IntelligenceAnswerActions.TryRoute(invalid, [new(invalid)], out _, out _));
         var port = new IntelligenceInlineReference("port:5", "Gi0/1", "", "unknown", Observed, "") { Object = new("port", 5, 12) };
-        Assert.False(IntelligenceAnswerActions.TryRoute(port, [port], out _, out _));
+        Assert.False(IntelligenceAnswerActions.TryRoute(port, [new(port)], out _, out _));
         var status = IntelligenceInlineMarkup.Resolve("[[status:up]]", Evidence)!;
-        Assert.False(IntelligenceAnswerActions.TryRoute(status, [status], out _, out _));
+        Assert.False(IntelligenceAnswerActions.TryRoute(status, [new(status)], out _, out _));
+    }
+
+    [Theory]
+    [InlineData("group", Routes.GroupParameter)]
+    [InlineData("location", Routes.LocationParameter)]
+    public void Groups_and_locations_filter_by_the_exact_source_name_not_the_shortened_label(string kind, string parameter)
+    {
+        // Synthetic: a source name past the label limit, with a tab and marker brackets the label had to clean.
+        var original = "Example campus\tbuilding [[device:1]] " + new string('x', 90);
+        var label = CompactNetworkLookups.Clean(original);
+        var reference = new IntelligenceInlineReference(kind + ":9", label, "", "unknown", Observed, "") { Object = new(kind, 9) };
+
+        Assert.True(IntelligenceAnswerActions.TryRoute(reference, [new(reference, original)], out var route, out var parameters));
+        Assert.Equal(Routes.Devices, route);
+        Assert.Equal(original, parameters[parameter]);
+        Assert.NotEqual(label, original);
+        // Without the source name the chip stays text rather than opening an empty, misleading list.
+        Assert.False(IntelligenceAnswerActions.TryRoute(reference, [new(reference)], out _, out _));
+        // A chip whose text was altered to the source name is not the observed reference.
+        var respelled = reference with { Name = original };
+        Assert.False(IntelligenceAnswerActions.TryRoute(respelled, [new(reference, original)], out _, out _));
     }
 
     [Theory]
@@ -216,11 +228,11 @@ public sealed class IntelligenceAnswerTests
 
     // A conversation over synthetic evidence, as the chat page sees it.
 
-    private sealed class EvidenceLookups(IReadOnlyList<IntelligenceInlineReference> references) : IIntelligenceLookups
+    private sealed class EvidenceLookups(IReadOnlyList<IntelligenceEvidence> references) : IIntelligenceLookups
     {
         public IReadOnlyList<IntelligenceLookup> Create() => Create(_ => { });
 
-        public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceInlineReference>> evidence) =>
+        public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) =>
             [new("network_overview", "Overview", (_, _) => { evidence(references); return Task.FromResult("edge-router-a [[device:12]]: Down"); })];
     }
 
@@ -239,7 +251,7 @@ public sealed class IntelligenceAnswerTests
     }
 
     private static (IntelligenceConversationViewModel Conversation, ISessionService Session) Conversation(
-        Func<IReadOnlyList<IntelligenceLookup>, Task<IntelligenceAnswer>> answer, IReadOnlyList<IntelligenceInlineReference>? evidence = null)
+        Func<IReadOnlyList<IntelligenceLookup>, Task<IntelligenceAnswer>> answer, Func<ISessionService, IIntelligenceLookups>? lookups = null)
     {
         var store = Substitute.For<ICheckedSettingsStore>();
         store.Current.Returns(new AppSettings());
@@ -249,7 +261,7 @@ public sealed class IntelligenceAnswerTests
         var session = Substitute.For<ISessionService>();
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
         return (new IntelligenceConversationViewModel(new Model(answer), new IntelligencePreferences(store, preferences),
-            new EvidenceLookups(evidence ?? Evidence), session), session);
+            lookups?.Invoke(session) ?? new EvidenceLookups(EvidenceItems), session), session);
     }
 
     private static readonly string RecordedAnswer = Fixture("table-and-markers.md");
@@ -336,5 +348,81 @@ public sealed class IntelligenceAnswerTests
         Assert.False(await actions.OpenLinkAsync(turn, new Uri("https://elsewhere.example.org/")));
         Assert.False(await actions.OpenLinkAsync(turn, new Uri("file:///etc/hosts")));
         await launcher.Received(1).OpenAsync(new Uri("https://docs.example.org/notes"));
+    }
+
+    [Fact]
+    public async Task A_location_chip_from_a_real_lookup_opens_the_exact_source_name_in_this_and_later_turns()
+    {
+        var original = "Example campus\tbuilding [[device:1]] " + new string('x', 90);
+        var device = Fakes.Device(12, "edge.example.net", sysName: "edge-router-a", location: original);
+        device.LocationId = 4;
+        var client = Fakes.Client([device]);
+        client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
+        var calls = 0;
+        var (conversation, _) = Conversation(async tools =>
+        {
+            if (calls++ == 0) await tools.Single(t => t.Name == "device_summary").Run("12", default);
+            return new IntelligenceAnswer("It is at [[location:4]].", null);
+        }, session => new CompactNetworkLookups(client, Fakes.Settings(), session));
+        using var owned = conversation;
+        var navigation = Substitute.For<INavigationService>();
+        var actions = new IntelligenceAnswerActions(conversation, navigation, Substitute.For<ILauncherService>());
+
+        await conversation.AskAsync("Where is the edge router?");
+        await conversation.AskAsync("And where is it now?");
+
+        Assert.Equal(2, conversation.Turns.Count);
+        foreach (var turn in conversation.Turns)
+        {
+            var chip = Assert.Single(IntelligenceMarkdown.LinkedObjects(IntelligenceMarkdown.Parse(turn.Answer, turn.References)));
+            // The chip shows the cleaned label; the route carries LibreNMS's name unchanged.
+            Assert.Equal(CompactNetworkLookups.Clean(original), chip.Name);
+            Assert.DoesNotContain("[[device:1]]", chip.Name);
+            Assert.True(await actions.OpenAsync(turn, chip));
+        }
+        await navigation.Received(2).GoToAsync(Routes.Devices,
+            Arg.Is<IDictionary<string, object>>(p => (string)p[Routes.LocationParameter] == original));
+    }
+
+    [Fact]
+    public async Task A_recorded_cited_answer_reaches_the_turn_as_Core_formatted_Markdown_with_its_images()
+    {
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        var message = JsonNode.Parse(Fixture("recorded-citation.json"))!.AsObject();
+        var (conversation, _) = Conversation(_ => Task.FromResult(
+            new IntelligenceAnswer("", null) { Output = [message], Images = [new(png, "image/png")] }));
+        using var owned = conversation;
+        var launcher = Substitute.For<ILauncherService>();
+        var actions = new IntelligenceAnswerActions(conversation, Substitute.For<INavigationService>(), launcher);
+
+        Assert.True(await conversation.AskAsync("What changed in 26.10?"));
+        var turn = Assert.Single(conversation.Turns);
+
+        // Copy keeps the visible source; the unsafe citation never became a link.
+        Assert.Equal("LibreNMS 26.10 groups faults by rule. [Release notes](https://docs.example.org/releases/26.10)", turn.Answer);
+        Assert.DoesNotContain("javascript", turn.Answer);
+        Assert.Single(turn.Images);
+        var blocks = IntelligenceMarkdown.Parse(turn.Answer, turn.References);
+        Assert.Equal("paragraph: LibreNMS 26.10 groups faults by rule. <Release notes|https://docs.example.org/releases/26.10>",
+            Normalise(IntelligenceMarkdown.Describe(blocks)));
+        var link = Assert.Single(IntelligenceMarkdown.Links(blocks));
+        Assert.Equal("Release notes", link.Text);
+        Assert.True(await actions.OpenLinkAsync(turn, link.Link!));
+        await launcher.Received(1).OpenAsync(new Uri("https://docs.example.org/releases/26.10"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Text_only_answers_are_unchanged_when_output_holds_no_message(bool withOtherOutput)
+    {
+        var other = new JsonObject { ["type"] = "web_search_call", ["status"] = "completed" };
+        var (conversation, _) = Conversation(_ => Task.FromResult(
+            new IntelligenceAnswer(RecordedAnswer, null) { Output = withOtherOutput ? [other] : [] }));
+        using var owned = conversation;
+
+        await conversation.AskAsync("How is the edge?");
+
+        Assert.Equal(RecordedAnswer, Assert.Single(conversation.Turns).Answer);
     }
 }

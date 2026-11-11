@@ -15,11 +15,11 @@ public interface IIntelligenceLookups
     IReadOnlyList<IntelligenceLookup> Create();
 
     /// <summary>
-    /// As <see cref="Create()"/>, and also reports the typed references behind each
+    /// As <see cref="Create()"/>, and also reports the typed evidence behind each
     /// reply the model is given. Answer chips are verified against these, never
     /// against the model's own spelling of a name or id (#228).
     /// </summary>
-    IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceInlineReference>> evidence) => Create();
+    IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Create();
 }
 
 /// <summary>
@@ -37,14 +37,14 @@ public sealed class CompactNetworkLookups(
     internal const string Failed = "The lookup failed. LibreNMS could not be reached.";
     internal const string Changed = "The connection changed. Start a new chat.";
 
-    /// <summary>One displayed row and the references it introduces; omitted rows contribute none.</summary>
-    internal readonly record struct Row(string Text, IReadOnlyList<IntelligenceInlineReference> References)
+    /// <summary>One displayed row and the evidence it introduces; omitted rows contribute none.</summary>
+    internal readonly record struct Row(string Text, IReadOnlyList<IntelligenceEvidence> References)
     {
         public Row(string text) : this(text, []) { }
     }
 
     /// <summary>The model's text and the evidence behind exactly that text.</summary>
-    internal sealed record Reply(string Text, IReadOnlyList<IntelligenceInlineReference> References)
+    internal sealed record Reply(string Text, IReadOnlyList<IntelligenceEvidence> References)
     {
         public static Reply Say(string text) => new(text, []);
     }
@@ -52,7 +52,7 @@ public sealed class CompactNetworkLookups(
     public IReadOnlyList<IntelligenceLookup> Create() => Create(static _ => { });
 
     /// <summary>Captures the connection so replies and their evidence cannot cross between networks.</summary>
-    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceInlineReference>> evidence)
+    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
     {
         var connection = session.Connection;
         var style = settings.Current.DeviceNameStyle;
@@ -90,12 +90,12 @@ public sealed class CompactNetworkLookups(
                 ? $"Device {deviceId.ToString(CultureInfo.InvariantCulture)} (name unavailable)" : Clean(name);
         }
 
-        IntelligenceInlineReference DeviceReference(Device device, string name, DateTimeOffset at)
+        IntelligenceEvidence DeviceReference(Device device, string name, DateTimeOffset at)
         {
             var state = device.ReportedState;
             var tone = state == DeviceState.Up ? "up" : state == DeviceState.Down ? "down" : "unknown";
-            return new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), tone, at, "Device status at lookup time")
-            { Object = new("device", device.DeviceId) };
+            return new(new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), tone, at, "Device status at lookup time")
+            { Object = new("device", device.DeviceId) });
         }
 
         Row DeviceRow(Device d, DateTimeOffset at)
@@ -112,13 +112,13 @@ public sealed class CompactNetworkLookups(
             var deviceName = DeviceName(device, a.Hostname, a.DeviceId);
             var (severity, tone) = Severity(a.Severity);
             var rule = Clean(a.DisplayRuleName);
-            var references = new List<IntelligenceInlineReference>
+            var references = new List<IntelligenceEvidence>
             {
-                new("alert:" + Id(a.Id), rule, severity, tone, at, deviceName + " · " + a.State)
+                new(new("alert:" + Id(a.Id), rule, severity, tone, at, deviceName + " · " + a.State)
                 {
                     Object = new(a.Source == AlertSource.Fault ? "fault" : "alert", a.Id,
                         a.DeviceId > 0 ? a.DeviceId : null, a.RuleId > 0 ? a.RuleId : null),
-                },
+                }),
             };
             var on = deviceName;
             if (device is not null && device.DeviceId > 0)
@@ -172,11 +172,12 @@ public sealed class CompactNetworkLookups(
                 if (device is null) return Reply.Say("Device not found.");
                 var row = DeviceRow(device, at);
                 var location = Clean(device.Location);
-                var references = new List<IntelligenceInlineReference>();
+                var references = new List<IntelligenceEvidence>();
                 if (device.LocationId is { } locationId && locationId > 0 && !string.IsNullOrWhiteSpace(device.Location))
                 {
-                    references.Add(new("location:" + Id(locationId), location, "", "unknown", at, "Location")
-                    { Object = new("location", locationId) });
+                    // The chip shows the cleaned label; Devices filters by LibreNMS's exact name.
+                    references.Add(new(new("location:" + Id(locationId), location, "", "unknown", at, "Location")
+                    { Object = new("location", locationId) }, device.Location));
                     location += $" [[location:{Id(locationId)}]]";
                 }
                 return Rows(row.Text,
@@ -200,7 +201,7 @@ public sealed class CompactNetworkLookups(
                 var device = await deviceTask.ConfigureAwait(false);
                 var deviceName = DeviceName(device, null, id);
                 var heading = $"Sensors on {deviceName}";
-                IReadOnlyList<IntelligenceInlineReference> headingReferences = [];
+                IReadOnlyList<IntelligenceEvidence> headingReferences = [];
                 if (device is not null && device.DeviceId == id)
                 {
                     heading += $" [[device:{Id(id)}]]";
@@ -213,8 +214,8 @@ public sealed class CompactNetworkLookups(
                     var description = Clean(s.Description);
                     var reading = s.HasReading ? s.Current!.Value.ToString(CultureInfo.InvariantCulture) : "unavailable";
                     return new Row($"{description} [[sensor:{Id(s.SensorId)}]]: {Clean(s.SensorClass)}; reading {reading}; unit {Clean(s.Unit)}",
-                        [new("sensor:" + Id(s.SensorId), description, "", "unknown", at, $"{Clean(s.SensorClass)} reading on {deviceName}")
-                        { Object = new("sensor", s.SensorId, id) }]);
+                        [new(new("sensor:" + Id(s.SensorId), description, "", "unknown", at, $"{Clean(s.SensorClass)} reading on {deviceName}")
+                        { Object = new("sensor", s.SensorId, id) })]);
                 }), headingReferences);
             }),
         ];
@@ -258,10 +259,10 @@ public sealed class CompactNetworkLookups(
     /// Only references from rows that fit are reported, so a chip can only point at
     /// something the model was actually shown.
     /// </summary>
-    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceInlineReference>? headingReferences = null)
+    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceEvidence>? headingReferences = null)
     {
         var text = new System.Text.StringBuilder(heading);
-        var references = new List<IntelligenceInlineReference>(headingReferences ?? []);
+        var references = new List<IntelligenceEvidence>(headingReferences ?? []);
         var omitted = 0;
         foreach (var row in rows)
         {
@@ -275,7 +276,7 @@ public sealed class CompactNetworkLookups(
         }
         if (omitted > 0) text.Append('\n').Append(omitted).Append(" more results omitted.");
         // Several alerts on one device repeat its reference; one is enough.
-        return new(text.ToString(), references.DistinctBy(r => r.Key).ToList());
+        return new(text.ToString(), references.DistinctBy(r => r.Reference.Key).ToList());
     }
 
     /// <summary>Bounds network labels and prevents control characters from creating extra rows or markers.</summary>

@@ -14,13 +14,18 @@ namespace DashyNMS.Mobile.Intelligence;
 public sealed class IntelligenceAnswerActions(
     IntelligenceConversationViewModel conversation, INavigationService navigation, ILauncherService launcher)
 {
-    /// <summary>The page each verified object kind opens; destination pages handle a target that has since gone.</summary>
-    public static bool TryRoute(IntelligenceInlineReference reference, IReadOnlyList<IntelligenceInlineReference> evidence,
+    /// <summary>
+    /// The page each verified object kind opens; destination pages handle a target
+    /// that has since gone. Routes use the evidence's ids and exact filter values,
+    /// never the chip's display text, which lookups may have cleaned or shortened.
+    /// </summary>
+    public static bool TryRoute(IntelligenceInlineReference reference, IReadOnlyList<IntelligenceEvidence> evidence,
         out string route, out Dictionary<string, object> parameters)
     {
         route = "";
         parameters = new();
-        if (reference.Object is not { IsValid: true } target || !evidence.Contains(reference)
+        if (reference.Object is not { IsValid: true } target
+            || evidence.FirstOrDefault(e => e.Reference == reference) is not { } observed
             || reference.Key != KeyKind(target.Kind) + ":" + target.Id.ToString(System.Globalization.CultureInfo.InvariantCulture))
             return false;
         switch (target.Kind)
@@ -38,16 +43,18 @@ public sealed class IntelligenceAnswerActions(
                 route = Routes.DeviceSection;
                 parameters[Routes.DeviceIdParameter] = target.DeviceId!.Value;
                 parameters[Routes.SectionParameter] = DeviceSection.Sensors;
-                parameters[Routes.DeviceNameParameter] = evidence.FirstOrDefault(r => r.Object is { Kind: "device" } d && d.Id == target.DeviceId)?.Name ?? "";
+                // A page title only, so the cleaned display name is the right one.
+                parameters[Routes.DeviceNameParameter] = evidence.FirstOrDefault(e => e.Reference.Object is { Kind: "device" } d && d.Id == target.DeviceId)?.Reference.Name ?? "";
                 return true;
-            // Devices filters groups and locations by name, as Groups & locations does.
-            case "group" when !string.IsNullOrWhiteSpace(reference.Name):
+            // Devices filters groups and locations by exact name, as Groups & locations does.
+            // Without LibreNMS's own name the chip stays plain text rather than opening an empty list.
+            case "group" when !string.IsNullOrWhiteSpace(observed.Filter):
                 route = Routes.Devices;
-                parameters[Routes.GroupParameter] = reference.Name;
+                parameters[Routes.GroupParameter] = observed.Filter!;
                 return true;
-            case "location" when !string.IsNullOrWhiteSpace(reference.Name):
+            case "location" when !string.IsNullOrWhiteSpace(observed.Filter):
                 route = Routes.Devices;
-                parameters[Routes.LocationParameter] = reference.Name;
+                parameters[Routes.LocationParameter] = observed.Filter!;
                 return true;
             default:
                 return false;
@@ -58,11 +65,11 @@ public sealed class IntelligenceAnswerActions(
     private static string KeyKind(string kind) => kind == "fault" ? "alert" : kind;
 
     public bool CanOpen(IntelligenceTurn turn, IntelligenceInlineReference reference) =>
-        conversation.OwnsTurn(turn) && TryRoute(reference, turn.References, out _, out _);
+        conversation.OwnsTurn(turn) && TryRoute(reference, turn.Evidence, out _, out _);
 
     public async Task<bool> OpenAsync(IntelligenceTurn turn, IntelligenceInlineReference reference)
     {
-        if (!conversation.OwnsTurn(turn) || !TryRoute(reference, turn.References, out var route, out var parameters)) return false;
+        if (!conversation.OwnsTurn(turn) || !TryRoute(reference, turn.Evidence, out var route, out var parameters)) return false;
         await navigation.GoToAsync(route, parameters);
         return true;
     }

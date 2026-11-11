@@ -165,7 +165,7 @@ public sealed class CompactNetworkLookupsTests
         var fault = Fakes.Alert(3, 708, "critical");
         fault.Source = AlertSource.Fault;
         var client = Fakes.Client(devices, [fault, Fakes.Alert(4, 708, "warning")]);
-        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
 
         var text = await lookup.Run("", default);
@@ -173,10 +173,10 @@ public sealed class CompactNetworkLookupsTests
         Assert.Contains("Rule 3 [[alert:3]] (fault:3) on core-sw1 [[device:708]]", text);
         Assert.DoesNotContain("device 708", text, StringComparison.OrdinalIgnoreCase);
         await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
-        var alert = Assert.Single(evidence, r => r.Key == "alert:3");
+        var alert = Assert.Single(evidence, r => r.Reference.Key == "alert:3").Reference;
         Assert.Equal(("Rule 3", "Critical", "critical"), (alert.Name, alert.Status, alert.Tone));
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("fault", 3, 708, 30), alert.Object);
-        var device = Assert.Single(evidence, r => r.Key == "device:708");
+        var device = Assert.Single(evidence, r => r.Reference.Key == "device:708").Reference;
         Assert.Equal(("core-sw1", "Up"), (device.Name, device.Status));
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("device", 708), device.Object);
     }
@@ -188,7 +188,7 @@ public sealed class CompactNetworkLookupsTests
         unnamed.Hostname = null;
         var client = Fakes.Client(alerts: [unnamed, Fakes.Alert(6, 10, "warning")]);
         client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Device>>(new HttpRequestException("private")));
-        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
 
         var text = await lookup.Run("", default);
@@ -197,22 +197,22 @@ public sealed class CompactNetworkLookupsTests
         Assert.Contains("(alert:6) on host10", text);
         // Without a device row there is no verified device to link.
         Assert.DoesNotContain("[[device:", text);
-        Assert.DoesNotContain(evidence, r => r.Key.StartsWith("device:", StringComparison.Ordinal));
+        Assert.DoesNotContain(evidence, r => r.Reference.Key.StartsWith("device:", StringComparison.Ordinal));
     }
 
     [Fact]
     public async Task Evidence_covers_only_rows_the_model_was_shown()
     {
         var devices = Enumerable.Range(1, 400).Select(i => Fakes.Device(i, $"switch-{i}.example.net", up: false)).ToList();
-        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(Fakes.Client(devices), Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "network_overview");
 
         var text = await lookup.Run("", default);
 
         Assert.Contains("more results omitted", text);
         Assert.NotEmpty(evidence);
-        Assert.All(evidence, r => Assert.Contains("[[" + r.Key + "]]", text));
-        Assert.DoesNotContain(evidence, r => r.Key == "device:400");
+        Assert.All(evidence, r => Assert.Contains("[[" + r.Reference.Key + "]]", text));
+        Assert.DoesNotContain(evidence, r => r.Reference.Key == "device:400");
     }
 
     [Fact]
@@ -222,7 +222,7 @@ public sealed class CompactNetworkLookupsTests
         var response = new TaskCompletionSource<IReadOnlyList<Device>>();
         client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(response.Task);
         var session = Session();
-        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session).Create(evidence.AddRange).Single(l => l.Name == "find_device");
         var pending = lookup.Run("switch", default);
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://new.example.net/"), "new-test-token"));
@@ -239,7 +239,7 @@ public sealed class CompactNetworkLookupsTests
         var client = Fakes.Client([device]);
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new[] { new Sensor { SensorId = 31, DeviceId = 12, Description = "Inlet temperature", Current = 41, SensorClass = "temperature", Unit = "C" } });
-        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var evidence = new List<IntelligenceEvidence>();
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange);
 
         var sensors = await lookups.Single(l => l.Name == "device_sensors").Run("12", default);
@@ -248,10 +248,35 @@ public sealed class CompactNetworkLookupsTests
         Assert.StartsWith("Sensors on edge-router-a [[device:12]]: 1.", sensors);
         Assert.Contains("Inlet temperature [[sensor:31]]: temperature; reading 41; unit C", sensors);
         Assert.Contains("location: Example lab [[location:4]]", summary);
-        var sensor = Assert.Single(evidence, r => r.Key == "sensor:31");
+        var sensor = Assert.Single(evidence, r => r.Reference.Key == "sensor:31").Reference;
         Assert.Equal("", sensor.Status);
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("sensor", 31, 12), sensor.Object);
-        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("location", 4), Assert.Single(evidence, r => r.Key == "location:4").Object);
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("location", 4), Assert.Single(evidence, r => r.Reference.Key == "location:4").Reference.Object);
+    }
+
+    [Fact]
+    public async Task A_long_or_sanitised_location_shows_a_safe_label_but_keeps_its_exact_filter_value()
+    {
+        // Synthetic: longer than the 80-character label limit, with a control character and marker brackets.
+        var original = "Example campus\tbuilding [[device:1]] " + new string('x', 90);
+        var device = Fakes.Device(12, "edge.example.net", sysName: "edge-router-a", location: original);
+        device.LocationId = 4;
+        var client = Fakes.Client([device]);
+        client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
+        var evidence = new List<IntelligenceEvidence>();
+        var summary = await new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange)
+            .Single(l => l.Name == "device_summary").Run("12", default);
+
+        var location = Assert.Single(evidence, r => r.Reference.Key == "location:4");
+        Assert.Equal(original, location.Filter);
+        Assert.Equal(CompactNetworkLookups.Clean(original), location.Reference.Name);
+        Assert.True(location.Reference.Name.Length <= 80);
+        Assert.DoesNotContain("[[device:1]]", location.Reference.Name);
+        Assert.DoesNotContain("\t", location.Reference.Name);
+        Assert.DoesNotContain("[[device:1]]", summary);
+        Assert.DoesNotContain(original, summary);
+        // Only locations need a filter value; other kinds route by id.
+        Assert.All(evidence.Where(r => r.Reference.Key != "location:4"), r => Assert.Null(r.Filter));
     }
 
     [Fact]

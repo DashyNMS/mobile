@@ -985,9 +985,13 @@ own hostname and carry no device link. Omitted rows are counted. Alerts put unac
 items first, then severity. Sensor values are raw readings, not a health
 assessment. Network labels cannot form a marker of their own.
 
-`Create(evidence)` also reports the typed `IntelligenceInlineReference`s behind
-each accepted reply, only for rows that fitted in the reply and only while the
-connection is unchanged.
+`Create(evidence)` also reports the `IntelligenceEvidence` behind each accepted
+reply, only for rows that fitted in the reply and only while the connection is
+unchanged. Each item pairs Core's `IntelligenceInlineReference`, whose name is the
+cleaned display label (at most 80 characters, no control characters or marker
+brackets), with `Filter`: a group or location name exactly as LibreNMS returned
+it. Devices filters by that exact name, so a chip never filters by its shortened
+label. The record is plain data so saved chats (#229) can keep it.
 
 Create a fresh lookup set for each new model session. A set refuses calls
 after the connection object changes and discards replies arriving from the
@@ -1017,9 +1021,10 @@ Settings › Intelligence › Colour status indicators and always accompanies th
 Each verified device, alert or fault, sensor, group or location also appears as
 a 44pt chip beneath the answer. `IntelligenceAnswerActions` opens it through the
 existing pages: Device View, alert detail with the qualified key, the device's
-Sensors section, or Devices filtered by group or location name. It refuses a
-reference not in the turn's evidence, a mismatched or invalid target, and any
-turn from a previous connection. Destination pages handle a target that has
+Sensors section, or Devices filtered by the evidence's exact group or location
+name, never the chip's display text. A group or location without that name stays
+plain text. It refuses a reference not in the turn's evidence, a mismatched or
+invalid target, and any turn from a previous connection. Destination pages handle a target that has
 since been deleted. Links open in the system browser only if Core's
 `WebSearchCitations.TryGetLink` accepts them (http or https, no user
 information) and the answer still contains them.
@@ -1029,8 +1034,15 @@ their display is tested with recorded answers. `IntelligenceAnswer.Images`
 carries Core's `IntelligenceImage`; PNG and JPEG within Core's 2 MB limit, at
 most eight, show inline and enlarge in a modal view. An enlarged preview
 clears its image when its turn loses connection ownership and rechecks on
-return, so the modal cannot keep the previous network’s evidence visible. Citations use Core's
-`WebSearchCitations.FormatMessage` and render as source links. Saving images
+return, so the modal cannot keep the previous network’s evidence visible. A model
+that cites sources hands its finished output items over unformatted in
+`IntelligenceAnswer.Output`, in the Responses `message` shape Core's own
+conversation reads. When the turn completes, `IntelligenceAnswer.ToMarkdown`
+joins their text as Core does, with Core's `WebSearchCitations.FormatMessage`
+turning each accepted citation into a visible Markdown link; the turn shows,
+copies and vets that Markdown. Answers without message output, including every
+on-device answer, keep `Text` unchanged. A recorded citation is tested through
+this model, conversation and renderer path. Saving images
 with a chat follows under #222 and #229. Copy answer copies the original
 Markdown, markers included.
 

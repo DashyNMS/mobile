@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>Whether the phone's own language model can answer, and if not, why.</summary>
@@ -63,7 +65,10 @@ public interface IIntelligenceSession : IDisposable
     Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default);
 }
 
-/// <param name="Text">The finished answer, in Markdown with Core's inline markers.</param>
+/// <param name="Text">
+/// The finished answer, in Markdown with Core's inline markers. The on-device model
+/// supplies only this; it is also the fallback when <see cref="Output"/> holds no message text.
+/// </param>
 /// <param name="Usage">The model's own account of the tokens this answer used, where it gives one.</param>
 public sealed record IntelligenceAnswer(string Text, string? Usage)
 {
@@ -73,6 +78,29 @@ public sealed record IntelligenceAnswer(string Text, string? Usage)
     /// recorded answer supplies these; the app never fetches an image from the network.
     /// </summary>
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
+
+    /// <summary>
+    /// The model's finished output items in the shape Core's own conversation reads
+    /// (Responses <c>message</c> items, with <c>url_citation</c> annotations). A model
+    /// route that cites sources (#577) hands these over unformatted, and
+    /// <see cref="ToMarkdown"/> applies Core's citation rules, so a source link reads
+    /// and is vetted the same as on desktop. Other item types are ignored.
+    /// </summary>
+    public IReadOnlyList<JsonObject> Output { get; init; } = [];
+
+    /// <summary>
+    /// The Markdown a turn shows and copies. Message text from <see cref="Output"/>
+    /// is joined as Core's conversation joins it, each citation becoming a visible
+    /// link only when Core's web-link policy accepts it; without any, <see cref="Text"/>.
+    /// </summary>
+    public string ToMarkdown()
+    {
+        var formatted = string.Join("\n\n", Output
+            .Where(item => item is not null && item["type"] is JsonValue type && type.TryGetValue<string>(out var kind) && kind == "message")
+            .Select(DesktopNMS.Core.Intelligence.WebSearchCitations.FormatMessage)
+            .Where(text => !string.IsNullOrWhiteSpace(text)));
+        return formatted.Length > 0 ? formatted : Text;
+    }
 }
 
 /// <summary>Stable failure categories for UI wording; native descriptions stay diagnostic-only.</summary>

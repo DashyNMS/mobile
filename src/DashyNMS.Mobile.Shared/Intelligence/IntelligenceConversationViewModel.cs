@@ -24,28 +24,45 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
     public bool HistoryOmitted { get => _historyOmitted; internal set => SetProperty(ref _historyOmitted, value); }
     public ObservableCollection<IntelligenceLookupProgress> Lookups { get; } = [];
 
-    private IReadOnlyList<IntelligenceInlineReference> _references = [];
+    private IReadOnlyList<IntelligenceEvidence> _evidence = [];
     /// <summary>
     /// Typed objects the lookups showed the model in this chat, newest observation
-    /// per key. Answer chips resolve only against these (#228).
+    /// per key, with the exact filter values their chips open (#228). Answer chips
+    /// resolve only against these.
     /// </summary>
-    public IReadOnlyList<IntelligenceInlineReference> References { get => _references; private set => SetProperty(ref _references, value); }
+    public IReadOnlyList<IntelligenceEvidence> Evidence
+    {
+        get => _evidence;
+        private set
+        {
+            if (!SetProperty(ref _evidence, value)) return;
+            _references = value.Select(e => e.Reference).ToArray();
+            OnPropertyChanged(nameof(References));
+        }
+    }
+
+    private IReadOnlyList<IntelligenceInlineReference> _references = [];
+    /// <summary>What the renderer resolves markers against: the display side of <see cref="Evidence"/>.</summary>
+    public IReadOnlyList<IntelligenceInlineReference> References => _references;
 
     private IReadOnlyList<IntelligenceImage> _images = [];
     /// <summary>Validated images returned with the answer; never fetched by the app.</summary>
     public IReadOnlyList<IntelligenceImage> Images { get => _images; internal set => SetProperty(ref _images, IntelligenceAnswerImages.Accept(value)); }
 
-    /// <summary>A later observation of the same object replaces the earlier one, keeping first-seen order.</summary>
-    internal void AddReferences(IEnumerable<IntelligenceInlineReference> references)
+    /// <summary>
+    /// A later observation of the same object replaces the earlier one, filter value
+    /// included, keeping first-seen order.
+    /// </summary>
+    internal void AddEvidence(IEnumerable<IntelligenceEvidence> evidence)
     {
-        var merged = _references.ToList();
-        foreach (var reference in references)
+        var merged = _evidence.ToList();
+        foreach (var item in evidence)
         {
-            var index = merged.FindIndex(r => r.Key == reference.Key);
-            if (index >= 0) merged[index] = reference;
-            else merged.Add(reference);
+            var index = merged.FindIndex(e => e.Reference.Key == item.Reference.Key);
+            if (index >= 0) merged[index] = item;
+            else merged.Add(item);
         }
-        References = merged;
+        Evidence = merged;
     }
 }
 
@@ -218,7 +235,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         var turn = new IntelligenceTurn(question, chosenDetail);
         // Earlier answers in this chat (the same connection) may mention objects
         // their lookups returned; the history the model sees can repeat those markers.
-        turn.AddReferences(Turns.SelectMany(t => t.References));
+        turn.AddEvidence(Turns.SelectMany(t => t.Evidence));
         var run = new Run(turn, connection, generation);
         if (Interlocked.CompareExchange(ref _active, run, null) is not null) { run.Stop.Dispose(); return false; }
         Turns.Add(turn);
@@ -242,7 +259,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 var attemptId = attempt;
                 using var attemptStop = CancellationTokenSource.CreateLinkedTokenSource(run.Stop.Token);
                 var token = attemptStop.Token;
-                var tools = _lookups.Create(references => Post(run, attemptId, () => turn.AddReferences(references))).Select(lookup => lookup with
+                var tools = _lookups.Create(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence))).Select(lookup => lookup with
                 {
                     Run = async (query, callerToken) =>
                     {
@@ -280,10 +297,13 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     var answer = await modelSession.AskAsync(prompt,
                         text => Post(run, attemptId, () => turn.Answer = text), token).WaitAsync(token);
                     RequireCurrent(run); // A Stop racing with a successful completion always wins.
+                    // Core formats any cited output here, so the turn shows, copies and
+                    // vets exactly the Markdown desktop would; plain answers pass through.
+                    var markdown = answer.ToMarkdown();
                     await OnUiAsync(() =>
                     {
                         RequireCurrent(run);
-                        turn.Answer = answer.Text;
+                        turn.Answer = markdown;
                         turn.Images = answer.Images;
                         turn.State = IntelligenceTurnState.Completed;
                         turn.Message = run.LookupFailures == 0 ? "Completed" : "Completed, but some lookups failed.";
