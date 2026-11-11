@@ -649,7 +649,9 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         var failing = new FailingDisk { FailDeleteDirectory = true, FailWriteNote = true };
         var stuck = NewStorage(disk: failing);
         await stuck.WipeAsync();
-        await stuck.OpenAsync();
+        Assert.Null(await stuck.OpenAsync());
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, stuck.State);
+        Assert.Contains("after a restart they could be readable again", stuck.UnavailableReason);
         failing.FailExists = true;
         await NewStorage(disk: failing).OpenAsync();
 
@@ -663,7 +665,6 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         Assert.Contains("Saved chats are unavailable (FolderUnavailable)", text);
         Assert.Contains("Removed saved chats and their key", text);
         Assert.Contains("the cleanup note could not be saved", text);
-        Assert.Contains("Saved chats are unavailable (CleanupUnguarded)", text);
         Assert.Contains("Saved chats are unavailable (CleanupUnknown)", text);
 
         foreach (var secret in new[] { Title, Question, Answer, Draft, Evidence, SpotlightName, Scope, "nms.example.net", key, ChatKeyStorage.ReadFailure, "exclusion-sentinel", FailingDisk.Failure, _root, chat.Id.ToString("N") })
