@@ -617,6 +617,19 @@ version is built on its own branch, `release/<version>` (for example
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit.
 
+**App Review notes.** From 2.0.0, keep this in the version's App Review
+Information notes, because guidelines 1.2 and 4.7.1 ask where generated
+content can be reported:
+
+> Intelligence answers can be reported from the chat. Open More ›
+> Intelligence (or the Intelligence tab, if pinned) and ask a question. Then
+> press and hold the answer and choose Report this answer. With VoiceOver,
+> use the answer's Report this answer action from the Actions rotor. Choose
+> Offensive, Wrong or misleading, or Other. A preview shows the question,
+> answer and reason, which can be edited to remove names and addresses. It
+> then opens a draft email to dashynms@pckp.net, the address on the support
+> page. Nothing is sent until the person sends that email.
+
 **The workflow's secrets** live in the `iOS-Build` environment (only `main`
 and `release/*` can use them, and a maintainer approves each run), not in
 repository secrets:
@@ -962,8 +975,8 @@ The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
 may be cached and asks readers to check readings and their age in LibreNMS.
 No conversation data is written to disk or included in diagnostics. Saved-chat
-sheets, Spotlight and answer reporting remain under #229, #231 and #574;
-formatted answers are described under #228 below. Device acceptance for #227 and #573
+sheets and Spotlight remain under #229 and #231. Formatted answers and answer
+reports are described under #228 and #574 below. Device acceptance for #227 and #573
 remains open: test long streaming answers, Stop and suspension, both entry
 routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
@@ -1051,6 +1064,65 @@ The on-device instructions now ask for Markdown and markers within the
 markers, safe and unsafe links, nested lists, quotes, code and a recorded
 citation. Device acceptance remains pending for layout, large text, VoiceOver,
 themes, sideways table scrolling, chip navigation and the image view.
+
+### Answer reports (#574)
+
+Each answer offers Report this answer, as App Store guidelines 1.2 and 4.7.1
+ask of generated content, and as Google Play's AI-generated content policy
+will ask once Android has Intelligence. Press and hold the answer bubble for a
+menu with Copy answer and Report this answer. VoiceOver offers Report this
+answer as a custom action on every part of the answer. The reasons are
+Offensive, Wrong or misleading, and Other. Only a finished, stopped or failed
+answer with text can be reported, never one still streaming.
+
+`IntelligenceAnswerReporter` (Mobile.Shared) captures the chosen turn, its exact
+question and answer and the chat revision before the reason sheet opens. It
+checks them again when a reason is chosen. A sign-out, connection change, new
+chat or changed text in the meantime discards the report and says that
+nothing was sent. `IntelligenceReportViewModel` drives the modal preview and
+keeps watching the chat while it is open. If ownership is lost, it clears the
+question and answer, disables sending and shows that the report was discarded.
+It checks once more just before handing anything over.
+
+The preview shows the recipient, the subject, the reason, and the question
+and answer in editable fields, with a reminder to remove device names and
+addresses. `IntelligenceReportFormat` builds both the preview and the email,
+so the email holds exactly this:
+
+```
+Reason: <reason>
+
+Question:
+<question as shown>
+
+Answer:
+<answer as shown, Markdown and markers included>
+```
+
+Nothing else goes in: no lookup results or evidence, other turns, server
+address, token, app or device identifiers, images or attachments. Line endings
+are normalised and control characters other than new lines and tabs are
+dropped. A body over 8,000 characters is never cut off. The person is asked to
+remove text instead.
+
+Open in email app hands the draft to `IEmailComposer`. In the head this is
+MAUI's email API: Mail's compose sheet on iOS, or a mailto intent on Android.
+The person reviews and sends the email there, so the app sends nothing itself
+and has no reporting backend. The address is `AppLinks.SupportEmail`
+(dashynms@pckp.net), the one already published on the support page and in the
+privacy policy. `mailto` is declared in `LSApplicationQueriesSchemes` and the
+Android `queries` element so availability can be checked. Without an email app
+the preview says so and offers Copy report, which copies the same recipient,
+subject and body. A composer failure says it couldn't open, without native
+details. The App Review notes under Releasing say where reporting is.
+
+Shared tests cover the exact body and draft, exclusion of evidence and other
+turns, redaction, cancelling the reason sheet, connection and new-chat changes
+while choosing and while previewing, running, empty and other-chat turns,
+stopped partial answers, unavailable and failing composers, the length bound
+and control-character cleaning. Device acceptance is pending. Check the long
+press on touch, the VoiceOver action, the preview at large text in both themes
+and with the keyboard, Mail's compose sheet, and the no-mail-account path.
 
 ## Upstream notes
 

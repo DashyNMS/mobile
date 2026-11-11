@@ -135,6 +135,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Intelligence.IntelligenceSettingsViewModel>();
         services.AddSingleton<Intelligence.IntelligenceConversationViewModel>();
         services.AddSingleton<Intelligence.IntelligenceAnswerActions>();
+        services.AddSingleton<Intelligence.IntelligenceAnswerReporter>();
         services.AddTransient<MaintenanceViewModel>();
 
         // Graylog: independent of the LibreNMS sign-in, as on desktop - see GraylogSetup.

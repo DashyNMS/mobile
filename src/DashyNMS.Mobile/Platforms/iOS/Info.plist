@@ -50,11 +50,13 @@
 		</dict>
 	</array>
 	<!-- So "SSH" and "Telnet" in Device View can tell whether an app handles
-	     those links, and say so if not. -->
+	     those links, and say so if not; mailto lets an answer report (#574)
+	     tell whether an email app can take its draft. -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>ssh</string>
 		<string>telnet</string>
+		<string>mailto</string>
 	</array>
 	<!-- Only standard HTTPS/TLS to the user's own LibreNMS server, which is
 	     exempt from US export rules - saves answering the encryption question
