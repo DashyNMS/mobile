@@ -8,13 +8,16 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>
-/// In-memory chat from More or a pinned tab. A finite transcript viewport and a
-/// measured composer share the setup layout's keyboard and glass clearance.
+/// The chat from More or a pinned tab, kept as a saved chat for the signed-in
+/// server (#229) unless saving is off or unavailable; the list button opens the
+/// saved chats. A finite transcript viewport and a measured composer share the
+/// setup layout's keyboard and glass clearance.
 /// Streaming labels are coalesced to ten updates a second rather than relaid out per token.
 /// </summary>
 public sealed class IntelligencePage : ContentPage, IActivePage
 {
     private readonly IntelligenceConversationViewModel _conversation;
+    private readonly IntelligenceChatListViewModel _chats;
     private readonly IntelligencePreferences _preferences;
     private readonly IIntelligenceModel _model;
     private readonly INavigationService _navigation;
@@ -34,6 +37,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center };
     private readonly IconButton _settings = new() { Icon = Icons.Maintenance, Kind = IconButtonKind.Plain };
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
+    private readonly IconButton _list = new() { Icon = "M9 6H20 M9 12H20 M9 18H20 M4 6H5 M4 12H5 M4 18H5", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
     private readonly List<TurnCard> _cards = [];
     private long _chatRevision;
@@ -43,12 +47,15 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private bool _scrolling;
     private bool _newChatPending;
     private bool _reporting;
+    private bool _listOpening;
+    private bool _showingDetail;
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
-        IntelligenceAnswerReporter reporter)
+        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats)
     {
         _conversation = conversation;
+        _chats = chats;
         _chatRevision = conversation.ChatRevision;
         _preferences = preferences;
         _model = model;
@@ -60,14 +67,24 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         Shell.SetNavBarIsVisible(this, false);
         SemanticProperties.SetDescription(_question, "Question about your network");
         SemanticProperties.SetDescription(_detail, "Detail for the next answer");
-        _detail.SelectedIndex = preferences.Detail switch { "brief" => 0, "detailed" => 2, _ => 1 };
+        ShowDetail();
+        _question.Text = conversation.Draft;
+        _detail.SelectedIndexChanged += (_, _) =>
+        {
+            // The conversation owns the choice, so a saved chat keeps it (#229).
+            // Only the user's own pick is recorded: showing the conversation's
+            // detail must leave a chat that follows the Settings default following it.
+            if (!_showingDetail && _detail.SelectedIndex >= 0) _conversation.SelectedDetail = DetailValue(_detail.SelectedIndex);
+        };
         _notice.Style = ResourceStyle("Caption");
         _notice.HorizontalOptions = LayoutOptions.Center;
         SemanticProperties.SetDescription(_new, "New chat");
         SemanticProperties.SetDescription(_settings, "Intelligence settings");
+        SemanticProperties.SetDescription(_list, "Saved chats");
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
+        _list.Command = new Command(OpenChats);
         _settings.Command = new Command(async () => await _navigation.GoToAsync(Routes.IntelligenceSettings));
-        _header.Actions = new HorizontalStackLayout { Children = { _new, _settings } };
+        _header.Actions = new HorizontalStackLayout { Children = { _list, _new, _settings } };
         _scroll.Content = _transcript;
         _scroll.Scrolled += (_, e) =>
         {
@@ -83,7 +100,12 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             if (_conversation.IsRunning) _conversation.Stop();
             else await AskAsync();
         };
-        _question.TextChanged += (_, _) => UpdateControls();
+        _question.TextChanged += (_, e) =>
+        {
+            // The draft lives in the conversation: saved with the chat, cleared with it.
+            if (_conversation.IsTranscriptCurrent) _conversation.Draft = e.NewTextValue ?? "";
+            UpdateControls();
+        };
         _transcript.HorizontalOptions = LayoutOptions.Center;
         _composer.SetAppThemeColor(BackgroundColorProperty, ThemeColour("SurfaceLight"), ThemeColour("SurfaceAltDark"));
         var composerStroke = new SolidColorBrush();
@@ -137,15 +159,19 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _showing = true;
             _conversation.PropertyChanged += OnConversationChanged;
             _conversation.Turns.CollectionChanged += OnTurnsChanged;
+            _chats.PropertyChanged += OnChatsChanged;
             if (_cards.Count != _conversation.Turns.Count || _cards.Where((card, index) => !ReferenceEquals(card.Turn, _conversation.Turns[index])).Any()
                 || _transcript.Children.Count == 0) Rebuild();
             else foreach (var card in _cards) card.Resume();
             _timer.Start();
         }
         _placement.Activate();
+        SynchroniseComposer();
         UpdateControls();
         ShowActions();
         PlaceConversation();
+        // This server's saved chats, read off the UI thread; reopens the last one into an empty chat.
+        _ = _chats.LoadAsync();
     }
 
     protected override void OnDisappearing()
@@ -154,6 +180,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _timer.Stop();
         _conversation.PropertyChanged -= OnConversationChanged;
         _conversation.Turns.CollectionChanged -= OnTurnsChanged;
+        _chats.PropertyChanged -= OnChatsChanged;
         foreach (var card in _cards) card.Dispose();
         base.OnDisappearing();
     }
@@ -161,8 +188,15 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private void OnConversationChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (!_showing) return;
+        // Replacement publishes this only after draft and detail are installed.
+        if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) SynchroniseComposer();
         UpdateControls();
         if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
+    }
+
+    private void OnChatsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_showing) UpdateControls();
     }
 
     private void OnTurnsChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -217,15 +251,32 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         foreach (var card in _cards) card.Place(width);
     }
 
-    private void UpdateControls()
+    private void SynchroniseComposer()
     {
         if (_chatRevision != _conversation.ChatRevision)
         {
             _chatRevision = _conversation.ChatRevision;
-            _question.Text = "";
+            // A new, reopened or cleared chat brings its own draft and detail.
+            _question.Text = _conversation.Draft;
             _following = true;
             _scrollPending = true;
         }
+
+        // Every time, not only for another chat: the Settings default may have
+        // changed while this page was away, and a chat without its own pick follows it.
+        ShowDetail();
+    }
+
+    /// <summary>Shows the conversation's detail without recording it as the chat's own choice.</summary>
+    private void ShowDetail()
+    {
+        _showingDetail = true;
+        try { _detail.SelectedIndex = DetailIndex(_conversation.SelectedDetail); }
+        finally { _showingDetail = false; }
+    }
+
+    private void UpdateControls()
+    {
         _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _ask.Text = _conversation.IsRunning ? "■" : "↑";
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
@@ -233,7 +284,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
         _starters.IsEnabled = _conversation.CanAsk;
-        _notice.Text = !string.IsNullOrEmpty(_conversation.Notice) ? _conversation.Notice
+        var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
+        _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
             : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
             : "Answers can be wrong. Lookups may use cached data; check readings and their age in LibreNMS.";
@@ -246,7 +298,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         var question = _question.Text ?? "";
         var count = _conversation.Turns.Count;
         _following = true;
-        var task = _conversation.AskAsync(question, _detail.SelectedIndex switch { 0 => "brief", 2 => "detailed", _ => "balanced" });
+        // Null: the conversation's own detail, which the picker shows - the chat's pick or the current default.
+        var task = _conversation.AskAsync(question);
         if (_conversation.Turns.Count > count) _question.Text = "";
         await task;
         Flush();
@@ -274,7 +327,13 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         finally { _scrolling = false; }
     }
 
-    /// <summary>Clearing an in-memory transcript needs confirmation; Stop remains a separate action.</summary>
+    /// <summary>
+    /// New chat goes through the list's shared leave decision
+    /// (<see cref="IntelligenceChatListViewModel.NewChatAsync"/>), as opening a
+    /// saved chat does: a chat whose latest text is confirmed saved is left at once,
+    /// after a wait of at most two seconds; otherwise the user chooses to try
+    /// again, discard it or cancel. Stop remains a separate action.
+    /// </summary>
     public async void RequestNewChat()
     {
         if (_conversation.IsRunning || _newChatPending) return;
@@ -283,8 +342,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         ShowActions();
         try
         {
-            if (_conversation.Turns.Count > 0 && !await _dialogs.ConfirmAsync("Start a new chat?", "This clears the current questions and answers. Chats are kept only while the app is running.", "New chat", "Cancel")) return;
-            if (_conversation.NewChat())
+            if (await _chats.NewChatAsync())
             {
                 _question.Text = "";
                 _following = true;
@@ -293,6 +351,20 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         }
         finally { _newChatPending = false; UpdateControls(); ShowActions(); }
     }
+
+    /// <summary>The saved-chat list, as a modal sheet over the chat.</summary>
+    private async void OpenChats()
+    {
+        if (_listOpening || Navigation is not { } navigation) return;
+        _listOpening = true;
+        try { await navigation.PushModalAsync(new IntelligenceChatsPage(_chats, _conversation, _dialogs, RequestNewChat)); }
+        catch { await _dialogs.AlertAsync("Couldn't open saved chats", "Try again."); }
+        finally { _listOpening = false; }
+    }
+
+    private static int DetailIndex(string detail) => detail switch { "brief" => 0, "detailed" => 2, _ => 1 };
+
+    private static string DetailValue(int index) => index switch { 0 => "brief", 2 => "detailed", _ => "balanced" };
 
     /// <summary>
     /// Report this answer (#574): choose a reason, then preview exactly what the
@@ -322,11 +394,12 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     {
         if (!_showing || Shell.Current?.CurrentPage != this) return;
 #if IOS
-        _new.IsVisible = _settings.IsVisible = !TabBarButtons.IsAvailable;
+        _new.IsVisible = _settings.IsVisible = _list.IsVisible = !TabBarButtons.IsAvailable;
         if (TabBarButtons.IsAvailable)
         {
             var actions = new List<GlassAction>();
             if (PageHeader.IsPushed(this)) actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+            actions.Add(new("list.bullet", "Saved chats", OpenChats));
             actions.Add(new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending));
             actions.Add(new("gearshape", "Intelligence settings", () => _ = _navigation.GoToAsync(Routes.IntelligenceSettings)));
             TabBarButtons.Show(this, null, string.Empty, actions);

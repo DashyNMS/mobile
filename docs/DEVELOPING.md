@@ -926,12 +926,13 @@ Each question permits at most two actual lookup calls, including a
 context-recovery attempt.
 
 The engine never logs or uploads questions, answers or lookup evidence.
-It has no disk persistence yet. On app suspension, the host requests a short
-iOS background reservation and awaits `InterruptAsync` for up to four seconds.
-Both expiration and completion end the reservation. Partial text stays in memory;
-there is no promise of surviving process termination. The encrypted store
-below (#222) is in place; saving and reopening history follow under #229.
-Native suspension and model-failure cases still need device verification.
+It keeps the composer's draft and the chosen detail (`Draft`,
+`SelectedDetail`) so a saved chat can restore them, and `Restore` shows a
+saved chat as a new revision. On app suspension, the host requests a short
+iOS background reservation, awaits `InterruptAsync` for up to four seconds,
+then saves the chat (below) for up to four more. Both expiration and
+completion end the reservation. Native suspension and model-failure cases
+still need device verification.
 
 ### Saved-chat storage (#222)
 
@@ -973,7 +974,7 @@ outside the folder, preferences and secure storage, so neither the wipe nor
 "forget everything" (`ILocalDataWipe`) removes it first. `IChatCleanupFiles`
 wraps the note and folder operations so tests can make each one fail. Logs name only the
 step that failed. Chat text, scopes, keys and exception messages are never
-logged. The chat list, autosave and restore are #229. Single-chat privacy mode
+logged. The chat list, autosave and restore are below (#229). Single-chat privacy mode
 is #230. Unreadable files without the key and absence from device backups still
 need checking on an iPhone and an Android phone.
 
@@ -984,6 +985,111 @@ may leave a value visible in memory. Chat-key reads propagate storage errors
 without MAUI's credential-clearing recovery. Other credentials keep MAUI's
 existing behaviour. Native persistence and failure handling still need device
 acceptance; shared failure tests establish the storage's response to adapter errors.
+
+### Saved chats (#229)
+
+`IntelligenceChatListViewModel` keeps the conversation as saved chats in the
+storage above. Chats are scoped per LibreNMS server
+(`IntelligenceSavedChats.Scope`: `on-device`, a newline and the web root, which
+Core hashes into the folder name), so another server never lists them; 2.1.0's
+ChatGPT accounts (#577) add the account as desktop does. The list loads once per
+connection, off the UI thread and after writes already queued, and reopens the
+chat that was open into an empty transcript. It is grouped by Core's
+`IntelligenceChatActivityGroups`, pinned first and then by activity. Activity is
+a new question or a changed answer state; drafts, renames and pins don't
+reorder the list.
+
+`IntelligenceSavedChats` maps each turn to desktop's two messages. The answer
+message keeps detail, outcome, message text, lookup activity, Core's typed
+references, images and, in an `Exact filters` status card, the exact group and
+location names Devices filters by. An answer saved mid-stream (`Generating`, or
+`IsIncomplete`) reopens as Interrupted with its partial text. Restored
+references pass the live checks again (a valid typed object whose key matches,
+filters only for groups and locations); anything else is dropped and stays
+plain text. Images pass the size and type limits again. Spotlight, looked-at
+context, history and outfit in a file are kept as they were; there is no
+Spotlight in phone chats yet (#231).
+
+A saved chat is bound to the conversation's `ChatRevision`. New chat, reopening,
+connection changes and sign-out move the revision before the transcript changes,
+so a cleared or foreign transcript is never written into the chat. Captures also
+need a current transcript, the scope the list was loaded for and the same scope
+generation. Capturing runs on the UI thread and builds fresh lists.
+`IntelligenceChatWriter`, a port of desktop's writer (desktop #321), serialises,
+encrypts and writes off it, in order. A newer save of a chat replaces one still
+waiting, so at most one save and one delete per chat wait. A delete drops waiting
+saves of that chat and refuses later ones, so a late debounce or suspension save
+can't bring it back. Sign-out drops everything waiting (`Invalidate`), and the
+storage's generation refuses a write already under way. A server switch lets
+the previous server's waiting saves finish in that server's scope. Draft and
+detail changes save two seconds after they settle; streaming saves at most every
+two seconds; a new question and a finished, stopped or failed answer are queued
+at once; an unchanged chat isn't rewritten. Anything typed or answered while
+the list is still loading is saved as soon as loading finishes.
+
+Every save and delete returns what became of it (`ChatWriteResult`). A failed
+or refused save leaves the chat marked for retry, so the next change and
+suspension write it again even if nothing changed. A
+delete clears the open chat at once, but the chat leaves the list, and VoiceOver
+says it was deleted, only once its file is gone. If the delete fails, or a
+sign-out, server switch or single-chat mode drops it from the queue, the chat
+stays (or comes back with the list) and can be deleted again; a failed or
+dropped delete stops refusing saves of that chat.
+
+New chat and opening another saved chat share one leave decision
+(`NewChatAsync`, `OpenAsync`), so the header, glass, sheet rows, long-press
+menu, swipes and VoiceOver actions can't skip it. It queues the latest and
+waits at most `LeaveWait` (two seconds) for the save that carries the chat's
+current text, draft or detail (`RequiredSave`). Only a chat that is empty, or
+whose save is confirmed written, is left without a question. A loaded chat
+nobody changed counts as written; saves that only move the reopen marker, pin
+or rename don't need confirming. A save that failed asks "couldn't be saved";
+one still going when the wait ends asks "hasn't finished saving". Both offer
+Try again, Discard chat or Cancel. A chat that isn't being saved at all
+(single-chat mode, a transcript used in it, unavailable storage) gets the red
+discard confirmation. The outcome is read from the save itself as well as from
+the posted acknowledgement, so a save that has just finished counts and one
+still waiting never does. After each question, the scope generation,
+transcript revision and target are checked again, so a sign-out, server
+switch, single-chat change or reload during the question cancels rather than
+opening a chat from the old scope.
+
+A damaged file is set aside by Core while the rest load, and the list says how
+many couldn't be read. When the storage is unavailable the list's status is the
+storage's reason and nothing is written; if reading fails, the list is read-only
+so an empty list never replaces the files. Saved chats are read from the phone,
+so they open offline; answer chips route to pages that show their own offline or
+cached state.
+
+Leaving after a failed or pending save offers Try again, Leave anyway or Cancel.
+It explicitly warns that earlier saved history may remain and a pending write
+may finish; this does not delete saved history. Private memory-only text keeps
+the explicit discard confirmation. Edits to draft, detail or answer content
+while waiting invalidate the leave decision, so an older snapshot cannot
+justify clearing newer text.
+
+Settings › Intelligence › Single-chat mode already exists; #230 completes it.
+For now the list honours it for saving: while it is on, nothing is read or
+written, the list is hidden, waiting debounces are cancelled, and the chat that
+was showing is unbound so its new text can't reach its file. A transcript that
+has text when the mode ends stays unsaved until New chat, including one started
+by a reconnect while the mode was on. Leaving it by New chat or by opening a
+saved chat asks before discarding it.
+Saved chats aren't deleted by the mode.
+
+The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
+or glass list button. Tests in `IntelligenceSavedChatTests` cover scoping,
+activity grouping, rename, pin and confirmed delete, restart restore of draft,
+detail, model, evidence filters and images, streaming and Interrupted restore,
+suspension, coalescing, delete, sign-out and wipe ordering, damaged files, an
+unreadable key store and single-chat mode, plus changes made while loading,
+failed and dropped deletes, failed saves retried unchanged, a reconnect in
+single-chat mode, and the leave decision: a save held past the wait, a save
+failing after it, declined discards, opening history after single-chat mode,
+an answer arriving after the scope moved on, and a chat that follows the
+Settings detail until it picks its own. Force-quit mid-answer, performance
+with long chats, and the sheet's layout and accessibility still need
+installed-device acceptance.
 
 ### Chat page (#227)
 
@@ -1000,11 +1106,14 @@ A chat revision also clears the composer draft on connection changes, including
 when a retained page next activates. Ordinary page departure and return keep
 the chat and draft. The transcript and draft are hidden while a connection
 reset is queued. Back is present only for the pushed route. Command-N asks
-the chat page to start a new chat. Clearing an existing in-memory transcript is confirmed.
+the chat page to start a new chat, through the saved-chat leave decision below.
 
 Ask clears an accepted question from the composer. Stop retains partial text;
 Retry appends an attempt and Edit copies the original question into the field.
-The detail picker applies to the next question without changing Settings.
+The detail picker applies to the next question without changing Settings. Until
+the chat has its own pick it follows the Settings default: each activation
+shows the conversation's detail without recording it as a pick, and Ask uses
+the conversation's detail rather than reading the picker.
 Copy exports only the chosen answer through the system clipboard. Starter
 questions fill the field without submitting. Labels display plain text and
 streaming updates are coalesced at 100ms intervals. Scrolling follows while
@@ -1026,8 +1135,10 @@ line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
 The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
 may be cached and asks readers to check readings and their age in LibreNMS.
-No conversation data is written to disk or included in diagnostics. Saved-chat
-sheets and Spotlight remain under #229 and #231. Formatted answers and answer
+Chats are saved locally using the encrypted store described under #222 and
+#229; single-chat mode keeps its transcript in memory. Conversation data is
+excluded from diagnostics. Saved-chat sheets are described under #229;
+Spotlight remains under #231. Formatted answers and answer
 reports are described under #228 and #574 below. Device acceptance for #227 and #573
 remains open: test long streaming answers, Stop and suspension, both entry
 routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,

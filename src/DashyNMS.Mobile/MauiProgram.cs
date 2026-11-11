@@ -121,6 +121,18 @@ public static class MauiProgram
 			sp.GetRequiredService<DesktopNMS.Services.ISessionService>(),
 			action => MainThread.BeginInvokeOnMainThread(action)));
 
+		// Saved chats (#229): the list and autosave over that storage, posting
+		// timer and writer callbacks back to the main thread.
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceChatListViewModel(
+			sp.GetRequiredService<Intelligence.IntelligenceConversationViewModel>(),
+			sp.GetRequiredService<Intelligence.IntelligenceChatStorage>(),
+			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),
+			sp.GetRequiredService<DesktopNMS.Services.ISessionService>(),
+			sp.GetRequiredService<IDialogService>(),
+			sp.GetRequiredService<TimeProvider>(),
+			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatListViewModel>>(),
+			action => MainThread.BeginInvokeOnMainThread(action)));
+
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();
