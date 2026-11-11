@@ -135,8 +135,26 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     public bool CanAsk => !_disposed && !IsRunning && _preferences.Enabled
         && _model.Availability == IntelligenceAvailability.Available && _session.Connection is not null
         && IsTranscriptCurrent;
-    public IReadOnlyList<string> StarterQuestions { get; } =
-        ["How is the network doing?", "Which open alerts need attention?", "Which devices are down?"];
+    private static readonly string[][] StarterSets =
+    [
+        ["How is the network doing?", "Which open alerts need attention?", "Which devices are down?"],
+        ["Summarise the active alerts.", "How many devices are up and down?", "Which alerts are unacknowledged?"],
+        ["Give me a brief network overview.", "Which devices need attention?", "What are the most severe active alerts?"],
+    ];
+    private int _starterSet = Random.Shared.Next(StarterSets.Length);
+    public IReadOnlyList<string> StarterQuestions => Array.AsReadOnly(StarterSets[_starterSet]);
+
+    private void RefreshStarters()
+    {
+        _starterSet = (_starterSet + 1) % StarterSets.Length;
+        OnPropertyChanged(nameof(StarterQuestions));
+    }
+
+    /// <summary>A stale suggestion must never replace a draft or submit into another chat.</summary>
+    public Task<bool> AskStarterAsync(string question, long revision) =>
+        revision == ChatRevision && Turns.Count == 0 && string.IsNullOrWhiteSpace(Draft)
+        && StarterQuestions.Contains(question) && CanAsk
+            ? AskAsync(question) : Task.FromResult(false);
 
     private sealed class Run(IntelligenceTurn turn, LibreNmsConnection connection, long generation)
     {
@@ -182,6 +200,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             // The revision moves first: a saved chat bound to the old one (#229)
             // must never see the cleared transcript as an edit to save.
             ChatRevision++;
+            RefreshStarters();
             Turns.Clear();
             Draft = "";
             _selectedDetail = null;
@@ -434,6 +453,19 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
 
     public Task<bool> RetryAsync(IntelligenceTurn turn) => OwnsTurn(turn) ? AskAsync(turn.Question, turn.Detail) : Task.FromResult(false);
     public string EditQuestion(IntelligenceTurn turn) => OwnsTurn(turn) ? turn.Question : "";
+
+    /// <summary>Any owned, settled question can be edited, without replacing an existing draft.</summary>
+    public bool CanEditQuestion(IntelligenceTurn turn) =>
+        CanAsk && OwnsTurn(turn) && turn.State != IntelligenceTurnState.Running
+        && !string.IsNullOrWhiteSpace(turn.Question) && string.IsNullOrWhiteSpace(Draft);
+
+    /// <summary>Check and install the draft together, including after a retained page returns.</summary>
+    public bool TryEditQuestion(IntelligenceTurn turn)
+    {
+        if (!CanEditQuestion(turn)) return false;
+        Draft = turn.Question;
+        return true;
+    }
     public bool NewChat() => Replace([], "", null);
 
     /// <summary>
@@ -450,6 +482,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         // The revision moves before the turns change, so anything bound to the
         // previous transcript sees a different chat, never an emptied one.
         ChatRevision++;
+        RefreshStarters();
         Turns.Clear();
         foreach (var turn in turns) Turns.Add(turn);
         Notice = "";

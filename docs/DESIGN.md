@@ -214,7 +214,10 @@ A card scans a list and does not audit one port. Show one card per row, and two 
 ### Intelligence chat
 
 - More-pushed and pinned routes share the setup layout's header, finite
-  transcript viewport and fixed composer. Its measured keyboard/glass gap
+  transcript viewport and overlaid composer. Reserve the measured overlay height
+  plus 16pt in the transcript footer, including a stable 44pt Jump to latest
+  arrow slot aligned with the capped chat column. Hiding the arrow keeps the
+  footer height unchanged. Its measured keyboard/glass gap
   has one owner in `SetupPageLayout`. Keep retained-page activation and
   connection ownership guards.
 - Centre transcript, notice and composer in a column capped at 860pt. User
@@ -231,13 +234,19 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   reachable at the height cap; verify this on device at maximum text size.
 - Lookup activity has a 44pt expandable summary with a name saying Show or
   Hide and the outcome. Success needs no second Completed line. Warnings,
-  stopped/interrupted states and Retry/Edit remain visible. Copy is a quiet
-  44pt action that copies the original Markdown.
+  stopped/interrupted states and Retry remain visible. Copy is a rounded 44pt
+  clipboard icon at the answer foot; Edit is a labelled icon by the question
+  and refuses to overwrite a draft. The view model allows owned, settled
+  questions through the normal availability gate. Assistant messages have no repeated heading.
+  Starter controls have rounded coloured outlines, hide while the draft has text,
+  and submit immediately through the guarded ask flow. Refresh on new or restored
+  chats, not ordinary page activation. Settings remains in app Settings.
 - Answers render Markdown as native text (#228). Tables sit in a sideways
   scroll with 260pt maximum cells; code wraps by character. Verified objects
   read as name and status in text, coloured only when Colour status indicators
-  is on, and repeat beneath the answer as 44pt chips whose names state the
-  target, status and action. Source links are 44pt buttons naming title and
+  is on, and retain guarded inline navigation without repeated chip rows. A
+  collapsed Open referenced item chooser supplies accessible 44pt targets.
+  Source links are 44pt buttons naming title and
   host. Answer images are native buttons announcing "Graph image … Enlarge";
   the enlarged view has a 44pt Close inside the safe area. Device acceptance
   of #228's layout and accessibility is pending.

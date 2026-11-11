@@ -8,7 +8,7 @@ namespace DashyNMS.Mobile.Controls;
 /// Draws an Intelligence answer from <see cref="IntelligenceMarkdown"/>'s blocks
 /// (#228). Text is always set as plain spans, so nothing in an answer is parsed as
 /// HTML or executed. Verified objects read as their name and status in text, with
-/// optional status colour; tapping one, or its 44pt chip beneath the answer, asks
+/// optional status colour; tapping one asks
 /// the host to open it. Tables scroll sideways rather than squeezing columns.
 /// Redraws only when the text, evidence or colour choice changes, and the page
 /// already coalesces streaming updates to ten a second.
@@ -18,6 +18,7 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
     private string? _markdown;
     private IReadOnlyList<IntelligenceInlineReference>? _references;
     private bool? _colour;
+    private bool _referencesExpanded;
 
     public IntelligenceMarkdownView() => Spacing = 10;
 
@@ -38,12 +39,29 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
         var blocks = IntelligenceMarkdown.Parse(markdown, references);
         foreach (var block in blocks) Children.Add(Block(block));
 
+        // Spans alone are not reliable accessible activation targets on native labels.
+        // A single disclosure offers full touch targets without persistent reference rows.
         var objects = IntelligenceMarkdown.LinkedObjects(blocks);
         if (objects.Count > 0)
         {
-            var chips = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
-            foreach (var reference in objects) chips.Children.Add(Chip(reference));
-            Children.Add(chips);
+            var choices = new VerticalStackLayout { Spacing = 0, IsVisible = _referencesExpanded };
+            var toggle = new Button { Text = _referencesExpanded ? "Hide referenced items" : "Open referenced item", MinimumHeightRequest = 44, Style = Resource<Style>("LinkButton") };
+            SemanticProperties.SetDescription(toggle, _referencesExpanded ? "Hide referenced items, expanded" : "Open referenced item, collapsed");
+            toggle.Clicked += (_, _) =>
+            {
+                choices.IsVisible = !choices.IsVisible;
+                _referencesExpanded = choices.IsVisible;
+                toggle.Text = choices.IsVisible ? "Hide referenced items" : "Open referenced item";
+                SemanticProperties.SetDescription(toggle, choices.IsVisible ? "Hide referenced items, expanded" : "Open referenced item, collapsed");
+            };
+            foreach (var reference in objects)
+            {
+                var button = new Button { Text = IntelligenceStatusTone.Describe(reference), MinimumHeightRequest = 44, Style = Resource<Style>("LinkButton") };
+                button.Clicked += (_, _) => ReferenceRequested?.Invoke(this, reference);
+                choices.Children.Add(button);
+            }
+            Children.Add(toggle);
+            Children.Add(choices);
         }
 
         var links = IntelligenceMarkdown.Links(blocks);
@@ -127,26 +145,6 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
                 result.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(() => ReferenceRequested?.Invoke(this, reference)) });
         }
         return result;
-    }
-
-    /// <summary>A whole native 44pt button per object, so screen readers reach every link.</summary>
-    private View Chip(IntelligenceInlineReference reference)
-    {
-        var chip = new Button
-        {
-            Text = reference.Status.Length > 0 ? reference.Name + " · " + reference.Status : reference.Name,
-            Style = Resource<Style>("SecondaryButton"), FontSize = 14, MinimumHeightRequest = 44, CornerRadius = 22,
-            Padding = new Thickness(14, 0), Margin = new Thickness(0, 0, 8, 8), BorderWidth = 1, LineBreakMode = LineBreakMode.TailTruncation,
-            MaximumWidthRequest = 320,
-        };
-        // The outline carries the decorative status colour; the label keeps the readable text colour.
-        if (IntelligenceStatusTone.ColourKey(reference.Tone, _colour == true) is { } key)
-            chip.BorderColor = Resource<Color>(key + "Stroke");
-        else
-            chip.SetAppThemeColor(Button.BorderColorProperty, Resource<Color>("StrokeLight"), Resource<Color>("ChipStrokeDark"));
-        SemanticProperties.SetDescription(chip, IntelligenceStatusTone.Describe(reference));
-        chip.Clicked += (_, _) => ReferenceRequested?.Invoke(this, reference);
-        return chip;
     }
 
     private View List(MarkdownListBlock list)
