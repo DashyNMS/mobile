@@ -877,8 +877,8 @@ mobile gate off. Turning the feature off retains the notice acceptance.
 Detail, colour indicators and single-chat mode use Core's setting keys.
 The on-device detail choices are Brief, Balanced and Detailed. Legacy
 styles are normalised, and Full reads as Detailed without changing the
-stored value until the person chooses. The single-chat setting is in place;
-chat-history behaviour follows in #230. The chat entry follows in #227.
+stored value until the person chooses. Single-chat mode and Delete saved
+chats are described under "Single-chat mode (#230)". The chat entry follows in #227.
 The diagnostic check also requires the mobile opt-in gate before reading
 LibreNMS or starting a model session; availability remains visible while off.
 
@@ -1068,14 +1068,7 @@ the explicit discard confirmation. Edits to draft, detail or answer content
 while waiting invalidate the leave decision, so an older snapshot cannot
 justify clearing newer text.
 
-Settings › Intelligence › Single-chat mode already exists; #230 completes it.
-For now the list honours it for saving: while it is on, nothing is read or
-written, the list is hidden, waiting debounces are cancelled, and the chat that
-was showing is unbound so its new text can't reach its file. A transcript that
-has text when the mode ends stays unsaved until New chat, including one started
-by a reconnect while the mode was on. Leaving it by New chat or by opening a
-saved chat asks before discarding it.
-Saved chats aren't deleted by the mode.
+Single-chat mode is described in its own section below (#230).
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
 or glass list button. Tests in `IntelligenceSavedChatTests` cover scoping,
@@ -1090,6 +1083,91 @@ an answer arriving after the scope moved on, and a chat that follows the
 Settings detail until it picks its own. Force-quit mid-answer, performance
 with long chats, and the sheet's layout and accessibility still need
 installed-device acceptance.
+
+### Single-chat mode (#230)
+
+Settings › Intelligence › Single-chat mode (Core's `IntelligenceSingleChatMode`)
+keeps one conversation in memory: questions, answers, the draft, lookup
+evidence, images and detail. Nothing from it is written, so a crash or
+force-quit leaves nothing to restore. The saved-chat list is hidden and settings
+are kept.
+
+When the setting turns on, the list drops the writer's queue, moves the scope
+generation on and records the entry synchronously, before its posted clean-up
+runs. Every capture, and loading, checks the setting and that record, so a
+debounce, streaming save or suspension save that runs in between writes nothing.
+The record matters when the mode is turned on and off before the clean-up runs:
+by then the setting already reads off, but the clean-up still marks the
+transcript private before it handles the turn off. The chat that was showing is unbound, so text added in the mode
+can't reach the file it came from. A write the writer had already started holds
+only what was captured before the mode went on; it may finish, and that is the
+only thing that can. A transcript that had text in the mode stays unsaved after
+leaving it, including one started by a reconnect in the mode, until New chat.
+Leaving it by New chat or by opening a saved chat asks before discarding it.
+
+Turning the mode on doesn't delete saved chats. Settings › Intelligence ›
+Delete saved chats is the separate choice. It is offered whether or not the mode
+is on, confirms with the standard destructive wording, and goes through
+`IntelligenceChatListViewModel.DeleteSavedChatsAsync` (`ISavedChatsDeletion`),
+which owns the writer. Before anything is awaited, it drops waiting saves, moves
+the scope generation on and empties the list. It then calls the storage's
+sign-out wipe (`WipeAsync`), so the cleanup note, key removal and generation
+refusal of a write already under way all apply. The chat on screen stays, but
+it is unbound and marked unsaved, so none of the deleted history comes back as a
+new chat. Settings says "Saved chats were deleted." only after a complete
+removal. A partial one shows what remains locked and offers Try again, and the
+list shows the storage's reason. Sign-out still wipes on its own.
+
+In this mode the chat is also kept out of the app switcher
+(`IntelligenceSnapshotShield`). It decides, and the head draws. Pages that show
+the conversation implement `IPrivateChatSurface`: the chat, the saved-chat sheet,
+the report preview and the enlarged graph. On iOS, `App` raises a cover window
+(`IosSnapshotCover`) above the app's own window on `Window.Deactivated`, and
+again on `Stopped` as a fallback, before the snapshot. The shield counts the
+cover as up only when `Show` reports it installed; with no native window or
+scene yet, or an exception, it stays uncovered and `Stopped` tries again. The
+cover shows the app name on the system background and says the chat is hidden.
+It is never key and takes no touches. It comes down on `Activated` or
+`Resumed`, even if the mode or page changed meanwhile.
+
+The keyboard lives in a system window that no app window can sit above, and its
+predictive bar can show words from the private draft. So before the cover goes
+up, every window of the scene ends editing without animation, taking the
+keyboard down. It isn't raised again on return. The draft is kept and the user
+taps the composer to carry on: bringing the keyboard back automatically could
+raise it over a page the user has since left. The composer's glass (#227)
+settles at rest, as for any dismissal. This applies only in single-chat mode
+with the chat on screen, so it includes Control Centre and notification pulls. On Android the activity window has `FLAG_SECURE` while
+the chat is on screen in the mode, re-evaluated on Shell navigation, modal pushes
+and pops, and setting changes. Intelligence is hidden on Android for 2.0, and
+MAUI's modal dialogs have their own windows, which the flag doesn't reach yet.
+Other pages aren't hidden. `PrivateChatSurfaces` lists what each window shows,
+its page and any sheets on the window's root or the current Shell section, and
+`PrivateScreen` decides. Only content pages known not to be the chat leave it
+unhidden. No windows, a window with no page, a missing Shell page, or a page or
+container it doesn't recognise all count as the chat. Navigation, tabbed and
+flyout wrappers count by the page they show.
+
+`IntelligenceSavedChatTests` uses a store spy with UI work held back to show
+zero store writes across streaming, a lookup, an image, draft and detail changes,
+debounce and suspension, before and after the setting's clean-up runs. It also
+shows that old chats survive the mode and are listed again after it, without the
+private text. Two more turn the mode on and off before the list handles
+either, with private text, an image and a draft (and in one, a server switch)
+in between: the store gets no writes and the old chat is unchanged. Further
+tests show that Delete saved chats removes every server's
+chats, the key and the note, drops a waiting save and refuses a running one, and
+never saves the open chat again. A removal that can't finish says so, and
+retrying finishes it. `IntelligenceSettingsTests` covers the confirmation, its
+decline, success only after complete removal, and Try again and Not now.
+`IntelligenceSnapshotShieldTests` covers when the cover goes up and comes down,
+a failed or throwing install that is tried again, when the window is secure,
+and `PrivateScreen` treating anything unknown as the chat. The native cover,
+keyboard dismissal and flag are built in CI only. Installed-device checks
+remain: force-quit and relaunch in the mode restores nothing; the app-switcher
+snapshot is covered and shows no keyboard or predictive suggestions; the cover
+clears on return, leaving the keyboard down, the draft intact and the glass at
+rest. The keychain and backup checks from #222 also remain.
 
 ### Chat page (#227)
 

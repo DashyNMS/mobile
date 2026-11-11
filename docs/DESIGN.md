@@ -266,6 +266,20 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   save that failed or hasn't finished offers Try again, Leave anyway and
   Cancel, explaining that older history may remain and a pending save may finish. A chat that isn't being saved gets the red discard confirmation.
   Cancel keeps the question, answer and draft on screen. Device acceptance is pending.
+- Single-chat mode (#230) adds no chat UI; the saved-chat sheet lists nothing
+  and says the mode is on. While it is on, the chat and its
+  sheets are covered in the app switcher: on iOS by a plain window with the app
+  name and "Hidden while single-chat mode is on" on the system background,
+  drawn before the snapshot and removed on return; on Android by a secure
+  window. On iOS the keyboard is dismissed first, as its predictive bar sits
+  above any cover, and isn't raised again on return: the draft stays and the
+  user taps the composer. Other pages aren't covered; anything the app can't
+  identify on screen is. Settings › Intelligence has a separate
+  Saved chats card with a caption saying the mode hides but doesn't delete, and
+  an outlined Delete saved chats `DangerButton` with its own disabled colours.
+  It always confirms. The result appears beneath it in text (critical colour on
+  failure) and is announced. A partial removal offers Try again. Device
+  acceptance is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
   sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.
@@ -376,5 +390,6 @@ These device checks remain open. Confirm each on a device, then fold any result 
 - Map, selection and tiles: select a pin or chooser location and check that it centres above the card and closing does not flash. Check merged pins, identical coordinates, long location and device names, the last device row, VoiceOver and TalkBack chooser operation, default and custom HTTP(S) tile settings, external attribution navigation and Reduce Motion.
 
 - Intelligence saved chats (#229): open the sheet from glass and header, open, pin, rename and delete chats by swipe, long press and VoiceOver, and check the sheet at maximum text and in both themes. End the app mid-answer and relaunch: the question and partial answer return marked Interrupted. Check that a long chat streams without stutter while saving, and that a second server and a fresh sign-in list none of the first's chats.
+- Intelligence single-chat mode (#230): turn it on with saved chats present and check they return when it is off. Ask, type a draft and force-quit mid-answer; relaunch restores nothing. Open the app switcher from the chat, the saved-chat sheet, the report preview and an enlarged graph, and check each is covered with no keyboard or predictive suggestions visible, including with the composer focused and a draft typed; check other pages aren't. Return and check the cover clears, the keyboard stays down with the draft intact, the glass is at rest and tapping the composer brings the keyboard back as normal, and that Control Centre or a notification pull does the same. Use Delete saved chats, then relaunch and sign in again to check none come back. Check the Settings card at maximum text, with VoiceOver and in both themes.
 
 Record each of these separately as passed, failed or unavailable against the build and device tested. An earlier code review or CI result is not device acceptance.

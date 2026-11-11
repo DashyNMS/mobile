@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 /// (TalkBack's double-tap-and-hold reaches it too), and VoiceOver offers them
 /// as custom actions. Delete always confirms (#146).
 /// </summary>
-public sealed class IntelligenceChatsPage : ContentPage
+public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
 {
     private readonly IntelligenceChatListViewModel _chats;
     private readonly IntelligenceConversationViewModel _conversation;

@@ -17,17 +17,30 @@ public partial class App : Application
 	private readonly Diagnostics.SessionHealth _sessions;
 	private readonly Intelligence.IntelligenceConversationViewModel _intelligence;
 	private readonly Intelligence.IntelligenceChatListViewModel _chats;
+	private readonly Intelligence.IntelligenceSnapshotShield _snapshots;
 
 	public App(AppShell shell, AlertWatchCoordinator alerts, MauiAppearance appearance, Services.IShareService share, Services.DiagnosticsLog diagnostics,
 		Security.CertificatePrompt certificates, Services.AppDiagnostics appDiagnostics, Services.SensorDefinitions definitions,
 		Services.WhatsNew whatsNew, Diagnostics.DiagnosticsReporter errors, Diagnostics.AppMetrics metrics,
 		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport,
 		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions,
-		Intelligence.IntelligenceConversationViewModel intelligence, Intelligence.IntelligenceChatListViewModel chats)
+		Intelligence.IntelligenceConversationViewModel intelligence, Intelligence.IntelligenceChatListViewModel chats,
+		Intelligence.IntelligenceSnapshotShield snapshots)
 	{
 		InitializeComponent();
 		_intelligence = intelligence;
 		_chats = chats;
+		_snapshots = snapshots;
+
+		// Single-chat mode's snapshot shield (#230) follows what is on screen:
+		// pages, tabs and the chat's sheets. Android keeps its window secure
+		// while the chat shows; iOS draws its cover only on the way out.
+		shell.Navigated += (_, _) => snapshots.Refresh();
+		ModalPushed += (_, _) => snapshots.Refresh();
+		ModalPopped += (_, _) => snapshots.Refresh();
+#if ANDROID
+		snapshots.SecureChanged += (_, _) => MainThread.BeginInvokeOnMainThread(() => AndroidSnapshotSecurity.Apply(snapshots.IsSecure));
+#endif
 
 		// Errors, memory, the network and the theme; settings changes and slow pages (#126).
 		SystemWatch.Start(this, diagnostics, errors);
@@ -100,6 +113,11 @@ public partial class App : Application
 	{
 		var window = new Window(_shell) { Title = "DashyNMS" };
 
+		// Single-chat mode's cover (#230) goes up before iOS takes the
+		// app-switcher snapshot: resigning active comes first, entering the
+		// background (Stopped) is the last chance.
+		window.Deactivated += (_, _) => CoverPrivateChat(window);
+
 		// Check for alerts on a timer while the app is on screen; in the
 		// background the platform's scheduler takes over.
 		// Error reports (#217) start only here, on screen: a launch for a
@@ -107,6 +125,7 @@ public partial class App : Application
 		// waited - last launch's fatal error, or what queued offline.
 		window.Activated += (_, _) =>
 		{
+			UncoverPrivateChat();
 			_alerts.SetForeground(true);
 			_errors.Start();
 			_metrics.Start();
@@ -118,6 +137,7 @@ public partial class App : Application
 		};
 		window.Resumed += (_, _) =>
 		{
+			UncoverPrivateChat();
 			_alerts.SetForeground(true);
 			_errors.Start();
 			_metrics.Start();
@@ -129,6 +149,7 @@ public partial class App : Application
 		};
 		window.Stopped += async (_, _) =>
 		{
+			CoverPrivateChat(window);
 			var endingIntelligence = InterruptIntelligenceAsync();
 			_alerts.SetForeground(false);
 			_stalls.Pause();
@@ -145,6 +166,32 @@ public partial class App : Application
 		PageHealth.Watch(this, window, _diagnostics);
 
 		return window;
+	}
+
+	/// <summary>
+	/// Hides a single-chat conversation before the app-switcher snapshot (#230):
+	/// on iOS the keyboard goes down and the cover goes up. The shield counts it
+	/// as covered only when the cover reports itself installed, so a resign-active
+	/// with no scene yet is tried again on Stopped. Android needs nothing here:
+	/// its window is already secure while the chat shows.
+	/// </summary>
+	private void CoverPrivateChat(Window window)
+	{
+#if IOS
+		_snapshots.Leaving(() => IosSnapshotCover.Show(window));
+#endif
+	}
+
+	/// <summary>Back in front: the cover comes down, whatever has changed while away.</summary>
+	private void UncoverPrivateChat()
+	{
+		// Removed even when the shield had no record of it, so a cover can never be left behind.
+		_snapshots.Returned();
+#if IOS
+		IosSnapshotCover.Hide();
+#elif ANDROID
+		AndroidSnapshotSecurity.Apply(_snapshots.IsSecure);
+#endif
 	}
 
 	/// <summary>

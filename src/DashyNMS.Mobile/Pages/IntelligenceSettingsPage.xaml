@@ -14,6 +14,16 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <!-- DangerButton has no disabled colours of its own; while deleting it must read as unavailable. -->
+        <Style x:Key="DeleteChatsAction" TargetType="Button" BasedOn="{StaticResource DangerButton}">
+            <Setter Property="HeightRequest" Value="-1" />
+            <Style.Triggers>
+                <Trigger TargetType="Button" Property="IsEnabled" Value="False">
+                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
+                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </ContentPage.Resources>
     <controls:SetupLayout x:Name="Setup">
         <controls:SetupLayout.Header>
@@ -49,6 +59,20 @@
                                     </VerticalStackLayout>
                                     <Switch Grid.Column="1" IsToggled="{Binding SingleChatMode}" SemanticProperties.Description="Single-chat mode, without saved history" MinimumHeightRequest="44" />
                                 </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource Card}" IsVisible="{Binding HasSavedChats}">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Saved chats" FontFamily="BodySemibold" />
+                                <Label Style="{StaticResource Caption}" Text="Single-chat mode hides saved chats but doesn't delete them. Deleting removes every saved chat on this phone and applies straight away." />
+                                <Button Style="{StaticResource DeleteChatsAction}" Text="Delete saved chats" Command="{Binding DeleteSavedChatsCommand}" MinimumHeightRequest="48" SemanticProperties.Description="Delete saved chats from this phone" />
+                                <Label Text="{Binding SavedChatsStatus}" IsVisible="{Binding HasSavedChatsStatus}" Style="{StaticResource Caption}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding SavedChatsFailed}" Value="True">
+                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
                             </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>

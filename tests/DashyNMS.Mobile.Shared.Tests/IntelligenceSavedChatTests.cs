@@ -634,6 +634,358 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Single_chat_mode_hands_the_store_nothing_across_streaming_lookups_images_drafts_detail_and_suspension()
+    {
+        // UI work is posted and run only when the test says, so the setting's
+        // clean-up can be held back while saves that were already due run first.
+        var posted = new Queue<Action>();
+        void RunPosted() { while (posted.TryDequeue(out var action)) action(); }
+        var app = Start(posted.Enqueue);
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+        RunPosted();
+        var before = faults.Writes;
+        Assert.True(before > 0);
+
+        // A draft change is waiting on the debounce when the mode goes on, and
+        // the list hasn't handled the change yet.
+        app.Conversation.Draft = "private-sentinel draft typed just before";
+        _preferences.SetSingleChatMode(true);
+        Assert.False(app.Chats.CanPersist);
+        Assert.Equal(0, app.Chats.Writer.Pending);
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+
+        // A streamed answer with a lookup and an image, a detail change and a
+        // draft, the debounce and suspension, before and after the change is handled.
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _model.Scripts.Enqueue(async (_, tools, text, token) =>
+        {
+            await tools[0].Run("", token);
+            text("private-sentinel partial");
+            await release.Task;
+            return new IntelligenceAnswer("private-sentinel answer", null) { Images = [new IntelligenceImage(Png, "image/png")] };
+        });
+        var asking = app.Conversation.AskAsync("private-sentinel question");
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        app.Conversation.SelectedDetail = IntelligenceDetail.Detailed;
+        app.Conversation.Draft = "private-sentinel draft";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        release.SetResult();
+        Assert.True(await asking);
+        RunPosted();
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        RunPosted();
+
+        Assert.Equal(before, faults.Writes);
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Saved before single-chat mode", saved.Title);
+        Assert.DoesNotContain(saved.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", saved.Draft ?? "");
+        Assert.All(saved.Messages, message => Assert.Empty(message.Images ?? []));
+
+        // Leaving the mode: the old chat is listed again, still without the private text.
+        _preferences.SetSingleChatMode(false);
+        RunPosted();
+        await app.Chats.LoadAsync();
+        RunPosted();
+        app.Conversation.Draft = "private-sentinel after leaving";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        RunPosted();
+        var after = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(saved.Id, after.Id);
+        Assert.DoesNotContain(after.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", after.Draft ?? "");
+        Assert.Single(app.Chats.Chats);
+    }
+
+    [Fact]
+    public async Task Turning_single_chat_mode_on_and_off_before_the_list_handles_either_still_saves_none_of_the_private_text()
+    {
+        // Both changes are posted and held, so when they run the setting already
+        // reads off: the entry has to have been recorded when it happened.
+        var posted = new Queue<Action>();
+        void RunPosted() { while (posted.TryDequeue(out var action)) action(); }
+        var app = Start(posted.Enqueue);
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+        RunPosted();
+        var before = faults.Writes;
+        var savedBefore = Assert.Single((await ReadAsync(ServerA)).Chats);
+
+        _preferences.SetSingleChatMode(true);
+        Assert.False(app.Chats.CanPersist);
+        app.Conversation.Draft = "private-sentinel draft";
+        app.Conversation.SelectedDetail = IntelligenceDetail.Detailed;
+        _model.Scripts.Enqueue(async (_, tools, text, token) =>
+        {
+            await tools[0].Run("", token);
+            text("private-sentinel partial");
+            return new IntelligenceAnswer("private-sentinel answer", null) { Images = [new IntelligenceImage(Png, "image/png")] };
+        });
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+        app.Conversation.Draft = "private-sentinel later draft";
+        _preferences.SetSingleChatMode(false);
+
+        // Still refused before the held changes run: the entry is recorded.
+        Assert.False(app.Chats.CanPersist);
+        await app.Chats.SaveNowAsync();
+        Assert.Equal(before, faults.Writes);
+
+        // The timers fire, the held changes and timers run, then suspension saves.
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.False(app.Chats.IsSingleChatMode);
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+        app.Conversation.Draft = "private-sentinel draft after leaving";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        RunPosted();
+
+        Assert.Equal(before, faults.Writes);
+        var after = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(savedBefore.Id, after.Id);
+        Assert.Equal(savedBefore.Messages.Count, after.Messages.Count);
+        Assert.DoesNotContain(after.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", after.Draft ?? "");
+        Assert.All(after.Messages, message => Assert.Empty(message.Images ?? []));
+
+        // Normal history works again from a new chat.
+        Assert.True(await app.Chats.NewChatAsync());
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved after leaving"));
+        await app.SettleAsync();
+        RunPosted();
+        Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
+    }
+
+    [Fact]
+    public async Task A_reconnect_between_turning_single_chat_mode_on_and_off_saves_nothing_from_either_server()
+    {
+        var posted = new Queue<Action>();
+        void RunPosted() { while (posted.TryDequeue(out var action)) action(); }
+        var app = Start(posted.Enqueue);
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+        RunPosted();
+        var before = faults.Writes;
+
+        _preferences.SetSingleChatMode(true);
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer A", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question A"));
+        SwitchTo(ServerB);
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer B", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question B"));
+        app.Conversation.Draft = "private-sentinel draft B";
+        _preferences.SetSingleChatMode(false);
+
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.LoadAsync();
+        RunPosted();
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        RunPosted();
+
+        Assert.Equal(before, faults.Writes);
+        Assert.Empty((await ReadAsync(ServerB)).Chats);
+        var a = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.DoesNotContain(a.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+    }
+
+    [Fact]
+    public async Task Single_chat_mode_keeps_saved_chats_until_delete_saved_chats_removes_them_all()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Chat on server A"));
+        await app.SettleAsync();
+        SwitchTo(ServerB);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Chat on server B"));
+        await app.SettleAsync();
+
+        // Turning the mode on deletes nothing.
+        _preferences.SetSingleChatMode(true);
+        Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Single((await ReadAsync(ServerB)).Chats);
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+
+        Assert.Equal(ChatWipeResult.Removed, await app.Chats.DeleteSavedChatsAsync());
+        Assert.Empty(ChatFiles());
+        Assert.False(_keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
+        Assert.False(File.Exists(_root + ".cleanup-pending"));
+        Assert.Equal(IntelligenceChatListViewModel.SingleChatStatus, app.Chats.Status);
+
+        // The private chat is still on screen, and still written nowhere.
+        Assert.Equal("private-sentinel question", app.Conversation.Turns[^1].Question);
+        app.Conversation.Draft = "private-sentinel draft";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        Assert.Empty(ChatFiles());
+        Assert.Equal(IntelligenceChatStorageState.Closed, app.Storage.State);
+
+        // Leaving the mode lists nothing, keeps the private chat unsaved, and a new chat saves under a new key.
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        Assert.Empty(app.Chats.Chats);
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+        await app.Chats.SaveNowAsync();
+        Assert.Empty((await ReadAsync(ServerB)).Chats);
+        Assert.True(await app.Chats.NewChatAsync());
+        Assert.True(await app.Conversation.AskAsync("Saved after deleting"));
+        await app.SettleAsync();
+        Assert.Equal("Saved after deleting", Assert.Single((await ReadAsync(ServerB)).Chats).Title);
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+    }
+
+    [Fact]
+    public async Task Deleting_history_blocks_reentrant_loads_before_collection_notifications()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("History to remove"));
+        await app.Chats.SaveNowAsync();
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _keys.FailRemove = true;
+        _keys.BeforeRead = async () => { await blocked.Task; _keys.Values.Clear(); };
+        var reentrant = new List<Task>();
+        app.Chats.Groups.CollectionChanged += (_, _) => reentrant.Add(app.Chats.LoadAsync());
+        var deleting = app.Chats.DeleteSavedChatsAsync();
+        try
+        {
+            Assert.False(deleting.IsCompleted);
+            Assert.NotEmpty(reentrant);
+            await Task.WhenAll(reentrant.ToArray()).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Empty(app.Chats.Chats);
+            Assert.False(app.Chats.CanPersist);
+        }
+        finally
+        {
+            _keys.BeforeRead = null;
+            _keys.FailRemove = false;
+            blocked.TrySetResult();
+        }
+        Assert.Equal(ChatWipeResult.Removed, await deleting.WaitAsync(TimeSpan.FromSeconds(5)));
+        await app.Chats.LoadAsync();
+        Assert.Empty(app.Chats.Chats);
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+        Assert.Empty(ChatFiles());
+    }
+
+    [Fact]
+    public async Task Delete_saved_chats_drops_waiting_and_running_saves_and_never_resaves_the_open_chat()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved history"));
+        await app.SettleAsync();
+
+        // One save under way and held, another waiting behind it.
+        var running = faults.HoldNext();
+        app.Conversation.Draft = "draft-sentinel running";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await running.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<ChatWipeResult> deleting;
+        try
+        {
+            app.Conversation.Draft = "draft-sentinel waiting";
+            _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+            Assert.Equal(1, app.Chats.Writer.Pending);
+
+            // The held save keeps the store it was queued with; the list's
+            // reload after deleting opens its own, unwrapped.
+            app.Chats.WrapStore = null;
+            deleting = app.Chats.DeleteSavedChatsAsync();
+            Assert.Equal(0, app.Chats.Writer.Pending);
+            Assert.Empty(app.Chats.Chats);
+            Assert.Null(app.Chats.Active);
+        }
+        finally { running.Release.TrySetResult(); }
+
+        Assert.Equal(ChatWipeResult.Removed, await deleting.WaitAsync(TimeSpan.FromSeconds(10)));
+        await app.SettleAsync();
+        Assert.Empty(ChatFiles());
+
+        // The chat on screen stays, but none of it becomes a saved chat again.
+        Assert.Equal("Saved history", Assert.Single(app.Conversation.Turns).Question);
+        Assert.Equal("draft-sentinel waiting", app.Conversation.Draft);
+        await app.Chats.LoadAsync();
+        Assert.Equal(IntelligenceChatListViewModel.DeletedUnsavedStatus, app.Chats.Status);
+        Assert.False(app.Chats.KeepsCurrentChat);
+        Assert.True(await app.Conversation.AskAsync("Follow-up after deleting"));
+        app.Conversation.Draft = "draft-sentinel after";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+
+        // A new chat is saved again, and only it.
+        Assert.True(await app.Chats.NewChatAsync());
+        Assert.True(await app.Conversation.AskAsync("New after deleting"));
+        await app.SettleAsync();
+        var only = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("New after deleting", only.Title);
+        Assert.DoesNotContain(only.Messages, message => message.Text.Contains("Saved history"));
+        Assert.Equal("", app.Chats.Status);
+    }
+
+    [Fact]
+    public async Task A_delete_saved_chats_that_cannot_finish_says_so_and_trying_again_finishes_it()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved history"));
+        await app.SettleAsync();
+
+        _keys.FailRemove = true;
+        Assert.Equal(ChatWipeResult.Retained, await app.Chats.DeleteSavedChatsAsync());
+        Assert.True(File.Exists(_root + ".cleanup-pending"));
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, app.Storage.State);
+        Assert.Equal(app.Storage.UnavailableReason, app.Chats.Status);
+        Assert.Contains("stay locked", app.Chats.Status);
+        Assert.False(app.Chats.CanPersist);
+        // Nothing is written while it is locked.
+        app.Conversation.Draft = "draft-sentinel while locked";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+        Assert.Empty(ChatFiles());
+
+        _keys.FailRemove = false;
+        Assert.Equal(ChatWipeResult.Removed, await app.Chats.DeleteSavedChatsAsync());
+        Assert.False(File.Exists(_root + ".cleanup-pending"));
+        Assert.False(_keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
+        await app.Chats.LoadAsync();
+        Assert.True(app.Chats.CanPersist);
+        Assert.Empty(app.Chats.Chats);
+        Assert.Equal(IntelligenceChatListViewModel.DeletedUnsavedStatus, app.Chats.Status);
+    }
+
+    [Fact]
     public async Task Draft_typing_is_debounced_and_unchanged_chats_are_not_rewritten()
     {
         var app = Start();
@@ -682,6 +1034,33 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.Equal("draft-sentinel while loading", saved.Draft);
         Assert.Same(Assert.Single(app.Chats.Chats), app.Chats.Active);
         Assert.True(app.Chats.KeepsCurrentChat);
+    }
+
+    [Fact]
+    public async Task Enabling_private_mode_invalidates_a_held_load_before_deferred_cleanup_runs()
+    {
+        var seed = Start();
+        await seed.Chats.LoadAsync();
+        Assert.True(await seed.Conversation.AskAsync("Saved history must not reappear"));
+        await seed.Chats.SaveNowAsync();
+        var callbacks = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var app = Start(action => callbacks.Enqueue(action));
+        var faults = Faulty(app);
+        var reading = faults.HoldNext();
+        var loading = app.Chats.LoadAsync();
+        await reading.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _preferences.SetSingleChatMode(true);
+        reading.Release.SetResult();
+        await loading.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // No preference UI callback ran: synchronous generation invalidation
+        // alone must prevent the completed read from restoring saved history.
+        Assert.Empty(app.Conversation.Turns);
+        Assert.Null(app.Chats.Active);
+        Assert.False(app.Chats.CanPersist);
+        while (callbacks.TryDequeue(out var callback)) callback();
+        Assert.Empty(app.Conversation.Turns);
+        Assert.True(app.Chats.IsSingleChatMode);
     }
 
     [Fact]
@@ -1209,12 +1588,16 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     private sealed class FaultyStore : IIntelligenceChatStore
     {
         private Gate? _hold;
+        private int _writes;
         private volatile bool _failSaves;
         private volatile bool _failDeletes;
 
         public IIntelligenceChatStore Inner { get; set; } = null!;
         public bool FailSaves { get => _failSaves; set => _failSaves = value; }
         public bool FailDeletes { get => _failDeletes; set => _failDeletes = value; }
+
+        /// <summary>Every save and delete the writer handed to the store, failed or not.</summary>
+        public int Writes => Volatile.Read(ref _writes);
 
         /// <summary>The next load, save or delete waits until the gate is released.</summary>
         public Gate HoldNext()
@@ -1232,6 +1615,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
 
         public void Save(string scope, SavedIntelligenceChat chat, bool makeActive = true)
         {
+            Interlocked.Increment(ref _writes);
             Wait();
             if (FailSaves) throw new IOException("Synthetic save failure.");
             Inner.Save(scope, chat, makeActive);
@@ -1239,6 +1623,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
 
         public void Delete(string scope, Guid id)
         {
+            Interlocked.Increment(ref _writes);
             Wait();
             if (FailDeletes) throw new IOException("Synthetic delete failure.");
             Inner.Delete(scope, id);

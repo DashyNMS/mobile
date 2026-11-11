@@ -34,6 +34,14 @@ public partial class IntelligenceSettingsPage : ContentPage, IActivePage
 
     private async void OnChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(_viewModel.SavedChatsStatus))
+        {
+            // Said aloud, as the result sits below the button rather than in a dialog.
+            var status = _viewModel.SavedChatsStatus;
+            if (status.Length > 0) SemanticScreenReader.Default.Announce(status);
+            return;
+        }
+
         if (e.PropertyName != nameof(_viewModel.ErrorMessage) || !_viewModel.HasError) return;
         var message = _viewModel.ErrorMessage;
         await FormScroll.ScrollToAsync(0, 0, false);

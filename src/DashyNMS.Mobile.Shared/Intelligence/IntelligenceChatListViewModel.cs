@@ -77,6 +77,21 @@ public sealed class IntelligenceChatItem(SavedIntelligenceChat data) : Observabl
     }
 }
 
+/// <summary>
+/// Removes every saved chat on the phone (#230), behind Settings › Intelligence ›
+/// Delete saved chats. Separate from the list, so Settings can offer it while
+/// single-chat mode hides the list, and so its tests can stand in for it.
+/// </summary>
+public interface ISavedChatsDeletion
+{
+    /// <summary>
+    /// Deletes every saved chat and their key, without asking: the caller has
+    /// confirmed. The chat on screen stays, unsaved. Reports what the storage
+    /// managed, never more.
+    /// </summary>
+    Task<ChatWipeResult> DeleteSavedChatsAsync();
+}
+
 /// <summary>A heading of the list - Pinned, Today, Yesterday and so on, from Core - and its chats.</summary>
 public sealed class IntelligenceChatGroup(string label, IEnumerable<IntelligenceChatItem> chats) : List<IntelligenceChatItem>(chats)
 {
@@ -107,12 +122,27 @@ public sealed class IntelligenceChatGroup(string label, IEnumerable<Intelligence
 /// the writer (<see cref="SaveNowAsync"/>).
 /// </para>
 /// <para>
-/// Settings › Intelligence › Single-chat mode already exists; its full privacy
-/// mode is #230. Here it is honoured as far as saving goes: while it is on,
-/// nothing is read or written, the list is hidden, waiting saves are cancelled,
-/// and the chat that was showing is unbound so its later text can't reach the
-/// file. A transcript that had text in single-chat mode stays unsaved after
-/// leaving it, until a new chat starts. Saved chats are never deleted by it.
+/// Single-chat mode (Settings › Intelligence, #230) keeps the conversation,
+/// draft, lookups, images and detail only in memory. While it is on, nothing
+/// is read or written: the list is hidden, and the moment the setting goes on
+/// - before the posted clean-up runs - waiting saves are dropped from the
+/// writer, the scope moves on and the entry is recorded. Every capture checks
+/// the setting and that record, so a debounce, streaming save or suspension
+/// that runs in between finds nothing to write, even if the setting has been
+/// turned off again before the clean-up ran: that clean-up still marks the
+/// transcript private before handling the turn off. The chat that
+/// was showing is unbound, so its later text can't reach the file it came
+/// from. A write the writer had already started holds only what was captured
+/// before the mode went on. A transcript that had text in single-chat mode
+/// stays unsaved after leaving it, until a new chat starts.
+/// </para>
+/// <para>
+/// The mode never deletes saved chats. <see cref="DeleteSavedChatsAsync"/> is the
+/// separate, confirmed choice: it drops waiting saves, moves the scope on so
+/// nothing in flight is acknowledged, and wipes the storage as sign-out does,
+/// whose generation refuses a write already under way. The chat on screen
+/// stays but is no longer saved, so none of the deleted history comes back as
+/// a new chat.
 /// </para>
 /// <para>
 /// The writer reports what became of each save and delete. A chat leaves the list
@@ -131,7 +161,7 @@ public sealed class IntelligenceChatGroup(string label, IEnumerable<Intelligence
 /// or cancel and keep it on screen.
 /// </para>
 /// </remarks>
-public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposable
+public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposable, ISavedChatsDeletion
 {
     /// <summary>How long after the last change a chat is saved, and how often while streaming.</summary>
     public static readonly TimeSpan SaveDelay = TimeSpan.FromSeconds(2);
@@ -142,6 +172,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     internal const string SaveFailedStatus = "This chat couldn't be saved. It stays on screen, and saving is tried again with the next change and when you leave the app.";
     internal const string UnavailableStatus = "Saved chats are unavailable, so this chat isn't being saved.";
     internal const string DeleteFailedStatus = "That chat couldn't be deleted, so it's still saved. Try again.";
+    internal const string DeletedUnsavedStatus = "Saved chats were deleted. This chat stays on screen but isn't saved. Start a new chat to save again.";
 
     /// <summary>How long leaving a chat waits for its latest save before asking; short, as the screen waits with it.</summary>
     public static readonly TimeSpan LeaveWait = TimeSpan.FromSeconds(2);
@@ -178,9 +209,23 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private long _activeRevision = -1;
     private string _activity = "";
 
-    /// <summary>A transcript revision used in single-chat mode: never saved.</summary>
+    /// <summary>A transcript revision used in single-chat mode, or on screen when saved chats were deleted: never saved.</summary>
     private long? _unsavedRevision;
+
+    /// <summary>Why <see cref="_unsavedRevision"/> isn't saved, for the list's status.</summary>
+    private string _unsavedText = UnsavedStatus;
+
+    private Task<ChatWipeResult>? _deletingSaved;
+    private bool _deletingAll;
     private bool _singleChatMode;
+
+    /// <summary>
+    /// Set the moment the setting turns on, before its handler is posted, and
+    /// cleared once that handler has made the transcript private. Turning the
+    /// setting off again before then can't erase the entry, so the text typed
+    /// in between is still treated as private.
+    /// </summary>
+    private int _privateEntry;
     private bool _changing;
     private bool _disposed;
     private bool _wanted;
@@ -243,8 +288,8 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     public bool IsReadOnly { get => _isReadOnly; private set => SetProperty(ref _isReadOnly, value); }
 
     /// <summary>Chats are being kept: loaded for this server, writable and not in single-chat mode.</summary>
-    /// <remarks>Reads the setting itself too, so no save slips in before its change is handled.</remarks>
-    public bool CanPersist => !_disposed && !_singleChatMode && !_preferences.SingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
+    /// <remarks>Reads the setting itself too, and a recorded entry, so no save slips in before its change is handled.</remarks>
+    public bool CanPersist => !_disposed && !_deletingAll && !InSingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
         && _loadedGeneration == Interlocked.Read(ref _scopeGeneration);
 
     /// <summary>Opening, pinning, renaming and deleting wait for an answer to finish.</summary>
@@ -260,6 +305,13 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     public bool KeepsCurrentChat => CanPersist && _unsavedRevision != _conversation.ChatRevision
         && (!HasContent() || Active is { } item && IsWritten(item));
 
+    /// <summary>
+    /// Single-chat mode is on, its change is still to be handled, or it went on
+    /// and its handler hasn't yet marked the transcript private - even if the
+    /// setting is already off again.
+    /// </summary>
+    private bool InSingleChatMode => _singleChatMode || _preferences.SingleChatMode || Volatile.Read(ref _privateEntry) != 0;
+
     /// <summary>A New chat or open is deciding what becomes of the chat on screen.</summary>
     public bool IsLeaving => _leaving;
 
@@ -273,9 +325,10 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private async Task LoadCoreAsync()
     {
         _wanted = true;
-        if (_disposed) return;
+        if (_disposed || _deletingAll) return;
         var generation = Interlocked.Read(ref _scopeGeneration);
-        if (_singleChatMode)
+        // The setting itself too: its posted clean-up may not have run yet.
+        if (InSingleChatMode)
         {
             Status = SingleChatStatus;
             return;
@@ -285,7 +338,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         var scope = IntelligenceSavedChats.Scope(connection);
         if (_loadedGeneration == generation && _store is not null) return;
         var version = ++_loadVersion;
-        bool Stale() => _disposed || version != _loadVersion || generation != Interlocked.Read(ref _scopeGeneration);
+        bool Stale() => _disposed || _deletingAll || version != _loadVersion || generation != Interlocked.Read(ref _scopeGeneration);
 
         IIntelligenceChatStore? store;
         try { store = await _storage.OpenAsync(); }
@@ -327,7 +380,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         if (unreadable > 0) _logger.LogWarning("{Count} saved chats could not be read and were skipped", unreadable);
         Status = unreadable switch
         {
-            0 => _unsavedRevision == _conversation.ChatRevision && HasContent() ? UnsavedStatus : "",
+            0 => _unsavedRevision == _conversation.ChatRevision && HasContent() ? _unsavedText : "",
             1 => "One saved chat couldn't be read and was set aside. Your other chats are here.",
             _ => $"{unreadable} saved chats couldn't be read and were set aside. Your other chats are here.",
         };
@@ -468,11 +521,15 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     {
         if (!Replace(() => _conversation.NewChat())) return false;
         Unbind();
-        if (_singleChatMode) _unsavedRevision = _conversation.ChatRevision;
+        if (InSingleChatMode)
+        {
+            _unsavedRevision = _conversation.ChatRevision;
+            _unsavedText = UnsavedStatus;
+        }
         else
         {
             _unsavedRevision = null;
-            if (Status == UnsavedStatus) Status = "";
+            if (Status == _unsavedText) Status = "";
         }
 
         Regroup();
@@ -559,6 +616,87 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     }
 
     /// <summary>
+    /// Settings › Intelligence › Delete saved chats (#230): every saved chat on
+    /// the phone, for every server, and their key - the storage's sign-out wipe.
+    /// Works in single-chat mode too, where the list is hidden. Not confirmed
+    /// here; Settings asks first.
+    /// </summary>
+    /// <remarks>
+    /// Before anything is awaited, waiting saves are dropped, the scope moves on
+    /// so no outcome or late load from before counts, and the list is emptied.
+    /// The chat on screen stays where it is, but is unbound and marked unsaved,
+    /// so its text - saved history a moment ago, or private text in single-chat
+    /// mode - isn't written as a new chat afterwards. Only a complete removal
+    /// reloads the (now empty) list; after a partial one the storage stays
+    /// locked and says why, and calling this again retries.
+    /// </remarks>
+    public Task<ChatWipeResult> DeleteSavedChatsAsync()
+    {
+        if (_deletingSaved is { IsCompleted: false } running) return running;
+        return _deletingSaved = DeleteSavedChatsCoreAsync();
+    }
+
+    private async Task<ChatWipeResult> DeleteSavedChatsCoreAsync()
+    {
+        // Block reentrant loads before Regroup or any other notification.
+        _deletingAll = true;
+        _writer.Invalidate();
+        Interlocked.Increment(ref _scopeGeneration);
+        CancelTimer();
+        if (HasContent() && _unsavedRevision != _conversation.ChatRevision)
+        {
+            _unsavedRevision = _conversation.ChatRevision;
+            _unsavedText = DeletedUnsavedStatus;
+        }
+
+        Unbind();
+        _store = null;
+        _loadedScope = null;
+        _chats.Clear();
+        IsReadOnly = false;
+        Regroup();
+        Changed();
+
+        ChatWipeResult result;
+        try
+        {
+            result = await _storage.WipeAsync();
+        }
+        catch (Exception)
+        {
+            // The storage reports its own failures; anything else is still "not all removed".
+            result = ChatWipeResult.Retained;
+        }
+        finally
+        {
+            // No load admitted before/during cleanup may publish a reusable
+            // store. The successful reload must open a fresh generation.
+            _loadVersion++;
+            _store = null;
+            _loadedScope = null;
+            _loadedGeneration = -1;
+            _deletingAll = false;
+        }
+
+        _logger.LogInformation("Delete saved chats finished: {Result}", result.ToString());
+        if (_disposed) return result;
+        var single = InSingleChatMode;
+        if (result == ChatWipeResult.Removed)
+        {
+            Status = single ? SingleChatStatus
+                : _unsavedRevision == _conversation.ChatRevision && HasContent() ? _unsavedText : "";
+            if (_wanted && !single && _session.Connection is not null) _ = LoadAsync();
+        }
+        else if (!single)
+        {
+            Status = _storage.UnavailableReason ?? UnavailableStatus;
+        }
+
+        Changed();
+        return result;
+    }
+
+    /// <summary>
     /// The app is going to the background: queue the latest and wait for the
     /// writer. The host bounds the wait (with its iOS background reservation).
     /// </summary>
@@ -567,7 +705,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         // The host bounds this wait with its suspension reservation. A flush
         // before initial loading finishes could otherwise save an empty queue
         // while the user's new transcript is still ineligible for capture.
-        while (!_singleChatMode && !_preferences.SingleChatMode)
+        while (!InSingleChatMode)
         {
             var loading = _loading;
             await loading;
@@ -609,7 +747,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         if (!Replace(() => _conversation.Restore(turns, item.Data.Draft ?? "", item.Data.ReplyStyle))) return false;
         Bind(item);
         _unsavedRevision = null;
-        if (Status == UnsavedStatus) Status = "";
+        if (Status == _unsavedText) Status = "";
         // Recorded as the chat to reopen; a reopened chat's activity time is unchanged.
         SaveActive(force: true);
         return true;
@@ -917,38 +1055,80 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private void PreferencesChanged(object? sender, EventArgs e)
     {
-        // Invalidate synchronously, even when UI cleanup must be dispatched.
-        // Waiting snapshots must not escape after privacy mode is enabled.
-        if (_preferences.SingleChatMode) _writer.Invalidate();
-        OnUi(() =>
-    {
-        var single = _preferences.SingleChatMode;
-        if (single == _singleChatMode) return;
-        _singleChatMode = single;
-        Interlocked.Increment(ref _scopeGeneration);
-        CancelTimer();
-        if (single)
+        // Recorded here, not in the posted handler: that reads the setting as it
+        // is when it runs, so on then off before it runs would look like no
+        // change, and the text typed in between would be saved into the open
+        // chat. Waiting saves are dropped and the scope moves on now too, so
+        // nothing captured earlier is written or acknowledged.
+        if (_preferences.SingleChatMode)
         {
-            // From here the transcript is private: unbound, so none of it reaches the file it came from.
-            _unsavedRevision = _conversation.ChatRevision;
-            Unbind();
-            _store = null;
-            _loadedScope = null;
-            _chats.Clear();
-            Status = SingleChatStatus;
-        }
-        else
-        {
-            // The current revision, not the one marked on entering: a reconnect
-            // in single-chat mode moved the revision on, and the text since is private too.
-            _unsavedRevision = HasContent() ? _conversation.ChatRevision : null;
-            Status = "";
+            Interlocked.Exchange(ref _privateEntry, 1);
+            Interlocked.Increment(ref _scopeGeneration);
+            _writer.Invalidate();
         }
 
+        OnUi(ApplySingleChatMode);
+    }
+
+    /// <summary>
+    /// Brings the list in line with the setting: first any entry recorded since
+    /// the last run, then the setting as it is now. One run can enter and
+    /// leave; later runs for the same changes find nothing to do.
+    /// </summary>
+    private void ApplySingleChatMode()
+    {
+        if (_disposed) return;
+        var changed = false;
+        if (Volatile.Read(ref _privateEntry) != 0)
+        {
+            if (!_singleChatMode)
+            {
+                EnterSingleChatMode();
+                changed = true;
+            }
+
+            // Cleared only once the transcript is marked private.
+            Interlocked.Exchange(ref _privateEntry, 0);
+        }
+
+        if (_preferences.SingleChatMode != _singleChatMode)
+        {
+            if (_preferences.SingleChatMode) EnterSingleChatMode();
+            else LeaveSingleChatMode();
+            changed = true;
+        }
+
+        if (!changed) return;
         Regroup();
         Changed();
-        if (!single && _wanted) _ = LoadAsync();
-    });
+        if (!_singleChatMode && _wanted) _ = LoadAsync();
+    }
+
+    private void EnterSingleChatMode()
+    {
+        _singleChatMode = true;
+        Interlocked.Increment(ref _scopeGeneration);
+        CancelTimer();
+        // From here the transcript is private: unbound, so none of it reaches the file it came from.
+        _unsavedRevision = _conversation.ChatRevision;
+        _unsavedText = UnsavedStatus;
+        Unbind();
+        _store = null;
+        _loadedScope = null;
+        _chats.Clear();
+        Status = SingleChatStatus;
+    }
+
+    private void LeaveSingleChatMode()
+    {
+        _singleChatMode = false;
+        Interlocked.Increment(ref _scopeGeneration);
+        CancelTimer();
+        // The current revision, not the one marked on entering: a reconnect
+        // in single-chat mode moved the revision on, and the text since is private too.
+        _unsavedRevision = HasContent() ? _conversation.ChatRevision : null;
+        _unsavedText = UnsavedStatus;
+        Status = "";
     }
 
     private void StorageChanged(object? sender, EventArgs e) => OnUi(() =>
