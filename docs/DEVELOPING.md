@@ -929,9 +929,61 @@ The engine never logs or uploads questions, answers or lookup evidence.
 It has no disk persistence yet. On app suspension, the host requests a short
 iOS background reservation and awaits `InterruptAsync` for up to four seconds.
 Both expiration and completion end the reservation. Partial text stays in memory;
-there is no promise of surviving process termination. Saved and encrypted
-history follow under #222 and #229. Native suspension and model-failure cases
-still need device verification.
+there is no promise of surviving process termination. The encrypted store
+below (#222) is in place; saving and reopening history follow under #229.
+Native suspension and model-failure cases still need device verification.
+
+### Saved-chat storage (#222)
+
+`IntelligenceChatStorage` wraps Core's `FileIntelligenceChatStore` (per-chat
+files, written to `.tmp` and renamed, a damaged file renamed `.chat.bad`
+while the rest load) in `FileSystem.AppDataDirectory/chats`. Each file is
+AES-256-GCM under one random key in secure storage (`intelligence-chats-key-v1`;
+iOS keychain "this device only", Android Keystore), as desktop's keyring
+protector does. A key is only created when secure storage says there is none.
+If it can't be read or stored, or the folder can't be excluded from backups,
+the state is `Unavailable` with a reason for the user: nothing is written,
+nothing plain, and existing files are left for when the key returns. A
+missing key means a new one, and old files are set aside as they fail to
+decrypt. iOS marks the folder with `NSURLIsExcludedFromBackupKey` every time it
+opens; Android relies on the manifest's `allowBackup="false"`.
+
+`OpenAsync` returns a store bound to the current generation, or null when
+unavailable. Its calls block on file I/O, so run them off the UI thread. Either
+sign-out choice awaits `WipeAsync`. It moves the generation on under the store's
+lock before anything else, so a late save from an older store throws
+`ChatStorageUnavailableException` and writes nothing. Then it removes the key and
+the folder. Opening and wiping take turns over the key, so concurrent opens make
+one key, and a key being created can't land after a wipe. Opens queued before
+or started during cleanup are refused. A false key-removal result is checked
+against secure storage.
+
+Cleanup has to hold across a restart, so `WipeAsync` first writes a fixed-content
+note, `chats.cleanup-pending`, beside the folder (flushed to disk), and deletes
+it only after the key and the folder are both gone. While the note exists, from
+a refused removal or a wipe cut off by a crash, `OpenAsync` retries the removal
+before reading any key. It stays `Unavailable` until both removals and the note's
+deletion succeed, then starts afresh under a new key. If the note's existence
+can't be checked, it opens nothing and deletes nothing. `WipeAsync` returns
+`Removed`, `Retained` (note saved: locked across restarts) or
+`RetainedUntilRestart` (the note couldn't be written either, so the lock lasts
+only for this run; later opens try to write it again). Sign-out shows the
+matching warning with Retry cleanup and Continue signing out. The note sits
+outside the folder, preferences and secure storage, so neither the wipe nor
+"forget everything" (`ILocalDataWipe`) removes it first. `IChatCleanupFiles`
+wraps the note and folder operations so tests can make each one fail. Logs name only the
+step that failed. Chat text, scopes, keys and exception messages are never
+logged. The chat list, autosave and restore are #229. Single-chat privacy mode
+is #230. Unreadable files without the key and absence from device backups still
+need checking on an iPhone and an Android phone.
+
+Android chat-key access uses the same AndroidX encrypted preferences and Keystore
+alias as pinned MAUI, with checked synchronous `Commit` for writes and removal.
+Reading an existing key recommits it before accepting it, since a failed commit
+may leave a value visible in memory. Chat-key reads propagate storage errors
+without MAUI's credential-clearing recovery. Other credentials keep MAUI's
+existing behaviour. Native persistence and failure handling still need device
+acceptance; shared failure tests establish the storage's response to adapter errors.
 
 ### Chat page (#227)
 
