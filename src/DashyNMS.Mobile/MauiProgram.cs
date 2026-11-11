@@ -99,6 +99,13 @@ public static class MauiProgram
 			sp.GetRequiredService<IDiagnosticsConsent>(),
 			Path.Combine(FileSystem.AppDataDirectory, "session-health")));
 
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
+			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
+			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),
+			sp.GetRequiredService<Intelligence.IIntelligenceLookups>(),
+			sp.GetRequiredService<DesktopNMS.Services.ISessionService>(),
+			action => MainThread.BeginInvokeOnMainThread(action)));
+
 #if ANDROID
 		builder.Services.AddSingleton<IAlertNotifier, AndroidAlertNotifier>();
 		builder.Services.AddSingleton<INotificationPrivacy, AndroidNotificationPrivacy>();
@@ -138,7 +145,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
 		builder.Services.AddTransient<IntelligenceCheckPage>();
-        builder.Services.AddTransient<IntelligenceSettingsPage>();
+		builder.Services.AddTransient<IntelligenceSettingsPage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();
 		builder.Services.AddTransient<CustomiseDashboardPage>();
 		builder.Services.AddTransient<AddCardPage>();
