@@ -338,6 +338,19 @@ public sealed class IntelligenceReportTests
         Assert.Equal("", IntelligenceReportFormat.Clean(null));
     }
 
+    [Fact]
+    public void Mailto_components_cannot_inject_recipients_or_parameters()
+    {
+        var draft = new EmailDraft("support@example.net", "Question &bcc=other@example.net",
+            "Line one\nUnicode: café? # &body=extra %20");
+        var uri = draft.ToMailtoUri().OriginalString;
+        Assert.StartsWith("mailto:support%40example.net?subject=", uri);
+        var fields = uri[(uri.IndexOf('?') + 1)..].Split('&');
+        Assert.Equal(2, fields.Length);
+        Assert.Equal(draft.Subject, Uri.UnescapeDataString(fields[0]["subject=".Length..]));
+        Assert.Equal(draft.Body, Uri.UnescapeDataString(fields[1]["body=".Length..]));
+    }
+
     [Theory]
     [InlineData("Offensive", IntelligenceReportReason.Offensive)]
     [InlineData("Wrong or misleading", IntelligenceReportReason.WrongOrMisleading)]

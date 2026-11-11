@@ -1,7 +1,12 @@
 namespace DashyNMS.Mobile.Services;
 
 /// <summary>A plain-text email for the person to review and send from their own email app.</summary>
-public sealed record EmailDraft(string To, string Subject, string Body);
+public sealed record EmailDraft(string To, string Subject, string Body)
+{
+    /// <summary>Encodes each component separately so report text cannot add recipients or URI parameters.</summary>
+    public Uri ToMailtoUri() => new("mailto:" + Uri.EscapeDataString(To)
+        + "?subject=" + Uri.EscapeDataString(Subject) + "&body=" + Uri.EscapeDataString(Body));
+}
 
 /// <summary>
 /// Opens the platform's email composer, pre-filled. It never sends anything
