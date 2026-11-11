@@ -24,7 +24,11 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
 
     public async Task<string?> GetAsync(string key)
     {
+#if IOS
+        var value = ReadKeychain(key);
+#else
         var value = await SecureStorage.Default.GetAsync(key);
+#endif
 
 #if IOS
         // An entry saved by an earlier version keeps its old accessibility
@@ -39,6 +43,30 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
 
         return value;
     }
+
+#if IOS
+    /// <summary>
+    /// MAUI 10.0.120 maps every failed query to null. A chat key may only be
+    /// created after confirmed absence, so preserve native read failures here.
+    /// The service matches MAUI's pinned preferences alias, retaining existing
+    /// entries and the this-device-only migration above.
+    /// </summary>
+    private static string? ReadKeychain(string key)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        using var query = new global::Security.SecRecord(global::Security.SecKind.GenericPassword)
+        {
+            Account = key,
+            Service = $"{AppInfo.Current.PackageName}.microsoft.maui.essentials.preferences",
+        };
+        using var match = global::Security.SecKeyChain.QueryAsRecord(query, out var status);
+        if (status == global::Security.SecStatusCode.ItemNotFound) return null;
+        if (status != global::Security.SecStatusCode.Success || match?.ValueData is null)
+            throw new InvalidOperationException("Secure storage could not be read.");
+        return Foundation.NSString.FromData(match.ValueData, Foundation.NSStringEncoding.UTF8)
+            ?? throw new InvalidOperationException("Secure storage contained invalid text.");
+    }
+#endif
 
     public Task SetAsync(string key, string value) => SecureStorage.Default.SetAsync(key, value);
 
