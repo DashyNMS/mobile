@@ -223,7 +223,8 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   from the question. The themed accent backdrop belongs to the page background
   and covers the full page behind header, composer, safe-area gutters and glass. Keep it static
   and decorative. This chat surface omits the opaque viewport-top fade to keep
-  the background continuous; retain the 20pt transcript breathing space.
+  the background continuous; retain the 20pt transcript breathing space. The
+  empty-chat heading uses themed secondary text to keep contrast on the wash.
 - The rounded composer contains a 48 to 140pt growing field, compact native
   detail picker and one primary Send/Stop control with explicit accessible
   names and at least a 48pt target. Native text scrolling must keep the caret

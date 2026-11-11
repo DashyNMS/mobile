@@ -176,7 +176,10 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _cards.Clear();
         _transcript.Children.Clear();
         _starters.Children.Clear();
-        _starters.Children.Add(new Label { Text = "What would you like to know?", Style = ResourceStyle("SectionHeader") });
+        var heading = new Label { Text = "What would you like to know?", Style = ResourceStyle("SectionHeader") };
+        // This heading sits on the accent wash rather than a neutral surface.
+        heading.SetAppThemeColor(Label.TextColorProperty, ThemeColour("TextSecondaryLight"), ThemeColour("TextSecondaryDark"));
+        _starters.Children.Add(heading);
         foreach (var starter in _conversation.StarterQuestions)
         {
             var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 44 };
