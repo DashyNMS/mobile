@@ -241,6 +241,16 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   host. Answer images are native buttons announcing "Graph image … Enlarge";
   the enlarged view has a 44pt Close inside the safe area. Device acceptance
   of #228's layout and accessibility is pending.
+- Report this answer (#574) adds no visible button. A long press on the answer
+  bubble opens a menu with Copy answer and Report this answer. VoiceOver gets
+  the same report as a custom action on every element of the answer. The
+  reason is a native choice sheet. The preview is a modal with a 44pt Cancel
+  above a wrapping title, like web sign-in, and it owns its own safe area. It
+  shows the recipient, subject and reason, the question and answer in editable
+  fields, a warning-coloured reminder to remove names and addresses, and one
+  fixed Open in email app action. Copy report appears only when no email app
+  can take the draft. If the chat changes, the preview clears its text and
+  Cancel becomes Done. Device acceptance is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
   sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.

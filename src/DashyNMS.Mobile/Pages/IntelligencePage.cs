@@ -20,6 +20,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
     private readonly IntelligenceAnswerActions _actions;
+    private readonly IntelligenceAnswerReporter _reporter;
     private readonly SetupPageLayout _placement;
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
@@ -41,9 +42,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private bool _scrollPending;
     private bool _scrolling;
     private bool _newChatPending;
+    private bool _reporting;
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
-        IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions)
+        IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
+        IntelligenceAnswerReporter reporter)
     {
         _conversation = conversation;
         _chatRevision = conversation.ChatRevision;
@@ -52,6 +55,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _navigation = navigation;
         _dialogs = dialogs;
         _actions = actions;
+        _reporter = reporter;
         Title = "Intelligence";
         Shell.SetNavBarIsVisible(this, false);
         SemanticProperties.SetDescription(_question, "Question about your network");
@@ -290,6 +294,30 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         finally { _newChatPending = false; UpdateControls(); ShowActions(); }
     }
 
+    /// <summary>
+    /// Report this answer (#574): choose a reason, then preview exactly what the
+    /// email will carry. Ownership is checked again after each step, so a chat
+    /// that changes meanwhile opens nothing.
+    /// </summary>
+    private async Task ReportAsync(IntelligenceTurn turn)
+    {
+        if (_reporting) return;
+        _reporting = true;
+        try
+        {
+            var report = await _reporter.ChooseReasonAsync(turn);
+            if (report is null || Navigation is not { } navigation) return;
+            if (!report.CheckOwnership())
+            {
+                await _dialogs.AlertAsync("This answer can't be reported", IntelligenceReportViewModel.ExpiredMessage);
+                return;
+            }
+            await navigation.PushModalAsync(new IntelligenceReportPage(report));
+        }
+        catch { await _dialogs.AlertAsync("Couldn't open the report", "Try again."); }
+        finally { _reporting = false; }
+    }
+
     private void ShowActions()
     {
         if (!_showing || Shell.Current?.CurrentPage != this) return;
@@ -354,6 +382,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         private readonly Button _copy = new ChatActionButton() { Text = "Copy" };
         private readonly Button _retry = new ChatActionButton() { Text = "Retry" };
         private readonly Button _edit = new ChatActionButton() { Text = "Edit question" };
+        private readonly AccessibilityActions _reportAction;
         private bool _dirty = true;
         private readonly List<IntelligenceLookupProgress> _watched = [];
 
@@ -418,21 +447,49 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             replyStroke.SetAppThemeColor(SolidColorBrush.ColorProperty, Color.FromArgb("#CCDDF1"), Color.FromArgb("#20334B"));
             reply.Stroke = replyStroke;
             Children.Add(reply);
+            // Touch reaches Copy and Report through a long press on the answer;
+            // VoiceOver offers Report as a custom action on every part of it.
+            LongPress.SetCommand(reply, new Command(async () => await ShowAnswerMenuAsync(), () => _page._conversation.OwnsTurn(_turn) && _turn.Answer.Length > 0));
+            _reportAction = new AccessibilityActions(reply, "Report this answer", () =>
+            {
+                if (!_page._reporter.CanReport(_turn)) return false;
+                _ = _page.ReportAsync(_turn);
+                return true;
+            });
+            reply.HandlerChanged += (_, _) => RefreshReportAction();
+            reply.SizeChanged += (_, _) => RefreshReportAction();
             SemanticProperties.SetDescription(_copy, "Copy answer to: " + turn.Question);
             SemanticProperties.SetDescription(_retry, "Retry: " + turn.Question);
             SemanticProperties.SetDescription(_edit, "Edit question: " + turn.Question);
-            _copy.Clicked += async (_, _) =>
-            {
-                if (!_page._conversation.OwnsTurn(_turn)) return;
-                // The original Markdown, markers included, so pasting into desktop or notes keeps its structure.
-                try { await Clipboard.Default.SetTextAsync(_turn.Answer); SemanticScreenReader.Default.Announce("Answer copied"); }
-                catch { await _page._dialogs.AlertAsync("Couldn't copy the answer", "Try again."); }
-            };
+            _copy.Clicked += async (_, _) => await CopyAsync();
             _retry.Clicked += async (_, _) => { if (_page._conversation.CanAsk) { _page._following = true; await _page._conversation.RetryAsync(_turn); } };
             _edit.Clicked += (_, _) => { _page._question.Text = _page._conversation.EditQuestion(_turn); _page._question.Focus(); };
             Resume();
             Render();
         }
+
+        private async Task CopyAsync()
+        {
+            if (!_page._conversation.OwnsTurn(_turn)) return;
+            // The original Markdown, markers included, so pasting into desktop or notes keeps its structure.
+            try { await Clipboard.Default.SetTextAsync(_turn.Answer); SemanticScreenReader.Default.Announce("Answer copied"); }
+            catch { await _page._dialogs.AlertAsync("Couldn't copy the answer", "Try again."); }
+        }
+
+        /// <summary>The long-press menu: only what this answer can do right now.</summary>
+        private async Task ShowAnswerMenuAsync()
+        {
+            if (!_page._conversation.OwnsTurn(_turn)) return;
+            var options = new List<string>();
+            if (_turn.Answer.Length > 0) options.Add("Copy answer");
+            if (_page._reporter.CanReport(_turn)) options.Add("Report this answer");
+            if (options.Count == 0) return;
+            var choice = await _page._dialogs.ChooseAsync("Answer", options);
+            if (choice == "Copy answer") await CopyAsync();
+            else if (choice == "Report this answer") await _page.ReportAsync(_turn);
+        }
+
+        private void RefreshReportAction() => _reportAction.Refresh(_page._reporter.CanReport(_turn));
 
         internal IntelligenceTurn Turn => _turn;
         internal void Place(double width) => _questionBubble.MaximumWidthRequest = Math.Min(560, width * .85);
@@ -481,6 +538,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             var retryable = _turn.State is IntelligenceTurnState.Failed or IntelligenceTurnState.Stopped or IntelligenceTurnState.Interrupted;
             _retry.IsVisible = _edit.IsVisible = retryable;
             _retry.IsEnabled = _edit.IsEnabled = _page._conversation.CanAsk;
+            RefreshReportAction();
         }
         /// <summary>Images come only from the answer's typed attachments, already size and type checked.</summary>
         private void RenderImages()

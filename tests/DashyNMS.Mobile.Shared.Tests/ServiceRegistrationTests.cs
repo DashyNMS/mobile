@@ -47,6 +47,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(CertificatePrompt))]
     [InlineData(typeof(Intelligence.IntelligenceCheckViewModel))]
     [InlineData(typeof(Intelligence.IntelligenceAnswerActions))]
+    [InlineData(typeof(Intelligence.IntelligenceAnswerReporter))]
     public void Every_view_model_and_alert_service_resolves(Type viewModel)
     {
         var services = new ServiceCollection()
@@ -57,6 +58,7 @@ public sealed class ServiceRegistrationTests
             .AddSingleton(Substitute.For<IDialogService>())
             .AddSingleton(Substitute.For<ILauncherService>())
             .AddSingleton(Substitute.For<IShareService>())
+            .AddSingleton(Substitute.For<IEmailComposer>())
             .AddSingleton(Substitute.For<INoticePlatform>())
             .AddSingleton(Substitute.For<Map.IMapAssets>())
             .AddSingleton(Substitute.For<IAlertNotifier>())

@@ -68,6 +68,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IShareService, ShareService>();
 		builder.Services.AddSingleton<INoticePlatform, NoticePlatform>();
 		builder.Services.AddSingleton<IClipboardText, MauiClipboard>();
+		builder.Services.AddSingleton<IEmailComposer, EmailComposer>();
 		builder.Services.AddSingleton<DesktopNMS.Core.SignIn.IWebSignIn, WebSignIn>();
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
