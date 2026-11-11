@@ -52,6 +52,7 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly DiagnosticsLog? _diagnostics;
     private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
+    private readonly Intelligence.IntelligenceChatStorage? _chats;
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -81,9 +82,11 @@ public sealed partial class SettingsViewModel : ViewModelBase
         WhatsNew? whatsNew = null,
         DiagnosticsConsent? consent = null,
         Unimus.UnimusSetup? unimus = null,
-        Intelligence.IIntelligenceModel? intelligence = null)
+        Intelligence.IIntelligenceModel? intelligence = null,
+        Intelligence.IntelligenceChatStorage? chats = null)
     {
         _intelligence = intelligence;
+        _chats = chats;
         _unimus = unimus;
         _whatsNew = whatsNew;
         _consent = consent;
@@ -772,6 +775,14 @@ public sealed partial class SettingsViewModel : ViewModelBase
         _session.SignOut(forgetToken: true);
         _bookmarks.Clear();
         _share?.ClearExports();
+
+        // Saved chats and their key, on either choice (#222): they're this
+        // server's conversations. Awaited, so a save still on its way is
+        // refused before the sign-in page appears.
+        if (_chats is not null && !await _chats.WipeAsync())
+        {
+            _diagnostics?.Note("Sign out", "Could not delete saved chats");
+        }
 
         if (choice == ForgetEverythingChoice)
         {

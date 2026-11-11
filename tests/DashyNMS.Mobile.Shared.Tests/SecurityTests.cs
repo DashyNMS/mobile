@@ -1,5 +1,6 @@
 using DashyNMS.Mobile.Alerts;
 using DashyNMS.Mobile.Graylog;
+using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Security;
 using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
@@ -83,9 +84,9 @@ public sealed class SecurityTests
     private readonly ILocalDataWipe _wipe = Substitute.For<ILocalDataWipe>();
     private readonly InMemoryAppearance _appearance = new();
 
-    private SettingsViewModel NewSettings(DeviceBookmarks bookmarks, IShareService share, GraylogSetup? graylog = null) => new(
+    private SettingsViewModel NewSettings(DeviceBookmarks bookmarks, IShareService share, GraylogSetup? graylog = null, IntelligenceChatStorage? chats = null) => new(
         _session, _settings, _dialogs, _navigation, new RecordingNotifier(), null!, new NoAppBadge(), _appearance,
-        new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks, share, graylog, wipe: _wipe);
+        new DashyNMS.Mobile.Widgets.NoHomeWidgets(), bookmarks, share, graylog, wipe: _wipe, chats: chats);
 
     private void Choose(string? choice) =>
         _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(choice);
@@ -171,6 +172,65 @@ public sealed class SecurityTests
 
         _session.DidNotReceiveWithAnyArgs().SignOut(default);
         Assert.Single(_appSettings.PinnedDevices);
+    }
+
+    [Theory]
+    [InlineData(SettingsViewModel.SignOutChoice)]
+    [InlineData(SettingsViewModel.ForgetEverythingChoice)]
+    public async Task Either_sign_out_removes_saved_chats_and_their_key(string choice)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dashynms-chats-{Guid.NewGuid():N}");
+        var keys = new ChatKeyStorage();
+        var chats = new IntelligenceChatStorage(root, keys, new AppBackupDisabled(), NullLogger<IntelligenceChatStorage>.Instance);
+        try
+        {
+            var store = (await chats.OpenAsync())!;
+            store.Save("https://nms.example.com", new DesktopNMS.Core.Intelligence.SavedIntelligenceChat { Draft = "synthetic draft" });
+            Choose(choice);
+            _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+
+            await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>(), chats: chats)
+                .SignOutCommand.ExecuteAsync(null);
+
+            Assert.False(Directory.Exists(root));
+            Assert.Empty(keys.Values);
+            Assert.Throws<ChatStorageUnavailableException>(() => store.Save("https://nms.example.com", new DesktopNMS.Core.Intelligence.SavedIntelligenceChat()));
+            Assert.False(Directory.Exists(root));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Cancelling_sign_out_keeps_saved_chats()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dashynms-chats-{Guid.NewGuid():N}");
+        var keys = new ChatKeyStorage();
+        var chats = new IntelligenceChatStorage(root, keys, new AppBackupDisabled(), NullLogger<IntelligenceChatStorage>.Instance);
+        try
+        {
+            var store = (await chats.OpenAsync())!;
+            store.Save("https://nms.example.com", new DesktopNMS.Core.Intelligence.SavedIntelligenceChat());
+            Choose(null);
+
+            await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>(), chats: chats)
+                .SignOutCommand.ExecuteAsync(null);
+
+            Assert.Single(store.Load("https://nms.example.com").Chats);
+            Assert.Single(keys.Values);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
     }
 
     [Theory]

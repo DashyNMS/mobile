@@ -100,6 +100,20 @@ public static class MauiProgram
 			sp.GetRequiredService<IDiagnosticsConsent>(),
 			Path.Combine(FileSystem.AppDataDirectory, "session-health")));
 
+		// Saved chats (#222): AES-GCM under a key in the keychain or keystore,
+		// in the app's own folder and out of backups - iOS marks the folder,
+		// Android's manifest keeps the whole app out (allowBackup="false").
+#if IOS
+		builder.Services.AddSingleton<IBackupExclusion, IosBackupExclusion>();
+#else
+		builder.Services.AddSingleton<IBackupExclusion, AppBackupDisabled>();
+#endif
+		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceChatStorage(
+			Path.Combine(FileSystem.AppDataDirectory, "chats"),
+			sp.GetRequiredService<Security.ISecureStorage>(),
+			sp.GetRequiredService<IBackupExclusion>(),
+			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatStorage>>()));
+
 		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
 			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
 			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),

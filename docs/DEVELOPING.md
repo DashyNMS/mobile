@@ -929,9 +929,36 @@ The engine never logs or uploads questions, answers or lookup evidence.
 It has no disk persistence yet. On app suspension, the host requests a short
 iOS background reservation and awaits `InterruptAsync` for up to four seconds.
 Both expiration and completion end the reservation. Partial text stays in memory;
-there is no promise of surviving process termination. Saved and encrypted
-history follow under #222 and #229. Native suspension and model-failure cases
-still need device verification.
+there is no promise of surviving process termination. The encrypted store
+below (#222) is in place; saving and reopening history follow under #229.
+Native suspension and model-failure cases still need device verification.
+
+### Saved-chat storage (#222)
+
+`IntelligenceChatStorage` wraps Core's `FileIntelligenceChatStore` (per-chat
+files, written to `.tmp` and renamed, a damaged file renamed `.chat.bad`
+while the rest load) in `FileSystem.AppDataDirectory/chats`. Each file is
+AES-256-GCM under one random key in secure storage (`intelligence-chats-key-v1`;
+iOS keychain "this device only", Android Keystore), as desktop's keyring
+protector does. A key is only created when secure storage says there is none.
+If it can't be read or stored, or the folder can't be excluded from backups,
+the state is `Unavailable` with a reason for the user: nothing is written,
+nothing plain, and existing files are left for when the key returns. A
+missing key means a new one, and old files are set aside as they fail to
+decrypt. iOS marks the folder with `NSURLIsExcludedFromBackupKey` every time it
+opens; Android relies on the manifest's `allowBackup="false"`.
+
+`OpenAsync` returns a store bound to the current generation, or null when
+unavailable. Its calls block on file I/O, so run them off the UI thread. Either
+sign-out choice awaits `WipeAsync`. It moves the generation on under the store's
+lock before anything else, so a late save from an older store throws
+`ChatStorageUnavailableException` and writes nothing. Then it removes the key and
+the folder. Opening and wiping take turns over the key, so concurrent opens make
+one key, and a key being created can't land after a wipe. Logs name only the
+step that failed. Chat text, scopes, keys and exception messages are never
+logged. The chat list, autosave and restore are #229. Single-chat privacy mode
+is #230. Unreadable files without the key and absence from device backups still
+need checking on an iPhone and an Android phone.
 
 ### Chat page (#227)
 

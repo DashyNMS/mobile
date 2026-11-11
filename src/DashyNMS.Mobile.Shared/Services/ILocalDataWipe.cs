@@ -6,6 +6,8 @@ namespace DashyNMS.Mobile.Services;
 /// (settings, alert watch state), network map layouts, exported files, and the
 /// platform's preferences and secure storage. The diagnostics log stays, for
 /// bug reports. The app head implements it, as it owns where those live.
+/// Saved Intelligence chats aren't here: every sign-out, not only this one,
+/// removes them and their key through <c>IntelligenceChatStorage</c> first (#222).
 /// </summary>
 public interface ILocalDataWipe
 {
