@@ -561,12 +561,12 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// </summary>
     public async Task SaveNowAsync()
     {
-        SaveActive();
         // Posted acknowledgements may still be waiting. Observe completed saves
         // before deciding which inactive edits need a suspension retry.
         foreach (var chat in _chats.ToArray())
             if (chat.LastSave is { } previous && previous.Saving.IsCompletedSuccessfully)
                 Acknowledge(chat, previous.Number, previous.Generation, previous.Saving.Result);
+        SaveActive();
         if (CanPersist)
             foreach (var chat in _chats.Where(chat => !ReferenceEquals(chat, Active) && chat.NeedsRetry && !chat.IsDeleting).ToArray())
                 Queue(chat, Snapshot(chat.Data), makeActive: false);

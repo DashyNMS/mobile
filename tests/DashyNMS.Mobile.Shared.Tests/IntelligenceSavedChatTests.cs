@@ -71,12 +71,12 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         public async Task SettleAsync() => await Chats.Writer.FlushAsync();
     }
 
-    private App Start()
+    private App Start(Action<Action>? dispatch = null)
     {
         var storage = new IntelligenceChatStorage(_root, _keys, new NoBackup(), NullLogger<IntelligenceChatStorage>.Instance);
         var conversation = new IntelligenceConversationViewModel(_model, _preferences, new Lookups(), _session, action => action());
         var chats = new IntelligenceChatListViewModel(conversation, storage, _preferences, _session, _dialogs, _time,
-            NullLogger<IntelligenceChatListViewModel>.Instance, action => action());
+            NullLogger<IntelligenceChatListViewModel>.Instance, dispatch ?? (action => action()));
         _open.Add(chats);
         _open.Add(conversation);
         var app = new App(storage, conversation, chats);
@@ -1067,6 +1067,34 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var restarted = Start();
         await restarted.Chats.LoadAsync();
         Assert.Equal(explicitPick ? IntelligenceDetail.Brief : IntelligenceDetail.Detailed, restarted.Conversation.SelectedDetail);
+    }
+
+    [Fact]
+    public async Task Suspension_retries_the_active_failure_before_its_UI_acknowledgement_runs()
+    {
+        var holdUi = false;
+        var callbacks = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var app = Start(action => { if (holdUi) callbacks.Enqueue(action); else action(); });
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved question"));
+        await app.Chats.SaveNowAsync();
+        holdUi = true;
+        faults.FailSaves = true;
+        app.Conversation.Draft = "draft waiting for acknowledgement";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await app.SettleAsync();
+        Assert.False(app.Chats.Active!.NeedsRetry);
+        Assert.False(callbacks.IsEmpty);
+        Assert.Equal("", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+
+        faults.FailSaves = false;
+        await app.Chats.SaveNowAsync();
+        Assert.Equal("draft waiting for acknowledgement", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+        Assert.True(app.Chats.KeepsCurrentChat);
+        // Delayed older acknowledgements cannot undo the confirmed newer write.
+        while (callbacks.TryDequeue(out var callback)) callback();
+        Assert.True(app.Chats.KeepsCurrentChat);
     }
 
     [Theory]
