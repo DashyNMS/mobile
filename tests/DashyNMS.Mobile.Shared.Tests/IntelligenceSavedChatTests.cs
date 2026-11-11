@@ -1049,6 +1049,56 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.Equal(IntelligenceDetail.Brief, app.Conversation.SelectedDetail);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Restart_preserves_whether_detail_is_explicit_or_follows_settings(bool explicitPick)
+    {
+        _preferences.SetDetail(IntelligenceDetail.Brief);
+        var app = Start();
+        await app.Chats.LoadAsync();
+        if (explicitPick) app.Conversation.SelectedDetail = IntelligenceDetail.Brief;
+        Assert.True(await app.Conversation.AskAsync("Saved detail"));
+        await app.Chats.SaveNowAsync();
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(explicitPick ? IntelligenceDetail.Brief : null, saved.ReplyStyle);
+
+        _preferences.SetDetail(IntelligenceDetail.Detailed);
+        var restarted = Start();
+        await restarted.Chats.LoadAsync();
+        Assert.Equal(explicitPick ? IntelligenceDetail.Brief : IntelligenceDetail.Detailed, restarted.Conversation.SelectedDetail);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Suspension_retries_failed_inactive_pin_and_rename_without_changing_the_active_chat(bool pin)
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Inactive chat"));
+        Assert.True(await app.Chats.NewChatAsync());
+        Assert.True(await app.Conversation.AskAsync("Active chat"));
+        await app.SettleAsync();
+        var inactive = app.Chats.Chats.Single(chat => chat.Title == "Inactive chat");
+        var activeId = app.Chats.Active!.Id;
+        faults.FailSaves = true;
+        Assert.True(pin ? app.Chats.TogglePin(inactive) : app.Chats.Rename(inactive, "Renamed inactive"));
+        await app.Chats.SaveNowAsync();
+        var before = (await ReadAsync(ServerA)).Chats.Single(chat => chat.Id == inactive.Id);
+        Assert.False(before.IsPinned);
+        Assert.Equal("Inactive chat", before.Title);
+
+        faults.FailSaves = false;
+        await app.Chats.SaveNowAsync();
+        var collection = await ReadAsync(ServerA);
+        var saved = collection.Chats.Single(chat => chat.Id == inactive.Id);
+        Assert.Equal(pin, saved.IsPinned);
+        Assert.Equal(pin ? "Inactive chat" : "Renamed inactive", saved.Title);
+        Assert.Equal(activeId, collection.ActiveId);
+    }
+
     private static FaultyStore Faulty(App app)
     {
         var faults = new FaultyStore();

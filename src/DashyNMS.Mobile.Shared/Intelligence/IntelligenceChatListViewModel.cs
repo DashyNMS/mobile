@@ -562,10 +562,17 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     public async Task SaveNowAsync()
     {
         SaveActive();
+        // Posted acknowledgements may still be waiting. Observe completed saves
+        // before deciding which inactive edits need a suspension retry.
+        foreach (var chat in _chats.ToArray())
+            if (chat.LastSave is { } previous && previous.Saving.IsCompletedSuccessfully)
+                Acknowledge(chat, previous.Number, previous.Generation, previous.Saving.Result);
+        if (CanPersist)
+            foreach (var chat in _chats.Where(chat => !ReferenceEquals(chat, Active) && chat.NeedsRetry && !chat.IsDeleting).ToArray())
+                Queue(chat, Snapshot(chat.Data), makeActive: false);
         await _writer.FlushAsync();
-        // Acknowledged here as well as when the save completes, so the caller
-        // sees straight away whether the open chat is on disk (KeepsCurrentChat).
-        if (Active is { LastSave: { } last } item) Acknowledge(item, last.Number, last.Generation, await last.Saving);
+        foreach (var chat in _chats.ToArray())
+            if (chat.LastSave is { } last) Acknowledge(chat, last.Number, last.Generation, await last.Saving);
     }
 
     public void Dispose()
@@ -711,13 +718,13 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         var messages = IntelligenceSavedChats.Messages(_conversation.Turns);
         var activity = Activity();
         var unchanged = !created && activity == _activity && chat.Draft == _conversation.Draft
-            && chat.ReplyStyle == _conversation.SelectedDetail && SameMessages(chat.Messages, messages);
+            && chat.ReplyStyle == _conversation.SelectedDetailOverride && SameMessages(chat.Messages, messages);
         if (!force && !item.NeedsRetry && unchanged) return null;
         // A retry of unchanged text leaves the save that first carried it as the one to confirm.
         content = !unchanged;
 
         chat.Draft = _conversation.Draft;
-        chat.ReplyStyle = _conversation.SelectedDetail;
+        chat.ReplyStyle = _conversation.SelectedDetailOverride;
         chat.Model ??= IntelligenceSavedChats.OnDeviceModel;
         chat.Messages = messages;
         if (!chat.IsRenamed && _conversation.Turns.Count > 0) chat.Title = IntelligenceSavedChats.Title(_conversation.Turns[0].Question);

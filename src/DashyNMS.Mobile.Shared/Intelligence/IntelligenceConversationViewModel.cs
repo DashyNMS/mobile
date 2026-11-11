@@ -119,6 +119,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     public string Draft { get => _draft; set => SetProperty(ref _draft, value ?? ""); }
 
     private string? _selectedDetail;
+    /// <summary>The chat's explicit selection; null preserves following the Settings default across restart.</summary>
+    public string? SelectedDetailOverride => _selectedDetail;
     /// <summary>The detail chosen for the next answer, or null for the saved default; a saved chat keeps it.</summary>
     public string SelectedDetail
     {
