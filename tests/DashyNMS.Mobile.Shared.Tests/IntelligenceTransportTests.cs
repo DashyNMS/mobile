@@ -11,10 +11,10 @@ public sealed class IntelligenceTransportTests
 {
     [Theory]
     [InlineData("network_overview", "", "fault:7", "faults")]
-    [InlineData("find_device", "switch", "device 1", "devices")]
-    [InlineData("device_summary", "1", "device 1", "devices/1")]
-    [InlineData("active_alerts", "1", "fault:7", "faults")]
-    [InlineData("device_sensors", "1", "sensor 9", "resources/sensors")]
+    [InlineData("find_device", "switch", "switch.example.net [[device:1]]", "devices")]
+    [InlineData("device_summary", "1", "switch.example.net [[device:1]]", "devices/1")]
+    [InlineData("active_alerts", "1", "(fault:7) on switch.example.net [[device:1]]", "faults")]
+    [InlineData("device_sensors", "1", "Inlet [[sensor:9]]", "resources/sensors")]
     public async Task Each_lookup_uses_Core_resource_APIs_over_read_only_transport(
         string name, string query, string expected, string endpoint)
     {

@@ -19,6 +19,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private readonly IIntelligenceModel _model;
     private readonly INavigationService _navigation;
     private readonly IDialogService _dialogs;
+    private readonly IntelligenceAnswerActions _actions;
     private readonly SetupPageLayout _placement;
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
@@ -42,7 +43,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private bool _newChatPending;
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
-        IIntelligenceModel model, INavigationService navigation, IDialogService dialogs)
+        IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions)
     {
         _conversation = conversation;
         _chatRevision = conversation.ChatRevision;
@@ -50,6 +51,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _model = model;
         _navigation = navigation;
         _dialogs = dialogs;
+        _actions = actions;
         Title = "Intelligence";
         Shell.SetNavBarIsVisible(this, false);
         SemanticProperties.SetDescription(_question, "Question about your network");
@@ -331,7 +333,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         }
     }
 
-    /// <summary>Plain text is never parsed as HTML. Each retained attempt owns its subscriptions while visible.</summary>
+    /// <summary>
+    /// Answers render as Markdown spans and native views, never as HTML. Each retained
+    /// attempt owns its subscriptions while visible. Chips, links and images act only
+    /// while the turn still belongs to the current connection.
+    /// </summary>
     private sealed class TurnCard : VerticalStackLayout, IDisposable
     {
         private readonly IntelligenceTurn _turn;
@@ -339,7 +345,9 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         private readonly Border _questionBubble;
         private readonly Button _activity = new ChatActionButton { MinimumHeightRequest = 44, CornerRadius = 18, HorizontalOptions = LayoutOptions.Start };
         private bool _activityExpanded;
-        private readonly Label _answer = new() { LineBreakMode = LineBreakMode.WordWrap };
+        private readonly IntelligenceMarkdownView _answer = new();
+        private readonly FlexLayout _images = new() { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, IsVisible = false };
+        private IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage>? _shownImages;
         private readonly Label _state = new();
         private readonly Label _evidence = new();
         private readonly Label _omitted = new() { Text = "Earlier turns were left out of this answer's context." };
@@ -369,6 +377,25 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             content.Children.Add(_activity);
             content.Children.Add(_evidence);
             content.Children.Add(_answer);
+            content.Children.Add(_images);
+            _answer.ReferenceRequested += async (_, reference) =>
+            {
+                try
+                {
+                    if (!await _page._actions.OpenAsync(_turn, reference))
+                        SemanticScreenReader.Default.Announce("That item can't be opened from this chat.");
+                }
+                catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
+            };
+            _answer.LinkRequested += async (_, link) =>
+            {
+                try
+                {
+                    if (!await _page._actions.OpenLinkAsync(_turn, link))
+                        SemanticScreenReader.Default.Announce("That link can't be opened from this chat.");
+                }
+                catch { await _page._dialogs.AlertAsync("Couldn't open the link", "Try again, or copy the answer to open it elsewhere."); }
+            };
             _state.Style = _evidence.Style = _omitted.Style = ResourceStyle("Caption");
             content.Children.Add(_omitted);
             content.Children.Add(_state);
@@ -397,6 +424,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _copy.Clicked += async (_, _) =>
             {
                 if (!_page._conversation.OwnsTurn(_turn)) return;
+                // The original Markdown, markers included, so pasting into desktop or notes keeps its structure.
                 try { await Clipboard.Default.SetTextAsync(_turn.Answer); SemanticScreenReader.Default.Announce("Answer copied"); }
                 catch { await _page._dialogs.AlertAsync("Couldn't copy the answer", "Try again."); }
             };
@@ -429,7 +457,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         {
             if (!_dirty) return;
             _dirty = false;
-            _answer.Text = _turn.Answer;
+            _answer.Render(_turn.Answer, _turn.References, _page._preferences.ColourStatusIndicators);
+            RenderImages();
             _state.Text = _turn.State == IntelligenceTurnState.Running ? "Answering…" : _turn.Message;
             _evidence.Text = string.Join("\n", _turn.Lookups.Select(lookup => $"{LookupName(lookup.Name)}: {lookup.State switch { IntelligenceLookupState.Completed => "✓ Completed", IntelligenceLookupState.Failed => "⚠ Failed", IntelligenceLookupState.Stopped => "Stopped", _ => "Looking up…" }}"));
             var count = _turn.Lookups.Count;
@@ -453,6 +482,34 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _retry.IsVisible = _edit.IsVisible = retryable;
             _retry.IsEnabled = _edit.IsEnabled = _page._conversation.CanAsk;
         }
+        /// <summary>Images come only from the answer's typed attachments, already size and type checked.</summary>
+        private void RenderImages()
+        {
+            if (ReferenceEquals(_shownImages, _turn.Images)) return;
+            _shownImages = _turn.Images;
+            _images.Children.Clear();
+            var images = _turn.Images;
+            for (var i = 0; i < images.Count; i++)
+            {
+                var image = images[i];
+                var label = images.Count == 1 ? "Graph image" : $"Graph image {i + 1} of {images.Count}";
+                var button = new ImageButton
+                {
+                    Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit,
+                    HeightRequest = 180, MinimumWidthRequest = 44, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
+                    BackgroundColor = Colors.Transparent, CornerRadius = 8,
+                };
+                SemanticProperties.SetDescription(button, label + ". Enlarge");
+                button.Clicked += async (_, _) =>
+                {
+                    if (_page._conversation.OwnsTurn(_turn) && _page.Navigation is { } navigation)
+                        await navigation.PushModalAsync(new ImagePreviewPage(_page._conversation, _turn, image, label));
+                };
+                _images.Children.Add(button);
+            }
+            _images.IsVisible = images.Count > 0;
+        }
+
         private static string LookupName(string name) => name switch
         {
             "network_overview" => "Network overview", "find_device" => "Find device", "device_summary" => "Device summary",
@@ -464,6 +521,77 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _turn.Lookups.CollectionChanged -= OnLookupsChanged;
             foreach (var lookup in _watched) lookup.PropertyChanged -= OnChanged;
             _watched.Clear();
+        }
+    }
+
+    /// <summary>
+    /// An enlarged graph from the answer's own bytes: no network fetch. Close is a
+    /// 44pt button inside the safe area; the dark backdrop runs edge to edge.
+    /// </summary>
+    private sealed class ImagePreviewPage : ContentPage
+    {
+        private readonly IntelligenceConversationViewModel _conversation;
+        private readonly IntelligenceTurn _turn;
+        private readonly Image _picture;
+        private readonly Label _expired = new()
+        {
+            Text = "This chat is no longer available.", TextColor = Color.FromArgb("#E8EEF6"),
+            Margin = 24, IsVisible = false, VerticalOptions = LayoutOptions.Center,
+        };
+
+        public ImagePreviewPage(IntelligenceConversationViewModel conversation, IntelligenceTurn turn,
+            DesktopNMS.Core.Intelligence.IntelligenceImage image, string label)
+        {
+            _conversation = conversation;
+            _turn = turn;
+            Title = label;
+            BackgroundColor = Color.FromArgb("#11141A");
+            SafeAreaEdges = SafeAreaEdges.All;
+            _picture = new Image { Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit };
+            SemanticProperties.SetDescription(_picture, label);
+            var close = new Button
+            {
+                Text = "Close", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
+                Margin = new Thickness(16, 8), Style = ResourceStyle("SecondaryButton"),
+            };
+            SemanticProperties.SetDescription(close, "Close " + label);
+            close.Clicked += async (_, _) => await Navigation.PopModalAsync();
+            var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
+            grid.Add(close, 0, 0);
+            grid.Add(_picture, 0, 1);
+            grid.Add(_expired, 0, 1);
+            Content = grid;
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            _conversation.PropertyChanged -= OnOwnershipChanged;
+            _conversation.PropertyChanged += OnOwnershipChanged;
+            CheckOwnership();
+        }
+
+        protected override void OnDisappearing()
+        {
+            _conversation.PropertyChanged -= OnOwnershipChanged;
+            base.OnDisappearing();
+        }
+
+        private void OnOwnershipChanged(object? sender, PropertyChangedEventArgs e) => CheckOwnership();
+
+        /// <summary>A modal must not retain readable evidence after its chat changes owner.</summary>
+        private void CheckOwnership()
+        {
+            if (_conversation.OwnsTurn(_turn)) return;
+            _picture.Source = null;
+            _picture.IsVisible = false;
+            _expired.IsVisible = true;
+        }
+
+        protected override bool OnBackButtonPressed()
+        {
+            _ = Navigation.PopModalAsync();
+            return true;
         }
     }
 }
