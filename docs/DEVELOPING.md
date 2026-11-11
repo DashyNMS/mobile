@@ -904,10 +904,13 @@ estimates, so the native failure path is required.
 Mobile supplies a main-thread dispatcher for streaming, lookup progress
 and terminal state. Every question requires the mobile opt-in, an available
 model and a signed-in connection. Connection events advance a generation
-so an old connection reference cannot revive a run after a switch. The run
-is interrupted and a new chat is required before another network is asked
-about. Opt-out also interrupts the current answer. Each question permits
-at most two actual lookup calls, including a context-recovery attempt.
+so an old connection reference cannot revive a run after a switch. Every
+connection event interrupts the run and clears retained turns, including
+sign-out, sign-in and reconnect. An immediate ownership gate blocks old-turn
+copy, retry and edit while UI cleanup is queued. Only the latest queued
+reset can authorise a new chat. Opt-out also interrupts the current answer.
+Each question permits at most two actual lookup calls, including a
+context-recovery attempt.
 
 The engine never logs or uploads questions, answers or lookup evidence.
 It has no disk persistence yet. On app suspension, the host requests a short
@@ -928,8 +931,11 @@ Direct routes show an explanation and refuse work when the gate is closed.
 The page uses the setup layout for one top inset owner, a finite transcript
 viewport and a measured fixed composer above the docked keyboard and glass.
 New chat and Settings use glass on iOS 26+, with header actions elsewhere.
-Back is present only for the pushed route. Command-N asks the chat page to
-start a new chat. Clearing an existing in-memory transcript is confirmed.
+A chat revision also clears the composer draft on connection changes, including
+when a retained page next activates. Ordinary page departure and return keep
+the chat and draft. The transcript and draft are hidden while a connection
+reset is queued. Back is present only for the pushed route. Command-N asks
+the chat page to start a new chat. Clearing an existing in-memory transcript is confirmed.
 
 Ask clears an accepted question from the composer. Stop retains partial text;
 Retry appends an attempt and Edit copies the original question into the field.

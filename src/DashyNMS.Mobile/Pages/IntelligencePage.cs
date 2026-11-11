@@ -32,6 +32,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
     private readonly List<TurnCard> _cards = [];
+    private long _chatRevision;
     private bool _showing;
     private bool _following = true;
     private bool _scrollPending;
@@ -42,6 +43,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs)
     {
         _conversation = conversation;
+        _chatRevision = conversation.ChatRevision;
         _preferences = preferences;
         _model = model;
         _navigation = navigation;
@@ -178,6 +180,14 @@ public sealed class IntelligencePage : ContentPage, IActivePage
 
     private void UpdateControls()
     {
+        if (_chatRevision != _conversation.ChatRevision)
+        {
+            _chatRevision = _conversation.ChatRevision;
+            _question.Text = "";
+            _following = true;
+            _scrollPending = true;
+        }
+        _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _ask.Text = _conversation.IsRunning ? "Stop" : "Ask";
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));
         _question.IsEnabled = !_conversation.IsRunning;
@@ -329,6 +339,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             SemanticProperties.SetDescription(_edit, "Edit question: " + turn.Question);
             _copy.Clicked += async (_, _) =>
             {
+                if (!_page._conversation.OwnsTurn(_turn)) return;
                 try { await Clipboard.Default.SetTextAsync(_turn.Answer); SemanticScreenReader.Default.Announce("Answer copied"); }
                 catch { await _page._dialogs.AlertAsync("Couldn't copy the answer", "Try again."); }
             };
@@ -369,7 +380,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         }
         internal void UpdateActions()
         {
-            _copy.IsEnabled = _turn.Answer.Length > 0;
+            _copy.IsEnabled = _page._conversation.OwnsTurn(_turn) && _turn.Answer.Length > 0;
             var retryable = _turn.State is IntelligenceTurnState.Failed or IntelligenceTurnState.Stopped or IntelligenceTurnState.Interrupted;
             _retry.IsVisible = _edit.IsVisible = retryable;
             _retry.IsEnabled = _edit.IsEnabled = _page._conversation.CanAsk;

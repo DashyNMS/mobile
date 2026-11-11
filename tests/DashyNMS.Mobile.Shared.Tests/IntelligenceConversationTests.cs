@@ -317,7 +317,7 @@ public sealed class IntelligenceConversationTests
     }
 
     [Fact]
-    public async Task A_connection_switch_permanently_interrupts_a_run_and_requires_a_new_chat()
+    public async Task A_connection_switch_interrupts_and_clears_the_previous_network_chat()
     {
         var held = new TaskCompletionSource<IntelligenceAnswer>();
         _model.Scripts.Enqueue((_, _, text, _) => { text("Partial"); return held.Task; });
@@ -328,13 +328,84 @@ public sealed class IntelligenceConversationTests
         _session.StateChanged += Raise.EventWith(EventArgs.Empty);
         _session.Connection.Returns(old); // Even an old-reference restoration cannot revive it.
         await asking.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(IntelligenceTurnState.Interrupted, vm.Turns[0].State);
-        Assert.Equal("Partial", vm.Turns[0].Answer);
-        Assert.False(await vm.AskAsync("Follow-up"));
-        Assert.True(vm.NewChat());
+        Assert.Empty(vm.Turns);
+        Assert.Equal(1, vm.ChatRevision);
         Assert.True(await vm.AskAsync("New network question"));
         Assert.DoesNotContain("Old network question", _model.Prompts[^1]);
         held.SetResult(new IntelligenceAnswer("Late", null));
+        Assert.Equal("New network question", Assert.Single(vm.Turns).Question);
+    }
+
+    [Fact]
+    public async Task Signing_out_clears_retained_answers_and_rejects_stale_turn_actions()
+    {
+        using var vm = Open();
+        await vm.AskAsync("Old account question");
+        var previous = Assert.Single(vm.Turns);
+        Assert.True(vm.OwnsTurn(previous));
+        _session.Connection.Returns((LibreNmsConnection?)null);
+        _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+        Assert.Empty(vm.Turns);
+        Assert.False(vm.CanAsk);
+        Assert.False(vm.OwnsTurn(previous));
+        Assert.Equal("", vm.EditQuestion(previous));
+        _session.Connection.Returns(new LibreNmsConnection(new Uri("https://other.example.net/"), "other-token"));
+        _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+        Assert.False(await vm.RetryAsync(previous));
+        Assert.True(await vm.AskAsync("New account question"));
+        Assert.DoesNotContain("Old account question", _model.Prompts[^1]);
+        Assert.Equal(2, vm.ChatRevision);
+    }
+
+    [Fact]
+    public async Task A_queued_connection_reset_blocks_old_content_until_the_latest_reset_runs()
+    {
+        var queued = new Queue<Action>();
+        var hold = false;
+        using var vm = Open(action => { if (hold) queued.Enqueue(action); else action(); });
+        await vm.AskAsync("Old question");
+        var previous = Assert.Single(vm.Turns);
+        hold = true;
+        _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+        _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+        Assert.False(vm.IsTranscriptCurrent);
+        Assert.False(vm.CanAsk);
+        Assert.False(vm.OwnsTurn(previous));
+        Assert.False(vm.NewChat());
+        Assert.False(await vm.RetryAsync(previous));
+        hold = false;
+        queued.Dequeue()(); // Superseded reset cannot authorise or clear a newer chat.
+        Assert.False(vm.IsTranscriptCurrent);
+        while (queued.TryDequeue(out var action)) action();
+        Assert.True(vm.IsTranscriptCurrent);
+        Assert.Empty(vm.Turns);
+        Assert.Equal(1, vm.ChatRevision);
+        Assert.True(await vm.AskAsync("New question"));
+        Assert.DoesNotContain("Old question", _model.Prompts[^1]);
+    }
+
+    [Fact]
+    public async Task New_chat_cannot_authorise_a_connection_reset_that_arrives_during_clear()
+    {
+        var queued = new Queue<Action>();
+        var hold = false;
+        using var vm = Open(action => { if (hold) queued.Enqueue(action); else action(); });
+        await vm.AskAsync("Old question");
+        var changed = false;
+        vm.Turns.CollectionChanged += (_, _) =>
+        {
+            if (changed) return;
+            changed = true;
+            hold = true;
+            _session.StateChanged += Raise.EventWith(EventArgs.Empty);
+        };
+        Assert.True(vm.NewChat());
+        Assert.False(vm.IsTranscriptCurrent);
+        Assert.False(vm.CanAsk);
+        hold = false;
+        while (queued.TryDequeue(out var action)) action();
+        Assert.True(vm.IsTranscriptCurrent);
+        Assert.Empty(vm.Turns);
     }
 
     [Theory]
