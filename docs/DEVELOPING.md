@@ -1061,6 +1061,13 @@ so an empty list never replaces the files. Saved chats are read from the phone,
 so they open offline; answer chips route to pages that show their own offline or
 cached state.
 
+Leaving after a failed or pending save offers Try again, Leave anyway or Cancel.
+It explicitly warns that earlier saved history may remain and a pending write
+may finish; this does not delete saved history. Private memory-only text keeps
+the explicit discard confirmation. Edits to draft, detail or answer content
+while waiting invalidate the leave decision, so an older snapshot cannot
+justify clearing newer text.
+
 Settings › Intelligence › Single-chat mode already exists; #230 completes it.
 For now the list honours it for saving: while it is on, nothing is read or
 written, the list is hidden, waiting debounces are cancelled, and the chat that

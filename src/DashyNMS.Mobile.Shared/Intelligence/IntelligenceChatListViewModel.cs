@@ -148,8 +148,9 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     internal const string TryAgainChoice = "Try again";
     internal const string DiscardChoice = "Discard chat";
-    internal const string SaveFailedQuestion = "This chat couldn't be saved. Try saving it again, or discard its questions and answers?";
-    internal const string SavePendingQuestion = "This chat hasn't finished saving. Try again, or discard its questions and answers?";
+    internal const string LeaveChoice = "Leave anyway";
+    internal const string SaveFailedQuestion = "The latest changes couldn't be saved. Try again or leave anyway? An earlier version may remain in saved chats, and a pending save may still finish. Latest changes could be lost when the app closes.";
+    internal const string SavePendingQuestion = "This chat hasn't finished saving. Try again or leave anyway? An earlier version may remain in saved chats, and the pending save may still finish. Latest changes could be lost when the app closes.";
     internal const string NotSavedMessage = "This chat isn't being saved, so its questions and answers will be cleared. " + Confirmations.CannotBeUndone;
 
     private readonly IntelligenceConversationViewModel _conversation;
@@ -187,6 +188,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private ITimer? _timer;
     private long _timerVersion;
     private long _saveNumber;
+    private long _contentVersion;
 
     public IntelligenceChatListViewModel(IntelligenceConversationViewModel conversation, IntelligenceChatStorage storage,
         IntelligencePreferences preferences, ISessionService session, IDialogService dialogs, TimeProvider time,
@@ -378,8 +380,9 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         {
             var generation = Interlocked.Read(ref _scopeGeneration);
             var revision = _conversation.ChatRevision;
+            var contentVersion = _contentVersion;
             bool Current() => !_disposed && generation == Interlocked.Read(ref _scopeGeneration)
-                && revision == _conversation.ChatRevision && (target is null ? CanStartNew() : CanOpen(target));
+                && revision == _conversation.ChatRevision && contentVersion == _contentVersion && (target is null ? CanStartNew() : CanOpen(target));
 
             while (true)
             {
@@ -395,9 +398,9 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
                 }
 
                 var choice = await _dialogs.ChooseAsync(state == LeaveState.Failed ? SaveFailedQuestion : SavePendingQuestion,
-                    [TryAgainChoice], DiscardChoice);
+                    [TryAgainChoice], LeaveChoice);
                 if (!Current()) return false;
-                if (choice == DiscardChoice) break;
+                if (choice == LeaveChoice) break;
                 if (choice != TryAgainChoice) return false;
             }
 
@@ -822,6 +825,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         switch (e.PropertyName)
         {
             case nameof(IntelligenceConversationViewModel.Draft) or nameof(IntelligenceConversationViewModel.SelectedDetail):
+                _contentVersion++;
                 Schedule(restart: true);
                 break;
             case nameof(IntelligenceConversationViewModel.IsRunning) or nameof(IntelligenceConversationViewModel.IsTranscriptCurrent)
@@ -833,6 +837,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private void TurnsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
+        _contentVersion++;
         Watch();
         // A new question is kept straight away, so a forced quit still has it.
         if (e.Action == NotifyCollectionChangedAction.Add && !_changing) SaveActive();
@@ -840,6 +845,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private void TurnChanged(object? sender, PropertyChangedEventArgs e)
     {
+        _contentVersion++;
         if (_changing) return;
         if (e.PropertyName == nameof(IntelligenceTurn.State) && sender is IntelligenceTurn { State: not IntelligenceTurnState.Running })
         {

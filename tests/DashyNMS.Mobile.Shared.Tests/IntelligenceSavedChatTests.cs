@@ -832,6 +832,52 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.Single(app.Chats.Chats);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Editing_during_a_save_wait_cancels_navigation_before_new_content_can_be_cleared(bool detail)
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Question on screen"));
+        await app.SettleAsync();
+        var held = faults.HoldNext();
+        app.Conversation.Draft = "snapshot draft";
+        var leaving = app.Chats.NewChatAsync();
+        await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        if (detail) app.Conversation.SelectedDetail = "detailed";
+        else app.Conversation.Draft = "new edit during save";
+        held.Release.SetResult();
+
+        Assert.False(await leaving.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.Equal("Question on screen", Assert.Single(app.Conversation.Turns).Question);
+        Assert.Equal(detail ? "snapshot draft" : "new edit during save", app.Conversation.Draft);
+        _ = _dialogs.DidNotReceiveWithAnyArgs().ChooseAsync(default!, default!, default!);
+    }
+
+    [Fact]
+    public async Task Leaving_a_pending_save_explains_that_saved_history_can_still_remain()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved question"));
+        await app.SettleAsync();
+        var held = faults.HoldNext();
+        app.Conversation.Draft = "pending draft";
+        _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(IntelligenceChatListViewModel.LeaveChoice);
+        var leaving = app.Chats.NewChatAsync();
+        await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        _time.Advance(IntelligenceChatListViewModel.LeaveWait);
+        Assert.True(await leaving.WaitAsync(TimeSpan.FromSeconds(5)));
+        _ = _dialogs.Received(1).ChooseAsync(Arg.Is<string>(message => message.Contains("pending save may still finish")
+            && message.Contains("earlier version may remain")), Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.LeaveChoice);
+        held.Release.SetResult();
+        await app.SettleAsync();
+        Assert.Equal("pending draft", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+    }
+
     [Fact]
     public async Task A_new_chat_while_the_latest_save_is_held_past_the_wait_asks_and_a_later_failure_is_never_discarded_silently()
     {
@@ -856,7 +902,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.False(await leaving.WaitAsync(TimeSpan.FromSeconds(5)));
         _ = _dialogs.Received(1).ChooseAsync(IntelligenceChatListViewModel.SavePendingQuestion,
             Arg.Is<IReadOnlyList<string>>(options => options.SequenceEqual(new[] { IntelligenceChatListViewModel.TryAgainChoice })),
-            IntelligenceChatListViewModel.DiscardChoice);
+            IntelligenceChatListViewModel.LeaveChoice);
         Assert.Equal("Question on screen", Assert.Single(app.Conversation.Turns).Question);
         Assert.Equal("draft-sentinel unsaved", app.Conversation.Draft);
         Assert.NotNull(app.Chats.Active);
@@ -871,10 +917,10 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         _dialogs.ClearReceivedCalls();
         _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(
             Task.FromResult<string?>(IntelligenceChatListViewModel.TryAgainChoice),
-            Task.FromResult<string?>(IntelligenceChatListViewModel.DiscardChoice));
+            Task.FromResult<string?>(IntelligenceChatListViewModel.LeaveChoice));
         Assert.True(await app.Chats.NewChatAsync());
         _ = _dialogs.Received(2).ChooseAsync(IntelligenceChatListViewModel.SaveFailedQuestion,
-            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.DiscardChoice);
+            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.LeaveChoice);
         Assert.Empty(app.Conversation.Turns);
         Assert.Equal("", app.Conversation.Draft);
     }
@@ -905,7 +951,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         _dialogs.ChooseAsync(default!, default!, default!).ReturnsForAnyArgs(Task.FromResult<string?>(null));
         Assert.False(await app.Chats.OpenAsync(target));
         _ = _dialogs.Received(1).ChooseAsync(IntelligenceChatListViewModel.SaveFailedQuestion,
-            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.DiscardChoice);
+            Arg.Any<IReadOnlyList<string>>(), IntelligenceChatListViewModel.LeaveChoice);
         Assert.False(app.Chats.KeepsCurrentChat);
         Assert.Same(onScreen, app.Chats.Active);
         Assert.Equal("Chat on screen", Assert.Single(app.Conversation.Turns).Question);

@@ -263,8 +263,8 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   always confirms. The open chat is tinted and read as "Open now". New chat
   and opening another chat share one decision: a chat whose latest text is
   confirmed saved is left at once, after waiting no more than two seconds. A
-  save that failed or hasn't finished offers Try again, a red Discard chat and
-  Cancel. A chat that isn't being saved gets the red discard confirmation.
+  save that failed or hasn't finished offers Try again, Leave anyway and
+  Cancel, explaining that older history may remain and a pending save may finish. A chat that isn't being saved gets the red discard confirmation.
   Cancel keeps the question, answer and draft on screen. Device acceptance is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
