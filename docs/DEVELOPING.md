@@ -977,6 +977,14 @@ logged. The chat list, autosave and restore are #229. Single-chat privacy mode
 is #230. Unreadable files without the key and absence from device backups still
 need checking on an iPhone and an Android phone.
 
+Android chat-key access uses the same AndroidX encrypted preferences and Keystore
+alias as pinned MAUI, with checked synchronous `Commit` for writes and removal.
+Reading an existing key recommits it before accepting it, since a failed commit
+may leave a value visible in memory. Chat-key reads propagate storage errors
+without MAUI's credential-clearing recovery. Other credentials keep MAUI's
+existing behaviour. Native persistence and failure handling still need device
+acceptance; shared failure tests establish the storage's response to adapter errors.
+
 ### Chat page (#227)
 
 More opens Intelligence as a relative route; pinning selects its retained tab.

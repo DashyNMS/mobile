@@ -30,6 +30,10 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
         var value = key == Intelligence.IntelligenceChatStorage.KeyName
             ? ReadKeychain(key)
             : await SecureStorage.Default.GetAsync(key);
+#elif ANDROID
+        var value = key == Intelligence.IntelligenceChatStorage.KeyName
+            ? await Task.Run(() => ReadAndroidChatKey(key))
+            : await SecureStorage.Default.GetAsync(key);
 #else
         var value = await SecureStorage.Default.GetAsync(key);
 #endif
@@ -72,7 +76,78 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
     }
 #endif
 
-    public Task SetAsync(string key, string value) => SecureStorage.Default.SetAsync(key, value);
+    public Task SetAsync(string key, string value)
+    {
+#if ANDROID
+        if (key == Intelligence.IntelligenceChatStorage.KeyName)
+            return Task.Run(() => WriteAndroidChatKey(key, value));
+#endif
+        return SecureStorage.Default.SetAsync(key, value);
+    }
 
-    public bool Remove(string key) => SecureStorage.Default.Remove(key);
+    public bool Remove(string key)
+    {
+#if ANDROID
+        if (key == Intelligence.IntelligenceChatStorage.KeyName)
+        {
+            using var prefs = AndroidChatPreferences();
+            using var editor = prefs.Edit() ?? throw new InvalidOperationException("Secure storage could not be opened.");
+            editor.Remove(key);
+            // Always change the snapshot, including a retry after a failed
+            // commit whose deletion may already be visible in memory.
+            editor.PutString("intelligence-chats-commit-v1", Guid.NewGuid().ToString("N"));
+            return editor.Commit();
+        }
+#endif
+        return SecureStorage.Default.Remove(key);
+    }
+
+#if ANDROID
+    /// <summary>
+    /// Uses MAUI 10.0.120's existing encrypted store and Keystore alias, without
+    /// its destructive recovery on read failure. Only the chat key uses this
+    /// checked-commit path; other credentials retain their existing behaviour.
+    /// </summary>
+    private static global::Android.Content.ISharedPreferences AndroidChatPreferences()
+    {
+        var context = global::Android.App.Application.Context;
+        var alias = $"{AppInfo.Current.PackageName}.microsoft.maui.essentials.preferences";
+#pragma warning disable CS0618 // Match the encrypted preferences already used by pinned MAUI.
+        using var master = new AndroidX.Security.Crypto.MasterKey.Builder(context, alias)
+            .SetKeyScheme(AndroidX.Security.Crypto.MasterKey.KeyScheme.Aes256Gcm)!
+            .Build();
+        return AndroidX.Security.Crypto.EncryptedSharedPreferences.Create(context, alias, master!,
+            AndroidX.Security.Crypto.EncryptedSharedPreferences.PrefKeyEncryptionScheme.Aes256Siv!,
+            AndroidX.Security.Crypto.EncryptedSharedPreferences.PrefValueEncryptionScheme.Aes256Gcm!)
+            ?? throw new InvalidOperationException("Secure storage could not be opened.");
+#pragma warning restore CS0618
+    }
+
+    private static string? ReadAndroidChatKey(string key)
+    {
+        using var prefs = AndroidChatPreferences();
+        var value = prefs.GetString(key, null);
+        if (value is not null)
+        {
+            // An earlier failed commit can still be visible in memory. A new
+            // encrypted write and checked commit must succeed before accepting
+            // that value as the key for any saved file.
+            CommitAndroidChatKey(prefs, key, value);
+        }
+        return value;
+    }
+
+    private static void WriteAndroidChatKey(string key, string value)
+    {
+        using var prefs = AndroidChatPreferences();
+        CommitAndroidChatKey(prefs, key, value);
+    }
+
+    private static void CommitAndroidChatKey(global::Android.Content.ISharedPreferences prefs, string key, string value)
+    {
+        using var editor = prefs.Edit() ?? throw new InvalidOperationException("Secure storage could not be opened.");
+        editor.PutString(key, value);
+        if (!editor.Commit()) throw new InvalidOperationException("The chat key could not be saved.");
+    }
+#endif
 }
