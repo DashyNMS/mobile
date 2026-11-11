@@ -882,6 +882,41 @@ compilation is checked in CI. Device checks remain outstanding: supported
 and unsupported devices, Apple Intelligence turned off, resume, light/dark,
 large text and VoiceOver, plus glass clearance on both Duo displays.
 
+### Conversation engine (#573)
+
+`IntelligenceConversationViewModel` keeps questions, partial answers and
+lookup evidence in memory. It runs one question at a time. Stop cancels the
+current attempt, and late callbacks cannot rewrite a finished answer.
+Retry appends a new attempt with the original detail level. A per-question
+detail choice does not change the saved default. Edit returns the original question while the
+old partial answer stays visible. A lookup failure leaves a completed answer
+with a warning. Refusals, context limits and unavailable models have fixed
+messages, without native exception details.
+
+Each question uses a fresh model session with explicit recent completed
+turns. The input budget reserves instructions, five lookup definitions,
+two 900-character results and output space within 80% of runtime context.
+Older turns remain visible but may be omitted from the prompt. A context
+failure retries once in a fresh session without history; another failure
+asks for a shorter or narrower question. Character estimates remain only
+estimates, so the native failure path is required.
+
+Mobile supplies a main-thread dispatcher for streaming, lookup progress
+and terminal state. Every question requires the mobile opt-in, an available
+model and a signed-in connection. Connection events advance a generation
+so an old connection reference cannot revive a run after a switch. The run
+is interrupted and a new chat is required before another network is asked
+about. Opt-out also interrupts the current answer. Each question permits
+at most two actual lookup calls, including a context-recovery attempt.
+
+The engine never logs or uploads questions, answers or lookup evidence.
+It has no disk persistence yet. On app suspension, the host requests a short
+iOS background reservation and awaits `InterruptAsync` for up to four seconds.
+Both expiration and completion end the reservation. Partial text stays in memory;
+there is no promise of surviving process termination. Saved and encrypted
+history follow under #222 and #229. Native suspension and model-failure cases
+still need device verification.
+
 ### Compact network lookups (#572)
 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the

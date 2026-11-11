@@ -104,7 +104,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 					else if (cancellationToken.IsCancellationRequested)
 						finished.TrySetCanceled(cancellationToken);
 					else
-						finished.TrySetException(new IntelligenceException(Describe(error), answer));
+						finished.TrySetException(new IntelligenceException(Describe(error), answer, IntelligenceFailures.FromNativeReason(error.LocalizedFailureReason)));
 				});
 
 			// Stopping is the model's to confirm: the answer ends when its completion arrives.

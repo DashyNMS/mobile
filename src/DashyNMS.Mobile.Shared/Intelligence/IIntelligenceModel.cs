@@ -67,17 +67,35 @@ public interface IIntelligenceSession : IDisposable
 /// <param name="Usage">The model's own account of the tokens this answer used, where it gives one.</param>
 public sealed record IntelligenceAnswer(string Text, string? Usage);
 
+/// <summary>Stable failure categories for UI wording; native descriptions stay diagnostic-only.</summary>
+public enum IntelligenceFailureKind { Failed, Refused, ContextLimit, Unavailable }
+
+/// <summary>Maps the Swift bridge's diagnostic case names without displaying native error text.</summary>
+public static class IntelligenceFailures
+{
+    public static IntelligenceFailureKind FromNativeReason(string? reason) => reason switch
+    {
+        { } s when s.StartsWith("contextSizeExceeded", StringComparison.Ordinal) || s.StartsWith("exceededContextWindowSize", StringComparison.Ordinal) => IntelligenceFailureKind.ContextLimit,
+        { } s when s.StartsWith("guardrailViolation", StringComparison.Ordinal) || s.StartsWith("refusal", StringComparison.Ordinal) => IntelligenceFailureKind.Refused,
+        "unsupported" or "unavailable" => IntelligenceFailureKind.Unavailable,
+        _ => IntelligenceFailureKind.Failed,
+    };
+}
+
 /// <summary>The model couldn't finish an answer. The message is the model's own, for diagnostics, not for a page.</summary>
 public sealed class IntelligenceException : Exception
 {
-    public IntelligenceException(string message, string? partialAnswer = null)
+    public IntelligenceException(string message, string? partialAnswer = null, IntelligenceFailureKind kind = IntelligenceFailureKind.Failed)
         : base(message)
     {
         PartialAnswer = partialAnswer;
+        Kind = kind;
     }
 
     /// <summary>What had been written before it stopped.</summary>
     public string? PartialAnswer { get; }
+
+    public IntelligenceFailureKind Kind { get; }
 }
 
 /// <summary>No model: the default, on Android, and in tests.</summary>
