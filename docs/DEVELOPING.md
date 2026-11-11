@@ -1027,7 +1027,9 @@ information) and the answer still contains them.
 Graph images and web citations arrive only with the ChatGPT route (#577), so
 their display is tested with recorded answers. `IntelligenceAnswer.Images`
 carries Core's `IntelligenceImage`; PNG and JPEG within Core's 2 MB limit, at
-most eight, show inline and enlarge in a modal view. Citations use Core's
+most eight, show inline and enlarge in a modal view. An enlarged preview
+clears its image when its turn loses connection ownership and rechecks on
+return, so the modal cannot keep the previous network’s evidence visible. Citations use Core's
 `WebSearchCitations.FormatMessage` and render as source links. Saving images
 with a chat follows under #222 and #229. Copy answer copies the original
 Markdown, markers included.

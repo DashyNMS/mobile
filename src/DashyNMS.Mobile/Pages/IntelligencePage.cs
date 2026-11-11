@@ -499,7 +499,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
                 button.Clicked += async (_, _) =>
                 {
                     if (_page._conversation.OwnsTurn(_turn) && _page.Navigation is { } navigation)
-                        await navigation.PushModalAsync(new ImagePreviewPage(image, label));
+                        await navigation.PushModalAsync(new ImagePreviewPage(_page._conversation, _turn, image, label));
                 };
                 _images.Children.Add(button);
             }
@@ -526,13 +526,25 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     /// </summary>
     private sealed class ImagePreviewPage : ContentPage
     {
-        public ImagePreviewPage(DesktopNMS.Core.Intelligence.IntelligenceImage image, string label)
+        private readonly IntelligenceConversationViewModel _conversation;
+        private readonly IntelligenceTurn _turn;
+        private readonly Image _picture;
+        private readonly Label _expired = new()
         {
+            Text = "This chat is no longer available.", TextColor = Color.FromArgb("#E8EEF6"),
+            Margin = 24, IsVisible = false, VerticalOptions = LayoutOptions.Center,
+        };
+
+        public ImagePreviewPage(IntelligenceConversationViewModel conversation, IntelligenceTurn turn,
+            DesktopNMS.Core.Intelligence.IntelligenceImage image, string label)
+        {
+            _conversation = conversation;
+            _turn = turn;
             Title = label;
             BackgroundColor = Color.FromArgb("#11141A");
             SafeAreaEdges = SafeAreaEdges.All;
-            var picture = new Image { Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit };
-            SemanticProperties.SetDescription(picture, label);
+            _picture = new Image { Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit };
+            SemanticProperties.SetDescription(_picture, label);
             var close = new Button
             {
                 Text = "Close", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
@@ -542,8 +554,34 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             close.Clicked += async (_, _) => await Navigation.PopModalAsync();
             var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
             grid.Add(close, 0, 0);
-            grid.Add(picture, 0, 1);
+            grid.Add(_picture, 0, 1);
+            grid.Add(_expired, 0, 1);
             Content = grid;
+        }
+
+        protected override void OnAppearing()
+        {
+            base.OnAppearing();
+            _conversation.PropertyChanged -= OnOwnershipChanged;
+            _conversation.PropertyChanged += OnOwnershipChanged;
+            CheckOwnership();
+        }
+
+        protected override void OnDisappearing()
+        {
+            _conversation.PropertyChanged -= OnOwnershipChanged;
+            base.OnDisappearing();
+        }
+
+        private void OnOwnershipChanged(object? sender, PropertyChangedEventArgs e) => CheckOwnership();
+
+        /// <summary>A modal must not retain readable evidence after its chat changes owner.</summary>
+        private void CheckOwnership()
+        {
+            if (_conversation.OwnsTurn(_turn)) return;
+            _picture.Source = null;
+            _picture.IsVisible = false;
+            _expired.IsVisible = true;
         }
 
         protected override bool OnBackButtonPressed()
