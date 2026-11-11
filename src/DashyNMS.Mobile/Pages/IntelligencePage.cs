@@ -97,28 +97,18 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _composer.Margin = new Thickness(0, 8, 0, 0);
         var body = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
         body.Add(_notice, 0, 0);
-        var atmosphere = new Grid { IsClippedToBounds = true, SafeAreaEdges = SafeAreaEdges.None };
-        // A static soft accent wash gives desktop's ambient identity without motion
-        // or another animation timer on the phone.
+        // The page owns the backdrop so it also paints behind safe-area gutters,
+        // header, composer and glass. Content keeps its existing inset ownership.
+        // Opaque endpoints make the result independent of native host backgrounds.
         var glow = new RadialGradientBrush { Center = new Point(.35, .35), Radius = .85 };
         var glowStart = new GradientStop { Offset = 0 };
-        glowStart.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#183B82F6"), Color.FromArgb("#203B82F6"));
+        glowStart.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#E3EBF9"), Color.FromArgb("#162236"));
         var glowEnd = new GradientStop { Offset = 1 };
-        glowEnd.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#003B82F6"), Color.FromArgb("#003B82F6"));
+        glowEnd.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#F4F6F9"), Color.FromArgb("#11141A"));
         glow.GradientStops = [glowStart, glowEnd];
-        atmosphere.Add(new Border { Background = glow, StrokeThickness = 0, InputTransparent = true });
-        atmosphere.Add(_scroll);
-        body.Add(atmosphere, 0, 1);
+        Background = glow;
+        body.Add(_scroll, 0, 1);
         body.Add(_jump, 0, 2);
-        var start = new GradientStop { Offset = 0 };
-        start.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#F4F6F9"), Color.FromArgb("#11141A"));
-        var end = new GradientStop { Offset = 1 };
-        end.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#00F4F6F9"), Color.FromArgb("#0011141A"));
-        body.Add(new Border
-        {
-            HeightRequest = 20, VerticalOptions = LayoutOptions.Start, StrokeThickness = 0, InputTransparent = true,
-            Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [start, end] },
-        }, 0, 1);
         var setup = new SetupLayout { Header = _header, Body = body, PrimaryAction = _composer };
         Content = setup;
         _placement = new SetupPageLayout(this, setup, _header, _scroll) { ShowActions = ShowActions };
