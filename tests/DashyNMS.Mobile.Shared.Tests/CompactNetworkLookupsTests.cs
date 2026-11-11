@@ -46,7 +46,7 @@ public sealed class CompactNetworkLookupsTests
             var text = await lookup.Run(query, default);
             Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
             Assert.NotEqual(CompactNetworkLookups.Failed, text);
-            Assert.Contains(lookup.Name == "device_sensors" ? "sensor 1" : lookup.Name is "active_alerts" or "network_overview" ? "alert:1" : "device 1", text);
+            Assert.Contains(lookup.Name == "device_sensors" ? "[[sensor:1]]" : lookup.Name is "active_alerts" or "network_overview" ? "[[alert:1]]" : "[[device:1]]", text);
         }
     }
 
@@ -58,8 +58,8 @@ public sealed class CompactNetworkLookupsTests
         var lookup = new CompactNetworkLookups(Fakes.Client(alerts: alerts), Fakes.Settings(), Session())
             .Create().Single(l => l.Name == "network_overview");
         var text = await lookup.Run("", default);
-        Assert.Contains("alert:101,", text);
-        Assert.True(text.IndexOf("alert:101,", StringComparison.Ordinal) < text.IndexOf("alert:1,", StringComparison.Ordinal));
+        Assert.Contains("(alert:101)", text);
+        Assert.True(text.IndexOf("(alert:101)", StringComparison.Ordinal) < text.IndexOf("(alert:1)", StringComparison.Ordinal));
         Assert.Contains("more results omitted", text);
     }
 
@@ -86,7 +86,8 @@ public sealed class CompactNetworkLookupsTests
         foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
         {
             var text = await lookup.Run("", default);
-            Assert.True(text.Contains($"{key}, device 1:", StringComparison.Ordinal), text);
+            // The marker links any source; the qualified key keeps alert 7 and fault 7 distinct.
+            Assert.True(text.Contains($"[[alert:7]] ({key}) on host1", StringComparison.Ordinal), text);
             Assert.Equal(alert.Identity, DashyNMS.Mobile.Alerts.AlertTargets.ParseKey(key));
         }
     }
@@ -155,5 +156,110 @@ public sealed class CompactNetworkLookupsTests
         await client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
         await client.Alerts.DidNotReceive().ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
         await client.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Alerts_are_named_from_one_device_list_request_and_report_their_evidence()
+    {
+        var devices = new[] { Fakes.Device(708, "192.0.2.8", sysName: "core-sw1") };
+        var fault = Fakes.Alert(3, 708, "critical");
+        fault.Source = AlertSource.Fault;
+        var client = Fakes.Client(devices, [fault, Fakes.Alert(4, 708, "warning")]);
+        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("", default);
+
+        Assert.Contains("Rule 3 [[alert:3]] (fault:3) on core-sw1 [[device:708]]", text);
+        Assert.DoesNotContain("device 708", text, StringComparison.OrdinalIgnoreCase);
+        await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
+        var alert = Assert.Single(evidence, r => r.Key == "alert:3");
+        Assert.Equal(("Rule 3", "Critical", "critical"), (alert.Name, alert.Status, alert.Tone));
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("fault", 3, 708, 30), alert.Object);
+        var device = Assert.Single(evidence, r => r.Key == "device:708");
+        Assert.Equal(("core-sw1", "Up"), (device.Name, device.Status));
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("device", 708), device.Object);
+    }
+
+    [Fact]
+    public async Task Missing_names_say_so_and_unreadable_device_lists_fall_back_to_the_alert_hostname()
+    {
+        var unnamed = Fakes.Alert(5, 9, "warning");
+        unnamed.Hostname = null;
+        var client = Fakes.Client(alerts: [unnamed, Fakes.Alert(6, 10, "warning")]);
+        client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Device>>(new HttpRequestException("private")));
+        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("", default);
+
+        Assert.Contains("(alert:5) on Device 9 (name unavailable)", text);
+        Assert.Contains("(alert:6) on host10", text);
+        // Without a device row there is no verified device to link.
+        Assert.DoesNotContain("[[device:", text);
+        Assert.DoesNotContain(evidence, r => r.Key.StartsWith("device:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Evidence_covers_only_rows_the_model_was_shown()
+    {
+        var devices = Enumerable.Range(1, 400).Select(i => Fakes.Device(i, $"switch-{i}.example.net", up: false)).ToList();
+        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var lookup = new CompactNetworkLookups(Fakes.Client(devices), Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "network_overview");
+
+        var text = await lookup.Run("", default);
+
+        Assert.Contains("more results omitted", text);
+        Assert.NotEmpty(evidence);
+        Assert.All(evidence, r => Assert.Contains("[[" + r.Key + "]]", text));
+        Assert.DoesNotContain(evidence, r => r.Key == "device:400");
+    }
+
+    [Fact]
+    public async Task A_reply_from_a_previous_connection_reports_no_evidence()
+    {
+        var client = Fakes.Client();
+        var response = new TaskCompletionSource<IReadOnlyList<Device>>();
+        client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(response.Task);
+        var session = Session();
+        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session).Create(evidence.AddRange).Single(l => l.Name == "find_device");
+        var pending = lookup.Run("switch", default);
+        session.Connection.Returns(new LibreNmsConnection(new Uri("https://new.example.net/"), "new-test-token"));
+        response.SetResult([Fakes.Device(1, "old-switch")]);
+        Assert.Equal(CompactNetworkLookups.Changed, await pending);
+        Assert.Empty(evidence);
+    }
+
+    [Fact]
+    public async Task Sensors_and_locations_carry_navigable_references_without_a_health_claim()
+    {
+        var device = Fakes.Device(12, "edge.example.net", sysName: "edge-router-a", location: "Example lab");
+        device.LocationId = 4;
+        var client = Fakes.Client([device]);
+        client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new[] { new Sensor { SensorId = 31, DeviceId = 12, Description = "Inlet temperature", Current = 41, SensorClass = "temperature", Unit = "C" } });
+        var evidence = new List<DesktopNMS.Core.Intelligence.IntelligenceInlineReference>();
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create(evidence.AddRange);
+
+        var sensors = await lookups.Single(l => l.Name == "device_sensors").Run("12", default);
+        var summary = await lookups.Single(l => l.Name == "device_summary").Run("12", default);
+
+        Assert.StartsWith("Sensors on edge-router-a [[device:12]]: 1.", sensors);
+        Assert.Contains("Inlet temperature [[sensor:31]]: temperature; reading 41; unit C", sensors);
+        Assert.Contains("location: Example lab [[location:4]]", summary);
+        var sensor = Assert.Single(evidence, r => r.Key == "sensor:31");
+        Assert.Equal("", sensor.Status);
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("sensor", 31, 12), sensor.Object);
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("location", 4), Assert.Single(evidence, r => r.Key == "location:4").Object);
+    }
+
+    [Fact]
+    public async Task Network_labels_cannot_open_or_close_a_marker()
+    {
+        var client = Fakes.Client([Fakes.Device(2, "spoof [[device:1]] ]]")]);
+        var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create().Single(l => l.Name == "find_device").Run("spoof", default);
+        Assert.DoesNotContain("[[device:1]]", text);
+        Assert.Contains("[[device:2]]", text);
     }
 }

@@ -232,7 +232,15 @@ A card scans a list and does not audit one port. Show one card per row, and two 
 - Lookup activity has a 44pt expandable summary with a name saying Show or
   Hide and the outcome. Success needs no second Completed line. Warnings,
   stopped/interrupted states and Retry/Edit remain visible. Copy is a quiet
-  44pt action. Plain answer text and numeric entity naming remain #228 work.
+  44pt action that copies the original Markdown.
+- Answers render Markdown as native text (#228). Tables sit in a sideways
+  scroll with 260pt maximum cells; code wraps by character. Verified objects
+  read as name and status in text, coloured only when Colour status indicators
+  is on, and repeat beneath the answer as 44pt chips whose names state the
+  target, status and action. Source links are 44pt buttons naming title and
+  host. Answer images are native buttons announcing "Graph image … Enlarge";
+  the enlarged view has a 44pt Close inside the safe area. Device acceptance
+  of #228's layout and accessibility is pending.
 - Use the Sparkle identity from desktop for the pinned icon. Keep #227 open
   until the user accepts the installed appearance, keyboard, themes, text
   sizes, accessibility and narrow/wide layouts; CI does not provide acceptance.

@@ -1,0 +1,10 @@
+paragraph: See <LibreNMS docs|https://docs.example.org/alerts> and bad) and creds and plain.
+paragraph: [i:Image: graph]
+quote: Quoted [b:advice] here.
+1. First
+  • Nested [i:note]
+2. Second
+code:
+show interfaces
+/code
+rule

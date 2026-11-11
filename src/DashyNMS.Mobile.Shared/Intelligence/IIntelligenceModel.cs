@@ -63,9 +63,17 @@ public interface IIntelligenceSession : IDisposable
     Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default);
 }
 
-/// <param name="Text">The finished answer.</param>
+/// <param name="Text">The finished answer, in Markdown with Core's inline markers.</param>
 /// <param name="Usage">The model's own account of the tokens this answer used, where it gives one.</param>
-public sealed record IntelligenceAnswer(string Text, string? Usage);
+public sealed record IntelligenceAnswer(string Text, string? Usage)
+{
+    /// <summary>
+    /// Images a lookup returned with the answer, such as a LibreNMS graph. Apple's
+    /// on-device model has no graph lookup, so only a later model route (#577) or a
+    /// recorded answer supplies these; the app never fetches an image from the network.
+    /// </summary>
+    public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
+}
 
 /// <summary>Stable failure categories for UI wording; native descriptions stay diagnostic-only.</summary>
 public enum IntelligenceFailureKind { Failed, Refused, ContextLimit, Unavailable }

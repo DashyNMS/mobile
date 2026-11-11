@@ -962,8 +962,8 @@ The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
 may be cached and asks readers to check readings and their age in LibreNMS.
 No conversation data is written to disk or included in diagnostics. Saved-chat
-sheets, Spotlight, formatted tables and source links, and answer reporting
-remain under #229, #231, #228 and #574. Device acceptance for #227 and #573
+sheets, Spotlight and answer reporting remain under #229, #231 and #574;
+formatted answers are described under #228 below. Device acceptance for #227 and #573
 remains open: test long streaming answers, Stop and suspension, both entry
 routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
@@ -973,11 +973,21 @@ result is inferred from shared tests or platform CI builds.
 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the
 session's client: overview, device search, device summary, active alerts and
-device sensors. Each reply is at most 900 characters. Rows include entity
-IDs for later links, including source-qualified `alert:` and `fault:` keys;
-omitted rows are counted. Alerts put unacknowledged
+device sensors. Each reply is at most 900 characters. Rows lead with the
+LibreNMS name in the person's device-name choice, followed by Core's marker,
+for example `core-sw1 [[device:708]]`, so the model names devices rather than
+writing "device 708". A device without a usable name reads
+"Device 708 (name unavailable)". Alert rows keep their source-qualified
+`alert:` or `fault:` key beside the `[[alert:ID]]` marker. Alert and overview
+lookups name every alert's device from one device-list request, never one
+request per alert; if that list can't be read, rows fall back to the alert's
+own hostname and carry no device link. Omitted rows are counted. Alerts put unacknowledged
 items first, then severity. Sensor values are raw readings, not a health
-assessment.
+assessment. Network labels cannot form a marker of their own.
+
+`Create(evidence)` also reports the typed `IntelligenceInlineReference`s behind
+each accepted reply, only for rows that fitted in the reply and only while the
+connection is unchanged.
 
 Create a fresh lookup set for each new model session. A set refuses calls
 after the connection object changes and discards replies arriving from the
@@ -986,6 +996,47 @@ text; cancellation propagates to the caller. No questions, replies or
 exception details are logged. The diagnostic check retains its original
 overview lookup so measurements remain comparable. The conversation in
 #573 will consume the new interface.
+
+### Formatted answers (#228)
+
+Answers render as Markdown: headings, paragraphs, bullet and numbered lists,
+tables that scroll sideways, fenced and inline code, quotes, rules, bold,
+italic and links. `IntelligenceMarkdown` in Mobile.Shared parses the text into
+blocks, following desktop's `MarkdownView`; `IntelligenceMarkdownView` in the
+head draws them as native labels and spans. No HTML is interpreted, nothing is
+executed, and Markdown image syntax shows only its description, so no image is
+fetched. No renderer library was added, so the Licences page is unchanged.
+
+Core's inline markers resolve through `IntelligenceInlineMarkup` against the
+turn's lookup evidence (and earlier turns of the same chat), so a chip shows the
+LibreNMS name and, where known, its status in words. A well-formed object marker
+whose id no lookup returned reads as Core's fallback ("Device 12") and links
+nowhere. A malformed marker stays literal text. Status colour follows
+Settings › Intelligence › Colour status indicators and always accompanies the words.
+
+Each verified device, alert or fault, sensor, group or location also appears as
+a 44pt chip beneath the answer. `IntelligenceAnswerActions` opens it through the
+existing pages: Device View, alert detail with the qualified key, the device's
+Sensors section, or Devices filtered by group or location name. It refuses a
+reference not in the turn's evidence, a mismatched or invalid target, and any
+turn from a previous connection. Destination pages handle a target that has
+since been deleted. Links open in the system browser only if Core's
+`WebSearchCitations.TryGetLink` accepts them (http or https, no user
+information) and the answer still contains them.
+
+Graph images and web citations arrive only with the ChatGPT route (#577), so
+their display is tested with recorded answers. `IntelligenceAnswer.Images`
+carries Core's `IntelligenceImage`; PNG and JPEG within Core's 2 MB limit, at
+most eight, show inline and enlarge in a modal view. Citations use Core's
+`WebSearchCitations.FormatMessage` and render as source links. Saving images
+with a chat follows under #222 and #229. Copy answer copies the original
+Markdown, markers included.
+
+The on-device instructions now ask for Markdown and markers within the
+400-character budget. Golden tests cover a table with markers, malformed
+markers, safe and unsafe links, nested lists, quotes, code and a recorded
+citation. Device acceptance remains pending for layout, large text, VoiceOver,
+themes, sideways table scrolling, chip navigation and the image view.
 
 ## Upstream notes
 

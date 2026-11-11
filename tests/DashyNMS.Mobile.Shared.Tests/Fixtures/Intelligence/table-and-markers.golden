@@ -1,0 +1,10 @@
+heading 2: Network status
+paragraph: {device:12→device:12 edge-router-a · Down} is down with one open alert.
+•(critical) {alert:7→fault:7 Port down · Critical} on {device:12→device:12 edge-router-a · Down}
+• Sensor {sensor:31→sensor:31 Inlet temperature} reads 41 °C
+table start,centre,end
+| Device | State | Alerts |
+| {device:12→device:12 edge-router-a · Down} | {status:down Down} | 1 |
+| core_sw_01 | [b:Up] | 0 |
+recommendation: Check the uplink on {device:12→device:12 edge-router-a · Down}.
+notes: Readings may be cached.
