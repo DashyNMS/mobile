@@ -79,11 +79,10 @@ public sealed partial class MoreViewModel : ViewModelBase
         _navigation = navigation;
         _dialogs = dialogs;
         _items = AppPages.All.Select(page => new MoreItem(page)).ToList();
-        Groups = _items.GroupBy(item => AppPages.Group(item.Page)).Select(g => new MoreGroup(g.Key, g.ToList())).ToList();
         Update();
     }
 
-    public IReadOnlyList<MoreGroup> Groups { get; }
+    public IReadOnlyList<MoreGroup> Groups { get; private set; } = [];
 
     /// <summary>"2 of 3 pinned".</summary>
     public string PinnedText => $"{_pins.Pinned.Count} of {TabPins.MaxPinned} pinned";
@@ -92,12 +91,13 @@ public sealed partial class MoreViewModel : ViewModelBase
 
     /// <summary>Its tab when pinned, pushed onto More when not.</summary>
     [RelayCommand]
-    private Task OpenAsync(MoreItem item) => _navigation.GoToAsync(
+    private Task OpenAsync(MoreItem item) => !_pins.IsAvailable(item.Page) ? Task.CompletedTask : _navigation.GoToAsync(
         _pins.IsPinned(item.Page) ? Routes.Main + "/" + AppPages.TabRoute(item.Page) : AppPages.PushRoute(item.Page));
 
     [RelayCommand]
     private async Task TogglePinAsync(MoreItem item)
     {
+        if (!_pins.IsAvailable(item.Page)) return;
         if (!_pins.Toggle(item.Page))
         {
             await _dialogs.AlertAsync(
@@ -112,6 +112,14 @@ public sealed partial class MoreViewModel : ViewModelBase
     /// <summary>Also when More shows, in case the pins changed elsewhere.</summary>
     public void Update()
     {
+        _pins.RefreshAvailability();
+        var visible = _items.Where(item => _pins.IsAvailable(item.Page)).ToList();
+        if (!visible.SequenceEqual(Groups.SelectMany(group => group.Items)))
+        {
+            Groups = visible.GroupBy(item => AppPages.Group(item.Page))
+                .Select(g => new MoreGroup(g.Key, g.ToList())).ToList();
+            OnPropertyChanged(nameof(Groups));
+        }
         var canPinMore = _pins.CanPinMore;
         foreach (var item in _items)
         {

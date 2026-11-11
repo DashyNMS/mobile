@@ -113,6 +113,7 @@ public partial class AppShell : Shell
 		AppPage.AlertRules => typeof(AlertRulesPage),
 		AppPage.Logs => typeof(LogsPage),
 		AppPage.Graylog => typeof(GraylogPage),
+        AppPage.Intelligence => typeof(IntelligencePage),
 		_ => typeof(SettingsPage),
 	};
 
@@ -219,6 +220,7 @@ public partial class AppShell : Shell
 
     private void RestoreActivePage() => Dispatcher.Dispatch(() =>
     {
+        _pins.RefreshAvailability();
         // Resolve at delivery time: outgoing Disappearing/Hide must finish first.
         if (CurrentPage is IActivePage page) page.Activate();
     });
