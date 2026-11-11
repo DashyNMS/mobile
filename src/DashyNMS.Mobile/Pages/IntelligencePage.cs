@@ -380,8 +380,12 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             content.Children.Add(_images);
             _answer.ReferenceRequested += async (_, reference) =>
             {
-                if (!await _page._actions.OpenAsync(_turn, reference))
-                    SemanticScreenReader.Default.Announce("That item can't be opened from this chat.");
+                try
+                {
+                    if (!await _page._actions.OpenAsync(_turn, reference))
+                        SemanticScreenReader.Default.Announce("That item can't be opened from this chat.");
+                }
+                catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
             };
             _answer.LinkRequested += async (_, link) =>
             {
