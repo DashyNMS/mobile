@@ -738,7 +738,7 @@ The constraints that shape it:
   Apple Intelligence turned on. Elsewhere Intelligence is hidden or says why.
 - The on-device context is small: 8,192 tokens measured on iOS 27.2, and
   4,096 by Apple's notes for iOS 26.4. It covers instructions, tools,
-  question, lookups and answer together. Desktop's 22 MCP tools and GPT
+  question, lookups and answer together. The current 24 MCP tools and GPT
   prompts don't fit, so the phone has five compact lookups over Core's
   clients that return short text, and its own short instructions. #570
   measured the budget on a device; see below.
@@ -844,7 +844,8 @@ with desktop's full tool set. Two things gate it:
   sign-in (`ChatGptSignIn`, `IdTokenValidator`), the Responses client, the
   conversation loop and its instructions (`IntelligenceConversation`,
   `IntelligenceInstructions`), consent, the detail dial, and the allowlist of
-  22 tool names (`IntelligenceToolAllowlist`). The network tools are the
+  24 tool names in current Core source (`IntelligenceToolAllowlist`), which
+  must also be verified against the consumed package. The network tools are the
   missing piece. A phone can't start desktop's `dashynms-mcp` process, so the
   tools have to run in the app, from DashyNMS/mcp's `DashyNMS.Agent`. Against
   #221's four upstream needs:
@@ -854,7 +855,7 @@ with desktop's full tool set. Two things gate it:
 | A published package | Not yet: the mcp repository's CI doesn't pack or push it, and there's no `DashyNMS.Agent` on GitHub Packages |
 | The host's own clients | Not yet: `AddDashyNmsAgent` registers its own `LibreNmsClient`, `UnimusApi` and `GraylogApi` with `AddSingleton`, not `TryAdd`, so certificate trust and the backup address wouldn't follow the app's |
 | Plain options | Done: `AgentOptions` is plain; only the `DashyNMS.Mcp` host reads environment variables |
-| A tool table safe for AOT | Not yet: the 39 tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
+| A tool table safe for AOT | Not yet: the 24 attributed tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
 
 If the package still can't run in-process once those land, the ChatGPT
 route uses 2.0's compact lookups, extended.
@@ -1230,6 +1231,10 @@ remains open: test long streaming answers, Stop and suspension, both entry
 routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
 result is inferred from shared tests or platform CI builds.
+
+For the current Agent catalogue, lookup differences and the staged reuse proof
+under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). That
+design records upstream blockers and does not claim a completed migration.
 
 ### Compact network lookups (#572)
 
