@@ -956,8 +956,22 @@ lock before anything else, so a late save from an older store throws
 the folder. Opening and wiping take turns over the key, so concurrent opens make
 one key, and a key being created can't land after a wipe. Opens queued before
 or started during cleanup are refused. A false key-removal result is checked
-against secure storage; failed cleanup leaves storage unavailable and sign-out
-offers a visible retry before continuing. Logs name only the
+against secure storage.
+
+Cleanup has to hold across a restart, so `WipeAsync` first writes a fixed-content
+note, `chats.cleanup-pending`, beside the folder (flushed to disk), and deletes
+it only after the key and the folder are both gone. While the note exists, from
+a refused removal or a wipe cut off by a crash, `OpenAsync` retries the removal
+before reading any key. It stays `Unavailable` until both removals and the note's
+deletion succeed, then starts afresh under a new key. If the note's existence
+can't be checked, it opens nothing and deletes nothing. `WipeAsync` returns
+`Removed`, `Retained` (note saved: locked across restarts) or
+`RetainedUntilRestart` (the note couldn't be written either, so the lock lasts
+only for this run; later opens try to write it again). Sign-out shows the
+matching warning with Retry cleanup and Continue signing out. The note sits
+outside the folder, preferences and secure storage, so neither the wipe nor
+"forget everything" (`ILocalDataWipe`) removes it first. `IChatCleanupFiles`
+wraps the note and folder operations so tests can make each one fail. Logs name only the
 step that failed. Chat text, scopes, keys and exception messages are never
 logged. The chat list, autosave and restore are #229. Single-chat privacy mode
 is #230. Unreadable files without the key and absence from device backups still

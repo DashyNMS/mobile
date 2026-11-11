@@ -31,6 +31,27 @@ public enum IntelligenceChatStorageState
 /// </summary>
 public sealed class ChatStorageUnavailableException(string message) : IOException(message);
 
+/// <summary>How a sign-out's removal of saved chats went (#222).</summary>
+public enum ChatWipeResult
+{
+    /// <summary>The key and the folder are both gone.</summary>
+    Removed,
+
+    /// <summary>
+    /// The key, the folder or both are still there. A note on disk keeps them
+    /// locked across restarts: no store opens until removing them succeeds,
+    /// which each open tries again.
+    /// </summary>
+    Retained,
+
+    /// <summary>
+    /// As <see cref="Retained"/>, but the note couldn't be saved either, so
+    /// they're only locked until the app closes. After a restart the old key
+    /// could open the old files again.
+    /// </summary>
+    RetainedUntilRestart,
+}
+
 /// <summary>
 /// Saved Intelligence chats on the phone (#222): Core's
 /// <see cref="FileIntelligenceChatStore"/> - per-chat files, written atomically,
@@ -55,6 +76,18 @@ public sealed class ChatStorageUnavailableException(string message) : IOExceptio
 /// refused rather than writing the old conversation back. Opening and wiping also
 /// take turns over the key, so a key being created can't land after the wipe
 /// that should have removed it, and two screens opening at once make one key.
+/// </para>
+/// <para>
+/// A wipe that can't finish mustn't come undone when the app restarts, so the
+/// first thing it does on disk is leave a note beside the folder
+/// (<c>chats.cleanup-pending</c>), and only deletes the note once the key and
+/// the folder are both gone. While the note is there - a removal refused, or
+/// the app killed mid-wipe - opening retries the removal before any key is
+/// read, and stays unavailable until it succeeds. The note sits outside the
+/// folder, preferences and secure storage, so neither the wipe nor "forget
+/// everything" can clear it first. If the note itself can't be written, the
+/// wipe says so (<see cref="ChatWipeResult.RetainedUntilRestart"/>) rather than
+/// promising what it can't keep.
 /// </para>
 /// <para>
 /// Nothing from a chat, the key or the server's scope is logged: only which
@@ -86,6 +119,7 @@ public sealed class IntelligenceChatStorage
     private readonly IBackupExclusion _backup;
     private readonly ILogger<IntelligenceChatStorage> _logger;
     private readonly FileIntelligenceChatStore _files;
+    private readonly IChatCleanupFiles _disk;
 
     /// <summary>Every read and write of the files, and every change to the key and generation.</summary>
     private readonly object _gate = new();
@@ -96,20 +130,32 @@ public sealed class IntelligenceChatStorage
     private byte[]? _key;
     private long _generation;
     private int _pendingWipes;
-    private bool _wipeFailed;
+
+    /// <summary>A wipe hasn't finished in this process; the note on disk says the same across restarts, if it could be written.</summary>
+    private bool _cleanupRequired;
+
+    /// <summary>That unfinished wipe couldn't write its note, so a restart would forget it.</summary>
+    private bool _cleanupUnguarded;
+
     private IntelligenceChatStorageState _state;
     private string? _unavailableReason;
 
     /// <param name="root">The app-private <c>chats</c> folder, created when first opened.</param>
-    public IntelligenceChatStorage(string root, ISecureStorage secure, IBackupExclusion backup, ILogger<IntelligenceChatStorage> logger)
+    /// <param name="disk">The phone's file system for cleanup; tests pass one that fails on cue.</param>
+    public IntelligenceChatStorage(string root, ISecureStorage secure, IBackupExclusion backup, ILogger<IntelligenceChatStorage> logger, IChatCleanupFiles? disk = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
-        _root = root;
+        _root = Path.TrimEndingDirectorySeparator(root);
+        CleanupNotePath = _root + ".cleanup-pending";
+        _disk = disk ?? new ChatCleanupFiles();
         _secure = secure;
         _backup = backup;
         _logger = logger;
-        _files = new FileIntelligenceChatStore(root, Protect, Unprotect);
+        _files = new FileIntelligenceChatStore(_root, Protect, Unprotect);
     }
+
+    /// <summary>Beside the folder, not in it, so deleting the folder can't take the note with it.</summary>
+    internal string CleanupNotePath { get; }
 
     /// <summary>Raised when <see cref="State"/> changes, on whichever thread changed it.</summary>
     public event EventHandler? StateChanged;
@@ -141,7 +187,9 @@ public sealed class IntelligenceChatStorage
     /// The store for this session: reads the key from secure storage the first
     /// time (making one if there's none), and prepares the folder. Null when
     /// chats can't be kept - see <see cref="UnavailableReason"/> - or when a wipe
-    /// came while opening. Trying again later retries an unavailable key.
+    /// came while opening. Trying again later retries an unavailable key, and a
+    /// sign-out's unfinished removal - before any key is read, so chats a wipe
+    /// should have removed are never opened.
     /// </summary>
     /// <remarks>
     /// The store's calls block on file I/O: run them off the UI thread. After a
@@ -152,22 +200,49 @@ public sealed class IntelligenceChatStorage
         long requestedGeneration;
         lock (_gate)
         {
-            if (_pendingWipes > 0 || _wipeFailed) return null;
+            if (_pendingWipes > 0) return null;
             requestedGeneration = _generation;
         }
         await _keyTurn.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             long generation;
+            bool cleanup;
             lock (_gate)
             {
-                if (_pendingWipes > 0 || _wipeFailed || requestedGeneration != _generation) return null;
+                if (_pendingWipes > 0 || requestedGeneration != _generation) return null;
                 if (_key is not null)
                 {
                     return new Session(this, _generation);
                 }
 
                 generation = _generation;
+                cleanup = _cleanupRequired;
+            }
+
+            if (!cleanup)
+            {
+                try
+                {
+                    cleanup = _disk.Exists(CleanupNotePath);
+                }
+                catch (Exception)
+                {
+                    // Can't tell whether a wipe finished: open nothing, and
+                    // delete nothing on a guess.
+                    return Fail(generation, Cause.CleanupUnknown);
+                }
+            }
+
+            if (cleanup && !await FinishCleanupAsync(generation).ConfigureAwait(false))
+            {
+                bool unguarded;
+                lock (_gate)
+                {
+                    unguarded = _cleanupUnguarded;
+                }
+
+                return Fail(generation, unguarded ? Cause.CleanupUnguarded : Cause.CleanupPending);
             }
 
             if (!AesGcm.IsSupported)
@@ -246,11 +321,12 @@ public sealed class IntelligenceChatStorage
     }
 
     /// <summary>
-    /// Sign-out (#222, #139): stops every store opened so far, removes the key,
-    /// then the <c>chats</c> folder. Without the key, anything left can't be
-    /// read. Returns false if either couldn't be removed.
+    /// Sign-out (#222, #139): stops every store opened so far, notes on disk
+    /// that cleanup is under way, removes the key, then the <c>chats</c>
+    /// folder, then the note. Without the key, anything left can't be read;
+    /// while the note is there, nothing opens until removal succeeds.
     /// </summary>
-    public async Task<bool> WipeAsync()
+    public async Task<ChatWipeResult> WipeAsync()
     {
         bool changed;
         lock (_gate)
@@ -258,6 +334,7 @@ public sealed class IntelligenceChatStorage
             // First, before awaiting anything: from here no save is accepted.
             _pendingWipes++;
             _generation++;
+            _cleanupRequired = true;
             if (_key is not null)
             {
                 Array.Clear(_key);
@@ -265,6 +342,18 @@ public sealed class IntelligenceChatStorage
             }
 
             changed = SetState(IntelligenceChatStorageState.Closed, null);
+        }
+
+        // Before anything is removed, and before awaiting: a crash or forced
+        // quit from here on leaves the note for the next open to act on.
+        var noted = true;
+        try
+        {
+            _disk.WriteNote(CleanupNotePath);
+        }
+        catch (Exception)
+        {
+            noted = false;
         }
 
         if (changed)
@@ -275,60 +364,171 @@ public sealed class IntelligenceChatStorage
         await _keyTurn.WaitAsync().ConfigureAwait(false);
         try
         {
-            var removed = true;
-            try
+            var removed = await RemoveKeyAndFolderAsync().ConfigureAwait(false);
+            var cleared = false;
+            if (removed)
             {
-                if (!_secure.Remove(KeyName))
-                {
-                    // False also means absent. Verify absence rather than
-                    // treating a silent platform refusal as a successful wipe.
-                    removed = string.IsNullOrEmpty(await _secure.GetAsync(KeyName).ConfigureAwait(false));
-                }
-            }
-            catch (Exception)
-            {
-                removed = false;
+                // Only now, with both gone. If the note won't go, the next
+                // open finds nothing left to remove and tries again.
+                cleared = ClearNote();
             }
 
+            ChatWipeResult result;
             lock (_gate)
             {
-                try
+                if (removed)
                 {
-                    if (Directory.Exists(_root))
-                    {
-                        Directory.Delete(_root, recursive: true);
-                    }
+                    _cleanupRequired = false;
+                    _cleanupUnguarded = false;
                 }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                else
                 {
-                    removed = false;
+                    _cleanupUnguarded = !noted;
                 }
+
+                result = removed ? ChatWipeResult.Removed : noted ? ChatWipeResult.Retained : ChatWipeResult.RetainedUntilRestart;
+                changed = SetState(removed ? IntelligenceChatStorageState.Closed : IntelligenceChatStorageState.Unavailable, result switch
+                {
+                    ChatWipeResult.Removed => null,
+                    ChatWipeResult.Retained => RetainedReason,
+                    _ => RetainedUntilRestartReason,
+                });
             }
 
-            lock (_gate)
-            {
-                _wipeFailed = !removed;
-                changed = SetState(removed ? IntelligenceChatStorageState.Closed : IntelligenceChatStorageState.Unavailable,
-                    removed ? null : "Saved chats could not all be removed. Retry clearing them before saved chats can be used again.");
-            }
             if (changed) StateChanged?.Invoke(this, EventArgs.Empty);
 
             if (removed)
             {
                 _logger.LogInformation("Removed saved chats and their key");
+                if (!cleared)
+                {
+                    _logger.LogWarning("The saved-chats cleanup note could not be removed");
+                }
+            }
+            else if (noted)
+            {
+                _logger.LogWarning("Saved chats or their key could not all be removed; they stay locked until removal succeeds");
             }
             else
             {
-                _logger.LogWarning("Saved chats or their key could not all be removed");
+                _logger.LogWarning("Saved chats or their key could not all be removed, and the cleanup note could not be saved");
             }
 
-            return removed;
+            return result;
         }
         finally
         {
             lock (_gate) { _pendingWipes--; }
             _keyTurn.Release();
         }
+    }
+
+    private const string RetainedReason =
+        "Saved chats could not all be removed when you signed out. They stay locked, even after the app restarts, until removing them succeeds, which is tried again each time saved chats are opened.";
+
+    private const string RetainedUntilRestartReason =
+        "Saved chats could not all be removed when you signed out, and the note to finish removing them couldn't be saved. They're locked only until the app closes; after a restart they could be readable again. Removing them is tried again each time saved chats are opened.";
+
+    /// <summary>
+    /// Removes the key (checking a "false" against secure storage, as that also
+    /// means absent) and the folder. Called holding <see cref="_keyTurn"/>.
+    /// True only if both are gone.
+    /// </summary>
+    private async Task<bool> RemoveKeyAndFolderAsync()
+    {
+        var removed = true;
+        try
+        {
+            if (!_secure.Remove(KeyName))
+            {
+                // False also means absent. Verify absence rather than
+                // treating a silent platform refusal as a successful wipe.
+                removed = string.IsNullOrEmpty(await _secure.GetAsync(KeyName).ConfigureAwait(false));
+            }
+        }
+        catch (Exception)
+        {
+            removed = false;
+        }
+
+        lock (_gate)
+        {
+            try
+            {
+                _disk.DeleteDirectory(_root);
+            }
+            catch (Exception)
+            {
+                removed = false;
+            }
+        }
+
+        return removed;
+    }
+
+    private bool ClearNote()
+    {
+        try
+        {
+            _disk.DeleteFile(CleanupNotePath);
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// An open finishing a wipe that didn't - this run or before a restart.
+    /// Called holding <see cref="_keyTurn"/>, before any key is read. The note
+    /// goes only if no wipe has started since, as that wipe's own note must stay
+    /// until it has finished.
+    /// </summary>
+    private async Task<bool> FinishCleanupAsync(long generation)
+    {
+        bool unguarded;
+        lock (_gate)
+        {
+            unguarded = _cleanupUnguarded;
+        }
+
+        if (unguarded)
+        {
+            // The wipe couldn't leave its note; try again, so a removal that
+            // fails below is still remembered after a restart.
+            try
+            {
+                _disk.WriteNote(CleanupNotePath);
+                lock (_gate)
+                {
+                    _cleanupUnguarded = false;
+                }
+            }
+            catch (Exception)
+            {
+                // Still unguarded; the reason keeps saying so.
+            }
+        }
+
+        if (!await RemoveKeyAndFolderAsync().ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            if (generation != _generation || _pendingWipes > 0 || !ClearNote())
+            {
+                return false;
+            }
+
+            _cleanupRequired = false;
+            _cleanupUnguarded = false;
+        }
+
+        _logger.LogInformation("Finished removing saved chats from an earlier sign-out");
+        return true;
     }
 
     private async Task<byte[]?> CreateKeyAsync()
@@ -445,6 +645,9 @@ public sealed class IntelligenceChatStorage
         Cause.KeyUnreadable => "Saved chats are unavailable: the phone's secure storage couldn't be read. Nothing is saved until it can be, and chats already saved are left as they are.",
         Cause.KeyUnwritable => "Saved chats are unavailable: their key couldn't be stored in the phone's secure storage, so nothing is saved.",
         Cause.KeyDamaged => "Saved chats are unavailable: their key in the phone's secure storage is damaged. Signing out clears it.",
+        Cause.CleanupPending => "Saved chats from an earlier sign-out haven't all been removed yet, so none are opened or saved. Removing them is tried again each time saved chats are opened, and signing out retries it too.",
+        Cause.CleanupUnguarded => RetainedUntilRestartReason,
+        Cause.CleanupUnknown => "Saved chats are unavailable: the phone couldn't confirm that an earlier sign-out finished removing them, so none are opened or saved.",
         _ => "Saved chats are unavailable: their folder couldn't be prepared and kept out of backups, so nothing is saved.",
     };
 
@@ -497,6 +700,9 @@ public sealed class IntelligenceChatStorage
         KeyUnwritable,
         KeyDamaged,
         FolderUnavailable,
+        CleanupPending,
+        CleanupUnguarded,
+        CleanupUnknown,
     }
 
     /// <summary>One opening's view of the store; refuses everything once the storage is wiped.</summary>

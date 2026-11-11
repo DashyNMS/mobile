@@ -8,6 +8,9 @@ namespace DashyNMS.Mobile.Services;
 /// bug reports. The app head implements it, as it owns where those live.
 /// Saved Intelligence chats aren't here: every sign-out, not only this one,
 /// removes them and their key through <c>IntelligenceChatStorage</c> first (#222).
+/// That storage's <c>chats.cleanup-pending</c> note, beside the chats folder, must
+/// stay out of this: it keeps chats a failed removal left behind locked across
+/// restarts, and only the storage deletes it, once they're gone.
 /// </summary>
 public interface ILocalDataWipe
 {

@@ -778,14 +778,17 @@ public sealed partial class SettingsViewModel : ViewModelBase
 
         // Saved chats and their key, on either choice (#222): they're this
         // server's conversations. Awaited, so a save still on its way is
-        // refused before the sign-in page appears.
+        // refused before the sign-in page appears. Before "forget everything"
+        // too, which leaves the storage's cleanup note alone, so a removal
+        // that fails here is still finished after a restart.
         if (_chats is not null)
         {
-            while (!await _chats.WipeAsync())
+            Intelligence.ChatWipeResult result;
+            while ((result = await _chats.WipeAsync()) != Intelligence.ChatWipeResult.Removed)
             {
                 _diagnostics?.Note("Sign out", "Could not delete saved chats");
                 if (!await _dialogs.ConfirmAsync("Saved chats could not all be removed",
-                    "You are signed out, but saved chat files or their encryption key may remain on this phone. Retry removing them, or continue signing out. Saved chats will remain unavailable until cleanup succeeds.",
+                    result == Intelligence.ChatWipeResult.Retained ? ChatsRetainedMessage : ChatsRetainedUntilRestartMessage,
                     "Retry cleanup", "Continue signing out")) break;
             }
         }
@@ -799,6 +802,18 @@ public sealed partial class SettingsViewModel : ViewModelBase
     }
 
     internal const string SignOutChoice = "Sign out";
+
+    /// <summary>Saved chats outlived the wipe, but stay locked across restarts until they're gone (#222).</summary>
+    internal const string ChatsRetainedMessage =
+        "You are signed out, but saved chat files or their encryption key may remain on this phone. "
+        + "They stay locked, even after the app restarts, and removing them is tried again before saved chats are next used. "
+        + "Retry now, or continue signing out.";
+
+    /// <summary>As <see cref="ChatsRetainedMessage"/>, but the note keeping them locked couldn't be saved, so that's only until the app closes.</summary>
+    internal const string ChatsRetainedUntilRestartMessage =
+        "You are signed out, but saved chat files or their encryption key may remain on this phone, "
+        + "and the note to finish removing them couldn't be saved. They're locked only until the app closes: "
+        + "after a restart they could be readable again. Retry now, or continue signing out.";
 
     internal const string ForgetEverythingChoice = "Sign out and forget everything";
 

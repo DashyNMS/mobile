@@ -228,13 +228,20 @@ public sealed class SecurityTests
             await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>(), chats: chats)
                 .SignOutCommand.ExecuteAsync(null);
 
-            await _dialogs.Received(1).ConfirmAsync("Saved chats could not all be removed", Arg.Any<string>(), "Retry cleanup", "Continue signing out");
-            await _navigation.Received().GoToAsync(Routes.SignIn);
+            await _dialogs.Received(1).ConfirmAsync("Saved chats could not all be removed", SettingsViewModel.ChatsRetainedMessage, "Retry cleanup", "Continue signing out");
+            Assert.Equal(Routes.SignIn, _navigation.Visits.Single().Route);
             Assert.Equal(!retry, keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
+
+            // Continuing leaves the cleanup note - which "forget everything"
+            // doesn't touch - so after a restart the old key still opens nothing.
+            Assert.Equal(!retry, File.Exists(chats.CleanupNotePath));
+            var restarted = new IntelligenceChatStorage(root, keys, new AppBackupDisabled(), NullLogger<IntelligenceChatStorage>.Instance);
+            Assert.Equal(retry, await restarted.OpenAsync() is not null);
         }
         finally
         {
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            File.Delete(chats.CleanupNotePath);
         }
     }
 

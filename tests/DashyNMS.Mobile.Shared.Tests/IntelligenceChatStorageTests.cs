@@ -26,16 +26,23 @@ public sealed class IntelligenceChatStorageTests : IDisposable
     private readonly RecordingExclusion _backup = new();
     private readonly DiagnosticsLog _log = new(null);
 
+    /// <summary>One file system across every instance, as across an app restart.</summary>
+    private readonly FailingDisk _disk = new();
+
     public void Dispose()
     {
         if (Directory.Exists(_root))
         {
             Directory.Delete(_root, recursive: true);
         }
+
+        File.Delete(NotePath);
     }
 
-    private IntelligenceChatStorage NewStorage(IBackupExclusion? backup = null) =>
-        new(_root, _keys, backup ?? _backup, new Forward<IntelligenceChatStorage>(_log.CreateLogger(typeof(IntelligenceChatStorage).FullName!)));
+    private IntelligenceChatStorage NewStorage(IBackupExclusion? backup = null, IChatCleanupFiles? disk = null) =>
+        new(_root, _keys, backup ?? _backup, new Forward<IntelligenceChatStorage>(_log.CreateLogger(typeof(IntelligenceChatStorage).FullName!)), disk ?? _disk);
+
+    private string NotePath => NewStorage().CleanupNotePath;
 
     private static SavedIntelligenceChat Chat() => new()
     {
@@ -219,7 +226,7 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         store.Save(Scope, Chat());
         var oldKey = _keys.Values[IntelligenceChatStorage.KeyName];
 
-        Assert.True(await storage.WipeAsync());
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
 
         Assert.False(Directory.Exists(_root));
         Assert.False(_keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
@@ -263,7 +270,7 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         })).ToArray();
 
         Assert.True(SpinWait.SpinUntil(() => ChatFiles().Length > 0, TimeSpan.FromSeconds(10)));
-        Assert.True(await storage.WipeAsync());
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
         var counts = await Task.WhenAll(savers);
 
         Assert.True(counts.Sum() > 0);
@@ -284,7 +291,7 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         keychain.SetResult();
 
         Assert.Null(await opening);
-        Assert.True(await wiping);
+        Assert.Equal(ChatWipeResult.Removed, await wiping);
         Assert.Equal(1, _keys.Writes); // the key was made, then removed by the wipe
         Assert.False(_keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
         Assert.False(Directory.Exists(_root));
@@ -307,7 +314,7 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         Assert.Null(await first);
         Assert.Null(await queued);
         Assert.Null(await during);
-        Assert.True(await wiping);
+        Assert.Equal(ChatWipeResult.Removed, await wiping);
         Assert.Empty(_keys.Values);
         Assert.False(Directory.Exists(_root));
         Assert.NotNull(await storage.OpenAsync()); // only a fresh post-wipe open
@@ -321,21 +328,203 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         store.Save(Scope, Chat());
         _keys.FailRemove = true;
 
-        Assert.False(await storage.WipeAsync());
+        Assert.Equal(ChatWipeResult.Retained, await storage.WipeAsync());
         Assert.Single(_keys.Values);
         Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
         Assert.Null(await storage.OpenAsync());
         Assert.Throws<ChatStorageUnavailableException>(() => store.Save(Scope, Chat()));
         _keys.FailRemove = false;
-        Assert.True(await storage.WipeAsync());
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
         Assert.Empty(_keys.Values);
         Assert.NotNull(await storage.OpenAsync());
     }
 
     [Fact]
+    public async Task Both_removals_failing_keep_the_old_chats_locked_after_a_restart_until_cleanup_succeeds()
+    {
+        var chat = Chat();
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, chat);
+        var oldKey = _keys.Values[IntelligenceChatStorage.KeyName];
+        var before = File.ReadAllBytes(FileOf(chat));
+        _keys.FailRemove = true;
+        _disk.FailDeleteDirectory = true;
+
+        Assert.Equal(ChatWipeResult.Retained, await storage.WipeAsync());
+        Assert.Equal(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
+        Assert.Equal(before, File.ReadAllBytes(FileOf(chat)));
+        Assert.True(File.Exists(NotePath));
+        Assert.Contains("even after the app restarts", storage.UnavailableReason);
+
+        // A restart with both still refused: the same keychain and files, a new instance.
+        var restarted = NewStorage();
+        Assert.Null(await restarted.OpenAsync());
+        Assert.Null(await restarted.OpenAsync());
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, restarted.State);
+        Assert.Contains("earlier sign-out", restarted.UnavailableReason);
+
+        // The old key was never used to open them: nothing read, nothing set
+        // aside, no key made, and the note stays.
+        Assert.Equal(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
+        Assert.Equal(before, File.ReadAllBytes(FileOf(chat)));
+        Assert.Empty(ChatFiles("*.bad"));
+        Assert.Equal(1, _keys.Writes);
+        Assert.True(File.Exists(NotePath));
+
+        // Once removal works, the next open finishes it and starts afresh.
+        _keys.FailRemove = false;
+        _disk.FailDeleteDirectory = false;
+        var store = (await restarted.OpenAsync())!;
+        Assert.Equal(IntelligenceChatStorageState.Ready, restarted.State);
+        Assert.False(File.Exists(NotePath));
+        Assert.Empty(ChatFiles(chat.Id.ToString("N") + ".chat*"));
+        Assert.NotEqual(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
+        var loaded = store.Load(Scope);
+        Assert.Empty(loaded.Chats);
+        Assert.Empty(loaded.Unreadable ?? []);
+
+        var next = Chat();
+        store.Save(Scope, next);
+        Assert.Equal(next.Id, Assert.Single((await NewStorage().OpenAsync())!.Load(Scope).Chats).Id);
+    }
+
+    [Fact]
+    public async Task A_wipe_cut_off_part_way_is_finished_by_the_next_open_after_a_restart()
+    {
+        var chat = Chat();
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, chat);
+        var oldKey = _keys.Values[IntelligenceChatStorage.KeyName];
+
+        // The app is killed mid-wipe: the key's removal is refused, and the
+        // check that follows never answers. Nothing has been removed yet.
+        _keys.FailRemove = true;
+        _keys.BeforeRead = () => new TaskCompletionSource().Task;
+        _ = storage.WipeAsync();
+        Assert.True(File.Exists(NotePath));
+        Assert.Equal(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
+        Assert.Single(ChatFiles());
+
+        _keys.FailRemove = false;
+        _keys.BeforeRead = null;
+        var store = (await NewStorage().OpenAsync())!;
+
+        Assert.False(File.Exists(NotePath));
+        Assert.NotEqual(oldKey, _keys.Values[IntelligenceChatStorage.KeyName]);
+        var loaded = store.Load(Scope);
+        Assert.Empty(loaded.Chats);
+        Assert.Empty(loaded.Unreadable ?? []);
+        Assert.Contains("Finished removing saved chats from an earlier sign-out", _log.Text);
+    }
+
+    [Fact]
+    public async Task A_note_left_with_the_key_already_gone_removes_the_old_files_before_a_new_key_is_made()
+    {
+        var chat = Chat();
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, chat);
+        _disk.FailDeleteDirectory = true;
+
+        Assert.Equal(ChatWipeResult.Retained, await storage.WipeAsync());
+        Assert.Empty(_keys.Values);
+        Assert.Single(ChatFiles());
+
+        _disk.FailDeleteDirectory = false;
+        var store = (await NewStorage().OpenAsync())!;
+
+        // Removed, not set aside as unreadable under the new key.
+        Assert.Empty(ChatFiles(chat.Id.ToString("N") + ".chat*"));
+        var loaded = store.Load(Scope);
+        Assert.Empty(loaded.Chats);
+        Assert.Empty(loaded.Unreadable ?? []);
+        Assert.Single(_keys.Values);
+        Assert.False(File.Exists(NotePath));
+    }
+
+    [Fact]
+    public async Task A_note_that_cannot_be_saved_is_reported_as_lasting_only_until_a_restart()
+    {
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, Chat());
+        _disk.FailWriteNote = true;
+        _keys.FailRemove = true;
+        _disk.FailDeleteDirectory = true;
+
+        Assert.Equal(ChatWipeResult.RetainedUntilRestart, await storage.WipeAsync());
+        Assert.False(File.Exists(NotePath));
+        Assert.Contains("after a restart they could be readable again", storage.UnavailableReason);
+
+        // Still locked for the rest of this run, and still said to be temporary.
+        Assert.Null(await storage.OpenAsync());
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
+        Assert.Contains("after a restart they could be readable again", storage.UnavailableReason);
+
+        // An open writes the note once it can, so the lock now outlasts a restart too.
+        _disk.FailWriteNote = false;
+        Assert.Null(await storage.OpenAsync());
+        Assert.True(File.Exists(NotePath));
+        Assert.Contains("earlier sign-out", storage.UnavailableReason);
+        Assert.Null(await NewStorage().OpenAsync());
+        Assert.Single(_keys.Values);
+    }
+
+    [Fact]
+    public async Task The_note_is_written_first_and_removed_only_after_the_key_and_folder_are_gone()
+    {
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, Chat());
+        _keys.OnRemove = () => _disk.Steps.Add("key");
+        _disk.Steps.Clear();
+
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
+
+        Assert.Equal(new[] { "write note", "key", "delete folder", "delete note" }, _disk.Steps);
+        Assert.False(File.Exists(NotePath));
+    }
+
+    [Fact]
+    public async Task A_note_that_cannot_be_removed_keeps_saved_chats_closed_until_it_can()
+    {
+        var storage = NewStorage();
+        (await storage.OpenAsync())!.Save(Scope, Chat());
+        _disk.FailDeleteFile = true;
+
+        // The chats and key are gone, which is what the result reports.
+        Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
+        Assert.False(Directory.Exists(_root));
+        Assert.Empty(_keys.Values);
+        Assert.True(File.Exists(NotePath));
+
+        Assert.Null(await NewStorage().OpenAsync());
+        Assert.Empty(_keys.Values);
+
+        _disk.FailDeleteFile = false;
+        Assert.NotNull(await NewStorage().OpenAsync());
+        Assert.False(File.Exists(NotePath));
+    }
+
+    [Fact]
+    public async Task Not_knowing_whether_a_wipe_finished_opens_nothing_and_deletes_nothing()
+    {
+        var chat = Chat();
+        (await NewStorage().OpenAsync())!.Save(Scope, chat);
+        var key = _keys.Values[IntelligenceChatStorage.KeyName];
+        var before = File.ReadAllBytes(FileOf(chat));
+        _disk.FailExists = true;
+        var storage = NewStorage();
+
+        Assert.Null(await storage.OpenAsync());
+
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
+        Assert.Contains("couldn't confirm", storage.UnavailableReason);
+        Assert.Equal(key, _keys.Values[IntelligenceChatStorage.KeyName]);
+        Assert.Equal(before, File.ReadAllBytes(FileOf(chat)));
+    }
+
+    [Fact]
     public async Task An_already_absent_key_counts_as_a_successful_wipe()
     {
-        Assert.True(await NewStorage().WipeAsync());
+        Assert.Equal(ChatWipeResult.Removed, await NewStorage().WipeAsync());
     }
 
     [Fact]
@@ -455,6 +644,15 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         await NewStorage().OpenAsync();
         _keys.FailReads = false;
         await NewStorage(new RecordingExclusion { Failure = new IOException("exclusion-sentinel") }).OpenAsync();
+
+        // A wipe that can't finish, and an open that can't finish it either.
+        var failing = new FailingDisk { FailDeleteDirectory = true, FailWriteNote = true };
+        var stuck = NewStorage(disk: failing);
+        await stuck.WipeAsync();
+        await stuck.OpenAsync();
+        failing.FailExists = true;
+        await NewStorage(disk: failing).OpenAsync();
+
         await storage.WipeAsync();
 
         var text = _log.Text;
@@ -464,8 +662,11 @@ public sealed class IntelligenceChatStorageTests : IDisposable
         Assert.Contains("Saved chats are unavailable (KeyUnreadable)", text);
         Assert.Contains("Saved chats are unavailable (FolderUnavailable)", text);
         Assert.Contains("Removed saved chats and their key", text);
+        Assert.Contains("the cleanup note could not be saved", text);
+        Assert.Contains("Saved chats are unavailable (CleanupUnguarded)", text);
+        Assert.Contains("Saved chats are unavailable (CleanupUnknown)", text);
 
-        foreach (var secret in new[] { Title, Question, Answer, Draft, Evidence, SpotlightName, Scope, "nms.example.net", key, ChatKeyStorage.ReadFailure, "exclusion-sentinel", chat.Id.ToString("N") })
+        foreach (var secret in new[] { Title, Question, Answer, Draft, Evidence, SpotlightName, Scope, "nms.example.net", key, ChatKeyStorage.ReadFailure, "exclusion-sentinel", FailingDisk.Failure, _root, chat.Id.ToString("N") })
         {
             Assert.DoesNotContain(secret, text, StringComparison.OrdinalIgnoreCase);
         }
@@ -484,6 +685,43 @@ public sealed class IntelligenceChatStorageTests : IDisposable
             {
                 throw Failure;
             }
+        }
+    }
+
+    /// <summary>The real file system, which can refuse any one cleanup step on cue and records the ones it does.</summary>
+    internal sealed class FailingDisk : IChatCleanupFiles
+    {
+        public const string Failure = "disk-refused-sentinel";
+
+        private readonly ChatCleanupFiles _real = new();
+
+        public bool FailExists { get; set; }
+
+        public bool FailWriteNote { get; set; }
+
+        public bool FailDeleteFile { get; set; }
+
+        public bool FailDeleteDirectory { get; set; }
+
+        public List<string> Steps { get; } = new();
+
+        public bool Exists(string path) => FailExists ? throw new UnauthorizedAccessException(Failure + path) : _real.Exists(path);
+
+        public void WriteNote(string path) => Step("write note", FailWriteNote, () => _real.WriteNote(path), path);
+
+        public void DeleteFile(string path) => Step("delete note", FailDeleteFile, () => _real.DeleteFile(path), path);
+
+        public void DeleteDirectory(string path) => Step("delete folder", FailDeleteDirectory, () => _real.DeleteDirectory(path), path);
+
+        private void Step(string name, bool fail, Action work, string path)
+        {
+            if (fail)
+            {
+                throw new IOException(Failure + path);
+            }
+
+            work();
+            Steps.Add(name);
         }
     }
 
@@ -513,6 +751,9 @@ internal sealed class ChatKeyStorage : ISecureStorage
     public bool FailWrites { get; set; }
 
     public bool FailRemove { get; set; }
+
+    /// <summary>Called on every removal, refused or not, to record the order of a wipe's steps.</summary>
+    public Action? OnRemove { get; set; }
 
     /// <summary>Awaited before each read, to hold one open.</summary>
     public Func<Task>? BeforeRead { get; set; }
@@ -549,5 +790,9 @@ internal sealed class ChatKeyStorage : ISecureStorage
         Values[key] = ReplaceOnSet ?? value;
     }
 
-    public bool Remove(string key) => !FailRemove && Values.TryRemove(key, out _);
+    public bool Remove(string key)
+    {
+        OnRemove?.Invoke();
+        return !FailRemove && Values.TryRemove(key, out _);
+    }
 }
