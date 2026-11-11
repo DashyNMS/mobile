@@ -650,7 +650,12 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         });
     }
 
-    private void PreferencesChanged(object? sender, EventArgs e) => OnUi(() =>
+    private void PreferencesChanged(object? sender, EventArgs e)
+    {
+        // Invalidate synchronously, even when UI cleanup must be dispatched.
+        // Waiting snapshots must not escape after privacy mode is enabled.
+        if (_preferences.SingleChatMode) _writer.Invalidate();
+        OnUi(() =>
     {
         var single = _preferences.SingleChatMode;
         if (single == _singleChatMode) return;
@@ -677,6 +682,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         Changed();
         if (!single && _wanted) _ = LoadAsync();
     });
+    }
 
     private void StorageChanged(object? sender, EventArgs e) => OnUi(() =>
     {

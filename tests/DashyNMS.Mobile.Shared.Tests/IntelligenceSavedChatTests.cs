@@ -536,6 +536,27 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Enabling_single_chat_mode_discards_saves_already_waiting_on_the_writer()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        var store = new GateStore();
+        app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "already started" }, true);
+        await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        try
+        {
+            app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "waiting snapshot" }, true);
+            Assert.Equal(1, app.Chats.Writer.Pending);
+            _preferences.SetSingleChatMode(true);
+            Assert.Equal(0, app.Chats.Writer.Pending);
+        }
+        finally { store.Release.TrySetResult(); }
+        await app.SettleAsync();
+        Assert.Equal(new[] { "save already started" }, store.Calls);
+        Assert.False(app.Chats.CanPersist);
+    }
+
+    [Fact]
     public async Task Single_chat_mode_writes_nothing_hides_the_list_and_keeps_old_chats()
     {
         var app = Start();
