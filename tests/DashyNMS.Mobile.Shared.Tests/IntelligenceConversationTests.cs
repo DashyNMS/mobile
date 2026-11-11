@@ -62,6 +62,103 @@ public sealed class IntelligenceConversationTests
         _preferences = new IntelligencePreferences(store, preferences);
         _session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
     }
+    [Fact]
+    public async Task EditPreservesDraftAndRequiresOwnedSettledAvailableQuestion()
+    {
+        using var vm = Open();
+        Assert.True(await vm.AskAsync("Original question"));
+        var turn = vm.Turns[0];
+        Assert.True(vm.CanEditQuestion(turn));
+        Assert.True(vm.TryEditQuestion(turn));
+        Assert.Equal("Original question", vm.Draft);
+        Assert.False(vm.TryEditQuestion(turn));
+        vm.Draft = "Keep this draft";
+        Assert.False(vm.CanEditQuestion(turn));
+        Assert.False(vm.TryEditQuestion(turn));
+        Assert.Equal("Keep this draft", vm.Draft);
+        vm.Draft = "";
+        _model.Availability = IntelligenceAvailability.Unavailable;
+        Assert.False(vm.TryEditQuestion(turn));
+        Assert.Equal("", vm.Draft);
+        _model.Availability = IntelligenceAvailability.Available;
+        _preferences.SetEnabled(false);
+        Assert.False(vm.TryEditQuestion(turn));
+        Assert.Equal("", vm.Draft);
+        _preferences.SetEnabled(true);
+        Assert.True(vm.NewChat());
+        Assert.False(vm.TryEditQuestion(turn));
+        Assert.Equal("", vm.Draft);
+    }
+
+    [Fact]
+    public async Task EditRefusesWhileRunningAndAllowsStoppedQuestion()
+    {
+        var held = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _model.Scripts.Enqueue((_, _, _, _) => held.Task);
+        using var vm = Open();
+        var asking = vm.AskAsync("Question");
+        var turn = vm.Turns[0];
+        Assert.False(vm.TryEditQuestion(turn));
+        Assert.Equal("", vm.Draft);
+        Assert.True(vm.Stop());
+        await asking.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(vm.TryEditQuestion(turn));
+        Assert.Equal("Question", vm.Draft);
+        held.SetResult(new IntelligenceAnswer("Late answer", null));
+    }
+
+    [Fact]
+    public void StarterQuestionsRotateOnNewChatAndRestore()
+    {
+        using var vm = Open();
+        var initial = vm.StarterQuestions.ToArray();
+        Assert.True(vm.NewChat());
+        var next = vm.StarterQuestions.ToArray();
+        Assert.False(initial.SequenceEqual(next));
+        Assert.True(vm.Restore([], "saved draft", "brief"));
+        Assert.False(next.SequenceEqual(vm.StarterQuestions));
+        Assert.Equal("saved draft", vm.Draft);
+    }
+
+    [Fact]
+    public async Task StarterRefusesStaleRevisionUnknownPromptAndExistingDraft()
+    {
+        using var vm = Open();
+        var prompt = vm.StarterQuestions[0];
+        var revision = vm.ChatRevision;
+        vm.Draft = "Keep my draft";
+        Assert.False(await vm.AskStarterAsync(prompt, revision));
+        Assert.Equal("Keep my draft", vm.Draft);
+        vm.Draft = "";
+        Assert.False(await vm.AskStarterAsync("Unlisted question", revision));
+        Assert.True(vm.NewChat());
+        Assert.False(await vm.AskStarterAsync(vm.StarterQuestions[0], revision));
+        Assert.Empty(vm.Turns);
+        Assert.Empty(_model.Prompts);
+    }
+
+    [Fact]
+    public async Task StarterUsesNormalAskAndRefusesAfterFirstTurn()
+    {
+        using var vm = Open();
+        var prompt = vm.StarterQuestions[0];
+        Assert.True(await vm.AskStarterAsync(prompt, vm.ChatRevision));
+        Assert.Equal(prompt, Assert.Single(vm.Turns).Question);
+        Assert.Single(_model.Prompts);
+        Assert.False(await vm.AskStarterAsync(prompt, vm.ChatRevision));
+        Assert.Single(vm.Turns);
+    }
+
+    [Fact]
+    public async Task StarterRespectsAvailabilityGate()
+    {
+        using var vm = Open();
+        _preferences.SetEnabled(false);
+        Assert.False(await vm.AskStarterAsync(vm.StarterQuestions[0], vm.ChatRevision));
+        Assert.Empty(vm.Turns);
+        Assert.Empty(_model.Prompts);
+    }
+
     private IntelligenceConversationViewModel Open(Action<Action>? dispatch = null) => new(_model, _preferences, _lookups, _session, dispatch);
 
     [Fact]

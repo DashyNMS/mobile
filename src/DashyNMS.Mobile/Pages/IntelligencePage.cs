@@ -11,7 +11,7 @@ namespace DashyNMS.Mobile.Pages;
 /// The chat from More or a pinned tab, kept as a saved chat for the signed-in
 /// server (#229) unless saving is off or unavailable; the list button opens the
 /// saved chats. A finite transcript viewport and a measured composer share the
-/// setup layout's keyboard and glass clearance.
+/// setup layout's keyboard and glass clearance, with the composer overlaid on the transcript.
 /// Streaming labels are coalesced to ten updates a second rather than relaid out per token.
 /// </summary>
 public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
@@ -30,17 +30,18 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 20, 0, 16) };
     private readonly VerticalStackLayout _starters = new() { Spacing = 8 };
     private readonly Label _notice = new();
-    private readonly Button _jump = new ChatActionButton() { Text = "Jump to latest", MinimumHeightRequest = 44, IsVisible = false };
+    private readonly IconButton _jump = new() { Icon = "M12 4V20 M5 13 12 20 19 13", Kind = IconButtonKind.Filled, HorizontalOptions = LayoutOptions.End, IsVisible = false };
     private readonly Editor _question = new() { Placeholder = "Ask about your network…", MinimumHeightRequest = 48, MaximumHeightRequest = 140, AutoSize = EditorAutoSizeOption.TextChanges, BackgroundColor = Colors.Transparent };
     private readonly Picker _detail = new() { Title = "Answer detail", ItemsSource = new[] { "Brief", "Balanced", "Detailed" } };
     private readonly Button _ask = new() { Text = "↑", FontSize = 24, MinimumHeightRequest = 48, MinimumWidthRequest = 48, CornerRadius = 24, Padding = new Thickness(12, 4) };
     private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center };
-    private readonly IconButton _settings = new() { Icon = Icons.Maintenance, Kind = IconButtonKind.Plain };
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IconButton _list = new() { Icon = "M9 6H20 M9 12H20 M9 18H20 M4 6H5 M4 12H5 M4 18H5", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
     private readonly List<TurnCard> _cards = [];
     private long _chatRevision;
+    private long _starterRevision = -1;
+    private readonly VerticalStackLayout _overlay = new() { Spacing = 8, VerticalOptions = LayoutOptions.End, HorizontalOptions = LayoutOptions.Center };
     private bool _showing;
     private bool _following = true;
     private bool _scrollPending;
@@ -79,12 +80,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _notice.Style = ResourceStyle("Caption");
         _notice.HorizontalOptions = LayoutOptions.Center;
         SemanticProperties.SetDescription(_new, "New chat");
-        SemanticProperties.SetDescription(_settings, "Intelligence settings");
+        SemanticProperties.SetDescription(_jump, "Jump to latest");
         SemanticProperties.SetDescription(_list, "Saved chats");
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
         _list.Command = new Command(OpenChats);
-        _settings.Command = new Command(async () => await _navigation.GoToAsync(Routes.IntelligenceSettings));
-        _header.Actions = new HorizontalStackLayout { Children = { _list, _new, _settings } };
+        _header.Actions = new HorizontalStackLayout { Children = { _list, _new } };
         _scroll.Content = _transcript;
         _scroll.Scrolled += (_, e) =>
         {
@@ -94,7 +94,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         };
         _transcript.SizeChanged += (_, _) => { if (_following) _scrollPending = true; };
         _scroll.SizeChanged += (_, _) => { PlaceConversation(); if (_following) _scrollPending = true; };
-        _jump.Clicked += (_, _) => { _following = true; _scrollPending = true; Flush(); };
+        _jump.Command = new Command(() => { _following = true; _scrollPending = true; Flush(); });
         _ask.Clicked += async (_, _) =>
         {
             if (_conversation.IsRunning) _conversation.Stop();
@@ -136,8 +136,20 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         glow.GradientStops = [glowStart, glowEnd];
         Background = glow;
         body.Add(_scroll, 0, 1);
-        body.Add(_jump, 0, 2);
-        var setup = new SetupLayout { Header = _header, Body = body, PrimaryAction = _composer };
+        // Keep the arrow slot measured when hidden, so following does not change the footer.
+        var jumpSlot = new Grid { HeightRequest = 44, SafeAreaEdges = SafeAreaEdges.None };
+        jumpSlot.Children.Add(_jump);
+        _overlay.Children.Add(jumpSlot);
+        _overlay.Children.Add(_composer);
+        body.Add(_overlay, 0, 1);
+        // The placement helper owns the keyboard/glass gap once. Only the measured
+        // overlay is reserved in the transcript, so messages scroll behind it.
+        _overlay.SizeChanged += (_, _) =>
+        {
+            _transcript.Padding = new Thickness(0, 20, 0, Math.Max(0, _overlay.Height) + 16);
+            if (_following) _scrollPending = true;
+        };
+        var setup = new SetupLayout { Header = _header, Body = body };
         Content = setup;
         _placement = new SetupPageLayout(this, setup, _header, _scroll) { ShowActions = ShowActions };
         _timer = Dispatcher.CreateTimer();
@@ -162,7 +174,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             _chats.PropertyChanged += OnChatsChanged;
             if (_cards.Count != _conversation.Turns.Count || _cards.Where((card, index) => !ReferenceEquals(card.Turn, _conversation.Turns[index])).Any()
                 || _transcript.Children.Count == 0) Rebuild();
-            else foreach (var card in _cards) card.Resume();
+            else
+            {
+                RefreshStarters();
+                foreach (var card in _cards) card.Resume();
+            }
             _timer.Start();
         }
         _placement.Activate();
@@ -189,7 +205,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     {
         if (!_showing) return;
         // Replacement publishes this only after draft and detail are installed.
-        if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) SynchroniseComposer();
+        if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) { SynchroniseComposer(); RefreshStarters(); }
         UpdateControls();
         if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
     }
@@ -215,6 +231,16 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         foreach (var card in _cards) card.Dispose();
         _cards.Clear();
         _transcript.Children.Clear();
+        RefreshStarters();
+        _transcript.Children.Add(_starters);
+        foreach (var turn in _conversation.Turns) AddTurn(turn);
+        _scrollPending = _following;
+    }
+
+    private void RefreshStarters()
+    {
+        if (_starterRevision == _conversation.ChatRevision) return;
+        _starterRevision = _conversation.ChatRevision;
         _starters.Children.Clear();
         var heading = new Label { Text = "What would you like to know?", Style = ResourceStyle("SectionHeader") };
         // This heading sits on the accent wash rather than a neutral surface.
@@ -222,14 +248,19 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _starters.Children.Add(heading);
         foreach (var starter in _conversation.StarterQuestions)
         {
-            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 44 };
-            button.Clicked += (_, _) => { _question.Text = starter; _question.Focus(); };
+            var revision = _conversation.ChatRevision;
+            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 44, CornerRadius = 22, BorderWidth = 1 };
+            button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
+            button.Clicked += async (_, _) =>
+            {
+                if (!_showing || Shell.Current?.CurrentPage != this || !string.IsNullOrWhiteSpace(_question.Text)) return;
+                _following = true;
+                await _conversation.AskStarterAsync(starter, revision);
+                Flush();
+            };
             _starters.Children.Add(button);
         }
         _starters.IsVisible = _conversation.Turns.Count == 0;
-        _transcript.Children.Add(_starters);
-        foreach (var turn in _conversation.Turns) AddTurn(turn);
-        _scrollPending = _following;
     }
 
     private void AddTurn(IntelligenceTurn turn)
@@ -248,6 +279,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _transcript.WidthRequest = width;
         _notice.WidthRequest = width;
         _composer.WidthRequest = width;
+        _overlay.WidthRequest = width;
         foreach (var card in _cards) card.Place(width);
     }
 
@@ -284,6 +316,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
         _starters.IsEnabled = _conversation.CanAsk;
+        _starters.IsVisible = _conversation.Turns.Count == 0 && string.IsNullOrWhiteSpace(_question.Text);
         var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
         _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
@@ -394,14 +427,13 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     {
         if (!_showing || Shell.Current?.CurrentPage != this) return;
 #if IOS
-        _new.IsVisible = _settings.IsVisible = _list.IsVisible = !TabBarButtons.IsAvailable;
+        _new.IsVisible = _list.IsVisible = !TabBarButtons.IsAvailable;
         if (TabBarButtons.IsAvailable)
         {
             var actions = new List<GlassAction>();
             if (PageHeader.IsPushed(this)) actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
             actions.Add(new("list.bullet", "Saved chats", OpenChats));
             actions.Add(new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending));
-            actions.Add(new("gearshape", "Intelligence settings", () => _ = _navigation.GoToAsync(Routes.IntelligenceSettings)));
             TabBarButtons.Show(this, null, string.Empty, actions);
         }
 #endif
@@ -436,7 +468,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     /// <summary>
     /// Answers render as Markdown spans and native views, never as HTML. Each retained
-    /// attempt owns its subscriptions while visible. Chips, links and images act only
+    /// attempt owns its subscriptions while visible. References, links and images act only
     /// while the turn still belongs to the current connection.
     /// </summary>
     private sealed class TurnCard : VerticalStackLayout, IDisposable
@@ -452,9 +484,9 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         private readonly Label _state = new();
         private readonly Label _evidence = new();
         private readonly Label _omitted = new() { Text = "Earlier turns were left out of this answer's context." };
-        private readonly Button _copy = new ChatActionButton() { Text = "Copy" };
+        private readonly IconButton _copy = new() { Icon = "M9 5H7V21H21V5H19 M10 3H18V7H10Z", Kind = IconButtonKind.Filled };
         private readonly Button _retry = new ChatActionButton() { Text = "Retry" };
-        private readonly Button _edit = new ChatActionButton() { Text = "Edit question" };
+        private readonly IconButton _edit = new() { Icon = "M4 16 16 4 20 8 8 20H4Z M14 6 18 10", Kind = IconButtonKind.Filled };
         private readonly AccessibilityActions _reportAction;
         private bool _dirty = true;
         private readonly List<IntelligenceLookupProgress> _watched = [];
@@ -474,7 +506,6 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             _questionBubble.SetAppThemeColor(BackgroundColorProperty, ThemeColour("SurfaceAltLight"), ThemeColour("SurfaceAltDark"));
             Children.Add(_questionBubble);
             var content = new VerticalStackLayout { Spacing = 8 };
-            content.Children.Add(new Label { Text = "Intelligence", Style = ResourceStyle("Caption"), FontFamily = "BodySemibold" });
             _activity.Clicked += (_, _) => { _activityExpanded = !_activityExpanded; _dirty = true; Render(); };
             content.Children.Add(_activity);
             content.Children.Add(_evidence);
@@ -501,15 +532,14 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             _state.Style = _evidence.Style = _omitted.Style = ResourceStyle("Caption");
             content.Children.Add(_omitted);
             content.Children.Add(_state);
-            var actions = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
-            foreach (var button in new[] { _copy, _retry, _edit })
-            {
-                button.Style = ResourceStyle("LinkButton");
-                button.MinimumHeightRequest = 44;
-                button.Margin = new Thickness(0, 0, 8, 0);
-                actions.Children.Add(button);
-            }
+            var actions = new HorizontalStackLayout { Spacing = 8, HorizontalOptions = LayoutOptions.End };
+            _retry.MinimumHeightRequest = 44;
+            actions.Children.Add(_retry);
+            actions.Children.Add(_copy);
             content.Children.Add(actions);
+            // Edit belongs to the user's question rather than the generated answer.
+            _edit.HorizontalOptions = LayoutOptions.End;
+            Children.Insert(1, _edit);
             var reply = new Border
             {
                 Content = content, Padding = 14, StrokeThickness = 1,
@@ -522,7 +552,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             Children.Add(reply);
             // Touch reaches Copy and Report through a long press on the answer;
             // VoiceOver offers Report as a custom action on every part of it.
-            LongPress.SetCommand(reply, new Command(async () => await ShowAnswerMenuAsync(), () => _page._conversation.OwnsTurn(_turn) && _turn.Answer.Length > 0));
+            LongPress.SetCommand(reply, new Command(async () => await ShowAnswerMenuAsync(), () => _page._conversation.OwnsTurn(_turn) && !string.IsNullOrWhiteSpace(_turn.Answer)));
             _reportAction = new AccessibilityActions(reply, "Report this answer", () =>
             {
                 if (!_page._reporter.CanReport(_turn)) return false;
@@ -534,16 +564,21 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             SemanticProperties.SetDescription(_copy, "Copy answer to: " + turn.Question);
             SemanticProperties.SetDescription(_retry, "Retry: " + turn.Question);
             SemanticProperties.SetDescription(_edit, "Edit question: " + turn.Question);
-            _copy.Clicked += async (_, _) => await CopyAsync();
+            _copy.Command = new Command(async () => await CopyAsync(), () => _page._conversation.OwnsTurn(_turn) && !string.IsNullOrWhiteSpace(_turn.Answer));
             _retry.Clicked += async (_, _) => { if (_page._conversation.CanAsk) { _page._following = true; await _page._conversation.RetryAsync(_turn); } };
-            _edit.Clicked += (_, _) => { _page._question.Text = _page._conversation.EditQuestion(_turn); _page._question.Focus(); };
+            _edit.Command = new Command(() =>
+            {
+                if (!_page._conversation.TryEditQuestion(_turn)) return;
+                _page._question.Text = _page._conversation.Draft;
+                _page._question.Focus();
+            }, () => _page._conversation.CanEditQuestion(_turn));
             Resume();
             Render();
         }
 
         private async Task CopyAsync()
         {
-            if (!_page._conversation.OwnsTurn(_turn)) return;
+            if (!_page._conversation.OwnsTurn(_turn) || string.IsNullOrWhiteSpace(_turn.Answer)) return;
             // The original Markdown, markers included, so pasting into desktop or notes keeps its structure.
             try { await Clipboard.Default.SetTextAsync(_turn.Answer); SemanticScreenReader.Default.Announce("Answer copied"); }
             catch { await _page._dialogs.AlertAsync("Couldn't copy the answer", "Try again."); }
@@ -554,7 +589,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         {
             if (!_page._conversation.OwnsTurn(_turn)) return;
             var options = new List<string>();
-            if (_turn.Answer.Length > 0) options.Add("Copy answer");
+            if (!string.IsNullOrWhiteSpace(_turn.Answer)) options.Add("Copy answer");
             if (_page._reporter.CanReport(_turn)) options.Add("Report this answer");
             if (options.Count == 0) return;
             var choice = await _page._dialogs.ChooseAsync("Answer", options);
@@ -607,10 +642,12 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         }
         internal void UpdateActions()
         {
-            _copy.IsEnabled = _page._conversation.OwnsTurn(_turn) && _turn.Answer.Length > 0;
+            ((Command)_copy.Command).ChangeCanExecute();
             var retryable = _turn.State is IntelligenceTurnState.Failed or IntelligenceTurnState.Stopped or IntelligenceTurnState.Interrupted;
-            _retry.IsVisible = _edit.IsVisible = retryable;
-            _retry.IsEnabled = _edit.IsEnabled = _page._conversation.CanAsk;
+            _retry.IsVisible = retryable;
+            _edit.IsVisible = true;
+            _retry.IsEnabled = _page._conversation.CanAsk && _page._conversation.OwnsTurn(_turn);
+            ((Command)_edit.Command).ChangeCanExecute();
             RefreshReportAction();
         }
         /// <summary>Images come only from the answer's typed attachments, already size and type checked.</summary>

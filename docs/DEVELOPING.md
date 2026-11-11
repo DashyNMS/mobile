@@ -1178,8 +1178,11 @@ saves the visible selection. Availability is checked again on return and resume.
 Direct routes show an explanation and refuse work when the gate is closed.
 
 The page uses the setup layout for one top inset owner, a finite transcript
-viewport and a measured fixed composer above the docked keyboard and glass.
-New chat and Settings use glass on iOS 26+, with header actions elsewhere.
+viewport and a measured composer overlay above the docked keyboard and glass.
+The transcript footer reserves the overlay height plus 16pt, including a stable 44pt latest-message arrow slot. The arrow aligns with the
+860pt capped chat column; hiding it does not change the footer height. SetupPageLayout still owns
+the keyboard/glass gap.
+New chat and Saved chats use glass on iOS 26+, with header actions elsewhere.
 A chat revision also clears the composer draft on connection changes, including
 when a retained page next activates. Ordinary page departure and return keep
 the chat and draft. The transcript and draft are hidden while a connection
@@ -1193,7 +1196,9 @@ the chat has its own pick it follows the Settings default: each activation
 shows the conversation's detail without recording it as a pick, and Ask uses
 the conversation's detail rather than reading the picker.
 Copy exports only the chosen answer through the system clipboard. Starter
-questions fill the field without submitting. Labels display plain text and
+questions rotate on new chat and restore, hide while the composer has text,
+and immediately submit through the normal ask guards. A stale suggestion or
+non-empty draft refuses submission. Ordinary activation keeps the suggestions. Labels display plain text and
 streaming updates are coalesced at 100ms intervals. Scrolling follows while
 within 64pt of the end, otherwise Jump to latest restores following.
 
@@ -1207,8 +1212,11 @@ has no separate background plate or opaque viewport-top fade. The composer is
 one rounded surface with a 48 to 140pt auto-growing input, compact detail choice and an accessible
 Send control that becomes Stop while running. Lookup activity folds behind
 an expandable summary. Successful answers omit the redundant Completed
-line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
-44pt action. Installed-device visual acceptance remains pending under #227.
+line, while warnings and interrupted outcomes stay explicit. Copy is a rounded clipboard icon at the answer foot; the question owns an
+Edit icon which refuses to overwrite a draft. The view model permits editing owned,
+settled questions only while the normal ask gate is open. Assistant headings and repeated
+reference chip rows are omitted; verified inline references keep their guards. A collapsed Open referenced item
+chooser supplies accessible 44pt navigation targets without persistent pill rows. Installed-device visual acceptance remains pending under #227.
 
 The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
@@ -1272,8 +1280,9 @@ whose id no lookup returned reads as Core's fallback ("Device 12") and links
 nowhere. A malformed marker stays literal text. Status colour follows
 Settings › Intelligence › Colour status indicators and always accompanies the words.
 
-Each verified device, alert or fault, sensor, group or location also appears as
-a 44pt chip beneath the answer. `IntelligenceAnswerActions` opens it through the
+Verified device, alert or fault, sensor, group and location references remain
+inline without duplicate chip rows beneath the answer. A collapsed
+Open referenced item chooser provides accessible navigation with 44pt targets. `IntelligenceAnswerActions` opens it through the
 existing pages: Device View, alert detail with the qualified key, the device's
 Sensors section, or Devices filtered by the evidence's exact group or location
 name, never the chip's display text. A group or location without that name stays
