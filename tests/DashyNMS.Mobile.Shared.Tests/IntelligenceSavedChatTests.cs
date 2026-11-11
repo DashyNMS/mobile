@@ -710,6 +710,113 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Turning_single_chat_mode_on_and_off_before_the_list_handles_either_still_saves_none_of_the_private_text()
+    {
+        // Both changes are posted and held, so when they run the setting already
+        // reads off: the entry has to have been recorded when it happened.
+        var posted = new Queue<Action>();
+        void RunPosted() { while (posted.TryDequeue(out var action)) action(); }
+        var app = Start(posted.Enqueue);
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+        RunPosted();
+        var before = faults.Writes;
+        var savedBefore = Assert.Single((await ReadAsync(ServerA)).Chats);
+
+        _preferences.SetSingleChatMode(true);
+        Assert.False(app.Chats.CanPersist);
+        app.Conversation.Draft = "private-sentinel draft";
+        app.Conversation.SelectedDetail = IntelligenceDetail.Detailed;
+        _model.Scripts.Enqueue(async (_, tools, text, token) =>
+        {
+            await tools[0].Run("", token);
+            text("private-sentinel partial");
+            return new IntelligenceAnswer("private-sentinel answer", null) { Images = [new IntelligenceImage(Png, "image/png")] };
+        });
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+        app.Conversation.Draft = "private-sentinel later draft";
+        _preferences.SetSingleChatMode(false);
+
+        // Still refused before the held changes run: the entry is recorded.
+        Assert.False(app.Chats.CanPersist);
+        await app.Chats.SaveNowAsync();
+        Assert.Equal(before, faults.Writes);
+
+        // The timers fire, the held changes and timers run, then suspension saves.
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.False(app.Chats.IsSingleChatMode);
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+        app.Conversation.Draft = "private-sentinel draft after leaving";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        RunPosted();
+
+        Assert.Equal(before, faults.Writes);
+        var after = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(savedBefore.Id, after.Id);
+        Assert.Equal(savedBefore.Messages.Count, after.Messages.Count);
+        Assert.DoesNotContain(after.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", after.Draft ?? "");
+        Assert.All(after.Messages, message => Assert.Empty(message.Images ?? []));
+
+        // Normal history works again from a new chat.
+        Assert.True(await app.Chats.NewChatAsync());
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved after leaving"));
+        await app.SettleAsync();
+        RunPosted();
+        Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
+    }
+
+    [Fact]
+    public async Task A_reconnect_between_turning_single_chat_mode_on_and_off_saves_nothing_from_either_server()
+    {
+        var posted = new Queue<Action>();
+        void RunPosted() { while (posted.TryDequeue(out var action)) action(); }
+        var app = Start(posted.Enqueue);
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        RunPosted();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+        RunPosted();
+        var before = faults.Writes;
+
+        _preferences.SetSingleChatMode(true);
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer A", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question A"));
+        SwitchTo(ServerB);
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromResult(new IntelligenceAnswer("private-sentinel answer B", null)));
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question B"));
+        app.Conversation.Draft = "private-sentinel draft B";
+        _preferences.SetSingleChatMode(false);
+
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.LoadAsync();
+        RunPosted();
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        RunPosted();
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        RunPosted();
+
+        Assert.Equal(before, faults.Writes);
+        Assert.Empty((await ReadAsync(ServerB)).Chats);
+        var a = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.DoesNotContain(a.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+    }
+
+    [Fact]
     public async Task Single_chat_mode_keeps_saved_chats_until_delete_saved_chats_removes_them_all()
     {
         var app = Start();

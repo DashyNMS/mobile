@@ -124,10 +124,13 @@ public sealed class IntelligenceChatGroup(string label, IEnumerable<Intelligence
 /// <para>
 /// Single-chat mode (Settings › Intelligence, #230) keeps the conversation,
 /// draft, lookups, images and detail only in memory. While it is on, nothing
-/// is read or written: the list is hidden, waiting saves are dropped from the
-/// writer the moment the setting changes (before the posted clean-up runs),
-/// and every capture reads the setting itself, so a debounce, streaming save
-/// or suspension that runs in between finds nothing to write. The chat that
+/// is read or written: the list is hidden, and the moment the setting goes on
+/// - before the posted clean-up runs - waiting saves are dropped from the
+/// writer, the scope moves on and the entry is recorded. Every capture checks
+/// the setting and that record, so a debounce, streaming save or suspension
+/// that runs in between finds nothing to write, even if the setting has been
+/// turned off again before the clean-up ran: that clean-up still marks the
+/// transcript private before handling the turn off. The chat that
 /// was showing is unbound, so its later text can't reach the file it came
 /// from. A write the writer had already started holds only what was captured
 /// before the mode went on. A transcript that had text in single-chat mode
@@ -214,6 +217,14 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private Task<ChatWipeResult>? _deletingSaved;
     private bool _singleChatMode;
+
+    /// <summary>
+    /// Set the moment the setting turns on, before its handler is posted, and
+    /// cleared once that handler has made the transcript private. Turning the
+    /// setting off again before then can't erase the entry, so the text typed
+    /// in between is still treated as private.
+    /// </summary>
+    private int _privateEntry;
     private bool _changing;
     private bool _disposed;
     private bool _wanted;
@@ -276,8 +287,8 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     public bool IsReadOnly { get => _isReadOnly; private set => SetProperty(ref _isReadOnly, value); }
 
     /// <summary>Chats are being kept: loaded for this server, writable and not in single-chat mode.</summary>
-    /// <remarks>Reads the setting itself too, so no save slips in before its change is handled.</remarks>
-    public bool CanPersist => !_disposed && !_singleChatMode && !_preferences.SingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
+    /// <remarks>Reads the setting itself too, and a recorded entry, so no save slips in before its change is handled.</remarks>
+    public bool CanPersist => !_disposed && !InSingleChatMode && !IsReadOnly && _store is not null && _loadedScope is not null
         && _loadedGeneration == Interlocked.Read(ref _scopeGeneration);
 
     /// <summary>Opening, pinning, renaming and deleting wait for an answer to finish.</summary>
@@ -292,6 +303,13 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// </summary>
     public bool KeepsCurrentChat => CanPersist && _unsavedRevision != _conversation.ChatRevision
         && (!HasContent() || Active is { } item && IsWritten(item));
+
+    /// <summary>
+    /// Single-chat mode is on, its change is still to be handled, or it went on
+    /// and its handler hasn't yet marked the transcript private - even if the
+    /// setting is already off again.
+    /// </summary>
+    private bool InSingleChatMode => _singleChatMode || _preferences.SingleChatMode || Volatile.Read(ref _privateEntry) != 0;
 
     /// <summary>A New chat or open is deciding what becomes of the chat on screen.</summary>
     public bool IsLeaving => _leaving;
@@ -309,7 +327,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         if (_disposed) return;
         var generation = Interlocked.Read(ref _scopeGeneration);
         // The setting itself too: its posted clean-up may not have run yet.
-        if (_singleChatMode || _preferences.SingleChatMode)
+        if (InSingleChatMode)
         {
             Status = SingleChatStatus;
             return;
@@ -502,7 +520,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     {
         if (!Replace(() => _conversation.NewChat())) return false;
         Unbind();
-        if (_singleChatMode)
+        if (InSingleChatMode)
         {
             _unsavedRevision = _conversation.ChatRevision;
             _unsavedText = UnsavedStatus;
@@ -649,7 +667,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
         _logger.LogInformation("Delete saved chats finished: {Result}", result.ToString());
         if (_disposed) return result;
-        var single = _singleChatMode || _preferences.SingleChatMode;
+        var single = InSingleChatMode;
         if (result == ChatWipeResult.Removed)
         {
             Status = single ? SingleChatStatus
@@ -674,7 +692,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         // The host bounds this wait with its suspension reservation. A flush
         // before initial loading finishes could otherwise save an empty queue
         // while the user's new transcript is still ineligible for capture.
-        while (!_singleChatMode && !_preferences.SingleChatMode)
+        while (!InSingleChatMode)
         {
             var loading = _loading;
             await loading;
@@ -1024,40 +1042,80 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private void PreferencesChanged(object? sender, EventArgs e)
     {
-        // Invalidate synchronously, even when UI cleanup must be dispatched.
-        // Waiting snapshots must not escape after privacy mode is enabled.
-        if (_preferences.SingleChatMode) _writer.Invalidate();
-        OnUi(() =>
-    {
-        var single = _preferences.SingleChatMode;
-        if (single == _singleChatMode) return;
-        _singleChatMode = single;
-        Interlocked.Increment(ref _scopeGeneration);
-        CancelTimer();
-        if (single)
+        // Recorded here, not in the posted handler: that reads the setting as it
+        // is when it runs, so on then off before it runs would look like no
+        // change, and the text typed in between would be saved into the open
+        // chat. Waiting saves are dropped and the scope moves on now too, so
+        // nothing captured earlier is written or acknowledged.
+        if (_preferences.SingleChatMode)
         {
-            // From here the transcript is private: unbound, so none of it reaches the file it came from.
-            _unsavedRevision = _conversation.ChatRevision;
-            _unsavedText = UnsavedStatus;
-            Unbind();
-            _store = null;
-            _loadedScope = null;
-            _chats.Clear();
-            Status = SingleChatStatus;
-        }
-        else
-        {
-            // The current revision, not the one marked on entering: a reconnect
-            // in single-chat mode moved the revision on, and the text since is private too.
-            _unsavedRevision = HasContent() ? _conversation.ChatRevision : null;
-            _unsavedText = UnsavedStatus;
-            Status = "";
+            Interlocked.Exchange(ref _privateEntry, 1);
+            Interlocked.Increment(ref _scopeGeneration);
+            _writer.Invalidate();
         }
 
+        OnUi(ApplySingleChatMode);
+    }
+
+    /// <summary>
+    /// Brings the list in line with the setting: first any entry recorded since
+    /// the last run, then the setting as it is now. One run can enter and
+    /// leave; later runs for the same changes find nothing to do.
+    /// </summary>
+    private void ApplySingleChatMode()
+    {
+        if (_disposed) return;
+        var changed = false;
+        if (Volatile.Read(ref _privateEntry) != 0)
+        {
+            if (!_singleChatMode)
+            {
+                EnterSingleChatMode();
+                changed = true;
+            }
+
+            // Cleared only once the transcript is marked private.
+            Interlocked.Exchange(ref _privateEntry, 0);
+        }
+
+        if (_preferences.SingleChatMode != _singleChatMode)
+        {
+            if (_preferences.SingleChatMode) EnterSingleChatMode();
+            else LeaveSingleChatMode();
+            changed = true;
+        }
+
+        if (!changed) return;
         Regroup();
         Changed();
-        if (!single && _wanted) _ = LoadAsync();
-    });
+        if (!_singleChatMode && _wanted) _ = LoadAsync();
+    }
+
+    private void EnterSingleChatMode()
+    {
+        _singleChatMode = true;
+        Interlocked.Increment(ref _scopeGeneration);
+        CancelTimer();
+        // From here the transcript is private: unbound, so none of it reaches the file it came from.
+        _unsavedRevision = _conversation.ChatRevision;
+        _unsavedText = UnsavedStatus;
+        Unbind();
+        _store = null;
+        _loadedScope = null;
+        _chats.Clear();
+        Status = SingleChatStatus;
+    }
+
+    private void LeaveSingleChatMode()
+    {
+        _singleChatMode = false;
+        Interlocked.Increment(ref _scopeGeneration);
+        CancelTimer();
+        // The current revision, not the one marked on entering: a reconnect
+        // in single-chat mode moved the revision on, and the text since is private too.
+        _unsavedRevision = HasContent() ? _conversation.ChatRevision : null;
+        _unsavedText = UnsavedStatus;
+        Status = "";
     }
 
     private void StorageChanged(object? sender, EventArgs e) => OnUi(() =>

@@ -10,21 +10,41 @@ namespace DashyNMS.Mobile;
 /// shield decides (<see cref="Intelligence.IntelligenceSnapshotShield"/>).
 /// </summary>
 /// <remarks>
+/// <para>
 /// A separate window rather than a view added to the app's: presented sheets sit
 /// in their own transition views, and the cover must stay above all of them.
-/// It is never made key, so the app's window keeps focus and its first
-/// responder, and the composer's keyboard and the glass placement (#227) are
-/// as they were once it is gone. It doesn't take touches either, should one
-/// arrive before it is hidden.
+/// It is never made key and doesn't take touches, should one arrive before it
+/// is hidden.
+/// </para>
+/// <para>
+/// The keyboard is the exception: iOS draws it in a system window above any
+/// level an app window can take, so a cover can't hide its predictive bar,
+/// which can show words from the private draft. Before the cover goes up, the
+/// composer - or any field in the chat's sheets - is made to end editing,
+/// without animation, which takes the keyboard down. It isn't brought back on
+/// return: the user taps the composer again, and the draft is still there.
+/// Restoring it automatically could raise the keyboard over a page the user
+/// has since left, and the composer's glass (#227) already settles at rest
+/// when the keyboard goes, as it does for any dismissal. Whether the keyboard
+/// is fully gone by the time iOS takes the snapshot needs an installed build to
+/// confirm.
+/// </para>
 /// </remarks>
 internal static class IosSnapshotCover
 {
 	private static UIWindow? _cover;
 
-	public static void Show(Microsoft.Maui.Controls.Window window)
+	/// <summary>
+	/// Ends editing in the app's windows, then puts the cover up. True once the
+	/// cover is on screen, or already was; false when there is no native window
+	/// or scene to cover yet, so the shield leaves itself uncovered and tries
+	/// again. An exception leaves no cover behind and is the shield's to handle.
+	/// </summary>
+	public static bool Show(Microsoft.Maui.Controls.Window window)
 	{
-		if (_cover is not null) return;
-		if (window.Handler?.PlatformView is not UIWindow host || host.WindowScene is not { } scene) return;
+		if (_cover is not null) return true;
+		if (window.Handler?.PlatformView is not UIWindow host || host.WindowScene is not { } scene) return false;
+		EndEditing(host, scene);
 
 		var controller = new UIViewController();
 		var view = controller.View!;
@@ -64,7 +84,7 @@ internal static class IosSnapshotCover
 			stack.CenterXAnchor.ConstraintEqualTo(guide.CenterXAnchor),
 		]);
 
-		_cover = new UIWindow(scene)
+		var cover = new UIWindow(scene)
 		{
 			RootViewController = controller,
 			WindowLevel = UIWindowLevel.Alert + 1,
@@ -72,13 +92,45 @@ internal static class IosSnapshotCover
 			// Matches the app's own light or dark choice rather than the system's.
 			OverrideUserInterfaceStyle = host.OverrideUserInterfaceStyle,
 		};
-		_cover.Hidden = false;
+		try
+		{
+			cover.Hidden = false;
+		}
+		catch
+		{
+			Dispose(cover);
+			throw;
+		}
+
+		// Recorded only once it is showing, so Hide never misses one and a failure leaves none.
+		_cover = cover;
+		return true;
+	}
+
+	/// <summary>
+	/// Takes the keyboard down: every window of the scene, so a field in a sheet
+	/// counts as well as the composer. Without animation, so it is gone as soon
+	/// as iOS allows rather than sliding out under the snapshot.
+	/// </summary>
+	private static void EndEditing(UIWindow host, UIWindowScene scene)
+	{
+		UIView.PerformWithoutAnimation(() =>
+		{
+			host.EndEditing(true);
+			foreach (var other in scene.Windows)
+				if (!ReferenceEquals(other, host)) other.EndEditing(true);
+		});
 	}
 
 	public static void Hide()
 	{
 		if (_cover is not { } cover) return;
 		_cover = null;
+		Dispose(cover);
+	}
+
+	private static void Dispose(UIWindow cover)
+	{
 		cover.Hidden = true;
 		cover.RootViewController = null;
 		cover.Dispose();

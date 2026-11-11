@@ -11,10 +11,13 @@ namespace DashyNMS.Mobile.Intelligence;
 /// <para>
 /// iOS snapshots the window once the app has resigned active and entered the
 /// background, so the cover goes up on the first of those (<see cref="Leaving"/>)
-/// and comes down when the app is active again (<see cref="Returned"/>). Only
-/// whether it went up is remembered, so a cover always comes down even if the
-/// mode was turned off or the chat left the screen meanwhile, and leaving twice
-/// draws it once.
+/// and comes down when the app is active again (<see cref="Returned"/>). The
+/// shield records the cover as up only once the head reports it installed: a
+/// failed or impossible install (no window or scene yet, or an exception)
+/// leaves it down, so entering the background tries again rather than being
+/// skipped as already covered. Once up, it always comes down, even if the
+/// mode was turned off or the chat left the screen meanwhile, and leaving
+/// twice draws it once.
 /// </para>
 /// <para>
 /// Android takes its recents thumbnail when the activity pauses, too late to
@@ -25,8 +28,10 @@ namespace DashyNMS.Mobile.Intelligence;
 /// <para>
 /// Other pages aren't hidden: they show the network, not the private
 /// conversation, and hiding them would cost the app switcher for no privacy
-/// gain. If the head can't tell what is on screen, the chat is assumed to be
-/// there, so a failure hides too much rather than too little.
+/// gain. If the head can't tell what is on screen - no window, no page, a
+/// page it doesn't recognise, or an exception - the chat is assumed to be
+/// there (<see cref="PrivateScreen"/>), so a failure hides too much rather
+/// than too little.
 /// </para>
 /// </remarks>
 public sealed class IntelligenceSnapshotShield : IDisposable
@@ -45,7 +50,7 @@ public sealed class IntelligenceSnapshotShield : IDisposable
         _preferences.Changed += PreferencesChanged;
     }
 
-    /// <summary>The iOS cover is up.</summary>
+    /// <summary>The iOS cover is up: the head reported it installed and the app hasn't returned since.</summary>
     public bool IsCovered => _covered;
 
     /// <summary>Android's window should be secure now.</summary>
@@ -66,14 +71,18 @@ public sealed class IntelligenceSnapshotShield : IDisposable
     }
 
     /// <summary>
-    /// The app is resigning active or going to the background. True when the
-    /// cover should be drawn now; false when it is already up or not needed.
+    /// The app is resigning active or going to the background. When the chat
+    /// needs hiding and no cover is up, runs <paramref name="cover"/>, which
+    /// installs it and says whether it did. True when a cover went up now;
+    /// false when one already was, none was needed, or installing it failed or
+    /// threw - in which case the next call tries again.
     /// </summary>
-    public bool Leaving()
+    public bool Leaving(Func<bool> cover)
     {
         if (_covered || !ShouldHide) return false;
-        _covered = true;
-        return true;
+        try { _covered = cover(); }
+        catch (Exception) { _covered = false; }
+        return _covered;
     }
 
     /// <summary>The app is active again. True when a cover is up and should come down.</summary>

@@ -168,12 +168,17 @@ public partial class App : Application
 		return window;
 	}
 
-	/// <summary>Hides a single-chat conversation before the app-switcher snapshot (#230).</summary>
+	/// <summary>
+	/// Hides a single-chat conversation before the app-switcher snapshot (#230):
+	/// on iOS the keyboard goes down and the cover goes up. The shield counts it
+	/// as covered only when the cover reports itself installed, so a resign-active
+	/// with no scene yet is tried again on Stopped. Android needs nothing here:
+	/// its window is already secure while the chat shows.
+	/// </summary>
 	private void CoverPrivateChat(Window window)
 	{
-		if (!_snapshots.Leaving()) return;
 #if IOS
-		IosSnapshotCover.Show(window);
+		_snapshots.Leaving(() => IosSnapshotCover.Show(window));
 #endif
 	}
 
