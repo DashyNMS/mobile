@@ -1024,7 +1024,18 @@ storage's generation refuses a write already under way. A server switch lets
 the previous server's waiting saves finish in that server's scope. Draft and
 detail changes save two seconds after they settle; streaming saves at most every
 two seconds; a new question and a finished, stopped or failed answer are queued
-at once; an unchanged chat isn't rewritten.
+at once; an unchanged chat isn't rewritten. Anything typed or answered while
+the list is still loading is saved as soon as loading finishes.
+
+Every save and delete returns what became of it (`ChatWriteResult`). A failed
+or refused save leaves the chat marked for retry, so the next change and
+suspension write it again even if nothing changed, and New chat waits briefly
+for the latest save and then asks before clearing a chat that isn't on disk. A
+delete clears the open chat at once, but the chat leaves the list, and VoiceOver
+says it was deleted, only once its file is gone. If the delete fails, or a
+sign-out, server switch or single-chat mode drops it from the queue, the chat
+stays (or comes back with the list) and can be deleted again; a failed or
+dropped delete stops refusing saves of that chat.
 
 A damaged file is set aside by Core while the rest load, and the list says how
 many couldn't be read. When the storage is unavailable the list's status is the
@@ -1037,7 +1048,8 @@ Settings › Intelligence › Single-chat mode already exists; #230 completes it
 For now the list honours it for saving: while it is on, nothing is read or
 written, the list is hidden, waiting debounces are cancelled, and the chat that
 was showing is unbound so its new text can't reach its file. A transcript that
-had text in single-chat mode stays unsaved after leaving it until New chat.
+has text when the mode ends stays unsaved until New chat, including one started
+by a reconnect while the mode was on.
 Saved chats aren't deleted by the mode.
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
@@ -1045,7 +1057,9 @@ or glass list button. Tests in `IntelligenceSavedChatTests` cover scoping,
 activity grouping, rename, pin and confirmed delete, restart restore of draft,
 detail, model, evidence filters and images, streaming and Interrupted restore,
 suspension, coalescing, delete, sign-out and wipe ordering, damaged files, an
-unreadable key store and single-chat mode. Force-quit mid-answer, performance
+unreadable key store and single-chat mode, plus changes made while loading,
+failed and dropped deletes, failed saves retried unchanged, and a reconnect in
+single-chat mode. Force-quit mid-answer, performance
 with long chats, and the sheet's layout and accessibility still need
 installed-device acceptance.
 

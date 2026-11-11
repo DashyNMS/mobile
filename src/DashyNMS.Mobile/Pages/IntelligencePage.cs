@@ -315,6 +315,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     /// <summary>
     /// A saved chat stays in the list, so a new one starts straight away. Clearing
     /// a chat that isn't being saved still asks first; Stop remains a separate action.
+    /// The latest is written first, briefly waited for, so a chat whose save failed
+    /// is retried and, if it fails again, counts as unsaved.
     /// </summary>
     public async void RequestNewChat()
     {
@@ -324,6 +326,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         ShowActions();
         try
         {
+            try { await _chats.SaveNowAsync().WaitAsync(TimeSpan.FromSeconds(2)); }
+            catch (TimeoutException) { /* Still writing: treated as kept, as a save under way is. */ }
             if (!_chats.KeepsCurrentChat && _conversation.Turns.Count > 0
                 && !await _dialogs.ConfirmAsync("Start a new chat?", "This clears the current questions and answers. This chat isn't being saved.", "New chat", "Cancel")) return;
             if (_chats.NewChat())

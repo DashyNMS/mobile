@@ -274,9 +274,10 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         writer.Failed += (_, unavailable) => { lock (failures) failures.Add(unavailable); };
 
         Assert.Equal(ChatWipeResult.Removed, await storage.WipeAsync());
-        Assert.True(writer.Save(stale, IntelligenceSavedChats.Scope(ServerA), new SavedIntelligenceChat { Title = "late" }, makeActive: true));
+        var saving = writer.Save(stale, IntelligenceSavedChats.Scope(ServerA), new SavedIntelligenceChat { Title = "late" }, makeActive: true);
         await writer.FlushAsync();
 
+        Assert.Equal(ChatWriteResult.Unavailable, await saving);
         Assert.Empty(ChatFiles());
         Assert.Equal(new[] { true }, failures);
     }
@@ -287,15 +288,23 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var store = new GateStore();
         var writer = new IntelligenceChatWriter(NullLogger.Instance);
         var first = new SavedIntelligenceChat { Title = "first" };
-        writer.Save(store, "scope", first, makeActive: true);
+        var started = writer.Save(store, "scope", first, makeActive: true);
         await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        writer.Save(store, "scope", new SavedIntelligenceChat { Title = "second" }, makeActive: true);
-        writer.Delete(store, "scope", first.Id);
+        var second = writer.Save(store, "scope", new SavedIntelligenceChat { Title = "second" }, makeActive: true);
+        var deleting = writer.Delete(store, "scope", first.Id);
         writer.Invalidate();
         Assert.Equal(0, writer.Pending);
+
+        // Dropped operations say so at once; none claims to have reached the disk.
+        Assert.Equal(ChatWriteResult.Cancelled, await second);
+        Assert.Equal(ChatWriteResult.Cancelled, await deleting);
         store.Release.SetResult();
         await writer.FlushAsync();
+        Assert.Equal(ChatWriteResult.Written, await started);
         Assert.Equal(new[] { "save first" }, store.Calls);
+
+        // The dropped delete no longer refuses saves: the chat's file is still there.
+        Assert.Equal(ChatWriteResult.Written, await writer.Save(store, "scope", new SavedIntelligenceChat { Id = first.Id, Title = "again" }, makeActive: true));
     }
 
     [Fact]
@@ -305,15 +314,18 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var writer = new IntelligenceChatWriter(NullLogger.Instance);
         var chat = new SavedIntelligenceChat { Title = "v0" };
         var other = new SavedIntelligenceChat { Title = "other" };
-        writer.Save(store, "scope", chat, makeActive: true);
+        _ = writer.Save(store, "scope", chat, makeActive: true);
         await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        for (var i = 1; i <= 50; i++)
+        var replaced = writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v1" }, makeActive: true);
+        for (var i = 2; i <= 50; i++)
         {
-            writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v" + i }, makeActive: true);
+            _ = writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v" + i }, makeActive: true);
         }
 
-        writer.Save(store, "scope", other, makeActive: false);
-        writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v51" }, makeActive: true);
+        Assert.Equal(ChatWriteResult.Superseded, await replaced);
+
+        _ = writer.Save(store, "scope", other, makeActive: false);
+        _ = writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "v51" }, makeActive: true);
 
         // One waiting save per chat, however many arrived.
         Assert.Equal(2, writer.Pending);
@@ -329,16 +341,23 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var writer = new IntelligenceChatWriter(NullLogger.Instance);
         var blocker = new SavedIntelligenceChat { Title = "blocker" };
         var chat = new SavedIntelligenceChat { Title = "doomed" };
-        writer.Save(store, "scope", blocker, makeActive: true);
+        _ = writer.Save(store, "scope", blocker, makeActive: true);
         await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        writer.Save(store, "scope", chat, makeActive: true);
-        writer.Delete(store, "scope", chat.Id);
-        Assert.False(writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "late" }, makeActive: true));
+        var doomed = writer.Save(store, "scope", chat, makeActive: true);
+        var deleting = writer.Delete(store, "scope", chat.Id);
+        Assert.Equal(ChatWriteResult.Superseded, await doomed);
+        Assert.Equal(ChatWriteResult.Cancelled, await writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "late" }, makeActive: true));
         // The same chat in another server's scope is a different chat.
-        Assert.True(writer.Save(store, "other-scope", new SavedIntelligenceChat { Id = chat.Id, Title = "elsewhere" }, makeActive: true));
+        var elsewhere = writer.Save(store, "other-scope", new SavedIntelligenceChat { Id = chat.Id, Title = "elsewhere" }, makeActive: true);
+        Assert.False(deleting.IsCompleted);
         store.Release.SetResult();
         await writer.FlushAsync();
+        Assert.Equal(ChatWriteResult.Written, await deleting);
+        Assert.Equal(ChatWriteResult.Written, await elsewhere);
         Assert.Equal(new[] { "save blocker", "delete " + chat.Id, "save elsewhere" }, store.Calls);
+
+        // A completed delete still refuses a stale snapshot.
+        Assert.Equal(ChatWriteResult.Cancelled, await writer.Save(store, "scope", new SavedIntelligenceChat { Id = chat.Id, Title = "stale" }, makeActive: true));
     }
 
     [Fact]
@@ -541,11 +560,11 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         var app = Start();
         await app.Chats.LoadAsync();
         var store = new GateStore();
-        app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "already started" }, true);
+        _ = app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "already started" }, true);
         await store.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         try
         {
-            app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "waiting snapshot" }, true);
+            _ = app.Chats.Writer.Save(store, "scope", new SavedIntelligenceChat { Title = "waiting snapshot" }, true);
             Assert.Equal(1, app.Chats.Writer.Pending);
             _preferences.SetSingleChatMode(true);
             Assert.Equal(0, app.Chats.Writer.Pending);
@@ -639,6 +658,191 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.Equal(0, app.Chats.Writer.Pending);
     }
 
+    [Fact]
+    public async Task Changes_made_while_chats_load_are_saved_once_loading_finishes()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        var reading = faults.HoldNext();
+        var loading = app.Chats.LoadAsync();
+        await reading.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(app.Chats.CanPersist);
+
+        // Asked, answered and a draft typed while the list was still being read.
+        Assert.True(await app.Conversation.AskAsync("Question while loading"));
+        app.Conversation.Draft = "draft-sentinel while loading";
+        reading.Release.SetResult();
+        await loading.WaitAsync(TimeSpan.FromSeconds(5));
+        await app.SettleAsync();
+
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Question while loading", saved.Messages[0].Text);
+        Assert.Equal("Answer", saved.Messages[1].Text);
+        Assert.Equal(IntelligenceReplyOutcome.Completed, saved.Messages[1].Outcome);
+        Assert.Equal("draft-sentinel while loading", saved.Draft);
+        Assert.Same(Assert.Single(app.Chats.Chats), app.Chats.Active);
+        Assert.True(app.Chats.KeepsCurrentChat);
+    }
+
+    [Fact]
+    public async Task A_delete_that_fails_keeps_the_chat_listed_never_reports_success_and_can_be_retried()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Chat to keep"));
+        Assert.True(app.Chats.NewChat());
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Assert.True(await app.Conversation.AskAsync("Chat to delete"));
+        await app.SettleAsync();
+        var doomed = app.Chats.Chats.Single(chat => chat.Title == "Chat to delete");
+        Assert.Same(doomed, app.Chats.Active);
+
+        faults.FailDeletes = true;
+        Assert.False(await app.Chats.DeleteAsync(doomed));
+        Assert.Contains(doomed, app.Chats.Chats);
+        Assert.Equal(IntelligenceChatListViewModel.DeleteFailedStatus, app.Chats.Status);
+        Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
+        // The open chat was cleared first, so nothing typed meanwhile went into it.
+        Assert.Empty(app.Conversation.Turns);
+
+        // Still a saved chat: it reopens, and a pin is written rather than refused as deleted.
+        Assert.True(app.Chats.TogglePin(doomed));
+        await app.SettleAsync();
+        Assert.True((await ReadAsync(ServerA)).Chats.Single(chat => chat.Id == doomed.Id).IsPinned);
+        Assert.True(app.Chats.Open(doomed));
+        Assert.Equal("Chat to delete", Assert.Single(app.Conversation.Turns).Question);
+
+        faults.FailDeletes = false;
+        Assert.True(await app.Chats.DeleteAsync(doomed));
+        Assert.DoesNotContain(doomed, app.Chats.Chats);
+        Assert.Equal("", app.Chats.Status);
+        await app.SettleAsync();
+        Assert.Equal("Chat to keep", Assert.Single((await ReadAsync(ServerA)).Chats).Title);
+    }
+
+    [Fact]
+    public async Task A_queued_delete_dropped_by_single_chat_mode_never_reports_success_and_can_be_retried()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Chat to keep"));
+        Assert.True(app.Chats.NewChat());
+        _time.Advance(TimeSpan.FromMinutes(1));
+        Assert.True(await app.Conversation.AskAsync("Chat to delete"));
+        Assert.True(app.Chats.NewChat());
+        await app.SettleAsync();
+        var keep = app.Chats.Chats.Single(chat => chat.Title == "Chat to keep");
+        var doomed = app.Chats.Chats.Single(chat => chat.Title == "Chat to delete");
+
+        // The writer is busy, so the confirmed delete waits behind it.
+        var busy = faults.HoldNext();
+        Assert.True(app.Chats.TogglePin(keep));
+        await busy.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Task<bool> deleting;
+        try
+        {
+            deleting = app.Chats.DeleteAsync(doomed);
+            Assert.False(deleting.IsCompleted);
+            Assert.Contains(doomed, app.Chats.Chats);
+            _preferences.SetSingleChatMode(true);
+            Assert.False(await deleting.WaitAsync(TimeSpan.FromSeconds(5)));
+        }
+        finally { busy.Release.TrySetResult(); }
+
+        await app.SettleAsync();
+        Assert.Equal(2, (await ReadAsync(ServerA)).Chats.Count);
+
+        // Back from single-chat mode the chat is listed again, and deleting it works.
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        var back = app.Chats.Chats.Single(chat => chat.Id == doomed.Id);
+        Assert.True(await app.Chats.DeleteAsync(back));
+        Assert.Equal("Chat to keep", Assert.Single((await ReadAsync(ServerA)).Chats).Title);
+    }
+
+    [Fact]
+    public async Task A_failed_save_is_retried_unchanged_and_a_new_chat_asks_first_until_it_is_written()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        await app.Chats.LoadAsync();
+
+        faults.FailSaves = true;
+        Assert.True(await app.Conversation.AskAsync("Question not yet saved"));
+        await app.Chats.SaveNowAsync();
+        Assert.Empty((await ReadAsync(ServerA)).Chats);
+        Assert.Equal(IntelligenceChatListViewModel.SaveFailedStatus, app.Chats.Status);
+        // Not on disk, so starting a new chat must ask before clearing it.
+        Assert.False(app.Chats.KeepsCurrentChat);
+
+        // Still failing: still not treated as saved.
+        await app.Chats.SaveNowAsync();
+        Assert.False(app.Chats.KeepsCurrentChat);
+
+        // Nothing changed on screen, but suspension writes it again.
+        faults.FailSaves = false;
+        await app.Chats.SaveNowAsync();
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Question not yet saved", saved.Messages[0].Text);
+        Assert.Equal("Answer", saved.Messages[1].Text);
+        Assert.True(app.Chats.KeepsCurrentChat);
+        Assert.Equal("", app.Chats.Status);
+
+        // And a failure on the next edit is retried by that edit's own save once the disk recovers.
+        faults.FailSaves = true;
+        app.Conversation.Draft = "draft-sentinel retry";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await app.SettleAsync();
+        await app.Chats.SaveNowAsync();
+        Assert.False(app.Chats.KeepsCurrentChat);
+        faults.FailSaves = false;
+        await app.Chats.SaveNowAsync();
+        Assert.Equal("draft-sentinel retry", Assert.Single((await ReadAsync(ServerA)).Chats).Draft);
+        Assert.True(app.Chats.KeepsCurrentChat);
+    }
+
+    [Fact]
+    public async Task Text_from_a_reconnect_in_single_chat_mode_stays_unsaved_after_leaving_it()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        Assert.True(await app.Conversation.AskAsync("Saved before single-chat mode"));
+        await app.SettleAsync();
+
+        _preferences.SetSingleChatMode(true);
+        // Reconnecting clears the transcript and moves its revision on.
+        SwitchTo(ServerA);
+        Assert.Empty(app.Conversation.Turns);
+        Assert.True(await app.Conversation.AskAsync("private-sentinel question"));
+
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        Assert.Equal(IntelligenceChatListViewModel.UnsavedStatus, app.Chats.Status);
+        Assert.False(app.Chats.KeepsCurrentChat);
+        app.Conversation.Draft = "private-sentinel draft";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+        await app.Chats.SaveNowAsync();
+
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Saved before single-chat mode", saved.Title);
+        Assert.DoesNotContain(saved.Messages, message => message.Text.Contains("private-sentinel"));
+        Assert.DoesNotContain("private-sentinel", saved.Draft ?? "");
+        Assert.Single(app.Chats.Chats);
+    }
+
+    private static FaultyStore Faulty(App app)
+    {
+        var faults = new FaultyStore();
+        app.Chats.WrapStore = inner =>
+        {
+            faults.Inner = inner;
+            return faults;
+        };
+        return faults;
+    }
+
     private sealed class NoBackup : IBackupExclusion
     {
         public void Exclude(string directory) { }
@@ -671,6 +875,59 @@ public sealed class IntelligenceSavedChatTests : IDisposable
             if (Interlocked.Exchange(ref _first, 1) != 0) return;
             Entered.SetResult();
             Release.Task.Wait(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    private sealed class Gate
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    /// <summary>The real encrypted store underneath; holds the next call on cue, and fails saves or deletes on cue.</summary>
+    private sealed class FaultyStore : IIntelligenceChatStore
+    {
+        private Gate? _hold;
+        private volatile bool _failSaves;
+        private volatile bool _failDeletes;
+
+        public IIntelligenceChatStore Inner { get; set; } = null!;
+        public bool FailSaves { get => _failSaves; set => _failSaves = value; }
+        public bool FailDeletes { get => _failDeletes; set => _failDeletes = value; }
+
+        /// <summary>The next load, save or delete waits until the gate is released.</summary>
+        public Gate HoldNext()
+        {
+            var gate = new Gate();
+            Volatile.Write(ref _hold, gate);
+            return gate;
+        }
+
+        public SavedChatCollection Load(string scope)
+        {
+            Wait();
+            return Inner.Load(scope);
+        }
+
+        public void Save(string scope, SavedIntelligenceChat chat, bool makeActive = true)
+        {
+            Wait();
+            if (FailSaves) throw new IOException("Synthetic save failure.");
+            Inner.Save(scope, chat, makeActive);
+        }
+
+        public void Delete(string scope, Guid id)
+        {
+            Wait();
+            if (FailDeletes) throw new IOException("Synthetic delete failure.");
+            Inner.Delete(scope, id);
+        }
+
+        private void Wait()
+        {
+            if (Interlocked.Exchange(ref _hold, null) is not { } gate) return;
+            gate.Entered.SetResult();
+            gate.Release.Task.Wait(TimeSpan.FromSeconds(10));
         }
     }
 

@@ -169,7 +169,13 @@ public sealed class IntelligenceChatsPage : ContentPage
     {
         if (_busy) return;
         _busy = true;
-        try { if (await _chats.DeleteAsync(item)) SemanticScreenReader.Default.Announce("Chat deleted"); }
+        try
+        {
+            // Announced only once the file is gone; a failure says so in the status line.
+            var before = _chats.Status;
+            if (await _chats.DeleteAsync(item)) SemanticScreenReader.Default.Announce("Chat deleted");
+            else if (_chats.Status.Length > 0 && _chats.Status != before) SemanticScreenReader.Default.Announce(_chats.Status);
+        }
         finally { _busy = false; }
     }
 
