@@ -25,7 +25,11 @@ public sealed class MauiSecureStorage : Security.ISecureStorage
     public async Task<string?> GetAsync(string key)
     {
 #if IOS
-        var value = ReadKeychain(key);
+        // Other secrets use SecretCache's established error-recovery contract.
+        // Only the chat key requires confirmed absence before replacement.
+        var value = key == Intelligence.IntelligenceChatStorage.KeyName
+            ? ReadKeychain(key)
+            : await SecureStorage.Default.GetAsync(key);
 #else
         var value = await SecureStorage.Default.GetAsync(key);
 #endif
