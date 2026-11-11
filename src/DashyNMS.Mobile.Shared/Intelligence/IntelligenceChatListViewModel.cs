@@ -169,6 +169,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// <summary>Moves on at each connection or single-chat change; loads and writes from an older one are dropped.</summary>
     private long _scopeGeneration;
     private long _loadVersion;
+    private Task _loading = Task.CompletedTask;
     private long _loadedGeneration = -1;
     private string? _loadedScope;
     private IIntelligenceChatStore? _store;
@@ -267,7 +268,9 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// was open into an empty transcript. Reading waits for writes already queued,
     /// and runs off the UI thread.
     /// </summary>
-    public async Task LoadAsync()
+    public Task LoadAsync() => _loading = LoadCoreAsync();
+
+    private async Task LoadCoreAsync()
     {
         _wanted = true;
         if (_disposed) return;
@@ -561,6 +564,15 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// </summary>
     public async Task SaveNowAsync()
     {
+        // The host bounds this wait with its suspension reservation. A flush
+        // before initial loading finishes could otherwise save an empty queue
+        // while the user's new transcript is still ineligible for capture.
+        while (!_singleChatMode && !_preferences.SingleChatMode)
+        {
+            var loading = _loading;
+            await loading;
+            if (ReferenceEquals(loading, _loading)) break;
+        }
         // Posted acknowledgements may still be waiting. Observe completed saves
         // before deciding which inactive edits need a suspension retry.
         foreach (var chat in _chats.ToArray())

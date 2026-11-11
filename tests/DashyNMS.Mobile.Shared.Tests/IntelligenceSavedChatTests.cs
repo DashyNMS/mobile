@@ -685,6 +685,27 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task Suspension_waits_for_inflight_loading_before_capturing_the_new_chat()
+    {
+        var app = Start();
+        var faults = Faulty(app);
+        var reading = faults.HoldNext();
+        var loading = app.Chats.LoadAsync();
+        await reading.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.True(await app.Conversation.AskAsync("Question before load finishes"));
+        app.Conversation.Draft = "draft at suspension";
+        var saving = app.Chats.SaveNowAsync();
+        Assert.False(saving.IsCompleted);
+        Assert.Empty(ChatFiles());
+        reading.Release.SetResult();
+        await saving.WaitAsync(TimeSpan.FromSeconds(5));
+        await loading;
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.Equal("Question before load finishes", saved.Messages[0].Text);
+        Assert.Equal("draft at suspension", saved.Draft);
+    }
+
+    [Fact]
     public async Task A_delete_that_fails_keeps_the_chat_listed_never_reports_success_and_can_be_retried()
     {
         var app = Start();

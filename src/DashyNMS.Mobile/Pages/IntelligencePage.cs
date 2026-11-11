@@ -284,8 +284,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
         _starters.IsEnabled = _conversation.CanAsk;
-        _notice.Text = !string.IsNullOrEmpty(_conversation.Notice) ? _conversation.Notice
-            : !string.IsNullOrEmpty(_chats.Status) ? _chats.Status
+        var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
+        _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
             : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
             : "Answers can be wrong. Lookups may use cached data; check readings and their age in LibreNMS.";
