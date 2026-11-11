@@ -779,9 +779,15 @@ public sealed partial class SettingsViewModel : ViewModelBase
         // Saved chats and their key, on either choice (#222): they're this
         // server's conversations. Awaited, so a save still on its way is
         // refused before the sign-in page appears.
-        if (_chats is not null && !await _chats.WipeAsync())
+        if (_chats is not null)
         {
-            _diagnostics?.Note("Sign out", "Could not delete saved chats");
+            while (!await _chats.WipeAsync())
+            {
+                _diagnostics?.Note("Sign out", "Could not delete saved chats");
+                if (!await _dialogs.ConfirmAsync("Saved chats could not all be removed",
+                    "You are signed out, but saved chat files or their encryption key may remain on this phone. Retry removing them, or continue signing out. Saved chats will remain unavailable until cleanup succeeds.",
+                    "Retry cleanup", "Continue signing out")) break;
+            }
         }
 
         if (choice == ForgetEverythingChoice)

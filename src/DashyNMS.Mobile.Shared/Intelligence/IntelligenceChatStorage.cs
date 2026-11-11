@@ -95,6 +95,8 @@ public sealed class IntelligenceChatStorage
 
     private byte[]? _key;
     private long _generation;
+    private int _pendingWipes;
+    private bool _wipeFailed;
     private IntelligenceChatStorageState _state;
     private string? _unavailableReason;
 
@@ -147,12 +149,19 @@ public sealed class IntelligenceChatStorage
     /// </remarks>
     public async Task<IIntelligenceChatStore?> OpenAsync(CancellationToken cancellationToken = default)
     {
+        long requestedGeneration;
+        lock (_gate)
+        {
+            if (_pendingWipes > 0 || _wipeFailed) return null;
+            requestedGeneration = _generation;
+        }
         await _keyTurn.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             long generation;
             lock (_gate)
             {
+                if (_pendingWipes > 0 || _wipeFailed || requestedGeneration != _generation) return null;
                 if (_key is not null)
                 {
                     return new Session(this, _generation);
@@ -247,6 +256,7 @@ public sealed class IntelligenceChatStorage
         lock (_gate)
         {
             // First, before awaiting anything: from here no save is accepted.
+            _pendingWipes++;
             _generation++;
             if (_key is not null)
             {
@@ -268,7 +278,12 @@ public sealed class IntelligenceChatStorage
             var removed = true;
             try
             {
-                _secure.Remove(KeyName);
+                if (!_secure.Remove(KeyName))
+                {
+                    // False also means absent. Verify absence rather than
+                    // treating a silent platform refusal as a successful wipe.
+                    removed = string.IsNullOrEmpty(await _secure.GetAsync(KeyName).ConfigureAwait(false));
+                }
             }
             catch (Exception)
             {
@@ -290,6 +305,14 @@ public sealed class IntelligenceChatStorage
                 }
             }
 
+            lock (_gate)
+            {
+                _wipeFailed = !removed;
+                changed = SetState(removed ? IntelligenceChatStorageState.Closed : IntelligenceChatStorageState.Unavailable,
+                    removed ? null : "Saved chats could not all be removed. Retry clearing them before saved chats can be used again.");
+            }
+            if (changed) StateChanged?.Invoke(this, EventArgs.Empty);
+
             if (removed)
             {
                 _logger.LogInformation("Removed saved chats and their key");
@@ -303,6 +326,7 @@ public sealed class IntelligenceChatStorage
         }
         finally
         {
+            lock (_gate) { _pendingWipes--; }
             _keyTurn.Release();
         }
     }

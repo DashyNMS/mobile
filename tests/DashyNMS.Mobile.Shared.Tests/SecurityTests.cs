@@ -206,6 +206,38 @@ public sealed class SecurityTests
         }
     }
 
+    [Theory]
+    [InlineData(SettingsViewModel.SignOutChoice, false)]
+    [InlineData(SettingsViewModel.ForgetEverythingChoice, false)]
+    [InlineData(SettingsViewModel.SignOutChoice, true)]
+    [InlineData(SettingsViewModel.ForgetEverythingChoice, true)]
+    public async Task A_failed_chat_wipe_is_visible_and_can_be_retried(string choice, bool retry)
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"dashynms-chats-{Guid.NewGuid():N}");
+        var keys = new ChatKeyStorage();
+        var chats = new IntelligenceChatStorage(root, keys, new AppBackupDisabled(), NullLogger<IntelligenceChatStorage>.Instance);
+        try
+        {
+            Assert.NotNull(await chats.OpenAsync());
+            keys.FailRemove = true;
+            Choose(choice);
+            _dialogs.ConfirmDestructiveAsync(default!, default!, default!).ReturnsForAnyArgs(true);
+            _dialogs.ConfirmAsync("Saved chats could not all be removed", Arg.Any<string>(), "Retry cleanup", "Continue signing out")
+                .Returns(_ => { if (retry) keys.FailRemove = false; return Task.FromResult(retry); });
+
+            await NewSettings(new DeviceBookmarks(_settings, TimeProvider.System), Substitute.For<IShareService>(), chats: chats)
+                .SignOutCommand.ExecuteAsync(null);
+
+            await _dialogs.Received(1).ConfirmAsync("Saved chats could not all be removed", Arg.Any<string>(), "Retry cleanup", "Continue signing out");
+            await _navigation.Received().GoToAsync(Routes.SignIn);
+            Assert.Equal(!retry, keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task Cancelling_sign_out_keeps_saved_chats()
     {

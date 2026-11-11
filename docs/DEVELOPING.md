@@ -954,7 +954,10 @@ sign-out choice awaits `WipeAsync`. It moves the generation on under the store's
 lock before anything else, so a late save from an older store throws
 `ChatStorageUnavailableException` and writes nothing. Then it removes the key and
 the folder. Opening and wiping take turns over the key, so concurrent opens make
-one key, and a key being created can't land after a wipe. Logs name only the
+one key, and a key being created can't land after a wipe. Opens queued before
+or started during cleanup are refused. A false key-removal result is checked
+against secure storage; failed cleanup leaves storage unavailable and sign-out
+offers a visible retry before continuing. Logs name only the
 step that failed. Chat text, scopes, keys and exception messages are never
 logged. The chat list, autosave and restore are #229. Single-chat privacy mode
 is #230. Unreadable files without the key and absence from device backups still

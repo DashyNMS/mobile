@@ -292,6 +292,53 @@ public sealed class IntelligenceChatStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task Opens_queued_before_or_started_during_a_wipe_cannot_survive_it()
+    {
+        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _keys.BeforeRead = () => blocked.Task;
+        var storage = NewStorage();
+        var first = storage.OpenAsync(); // holds the key turn
+        var queued = storage.OpenAsync(); // queued ahead of wipe
+        var wiping = storage.WipeAsync();
+        var during = storage.OpenAsync();
+        _keys.BeforeRead = null;
+        blocked.SetResult();
+
+        Assert.Null(await first);
+        Assert.Null(await queued);
+        Assert.Null(await during);
+        Assert.True(await wiping);
+        Assert.Empty(_keys.Values);
+        Assert.False(Directory.Exists(_root));
+        Assert.NotNull(await storage.OpenAsync()); // only a fresh post-wipe open
+    }
+
+    [Fact]
+    public async Task A_silent_key_removal_failure_is_reported_and_blocks_reopening_until_retry()
+    {
+        var storage = NewStorage();
+        var store = (await storage.OpenAsync())!;
+        store.Save(Scope, Chat());
+        _keys.FailRemove = true;
+
+        Assert.False(await storage.WipeAsync());
+        Assert.Single(_keys.Values);
+        Assert.Equal(IntelligenceChatStorageState.Unavailable, storage.State);
+        Assert.Null(await storage.OpenAsync());
+        Assert.Throws<ChatStorageUnavailableException>(() => store.Save(Scope, Chat()));
+        _keys.FailRemove = false;
+        Assert.True(await storage.WipeAsync());
+        Assert.Empty(_keys.Values);
+        Assert.NotNull(await storage.OpenAsync());
+    }
+
+    [Fact]
+    public async Task An_already_absent_key_counts_as_a_successful_wipe()
+    {
+        Assert.True(await NewStorage().WipeAsync());
+    }
+
+    [Fact]
     public async Task Two_screens_opening_at_once_share_one_key()
     {
         var keychain = new TaskCompletionSource();
@@ -465,6 +512,8 @@ internal sealed class ChatKeyStorage : ISecureStorage
 
     public bool FailWrites { get; set; }
 
+    public bool FailRemove { get; set; }
+
     /// <summary>Awaited before each read, to hold one open.</summary>
     public Func<Task>? BeforeRead { get; set; }
 
@@ -500,5 +549,5 @@ internal sealed class ChatKeyStorage : ISecureStorage
         Values[key] = ReplaceOnSet ?? value;
     }
 
-    public bool Remove(string key) => Values.TryRemove(key, out _);
+    public bool Remove(string key) => !FailRemove && Values.TryRemove(key, out _);
 }
