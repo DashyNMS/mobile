@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Intelligence;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
 
 namespace DashyNMS.Mobile.Tests;
