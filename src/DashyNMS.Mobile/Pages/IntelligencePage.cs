@@ -163,6 +163,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _timer.Start();
         }
         _placement.Activate();
+        SynchroniseComposer();
         UpdateControls();
         ShowActions();
         PlaceConversation();
@@ -184,6 +185,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage
     private void OnConversationChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (!_showing) return;
+        // Replacement publishes this only after draft and detail are installed.
+        if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) SynchroniseComposer();
         UpdateControls();
         if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
     }
@@ -245,7 +248,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage
         foreach (var card in _cards) card.Place(width);
     }
 
-    private void UpdateControls()
+    private void SynchroniseComposer()
     {
         if (_chatRevision != _conversation.ChatRevision)
         {
@@ -256,6 +259,10 @@ public sealed class IntelligencePage : ContentPage, IActivePage
             _following = true;
             _scrollPending = true;
         }
+    }
+
+    private void UpdateControls()
+    {
         _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _ask.Text = _conversation.IsRunning ? "■" : "↑";
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");

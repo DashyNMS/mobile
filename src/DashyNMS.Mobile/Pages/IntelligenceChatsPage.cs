@@ -25,6 +25,8 @@ public sealed class IntelligenceChatsPage : ContentPage
     private readonly Button _new = new() { Text = "New chat", MinimumHeightRequest = 44 };
     private readonly Button _close = new() { Text = "Done", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
     private bool _busy;
+    private bool _visible;
+    private readonly List<ChatRow> _rows = [];
 
     public IntelligenceChatsPage(IntelligenceChatListViewModel chats, IntelligenceConversationViewModel conversation,
         IDialogService dialogs, Action newChat)
@@ -64,7 +66,12 @@ public sealed class IntelligenceChatsPage : ContentPage
             SemanticProperties.SetHeadingLevel(label, SemanticHeadingLevel.Level2);
             return label;
         });
-        _list.ItemTemplate = new DataTemplate(() => new ChatRow(this));
+        _list.ItemTemplate = new DataTemplate(() =>
+        {
+            var row = new ChatRow(this);
+            _rows.Add(row);
+            return row;
+        });
         _list.EmptyView = new Label
         {
             Text = "No saved chats yet. Questions you ask are saved here.",
@@ -89,6 +96,8 @@ public sealed class IntelligenceChatsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _visible = true;
+        foreach (var row in _rows) row.Attach();
         _chats.PropertyChanged -= OnChanged;
         _chats.PropertyChanged += OnChanged;
         _conversation.PropertyChanged -= OnChanged;
@@ -99,6 +108,8 @@ public sealed class IntelligenceChatsPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        _visible = false;
+        foreach (var row in _rows) row.Detach();
         _chats.PropertyChanged -= OnChanged;
         _conversation.PropertyChanged -= OnChanged;
         base.OnDisappearing();
@@ -238,10 +249,23 @@ public sealed class IntelligenceChatsPage : ContentPage
         protected override void OnBindingContextChanged()
         {
             base.OnBindingContextChanged();
-            if (_item is not null) _item.PropertyChanged -= OnItemChanged;
+            Detach();
             _item = BindingContext as IntelligenceChatItem;
-            if (_item is not null) _item.PropertyChanged += OnItemChanged;
+            if (_page._visible) Attach();
             Show();
+        }
+
+        internal void Attach()
+        {
+            if (_item is null) return;
+            _item.PropertyChanged -= OnItemChanged;
+            _item.PropertyChanged += OnItemChanged;
+            Show();
+        }
+
+        internal void Detach()
+        {
+            if (_item is not null) _item.PropertyChanged -= OnItemChanged;
         }
 
         private void OnItemChanged(object? sender, PropertyChangedEventArgs e) => Show();

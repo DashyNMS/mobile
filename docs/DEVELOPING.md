@@ -1090,8 +1090,10 @@ line, while warnings and interrupted outcomes stay explicit. Copy is a quiet
 The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
 may be cached and asks readers to check readings and their age in LibreNMS.
-No conversation data is written to disk or included in diagnostics. Saved-chat
-sheets and Spotlight remain under #229 and #231. Formatted answers and answer
+Chats are saved locally using the encrypted store described under #222 and
+#229; single-chat mode keeps its transcript in memory. Conversation data is
+excluded from diagnostics. Saved-chat sheets are described under #229;
+Spotlight remains under #231. Formatted answers and answer
 reports are described under #228 and #574 below. Device acceptance for #227 and #573
 remains open: test long streaming answers, Stop and suspension, both entry
 routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
