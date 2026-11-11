@@ -904,10 +904,13 @@ estimates, so the native failure path is required.
 Mobile supplies a main-thread dispatcher for streaming, lookup progress
 and terminal state. Every question requires the mobile opt-in, an available
 model and a signed-in connection. Connection events advance a generation
-so an old connection reference cannot revive a run after a switch. The run
-is interrupted and a new chat is required before another network is asked
-about. Opt-out also interrupts the current answer. Each question permits
-at most two actual lookup calls, including a context-recovery attempt.
+so an old connection reference cannot revive a run after a switch. Every
+connection event interrupts the run and clears retained turns, including
+sign-out, sign-in and reconnect. An immediate ownership gate blocks old-turn
+copy, retry and edit while UI cleanup is queued. Only the latest queued
+reset can authorise a new chat. Opt-out also interrupts the current answer.
+Each question permits at most two actual lookup calls, including a
+context-recovery attempt.
 
 The engine never logs or uploads questions, answers or lookup evidence.
 It has no disk persistence yet. On app suspension, the host requests a short
@@ -916,6 +919,42 @@ Both expiration and completion end the reservation. Partial text stays in memory
 there is no promise of surviving process termination. Saved and encrypted
 history follow under #222 and #229. Native suspension and model-failure cases
 still need device verification.
+
+### Chat page (#227)
+
+More opens Intelligence as a relative route; pinning selects its retained tab.
+Both the catalogue and the tab use the mobile opt-in and model-availability
+gate. A hidden saved pin is retained until the next explicit pin edit, which
+saves the visible selection. Availability is checked again on return and resume.
+Direct routes show an explanation and refuse work when the gate is closed.
+
+The page uses the setup layout for one top inset owner, a finite transcript
+viewport and a measured fixed composer above the docked keyboard and glass.
+New chat and Settings use glass on iOS 26+, with header actions elsewhere.
+A chat revision also clears the composer draft on connection changes, including
+when a retained page next activates. Ordinary page departure and return keep
+the chat and draft. The transcript and draft are hidden while a connection
+reset is queued. Back is present only for the pushed route. Command-N asks
+the chat page to start a new chat. Clearing an existing in-memory transcript is confirmed.
+
+Ask clears an accepted question from the composer. Stop retains partial text;
+Retry appends an attempt and Edit copies the original question into the field.
+The detail picker applies to the next question without changing Settings.
+Copy exports only the chosen answer through the system clipboard. Starter
+questions fill the field without submitting. Labels display plain text and
+streaming updates are coalesced at 100ms intervals. Scrolling follows while
+within 64pt of the end, otherwise Jump to latest restores following.
+
+The initial page permits the existing client's cached lookup results; it does
+not claim live authentication or fresh readings. A visible note says lookups
+may be cached and asks readers to check readings and their age in LibreNMS.
+No conversation data is written to disk or included in diagnostics. Saved-chat
+sheets, Spotlight, formatted tables and source links, and answer reporting
+remain under #229, #231, #228 and #574. Device acceptance for #227 and #573
+remains open: test long streaming answers, Stop and suspension, both entry
+routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
+keyboard clearance and following while reading older text. No installed-device
+result is inferred from shared tests or platform CI builds.
 
 ### Compact network lookups (#572)
 

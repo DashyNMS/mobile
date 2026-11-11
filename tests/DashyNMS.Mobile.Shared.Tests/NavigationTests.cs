@@ -111,7 +111,7 @@ public sealed class NavigationTests
         var vm = new MoreViewModel(_pins, new RecordingNavigation(), Substitute.For<IDialogService>());
 
         Assert.Equal(["Monitor", "Network", "Logs", "App"], vm.Groups.Select(g => g.Name));
-        Assert.Equal(AppPages.All.Count, vm.Groups.Sum(g => g.Items.Count));
+        Assert.Equal(AppPages.All.Count - 1, vm.Groups.Sum(g => g.Items.Count));
         Assert.Equal("3 of 3 pinned", vm.PinnedText);
 
         var map = vm.Groups[1].Items[0];

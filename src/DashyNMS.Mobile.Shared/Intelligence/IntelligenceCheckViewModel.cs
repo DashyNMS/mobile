@@ -95,7 +95,8 @@ public sealed partial class IntelligenceCheckViewModel : ObservableObject
         ? "Turn on Intelligence in Settings to run this check."
         : Describe(_model.Availability);
 
-    internal static string Describe(IntelligenceAvailability availability) => availability switch
+    /// <summary>Plain availability guidance shared by the diagnostic and chat pages.</summary>
+    public static string Describe(IntelligenceAvailability availability) => availability switch
     {
         IntelligenceAvailability.Available => "The on-device model is ready.",
         IntelligenceAvailability.DeviceNotEligible => "This device doesn't support Apple Intelligence.",

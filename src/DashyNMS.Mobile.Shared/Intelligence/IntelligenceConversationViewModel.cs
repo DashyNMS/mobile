@@ -56,9 +56,13 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     public string Notice { get => _notice; private set => SetProperty(ref _notice, value); }
     public ObservableCollection<IntelligenceTurn> Turns { get; } = [];
     public bool IsRunning => Volatile.Read(ref _active) is not null;
+    /// <summary>False immediately at a connection transition, before queued UI cleanup runs.</summary>
+    public bool IsTranscriptCurrent => _chatGeneration == Volatile.Read(ref _networkGeneration);
+    public long ChatRevision { get; private set; }
+    public bool OwnsTurn(IntelligenceTurn turn) => IsTranscriptCurrent && Turns.Contains(turn);
     public bool CanAsk => !_disposed && !IsRunning && _preferences.Enabled
         && _model.Availability == IntelligenceAvailability.Available && _session.Connection is not null
-        && (Turns.Count == 0 || _chatGeneration == Volatile.Read(ref _networkGeneration));
+        && IsTranscriptCurrent;
     public IReadOnlyList<string> StarterQuestions { get; } =
         ["How is the network doing?", "Which open alerts need attention?", "Which devices are down?"];
 
@@ -96,11 +100,19 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     private void ConnectionChanged(object? sender, EventArgs e)
     {
         // A -> B -> A must not revive a run authorised for the earlier connection.
-        Interlocked.Increment(ref _networkGeneration);
+        var generation = Interlocked.Increment(ref _networkGeneration);
         Interrupt();
         OnUi(() =>
         {
-            if (Turns.Count > 0 && _chatGeneration != Volatile.Read(ref _networkGeneration)) Notice = "The connection changed. Start a new chat before asking about this network.";
+            if (generation != Volatile.Read(ref _networkGeneration)) return;
+            // Retention across page departure is useful, but another authenticated
+            // connection must never inherit the previous connection's network data.
+            Turns.Clear();
+            _chatGeneration = generation;
+            ChatRevision++;
+            OnPropertyChanged(nameof(ChatRevision));
+            Notice = _session.Connection is null ? "Signed out. The previous chat was cleared."
+                : "The connection changed. The previous chat was cleared.";
         });
         Notify();
     }
@@ -127,6 +139,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     {
         OnPropertyChanged(nameof(IsRunning));
         OnPropertyChanged(nameof(CanAsk));
+        OnPropertyChanged(nameof(IsTranscriptCurrent));
     });
 
     private void Post(Run run, int attempt, Action action) => OnUi(() =>
@@ -158,14 +171,13 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             Notice = !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
                 : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
                 : _session.Connection is null ? "Sign in to LibreNMS to ask about the network."
-                : Turns.Count > 0 && _chatGeneration != Volatile.Read(ref _networkGeneration) ? "The connection changed. Start a new chat." : "Enter a question.";
+                : !IsTranscriptCurrent ? "The connection changed. Wait for the previous chat to clear." : "Enter a question.";
             return false;
         }
         var connection = _session.Connection;
         if (connection is null) return false;
         var generation = Volatile.Read(ref _networkGeneration);
-        if (Turns.Count > 0 && _chatGeneration != generation) { Notice = "The connection changed. Start a new chat."; return false; }
-        if (Turns.Count == 0) _chatGeneration = generation;
+        if (_chatGeneration != generation) { Notice = "The connection changed. Wait for the previous chat to clear."; return false; }
         var chosenDetail = IntelligenceDetail.Normalize(detail ?? _preferences.Detail);
         if (chosenDetail == IntelligenceDetail.Full) chosenDetail = IntelligenceDetail.Detailed;
         var turn = new IntelligenceTurn(question, chosenDetail);
@@ -330,14 +342,15 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         + "Use at most two lookups. Say when data is missing. "
         + (detail == "brief" ? "Be brief, about 150 tokens." : detail == "detailed" ? "Give detail, at most 400 tokens." : "Use about 300 tokens.");
 
-    public Task<bool> RetryAsync(IntelligenceTurn turn) => AskAsync(turn.Question, turn.Detail);
-    public string EditQuestion(IntelligenceTurn turn) => turn.Question;
+    public Task<bool> RetryAsync(IntelligenceTurn turn) => OwnsTurn(turn) ? AskAsync(turn.Question, turn.Detail) : Task.FromResult(false);
+    public string EditQuestion(IntelligenceTurn turn) => OwnsTurn(turn) ? turn.Question : "";
     public bool NewChat()
     {
-        if (IsRunning) return false;
+        if (IsRunning || !IsTranscriptCurrent) return false;
         Turns.Clear();
-        _chatGeneration = Volatile.Read(ref _networkGeneration);
         Notice = "";
+        ChatRevision++;
+        OnPropertyChanged(nameof(ChatRevision));
         Notify();
         return true;
     }
