@@ -87,6 +87,8 @@ internal static class TabBarButtons
 
     private static object? _owner;
     private static WeakReference<Page>? _presentationPage;
+    // The native parent can be a modal, so remember whose pill placed it.
+    private static WeakReference<UITabBarController>? _hostTabs;
     private static string? _reported;
 
     /// <summary>The pill last found, looked at again first rather than searching the window.</summary>
@@ -171,8 +173,10 @@ internal static class TabBarButtons
     /// </remarks>
     public static void Relayout(UITabBarController tabs)
     {
-        if (_host is null || _owner is null || tabs.View is not { Window: not null } root)
+        if (_host is null || _owner is null) return;
+        if (tabs.View is not { Window: not null } root)
         {
+            UnplaceFor(tabs);
             return;
         }
 
@@ -186,10 +190,9 @@ internal static class TabBarButtons
         NSRunLoop.Main.BeginInvokeOnMainThread(() =>
         {
             _placeQueued = false;
-            if (_owner is not null && tabs.View is { Window: not null } later)
-            {
-                Place(tabs, later);
-            }
+            if (_owner is null) return;
+            if (tabs.View is { Window: not null } later) Place(tabs, later);
+            else UnplaceFor(tabs);
         });
     }
 
@@ -283,14 +286,10 @@ internal static class TabBarButtons
 
     private static void Place(UITabBarController tabs, UIView root)
     {
-        // A controller with no tab bar showing leaves the buttons where they are.
+        // Only clear controls placed using this controller, including modal hosts.
         if (tabs.TabBar is not { Hidden: false, Window: not null } tabBar)
         {
-            if (_host is { } shown && ReferenceEquals(shown.Superview, root))
-            {
-                Unplace(shown);
-            }
-
+            UnplaceFor(tabs);
             return;
         }
 
@@ -312,6 +311,7 @@ internal static class TabBarButtons
             root = modal;
         }
         var host = _host!;
+        _hostTabs = new(tabs);
         if (!ReferenceEquals(host.Superview, root))
         {
             host.RemoveFromSuperview();
@@ -436,6 +436,13 @@ internal static class TabBarButtons
         {
             Moved?.Invoke(null, EventArgs.Empty);
         }
+    }
+
+    private static void UnplaceFor(UITabBarController tabs)
+    {
+        if (_host is { } host && _hostTabs is { } source && source.TryGetTarget(out var placedBy)
+            && ReferenceEquals(placedBy, tabs))
+            Unplace(host);
     }
 
     private static OccupiedArea Area(CGRect r) => new(r.Left, r.Top, r.Right, r.Bottom);
