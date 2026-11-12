@@ -1,3 +1,4 @@
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
@@ -40,21 +41,24 @@ namespace DashyNMS.Mobile.Intelligence;
 /// </remarks>
 internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
 {
-    private readonly LibreNmsConnection connection;
-    private readonly Func<LibreNmsConnection, ILibreNmsTransport> openTransport;
+    private readonly SessionScope scope;
+    private readonly Func<SessionScope, ILibreNmsTransport> openTransport;
     private readonly ListOnly devices;
     private readonly Lock gate = new();
     private ILibreNmsTransport? transport;
     private bool retired;
 
-    /// <param name="connection">The captured connection; every request goes to exactly this object's address and backup, with its token.</param>
+    /// <param name="scope">
+    /// The captured connection and its session generation; every request goes to exactly this
+    /// connection's address and backup, with its token.
+    /// </param>
     /// <param name="openTransport">
     /// Opens a transport for one connection, owned by this client from then on;
     /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
     /// </param>
-    public ConnectionBoundDeviceList(LibreNmsConnection connection, Func<LibreNmsConnection, ILibreNmsTransport> openTransport)
+    public ConnectionBoundDeviceList(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport)
     {
-        this.connection = connection;
+        this.scope = scope;
         this.openTransport = openTransport;
         devices = new ListOnly(this);
     }
@@ -66,7 +70,7 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
     internal sealed class RefusedException(string member) : NotSupportedException(member + " is not available to Intelligence device search.");
 
     /// <summary>The connection the transport was opened for; for tests and diagnostics only.</summary>
-    internal LibreNmsConnection BoundConnection => connection;
+    internal LibreNmsConnection BoundConnection => scope.Connection;
 
     /// <summary>Whether a transport has been opened; for tests.</summary>
     internal bool IsOpen
@@ -97,13 +101,13 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         lock (gate)
         {
             if (retired) throw new RetiredException();
-            open = transport ??= openTransport(connection);
+            open = transport ??= openTransport(scope);
         }
 
         // Defence in depth: the transport must be the captured connection's, never a shared
         // one. Its connection object may be a newer copy (a timeout or a trusted certificate
         // applied since), but never another server, backup or token.
-        if (open.Connection is { } dialling && !SameServer(dialling, connection))
+        if (open.Connection is { } dialling && !SameServer(dialling, scope.Connection))
             throw new RetiredException();
         var list = await new LibreNmsResourceApis(open).Devices.ListAsync(cancellationToken).ConfigureAwait(false);
         var byId = new Dictionary<int, Device>(list.Count);
@@ -113,8 +117,7 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
     }
 
     /// <summary>Whether two connections reach the same server, by the same backup, with the same token.</summary>
-    internal static bool SameServer(LibreNmsConnection a, LibreNmsConnection b) =>
-        a.WebRoot == b.WebRoot && a.BackupWebRoot == b.BackupWebRoot && string.Equals(a.ApiToken, b.ApiToken, StringComparison.Ordinal);
+    internal static bool SameServer(LibreNmsConnection a, LibreNmsConnection b) => SessionScope.SameServer(a, b);
 
     /// <summary>Retires the client and closes its transport. Safe to call more than once.</summary>
     public void Dispose()

@@ -18,6 +18,15 @@ public interface ISessionService : DesktopNMS.Core.Services.IConnectionState
 
     LibreNmsConnection? Connection { get; }
 
+    /// <summary>
+    /// Moves on every sign-in, reconnect, restore and sign-out, before the client switches;
+    /// never on a trusted certificate, a timeout change or failover, which keep the
+    /// connection. Something bound to one connection (an Intelligence chat, #596) compares
+    /// this rather than <see cref="Connection"/>'s reference, which Core replaces on each of
+    /// those (see <see cref="DashyNMS.Mobile.Services.SessionScope"/>).
+    /// </summary>
+    long ConnectionGeneration { get; }
+
     /// <summary>Version details of the connected instance, populated on sign-in.</summary>
     SystemInfo? ServerInfo { get; }
 
@@ -43,6 +52,24 @@ public interface ISessionService : DesktopNMS.Core.Services.IConnectionState
     /// <summary>Remembers that the user accepted this LibreNMS certificate, so the next sign-in accepts it (#189).</summary>
     void TrustCertificate(DesktopNMS.Core.Security.CertificateDetails certificate);
 
+    /// <summary>
+    /// As <see cref="TrustCertificate(DesktopNMS.Core.Security.CertificateDetails)"/>, only while
+    /// the session is still on <paramref name="generation"/>, checked and trusted in one step
+    /// with sign-in and sign-out. The certificate prompt passes the generation its rejection
+    /// came from, so a certificate met on one server is never trusted after a switch to another.
+    /// False when the session moved on and nothing was trusted.
+    /// </summary>
+    bool TrustCertificate(DesktopNMS.Core.Security.CertificateDetails certificate, long generation);
+
+    /// <summary>
+    /// Moves the session to its backup address because something bound to
+    /// <paramref name="generation"/> couldn't reach the server - Intelligence's device search,
+    /// whose transport is its own (#596). Failover stays the session's: the whole app moves
+    /// together, as when the session's own requests fail over, and a chat for an earlier
+    /// connection can't move a later one. True when the session is on its backup afterwards.
+    /// </summary>
+    bool SwitchToBackup(long generation);
+
 
     /// <summary>
     /// Attempts to sign in with the saved address and token. Returns false when
@@ -62,6 +89,13 @@ public sealed class SessionService : ISessionService
     private readonly ILogger<SessionService> _logger;
 
     private readonly DashyNMS.Mobile.Services.LastKnownData? _lastKnown;
+
+    /// <summary>
+    /// Held while the connection switches and while a generation-bound trust or backup switch
+    /// runs, so neither can land on the connection after the one it was checked against.
+    /// </summary>
+    private readonly object _switching = new();
+    private long _generation;
 
     public SessionService(
         ILibreNmsClient client,
@@ -90,6 +124,8 @@ public sealed class SessionService : ISessionService
     public bool IsConnected => _client.IsConnected;
 
     public LibreNmsConnection? Connection => _client.Connection;
+
+    public long ConnectionGeneration => Interlocked.Read(ref _generation);
 
     public SystemInfo? ServerInfo { get; private set; }
 
@@ -143,7 +179,7 @@ public sealed class SessionService : ISessionService
             return result;
         }
 
-        _client.Connect(connection, result.UsedBackupAddress);
+        Switch(() => _client.Connect(connection, result.UsedBackupAddress));
         ServerInfo = result.SystemInfo;
 
         settings.ServerUrl = webRoot!.ToString();
@@ -196,6 +232,63 @@ public sealed class SessionService : ISessionService
         _logger.LogInformation("Trusted the certificate {Fingerprint} for {Host}", certificate.Fingerprint, certificate.Host);
     }
 
+    public bool TrustCertificate(DesktopNMS.Core.Security.CertificateDetails certificate, long generation)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+        lock (_switching)
+        {
+            if (generation != _generation || !_client.IsConnected)
+            {
+                return false;
+            }
+
+            TrustCertificate(certificate);
+            return true;
+        }
+    }
+
+    public bool SwitchToBackup(long generation)
+    {
+        lock (_switching)
+        {
+            if (generation != _generation || !_client.IsConnected)
+            {
+                return false;
+            }
+
+            var failover = _client.Failover;
+            if (failover.IsOnBackup)
+            {
+                return true;
+            }
+
+            if (failover.BackupAddress is not { } backup)
+            {
+                return false;
+            }
+
+            // The session's own backup address, never the caller's: what moves is the
+            // session's failover, and its transport rebuilds the client for it (Changed).
+            failover.Configure(backup, startOnBackup: true);
+            _logger.LogWarning("Moved to the backup address: an Intelligence lookup couldn't reach the server");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Moves the generation, then switches the client, in one step with generation-bound
+    /// trust and backup switches. The generation moves first, so anything that sees the new
+    /// connection also sees that its own generation is out of date.
+    /// </summary>
+    private void Switch(Action change)
+    {
+        lock (_switching)
+        {
+            Interlocked.Increment(ref _generation);
+            change();
+        }
+    }
+
     public Task<ConnectionTestResult> ReconnectAsync(string serverUrl, string? newApiToken, bool allowUntrustedCertificate, string? backupAddress, CancellationToken cancellationToken = default)
     {
         return SignInAsync(serverUrl, newApiToken ?? string.Empty, allowUntrustedCertificate, _settings.Current.RememberToken, cancellationToken, backupAddress);
@@ -235,7 +328,7 @@ public sealed class SessionService : ISessionService
 
         if (result.Succeeded)
         {
-            _client.Connect(connection, result.UsedBackupAddress);
+            Switch(() => _client.Connect(connection, result.UsedBackupAddress));
             ServerInfo = result.SystemInfo;
             _logger.LogInformation("Restored the saved session for {Host}{Backup}", webRoot, result.UsedBackupAddress ? " through its backup address" : string.Empty);
             StateChanged?.Invoke(this, EventArgs.Empty);
@@ -256,7 +349,7 @@ public sealed class SessionService : ISessionService
                 // Out of reach - no signal, the VPN down - with a copy saved (#130):
                 // open on it rather than the sign-in form. Everything is fetched
                 // again, and used, as soon as the server answers.
-                _client.Connect(connection, false);
+                Switch(() => _client.Connect(connection, false));
                 _logger.LogInformation("Opened offline on the saved lists for {Host}", webRoot);
                 StateChanged?.Invoke(this, EventArgs.Empty);
                 return ConnectionTestResult.Success(new SystemInfo());
@@ -268,7 +361,7 @@ public sealed class SessionService : ISessionService
 
     public void SignOut(bool forgetToken)
     {
-        _client.Disconnect();
+        Switch(_client.Disconnect);
         ServerInfo = null;
 
         // Nothing of this server's left on the phone (#130).

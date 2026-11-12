@@ -47,9 +47,19 @@ The host keeps that transport in step with the session without changing its
 server: the current request timeout and saved trusted certificates when it opens
 and whenever settings change, the session's address (main or backup) at open and
 whenever the session fails over or is switched back, and the session's request
-timing. A certificate it refuses goes to the same `CertificatePrompt` as the
-session's, and accepting it trusts it on live chat transports straight away. Each
-chat transport has its own `ServerFailover`, so it never resets the session's.
+timing. Failover is the session's: when a chat transport can't reach the server
+it asks the session to move (`ISessionService.SwitchToBackup`), so the whole app
+moves together, and a chat for an earlier connection can't move a later one.
+Each chat transport still has its own `ServerFailover`, because Core's
+`Configure` resets the one it is given. A certificate it refuses goes to the
+same `CertificatePrompt` as the session's, tagged with the session generation
+the transport was opened for. A refusal from an earlier connection isn't asked
+about, and accepting a prompt after a switch trusts nothing; otherwise the
+certificate is trusted on that connection's chat transports straight away.
+Chats and lookups are bound by `SessionScope` (the session's connection
+generation plus server, backup and token), not the connection object, which
+Core replaces whenever a certificate is trusted or the timeout changes; those
+keep the chat, while sign-in, a switch or sign-out ends it.
 Of `IDevicesApi` only `ListAsync` is allowed; the other device endpoints, every
 other API and all session controls throw before transport. Each model attempt
 opens its lookups as an owned `IntelligenceLookupSet` and disposes it however
@@ -58,7 +68,8 @@ transport. A switch or sign-out during a search does the same at once, which
 cancels the wait and refuses later calls, cached ones included. Late replies and
 their evidence are discarded and the lookup says the connection changed. Tests
 over loopback HTTP and TLS cover the switch-before-send case, the certificate
-prompt and live trust, timeout changes, failover and isolation. Without a
+prompt and live trust, timeout changes, failover in both directions, stale
+certificate prompts and isolation. Without a
 transport factory, `find_device` fails closed rather than use the shared client.
 
 **Cancellation, deadline, failures.** Caller cancellation propagates. Mobile's
@@ -82,13 +93,18 @@ summary itself is #604.
 response (documentation addresses, `example.net`) and its expectations: ranked
 ids and totals per query, the only endpoints a text search reads, status words
 and reported states, and the failure category for each HTTP status. The files
-are byte-identical to DashyNMS/mcp's (DashyNMS/mcp#115), where the MCP
-`find_device` tool and `HostDeviceSearch` run against them;
-`scripts/check-search-fixture.sh` fails CI if mobile's copies differ from the
+are byte-identical to DashyNMS/mcp's, merged in DashyNMS/mcp#115 (`9051820`),
+where the MCP `find_device` tool and `HostDeviceSearch` run against them;
+`scripts/check-search-fixture.sh` fails CI if mobile's copies differ from that
 pinned commit. Mobile tests serve the raw response through Core's real device
 API to both the package's executor and mobile `find_device` and require the same
-ids, order, totals, requests and failure categories. A fixture package (#606)
-would replace the copy.
+ids, order, totals, requests and failure categories. Failure categories are the
+host's contract; the MCP tool words each failure its own way, so the shared
+claim there is only that both fail without data. The fixture covers an
+unscoped text search with HTTP-status failures on the device list; scopes, MAC
+search, paging, timeouts, malformed responses, cancellation and faults are not
+compared across adapters by it (see the fixture README). A fixture package
+(#606) would replace the copy.
 
 **CI proof added.** The Android Release build fails on any trim, AOT or NuGet
 warning naming the package and reports the APK size and effective trimming/AOT

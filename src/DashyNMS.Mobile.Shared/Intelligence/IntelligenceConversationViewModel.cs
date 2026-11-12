@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Intelligence;
 using DesktopNMS.Services;
@@ -156,10 +157,15 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         && StarterQuestions.Contains(question) && CanAsk
             ? AskAsync(question) : Task.FromResult(false);
 
-    private sealed class Run(IntelligenceTurn turn, LibreNmsConnection connection, long generation)
+    private sealed class Run(IntelligenceTurn turn, SessionScope scope, long generation)
     {
         public IntelligenceTurn Turn { get; } = turn;
-        public LibreNmsConnection Connection { get; } = connection;
+
+        /// <summary>
+        /// The connection the run was authorised for, by session generation: a certificate
+        /// trusted or a timeout changed mid-answer keeps it, a sign-in or sign-out ends it.
+        /// </summary>
+        public SessionScope Scope { get; } = scope;
         public long Generation { get; } = generation;
         public CancellationTokenSource Stop { get; } = new();
         public int Ending = (int)IntelligenceTurnState.Stopped;
@@ -247,7 +253,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     private void RequireCurrent(Run run)
     {
         if (!_preferences.Enabled || run.Generation != Volatile.Read(ref _networkGeneration)
-            || !ReferenceEquals(run.Connection, _session.Connection))
+            || !run.Scope.IsCurrent(_session))
         {
             run.Ending = (int)IntelligenceTurnState.Interrupted;
             run.Stop.Cancel();
@@ -270,8 +276,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 : !IsTranscriptCurrent ? "The connection changed. Wait for the previous chat to clear." : "Enter a question.";
             return false;
         }
-        var connection = _session.Connection;
-        if (connection is null) return false;
+        if (SessionScope.Capture(_session) is not { } scope) return false;
         var generation = Volatile.Read(ref _networkGeneration);
         if (_chatGeneration != generation) { Notice = "The connection changed. Wait for the previous chat to clear."; return false; }
         var chosenDetail = NormaliseDetail(detail ?? SelectedDetail);
@@ -279,7 +284,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         // Earlier answers in this chat (the same connection) may mention objects
         // their lookups returned; the history the model sees can repeat those markers.
         turn.AddEvidence(Turns.SelectMany(t => t.Evidence));
-        var run = new Run(turn, connection, generation);
+        var run = new Run(turn, scope, generation);
         if (Interlocked.CompareExchange(ref _active, run, null) is not null) { run.Stop.Dispose(); return false; }
         Turns.Add(turn);
         Notice = "";

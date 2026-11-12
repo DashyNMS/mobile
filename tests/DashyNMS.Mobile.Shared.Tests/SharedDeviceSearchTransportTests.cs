@@ -37,12 +37,13 @@ public sealed partial class SharedDeviceSearchTests
         using var tls = new TlsLoopbackLibreNms();
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var settings = LiveSettings(new AppSettings());
-        using var transports = new IntelligenceDeviceTransports(shared, settings);
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
 
         var client = Substitute.For<ILibreNmsClient>();
         client.Failover.Returns(new ServerFailover());
         var session = Substitute.For<ISessionService>();
         session.IsConnected.Returns(true);
+        session.TrustCertificate(default!, default).ReturnsForAnyArgs(true);
         // The answer waits until the first request has failed: Core retries a refused
         // handshake, and the prompt ignores repeats while it is open, as on a phone.
         var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -53,7 +54,7 @@ public sealed partial class SharedDeviceSearchTests
         prompt.Trusted += (_, _) => trusted.TrySetResult();
         prompt.Start();
 
-        using var transport = transports.Open(new LibreNmsConnection(tls.Root, "test-token", allowUntrustedCertificate: true));
+        using var transport = transports.Open(new SessionScope(0, new LibreNmsConnection(tls.Root, "test-token", allowUntrustedCertificate: true)));
         var refused = await Assert.ThrowsAsync<LibreNmsApiException>(() => ListThrough(transport));
         Assert.Equal(tls.Fingerprint, refused.UntrustedCertificate?.Fingerprint, StringComparer.OrdinalIgnoreCase);
         Assert.Equal(0, tls.Served);
@@ -63,7 +64,7 @@ public sealed partial class SharedDeviceSearchTests
         // certificate on the session and on this live transport, with no reconnect.
         await trusted.Task.WaitAsync(TimeSpan.FromSeconds(10));
         await dialogs.ReceivedWithAnyArgs(1).ConfirmAsync(default!, default!, default!, default!);
-        session.Received(1).TrustCertificate(Arg.Is<CertificateDetails>(c => CertificateTrust.SameFingerprint(c.Fingerprint, tls.Fingerprint)));
+        session.Received(1).TrustCertificate(Arg.Is<CertificateDetails>(c => CertificateTrust.SameFingerprint(c.Fingerprint, tls.Fingerprint)), 0);
         var devices = await ListThrough(transport);
         Assert.Equal("tls.example.net", Assert.Single(devices).Hostname);
         Assert.Equal(tls.Root, transport.Connection!.WebRoot);
@@ -77,10 +78,10 @@ public sealed partial class SharedDeviceSearchTests
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var current = new AppSettings();
         var settings = LiveSettings(current);
-        using var transports = new IntelligenceDeviceTransports(shared, settings);
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
         var connection = new LibreNmsConnection(tls.Root, "test-token", allowUntrustedCertificate: true);
 
-        using var live = transports.Open(connection);
+        using var live = transports.Open(new SessionScope(0, connection));
         await Assert.ThrowsAsync<LibreNmsApiException>(() => ListThrough(live));
 
         // Trusted elsewhere (desktop's shared settings, or the session's prompt): saved, then live.
@@ -90,7 +91,7 @@ public sealed partial class SharedDeviceSearchTests
 
         // A transport opened afterwards starts with it, though the captured connection never had it.
         Assert.Empty(connection.TrustedCertificates);
-        using var later = transports.Open(connection);
+        using var later = transports.Open(new SessionScope(0, connection));
         Assert.Single(await ListThrough(later));
     }
 
@@ -100,17 +101,17 @@ public sealed partial class SharedDeviceSearchTests
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var current = new AppSettings { TimeoutSeconds = 12 };
         var settings = LiveSettings(current);
-        using var transports = new IntelligenceDeviceTransports(shared, settings);
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token", timeoutSeconds: 30,
             backupWebRoot: new Uri("https://nms-backup.example.net/"));
 
-        using var transport = transports.Open(connection);
+        using var transport = transports.Open(new SessionScope(0, connection));
         Assert.Equal(12, transport.Connection!.TimeoutSeconds);
 
         current.TimeoutSeconds = 45;
         RaiseChanged(settings);
         Assert.Equal(45, transport.Connection!.TimeoutSeconds);
-        Assert.True(ConnectionBoundDeviceList.SameServer(connection, transport.Connection!));
+        Assert.True(SessionScope.SameServer(connection, transport.Connection!));
 
         // The captured connection itself is never altered.
         Assert.Equal(30, connection.TimeoutSeconds);
@@ -125,9 +126,9 @@ public sealed partial class SharedDeviceSearchTests
         var failover = new ServerFailover();
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance, failover);
         shared.Configure(connection, startOnBackup: true);
-        using var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()));
+        using var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Substitute.For<ISessionService>());
 
-        using var transport = transports.Open(connection);
+        using var transport = transports.Open(new SessionScope(0, connection));
         Assert.Equal("backup.example.net", Assert.Single(await ListThrough(transport)).Hostname);
         // Opening a chat's transport never resets the session's own failover state.
         Assert.True(failover.IsOnBackup);
@@ -152,10 +153,10 @@ public sealed partial class SharedDeviceSearchTests
         using var a = new LoopbackLibreNms("a.example.net");
         using var b = new LoopbackLibreNms("b.example.net");
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
-        var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()));
+        var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Substitute.For<ISessionService>());
 
-        var first = transports.Open(new LibreNmsConnection(a.Root, "token-a"));
-        var second = transports.Open(new LibreNmsConnection(b.Root, "token-b"));
+        var first = transports.Open(new SessionScope(0, new LibreNmsConnection(a.Root, "token-a")));
+        var second = transports.Open(new SessionScope(0, new LibreNmsConnection(b.Root, "token-b")));
         Assert.Equal(2, transports.LiveCount);
         Assert.Equal("a.example.net", Assert.Single(await ListThrough(first)).Hostname);
         Assert.Equal("b.example.net", Assert.Single(await ListThrough(second)).Hostname);
@@ -170,7 +171,7 @@ public sealed partial class SharedDeviceSearchTests
         transports.Dispose();
         Assert.Equal(0, transports.LiveCount);
         await Assert.ThrowsAnyAsync<Exception>(() => ListThrough(second));
-        Assert.Throws<ObjectDisposedException>(() => transports.Open(new LibreNmsConnection(a.Root, "token-a")));
+        Assert.Throws<ObjectDisposedException>(() => transports.Open(new SessionScope(0, new LibreNmsConnection(a.Root, "token-a"))));
 
         Assert.Equal(new[] { ("/api/v0/devices", "token-a") }, a.Requests);
         Assert.Equal(new[] { ("/api/v0/devices", "token-b"), ("/api/v0/devices", "token-b") }, b.Requests);

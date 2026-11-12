@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using DashyNMS.Agent;
 using DashyNMS.Agent.Devices;
 using DashyNMS.Mobile.Intelligence;
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Json;
@@ -85,7 +86,7 @@ public sealed partial class SharedDeviceSearchTests
         public HttpStatusCode? Failure { get; } = failure;
 
         /// <summary>A transport for one connection, as find_device opens one.</summary>
-        public Func<LibreNmsConnection, ILibreNmsTransport> Open => connection => new Transport(this, connection);
+        public Func<SessionScope, ILibreNmsTransport> Open => scope => new Transport(this, scope.Connection);
 
         /// <summary>The package's own executor wired as DashyNMS/mcp's tests wire it: Core's resource APIs over this transport.</summary>
         public ILibreNmsClient Client()
@@ -327,9 +328,9 @@ public sealed partial class SharedDeviceSearchTests
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token");
         var opened = new List<LibreNmsConnection>();
         var nms = new FixtureLibreNms();
-        var bound = new ConnectionBoundDeviceList(connection, c =>
+        var bound = new ConnectionBoundDeviceList(new SessionScope(0, connection), c =>
         {
-            opened.Add(c);
+            opened.Add(c.Connection);
             return nms.Open(c);
         });
 
@@ -414,9 +415,9 @@ public sealed partial class SharedDeviceSearchTests
         var serverB = new LibreNmsConnection(b.Root, "token-b");
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         using var client = new LibreNmsClient(shared, NullLogger<LibreNmsClient>.Instance);
-        using var transports = new IntelligenceDeviceTransports(shared, Fakes.Settings());
         client.Connect(serverA);
         var session = Session(serverA);
+        using var transports = new IntelligenceDeviceTransports(shared, Fakes.Settings(), session);
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: transports.Open)
             .Create().Single(l => l.Name == "find_device");
 

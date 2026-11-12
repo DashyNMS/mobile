@@ -78,8 +78,8 @@ internal static class Fakes
     /// its device-list request is answered by the fake client's <c>Devices.ListAsync</c>, so
     /// stubs and received-call checks on the fake keep working. Anything else fails the test.
     /// </summary>
-    public static Func<LibreNmsConnection, ILibreNmsTransport> DeviceTransport(ILibreNmsClient client) =>
-        connection => new ClientDeviceTransport(client, connection);
+    public static Func<DashyNMS.Mobile.Services.SessionScope, ILibreNmsTransport> DeviceTransport(ILibreNmsClient client) =>
+        scope => new ClientDeviceTransport(client, scope.Connection);
 
     private sealed class ClientDeviceTransport(ILibreNmsClient client, LibreNmsConnection connection) : ILibreNmsTransport
     {

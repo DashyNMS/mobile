@@ -24,6 +24,15 @@ namespace DashyNMS.Mobile.Security;
 /// chat's connection (#596). Their refusals are asked about here too, and an accepted
 /// certificate is trusted on them as well as on the session's.
 /// </para>
+/// <para>
+/// Each refusal is bound to the session generation it came from: the chat transport's
+/// own, or the session's when the client raised it. One from an earlier connection (a
+/// chat's late request after a switch) isn't asked about, and a prompt still open when
+/// the session signs in elsewhere or out trusts nothing when accepted: the check and the
+/// trust are one step with the switch (<see cref="ISessionService.TrustCertificate(CertificateDetails, long)"/>).
+/// So a certificate met on one server is never trusted for another, nor saved to the
+/// shared trusted list on its behalf.
+/// </para>
 /// </remarks>
 public sealed class CertificatePrompt
 {
@@ -56,21 +65,32 @@ public sealed class CertificatePrompt
         }
 
         _started = true;
-        _client.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
+        // The session's generation as the refusal arrives: Core raises it on the thread whose
+        // request failed, while that request's connection is still the session's.
+        _client.CertificateRejected += (_, certificate) =>
+            _ = AskAsync(certificate, _session.ConnectionGeneration, _client.Failover.IsOnBackup);
         if (_chatTransports is not null)
         {
-            _chatTransports.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
+            _chatTransports.CertificateRejected += (_, rejection) =>
+                _ = AskAsync(rejection.Certificate, rejection.Generation, rejection.OnBackup);
         }
     }
 
+    /// <summary>As <see cref="AskAsync(CertificateDetails, long, bool)"/>, for the connection in use now.</summary>
+    internal Task<bool> AskAsync(CertificateDetails certificate) =>
+        AskAsync(certificate, _session.ConnectionGeneration, _client.Failover.IsOnBackup);
+
     /// <summary>
     /// Asks whether to trust <paramref name="certificate"/> - unless signed
-    /// out (sign-in asks for itself), already asking, or it's been declined.
+    /// out (sign-in asks for itself), the session has moved on from
+    /// <paramref name="generation"/>, already asking, or it's been declined.
     /// True when it was trusted.
     /// </summary>
-    internal async Task<bool> AskAsync(CertificateDetails certificate)
+    /// <param name="generation">The session generation the refusal came from.</param>
+    /// <param name="onBackup">Whether the refused request was dialling the backup address.</param>
+    internal async Task<bool> AskAsync(CertificateDetails certificate, long generation, bool onBackup)
     {
-        if (!_session.IsConnected)
+        if (!_session.IsConnected || generation != _session.ConnectionGeneration)
         {
             return false;
         }
@@ -90,20 +110,30 @@ public sealed class CertificatePrompt
 
         try
         {
-            var service = _client.Failover.IsOnBackup ? "LibreNMS (backup address)" : "LibreNMS";
+            var service = onBackup ? "LibreNMS (backup address)" : "LibreNMS";
             var (title, message) = CertificateTrust.DescribeForPrompt(certificate, service);
             if (!await _dialogs.ConfirmAsync(title, message, "Trust", "Cancel"))
             {
-                lock (_declined)
+                // A decline answers for this connection's certificate only; after a switch
+                // the same certificate on the next connection is still worth asking about.
+                if (generation == _session.ConnectionGeneration)
                 {
-                    _declined.Add(certificate.Fingerprint);
+                    lock (_declined)
+                    {
+                        _declined.Add(certificate.Fingerprint);
+                    }
                 }
 
                 return false;
             }
 
-            _session.TrustCertificate(certificate);
-            _chatTransports?.TrustCertificate(certificate.Fingerprint);
+            // Refused when the session signed in elsewhere or out while the prompt was open.
+            if (!_session.TrustCertificate(certificate, generation))
+            {
+                return false;
+            }
+
+            _chatTransports?.TrustCertificate(certificate.Fingerprint, generation);
             Trusted?.Invoke(this, EventArgs.Empty);
             return true;
         }

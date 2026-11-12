@@ -1,6 +1,8 @@
+using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
+using DesktopNMS.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DashyNMS.Mobile.Intelligence;
@@ -23,23 +25,31 @@ namespace DashyNMS.Mobile.Intelligence;
 /// opens, and again whenever settings change (Settings' timeout, a certificate trusted on
 /// desktop or the phone);</item>
 /// <item>starts on whichever address the session's transport is using, and follows the
-/// session when it fails over to the backup or is switched back by hand. A failover the
-/// chat's transport detects itself stays its own, so a chat can't move the whole app;</item>
-/// <item>raises <see cref="CertificateRejected"/> for a certificate it turns down, so
-/// <see cref="Security.CertificatePrompt"/> asks about it as it does for the session's
-/// requests, and <see cref="TrustCertificate"/> accepts it on every live transport at once.</item>
+/// session when it fails over to the backup or is switched back by hand;</item>
+/// <item>hands failover it detects itself to the session (<see cref="ISessionService.SwitchToBackup"/>),
+/// so the whole app moves to the backup together, as it does when the session's own
+/// requests can't reach the server. Only while the session is still on the connection the
+/// chat captured: a chat for an earlier connection can never move a later one;</item>
+/// <item>raises <see cref="CertificateRejected"/> for a certificate it turns down, with the
+/// session generation it was opened for, so <see cref="Security.CertificatePrompt"/> asks
+/// about it as it does for the session's requests and ignores one from an earlier
+/// connection. <see cref="TrustCertificate"/> accepts it on that generation's transports.</item>
 /// </list>
 /// <para>
 /// None of this can point a transport at another server or token: timeout, trust and
 /// address changes go through Core's own <see cref="LibreNmsTransport"/> calls, which keep
 /// the connection's web root, backup and token. Each transport has its own
-/// <see cref="ServerFailover"/>, so configuring one never resets the session's.
+/// <see cref="ServerFailover"/>, so configuring one never resets the session's. That is
+/// also why failover goes through the session rather than a shared object: Core's
+/// <see cref="LibreNmsTransport.Configure"/> resets the failover it is given, and the
+/// session moves its own failover with its own backup address, never the chat's.
 /// </para>
 /// </remarks>
 public sealed class IntelligenceDeviceTransports : IDisposable
 {
     private readonly LibreNmsTransport shared;
     private readonly ISettingsStore settings;
+    private readonly ISessionService session;
     private readonly HashSet<Lease> live = [];
     private readonly Lock gate = new();
     private bool disposed;
@@ -49,19 +59,23 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     /// used to send. Its <see cref="ServerFailover"/> is followed, not shared.
     /// </param>
     /// <param name="settings">The source of the current timeout and trusted certificates.</param>
-    public IntelligenceDeviceTransports(LibreNmsTransport shared, ISettingsStore settings)
+    /// <param name="session">Owns failover: a chat transport that can't reach the server asks it to move.</param>
+    public IntelligenceDeviceTransports(LibreNmsTransport shared, ISettingsStore settings, ISessionService session)
     {
         this.shared = shared;
         this.settings = settings;
+        this.session = session;
         settings.Changed += OnSettingsChanged;
         shared.Failover.Changed += OnSessionFailoverChanged;
     }
 
     /// <summary>
     /// A certificate a chat's request was refused on, raised on the thread that made the
-    /// request. The app asks about it as it does for the session's own requests.
+    /// request, with the session generation the chat's transport was opened for. The app
+    /// asks about it as it does for the session's own requests, unless the session has
+    /// moved on since.
     /// </summary>
-    public event EventHandler<CertificateDetails>? CertificateRejected;
+    public event EventHandler<IntelligenceCertificateRejection>? CertificateRejected;
 
     /// <summary>Transports open now; for tests and diagnostics.</summary>
     internal int LiveCount
@@ -70,15 +84,16 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     }
 
     /// <summary>
-    /// Opens a transport for <paramref name="connection"/> alone. The caller owns it and
-    /// must dispose it; disposing closes its connections and stops it following the session.
+    /// Opens a transport for <paramref name="scope"/>'s connection alone. The caller owns it
+    /// and must dispose it; disposing closes its connections and stops it following the session.
     /// </summary>
-    internal IOwnedTransport Open(LibreNmsConnection connection)
+    internal IOwnedTransport Open(SessionScope scope)
     {
+        var connection = scope.Connection;
         ArgumentNullException.ThrowIfNull(connection);
         var failover = new ServerFailover();
         var transport = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance, failover) { RequestObserver = shared.RequestObserver };
-        var lease = new Lease(this, connection, transport, failover);
+        var lease = new Lease(this, scope, transport, failover);
         bool closed;
         lock (gate)
         {
@@ -95,6 +110,8 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         {
             transport.CertificateRejected += lease.OnCertificateRejected;
             transport.Configure(Current(connection), startOnBackup: shared.Failover.IsOnBackup && connection.BackupWebRoot is not null);
+            // After Configure: starting on the backup is following the session, not news for it.
+            failover.Changed += lease.OnOwnFailoverChanged;
             return lease;
         }
         catch
@@ -105,14 +122,18 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     }
 
     /// <summary>
-    /// Accepts <paramref name="fingerprint"/> on every live chat transport straight away,
-    /// as <see cref="DesktopNMS.Services.ISessionService.TrustCertificate"/> does for the session's.
+    /// Accepts <paramref name="fingerprint"/> straight away on the live chat transports opened
+    /// for <paramref name="generation"/>, as <see cref="ISessionService.TrustCertificate(CertificateDetails, long)"/>
+    /// does for the session's. A transport for an earlier connection is left as it was.
     /// </summary>
-    public void TrustCertificate(string fingerprint)
+    public void TrustCertificate(string fingerprint, long generation)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fingerprint);
         foreach (var lease in Snapshot())
-            lease.Transport.TrustCertificate(fingerprint);
+        {
+            if (lease.Scope.Generation == generation)
+                lease.Transport.TrustCertificate(fingerprint);
+        }
     }
 
     /// <summary>The captured connection with the settings in force now: their timeout and every trusted certificate.</summary>
@@ -175,25 +196,43 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     internal interface IOwnedTransport : ILibreNmsTransport, IDisposable { }
 
     /// <summary>One chat's transport: sends through Core's, and closes it on disposal.</summary>
-    private sealed class Lease(IntelligenceDeviceTransports owner, LibreNmsConnection captured, LibreNmsTransport transport, ServerFailover failover)
+    private sealed class Lease(IntelligenceDeviceTransports owner, SessionScope scope, LibreNmsTransport transport, ServerFailover failover)
         : IOwnedTransport
     {
         private int closed;
+
+        public SessionScope Scope => scope;
 
         public LibreNmsTransport Transport => transport;
 
         public LibreNmsConnection? Connection => transport.Connection;
 
-        public void OnCertificateRejected(object? sender, CertificateDetails certificate) =>
-            owner.CertificateRejected?.Invoke(owner, certificate);
+        public void OnCertificateRejected(object? sender, CertificateDetails certificate)
+        {
+            if (Volatile.Read(ref closed) == 0)
+                owner.CertificateRejected?.Invoke(owner, new(certificate, scope.Generation, failover.IsOnBackup));
+        }
+
+        /// <summary>
+        /// This transport moved to the backup on its own: two requests in a row couldn't reach
+        /// the server. The session decides, for its generation only; it then moves the whole
+        /// app and every chat follows (<see cref="Follow"/>). Following the session lands here
+        /// too, already matching it, so that is not reported back.
+        /// </summary>
+        public void OnOwnFailoverChanged(object? sender, EventArgs e)
+        {
+            if (Volatile.Read(ref closed) != 0 || !failover.IsOnBackup || owner.shared.Failover.IsOnBackup)
+                return;
+            owner.session.SwitchToBackup(scope.Generation);
+        }
 
         /// <summary>Moves to the backup or back with the session; a no-op when already there.</summary>
         public void Follow(bool sessionOnBackup)
         {
-            if (Volatile.Read(ref closed) != 0 || captured.BackupWebRoot is null || failover.IsOnBackup == sessionOnBackup)
+            if (Volatile.Read(ref closed) != 0 || scope.Connection.BackupWebRoot is null || failover.IsOnBackup == sessionOnBackup)
                 return;
             if (sessionOnBackup)
-                failover.Configure(captured.BackupWebRoot.ToString(), startOnBackup: true);
+                failover.Configure(scope.Connection.BackupWebRoot.ToString(), startOnBackup: true);
             else
                 failover.FailBack();
         }
@@ -211,8 +250,15 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         {
             if (Interlocked.Exchange(ref closed, 1) != 0) return;
             owner.Release(this);
+            failover.Changed -= OnOwnFailoverChanged;
             transport.CertificateRejected -= OnCertificateRejected;
             transport.Dispose();
         }
     }
 }
+
+/// <summary>A certificate a chat's device search was refused on, and the connection it was refused for.</summary>
+/// <param name="Certificate">The certificate the server presented.</param>
+/// <param name="Generation">The <see cref="ISessionService.ConnectionGeneration"/> the chat's transport was opened for.</param>
+/// <param name="OnBackup">Whether that transport was dialling the backup address, for the prompt's wording.</param>
+public sealed record IntelligenceCertificateRejection(CertificateDetails Certificate, long Generation, bool OnBackup);

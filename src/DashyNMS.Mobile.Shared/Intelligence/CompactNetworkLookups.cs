@@ -60,7 +60,7 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// lookups remain mobile queries until their own shared operations exist.
 /// </remarks>
 /// <param name="deviceTransport">
-/// Opens a transport for one captured connection, for <c>find_device</c> alone (see
+/// Opens a transport for one captured connection and its session generation, for <c>find_device</c> alone (see
 /// <see cref="ConnectionBoundDeviceList"/>); the set owns and closes it. The app passes
 /// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
 /// <c>find_device</c> fails closed rather than falling back to the session's shared
@@ -68,7 +68,7 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// </param>
 public sealed partial class CompactNetworkLookups(
     ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
-    Func<LibreNmsConnection, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
+    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -110,19 +110,22 @@ public sealed partial class CompactNetworkLookups(
     /// <summary>Captures the connection so replies and their evidence cannot cross between networks.</summary>
     public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
     {
-        var connection = session.Connection;
+        // By session generation, not the connection's reference: trusting a certificate or
+        // changing the timeout gives the session a new connection object for the same server,
+        // and must not end a chat (see SessionScope). Sign-in, a switch or sign-out does.
+        var scope = SessionScope.Capture(session);
         var style = settings.Current.DeviceNameStyle;
         var time = timeProvider ?? TimeProvider.System;
-        bool IsCurrent() => connection is not null && ReferenceEquals(connection, session.Connection);
+        bool IsCurrent() => scope is { } captured && captured.IsCurrent(session);
 
         // One shared search, with its own caches and its own transport, per lookup set
-        // and so per captured connection. The transport is pinned to that connection
-        // object, so a switch can't redirect a search's request to another server.
+        // and so per captured connection. The transport is pinned to that connection,
+        // so a switch can't redirect a search's request to another server.
         // Retiring cancels in-flight waits, refuses further calls (cached ones included)
         // and closes the transport. It happens on a connection switch and when the owner
         // disposes the set, whichever comes first.
-        var bound = connection is null || deviceTransport is null ? null
-            : new ConnectionBoundDeviceList(connection, deviceTransport);
+        var bound = scope is not { } open || deviceTransport is null ? null
+            : new ConnectionBoundDeviceList(open, deviceTransport);
         var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
         void RetireSearch()
         {
@@ -139,7 +142,7 @@ public sealed partial class CompactNetworkLookups(
             new(name, purpose, async (query, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (connection is null && session.Connection is null)
+                if (scope is null && session.Connection is null)
                     return "Sign in to LibreNMS to use network lookups.";
                 if (!IsCurrent()) return Retire();
                 using var deadline = new CancellationTokenSource(Timeout, time);

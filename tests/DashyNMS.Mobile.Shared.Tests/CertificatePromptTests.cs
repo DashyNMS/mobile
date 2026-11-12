@@ -32,6 +32,7 @@ public sealed class CertificatePromptTests
     {
         _client.Failover.Returns(_failover);
         _session.IsConnected.Returns(true);
+        _session.TrustCertificate(default!, default).ReturnsForAnyArgs(true);
     }
 
     private CertificatePrompt NewPrompt() => new(_client, _session, _dialogs);
@@ -49,7 +50,7 @@ public sealed class CertificatePromptTests
 
         var (title, message) = CertificateTrust.DescribeForPrompt(Backup, "LibreNMS (backup address)");
         await _dialogs.Received(1).ConfirmAsync(title, message, "Trust", "Cancel");
-        _session.Received(1).TrustCertificate(Backup);
+        _session.Received(1).TrustCertificate(Backup, 0);
         Assert.Equal(1, reloads);
     }
 
@@ -79,7 +80,7 @@ public sealed class CertificatePromptTests
         Assert.False(await prompt.AskAsync(Backup));
 
         await _dialogs.ReceivedWithAnyArgs(1).ConfirmAsync(default!, default!, default!, default!);
-        _session.DidNotReceiveWithAnyArgs().TrustCertificate(default!);
+        _session.DidNotReceiveWithAnyArgs().TrustCertificate(default!, default);
     }
 
     [Fact]
@@ -104,6 +105,6 @@ public sealed class CertificatePromptTests
         _client.CertificateRejected += Raise.Event<EventHandler<CertificateDetails>>(_client, Backup);
 
         await trusted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        _session.Received(1).TrustCertificate(Backup);
+        _session.Received(1).TrustCertificate(Backup, 0);
     }
 }
