@@ -214,26 +214,46 @@ A card scans a list and does not audit one port. Show one card per row, and two 
 ### Intelligence chat
 
 - More-pushed and pinned routes share the setup layout's header, finite
-  transcript viewport and overlaid composer. Reserve the measured overlay height
-  plus 16pt in the transcript footer, including a stable 44pt Jump to latest
-  arrow slot aligned with the capped chat column. Hiding the arrow keeps the
-  footer height unchanged. Its measured keyboard/glass gap
-  has one owner in `SetupPageLayout`. Keep retained-page activation and
-  connection ownership guards.
+  transcript viewport and overlaid composer. The transcript runs to the bottom
+  of the screen, behind the composer and the tab bar (#594). `SetupPageLayout`
+  measures the keyboard, pill and glass once and hands them to the page through
+  `PlaceFoot` rather than padding the layout. `ChatComposerPlacement.Resolve`
+  then puts the composer's base level with the pill's base. A side pill gets
+  this from `SetupActionPlacement`. A bottom pill in a window wide enough for a
+  360pt lane beside the pill and its glass (landscape) puts the composer in
+  that lane. A narrower window keeps it above the bar, and a docked keyboard
+  always lifts it above the keyboard. The transcript footer reserves 16pt plus
+  the larger of the overlay height plus its gap and the height of the bar,
+  glass or keyboard. The overlay includes a stable 44pt Jump to latest arrow
+  slot, so hiding the arrow keeps the footer height unchanged. Keep
+  retained-page activation and connection ownership guards.
 - Centre transcript, notice and composer in a column capped at 860pt. User
   messages are compact right-aligned bubbles capped at 560pt and 85% of the
   column; assistant replies use their own themed bubble on the left, separate
   from the question. The themed accent backdrop belongs to the page background
   and covers the full page behind header, composer, safe-area gutters and glass. Keep it static
   and decorative. This chat surface omits the opaque viewport-top fade to keep
-  the background continuous; retain the 20pt transcript breathing space. The
+  the background continuous; retain the 20pt transcript breathing space. At the
+  foot, a decorative, input-transparent fade in the backdrop's edge colour runs
+  the full screen width from 24pt above the composer (or the bar, glass or
+  keyboard, if higher) to the screen base, so messages fade out behind the
+  composer and tab bar rather than meeting a hard edge. The
   empty-chat heading uses themed secondary text to keep contrast on the wash.
-- The rounded composer contains a 48 to 140pt growing field, compact native
-  detail picker and one primary Send/Stop control with explicit accessible
-  names and at least a 48pt target. Native text scrolling must keep the caret
+- The rounded composer contains a 48 to 140pt growing field, the native
+  detail picker inside a 44pt outlined chip with a decorative chevron, and one
+  48pt circular primary Send/Stop button with explicit accessible names. Its
+  arrow and square are drawn paths over the native button, which keeps its
+  semantics and disabled colours; the path follows the button's text colour. Native text scrolling must keep the caret
   reachable at the height cap; verify this on device at maximum text size.
-- Lookup activity has a 44pt expandable summary with a name saying Show or
-  Hide and the outcome. Success needs no second Completed line. Warnings,
+- Lookup activity has a 44pt expandable summary (an icon button with a
+  chevron that turns up when open) with a name saying Show or Hide and the
+  outcome. Opened, it lists one row per lookup: a state icon (spinner, tick in
+  OK colour, warning triangle in warning colour, square when stopped), the
+  lookup's name and its state, read as one element ("Find device: Completed").
+  Success needs no second Completed line. A running answer shows a small
+  spinner and "Answering… 4s" counting from when it was asked; Reduce Motion
+  hides the spinners and keeps the text. A completed answer from this session
+  shows "Answered in 6s" beside Copy. Reopened saved chats show no duration. Warnings,
   stopped/interrupted states and Retry remain visible. Copy is a rounded 44pt
   clipboard icon at the answer foot; Edit is a labelled icon by the question
   and refuses to overwrite a draft. The view model allows owned, settled
@@ -244,8 +264,10 @@ A card scans a list and does not audit one port. Show one card per row, and two 
 - Answers render Markdown as native text (#228). Tables sit in a sideways
   scroll with 260pt maximum cells; code wraps by character. Verified objects
   read as name and status in text, coloured only when Colour status indicators
-  is on, and retain guarded inline navigation without repeated chip rows. A
-  collapsed Open referenced item chooser supplies accessible 44pt targets.
+  is on, and retain guarded inline navigation, with no chip rows or referenced-item
+  list under the answer. Each text block naming a verified item offers "Open
+  name, status" in VoiceOver's Actions rotor, as tappable spans are not
+  reliable screen-reader targets.
   Source links are 44pt buttons naming title and
   host. Answer images are native buttons announcing "Graph image … Enlarge";
   the enlarged view has a 44pt Close inside the safe area. Device acceptance
@@ -409,6 +431,7 @@ These device checks remain open. Confirm each on a device, then fold any result 
 
 - Chats menu refinements (#593): retain the accepted popover presentation. Check normal glass Back returns to Intelligence and New chat follows the existing leave decision, including disabled state while answering. On the Duo outside screen and inside landscape, actions belong beside the tab bar. Inside portrait puts New chat beside the title, with Back in normal glass. Rotate and fold while Chats is open, resume, and close then reopen; there must be one glass owner and the conversation must reclaim its actions on return. The cardless list viewport reaches the screen base, with clearance in its footer and a 20pt fade beneath the fixed header. Check the last row scrolls clear of glass and the home indicator. A partial swipe of about 48pt must settle with tappable Rename and Delete; a full swipe must not invoke Delete. Check pinning in the other direction, recycled rows after scrolling and regrouping, separators, both themes, maximum text and VoiceOver custom actions. CI builds do not establish visual acceptance; keep #593 open until the user accepts an installed build.
 - Intelligence saved chats (#229): open the sheet from glass and header, open, pin, rename and delete chats by swipe, long press and VoiceOver, and check the sheet at maximum text and in both themes. End the app mid-answer and relaunch: the question and partial answer return marked Interrupted. Check that a long chat streams without stutter while saving, and that a second server and a fresh sign-in list none of the first's chats.
+- Intelligence chat layout (#594): the transcript scrolls to the bottom of the screen behind the composer and tab bar, and the last message scrolls clear of both. In landscape with a bottom tab bar, the composer sits beside the bar and its glass with its base level with the bar's base; with a side bar its base matches the bar's base. Check a phone in portrait still stacks the composer above the bar, that the keyboard lifts it in every orientation and lowers it on dismissal, and maximum text. Check the foot fade in both themes, the detail chip and Send/Stop icons (enabled, disabled, running), the lookup rows with VoiceOver, "Answering… Ns" counting and "Answered in Ns", Reduce Motion, and that VoiceOver's Actions rotor offers "Open …" on text naming an item now that the referenced-item list is gone.
 - Intelligence chat actions (#594): on iPad in portrait and the Duo's inner display in portrait, check that Saved chats and New chat sit beside the title with the title clear of them, and that nothing overlaps the status bar or a top tab bar. Check maximum text, VoiceOver order (title, Saved chats, New chat), New chat disabled while answering, and composer space with the keyboard up. Rotate, fold and resize Split View to move the actions to the tab bar glass and back without reopening; the composer must follow. Check that phones and the Duo's outer display look as before.
 - Intelligence single-chat mode (#230): turn it on with saved chats present and check they return when it is off. Ask, type a draft and force-quit mid-answer; relaunch restores nothing. Open the app switcher from the chat, the saved-chat sheet, the report preview and an enlarged graph, and check each is covered with no keyboard or predictive suggestions visible, including with the composer focused and a draft typed; check other pages aren't. Return and check the cover clears, the keyboard stays down with the draft intact, the glass is at rest and tapping the composer brings the keyboard back as normal, and that Control Centre or a notification pull does the same. Use Delete saved chats, then relaunch and sign in again to check none come back. Check the Settings card at maximum text, with VoiceOver and in both themes.
 

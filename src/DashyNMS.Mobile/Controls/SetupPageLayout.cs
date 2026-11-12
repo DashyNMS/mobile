@@ -46,6 +46,13 @@ internal sealed class SetupPageLayout
     /// <summary>Pages used as pinned roots supply their own Back and page actions.</summary>
     internal Action? ShowActions { get; set; }
 
+    /// <summary>
+    /// A page whose body runs to the bottom of the screen behind an overlay (the
+    /// chat, #594) takes the measured foot here instead of as layout padding.
+    /// This helper still measures the keyboard, pill and glass once.
+    /// </summary>
+    internal Action<SetupFoot>? PlaceFoot { get; set; }
+
     private void OnAppearing(object? sender, EventArgs e)
     {
         if (_showing) return;
@@ -155,6 +162,7 @@ internal sealed class SetupPageLayout
         if (!_showing || _layout.Height <= 0 || Shell.Current?.CurrentPage != _page) return;
         var edges = CoveredEdges.ForScrolling(_page);
         var bottom = SetupActionPlacement.BottomGap(_layout.Height, edges.Bottom, null, []);
+        var foot = new SetupFoot(_layout.Width, _layout.Height, edges.Bottom, null, [], null);
 #if IOS
         if (_layout.Handler?.PlatformView is UIView view)
         {
@@ -168,14 +176,15 @@ internal sealed class SetupPageLayout
                 if (keyboard.Width >= view.Bounds.Width * .8 && keyboard.Bottom >= view.Bounds.Height)
                     keyboardTop = keyboard.Top;
             }
-            bottom = SetupActionPlacement.BottomGap(view.Bounds.Height,
-                CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0),
-                pill, glass, keyboardTop);
+            var safeBottom = CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0);
+            bottom = SetupActionPlacement.BottomGap(view.Bounds.Height, safeBottom, pill, glass, keyboardTop);
+            foot = new SetupFoot(view.Bounds.Width, view.Bounds.Height, safeBottom, pill, glass, keyboardTop);
         }
 #endif
         // The action's Auto row reserves its actual (including large-text) height.
         // With no action this same padding keeps the last result clear of glass.
-        var padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, bottom);
+        var padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, PlaceFoot is null ? bottom : 0);
+        PlaceFoot?.Invoke(foot with { ColumnLeft = padding.Left, ColumnRight = foot.Width - padding.Right });
         if (_layout.Padding != padding) _layout.Padding = padding;
     }
 
@@ -216,4 +225,18 @@ internal sealed class SetupPageLayout
         }
     }
 #endif
+}
+
+/// <summary>
+/// The measured foot of a setup page, in the layout's coordinates: its size,
+/// the native bottom inset, the tab bar's pill and glass, and a docked keyboard.
+/// </summary>
+internal readonly record struct SetupFoot(double Width, double Height, double SafeBottom,
+    OccupiedArea? Pill, IReadOnlyList<OccupiedArea> Glass, double? KeyboardTop)
+{
+    /// <summary>The column's left edge after the layout's side gutters.</summary>
+    public double ColumnLeft { get; init; }
+
+    /// <summary>The column's right edge after the layout's side gutters.</summary>
+    public double ColumnRight { get; init; }
 }
