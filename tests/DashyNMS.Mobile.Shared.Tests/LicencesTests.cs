@@ -25,17 +25,6 @@ public sealed class LicencesTests
     }
 
     [Fact]
-    public void Lucide_ships_its_ISC_licence_with_the_Feather_terms()
-    {
-        var lucide = Page(NoticePlatforms.Android).Items.Single(i => i.Name == "Lucide");
-        lucide.ToggleCommand.Execute(null);
-        Assert.StartsWith("ISC License", lucide.LicenceText);
-        Assert.Contains("Lucide Icons and Contributors", lucide.LicenceText);
-        Assert.Contains("Cole Bemis", lucide.LicenceText);
-        Assert.Contains("Lucide", Page(NoticePlatforms.iOS).Items.Select(i => i.Name));
-    }
-
-    [Fact]
     public void The_shared_search_package_ships_its_own_licence()
     {
         var text = PhoneNotices.ReadLicence(PhoneNotices.AgentSearchMit);

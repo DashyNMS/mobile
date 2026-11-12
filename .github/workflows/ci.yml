@@ -13,12 +13,6 @@ permissions:
 
 env:
   DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  # The shared device search package (#596): exact version, the SHA-256 its publish
-  # run attested, and the DashyNMS/mcp commit it was built from (run 43135054163).
-  # Move all three with the PackageReference in DashyNMS.Mobile.Shared.csproj.
-  SEARCH_VERSION: 0.1.0-ci.43135054163.1
-  SEARCH_SHA256: 731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d
-  SEARCH_COMMIT: 0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe
 
 jobs:
   # Mobile's shared code on plain .NET; Core runs its tests upstream.
@@ -35,28 +29,26 @@ jobs:
       - name: Test geographic map camera bridge
         run: node --test tests/map/camera.test.mjs
 
-      - name: Test shared code
-        run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug
+      # Restore, then verify the shared Search package (#596) is the exact file
+      # DashyNMS/mcp's workflow built and attested from the pinned commit on main,
+      # and that NuGet extracted it intact, before any test loads it.
+      - name: Restore shared code
+        run: dotnet restore tests/DashyNMS.Mobile.Shared.Tests
 
-      # Restore took the package from GitHub Packages; check it is the exact file
-      # DashyNMS/mcp built and attested, from the expected commit, before trusting it.
       - name: Verify the shared Search package
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          DIR="$HOME/.nuget/packages/dashynms.agent.search/$SEARCH_VERSION"
-          NUPKG="$DIR/dashynms.agent.search.$SEARCH_VERSION.nupkg"
-          echo "$SEARCH_SHA256  $NUPKG" | sha256sum --check --strict
-          grep -q "commit=\"$SEARCH_COMMIT\"" "$DIR/dashynms.agent.search.nuspec"
-          gh attestation verify "$NUPKG" --repo DashyNMS/mcp
-          DLL="$DIR/lib/net10.0/DashyNMS.Agent.Search.dll"
-          {
-            echo "### Shared Search package"
-            echo "- Version: \`$SEARCH_VERSION\` from DashyNMS/mcp \`$SEARCH_COMMIT\`"
-            echo "- nupkg: $(stat -c %s "$NUPKG") bytes, SHA-256 verified, attestation verified"
-            echo "- DashyNMS.Agent.Search.dll: $(stat -c %s "$DLL") bytes"
-            echo "- Dependencies: $(grep -o '<dependency [^>]*>' "$DIR/dashynms.agent.search.nuspec" | tr '\n' ' ')"
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: scripts/verify-search-package.sh
+
+      # The synthetic device-search fixture must be byte-identical to the one
+      # DashyNMS/mcp tests its MCP find_device tool against.
+      - name: Check the device search fixture matches DashyNMS/mcp
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/check-search-fixture.sh
+
+      - name: Test shared code
+        run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug --no-restore
 
 
   android:
@@ -76,6 +68,15 @@ jobs:
 
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
+
+      # The shared Search package (#596) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-search-package.sh.
+      - name: Restore and verify the shared Search package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dotnet restore src/DashyNMS.Mobile.Shared
+          scripts/verify-search-package.sh
 
       - name: Build
         shell: bash
@@ -150,6 +151,15 @@ jobs:
         working-directory: ios-intelligence
         run: xcodegen generate
 
+      # The shared Search package (#596) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-search-package.sh.
+      - name: Restore and verify the shared Search package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dotnet restore src/DashyNMS.Mobile.Shared
+          scripts/verify-search-package.sh
+
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
       # Android, and restore would otherwise want that workload too.
       # A simulator build needs no signing identity; device builds and
@@ -211,6 +221,15 @@ jobs:
         run: |
           command -v xcodegen >/dev/null || brew install xcodegen
           xcodegen generate
+
+      # The shared Search package (#596) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-search-package.sh.
+      - name: Restore and verify the shared Search package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dotnet restore src/DashyNMS.Mobile.Shared
+          scripts/verify-search-package.sh
 
       # No widget (its signing needs TestFlight's profile) and no signing identity:
       # EnableCodeSigning=false builds the device app without a certificate.

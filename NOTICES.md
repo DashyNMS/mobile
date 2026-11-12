@@ -29,8 +29,8 @@ without changing the desktop repository's licence.
 ## Icon provenance
 
 The upstream Lucide licence, including Feather attribution, is retained in
-docs/licences/Lucide-LICENSE.txt and embedded in the app: Settings › About ›
-Open-source licences lists Lucide with that complete text on iOS and Android.
+docs/licences/Lucide-LICENSE.txt. The in-app licence catalogue does not yet
+include this notice.
 DashboardPage.xaml identifies its sliders-horizontal drawing as Lucide-derived.
 The original import revision and an exhaustive mapping of other hand-drawn paths
 to upstream icons are not recorded. Shipping the complete upstream notice retains

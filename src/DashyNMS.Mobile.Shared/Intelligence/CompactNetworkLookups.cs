@@ -38,8 +38,15 @@ public interface IIntelligenceLookups
 /// only adapts the typed result to the compact profile and its evidence. The other
 /// lookups remain mobile queries until their own shared operations exist.
 /// </remarks>
+/// <param name="deviceTransport">
+/// Opens a transport for one captured connection, for <c>find_device</c> alone (see
+/// <see cref="ConnectionBoundDeviceList"/>). The app passes Core's HTTP transport; tests
+/// pass a synthetic one. Without it <c>find_device</c> fails closed rather than falling
+/// back to the session's shared client, whose connection can change under a request.
+/// </param>
 public sealed partial class CompactNetworkLookups(
-    ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null) : IIntelligenceLookups
+    ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
+    Func<LibreNmsConnection, bool, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -79,14 +86,22 @@ public sealed partial class CompactNetworkLookups(
         var time = timeProvider ?? TimeProvider.System;
         bool IsCurrent() => connection is not null && ReferenceEquals(connection, session.Connection);
 
-        // One shared search, with its own caches, per lookup set and so per captured
-        // connection. Disposing it on a switch cancels in-flight waits and refuses
-        // further calls, cached ones included.
-        var search = HostDeviceSearch.Create(new ConnectionBoundDeviceList(client, IsCurrent), time,
-            settings.Current.ServerTimestampsAreUtc);
+        // One shared search, with its own caches and its own transport, per lookup set
+        // and so per captured connection. The transport is pinned to that connection
+        // object, so a switch can't redirect a search's request to another server.
+        // Retiring cancels in-flight waits, refuses further calls (cached ones included)
+        // and closes the transport.
+        var bound = connection is null || deviceTransport is null ? null
+            : new ConnectionBoundDeviceList(connection, client.Failover?.IsOnBackup ?? false, deviceTransport);
+        var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
+        void RetireSearch()
+        {
+            search?.Dispose();
+            bound?.Dispose();
+        }
         string Retire()
         {
-            search.Dispose();
+            RetireSearch();
             return Changed;
         }
 
@@ -124,8 +139,7 @@ public sealed partial class CompactNetworkLookups(
         IntelligenceEvidence DeviceReference(Device device, string name, DateTimeOffset at)
         {
             var state = device.ReportedState;
-            var tone = state == DeviceState.Up ? "up" : state == DeviceState.Down ? "down" : "unknown";
-            return new(new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), tone, at, "Device status at lookup time")
+            return new(new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), StateTone(state), at, "Device status at lookup time")
             { Object = new("device", device.DeviceId) });
         }
 
@@ -138,11 +152,15 @@ public sealed partial class CompactNetworkLookups(
         // A shared search row, already redacted upstream, in the person's naming style.
         // LibreNMS fills display with the hostname when none is set; the shared summary
         // drops that repeat, so it is restored before the style chooses a name.
-        Row SearchRow(DeviceSummary d, DateTimeOffset at)
+        // The state comes from the raw record's reported state, not the summary's word:
+        // the summary has only up, down and disabled, and says "down" for a device whose
+        // state LibreNMS didn't report. A row without its raw record says Unknown.
+        Row SearchRow(DeviceSummary d, DateTimeOffset at, IReadOnlyDictionary<int, Device> raw)
         {
             var named = new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
             var name = DeviceName(named, d.Hostname, d.DeviceId);
-            var (status, tone) = SearchStatus(d.Status);
+            var state = raw.TryGetValue(d.DeviceId, out var device) ? device.ReportedState : DeviceState.Unknown;
+            var (status, tone) = (state.ToDisplayString(), StateTone(state));
             // Up to a minute old: the shared search caches the device list per connection.
             IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
             { Object = new("device", d.DeviceId) });
@@ -205,8 +223,9 @@ public sealed partial class CompactNetworkLookups(
                 if (string.IsNullOrWhiteSpace(query)) return Reply.Say("Enter a device name or IP address.");
                 // The reviewed profile is text search; MAC search reads ARP tables and isn't offered yet.
                 if (MacAddress().IsMatch(query.Trim())) return Reply.Say(MacUnavailable);
+                if (search is null || bound is null) return Reply.Say(Failed);
                 // Sign-out or a switch mid-search stops the wait at once rather than at the deadline.
-                EventHandler retire = (_, _) => { if (!IsCurrent()) search.Dispose(); };
+                EventHandler retire = (_, _) => { if (!IsCurrent()) RetireSearch(); };
                 session.StateChanged += retire;
                 try
                 {
@@ -218,9 +237,11 @@ public sealed partial class CompactNetworkLookups(
                             DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
                             _ => Failed,
                         });
+                    // The list behind this result: the search fetched it, or its cache holds it.
+                    var raw = bound.Latest;
                     // The heading carries the exact total visible to this account, so rows that
                     // weren't fetched are counted as omitted, never silently dropped.
-                    return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at)),
+                    return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at, raw)),
                         alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
                 }
                 finally
@@ -304,13 +325,12 @@ public sealed partial class CompactNetworkLookups(
         return byId;
     }
 
-    /// <summary>The shared summary's status word; it reports only up, down and disabled.</summary>
-    private static (string Label, string Tone) SearchStatus(string status) => status switch
+    /// <summary>The evidence chip's tone: only a reported up or down is coloured as one.</summary>
+    private static string StateTone(DeviceState state) => state switch
     {
-        "up" => ("Up", "up"),
-        "down" => ("Down", "down"),
-        "disabled" => ("Disabled", "unknown"),
-        _ => ("Unknown", "unknown"),
+        DeviceState.Up => "up",
+        DeviceState.Down => "down",
+        _ => "unknown",
     };
 
     /// <summary>

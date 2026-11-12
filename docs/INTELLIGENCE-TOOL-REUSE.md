@@ -18,9 +18,14 @@ DashyNMS/mcp's Search package workflow run 43135054163 from commit
 build provenance attestation. It is MIT licensed, targets net10.0, references
 Core (minimum `2.0.0-ci.34`; mobile's direct `2.0.0-ci.64` pin wins) and has no
 `ModelContextProtocol` reference. Upstream CI ran its tests against the exact
-packed binary with Core ci.34 and ci.64. Mobile CI re-checks the restored file's
-hash, nuspec commit and attestation on every push (`Verify the shared Search
-package`). There is no NuGet lock file yet (#609).
+packed binary with Core ci.34 and ci.64. `scripts/verify-search-package.sh`
+runs straight after restore and before anything builds, tests or publishes
+against the package, in CI and in the Play and TestFlight workflows. It checks
+the file's SHA-256, its attestation (signed by DashyNMS/mcp's
+`search-package.yml` at that commit on `refs/heads/main`, GitHub-hosted runner),
+the nuspec's repository and commit, that the extracted `lib/` files and LICENSE
+match the verified file, and that the package has no build-time assets. There is
+no NuGet lock file yet (#609).
 
 **What mobile now does.** `CompactNetworkLookups` creates one
 `HostDeviceSearch` per lookup set, so per model session and captured connection,
@@ -33,16 +38,19 @@ total in the heading, unfetched and over-budget matches counted as omitted, and
 `IntelligenceEvidence` only for rows shown.
 
 **Host ownership and isolation.** No Agent registration runs; mobile passes its
-own client, clock and the server timestamp setting. The client is wrapped in
-`ConnectionBoundDeviceList`, which hands the search the device list only, and
-only while the captured connection is the session's; every other endpoint and
-all session controls (connect, trust, timeout) throw before transport. A switch
-or sign-out during a search disposes the search, which cancels the wait at once
-and refuses later calls, cached ones included; late replies and their evidence
-are discarded and the lookup says the connection changed. Residual gap: a request
-that passes the check just before a switch can still be sent on the new
-connection (its reply is discarded). Closing it needs a per-connection Core
-client (#605).
+own clock, the server timestamp setting and `ConnectionBoundDeviceList`. That
+client never touches the session's shared client. On the first search it opens a
+Core `LibreNmsTransport` of its own, configured once with the captured
+connection object (address, token, trusted certificates, timeout, and the
+backup address if the session was on it) and never reconfigured, and builds
+Core's device API on it. A switch can't redirect its requests to another server.
+Of `IDevicesApi` only `ListAsync` is allowed; the other device endpoints, every
+other API and all session controls throw before transport. A switch or sign-out
+during a search disposes the search and closes the transport, which cancels the
+wait at once and refuses later calls, cached ones included. Late replies and
+their evidence are discarded and the lookup says the connection changed. A test
+over loopback HTTP reproduces the switch-before-send case. Without a transport
+factory, `find_device` fails closed rather than use the shared client.
 
 **Cancellation, deadline, failures.** Caller cancellation propagates. Mobile's
 linked 15-second deadline and `WaitAsync` bound remain around the call, and the
@@ -55,17 +63,23 @@ empty result is distinct from a failure. Nothing is logged.
 unchanged. Text search only: MAC-shaped queries are refused before any request,
 and ARP and group endpoints are blocked by the wrapper (#608).
 
-**Known semantic difference.** The shared summary reports only up, down and
-disabled; an omitted status reads as down and ignored or maintenance devices are
-not distinguished, where the old mobile search used Core's `ReportedState`
-(#604).
+**States.** The shared summary reports only up, down and disabled, and reads an
+omitted status as down. Mobile doesn't use that word: each row's state comes
+from Core's `ReportedState` on the raw record from the same device list, so an
+unreported state shows as Unknown and ignored devices as Ignored. Upstream's
+summary itself is #604.
 
 **Fixtures.** `tests/.../Fixtures/DeviceSearch` is a synthetic device-list
-response (documentation addresses, `example.net`) and hand-written ranked cases.
-Devices 1 to 3 repeat upstream's ranking test. Mobile tests run each case through
-both the package's typed executor and mobile `find_device` and require the same
-ids, order and totals. This is a copy: there is no shared fixture package, and the
-MCP adapter's side is covered only by upstream's own typed-vs-MCP test (#606).
+response (documentation addresses, `example.net`) and its expectations: ranked
+ids and totals per query, the only endpoints a text search reads, status words
+and reported states, and the failure category for each HTTP status. The files
+are byte-identical to DashyNMS/mcp's (DashyNMS/mcp#115), where the MCP
+`find_device` tool and `HostDeviceSearch` run against them;
+`scripts/check-search-fixture.sh` fails CI if mobile's copies differ from the
+pinned commit. Mobile tests serve the raw response through Core's real device
+API to both the package's executor and mobile `find_device` and require the same
+ids, order, totals, requests and failure categories. A fixture package (#606)
+would replace the copy.
 
 **CI proof added.** The Android Release build fails on any trim, AOT or NuGet
 warning naming the package and reports the APK size and effective trimming/AOT
@@ -452,7 +466,8 @@ Opened with the first migration (2026-11-12):
 - #600 overview, #601 grouped alerts, #602 device summary, #603 sensor assessment:
   each an upstream typed operation plus a mobile migration.
 - #604 truthful device states in the shared summary.
-- #605 per-connection client so a retired search can't send.
+- #605 per-connection client so a retired search can't send (done in mobile by
+  a per-chat Core transport; a Core factory would only tidy it).
 - #606 one fixture bundle run through both adapters.
 - #607 runtime, installed-device, token and size measurements.
 - #608 MAC, group and location search in chat.
