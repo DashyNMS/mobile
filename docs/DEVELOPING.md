@@ -1076,10 +1076,21 @@ justify clearing newer text.
 Single-chat mode is described in its own section below (#230).
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
-or glass list button. On iOS 26+, the modal uses the same native glass controls
-as the main chat header for Back and New chat, without taking ownership of the
-underlying tab bar. Older iOS and Android retain labelled header buttons. Back
-dismisses the modal; New chat uses the existing save/discard leave decision.
+or glass list button. On iOS 26+, the modal uses normal tab-bar glass
+for Back and New chat on phone-sized and landscape windows. In a large portrait
+window, New chat moves alongside the title using the same `ChatActionPlacement`
+rule and `HeaderGlassGroup` as the main chat experiment. Back stays in normal
+glass. Older iOS and Android retain labelled header buttons.
+
+The opaque modal uses OverFullScreen on iOS to keep the presenting tab bar
+attached for measurement through folding and rotation. `TabBarButtons.Show`
+accepts the modal as its presentation page, hosting the normal controls above
+the modal content. Resume activates the top modal first. The underlying chat
+refuses to reclaim glass while a modal is present; closing Chats explicitly
+reactivates the conversation. The list runs to the screen base, with native
+scroll inset adjustment disabled, measured glass clearance inside the footer,
+and a 20pt themed fade and matching spacer beneath the fixed header.
+Back dismisses the modal; New chat uses the existing save/discard leave decision.
 Rows have themed separators and use reveal-only swipes with a 48pt threshold,
 so a shorter partial swipe can settle open. Rebinding a recycled row closes
 its previous swipe. Installed-build acceptance remains pending under #593,

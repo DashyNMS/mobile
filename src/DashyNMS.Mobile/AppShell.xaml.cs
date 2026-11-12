@@ -221,7 +221,8 @@ public partial class AppShell : Shell
     {
         _pins.RefreshAvailability();
         // Resolve at delivery time: outgoing Disappearing/Hide must finish first.
-        if (CurrentPage is IActivePage page) page.Activate();
+        var current = Navigation.ModalStack.LastOrDefault() ?? CurrentPage;
+        if (current is IActivePage page) page.Activate();
     });
 
 	private async Task OfferAsync()
