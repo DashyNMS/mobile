@@ -6,9 +6,8 @@
 # Needs: gh (authenticated; DashyNMS/mcp is public).
 set -euo pipefail
 
-# DashyNMS/mcp commit holding the fixture: DashyNMS/mcp#117's head. Move this to that
-# PR's squash merge on main once it lands.
-FIXTURE_COMMIT="d7d0ca8c44b1010d4ba34e0f45fe2bf103cffd34"
+# DashyNMS/mcp commit holding the fixture: DashyNMS/mcp#117's squash merge on main.
+FIXTURE_COMMIT="e10c1f22838a1b5d183eed05c81d2cb795adb792"
 UPSTREAM="tests/DashyNMS.Agent.Tests/Fixtures/DeviceSearch"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
