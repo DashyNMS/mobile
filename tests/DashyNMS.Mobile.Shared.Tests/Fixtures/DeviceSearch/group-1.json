@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "count": 4,
+  "devices": [
+    { "device_id": 1 },
+    { "device_id": 2 },
+    { "device_id": 3 },
+    { "device_id": 5 }
+  ]
+}
