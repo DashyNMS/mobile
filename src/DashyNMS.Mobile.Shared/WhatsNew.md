@@ -11,7 +11,7 @@
 - **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
 
 ## Improved
-- **Network overview.** Intelligence counts alert groups and faults separately, includes port totals and the LibreNMS version, and keeps available data when a source cannot be read.
+- **Network overview.** Intelligence counts alert groups and faults separately, includes port totals and the LibreNMS version, and keeps available data when a source cannot be read. {alerts}
 - **Logs.** Entries sit under a heading for each day, with the time at the right. {logs}
 - **Edit dashboard.** Cards follow the dashboard's columns on wider displays, with more room for titles and Move earlier/later in the card menu. Tick several cards to add them together, add one after another, or duplicate a card with its set-up. Suggested picks out cards that fit your set-up. {dashboard}
 - **Notifications.** One per alert group, and a tap opens the alert or group it was for. {alerts}
