@@ -231,7 +231,8 @@ public sealed partial class CompactNetworkLookups(
 
         // network_overview's alert rows, until the shared overview replaces them (#600). The
         // device list supplies names for every alert at once, never one request per alert.
-        // Alerts keep their source-qualified identity.
+        // The row names an alert by its marker alone: a bare "fault:7" beside it is no marker,
+        // so the model would only pass it through as text. The evidence carries the source.
         Row AlertRow(Alert a, IReadOnlyDictionary<int, Device>? devices, DateTimeOffset at)
         {
             var device = devices is not null && devices.TryGetValue(a.DeviceId, out var found) ? found : null;
@@ -252,13 +253,13 @@ public sealed partial class CompactNetworkLookups(
                 references.Add(DeviceReference(device, deviceName, at));
                 on += $" [[device:{Id(device.DeviceId)}]]";
             }
-            return new($"{severity}; {a.State}; {rule} [[alert:{Id(a.Id)}]] ({a.Identity}) on {on}", references);
+            return new($"{severity}; {a.State}; {rule} [[alert:{Id(a.Id)}]] on {on}", references);
         }
 
         // A shared alert group, already redacted upstream: one row per rule firing on a device.
-        // The marker is the representative fault's, with its source-qualified key beside it, so
-        // fault 12 and legacy alert 12 never read as one thing. The group key (device and rule)
-        // is never offered as an id; the evidence's typed object carries the rule instead.
+        // The marker is the representative fault's; its source travels in the evidence's typed
+        // object, so navigation retains the fault or legacy alert source. The group key
+        // (device and rule) is never offered as an id; the evidence carries the rule instead.
         Row GroupRow(OpenAlertGroup g, DateTimeOffset at)
         {
             var d = g.Device;
@@ -290,7 +291,7 @@ public sealed partial class CompactNetworkLookups(
                 { Object = new("device", d.DeviceId) }));
                 on += $" [[device:{Id(d.DeviceId)}]]";
             }
-            var text = $"{severity}; {state}; {rule} [[alert:{Id(representative.Id)}]] ({representative}) on {on}";
+            var text = $"{severity}; {state}; {rule} [[alert:{Id(representative.Id)}]] on {on}";
             if (g.FaultCount > 1)
             {
                 var names = g.Faults.Select(f => f.Entity).Where(e => !string.IsNullOrWhiteSpace(e)).Take(NamedFaults).Select(e => Clean(e)).ToList();

@@ -165,7 +165,7 @@ public sealed partial class SharedOpenAlertsHttpTests
             : new Shown(state, state == "acknowledged" ? faults : 0, m.Groups["key"].Value, faults);
     })];
 
-    [GeneratedRegex(@"^(?:Critical|Warning|OK|Unknown); (?<state>active|acknowledged|partly acknowledged \((?<ack>\d+) of \d+\)); .*? \[\[alert:\d+\]\] \((?<key>(?:fault|alert):\d+)\) on .*?(?:; (?<faults>\d+) faults(?::.*)?)?(?:; for .*)?$")]
+    [GeneratedRegex(@"^(?:Critical|Warning|OK|Unknown); (?<state>active|acknowledged|partly acknowledged \((?<ack>\d+) of \d+\)); .*? \[\[alert:(?<key>\d+)\]\] on .*?(?:; (?<faults>\d+) faults(?::.*)?)?(?:; for .*)?$")]
     private static partial Regex Row();
 
     [Theory]
@@ -190,7 +190,8 @@ public sealed partial class SharedOpenAlertsHttpTests
               $"{totals.GetProperty("critical").GetInt32()} critical, {totals.GetProperty("warning").GetInt32()} warning.", text);
 
         var rows = Rows(text);
-        Assert.Equal(Strings(c, "representatives"), rows.Select(r => r.Representative));
+        // The text supplies the marker id; the evidence below verifies its source.
+        Assert.Equal(Strings(c, "representatives").Select(key => key.Split(':')[1]), rows.Select(r => r.Representative));
         Assert.Equal(Strings(c, "states"), rows.Select(r => r.State));
         Assert.Equal(Ints(c, "faultCounts"), rows.Select(r => r.Faults));
         Assert.Equal(Ints(c, "acknowledgedCounts"), rows.Select(r => r.Acknowledged));
@@ -297,8 +298,11 @@ public sealed partial class SharedOpenAlertsHttpTests
         var faultText = await onFaults.Alerts.Run("", default);
         var legacyText = await onLegacy.Alerts.Run("", default);
 
-        Assert.Contains("[[alert:12]] (fault:12)", faultText);
-        Assert.Contains("[[alert:12]] (alert:12)", legacyText);
+        // Both rows read the same; only the evidence tells them apart.
+        Assert.Contains("[[alert:12]] on", faultText);
+        Assert.Contains("[[alert:12]] on", legacyText);
+        Assert.DoesNotContain("fault:12", faultText);
+        Assert.DoesNotContain("(alert:12)", legacyText);
         Assert.Equal("fault", onFaults.Evidence.Single(e => e.Reference.Key == "alert:12").Reference.Object!.Kind);
         Assert.Equal("alert", onLegacy.Evidence.Single(e => e.Reference.Key == "alert:12").Reference.Object!.Kind);
         // The group key never stands in for an id.

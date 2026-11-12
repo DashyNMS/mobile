@@ -67,6 +67,52 @@ public sealed class IntelligenceAnswerTests
     }
 
     [Fact]
+    public void Single_bracket_markers_the_lookups_returned_regain_their_brackets()
+    {
+        var repaired = IntelligenceMarkdown.RepairMarkers("1. **[alert:7]** - Rule on host [[device:12]]", Evidence);
+        Assert.Equal("1. **[[alert:7]]** - Rule on host [[device:12]]", repaired);
+        Assert.Equal(new[] { "alert:7", "device:12" }, IntelligenceMarkdown.LinkedObjects(IntelligenceMarkdown.Parse(repaired, Evidence)).Select(r => r.Key));
+    }
+
+    [Theory]
+    [InlineData("[alert:999]")] // Never returned by a lookup.
+    [InlineData("[[alert:7]]")] // Already a marker.
+    [InlineData("[alert:7](https://example.net)")] // Link text.
+    [InlineData("[alert:07] [alerts:7] [alert:7")]
+    public void Other_bracketed_text_is_left_alone(string text) =>
+        Assert.Equal(text, IntelligenceMarkdown.RepairMarkers(text, Evidence));
+
+    [Theory]
+    [InlineData("`[alert:7]`")]
+    [InlineData("``[alert:7]``")]
+    [InlineData("``example `[alert:7]` here``")]
+    [InlineData("```text\n[alert:7]\n```")]
+    [InlineData("```text\n[alert:7]")]
+    [InlineData("~~~text\n[alert:7]\n~~~")]
+    [InlineData("[details](https://example.net/[alert:7])")]
+    [InlineData("![details](https://example.net/[alert:7])")]
+    public void Literal_contexts_stay_unchanged_while_nearby_prose_is_repaired(string literal)
+    {
+        var text = "[alert:7]\n\n" + literal;
+        Assert.Equal("[[alert:7]]\n\n" + literal, IntelligenceMarkdown.RepairMarkers(text, Evidence));
+    }
+
+    [Fact]
+    public void A_turn_repairs_its_answer_whichever_of_answer_and_evidence_arrives_first()
+    {
+        var evidence = new IntelligenceEvidence(Evidence.Single(r => r.Key == "alert:7"));
+        var streamed = new IntelligenceTurn("q", "balanced");
+        streamed.AddEvidence([evidence]);
+        streamed.Answer = "[alert:7] and [alert:8]";
+        Assert.Equal("[[alert:7]] and [alert:8]", streamed.Answer);
+
+        var reopened = new IntelligenceTurn("q", "balanced");
+        reopened.Answer = "[alert:7]";
+        reopened.AddEvidence([evidence]);
+        Assert.Equal("[[alert:7]]", reopened.Answer);
+    }
+
+    [Fact]
     public void Status_markers_keep_their_words_and_carry_no_route()
     {
         var span = Assert.Single(IntelligenceMarkdown.Inlines("[[severity:warning]]", Evidence));
@@ -220,7 +266,7 @@ public sealed class IntelligenceAnswerTests
         {
             var instructions = IntelligenceConversationViewModel.Instructions(detail);
             Assert.InRange(instructions.Length, 1, 400);
-            Assert.Contains("[[kind:id]] marker", instructions);
+            Assert.Contains("[[kind:id]] marker from a lookup exactly, both brackets", instructions);
             Assert.Contains("never write \"device\" and a number", instructions);
             Assert.Contains("Copy other names exactly", instructions);
         }

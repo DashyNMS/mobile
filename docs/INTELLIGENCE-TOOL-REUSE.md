@@ -111,8 +111,9 @@ MCP's `active_alerts` runs the same operation. Mobile maps the result to:
 - a heading counting groups and faults apart, as MCP does:
   `Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning.`;
 - one row per group: severity, state (`partly acknowledged (2 of 8)` when it is),
-  rule, the representative's `[[alert:ID]]` marker with its source-qualified key
-  (`fault:9200`), the device in the person's naming style with `[[device:ID]]`, and
+  rule, the representative's `[[alert:ID]]` marker (its source, fault or legacy
+  alert, travels in the evidence and not the text), the device in the person's
+  naming style with `[[device:ID]]`, and
   for a group of several its fault count with up to three fault names;
 - groups not fetched or not fitting counted as omitted from the totals;
 - evidence only for rows shown: the representative under its marker key, typed

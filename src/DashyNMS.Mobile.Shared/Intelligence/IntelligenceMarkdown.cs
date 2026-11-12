@@ -57,6 +57,26 @@ public static partial class IntelligenceMarkdown
     internal const int MaxTableRows = 100;
     internal const int MaxTableColumns = 12;
 
+    /// <summary>
+    /// Restores the second pair of brackets on an object marker the model wrote with one,
+    /// <c>[alert:12]</c> for <c>[[alert:12]]</c>, which would otherwise stay literal text.
+    /// Only a marker the lookups returned is repaired, so a single-bracket id the model made
+    /// up gains nothing. Code spans, fenced blocks and Markdown links are left alone.
+    /// </summary>
+    public static string RepairMarkers(string? text, IReadOnlyList<IntelligenceInlineReference> references)
+    {
+        if (string.IsNullOrEmpty(text)) return text ?? "";
+        if (references.Count == 0 || !text.Contains('[')) return text;
+        return SingleBracketMarker().Replace(text, m =>
+            m.Groups["marker"].Success && references.Any(r => r.Key == m.Groups["marker"].Value)
+                ? "[" + m.Value + "]" : m.Value);
+    }
+
+    // Consume literal Markdown contexts first so only prose reaches the marker alternative.
+    // An unfinished fence remains literal while the answer streams.
+    [GeneratedRegex(@"(?m:^[ \t]*(?<fence>`{3,}|~{3,})[^\r\n]*(?:\r?\n|$)[\s\S]*?(?:^[ \t]*\k<fence>[^\r\n]*(?:\r?\n|$)|\z))|(?<ticks>`+)(?!`)[\s\S]*?(?<!`)\k<ticks>(?!`)|!?\[[^\]\r\n]*\]\([^\r\n)]*\)|(?<!\[)\[(?<marker>(?:device|alert|sensor|group|location):[1-9][0-9]{0,9})\](?![\](])")]
+    private static partial Regex SingleBracketMarker();
+
     public static IReadOnlyList<MarkdownBlock> Parse(string? markdown, IReadOnlyList<IntelligenceInlineReference>? references)
     {
         var evidence = references ?? [];

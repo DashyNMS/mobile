@@ -58,8 +58,8 @@ public sealed class CompactNetworkLookupsTests
         var lookup = new CompactNetworkLookups(Fakes.Client(alerts: alerts), Fakes.Settings(), Session())
             .Create().Single(l => l.Name == "network_overview");
         var text = await lookup.Run("", default);
-        Assert.Contains("(alert:101)", text);
-        Assert.True(text.IndexOf("(alert:101)", StringComparison.Ordinal) < text.IndexOf("(alert:1)", StringComparison.Ordinal));
+        Assert.Contains("[[alert:101]]", text);
+        Assert.True(text.IndexOf("[[alert:101]]", StringComparison.Ordinal) < text.IndexOf("[[alert:1]]", StringComparison.Ordinal));
         Assert.Contains("more results omitted", text);
     }
 
@@ -87,12 +87,16 @@ public sealed class CompactNetworkLookupsTests
         var alert = Fakes.Alert(7, 1, "critical");
         alert.Source = source;
         var client = Fakes.Client(alerts: [alert]);
-        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
+        var evidence = new List<IntelligenceEvidence>();
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange);
         foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
         {
+            evidence.Clear();
             var text = await lookup.Run("", default);
-            // The marker links any source; the qualified key keeps alert 7 and fault 7 distinct.
-            Assert.True(text.Contains($"[[alert:7]] ({key}) on host1", StringComparison.Ordinal), text);
+            Assert.Contains("[[alert:7]] on host1", text);
+            Assert.DoesNotContain($"({key})", text);
+            var reference = Assert.Single(evidence, e => e.Reference.Key == "alert:7").Reference;
+            Assert.Equal(key, $"{reference.Object!.Kind}:{reference.Object.Id}");
             Assert.Equal(alert.Identity, DashyNMS.Mobile.Alerts.AlertTargets.ParseKey(key));
         }
     }
@@ -175,7 +179,7 @@ public sealed class CompactNetworkLookupsTests
 
         var text = await lookup.Run("", default);
 
-        Assert.Contains("Rule 3 [[alert:3]] (fault:3) on core-sw1 [[device:708]]", text);
+        Assert.Contains("Rule 3 [[alert:3]] on core-sw1 [[device:708]]", text);
         Assert.DoesNotContain("device 708", text, StringComparison.OrdinalIgnoreCase);
         await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
         var alert = Assert.Single(evidence, r => r.Reference.Key == "alert:3").Reference;
@@ -197,8 +201,8 @@ public sealed class CompactNetworkLookupsTests
 
         var text = await lookup.Run("", default);
 
-        Assert.Contains("(alert:5) on Device 9 (name unavailable)", text);
-        Assert.Contains("(alert:6) on host10", text);
+        Assert.Contains("[[alert:5]] on Device 9 (name unavailable)", text);
+        Assert.Contains("[[alert:6]] on host10", text);
         // Without a device row there is no verified device to link.
         Assert.DoesNotContain("[[device:", text);
         Assert.DoesNotContain(evidence, r => r.Reference.Key.StartsWith("device:", StringComparison.Ordinal));
@@ -237,7 +241,7 @@ public sealed class CompactNetworkLookupsTests
         var text = await lookup.Run("", default);
 
         Assert.StartsWith("Open alerts: 1 (8 faults) on 1 device; 0 critical, 1 warning.", text);
-        Assert.Contains("Warning; partly acknowledged (2 of 8); Processor usage over 90% [[alert:9200]] (fault:9200) on core-sw1.example.net [[device:1]]; 8 faults", text);
+        Assert.Contains("Warning; partly acknowledged (2 of 8); Processor usage over 90% [[alert:9200]] on core-sw1.example.net [[device:1]]; 8 faults", text);
         Assert.Contains("and 5 more", text);
         // One row, so one alert chip: the group's representative, never one per fault.
         var alert = Assert.Single(evidence, r => r.Reference.Key.StartsWith("alert:", StringComparison.Ordinal)).Reference;

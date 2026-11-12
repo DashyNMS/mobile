@@ -1271,8 +1271,12 @@ device sensors. Each reply is at most 900 characters. Rows lead with the
 LibreNMS name in the person's device-name choice, followed by Core's marker,
 for example `core-sw1 [[device:708]]`, so the model names devices rather than
 writing "device 708". A device without a usable name reads
-"Device 708 (name unavailable)". Alert rows keep their source-qualified
-`alert:` or `fault:` key beside the `[[alert:ID]]` marker. Active alerts come from
+"Device 708 (name unavailable)". Alert rows name the alert by its `[[alert:ID]]`
+marker alone; the evidence records whether it is a fault or a legacy alert. A model sometimes
+writes a marker with one pair of brackets (`[alert:ID]`); the turn restores the
+second pair when a lookup returned that id, so the chip still appears and the
+copied or saved answer carries the real marker. Code spans, fenced blocks and
+Markdown links keep their original text. Active alerts come from
 the shared open alerts (#601): one row per rule firing on a device, worst first,
 with groups and faults counted apart and partial acknowledgement shown; if the
 device list or alerts can't be read, the lookup fails rather than reporting none.
