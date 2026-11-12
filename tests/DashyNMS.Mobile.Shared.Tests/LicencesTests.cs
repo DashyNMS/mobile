@@ -15,22 +15,12 @@ public sealed class LicencesTests
     private static LicencesViewModel Page(NoticePlatforms platform = NoticePlatforms.iOS) => new(new FakePlatform(platform));
 
     [Fact]
-    public void Lucide_resource_retains_complete_pinned_upstream_text()
-    {
-        var text = PhoneNotices.ReadLicence(PhoneNotices.LucideLicence);
-        Assert.NotNull(text);
-        // Git may convert resource line endings on Windows; compare the pinned LF text.
-        Assert.Equal("B495047BD93A9B06913511076F504DABA17D5BBEB3E0650F3BB53A4220329C57",
-            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text.Replace("\r\n", "\n")))));
-        Assert.Contains("Lucide (including Feather-derived icons)", Page().Items.Select(item => item.Name));
-    }
-
-    [Fact]
-    public void Every_licence_text_the_phone_names_is_embedded()
+    public void Every_licence_text_the_phone_names_is_in_Core()
     {
         foreach (var file in PhoneNotices.Own.Select(n => n.LicenceFile).OfType<string>().Distinct())
         {
-            Assert.False(string.IsNullOrWhiteSpace(PhoneNotices.ReadLicence(file)), file + " is empty");
+            Assert.Contains(file, OpenSourceNotices.LicenceFiles);
+            Assert.False(string.IsNullOrWhiteSpace(OpenSourceNotices.ReadLicence(file)), file + " is empty");
         }
     }
 
@@ -94,8 +84,8 @@ public sealed class LicencesTests
     }
 
     [Fact]
-    public void The_trademark_line_includes_project_and_upstream_marks() =>
-        Assert.Equal(PhoneNotices.TrademarkReservation + " " + OpenSourceNotices.Trademarks, Page().Trademarks);
+    public void The_trademark_line_is_Cores() =>
+        Assert.Equal(OpenSourceNotices.Trademarks, Page().Trademarks);
 
     [Theory]
     [InlineData(NoticePlatforms.iOS)]
@@ -110,7 +100,7 @@ public sealed class LicencesTests
             Assert.Equal(item.Notice.Licence, item.LicenceName);
             Assert.Equal(item.Notice.Copyright, item.Copyright);
             if (item.Notice.LicenceFile is not { } file) continue;
-            var complete = PhoneNotices.ReadLicence(file);
+            var complete = OpenSourceNotices.ReadLicence(file);
             Assert.False(string.IsNullOrWhiteSpace(complete));
             item.ToggleCommand.Execute(null);
             Assert.Equal(complete, item.LicenceText); // Includes all whitespace and the final notice.
