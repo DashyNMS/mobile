@@ -27,6 +27,15 @@ public interface ISessionService : DesktopNMS.Core.Services.IConnectionState
     /// </summary>
     long ConnectionGeneration { get; }
 
+    /// <summary>
+    /// <see cref="Connection"/> with <see cref="ConnectionGeneration"/>, read together in one
+    /// step with the switch; null when signed out. Reading the two properties one after the
+    /// other can straddle a switch: the generation has moved but the client still holds the
+    /// old connection, so a reconnect to the same server with a different certificate policy
+    /// would pair the new generation with the old policy and pass as current (#596).
+    /// </summary>
+    DashyNMS.Mobile.Services.SessionScope? CurrentScope { get; }
+
     /// <summary>Version details of the connected instance, populated on sign-in.</summary>
     SystemInfo? ServerInfo { get; }
 
@@ -126,6 +135,21 @@ public sealed class SessionService : ISessionService
     public LibreNmsConnection? Connection => _client.Connection;
 
     public long ConnectionGeneration => Interlocked.Read(ref _generation);
+
+    public DashyNMS.Mobile.Services.SessionScope? CurrentScope
+    {
+        get
+        {
+            // Under the switch lock: the generation moves and the client switches inside it,
+            // so the pair read here is always one connection's.
+            lock (_switching)
+            {
+                return _client.Connection is { } connection
+                    ? new DashyNMS.Mobile.Services.SessionScope(_generation, connection)
+                    : null;
+            }
+        }
+    }
 
     public SystemInfo? ServerInfo { get; private set; }
 

@@ -19,6 +19,20 @@ internal static class Fakes
         return client;
     }
 
+    /// <summary>
+    /// A session substitute whose <see cref="DesktopNMS.Services.ISessionService.CurrentScope"/>
+    /// follows whatever <c>Connection</c> and <c>ConnectionGeneration</c> are set to, as the
+    /// real session's does, so tests can keep configuring those two.
+    /// </summary>
+    public static DesktopNMS.Services.ISessionService Session()
+    {
+        var session = Substitute.For<DesktopNMS.Services.ISessionService>();
+        session.CurrentScope.Returns(_ => session.Connection is { } connection
+            ? new SessionScope(session.ConnectionGeneration, connection)
+            : (SessionScope?)null);
+        return session;
+    }
+
     public static ISettingsStore Settings(AppSettings? settings = null)
     {
         var store = Substitute.For<ISettingsStore>();

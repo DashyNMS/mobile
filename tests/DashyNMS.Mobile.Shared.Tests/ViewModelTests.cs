@@ -613,7 +613,7 @@ public sealed class DeviceDetailViewModelTests
 
 public sealed class SignInViewModelTests
 {
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly RecordingNavigation _navigation = new();
     private readonly RecordingNotifier _notifier = new();
 

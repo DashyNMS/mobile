@@ -17,10 +17,13 @@ namespace DashyNMS.Mobile.Services;
 /// </para>
 /// <para>
 /// <see cref="ISessionService.ConnectionGeneration"/> moves only on a genuine change:
-/// sign-in, reconnect, restore and sign-out, the same server again included. It moves
-/// before the client switches, so a reader that sees the new connection always sees the
-/// new generation. The server, backup and token are compared as well, so a scope can never
-/// pass for a different server even if a session implementation didn't move it.
+/// sign-in, reconnect, restore and sign-out, the same server again included. The pair is
+/// read from <see cref="ISessionService.CurrentScope"/>, in one step with the switch: read
+/// one property after the other, a switch in between could pair the new generation with
+/// the old connection, and a reconnect to the same server with a different certificate
+/// policy would then pass as current with the old policy. The server, backup and token are
+/// compared as well, so a scope can never pass for a different server even if a session
+/// implementation didn't move the generation.
 /// </para>
 /// </remarks>
 public readonly record struct SessionScope(long Generation, LibreNmsConnection Connection)
@@ -29,10 +32,7 @@ public readonly record struct SessionScope(long Generation, LibreNmsConnection C
     public static SessionScope? Capture(ISessionService session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        // The generation first: it moves before the connection does, so a switch between
-        // the two reads leaves an old generation with the new connection, never current.
-        var generation = session.ConnectionGeneration;
-        return session.Connection is { } connection ? new SessionScope(generation, connection) : null;
+        return session.CurrentScope;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ public readonly record struct SessionScope(long Generation, LibreNmsConnection C
     public bool IsCurrent(ISessionService session)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return session.Connection is { } now && session.ConnectionGeneration == Generation && SameServer(Connection, now);
+        return session.CurrentScope is { } now && now.Generation == Generation && SameServer(Connection, now.Connection);
     }
 
     /// <summary>Whether two connections reach the same server, by the same backup, with the same token.</summary>

@@ -35,7 +35,7 @@ public sealed class AlertWatcherTests
     private const string Server = "https://nms.example.com/";
 
     private readonly ILibreNmsClient _client = Fakes.Client();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly AppSettings _settings = new();
     private readonly InMemoryWatchStore _store = new();
     private readonly SelfActionTracker _selfActions = new();
@@ -482,7 +482,7 @@ public sealed class AlertBadgeTests
 
 public sealed class AlertWatchCoordinatorTests
 {
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly AppSettings _settings = new();
     private readonly IBackgroundAlertScheduler _scheduler = Substitute.For<IBackgroundAlertScheduler>();
     private readonly InMemoryWatchStore _store = new();
@@ -605,7 +605,7 @@ public sealed class AlertWatchCoordinatorTests
 
 public sealed class NotificationRouterTests
 {
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly RecordingNavigation _navigation = new();
     private readonly NotificationRouter _router;
 
@@ -708,7 +708,7 @@ public sealed class NotificationSettingsViewModelTests
     [Fact]
     public void Toggling_a_setting_saves_it_and_reapplies_the_schedule()
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         var appSettings = new AppSettings();
         var settings = Fakes.Settings(appSettings);

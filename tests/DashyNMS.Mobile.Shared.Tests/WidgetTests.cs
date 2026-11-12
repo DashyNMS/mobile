@@ -221,7 +221,7 @@ public sealed class WidgetUpdateTests
         devices: [Fakes.Device(1, "a"), Fakes.Device(2, "b", up: false), Fakes.Device(3, "c", up: false, disabled: true)],
         alerts: [Fakes.Alert(1, 2, "critical")]);
 
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly AppSettings _settings = new();
     private readonly RecordingWidgets _widgets = new();
     private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 9, 28, 12, 0, 0, TimeSpan.Zero));
@@ -317,7 +317,7 @@ public sealed class WidgetUpdateTests
 
 public sealed class WidgetCoordinatorTests
 {
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly AppSettings _settings = new() { ShowAlertTabBadge = false };
     private readonly IBackgroundAlertScheduler _scheduler = Substitute.For<IBackgroundAlertScheduler>();
     private readonly RecordingWidgets _widgets = new();

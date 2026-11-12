@@ -11,7 +11,7 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed class SignInWithLibreNmsTests
 {
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly RecordingNavigation _navigation = new();
     private readonly IWebSignIn _web = Substitute.For<IWebSignIn>();
     private readonly ICertificateProbe _probe = Substitute.For<ICertificateProbe>();
@@ -198,7 +198,7 @@ public sealed class EasierTokenTests
 {
     private const string Token = "12|AbCdEfGhIjKlMnOpQrStUvWxYz0123456789abcd";
 
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly RecordingNavigation _navigation = new();
     private readonly ILauncherService _launcher = Substitute.For<ILauncherService>();
     private readonly IClipboardText _clipboard = Substitute.For<IClipboardText>();

@@ -47,7 +47,7 @@ public sealed partial class SharedDeviceSearchTests
 
     private static ISessionService Session(LibreNmsConnection? connection = null)
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(connection ?? new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
         return session;
     }

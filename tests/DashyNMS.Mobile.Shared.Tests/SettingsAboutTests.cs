@@ -51,7 +51,7 @@ public sealed class SettingsAboutTests
     [Fact]
     public async Task Cancelling_sign_out_keeps_the_session_and_does_not_navigate()
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var navigation = new RecordingNavigation();
         var dialogs = Substitute.For<IDialogService>();
         dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<string>()).Returns((string?)null);
@@ -72,7 +72,7 @@ public sealed class SettingsAboutTests
     [Fact]
     public void Unknown_server_version_is_explicit_and_does_not_change_transport_warning()
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(new LibreNmsConnection(new Uri("http://nms.example.net/"), "synthetic-token"));
         var vm = NewViewModel(session);
         Assert.Equal("LibreNMS unknown · not secure (http)", vm.ServerSummary);
@@ -99,7 +99,7 @@ public sealed class SettingsAboutTests
     public async Task The_about_card_opens_the_privacy_policy_and_support_pages_in_the_browser()
     {
         var settings = Fakes.Settings(new AppSettings());
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var coordinator = new AlertWatchCoordinator(
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
@@ -121,7 +121,7 @@ public sealed class SettingsAboutTests
         IDialogService? dialogs = null)
     {
         var settings = Fakes.Settings(appSettings ?? new AppSettings());
-        session ??= Substitute.For<ISessionService>();
+        session ??= Fakes.Session();
         var coordinator = new AlertWatchCoordinator(
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);
@@ -181,7 +181,7 @@ public sealed class SettingsAboutTests
                 Enabled = true, UseCustomRepository = true, CustomRepository = "https://github.com/example-owner/private-definitions",
             });
             await definitions.CheckAsync(indexOnly: true);
-            var session = Substitute.For<ISessionService>();
+            var session = Fakes.Session();
             session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "secret-token"));
             var appSettings = new AppSettings();
             appSettings.PinnedDevices.Add(new PinnedDevice { DeviceId = 1, DisplayName = "core-sw-01" });

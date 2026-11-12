@@ -258,7 +258,7 @@ public sealed class IntelligenceAnswerTests
         store.TrySave().Returns(true);
         var preferences = new InMemoryPreferences();
         preferences.Set(IntelligencePreferences.NoticeKey, "accepted");
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
         return (new IntelligenceConversationViewModel(new Model(answer), new IntelligencePreferences(store, preferences),
             lookups?.Invoke(session) ?? new EvidenceLookups(EvidenceItems), session), session);

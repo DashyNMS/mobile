@@ -25,13 +25,25 @@ namespace DashyNMS.Mobile.Security;
 /// certificate is trusted on them as well as on the session's.
 /// </para>
 /// <para>
-/// Each refusal is bound to the session generation it came from: the chat transport's
-/// own, or the session's when the client raised it. One from an earlier connection (a
-/// chat's late request after a switch) isn't asked about, and a prompt still open when
-/// the session signs in elsewhere or out trusts nothing when accepted: the check and the
-/// trust are one step with the switch (<see cref="ISessionService.TrustCertificate(CertificateDetails, long)"/>).
-/// So a certificate met on one server is never trusted for another, nor saved to the
-/// shared trusted list on its behalf.
+/// Each refusal is bound to the session generation it came from. A chat transport's
+/// carries the generation it was opened for. The client's carries only the certificate,
+/// and it is one long-lived object across every switch, so a request still in flight from
+/// the previous connection can fail after the switch. Its refusal is taken for the session
+/// now only when the certificate's host is an address that connection dials, read with its
+/// generation in one step (<see cref="ISessionService.CurrentScope"/>); anything else is a
+/// stale refusal from another server and is dropped. That host also says whether it was
+/// the backup address, rather than the session's failover state when the event arrives.
+/// A late refusal that does match came from the very endpoint the session dials now, and
+/// trusted certificates are one shared list of fingerprints, so asking about it is what a
+/// fresh request there would do.
+/// </para>
+/// <para>
+/// One from an earlier connection (a chat's late request after a switch) isn't asked
+/// about, and a prompt still open when the session signs in elsewhere or out trusts
+/// nothing when accepted: the check and the trust are one step with the switch
+/// (<see cref="ISessionService.TrustCertificate(CertificateDetails, long)"/>). So a
+/// certificate met on one server is never trusted for another, nor saved to the shared
+/// trusted list on its behalf.
 /// </para>
 /// </remarks>
 public sealed class CertificatePrompt
@@ -65,10 +77,7 @@ public sealed class CertificatePrompt
         }
 
         _started = true;
-        // The session's generation as the refusal arrives: Core raises it on the thread whose
-        // request failed, while that request's connection is still the session's.
-        _client.CertificateRejected += (_, certificate) =>
-            _ = AskAsync(certificate, _session.ConnectionGeneration, _client.Failover.IsOnBackup);
+        _client.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
         if (_chatTransports is not null)
         {
             _chatTransports.CertificateRejected += (_, rejection) =>
@@ -76,9 +85,47 @@ public sealed class CertificatePrompt
         }
     }
 
-    /// <summary>As <see cref="AskAsync(CertificateDetails, long, bool)"/>, for the connection in use now.</summary>
-    internal Task<bool> AskAsync(CertificateDetails certificate) =>
-        AskAsync(certificate, _session.ConnectionGeneration, _client.Failover.IsOnBackup);
+    /// <summary>
+    /// A refusal from the session's own client, which names no connection: bound to the one in
+    /// use now only when the certificate's host is an address it dials (see remarks).
+    /// </summary>
+    internal Task<bool> AskAsync(CertificateDetails certificate)
+    {
+        ArgumentNullException.ThrowIfNull(certificate);
+        if (_session.CurrentScope is not { } scope || Dialled(scope.Connection, certificate.Host) is not { } onBackup)
+        {
+            return Task.FromResult(false);
+        }
+
+        return AskAsync(certificate, scope.Generation, onBackup);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="host"/> is <paramref name="connection"/>'s backup address (true)
+    /// or its server address (false); null when it is neither, so the refusal came from
+    /// another connection.
+    /// </summary>
+    internal static bool? Dialled(LibreNmsConnection connection, string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return null;
+        }
+
+        if (SameHost(connection.WebRoot, host))
+        {
+            return false;
+        }
+
+        return connection.BackupWebRoot is { } backup && SameHost(backup, host) ? true : null;
+    }
+
+    private static bool SameHost(Uri address, string host)
+    {
+        var bare = host.Trim().Trim('[', ']');
+        return string.Equals(address.Host.Trim('[', ']'), bare, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(address.IdnHost.Trim('[', ']'), bare, StringComparison.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Asks whether to trust <paramref name="certificate"/> - unless signed

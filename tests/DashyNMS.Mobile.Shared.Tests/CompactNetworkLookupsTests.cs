@@ -10,7 +10,7 @@ public sealed class CompactNetworkLookupsTests
 {
     private static ISessionService Session()
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
         return session;
     }
@@ -19,7 +19,7 @@ public sealed class CompactNetworkLookupsTests
     public async Task Signed_out_lookups_ask_for_sign_in_without_calling_LibreNMS()
     {
         var client = Fakes.Client();
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: Fakes.DeviceTransport(client)).Create();
         foreach (var lookup in lookups)
             Assert.Equal("Sign in to LibreNMS to use network lookups.", await lookup.Run("1", default));

@@ -37,11 +37,11 @@ public sealed partial class SharedDeviceSearchTests
         using var tls = new TlsLoopbackLibreNms();
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var settings = LiveSettings(new AppSettings());
-        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Fakes.Session());
 
         var client = Substitute.For<ILibreNmsClient>();
         client.Failover.Returns(new ServerFailover());
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         session.TrustCertificate(default!, default).ReturnsForAnyArgs(true);
         // The answer waits until the first request has failed: Core retries a refused
@@ -78,7 +78,7 @@ public sealed partial class SharedDeviceSearchTests
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var current = new AppSettings();
         var settings = LiveSettings(current);
-        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Fakes.Session());
         var connection = new LibreNmsConnection(tls.Root, "test-token", allowUntrustedCertificate: true);
 
         using var live = transports.Open(new SessionScope(0, connection));
@@ -101,7 +101,7 @@ public sealed partial class SharedDeviceSearchTests
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var current = new AppSettings { TimeoutSeconds = 12 };
         var settings = LiveSettings(current);
-        using var transports = new IntelligenceDeviceTransports(shared, settings, Substitute.For<ISessionService>());
+        using var transports = new IntelligenceDeviceTransports(shared, settings, Fakes.Session());
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token", timeoutSeconds: 30,
             backupWebRoot: new Uri("https://nms-backup.example.net/"));
 
@@ -126,7 +126,7 @@ public sealed partial class SharedDeviceSearchTests
         var failover = new ServerFailover();
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance, failover);
         shared.Configure(connection, startOnBackup: true);
-        using var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Substitute.For<ISessionService>());
+        using var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Fakes.Session());
 
         using var transport = transports.Open(new SessionScope(0, connection));
         Assert.Equal("backup.example.net", Assert.Single(await ListThrough(transport)).Hostname);
@@ -153,7 +153,7 @@ public sealed partial class SharedDeviceSearchTests
         using var a = new LoopbackLibreNms("a.example.net");
         using var b = new LoopbackLibreNms("b.example.net");
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
-        var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Substitute.For<ISessionService>());
+        var transports = new IntelligenceDeviceTransports(shared, LiveSettings(new AppSettings()), Fakes.Session());
 
         var first = transports.Open(new SessionScope(0, new LibreNmsConnection(a.Root, "token-a")));
         var second = transports.Open(new SessionScope(0, new LibreNmsConnection(b.Root, "token-b")));

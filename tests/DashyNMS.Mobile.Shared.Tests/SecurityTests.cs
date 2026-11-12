@@ -17,7 +17,7 @@ public sealed class SecurityTests
 {
     private readonly AppSettings _appSettings = new();
     private readonly ISettingsStore _settings;
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly RecordingNavigation _navigation = new();
 

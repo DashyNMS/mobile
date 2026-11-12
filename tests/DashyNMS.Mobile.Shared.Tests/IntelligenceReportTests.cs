@@ -18,7 +18,7 @@ public sealed class IntelligenceReportTests
     private const string LookupText = "LOOKUP-ONLY edge-router-a [[device:12]]: Down, 192.0.2.10";
     private static readonly DateTimeOffset Observed = new(2026, 11, 11, 9, 30, 0, TimeSpan.Zero);
 
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly IEmailComposer _email = Substitute.For<IEmailComposer>();
     private readonly Model _model = new();

@@ -15,7 +15,7 @@ public sealed class SignInLinksTests
     private const string Fingerprint = "AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33:44:55:66:77:88:99";
 
     private readonly AppSettings _appSettings = new();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly RecordingNavigation _navigation = new();
     private readonly SignInLinks _links;

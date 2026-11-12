@@ -49,7 +49,7 @@ public sealed class IntelligenceTransportTests
         client.Devices.Returns(apis.Devices);
         client.Alerts.Returns(apis.Alerts);
         client.Sensors.Returns(apis.Sensors);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(transport.Connection);
         return new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: _ => transport).Create().Single(l => l.Name == name);
     }

@@ -57,7 +57,7 @@ public sealed class IntelligenceConversationTests
     }
     private readonly Model _model = new();
     private readonly Lookups _lookups = new();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IntelligencePreferences _preferences;
 
     public IntelligenceConversationTests()
