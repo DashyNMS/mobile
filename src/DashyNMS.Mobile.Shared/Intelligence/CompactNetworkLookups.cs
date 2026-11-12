@@ -484,15 +484,15 @@ public sealed partial class CompactNetworkLookups(
     }
 
     /// <summary>
-    /// One reference per marker key. Several alerts on one device repeat its reference; one is
-    /// enough. Two different objects behind one key (a fault and a legacy alert both numbered 12,
-    /// which share the <c>[[alert:12]]</c> marker) leave neither: a chip that could open either
-    /// would let one claim the other's evidence.
+    /// One reference per object. Several alerts on one device repeat its reference; one is
+    /// enough. Two different objects behind one marker key (a fault and a legacy alert both
+    /// numbered 12, which share <c>[[alert:12]]</c>) are both kept, so the conversation sees the
+    /// conflict: <see cref="IntelligenceTurn.AddEvidence"/> then withdraws that key for the rest
+    /// of the answer, including a chip an earlier lookup supplied, rather than letting either
+    /// object claim the other's marker.
     /// </summary>
     internal static IReadOnlyList<IntelligenceEvidence> Distinct(IEnumerable<IntelligenceEvidence> references) => references
-        .GroupBy(r => r.Reference.Key)
-        .Where(g => g.Select(r => (r.Reference.Object?.Kind, r.Reference.Object?.Id)).Distinct().Count() == 1)
-        .Select(g => g.First())
+        .DistinctBy(r => (r.Reference.Key, r.Reference.Object?.Kind, r.Reference.Object?.Id))
         .ToList();
 
     /// <summary>Bounds network labels and prevents control characters from creating extra rows or markers.</summary>

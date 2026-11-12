@@ -119,10 +119,10 @@ MCP's `active_alerts` runs the same operation. Mobile maps the result to:
   `fault` or `alert` with device and rule, and the device with its reported state.
 
 **Identities.** Core's markers have no `fault` kind, so fault 12 and legacy alert 12
-share `[[alert:12]]`. If two different objects claim one marker key, neither
-becomes a chip, within a reply (`CompactNetworkLookups.Distinct`) or across an
-answer's lookups (`IntelligenceTurn.AddEvidence`). The group key is never offered
-as an id.
+share `[[alert:12]]`. Replies pass every distinct object through, and when two
+different objects claim one marker key, `IntelligenceTurn.AddEvidence` withdraws
+that key for the rest of the answer, whether the two came in one reply or in
+separate lookups, and whichever came first. The group key is never offered as an id.
 
 **Failures.** No partial success: if the device list or alerts can't be read, the
 lookup fails rather than reporting no alerts. `Refused` maps to the refusal line,

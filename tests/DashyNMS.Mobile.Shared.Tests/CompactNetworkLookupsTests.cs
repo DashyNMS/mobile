@@ -316,9 +316,26 @@ public sealed class CompactNetworkLookupsTests
     [Fact]
     public void A_fault_and_a_legacy_alert_with_the_same_number_never_share_a_chip()
     {
-        Assert.Empty(CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("alert")]));
+        // Both reach the conversation, which withdraws the key; neither becomes the chip.
+        Assert.Equal(2, CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("alert")]).Count);
+        var turn = new IntelligenceTurn("What is alerting?", "");
+        turn.AddEvidence(CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("alert")]));
+        Assert.Empty(turn.Evidence);
         // The same object seen twice is still one chip.
         Assert.Single(CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("fault")]));
+    }
+
+    [Fact]
+    public void An_ambiguous_reply_withdraws_a_chip_an_earlier_lookup_supplied_and_it_stays_withdrawn()
+    {
+        var turn = new IntelligenceTurn("What is alerting?", "");
+        turn.AddEvidence([Twelve("alert")]);
+        Assert.Single(turn.Evidence);
+
+        turn.AddEvidence(CompactNetworkLookups.Distinct([Twelve("alert"), Twelve("fault")]));
+        Assert.Empty(turn.Evidence);
+        turn.AddEvidence([Twelve("alert")]);
+        Assert.Empty(turn.Evidence);
     }
 
     [Fact]
