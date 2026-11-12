@@ -12,11 +12,20 @@ namespace DashyNMS.Mobile.Services;
 /// <remarks>
 /// Kept by hand: add a line here with any new package or bundled script,
 /// and its licence text to Core if it isn't there (a test checks each file
-/// is). Test-only packages don't ship, so they aren't listed.
+/// is). Test-only packages don't ship, so they aren't listed. A text only
+/// the phone ships - Lucide's, or a package's own copyright line - is
+/// embedded in this assembly instead and read by <see cref="ReadLicence"/>.
 /// </remarks>
 public static class PhoneNotices
 {
     private const NoticePlatforms Phone = NoticePlatforms.iOS | NoticePlatforms.Android;
+    private const string ResourcePrefix = "DashyNMS.Mobile.Licences.";
+
+    /// <summary>Lucide's ISC licence with the Feather MIT terms it carries; Core has no copy.</summary>
+    public const string LucideIsc = "lucide-isc.txt";
+
+    /// <summary>The LICENSE inside the DashyNMS.Agent.Search package, embedded at build time.</summary>
+    public const string AgentSearchMit = "dashynms-agent-search-mit.txt";
 
     public static IReadOnlyList<OpenSourceNotice> Own { get; } =
     [
@@ -32,7 +41,29 @@ public static class PhoneNotices
             new Uri("https://kotlinlang.org"), OpenSourceNotices.Apache2, NoticePlatforms.Android),
         new(".NET for Android bindings", "AndroidX for .NET", OpenSourceNotices.DotNetFoundation, "MIT",
             new Uri("https://github.com/dotnet/android-libraries"), OpenSourceNotices.Mit, NoticePlatforms.Android),
+        new("Lucide", "Some of the app's icons", "Copyright (c) 2026 Lucide Icons and Contributors; Feather icons copyright (c) 2013-present Cole Bemis",
+            "ISC (Feather-derived icons MIT)", new Uri("https://lucide.dev"), LucideIsc, Phone),
+        new("DashyNMS.Agent.Search", "Device search when asking about the network", "Copyright (c) 2026 Thomas Pickup", "MIT",
+            new Uri("https://github.com/DashyNMS/mcp"), AgentSearchMit, Phone),
     ];
+
+    /// <summary>Every licence text embedded in the phone itself, by file name.</summary>
+    public static IReadOnlyList<string> LicenceFiles { get; } =
+        typeof(PhoneNotices).Assembly.GetManifestResourceNames()
+            .Where(n => n.StartsWith(ResourcePrefix, StringComparison.Ordinal))
+            .Select(n => n[ResourcePrefix.Length..])
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
+    /// <summary>A licence's full text from the phone's own texts, then Core's; null when neither has it.</summary>
+    public static string? ReadLicence(string licenceFile)
+    {
+        using var stream = typeof(PhoneNotices).Assembly.GetManifestResourceStream(ResourcePrefix + licenceFile);
+        if (stream is null)
+            return OpenSourceNotices.ReadLicence(licenceFile);
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
+    }
 
     /// <summary>Everything this build ships: Core's shared entries, then the phone's, for <paramref name="platform"/>.</summary>
     public static IReadOnlyList<OpenSourceNotice> For(NoticePlatforms platform) =>

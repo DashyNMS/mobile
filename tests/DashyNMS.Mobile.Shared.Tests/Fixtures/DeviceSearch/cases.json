@@ -1,0 +1,11 @@
+{
+  "cases": [
+    { "query": "sw", "ids": [3, 5, 2, 4, 1, 7, 8, 9, 10], "total": 9 },
+    { "query": "  sw  ", "ids": [3, 5, 2, 4, 1, 7, 8, 9, 10], "total": 9 },
+    { "query": "SW-CORE", "ids": [5], "total": 1 },
+    { "query": "192.0.2.10", "ids": [4], "total": 1 },
+    { "query": "192.0.2", "ids": [4, 6], "total": 2 },
+    { "query": "lab switch", "ids": [9, 10], "total": 2 },
+    { "query": "absent", "ids": [], "total": 0 }
+  ]
+}

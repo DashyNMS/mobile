@@ -1,9 +1,87 @@
 # Shared Intelligence tools: inventory and proof design
 
 Design for [mobile #596](https://github.com/DashyNMS/mobile/issues/596), reviewed
-2026-11-11. This is source investigation and a proposed migration, not an
-implemented lookup or an acceptance report. No builds or tests were run.
-The issue had no comments when read. Keep #596 open.
+2026-11-11, with the first migration recorded on 2026-11-12 under
+[First migration: find_device](#first-migration-find_device). The sections after
+that one are the original inventory and plan; where they say no package exists,
+the first-migration section supersedes them.
+
+## First migration: find_device
+
+Intelligence's `find_device` now runs DashyNMS/mcp's shared device search. The
+other four lookups and Diagnostics' `NetworkOverviewLookup` are unchanged.
+
+**Package.** `DashyNMS.Agent.Search` `0.1.0-ci.43135054163.1`, published by
+DashyNMS/mcp's Search package workflow run 43135054163 from commit
+`0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe` to GitHub Packages, SHA-256
+`731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d`, with a
+build provenance attestation. It is MIT licensed, targets net10.0, references
+Core (minimum `2.0.0-ci.34`; mobile's direct `2.0.0-ci.64` pin wins) and has no
+`ModelContextProtocol` reference. Upstream CI ran its tests against the exact
+packed binary with Core ci.34 and ci.64. Mobile CI re-checks the restored file's
+hash, nuspec commit and attestation on every push (`Verify the shared Search
+package`). There is no NuGet lock file yet (#609).
+
+**What mobile now does.** `CompactNetworkLookups` creates one
+`HostDeviceSearch` per lookup set, so per model session and captured connection,
+and calls the typed `FindDevicesAsync` with `Limit = 20`. Ranking (exact, starts
+with, contains over hostname, sysName, display and IP; ties by hostname),
+trimming, paging and redaction are upstream. Mobile's substring filter and
+device-id ordering are deleted. Mobile only maps the typed result to the compact
+profile: rows in the person's device-name style with `[[device:ID]]`, the exact
+total in the heading, unfetched and over-budget matches counted as omitted, and
+`IntelligenceEvidence` only for rows shown.
+
+**Host ownership and isolation.** No Agent registration runs; mobile passes its
+own client, clock and the server timestamp setting. The client is wrapped in
+`ConnectionBoundDeviceList`, which hands the search the device list only, and
+only while the captured connection is the session's; every other endpoint and
+all session controls (connect, trust, timeout) throw before transport. A switch
+or sign-out during a search disposes the search, which cancels the wait at once
+and refuses later calls, cached ones included; late replies and their evidence
+are discarded and the lookup says the connection changed. Residual gap: a request
+that passes the check just before a switch can still be sent on the new
+connection (its reply is discarded). Closing it needs a per-connection Core
+client (#605).
+
+**Cancellation, deadline, failures.** Caller cancellation propagates. Mobile's
+linked 15-second deadline and `WaitAsync` bound remain around the call, and the
+package adds its own `WaitAsync` and late-fault observation. Failures arrive as
+fixed upstream categories with no server text or exception; mobile maps refused
+to its own refusal line and everything else to the existing failure line. An
+empty result is distinct from a failure. Nothing is logged.
+
+**Profile.** Model-facing name, purpose and single `query` argument are
+unchanged. Text search only: MAC-shaped queries are refused before any request,
+and ARP and group endpoints are blocked by the wrapper (#608).
+
+**Known semantic difference.** The shared summary reports only up, down and
+disabled; an omitted status reads as down and ignored or maintenance devices are
+not distinguished, where the old mobile search used Core's `ReportedState`
+(#604).
+
+**Fixtures.** `tests/.../Fixtures/DeviceSearch` is a synthetic device-list
+response (documentation addresses, `example.net`) and hand-written ranked cases.
+Devices 1 to 3 repeat upstream's ranking test. Mobile tests run each case through
+both the package's typed executor and mobile `find_device` and require the same
+ids, order and totals. This is a copy: there is no shared fixture package, and the
+MCP adapter's side is covered only by upstream's own typed-vs-MCP test (#606).
+
+**CI proof added.** The Android Release build fails on any trim, AOT or NuGet
+warning naming the package and reports the APK size and effective trimming/AOT
+properties. A new `iOS Release (device, unsigned)` job builds Release
+`ios-arm64` with the shipping defaults (no `PublishAot`), fails on such
+warnings, requires the assembly in the `.app` and its Mono AOT output, records
+evaluated properties and sizes, and keeps the Foundation Models weak-link check.
+These prove compilation through the device toolchains, not execution.
+
+**Not done, and where it is tracked.** No trimmed Android runtime run, iOS
+simulator smoke harness or installed-device check; no measured token use; no
+size delta against a matched baseline (#607). Remaining migrations: overview
+(#600), alerts (#601), device summary (#602), sensors (#603); further catalogue
+tools (#610).
+
+**Measurements.** See [Measurements](#measurements-for-the-first-migration).
 
 ## Evidence and reproducibility
 
@@ -367,22 +445,19 @@ execution. Latency, allocations, package/IPA/APK size delta, cold start, cache
 request counts and real token usage must be recorded before expanding tools.
 All replacement measurements remain unverified in this design.
 
-## Draft follow-up issues
+## Follow-up issues
 
-These are reviewable drafts, not issues opened by this inventory:
+Opened with the first migration (2026-11-12):
 
-- MCP: `feat(agent): share typed device search with mobile hosts`. Extract
-  ranked execution and DTOs, host-owned registration/logger/options, safe error
-  policy, static dispatch, MCP dependency isolation and immutable package and
-  test-fixture publication. Preserve existing MCP output compatibility and
-  reconcile ci.34 with mobile's baseline, considering available ci.65 only
-  after compatibility review. Acceptance includes both adapter fixture results
-  and package provenance/dependency records.
-- Mobile: `feat(intelligence): use shared ranked device search`. Blocked on the
-  upstream package; pin it and the fixture bundle, migrate only find_device,
-  prove generation isolation/redaction/evidence, add the separate publish,
-  simulator and device gates, and report actual token and size measurements.
-  Keep the other four lookups and Diagnostics until their own migrations.
+- #600 overview, #601 grouped alerts, #602 device summary, #603 sensor assessment:
+  each an upstream typed operation plus a mobile migration.
+- #604 truthful device states in the shared summary.
+- #605 per-connection client so a retired search can't send.
+- #606 one fixture bundle run through both adapters.
+- #607 runtime, installed-device, token and size measurements.
+- #608 MAC, group and location search in chat.
+- #609 NuGet lock files.
+- #610 further catalogue tools (epic).
 
 ## Staged work and acceptance status
 
@@ -408,3 +483,14 @@ plan. It does **not** complete host isolation/cancellation/redaction proof,
 Release AOT or Android migration proof, identical-fixture comparisons, measured
 compact profile, first lookup migration or performance/device acceptance.
 Upstream implementation is required before those #596 criteria can be met.
+
+## Measurements for the first migration
+
+Recorded from CI for the PR that made the migration. Anything not listed is
+unverified.
+
+- Package: nupkg and assembly sizes are written to the `Unit tests` job summary.
+- Android Release APK size and iOS Release `.app` size are written to their job
+  summaries. No matched baseline build was compared, so no delta is claimed.
+- Tokens: the tool definition text is unchanged; results stay within 900
+  characters. No bridge measurement was taken (#607).

@@ -8,9 +8,17 @@ on:
 permissions:
   contents: read
   packages: read
+  # Reading DashyNMS/mcp's build provenance for the shared Search package (#596).
+  attestations: read
 
 env:
   DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # The shared device search package (#596): exact version, the SHA-256 its publish
+  # run attested, and the DashyNMS/mcp commit it was built from (run 43135054163).
+  # Move all three with the PackageReference in DashyNMS.Mobile.Shared.csproj.
+  SEARCH_VERSION: 0.1.0-ci.43135054163.1
+  SEARCH_SHA256: 731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d
+  SEARCH_COMMIT: 0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe
 
 jobs:
   # Mobile's shared code on plain .NET; Core runs its tests upstream.
@@ -29,6 +37,26 @@ jobs:
 
       - name: Test shared code
         run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug
+
+      # Restore took the package from GitHub Packages; check it is the exact file
+      # DashyNMS/mcp built and attested, from the expected commit, before trusting it.
+      - name: Verify the shared Search package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          DIR="$HOME/.nuget/packages/dashynms.agent.search/$SEARCH_VERSION"
+          NUPKG="$DIR/dashynms.agent.search.$SEARCH_VERSION.nupkg"
+          echo "$SEARCH_SHA256  $NUPKG" | sha256sum --check --strict
+          grep -q "commit=\"$SEARCH_COMMIT\"" "$DIR/dashynms.agent.search.nuspec"
+          gh attestation verify "$NUPKG" --repo DashyNMS/mcp
+          DLL="$DIR/lib/net10.0/DashyNMS.Agent.Search.dll"
+          {
+            echo "### Shared Search package"
+            echo "- Version: \`$SEARCH_VERSION\` from DashyNMS/mcp \`$SEARCH_COMMIT\`"
+            echo "- nupkg: $(stat -c %s "$NUPKG") bytes, SHA-256 verified, attestation verified"
+            echo "- DashyNMS.Agent.Search.dll: $(stat -c %s "$DLL") bytes"
+            echo "- Dependencies: $(grep -o '<dependency [^>]*>' "$DIR/dashynms.agent.search.nuspec" | tr '\n' ' ')"
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   android:
@@ -50,7 +78,29 @@ jobs:
         run: dotnet workload install maui-android
 
       - name: Build
-        run: dotnet build src/DashyNMS.Mobile -f net10.0-android -c Release
+        shell: bash
+        run: dotnet build src/DashyNMS.Mobile -f net10.0-android -c Release -bl:"$RUNNER_TEMP/android.binlog" | tee "$RUNNER_TEMP/android-build.log"
+
+      # The shared Search package (#596) goes through the Release trimmer and AOT
+      # like everything else; any trim, AOT or packaging warning naming it fails here.
+      - name: Check the shared Search package in the Release build
+        run: |
+          if grep -E "warning (IL[0-9]{4}|XA[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/android-build.log" | grep -i "DashyNMS.Agent.Search"; then
+            echo "Warnings name DashyNMS.Agent.Search"; exit 1
+          fi
+          find src/DashyNMS.Mobile/obj/Release -name "DashyNMS.Agent.Search.dll" -printf "%s bytes  %p\n" | tee "$RUNNER_TEMP/search-dlls.txt"
+          test -s "$RUNNER_TEMP/search-dlls.txt"
+          APK=$(ls src/DashyNMS.Mobile/bin/Release/net10.0-android/*-Signed.apk | head -1)
+          {
+            echo "### Android Release"
+            echo "- APK: $(stat -c %s "$APK") bytes ($(basename "$APK"))"
+            echo "- DashyNMS.Agent.Search.dll in obj:"
+            sed 's/^/  - /' "$RUNNER_TEMP/search-dlls.txt"
+            echo "- Effective properties:"
+            dotnet msbuild src/DashyNMS.Mobile -p:MobilePlatform=android -p:TargetFramework=net10.0-android -p:Configuration=Release \
+              -getProperty:PublishTrimmed -getProperty:TrimMode -getProperty:RunAOTCompilation -getProperty:AndroidEnableProfiledAot \
+              -getProperty:PublishAot -getProperty:UseInterpreter | sed 's/^/      /'
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -130,3 +180,76 @@ jobs:
             echo "FoundationModels is strongly linked"; exit 1
           fi
           otool -l "$BRIDGE" | grep -A 4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" | grep -E "minos|version" || true
+
+  # The shipping configuration TestFlight publishes (Release, ios-arm64: Mono AOT
+  # and the SDK's default trimming), built unsigned on every push so the shared
+  # Search package (#596) and anything else reflection-sensitive is proved
+  # through the device toolchain, not only the simulator's interpreter build.
+  # It can't run here: installed-device checks are separate.
+  ios-release:
+    name: iOS Release (device, unsigned)
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios --version 10.0.402.1
+
+      - name: Report iOS toolchain
+        run: |
+          xcodebuild -version
+          dotnet workload --info
+
+      - name: Generate the Intelligence bridge's Xcode project
+        working-directory: ios-intelligence
+        run: |
+          command -v xcodegen >/dev/null || brew install xcodegen
+          xcodegen generate
+
+      # No widget (its signing needs TestFlight's profile) and no signing identity:
+      # EnableCodeSigning=false builds the device app without a certificate.
+      - name: Build
+        shell: bash
+        run: >
+          dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -f net10.0-ios -c Release
+          -p:RuntimeIdentifier=ios-arm64 -p:EnableCodeSigning=false
+          -bl:"$RUNNER_TEMP/ios-release.binlog" | tee "$RUNNER_TEMP/ios-release.log"
+
+      - name: Check the shared Search package was trimmed and AOT-compiled
+        run: |
+          if grep -E "warning (IL[0-9]{4}|MT[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/ios-release.log" | grep -i "DashyNMS.Agent.Search"; then
+            echo "Warnings name DashyNMS.Agent.Search"; exit 1
+          fi
+          APP=$(find src/DashyNMS.Mobile/bin/Release/net10.0-ios/ios-arm64 -maxdepth 2 -type d -name "*.app" | head -1)
+          echo "App bundle: $APP"
+          test -f "$APP/DashyNMS.Agent.Search.dll"
+          find src/DashyNMS.Mobile/obj/Release -iname "*DashyNMS.Agent.Search*" \( -name "*.o" -o -name "*.s" -o -name "*.aotdata*" -o -name "*.dll" \) \
+            -exec stat -f "%z bytes  %N" {} \; | tee "$RUNNER_TEMP/search-aot.txt"
+          grep -E "\.(o|s)$" "$RUNNER_TEMP/search-aot.txt"
+          {
+            echo "### iOS Release (ios-arm64, unsigned)"
+            echo "- .app: $(du -sk "$APP" | cut -f1) KiB"
+            echo "- DashyNMS.Agent.Search.dll in .app: $(stat -f %z "$APP/DashyNMS.Agent.Search.dll") bytes"
+            echo "- Search build outputs:"
+            sed 's/^/  - /' "$RUNNER_TEMP/search-aot.txt"
+            echo "- Effective properties:"
+            dotnet msbuild src/DashyNMS.Mobile -p:MobilePlatform=ios -p:TargetFramework=net10.0-ios -p:Configuration=Release -p:RuntimeIdentifier=ios-arm64 \
+              -getProperty:PublishTrimmed -getProperty:TrimMode -getProperty:MtouchLink -getProperty:MtouchInterpreter \
+              -getProperty:UseInterpreter -getProperty:PublishAot -getProperty:RunAOTCompilation | sed 's/^/      /'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the Intelligence bridge is weak-linked in Release
+        run: |
+          APP=$(find src/DashyNMS.Mobile/bin/Release/net10.0-ios/ios-arm64 -maxdepth 2 -type d -name "*.app" | head -1)
+          BRIDGE="$APP/Frameworks/DashyNMSIntelligence.framework/DashyNMSIntelligence"
+          test -f "$BRIDGE"
+          otool -l "$BRIDGE" | grep -A 3 LC_LOAD_WEAK_DYLIB | grep -q "FoundationModels.framework"
+          if otool -l "$BRIDGE" | grep -A 3 "cmd LC_LOAD_DYLIB" | grep -q FoundationModels; then
+            echo "FoundationModels is strongly linked"; exit 1
+          fi

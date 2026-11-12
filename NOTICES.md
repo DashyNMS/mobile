@@ -16,6 +16,9 @@ in docs/licences/Lucide-LICENSE.txt; the component catalogue in
 PhoneNotices and the Core OpenSourceNotices catalogue remain applicable, as do
 OpenStreetMap attribution and data terms. NuGet and platform components retain
 their publishers' licences. DashyNMS.Core retains its own licence.
+DashyNMS.Agent.Search (DashyNMS/mcp) is MIT licensed, copyright (c) 2026 Thomas
+Pickup; the app embeds the LICENSE from the restored package and lists it on the
+licences page.
 
 SessionService.cs and CsvWriter.cs originated in DashyNMS/desktop at commit
 07c62f6b2f8c9c93062ac4d3f7dd4c9a31860670; see
@@ -26,8 +29,8 @@ without changing the desktop repository's licence.
 ## Icon provenance
 
 The upstream Lucide licence, including Feather attribution, is retained in
-docs/licences/Lucide-LICENSE.txt. The in-app licence catalogue does not yet
-include this notice.
+docs/licences/Lucide-LICENSE.txt and embedded in the app: Settings › About ›
+Open-source licences lists Lucide with that complete text on iOS and Android.
 DashboardPage.xaml identifies its sliders-horizontal drawing as Lucide-derived.
 The original import revision and an exhaustive mapping of other hand-drawn paths
 to upstream icons are not recorded. Shipping the complete upstream notice retains

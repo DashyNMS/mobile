@@ -320,7 +320,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         {
                             var result = await lookup.Run(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
                             RequireCurrent(run);
-                            var failed = result == CompactNetworkLookups.Failed || result == CompactNetworkLookups.Changed;
+                            var failed = CompactNetworkLookups.IsFailure(result);
                             if (failed) Interlocked.Increment(ref run.LookupFailures);
                             Post(run, attemptId, () => { progress.Result = result; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
                             return result;
