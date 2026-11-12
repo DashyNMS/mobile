@@ -88,9 +88,11 @@ internal static class Fakes
         };
 
     /// <summary>
-    /// find_device's per-connection transport for tests written against <see cref="Client"/>:
-    /// its device-list request is answered by the fake client's <c>Devices.ListAsync</c>, so
-    /// stubs and received-call checks on the fake keep working. Anything else fails the test.
+    /// The shared operations' per-connection transport for tests written against <see cref="Client"/>:
+    /// its device-list request is answered by the fake client's <c>Devices.ListAsync</c> and its open
+    /// alerts by <c>Alerts.ListAsync(AlertQuery.Open)</c>, behind Core's <c>/faults</c> probe (which
+    /// follows <c>Alerts.GetSourceAsync</c>), so stubs and received-call checks on the fake keep
+    /// working. Anything else fails the test.
     /// </summary>
     public static Func<DashyNMS.Mobile.Services.SessionScope, ILibreNmsTransport> DeviceTransport(ILibreNmsClient client) =>
         scope => new ClientDeviceTransport(client, scope.Connection);
@@ -101,16 +103,24 @@ internal static class Fakes
 
         public async Task<IReadOnlyList<T>> GetCollectionAsync<T>(string relativeUrl, string collectionProperty, CancellationToken cancellationToken = default)
         {
-            if (relativeUrl != "devices" || typeof(T) != typeof(Device))
-                throw new InvalidOperationException("Only the device list is expected");
-            return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
+            if (relativeUrl == "devices" && typeof(T) == typeof(Device))
+                return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
+            if (typeof(T) != typeof(Alert))
+                throw new InvalidOperationException("Only the device list and open alerts are expected");
+            if (relativeUrl == "faults?state=-1")
+                return await client.Alerts.GetSourceAsync(cancellationToken) == AlertSource.Fault
+                    ? []
+                    : throw new LibreNmsApiException("No faults route", System.Net.HttpStatusCode.NotFound);
+            if (relativeUrl == AlertQuery.Open.ToRelativeUrl("faults") || relativeUrl == AlertQuery.Open.ToRelativeUrl("alerts"))
+                return (IReadOnlyList<T>)(object)await client.Alerts.ListAsync(AlertQuery.Open, cancellationToken);
+            throw new InvalidOperationException("Only the open alerts are expected, not " + relativeUrl);
         }
 
         public Task<System.Text.Json.JsonDocument> SendAsync(HttpMethod method, string relativeUrl, object? body = null, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Only the device list is expected");
+            throw new InvalidOperationException("Only the device list and open alerts are expected");
 
         public Task<string> SendRawAsync(string relativeUrl, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Only the device list is expected");
+            throw new InvalidOperationException("Only the device list and open alerts are expected");
     }
 }
 

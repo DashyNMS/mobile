@@ -85,7 +85,8 @@ public static class IntelligenceSavedChats
                 },
                 FailureText = turn.Message.Length > 0 ? turn.Message : null,
                 Activity = turn.HistoryOmitted ? HistoryOmittedActivity : null,
-                PriorReferences = turn.Evidence.Select(e => e.Reference).ToList(),
+                // Withdrawn references are saved too, so a reopened chat withdraws the same keys.
+                PriorReferences = turn.Carried.Select(e => e.Reference).ToList(),
                 StatusCards = filters.Count > 0 ? [new IntelligenceStatusCard(FilterCardTitle, "", turn.AskedAt, filters)] : [],
                 ToolObservations = turn.Lookups.Select(lookup => new IntelligenceToolObservation(
                     lookup.Name, turn.AskedAt,

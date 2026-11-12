@@ -20,11 +20,12 @@
 
   <ItemGroup>
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
-    <!-- Device search shared with the MCP agent (#596): one ranking, filtering and
-         redaction implementation instead of mobile's own. Exact CI version from
-         DashyNMS/mcp run 43216437071 (commit 57e09ca); CI checks its SHA-256 and
-         provenance attestation. GeneratePathProperty exposes its LICENSE below. -->
-    <PackageReference Include="DashyNMS.Agent.Search" Version="0.1.0-ci.43216437071.1" GeneratePathProperty="true" />
+    <!-- Device search (#596) and open alerts (#601) shared with the MCP agent: one
+         ranking, grouping, ordering, filtering and redaction implementation instead of
+         mobile's own. Exact CI version from DashyNMS/mcp run 43231337443 (commit c463e92);
+         CI checks its SHA-256 and provenance attestation. GeneratePathProperty exposes
+         its LICENSE below. -->
+    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.43231337443.1" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
@@ -38,9 +39,9 @@
 
   <ItemGroup>
     <!-- Licence texts Core doesn't carry, shown on the licences page. Lucide's is the
-         repository copy; the Search package's is the LICENSE it ships, as its README asks. -->
+         repository copy; the shared package's is the LICENSE it ships, as its README asks. -->
     <EmbeddedResource Include="../../docs/licences/Lucide-LICENSE.txt" LogicalName="DashyNMS.Mobile.Licences.lucide-isc.txt" />
-    <EmbeddedResource Include="$(PkgDashyNMS_Agent_Search)/LICENSE" LogicalName="DashyNMS.Mobile.Licences.dashynms-agent-search-mit.txt"
-                      Condition="'$(PkgDashyNMS_Agent_Search)' != ''" />
+    <EmbeddedResource Include="$(PkgDashyNMS_Agent_Shared)/LICENSE" LogicalName="DashyNMS.Mobile.Licences.dashynms-agent-shared-mit.txt"
+                      Condition="'$(PkgDashyNMS_Agent_Shared)' != ''" />
   </ItemGroup>
 </Project>

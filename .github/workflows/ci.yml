@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
   packages: read
-  # Reading DashyNMS/mcp's build provenance for the shared Search package (#596).
+  # Reading DashyNMS/mcp's build provenance for the shared package (#596, #601).
   attestations: read
 
 env:
@@ -29,23 +29,23 @@ jobs:
       - name: Test geographic map camera bridge
         run: node --test tests/map/camera.test.mjs
 
-      # Restore, then verify the shared Search package (#596) is the exact file
+      # Restore, then verify the shared package (#596, #601) is the exact file
       # DashyNMS/mcp's workflow built and attested from the pinned commit on main,
       # and that NuGet extracted it intact, before any test loads it.
       - name: Restore shared code
         run: dotnet restore tests/DashyNMS.Mobile.Shared.Tests
 
-      - name: Verify the shared Search package
+      - name: Verify the shared package
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/verify-search-package.sh
+        run: scripts/verify-shared-package.sh
 
-      # The synthetic device-search fixture must be byte-identical to the one
-      # DashyNMS/mcp tests its MCP find_device tool against.
-      - name: Check the device search fixture matches DashyNMS/mcp
+      # The synthetic device search and open alerts fixtures must be byte-identical
+      # to the ones DashyNMS/mcp tests its MCP find_device and active_alerts against.
+      - name: Check the shared fixtures match DashyNMS/mcp
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/check-search-fixture.sh
+        run: scripts/check-shared-fixtures.sh
 
       - name: Test shared code
         run: dotnet test tests/DashyNMS.Mobile.Shared.Tests -c Debug --no-restore
@@ -69,34 +69,34 @@ jobs:
       - name: Install MAUI Android workload
         run: dotnet workload install maui-android
 
-      # The shared Search package (#596) is verified after restore and before the
-      # build compiles or packs it; see scripts/verify-search-package.sh.
-      - name: Restore and verify the shared Search package
+      # The shared package (#596, #601) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-shared-package.sh.
+      - name: Restore and verify the shared package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           dotnet restore src/DashyNMS.Mobile.Shared
-          scripts/verify-search-package.sh
+          scripts/verify-shared-package.sh
 
       - name: Build
         shell: bash
         run: dotnet build src/DashyNMS.Mobile -f net10.0-android -c Release -bl:"$RUNNER_TEMP/android.binlog" | tee "$RUNNER_TEMP/android-build.log"
 
-      # The shared Search package (#596) goes through the Release trimmer and AOT
+      # The shared package (#596, #601) goes through the Release trimmer and AOT
       # like everything else; any trim, AOT or packaging warning naming it fails here.
-      - name: Check the shared Search package in the Release build
+      - name: Check the shared package in the Release build
         run: |
-          if grep -E "warning (IL[0-9]{4}|XA[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/android-build.log" | grep -i "DashyNMS.Agent.Search"; then
-            echo "Warnings name DashyNMS.Agent.Search"; exit 1
+          if grep -E "warning (IL[0-9]{4}|XA[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/android-build.log" | grep -i "DashyNMS.Agent.Shared"; then
+            echo "Warnings name DashyNMS.Agent.Shared"; exit 1
           fi
-          find src/DashyNMS.Mobile/obj/Release -name "DashyNMS.Agent.Search.dll" -printf "%s bytes  %p\n" | tee "$RUNNER_TEMP/search-dlls.txt"
-          test -s "$RUNNER_TEMP/search-dlls.txt"
+          find src/DashyNMS.Mobile/obj/Release -name "DashyNMS.Agent.Shared.dll" -printf "%s bytes  %p\n" | tee "$RUNNER_TEMP/shared-dlls.txt"
+          test -s "$RUNNER_TEMP/shared-dlls.txt"
           APK=$(ls src/DashyNMS.Mobile/bin/Release/net10.0-android/*-Signed.apk | head -1)
           {
             echo "### Android Release"
             echo "- APK: $(stat -c %s "$APK") bytes ($(basename "$APK"))"
-            echo "- DashyNMS.Agent.Search.dll in obj:"
-            sed 's/^/  - /' "$RUNNER_TEMP/search-dlls.txt"
+            echo "- DashyNMS.Agent.Shared.dll in obj:"
+            sed 's/^/  - /' "$RUNNER_TEMP/shared-dlls.txt"
             echo "- Effective properties:"
             dotnet msbuild src/DashyNMS.Mobile -p:MobilePlatform=android -p:TargetFramework=net10.0-android -p:Configuration=Release \
               -getProperty:PublishTrimmed -getProperty:TrimMode -getProperty:RunAOTCompilation -getProperty:AndroidEnableProfiledAot \
@@ -151,14 +151,14 @@ jobs:
         working-directory: ios-intelligence
         run: xcodegen generate
 
-      # The shared Search package (#596) is verified after restore and before the
-      # build compiles or packs it; see scripts/verify-search-package.sh.
-      - name: Restore and verify the shared Search package
+      # The shared package (#596, #601) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-shared-package.sh.
+      - name: Restore and verify the shared package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           dotnet restore src/DashyNMS.Mobile.Shared
-          scripts/verify-search-package.sh
+          scripts/verify-shared-package.sh
 
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
       # Android, and restore would otherwise want that workload too.
@@ -193,7 +193,7 @@ jobs:
 
   # The shipping configuration TestFlight publishes (Release, ios-arm64: Mono AOT
   # and the SDK's default trimming), built unsigned on every push so the shared
-  # Search package (#596) and anything else reflection-sensitive is proved
+  # shared package (#596, #601) and anything else reflection-sensitive is proved
   # through the device toolchain, not only the simulator's interpreter build.
   # It can't run here: installed-device checks are separate.
   ios-release:
@@ -222,14 +222,14 @@ jobs:
           command -v xcodegen >/dev/null || brew install xcodegen
           xcodegen generate
 
-      # The shared Search package (#596) is verified after restore and before the
-      # build compiles or packs it; see scripts/verify-search-package.sh.
-      - name: Restore and verify the shared Search package
+      # The shared package (#596, #601) is verified after restore and before the
+      # build compiles or packs it; see scripts/verify-shared-package.sh.
+      - name: Restore and verify the shared package
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           dotnet restore src/DashyNMS.Mobile.Shared
-          scripts/verify-search-package.sh
+          scripts/verify-shared-package.sh
 
       # No widget (its signing needs TestFlight's profile) and no signing identity:
       # EnableCodeSigning=false builds the device app without a certificate.
@@ -240,23 +240,23 @@ jobs:
           -p:RuntimeIdentifier=ios-arm64 -p:EnableCodeSigning=false
           -bl:"$RUNNER_TEMP/ios-release.binlog" | tee "$RUNNER_TEMP/ios-release.log"
 
-      - name: Check the shared Search package was trimmed and AOT-compiled
+      - name: Check the shared package was trimmed and AOT-compiled
         run: |
-          if grep -E "warning (IL[0-9]{4}|MT[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/ios-release.log" | grep -i "DashyNMS.Agent.Search"; then
-            echo "Warnings name DashyNMS.Agent.Search"; exit 1
+          if grep -E "warning (IL[0-9]{4}|MT[0-9]{4}|NU[0-9]{4})" "$RUNNER_TEMP/ios-release.log" | grep -i "DashyNMS.Agent.Shared"; then
+            echo "Warnings name DashyNMS.Agent.Shared"; exit 1
           fi
           APP=$(find src/DashyNMS.Mobile/bin/Release/net10.0-ios/ios-arm64 -maxdepth 2 -type d -name "*.app" | head -1)
           echo "App bundle: $APP"
-          test -f "$APP/DashyNMS.Agent.Search.dll"
-          find src/DashyNMS.Mobile/obj/Release -iname "*DashyNMS.Agent.Search*" \( -name "*.o" -o -name "*.s" -o -name "*.aotdata*" -o -name "*.dll" \) \
-            -exec stat -f "%z bytes  %N" {} \; | tee "$RUNNER_TEMP/search-aot.txt"
-          grep -E "\.(o|s)$" "$RUNNER_TEMP/search-aot.txt"
+          test -f "$APP/DashyNMS.Agent.Shared.dll"
+          find src/DashyNMS.Mobile/obj/Release -iname "*DashyNMS.Agent.Shared*" \( -name "*.o" -o -name "*.s" -o -name "*.aotdata*" -o -name "*.dll" \) \
+            -exec stat -f "%z bytes  %N" {} \; | tee "$RUNNER_TEMP/shared-aot.txt"
+          grep -E "\.(o|s)$" "$RUNNER_TEMP/shared-aot.txt"
           {
             echo "### iOS Release (ios-arm64, unsigned)"
             echo "- .app: $(du -sk "$APP" | cut -f1) KiB"
-            echo "- DashyNMS.Agent.Search.dll in .app: $(stat -f %z "$APP/DashyNMS.Agent.Search.dll") bytes"
-            echo "- Search build outputs:"
-            sed 's/^/  - /' "$RUNNER_TEMP/search-aot.txt"
+            echo "- DashyNMS.Agent.Shared.dll in .app: $(stat -f %z "$APP/DashyNMS.Agent.Shared.dll") bytes"
+            echo "- Shared package build outputs:"
+            sed 's/^/  - /' "$RUNNER_TEMP/shared-aot.txt"
             echo "- Effective properties:"
             dotnet msbuild src/DashyNMS.Mobile -p:MobilePlatform=ios -p:TargetFramework=net10.0-ios -p:Configuration=Release -p:RuntimeIdentifier=ios-arm64 \
               -getProperty:PublishTrimmed -getProperty:TrimMode -getProperty:MtouchLink -getProperty:MtouchInterpreter \

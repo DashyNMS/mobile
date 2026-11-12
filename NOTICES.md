@@ -16,7 +16,7 @@ in docs/licences/Lucide-LICENSE.txt; the component catalogue in
 PhoneNotices and the Core OpenSourceNotices catalogue remain applicable, as do
 OpenStreetMap attribution and data terms. NuGet and platform components retain
 their publishers' licences. DashyNMS.Core retains its own licence.
-DashyNMS.Agent.Search (DashyNMS/mcp) is MIT licensed, copyright (c) 2026 Thomas
+DashyNMS.Agent.Shared (DashyNMS/mcp) is MIT licensed, copyright (c) 2026 Thomas
 Pickup; the app embeds the LICENSE from the restored package and lists it on the
 licences page.
 

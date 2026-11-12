@@ -24,8 +24,8 @@ public static class PhoneNotices
     /// <summary>Lucide's ISC licence with the Feather MIT terms it carries; Core has no copy.</summary>
     public const string LucideIsc = "lucide-isc.txt";
 
-    /// <summary>The LICENSE inside the DashyNMS.Agent.Search package, embedded at build time.</summary>
-    public const string AgentSearchMit = "dashynms-agent-search-mit.txt";
+    /// <summary>The LICENSE inside the DashyNMS.Agent.Shared package, embedded at build time.</summary>
+    public const string AgentSharedMit = "dashynms-agent-shared-mit.txt";
 
     public static IReadOnlyList<OpenSourceNotice> Own { get; } =
     [
@@ -43,8 +43,8 @@ public static class PhoneNotices
             new Uri("https://github.com/dotnet/android-libraries"), OpenSourceNotices.Mit, NoticePlatforms.Android),
         new("Lucide", "Some of the app's icons", "Copyright (c) 2026 Lucide Icons and Contributors; Feather icons copyright (c) 2013-present Cole Bemis",
             "ISC (Feather-derived icons MIT)", new Uri("https://lucide.dev"), LucideIsc, Phone),
-        new("DashyNMS.Agent.Search", "Device search when asking about the network", "Copyright (c) 2026 Thomas Pickup", "MIT",
-            new Uri("https://github.com/DashyNMS/mcp"), AgentSearchMit, Phone),
+        new("DashyNMS.Agent.Shared", "Device search and open alerts when asking about the network", "Copyright (c) 2026 Thomas Pickup", "MIT",
+            new Uri("https://github.com/DashyNMS/mcp"), AgentSharedMit, Phone),
     ];
 
     /// <summary>Every licence text embedded in the phone itself, by file name.</summary>

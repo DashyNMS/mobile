@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
+using DashyNMS.Agent.Alerts;
 using DashyNMS.Agent.Devices;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
@@ -54,17 +55,19 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// while the stable id stays available for links.
 /// </summary>
 /// <remarks>
-/// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596), so its ranking,
-/// filtering and redaction are the MCP agent's rather than a mobile copy; this class
-/// only adapts the typed result to the compact profile and its evidence. The other
-/// lookups remain mobile queries until their own shared operations exist.
+/// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596) and <c>active_alerts</c>
+/// its shared open alerts (#601), so their ranking, grouping, ordering, filtering and
+/// redaction are the MCP agent's rather than a mobile copy; this class only adapts the
+/// typed results to the compact profile and its evidence. The other lookups remain mobile
+/// queries until their own shared operations exist.
 /// </remarks>
 /// <param name="deviceTransport">
-/// Opens a transport for one captured connection and its session generation, for <c>find_device</c> alone (see
-/// <see cref="ConnectionBoundDeviceList"/>); the set owns and closes it. The app passes
+/// Opens a transport for one captured connection and its session generation, for the shared
+/// operations (<c>find_device</c> and <c>active_alerts</c>) alone (see
+/// <see cref="ConnectionBoundClient"/>); the set owns and closes it. The app passes
 /// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
-/// <c>find_device</c> fails closed rather than falling back to the session's shared
-/// client, whose connection can change under a request.
+/// those lookups fail closed rather than falling back to the session's shared client,
+/// whose connection can change under a request.
 /// </param>
 public sealed partial class CompactNetworkLookups(
     ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
@@ -82,6 +85,15 @@ public sealed partial class CompactNetworkLookups(
     /// the rest are counted from its exact total rather than fetched.
     /// </summary>
     internal const int FindLimit = 20;
+
+    /// <summary>
+    /// Alert groups asked of the shared operation. Six or so fit in <see cref="MaxCharacters"/>;
+    /// the rest are counted from its totals rather than fetched.
+    /// </summary>
+    internal const int AlertLimit = 20;
+
+    /// <summary>Faults named on a group's row; the rest are counted.</summary>
+    internal const int NamedFaults = 3;
 
     /// <summary>True for a reply that reports a failed lookup rather than data or a refusal to run.</summary>
     internal static bool IsFailure(string reply) => reply is Failed or Changed or Refused;
@@ -118,24 +130,42 @@ public sealed partial class CompactNetworkLookups(
         var time = timeProvider ?? TimeProvider.System;
         bool IsCurrent() => scope is { } captured && captured.IsCurrent(session);
 
-        // One shared search, with its own caches and its own transport, per lookup set
-        // and so per captured connection. The transport is pinned to that connection,
-        // so a switch can't redirect a search's request to another server.
+        // One shared search and one shared open-alerts operation, each with its own caches,
+        // over one transport per lookup set and so per captured connection. The transport is
+        // pinned to that connection, so a switch can't redirect a request to another server.
         // Retiring cancels in-flight waits, refuses further calls (cached ones included)
         // and closes the transport. It happens on a connection switch and when the owner
         // disposes the set, whichever comes first.
         var bound = scope is not { } open || deviceTransport is null ? null
-            : new ConnectionBoundDeviceList(open, deviceTransport);
+            : new ConnectionBoundClient(open, deviceTransport);
         var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
-        void RetireSearch()
+        var openAlerts = bound is null ? null : HostOpenAlerts.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
+        void RetireShared()
         {
             search?.Dispose();
+            openAlerts?.Dispose();
             bound?.Dispose();
         }
         string Retire()
         {
-            RetireSearch();
+            RetireShared();
             return Changed;
+        }
+
+        // Sign-out or a switch mid-call stops a shared operation's wait at once rather than
+        // at the deadline.
+        async Task<T> WhileCurrent<T>(Func<Task<T>> call)
+        {
+            EventHandler retire = (_, _) => { if (!IsCurrent()) RetireShared(); };
+            session.StateChanged += retire;
+            try
+            {
+                return await call().ConfigureAwait(false);
+            }
+            finally
+            {
+                session.StateChanged -= retire;
+            }
         }
 
         IntelligenceLookup Lookup(string name, string purpose, Func<string, DateTimeOffset, CancellationToken, Task<Reply>> run) =>
@@ -199,8 +229,9 @@ public sealed partial class CompactNetworkLookups(
             return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}", [reference]);
         }
 
-        // The device list supplies names for every alert at once: one request per
-        // lookup, never one per alert. Alerts keep their source-qualified identity.
+        // network_overview's alert rows, until the shared overview replaces them (#600). The
+        // device list supplies names for every alert at once, never one request per alert.
+        // Alerts keep their source-qualified identity.
         Row AlertRow(Alert a, IReadOnlyDictionary<int, Device>? devices, DateTimeOffset at)
         {
             var device = devices is not null && devices.TryGetValue(a.DeviceId, out var found) ? found : null;
@@ -224,16 +255,51 @@ public sealed partial class CompactNetworkLookups(
             return new($"{severity}; {a.State}; {rule} [[alert:{Id(a.Id)}]] ({a.Identity}) on {on}", references);
         }
 
-        async Task<IReadOnlyDictionary<int, Device>?> DevicesById(CancellationToken ct)
+        // A shared alert group, already redacted upstream: one row per rule firing on a device.
+        // The marker is the representative fault's, with its source-qualified key beside it, so
+        // fault 12 and legacy alert 12 never read as one thing. The group key (device and rule)
+        // is never offered as an id; the evidence's typed object carries the rule instead.
+        Row GroupRow(OpenAlertGroup g, DateTimeOffset at)
         {
-            try
+            var d = g.Device;
+            var named = d is null ? null
+                : new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
+            var deviceName = DeviceName(named, g.Hostname, g.DeviceId);
+            var (severity, tone) = Severity(g.Severity);
+            var rule = Clean(g.Rule);
+            var state = g.State switch
             {
-                var devices = await client.Devices.ListAsync(ct).ConfigureAwait(false);
-                return ById(devices);
+                OpenAlertState.PartlyAcknowledged => $"partly acknowledged ({Id(g.AcknowledgedCount)} of {Id(g.FaultCount)})",
+                OpenAlertState.Acknowledged => "acknowledged",
+                _ => "active",
+            };
+            var representative = g.Representative;
+            var references = new List<IntelligenceEvidence>
+            {
+                new(new("alert:" + Id(representative.Id), rule, severity, tone, at, deviceName + " · " + state)
+                {
+                    Object = new(representative.Source == AlertSource.Fault ? "fault" : "alert", representative.Id,
+                        g.DeviceId > 0 ? g.DeviceId : null, g.RuleId > 0 ? g.RuleId : null),
+                }),
+            };
+            var on = deviceName;
+            if (d is not null && d.DeviceId > 0)
+            {
+                // Up to a minute old: the shared operation caches the device list per connection.
+                references.Add(new(new("device:" + Id(d.DeviceId), deviceName, d.State.ToDisplayString(), StateTone(d.State), at, "Device status from the device list, up to a minute old")
+                { Object = new("device", d.DeviceId) }));
+                on += $" [[device:{Id(d.DeviceId)}]]";
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            // Alerts still answer with LibreNMS's own hostname when names can't be read.
-            catch (Exception) { return null; }
+            var text = $"{severity}; {state}; {rule} [[alert:{Id(representative.Id)}]] ({representative}) on {on}";
+            if (g.FaultCount > 1)
+            {
+                var names = g.Faults.Select(f => f.Entity).Where(e => !string.IsNullOrWhiteSpace(e)).Take(NamedFaults).Select(e => Clean(e)).ToList();
+                var rest = g.FaultCount - names.Count;
+                text += $"; {Id(g.FaultCount)} faults" + (names.Count == 0 ? "" : ": " + string.Join(", ", names) + (rest > 0 ? $" and {Id(rest)} more" : ""));
+            }
+            else if (!string.IsNullOrWhiteSpace(g.Entity))
+                text += "; for " + Clean(g.Entity);
+            return new(text, references);
         }
 
         IReadOnlyList<IntelligenceLookup> lookups =
@@ -255,29 +321,19 @@ public sealed partial class CompactNetworkLookups(
                 if (string.IsNullOrWhiteSpace(query)) return Reply.Say("Enter a device name or IP address.");
                 // The reviewed profile is text search; MAC search reads ARP tables and isn't offered yet.
                 if (MacAddress().IsMatch(query.Trim())) return Reply.Say(MacUnavailable);
-                if (search is null || bound is null) return Reply.Say(Failed);
-                // Sign-out or a switch mid-search stops the wait at once rather than at the deadline.
-                EventHandler retire = (_, _) => { if (!IsCurrent()) RetireSearch(); };
-                session.StateChanged += retire;
-                try
-                {
-                    var outcome = await search.FindDevicesAsync(new FindDevicesRequest(query, Limit: FindLimit), ct).ConfigureAwait(false);
-                    if (outcome.Result is not { } found)
-                        return Reply.Say(outcome.Error?.Code switch
-                        {
-                            DeviceSearchFailure.Refused => Refused,
-                            DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
-                            _ => Failed,
-                        });
-                    // The heading carries the exact total visible to this account, so rows that
-                    // weren't fetched are counted as omitted, never silently dropped.
-                    return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at)),
-                        alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
-                }
-                finally
-                {
-                    session.StateChanged -= retire;
-                }
+                if (search is not { } searching) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => searching.FindDevicesAsync(new FindDevicesRequest(query, Limit: FindLimit), ct)).ConfigureAwait(false);
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code switch
+                    {
+                        DeviceSearchFailure.Refused => Refused,
+                        DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
+                        _ => Failed,
+                    });
+                // The heading carries the exact total visible to this account, so rows that
+                // weren't fetched are counted as omitted, never silently dropped.
+                return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at)),
+                    alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_summary", "Device state and hardware. Query is a numeric device id.", async (query, at, ct) =>
             {
@@ -298,14 +354,23 @@ public sealed partial class CompactNetworkLookups(
                     [new($"OS: {Clean(device.Os)}; hardware: {Clean(device.Hardware)}; location: {location}; uptime: {device.Uptime} seconds.", references)],
                     row.References);
             }),
-            Lookup("active_alerts", "Open alerts, unacknowledged first. Query is a device id or empty for all.", async (query, at, ct) =>
+            Lookup("active_alerts", "Open alerts by device and rule, worst first. Query is a device id or empty for all.", async (query, at, ct) =>
             {
-                if (!string.IsNullOrWhiteSpace(query) && !TryId(query, out _)) return Reply.Say("Supply a numeric device id or an empty query.");
-                var devices = DevicesById(ct);
-                var alerts = await client.Alerts.ListAsync(AlertQuery.Open, ct).ConfigureAwait(false);
-                var byId = await devices.ConfigureAwait(false);
-                var found = Ordered(alerts.Where(a => string.IsNullOrWhiteSpace(query) || a.DeviceId == int.Parse(query, CultureInfo.InvariantCulture))).ToList();
-                return Rows($"Open alerts: {found.Count}.", found.Select(a => AlertRow(a, byId, at)));
+                int? deviceId = null;
+                if (!string.IsNullOrWhiteSpace(query))
+                {
+                    if (!TryId(query, out var id)) return Reply.Say("Supply a numeric device id or an empty query.");
+                    deviceId = id;
+                }
+                if (openAlerts is not { } alerts) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => alerts.ListAsync(new OpenAlertsRequest(deviceId, Limit: AlertLimit), ct)).ConfigureAwait(false);
+                // An unreadable device list or alert list fails the whole lookup: never "no alerts".
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
+                // Groups and faults are totals over every match, so groups not fetched or not
+                // fitting are counted as omitted, never silently dropped.
+                return Rows(AlertHeading(found.Totals), found.Groups.Select(g => GroupRow(g, at)),
+                    alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_sensors", "Sensor readings. Query is a numeric device id.", async (query, at, ct) =>
             {
@@ -333,7 +398,7 @@ public sealed partial class CompactNetworkLookups(
                 }), headingReferences);
             }),
         ];
-        return new IntelligenceLookupSet(lookups, RetireSearch);
+        return new IntelligenceLookupSet(lookups, RetireShared);
 
         async Task<Device?> DeviceOrNull(int id, CancellationToken ct)
         {
@@ -344,6 +409,14 @@ public sealed partial class CompactNetworkLookups(
         }
     }
 
+    /// <summary>"Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning." Groups and faults counted apart, as MCP does.</summary>
+    private static string AlertHeading(OpenAlertTotals totals) => totals.AlertGroups == 0
+        ? "Open alerts: 0."
+        : $"Open alerts: {Id(totals.AlertGroups)} ({Count(totals.Faults, "fault")}) on {Count(totals.Devices, "device")}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning.";
+
+    private static string Count(int count, string noun) => $"{Id(count)} {noun}{(count == 1 ? "" : "s")}";
+
+    /// <summary>Network overview's own ordering, until it moves to the shared overview (#600).</summary>
     private static IEnumerable<Alert> Ordered(IEnumerable<Alert> alerts) => alerts
         .OrderBy(a => a.State == AlertState.Acknowledged ? 1 : 0)
         .ThenBy(a => a.Severity == AlertSeverity.Critical ? 0 : a.Severity == AlertSeverity.Warning ? 1 : 2)
@@ -407,9 +480,20 @@ public sealed partial class CompactNetworkLookups(
         }
         omitted += alsoOmitted;
         if (omitted > 0) text.Append('\n').Append(omitted).Append(" more results omitted.");
-        // Several alerts on one device repeat its reference; one is enough.
-        return new(text.ToString(), references.DistinctBy(r => r.Reference.Key).ToList());
+        return new(text.ToString(), Distinct(references));
     }
+
+    /// <summary>
+    /// One reference per object. Several alerts on one device repeat its reference; one is
+    /// enough. Two different objects behind one marker key (a fault and a legacy alert both
+    /// numbered 12, which share <c>[[alert:12]]</c>) are both kept, so the conversation sees the
+    /// conflict: <see cref="IntelligenceTurn.AddEvidence"/> then withdraws that key for the rest
+    /// of the answer, including a chip an earlier lookup supplied, rather than letting either
+    /// object claim the other's marker.
+    /// </summary>
+    internal static IReadOnlyList<IntelligenceEvidence> Distinct(IEnumerable<IntelligenceEvidence> references) => references
+        .DistinctBy(r => (r.Reference.Key, r.Reference.Object?.Kind, r.Reference.Object?.Id))
+        .ToList();
 
     /// <summary>Bounds network labels and prevents control characters from creating extra rows or markers.</summary>
     internal static string Clean(string? value)
