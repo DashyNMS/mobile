@@ -332,6 +332,9 @@ internal static class TabBarButtons
             return;
         }
 
+        // A modal's opaque content covers the pill, so its glass takes the
+        // pill's own row rather than floating above an empty space (#593).
+        var pillCovered = _presentationPage is not null;
         CGRect search = CGRect.Empty, actions = CGRect.Empty;
         void Layout(int count, bool hasSearch)
         {
@@ -364,7 +367,12 @@ internal static class TabBarButtons
                 var size = bar.Height;
                 var row = bar.Top - Gap - size;
                 var room = host.Bounds.Width - host.SafeAreaInsets.Right;
-                if (!hasSearch)
+                if (!hasSearch && pillCovered)
+                {
+                    search = CGRect.Empty;
+                    actions = new CGRect(bar.Right - (size * count), bar.GetMidY() - size / 2, size * count, size);
+                }
+                else if (!hasSearch)
                 {
                     search = CGRect.Empty;
                     actions = bar.Right + Gap + (size * count) <= room
@@ -402,7 +410,7 @@ internal static class TabBarButtons
         // Buttons live in the safe-area's tab column, unlike page content.
         // Use screen bounds here; actual system occlusions are checked separately.
         var safe = new OccupiedArea(0, host.SafeAreaInsets.Top, host.Bounds.Width, host.Bounds.Height);
-        var obstacles = host.Regions.Append(Area(bar)).ToList();
+        var obstacles = (pillCovered && bar.Width >= bar.Height ? host.Regions : host.Regions.Append(Area(bar))).ToList();
         Layout(host.ExpandedActionCount, host.ExpandedHasSearch);
         // Once collapsed, require a little spare room before expanding again.
         var clearance = host.Collapsed ? 8 : 0;
