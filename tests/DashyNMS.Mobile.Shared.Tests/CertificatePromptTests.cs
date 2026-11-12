@@ -97,6 +97,21 @@ public sealed class CertificatePromptTests
     }
 
     [Fact]
+    public async Task A_decline_answers_for_one_connection_and_the_next_asks_again()
+    {
+        var prompt = NewPrompt();
+        Assert.False(await prompt.AskAsync(Backup)); // declined on generation 0
+
+        // Signed in again: the same certificate, reported or met by the probe, is asked about afresh.
+        _session.ConnectionGeneration.Returns(1);
+        _dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
+        Assert.True(await prompt.AskAsync(Backup));
+
+        await _dialogs.ReceivedWithAnyArgs(2).ConfirmAsync(default!, default!, default!, default!);
+        _session.Received(1).TrustCertificate(Backup, 1);
+    }
+
+    [Fact]
     public async Task Signed_out_it_leaves_it_to_sign_in()
     {
         _session.IsConnected.Returns(false);

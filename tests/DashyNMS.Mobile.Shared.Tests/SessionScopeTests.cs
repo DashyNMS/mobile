@@ -51,9 +51,18 @@ public sealed class SessionScopeTests
         // holding the old connection, while another thread captures a scope.
         Task<SessionScope?>? capture = null;
         var capturedMidSwitch = false;
+        var workerEntered = false;
+        using var entering = new ManualResetEventSlim();
         _duringSwitch = () =>
         {
-            capture = Task.Run(() => SessionScope.Capture(session));
+            capture = Task.Run(() =>
+            {
+                entering.Set();
+                return SessionScope.Capture(session);
+            });
+            // A checkpoint first: the worker is running and about to capture while the switch
+            // is still held, so a late-scheduled worker can't pass by starting after the switch.
+            workerEntered = entering.Wait(TimeSpan.FromSeconds(10));
             // Held by the switch, it can't finish until the switch has. Reading unlocked it
             // finished at once, with the new generation and the old connection.
             capturedMidSwitch = capture.Wait(TimeSpan.FromMilliseconds(250));
@@ -61,6 +70,7 @@ public sealed class SessionScopeTests
 
         await session.ReconnectAsync("https://nms.example.net/", null, allowUntrustedCertificate: true, backupAddress: null);
 
+        Assert.True(workerEntered);
         Assert.False(capturedMidSwitch);
         var scope = (await capture!.WaitAsync(TimeSpan.FromSeconds(5)))!.Value;
         Assert.Equal(session.ConnectionGeneration, scope.Generation);

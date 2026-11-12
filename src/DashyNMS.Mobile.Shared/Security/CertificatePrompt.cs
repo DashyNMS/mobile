@@ -16,7 +16,7 @@ namespace DashyNMS.Mobile.Security;
 /// Core raises <see cref="ILibreNmsClient.CertificateRejected"/> for every
 /// request that fails on the certificate - several at once, from whichever
 /// thread made each - so it asks once while a prompt is open, and not again
-/// this session about one that's been declined. Accepting trusts it on the
+/// on this connection about one that's been declined. Accepting trusts it on the
 /// running connection straight away and saves it to <c>trustedCertificates</c>,
 /// which desktop and phone share.
 /// <para>
@@ -53,7 +53,9 @@ public sealed class CertificatePrompt
     private readonly IDialogService _dialogs;
     private readonly DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? _chatTransports;
     private readonly IConnectionCertificateProbe? _probe;
+    /// <summary>Fingerprints declined on the connection <see cref="_declinedGeneration"/> names; lock on this set.</summary>
     private readonly HashSet<string> _declined = new(StringComparer.OrdinalIgnoreCase);
+    private long _declinedGeneration;
     private int _asking;
     private int _probing;
     private int _probeAgain;
@@ -104,7 +106,7 @@ public sealed class CertificatePrompt
         // Cheap filters before any request: another server's host, a prompt already open, or a
         // certificate already declined (asking again would be declined too).
         if (_probe is null || _session.CurrentScope is not { } first || Dialled(first.Connection, reported.Host) is null
-            || Volatile.Read(ref _asking) == 1 || IsDeclined(reported.Fingerprint))
+            || Volatile.Read(ref _asking) == 1 || IsDeclined(reported.Fingerprint, first.Generation))
         {
             return false;
         }
@@ -147,11 +149,30 @@ public sealed class CertificatePrompt
         }
     }
 
-    private bool IsDeclined(string fingerprint)
+    /// <summary>
+    /// Declined on <paramref name="generation"/>'s connection. A decline answers for one
+    /// connection only: after sign-in, a reconnect or a restore the same certificate is asked
+    /// about again.
+    /// </summary>
+    private bool IsDeclined(string fingerprint, long generation)
     {
         lock (_declined)
         {
-            return _declined.Contains(fingerprint);
+            return generation == _declinedGeneration && _declined.Contains(fingerprint);
+        }
+    }
+
+    private void Decline(string fingerprint, long generation)
+    {
+        lock (_declined)
+        {
+            if (generation != _declinedGeneration)
+            {
+                _declined.Clear();
+                _declinedGeneration = generation;
+            }
+
+            _declined.Add(fingerprint);
         }
     }
 
@@ -198,7 +219,7 @@ public sealed class CertificatePrompt
             return false;
         }
 
-        if (IsDeclined(certificate.Fingerprint))
+        if (IsDeclined(certificate.Fingerprint, generation))
         {
             return false;
         }
@@ -218,10 +239,7 @@ public sealed class CertificatePrompt
                 // the same certificate on the next connection is still worth asking about.
                 if (generation == _session.ConnectionGeneration)
                 {
-                    lock (_declined)
-                    {
-                        _declined.Add(certificate.Fingerprint);
-                    }
+                    Decline(certificate.Fingerprint, generation);
                 }
 
                 return false;
