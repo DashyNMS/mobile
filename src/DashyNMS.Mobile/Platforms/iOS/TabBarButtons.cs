@@ -17,6 +17,36 @@ internal static class GlassActions
 }
 
 /// <summary>
+/// The look the app's glass buttons share - the tab bar's and the chat's
+/// header group (#594) - so they read as one set wherever they sit.
+/// </summary>
+internal static class GlassStyle
+{
+    /// <summary>An SF Symbol at the size and weight every glass action uses; it grows with the text size.</summary>
+    public static UIImageView Icon(string symbol) => new()
+    {
+        Image = UIImage.GetSystemImage(symbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium)),
+        TintColor = UIColor.Label,
+        ContentMode = UIViewContentMode.Center,
+    };
+
+    /// <summary>Liquid Glass, or the system material before iOS 26.</summary>
+    public static UIVisualEffect Effect(bool interactive = true)
+    {
+        if (!OperatingSystem.IsIOSVersionAtLeast(26))
+        {
+            return UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemMaterial);
+        }
+
+        // Reacts to the finger as the tab bar's own glass does. By key, as
+        // UIKit names it, whatever the binding calls the property.
+        var glass = new UIGlassEffect();
+        glass.SetValueForKey(NSNumber.FromBoolean(interactive), new NSString("interactive"));
+        return glass;
+    }
+}
+
+/// <summary>
 /// The page's search and actions as Liquid Glass buttons by the tab bar, as
 /// iOS 26 apps have them, for the page showing - so they're in the same place
 /// on every page rather than in each page's header.
@@ -687,26 +717,9 @@ internal static class TabBarButtons
             return moved;
         }
 
-        private static UIImageView Icon(string symbol) => new()
-        {
-            Image = UIImage.GetSystemImage(symbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium)),
-            TintColor = UIColor.Label,
-            ContentMode = UIViewContentMode.Center,
-        };
+        private static UIImageView Icon(string symbol) => GlassStyle.Icon(symbol);
 
-        private static UIVisualEffect Glass(bool interactive = true)
-        {
-            if (!OperatingSystem.IsIOSVersionAtLeast(26))
-            {
-                return UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemMaterial);
-            }
-
-            // Reacts to the finger as the tab bar's own glass does. By key, as
-            // UIKit names it, whatever the binding calls the property.
-            var glass = new UIGlassEffect();
-            glass.SetValueForKey(NSNumber.FromBoolean(interactive), new NSString("interactive"));
-            return glass;
-        }
+        private static UIVisualEffect Glass(bool interactive = true) => GlassStyle.Effect(interactive);
 
         /// <summary>One action in the group: its icon, and a button to VoiceOver.</summary>
         private sealed class Slot : UIView

@@ -53,7 +53,10 @@ public static class MauiProgram
 
 #if IOS
 		builder.ConfigureMauiHandlers(handlers =>
-			handlers.AddHandler(typeof(AppShell), typeof(AppShellRenderer)));
+		{
+			handlers.AddHandler(typeof(AppShell), typeof(AppShellRenderer));
+			handlers.AddHandler(typeof(HeaderGlassGroup), typeof(HeaderGlassGroupHandler));
+		});
 
 #endif
 

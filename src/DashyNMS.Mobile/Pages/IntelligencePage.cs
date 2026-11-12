@@ -38,6 +38,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IconButton _list = new() { Icon = "M9 6H20 M9 12H20 M9 18H20 M4 6H5 M4 12H5 M4 18H5", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
+#if IOS
+    // Saved chats and New chat beside the title on a big portrait screen (#594).
+    private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false };
+    private ChatActionPlace _place = ChatActionPlace.TabBarGlass;
+#endif
     private readonly List<TurnCard> _cards = [];
     private long _chatRevision;
     private long _starterRevision = -1;
@@ -85,6 +90,15 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
         _list.Command = new Command(OpenChats);
         _header.Actions = new HorizontalStackLayout { Children = { _list, _new } };
+#if IOS
+        ((HorizontalStackLayout)_header.Actions).Children.Add(_headerGlass);
+        // Rotating, folding or resizing the window can move the actions between
+        // the header and the tab bar; rebuild the glass only when they move.
+        SizeChanged += (_, _) =>
+        {
+            if (_showing && ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height) != _place) ShowActions();
+        };
+#endif
         _scroll.Content = _transcript;
         _scroll.Scrolled += (_, e) =>
         {
@@ -427,13 +441,24 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     {
         if (!_showing || Shell.Current?.CurrentPage != this) return;
 #if IOS
-        _new.IsVisible = _list.IsVisible = !TabBarButtons.IsAvailable;
+        _place = ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
+        GlassAction[] chatActions =
+        [
+            new("list.bullet", "Saved chats", OpenChats),
+            new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending),
+        ];
+        var inHeader = _place == ChatActionPlace.HeaderGlass;
+        _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
+        _headerGlass.Actions = inHeader ? chatActions : [];
+        _headerGlass.IsVisible = inHeader;
         if (TabBarButtons.IsAvailable)
         {
+            // Back stays by the tab bar wherever the chat's actions are. Shown
+            // even when empty, so this page owns the glass and no earlier
+            // page's actions are left behind.
             var actions = new List<GlassAction>();
             if (PageHeader.IsPushed(this)) actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-            actions.Add(new("list.bullet", "Saved chats", OpenChats));
-            actions.Add(new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending));
+            if (!inHeader) actions.AddRange(chatActions);
             TabBarButtons.Show(this, null, string.Empty, actions);
         }
 #endif
