@@ -8,7 +8,7 @@ set -euo pipefail
 
 # DashyNMS/mcp commit holding the fixture: DashyNMS/mcp#117's head. Move this to that
 # PR's squash merge on main once it lands.
-FIXTURE_COMMIT="dc26dfd7d78d1dbdadbc2f1c8fd5f927da8e2c69"
+FIXTURE_COMMIT="d7d0ca8c44b1010d4ba34e0f45fe2bf103cffd34"
 UPSTREAM="tests/DashyNMS.Agent.Tests/Fixtures/DeviceSearch"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -55,15 +55,18 @@ transport does the parsing, retrying and timing out itself. It covers:
 
 - **Text cases and transport failures:** mobile's `find_device`, through the
   app's per-chat transports, and the package's `HostDeviceSearch`, over Core's
-  real client, return the same ids, totals and categories. Each server must also
-  log the same requests. Mobile says "refused" for `Refused` and its usual
-  failure line for the rest, with no evidence and no server text.
+  real client, return the same ids and totals, and each server must log the
+  same requests. Only `HostDeviceSearch` is held to the exact failure category.
+  Mobile says "refused" for `Refused` and its usual failure line for the rest,
+  with no evidence and no server text.
 - **Scope cases:** these go through the package's executor on mobile's Core pin
   only. Mobile's `find_device` takes search text alone. A separate test checks
   that text naming a group or a location reads only the device list.
 
 DashyNMS/mcp's `SharedSearchHttpFixtureTests` serves the same files to the MCP
-server's own services and `find_device` tool.
+server's own services and `find_device` tool. There too the category is checked
+on `HostDeviceSearch` only; the MCP reply is checked for an error with no data
+and nothing secret-shaped.
 
 ## What this fixture does not prove
 

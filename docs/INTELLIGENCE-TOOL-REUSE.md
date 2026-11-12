@@ -122,10 +122,13 @@ Mobile runs them two ways:
 - over loopback HTTP, to mobile `find_device` through the app's per-chat
   transports and to `HostDeviceSearch` over Core's real client.
 
-Both must give the same ids, order, totals, failure categories and per-server
-request counts, including Core's retries. Failure categories are the host's
-contract. The MCP tool words each failure its own way, so the shared claim is
-the category, no data, and nothing secret-shaped in either reply.
+Both must give the same ids, order, totals and per-server request counts,
+including Core's retries. Only `HostDeviceSearch` is held to the exact failure
+category. Mobile `find_device` must give its refusal line for `Refused` and its
+failure line for every other category, with no rows, evidence or server text.
+Upstream, the MCP tool words failures its own way and reports no category, so
+its reply is checked only for an error with no data and nothing secret-shaped.
+No test shows the MCP tool and mobile agree on a category.
 
 Mobile's `find_device` takes search text only. The scope cases therefore run
 through the package on mobile's Core pin, which shows the package agrees with
