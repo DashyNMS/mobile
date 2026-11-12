@@ -46,7 +46,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// session moves its own failover with its own backup address, never the chat's.
 /// </para>
 /// </remarks>
-public sealed class IntelligenceDeviceTransports : ICertificateProbe, IDisposable
+public sealed class IntelligenceDeviceTransports : IConnectionCertificateProbe, IDisposable
 {
     private readonly LibreNmsTransport shared;
     private readonly ISettingsStore settings;

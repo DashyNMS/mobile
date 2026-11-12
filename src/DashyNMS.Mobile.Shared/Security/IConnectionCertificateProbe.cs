@@ -8,7 +8,7 @@ namespace DashyNMS.Mobile.Security;
 /// that connection (#611). <see cref="CertificatePrompt"/> asks about what this finds rather
 /// than what the session's client reported, which can't be tied to a connection.
 /// </summary>
-public interface ICertificateProbe
+public interface IConnectionCertificateProbe
 {
     /// <summary>
     /// The certificate a request to <paramref name="scope"/>'s connection is refused on now,

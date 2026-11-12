@@ -30,7 +30,7 @@ public sealed class CertificatePromptTests
     private readonly ILibreNmsClient _client = Substitute.For<ILibreNmsClient>();
     private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
-    private readonly ICertificateProbe _probe = Substitute.For<ICertificateProbe>();
+    private readonly IConnectionCertificateProbe _probe = Substitute.For<IConnectionCertificateProbe>();
     private readonly ServerFailover _failover = new();
 
     public CertificatePromptTests()

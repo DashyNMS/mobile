@@ -33,7 +33,7 @@ namespace DashyNMS.Mobile.Security;
 /// before its certificate was rotated - reports the old certificate after the switch, and no
 /// comparison of hosts can tell. So the client's refusal is only a sign that something was
 /// refused: the prompt sends a fresh request to the connection in use now, on a transport
-/// bound to its generation (<see cref="ICertificateProbe"/>), and asks about the certificate
+/// bound to its generation (<see cref="IConnectionCertificateProbe"/>), and asks about the certificate
 /// that request meets, or nothing when it gets through. Without a probe it asks nothing; the
 /// next sign-in still asks as it always has.
 /// </para>
@@ -52,7 +52,7 @@ public sealed class CertificatePrompt
     private readonly ISessionService _session;
     private readonly IDialogService _dialogs;
     private readonly DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? _chatTransports;
-    private readonly ICertificateProbe? _probe;
+    private readonly IConnectionCertificateProbe? _probe;
     private readonly HashSet<string> _declined = new(StringComparer.OrdinalIgnoreCase);
     private int _asking;
     private int _probing;
@@ -64,7 +64,7 @@ public sealed class CertificatePrompt
     /// transports when not given, which is what the app uses.
     /// </param>
     public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs,
-        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null, ICertificateProbe? probe = null)
+        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null, IConnectionCertificateProbe? probe = null)
     {
         _chatTransports = chatTransports;
         _probe = probe ?? chatTransports;
