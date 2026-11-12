@@ -24,12 +24,12 @@ so a shared instance could hand one network's data to another.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Search` `0.1.0-ci.43135054163.1`, from DashyNMS/mcp's
-`search-package.yml` run 43135054163 at commit
-`0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe`, SHA-256
-`731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d`. It is MIT
-licensed and targets net10.0. Its minimum Core is `2.0.0-ci.34`; mobile's direct
-`2.0.0-ci.64` pin wins. `scripts/verify-search-package.sh` runs straight after
+**Package.** `DashyNMS.Agent.Search` `0.1.0-ci.43216437071.1`, from DashyNMS/mcp's
+`search-package.yml` run 43216437071 at commit
+`57e09ca472783055c7909612ffbc1e99af5d18ab`, SHA-256
+`9b1f20ee38156a2947f57db10ca25d81f55c456adc376259e24a699b93bfb02a`. It is MIT
+licensed and targets net10.0. Its minimum Core is `2.0.0-ci.64`, the same build
+as mobile's direct pin. `scripts/verify-search-package.sh` runs straight after
 restore in CI, Play and TestFlight. It checks the hash, the build provenance
 attestation, the nuspec's repository and commit, that the extracted files match,
 and that there are no build-time assets. NuGet lock files are #609.
@@ -40,8 +40,10 @@ with a limit of 20. Ranking, trimming, paging and redaction come from upstream.
 Mobile only maps the typed result to its compact profile: rows in the person's
 device-name style with `[[device:ID]]`, the exact total in the heading,
 unfetched and over-budget matches counted as omitted, and evidence only for the
-rows shown. Each row's state comes from Core's `ReportedState` on the same
-device list, because the shared summary reads a missing status as down (#604).
+rows shown. Each row's state comes from the summary's typed `State` (Core's
+`ReportedState`), not its `status` word, which reads a missing flag as down and
+doesn't tell ignored devices apart (#604). Maintenance isn't in the device list,
+so search rows don't show it (#620).
 
 **Host ownership.** Mobile passes its own clock, server timestamp setting and
 `ConnectionBoundDeviceList`. That client never uses the session's shared client.
@@ -185,7 +187,7 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 
 ## Remaining work
 
-- #604: the shared summary reports ignored, maintenance and unknown states.
+- #620: search rows say when a device is in maintenance.
 - #609: NuGet lock files for the Core and Search pins.
 - #601: shared grouped alerts, including the faults comparison across adapters.
 - #600: shared overview.

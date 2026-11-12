@@ -14,6 +14,8 @@
     { "id": 3, "shared": "up", "reported": "Up" },
     { "id": 7, "shared": "disabled", "reported": "Disabled" },
     { "id": 8, "shared": "down", "reported": "Down" },
+    { "id": 9, "shared": "up", "reported": "Ignored" },
+    { "id": 10, "shared": "up", "reported": "Unknown" },
     { "id": 11, "shared": "down", "reported": "Unknown" }
   ],
   "failures": [
