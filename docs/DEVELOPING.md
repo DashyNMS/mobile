@@ -1233,11 +1233,12 @@ routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
 result is inferred from shared tests or platform CI builds.
 
-For the current Agent catalogue, lookup differences and the staged reuse proof
-under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device
-search (`find_device`) now runs DashyNMS/mcp's shared `DashyNMS.Agent.Search`
-package; the other four lookups are still mobile queries, each with its own
-follow-up issue listed there.
+For the reuse decision, the Agent catalogue, the rules every shared tool keeps
+and what counts as a finished migration, see
+[Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device search
+(`find_device`) runs DashyNMS/mcp's shared `DashyNMS.Agent.Search` package; the
+other four lookups are still mobile queries, each with its own issue listed
+there.
 
 ### Compact network lookups (#572)
 
