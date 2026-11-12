@@ -47,7 +47,10 @@ The host keeps that transport in step with the session without changing its
 server: the current request timeout and saved trusted certificates when it opens
 and whenever settings change, the session's address (main or backup) at open and
 whenever the session fails over or is switched back, and the session's request
-timing. Failover is the session's: when a chat transport can't reach the server
+timing. It is published before it is configured, so no change is missed, and
+configuring and every later update run one at a time per transport, each
+reading the latest settings and address: a change that lands mid-configure is
+applied after it, never overwritten by the older state. Failover is the session's: when a chat transport can't reach the server
 it asks the session to move (`ISessionService.SwitchToBackup`), so the whole app
 moves together, and a chat for an earlier connection can't move a later one.
 Each chat transport still has its own `ServerFailover`, because Core's
@@ -56,6 +59,11 @@ same `CertificatePrompt` as the session's, tagged with the session generation
 the transport was opened for. A refusal from an earlier connection isn't asked
 about, and accepting a prompt after a switch trusts nothing; otherwise the
 certificate is trusted on that connection's chat transports straight away.
+The session client's own refusals name only a host and a certificate, and can
+come from the previous connection's request (the same host on another port, or
+a certificate since rotated), so the prompt never asks about them as reported:
+it probes the connection in use with a fresh request on a transport bound to its
+generation and asks about what that meets, or nothing if it gets through.
 Chats and lookups are bound by `SessionScope` (the session's connection
 generation plus server, backup and token), not the connection object, which
 Core replaces whenever a certificate is trusted or the timeout changes; those

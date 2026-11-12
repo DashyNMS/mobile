@@ -28,6 +28,7 @@ public sealed class SessionScopeTests
             _duringSwitch?.Invoke();
             Volatile.Write(ref _current, call.ArgAt<LibreNmsConnection>(0));
         });
+        _client.When(c => c.Disconnect()).Do(_ => Volatile.Write(ref _current, null));
         _client.Connection.Returns(_ => Volatile.Read(ref _current));
         _client.IsConnected.Returns(_ => Volatile.Read(ref _current) is not null);
         _client.TestAsync(default!, default).ReturnsForAnyArgs(ConnectionTestResult.Success(new SystemInfo()));

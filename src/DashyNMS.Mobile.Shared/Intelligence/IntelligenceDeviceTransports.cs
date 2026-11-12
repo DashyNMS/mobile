@@ -3,6 +3,7 @@ using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Security;
 using DesktopNMS.Services;
+using DashyNMS.Mobile.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DashyNMS.Mobile.Intelligence;
@@ -45,7 +46,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// session moves its own failover with its own backup address, never the chat's.
 /// </para>
 /// </remarks>
-public sealed class IntelligenceDeviceTransports : IDisposable
+public sealed class IntelligenceDeviceTransports : ICertificateProbe, IDisposable
 {
     private readonly LibreNmsTransport shared;
     private readonly ISettingsStore settings;
@@ -75,7 +76,7 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     /// asks about it as it does for the session's own requests, unless the session has
     /// moved on since.
     /// </summary>
-    public event EventHandler<IntelligenceCertificateRejection>? CertificateRejected;
+    public event EventHandler<ScopedCertificateRejection>? CertificateRejected;
 
     /// <summary>Transports open now; for tests and diagnostics.</summary>
     internal int LiveCount
@@ -87,13 +88,20 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     /// Opens a transport for <paramref name="scope"/>'s connection alone. The caller owns it
     /// and must dispose it; disposing closes its connections and stops it following the session.
     /// </summary>
-    internal IOwnedTransport Open(SessionScope scope)
+    internal IOwnedTransport Open(SessionScope scope) => OpenLease(scope, quiet: false);
+
+    /// <param name="scope">The connection the transport dials, with its generation.</param>
+    /// <param name="quiet">
+    /// For <see cref="ProbeAsync"/>: its refusal is returned to the caller rather than raised,
+    /// and it never moves the session to the backup on its own.
+    /// </param>
+    private Lease OpenLease(SessionScope scope, bool quiet)
     {
         var connection = scope.Connection;
         ArgumentNullException.ThrowIfNull(connection);
         var failover = new ServerFailover();
         var transport = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance, failover) { RequestObserver = shared.RequestObserver };
-        var lease = new Lease(this, scope, transport, failover);
+        var lease = new Lease(this, scope, transport, failover, quiet);
         bool closed;
         lock (gate)
         {
@@ -108,16 +116,66 @@ public sealed class IntelligenceDeviceTransports : IDisposable
 
         try
         {
-            transport.CertificateRejected += lease.OnCertificateRejected;
-            transport.Configure(Current(connection), startOnBackup: shared.Failover.IsOnBackup && connection.BackupWebRoot is not null);
-            // After Configure: starting on the backup is following the session, not news for it.
-            failover.Changed += lease.OnOwnFailoverChanged;
+            if (!quiet) transport.CertificateRejected += lease.OnCertificateRejected;
+            // Published before it is configured, so a settings or failover change from here on
+            // reaches it; Reconcile serialises with those, and each applies the latest state.
+            lease.Reconcile();
             return lease;
         }
         catch
         {
             lease.Dispose();
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Test seam: runs inside a transport's first configuration, after it has read the
+    /// settings and failover state it will apply and before it applies them, the window in
+    /// which a concurrent change used to be overwritten.
+    /// </summary>
+    internal Action? BeforeConfigure { get; set; }
+
+    /// <summary>
+    /// Sends one request to <paramref name="scope"/>'s connection, on a transport opened for it
+    /// alone, and returns the certificate it was refused on; null when it got through or failed
+    /// for another reason.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The session's client reports a refusal with only the certificate and its host. Core's
+    /// transport is one long-lived object across every switch and keeps the last refused
+    /// certificate in one field, so that report can't be tied to a request, a connection or
+    /// even a port: a request still in flight from the previous connection, to the same host on
+    /// another port, or before the server's certificate was rotated, reports the old
+    /// certificate after the switch. Trusting it would carry stale trust into the new session.
+    /// </para>
+    /// <para>
+    /// So <see cref="Security.CertificatePrompt"/> takes the client's report only as a sign that
+    /// something was refused, and asks about what this probe meets instead: a request made now,
+    /// on a transport that can only dial the connection <paramref name="scope"/> names, at the
+    /// address the session is using, and alone on it, so the refusal is that request's.
+    /// </para>
+    /// </remarks>
+    public async Task<ScopedCertificateRejection?> ProbeAsync(SessionScope scope, CancellationToken cancellationToken = default)
+    {
+        using var lease = OpenLease(scope, quiet: true);
+        var onBackup = lease.OnBackup;
+        try
+        {
+            using var response = await lease.SendAsync(HttpMethod.Get, "system", cancellationToken: cancellationToken).ConfigureAwait(false);
+            return null;
+        }
+        catch (LibreNmsApiException ex) when (ex.UntrustedCertificate is { } certificate)
+        {
+            // Moved address mid-request: which one refused it is no longer known. The next
+            // refusal probes again.
+            return lease.OnBackup == onBackup ? new(certificate, scope.Generation, onBackup) : null;
+        }
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Unreachable, offline, an HTTP error: nothing to ask about.
+            return null;
         }
     }
 
@@ -137,11 +195,10 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     }
 
     /// <summary>The captured connection with the settings in force now: their timeout and every trusted certificate.</summary>
-    private LibreNmsConnection Current(LibreNmsConnection connection)
+    private static LibreNmsConnection Current(LibreNmsConnection connection, int timeoutSeconds, IReadOnlyList<string> trusted)
     {
-        var current = settings.Current;
-        var updated = connection.WithTimeout(current.TimeoutSeconds);
-        foreach (var fingerprint in current.TrustedCertificates ?? [])
+        var updated = connection.WithTimeout(timeoutSeconds);
+        foreach (var fingerprint in trusted)
         {
             if (!updated.TrustedCertificates.Any(f => CertificateTrust.SameFingerprint(f, fingerprint)))
                 updated = updated.WithTrustedCertificate(fingerprint);
@@ -149,22 +206,18 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         return updated;
     }
 
+    // Neither handler applies what its event carried: two changes raised close together can
+    // run in either order, so each brings every transport up to the latest state instead.
     private void OnSettingsChanged(object? sender, AppSettings current)
     {
         foreach (var lease in Snapshot())
-        {
-            // Each call is a no-op when nothing changed, and keeps the address in use.
-            lease.Transport.SetTimeout(current.TimeoutSeconds);
-            foreach (var fingerprint in current.TrustedCertificates ?? [])
-                lease.Transport.TrustCertificate(fingerprint);
-        }
+            lease.Reconcile();
     }
 
     private void OnSessionFailoverChanged(object? sender, EventArgs e)
     {
-        var onBackup = shared.Failover.IsOnBackup;
         foreach (var lease in Snapshot())
-            lease.Follow(onBackup);
+            lease.Reconcile();
     }
 
     private Lease[] Snapshot()
@@ -193,12 +246,24 @@ public sealed class IntelligenceDeviceTransports : IDisposable
     }
 
     /// <summary>A transport its holder must dispose.</summary>
-    internal interface IOwnedTransport : ILibreNmsTransport, IDisposable { }
+    internal interface IOwnedTransport : ILibreNmsTransport, IDisposable
+    {
+        /// <summary>Whether it is dialling the connection's backup address; for tests and diagnostics.</summary>
+        bool OnBackup { get; }
+    }
 
     /// <summary>One chat's transport: sends through Core's, and closes it on disposal.</summary>
-    private sealed class Lease(IntelligenceDeviceTransports owner, SessionScope scope, LibreNmsTransport transport, ServerFailover failover)
+    private sealed class Lease(IntelligenceDeviceTransports owner, SessionScope scope, LibreNmsTransport transport, ServerFailover failover, bool quiet)
         : IOwnedTransport
     {
+        /// <summary>
+        /// Held while the transport is configured or brought up to date, and while it closes.
+        /// Open, Settings and the session's failover each reconcile from whichever thread raised
+        /// them; serialised, and each reading the latest state inside it, the last to run always
+        /// leaves the newest timeout, trust and address in place, never an older one it read first.
+        /// </summary>
+        private readonly Lock sync = new();
+        private bool configured;
         private int closed;
 
         public SessionScope Scope => scope;
@@ -206,6 +271,41 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         public LibreNmsTransport Transport => transport;
 
         public LibreNmsConnection? Connection => transport.Connection;
+
+        public bool OnBackup => failover.IsOnBackup;
+
+        /// <summary>
+        /// Brings the transport to the settings and session address in force now: configures it
+        /// the first time, then applies the timeout, every trusted certificate and the address.
+        /// Each step is a no-op when nothing changed.
+        /// </summary>
+        public void Reconcile()
+        {
+            lock (sync)
+            {
+                if (Volatile.Read(ref closed) != 0) return;
+                var current = owner.settings.Current;
+                var timeout = current.TimeoutSeconds;
+                IReadOnlyList<string> trusted = current.TrustedCertificates?.ToArray() ?? [];
+                var sessionOnBackup = owner.shared.Failover.IsOnBackup;
+
+                if (!configured)
+                {
+                    owner.BeforeConfigure?.Invoke();
+                    transport.Configure(Current(scope.Connection, timeout, trusted),
+                        startOnBackup: sessionOnBackup && scope.Connection.BackupWebRoot is not null);
+                    configured = true;
+                    // After Configure: starting on the backup is following the session, not news for it.
+                    if (!quiet) failover.Changed += OnOwnFailoverChanged;
+                    return;
+                }
+
+                transport.SetTimeout(timeout);
+                foreach (var fingerprint in trusted)
+                    transport.TrustCertificate(fingerprint);
+                Follow(sessionOnBackup);
+            }
+        }
 
         public void OnCertificateRejected(object? sender, CertificateDetails certificate)
         {
@@ -217,19 +317,20 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         /// This transport moved to the backup on its own: two requests in a row couldn't reach
         /// the server. The session decides, for its generation only; it then moves the whole
         /// app and every chat follows (<see cref="Follow"/>). Following the session lands here
-        /// too, already matching it, so that is not reported back.
+        /// too, inside <see cref="Reconcile"/>, and is not reported back: the session moves
+        /// under its own lock and then waits on this one, so asking it from here could deadlock.
         /// </summary>
         public void OnOwnFailoverChanged(object? sender, EventArgs e)
         {
-            if (Volatile.Read(ref closed) != 0 || !failover.IsOnBackup || owner.shared.Failover.IsOnBackup)
+            if (sync.IsHeldByCurrentThread || Volatile.Read(ref closed) != 0 || !failover.IsOnBackup || owner.shared.Failover.IsOnBackup)
                 return;
             owner.session.SwitchToBackup(scope.Generation);
         }
 
-        /// <summary>Moves to the backup or back with the session; a no-op when already there.</summary>
-        public void Follow(bool sessionOnBackup)
+        /// <summary>Moves to the backup or back with the session; a no-op when already there. Under <see cref="sync"/>.</summary>
+        private void Follow(bool sessionOnBackup)
         {
-            if (Volatile.Read(ref closed) != 0 || scope.Connection.BackupWebRoot is null || failover.IsOnBackup == sessionOnBackup)
+            if (scope.Connection.BackupWebRoot is null || failover.IsOnBackup == sessionOnBackup)
                 return;
             if (sessionOnBackup)
                 failover.Configure(scope.Connection.BackupWebRoot.ToString(), startOnBackup: true);
@@ -250,15 +351,13 @@ public sealed class IntelligenceDeviceTransports : IDisposable
         {
             if (Interlocked.Exchange(ref closed, 1) != 0) return;
             owner.Release(this);
-            failover.Changed -= OnOwnFailoverChanged;
-            transport.CertificateRejected -= OnCertificateRejected;
-            transport.Dispose();
+            lock (sync)
+            {
+                failover.Changed -= OnOwnFailoverChanged;
+                transport.CertificateRejected -= OnCertificateRejected;
+                transport.Dispose();
+            }
         }
     }
 }
 
-/// <summary>A certificate a chat's device search was refused on, and the connection it was refused for.</summary>
-/// <param name="Certificate">The certificate the server presented.</param>
-/// <param name="Generation">The <see cref="ISessionService.ConnectionGeneration"/> the chat's transport was opened for.</param>
-/// <param name="OnBackup">Whether that transport was dialling the backup address, for the prompt's wording.</param>
-public sealed record IntelligenceCertificateRejection(CertificateDetails Certificate, long Generation, bool OnBackup);

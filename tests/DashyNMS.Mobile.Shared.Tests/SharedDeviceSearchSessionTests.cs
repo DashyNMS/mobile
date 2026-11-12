@@ -333,7 +333,7 @@ public sealed partial class SharedDeviceSearchTests
         var reloads = 0;
         prompt.Trusted += (_, _) => reloads++;
 
-        var asking = prompt.AskAsync(SomeCertificate);
+        var asking = prompt.AskAsync(SomeCertificate, app.Session.ConnectionGeneration, onBackup: false);
         await app.SignInAsync(new Uri("https://b.example.net/"), "token-b");
         answer.SetResult(true);
 
@@ -345,7 +345,7 @@ public sealed partial class SharedDeviceSearchTests
 
         // Not recorded as declined either: met on B, it is asked about afresh.
         dialogs.ConfirmAsync(default!, default!, default!, default!).ReturnsForAnyArgs(true);
-        Assert.True(await prompt.AskAsync(SomeCertificate));
+        Assert.True(await prompt.AskAsync(SomeCertificate, app.Session.ConnectionGeneration, onBackup: false));
         Assert.Equal(1, reloads);
     }
 

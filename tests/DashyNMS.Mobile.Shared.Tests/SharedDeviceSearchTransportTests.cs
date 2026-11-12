@@ -223,17 +223,14 @@ public sealed partial class SharedDeviceSearchTests
             """{"status":"ok","count":1,"devices":[{"device_id":1,"hostname":"tls.example.net","ip":"192.0.2.10","status":1,"disabled":0,"ignore":0}]}""");
 
         private readonly TcpListener listener = new(IPAddress.Loopback, 0);
-        private readonly X509Certificate2 certificate;
+        private readonly List<X509Certificate2> issued = [];
         private readonly CancellationTokenSource stop = new();
+        private X509Certificate2 certificate;
         private int served;
 
         public TlsLoopbackLibreNms()
         {
-            using var key = RSA.Create(2048);
-            var request = new CertificateRequest("CN=tls.example.net", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
-            using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
-            // Re-imported so the private key is usable by SslStream on every platform.
-            certificate = X509CertificateLoader.LoadPkcs12(created.Export(X509ContentType.Pkcs12), null);
+            certificate = Issue();
             listener.Start();
             Root = new Uri($"https://127.0.0.1:{((IPEndPoint)listener.LocalEndpoint).Port}/");
             _ = Task.Run(AcceptAsync);
@@ -241,7 +238,21 @@ public sealed partial class SharedDeviceSearchTests
 
         public Uri Root { get; }
 
-        public string Fingerprint => CertificateTrust.Fingerprint(certificate);
+        public string Fingerprint => CertificateTrust.Fingerprint(Volatile.Read(ref certificate));
+
+        /// <summary>Renews the server's certificate in place: the same address and port, a new fingerprint.</summary>
+        public void Rotate() => Volatile.Write(ref certificate, Issue());
+
+        private X509Certificate2 Issue()
+        {
+            using var key = RSA.Create(2048);
+            var request = new CertificateRequest("CN=tls.example.net", key, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+            using var created = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
+            // Re-imported so the private key is usable by SslStream on every platform.
+            var loaded = X509CertificateLoader.LoadPkcs12(created.Export(X509ContentType.Pkcs12), null);
+            lock (issued) issued.Add(loaded);
+            return loaded;
+        }
 
         /// <summary>Requests that got past the handshake and were answered.</summary>
         public int Served => Volatile.Read(ref served);
@@ -264,7 +275,7 @@ public sealed partial class SharedDeviceSearchTests
                 try
                 {
                     await using var tls = new SslStream(client.GetStream());
-                    await tls.AuthenticateAsServerAsync(certificate);
+                    await tls.AuthenticateAsServerAsync(Volatile.Read(ref certificate));
                     var buffer = new byte[4096];
                     var head = new StringBuilder();
                     while (!head.ToString().Contains("\r\n\r\n", StringComparison.Ordinal))
@@ -290,7 +301,10 @@ public sealed partial class SharedDeviceSearchTests
         {
             stop.Cancel();
             listener.Stop();
-            certificate.Dispose();
+            lock (issued)
+            {
+                foreach (var each in issued) each.Dispose();
+            }
             stop.Dispose();
         }
     }

@@ -25,17 +25,17 @@ namespace DashyNMS.Mobile.Security;
 /// certificate is trusted on them as well as on the session's.
 /// </para>
 /// <para>
-/// Each refusal is bound to the session generation it came from. A chat transport's
-/// carries the generation it was opened for. The client's carries only the certificate,
-/// and it is one long-lived object across every switch, so a request still in flight from
-/// the previous connection can fail after the switch. Its refusal is taken for the session
-/// now only when the certificate's host is an address that connection dials, read with its
-/// generation in one step (<see cref="ISessionService.CurrentScope"/>); anything else is a
-/// stale refusal from another server and is dropped. That host also says whether it was
-/// the backup address, rather than the session's failover state when the event arrives.
-/// A late refusal that does match came from the very endpoint the session dials now, and
-/// trusted certificates are one shared list of fingerprints, so asking about it is what a
-/// fresh request there would do.
+/// Each refusal is asked about only for the session generation it came from. A chat
+/// transport's carries the generation it was opened for. The client's can't be bound at all:
+/// it names only the certificate and its host, and the client is one long-lived object across
+/// every switch that keeps the last refused certificate in one field. A request still in
+/// flight from the previous connection - the same host on another port, or the same address
+/// before its certificate was rotated - reports the old certificate after the switch, and no
+/// comparison of hosts can tell. So the client's refusal is only a sign that something was
+/// refused: the prompt sends a fresh request to the connection in use now, on a transport
+/// bound to its generation (<see cref="ICertificateProbe"/>), and asks about the certificate
+/// that request meets, or nothing when it gets through. Without a probe it asks nothing; the
+/// next sign-in still asks as it always has.
 /// </para>
 /// <para>
 /// One from an earlier connection (a chat's late request after a switch) isn't asked
@@ -52,14 +52,22 @@ public sealed class CertificatePrompt
     private readonly ISessionService _session;
     private readonly IDialogService _dialogs;
     private readonly DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? _chatTransports;
+    private readonly ICertificateProbe? _probe;
     private readonly HashSet<string> _declined = new(StringComparer.OrdinalIgnoreCase);
     private int _asking;
+    private int _probing;
+    private int _probeAgain;
     private bool _started;
 
+    /// <param name="probe">
+    /// Checks the connection in use when the session's client reports a refusal; the chat
+    /// transports when not given, which is what the app uses.
+    /// </param>
     public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs,
-        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null)
+        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null, ICertificateProbe? probe = null)
     {
         _chatTransports = chatTransports;
+        _probe = probe ?? chatTransports;
         _client = client;
         _session = session;
         _dialogs = dialogs;
@@ -86,24 +94,72 @@ public sealed class CertificatePrompt
     }
 
     /// <summary>
-    /// A refusal from the session's own client, which names no connection: bound to the one in
-    /// use now only when the certificate's host is an address it dials (see remarks).
+    /// A refusal from the session's own client, which names no connection: a sign to probe the
+    /// one in use now and ask about what that meets, never about this certificate as reported
+    /// (see remarks). One probe at a time; refusals while one runs make it check once more.
     /// </summary>
-    internal Task<bool> AskAsync(CertificateDetails certificate)
+    internal async Task<bool> AskAsync(CertificateDetails reported)
     {
-        ArgumentNullException.ThrowIfNull(certificate);
-        if (_session.CurrentScope is not { } scope || Dialled(scope.Connection, certificate.Host) is not { } onBackup)
+        ArgumentNullException.ThrowIfNull(reported);
+        // Cheap filters before any request: another server's host, a prompt already open, or a
+        // certificate already declined (asking again would be declined too).
+        if (_probe is null || _session.CurrentScope is not { } first || Dialled(first.Connection, reported.Host) is null
+            || Volatile.Read(ref _asking) == 1 || IsDeclined(reported.Fingerprint))
         {
-            return Task.FromResult(false);
+            return false;
         }
 
-        return AskAsync(certificate, scope.Generation, onBackup);
+        if (Interlocked.Exchange(ref _probing, 1) == 1)
+        {
+            Volatile.Write(ref _probeAgain, 1);
+            return false;
+        }
+
+        try
+        {
+            // Bounded: a refusal that lands while probing (the session switched, say) earns one
+            // more look, not an endless loop.
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                Volatile.Write(ref _probeAgain, 0);
+                if (_session.CurrentScope is not { } scope)
+                {
+                    return false;
+                }
+
+                if (await _probe.ProbeAsync(scope).ConfigureAwait(false) is { } refused
+                    && await AskAsync(refused.Certificate, refused.Generation, refused.OnBackup).ConfigureAwait(false))
+                {
+                    return true;
+                }
+
+                if (Volatile.Read(ref _probeAgain) == 0)
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            Volatile.Write(ref _probing, 0);
+        }
+    }
+
+    private bool IsDeclined(string fingerprint)
+    {
+        lock (_declined)
+        {
+            return _declined.Contains(fingerprint);
+        }
     }
 
     /// <summary>
     /// Whether <paramref name="host"/> is <paramref name="connection"/>'s backup address (true)
     /// or its server address (false); null when it is neither, so the refusal came from
-    /// another connection.
+    /// another connection. Only a filter before probing: a match can't bind a refusal, since a
+    /// host doesn't name the port, the connection or the certificate the server has now.
     /// </summary>
     internal static bool? Dialled(LibreNmsConnection connection, string? host)
     {
@@ -142,12 +198,9 @@ public sealed class CertificatePrompt
             return false;
         }
 
-        lock (_declined)
+        if (IsDeclined(certificate.Fingerprint))
         {
-            if (_declined.Contains(certificate.Fingerprint))
-            {
-                return false;
-            }
+            return false;
         }
 
         if (Interlocked.Exchange(ref _asking, 1) == 1)
