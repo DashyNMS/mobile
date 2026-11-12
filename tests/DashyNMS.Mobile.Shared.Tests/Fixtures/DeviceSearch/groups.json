@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "count": 3,
+  "groups": [
+    { "id": 1, "name": "Core switches", "desc": "Synthetic group", "type": "static" },
+    { "id": 2, "name": "Core routers", "desc": "Synthetic group", "type": "static" },
+    { "id": 3, "name": "Empty", "desc": "Synthetic group with no members", "type": "static" }
+  ]
+}

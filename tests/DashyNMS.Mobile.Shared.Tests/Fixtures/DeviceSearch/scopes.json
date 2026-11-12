@@ -1,0 +1,20 @@
+{
+  "routes": [
+    { "path": "devices", "status": 200, "file": "devices.json" },
+    { "path": "devicegroups", "status": 200, "file": "groups.json" },
+    { "path": "devicegroups/1", "status": 200, "file": "group-1.json" },
+    { "path": "devicegroups/3", "status": 404, "body": "{\"status\":\"error\",\"message\":\"No devices found in group Empty\"}" }
+  ],
+  "cases": [
+    { "query": "sw", "group": "Core switches", "ids": [3, 5, 2, 1], "total": 4, "requests": ["devicegroups", "devicegroups/1", "devices"] },
+    { "query": "sw", "group": "Empty", "ids": [], "total": 0, "requests": ["devicegroups", "devicegroups/3", "devices"] },
+    { "query": "sw", "location": "lab", "ids": [4, 9, 10], "total": 3, "requests": ["devices"] },
+    { "query": "sw", "location": "annexe", "ids": [7, 8, 11], "total": 3, "requests": ["devices"] },
+    { "status": "down", "ids": [8, 11], "total": 2, "requests": ["devices"] },
+    { "query": "sw", "status": "disabled", "ids": [7], "total": 1, "requests": ["devices"] },
+    { "query": "sw", "group": "core", "code": "InvalidRequest", "requests": ["devicegroups"] },
+    { "query": "sw", "group": "absent", "code": "InvalidRequest", "requests": ["devicegroups"] },
+    { "query": "sw", "location": "a", "code": "InvalidRequest", "requests": ["devices"] },
+    { "query": "sw", "status": "sideways", "code": "InvalidRequest", "requests": [] }
+  ]
+}
