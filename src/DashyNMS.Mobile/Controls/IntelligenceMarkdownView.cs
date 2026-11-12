@@ -98,7 +98,8 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
 
     /// <summary>
     /// Tappable spans are not reliable screen-reader targets, so the text that
-    /// names a verified item offers "Open …" in VoiceOver's Actions rotor instead
+    /// names a verified item offers its action ("Open device …", "Show devices
+    /// in group …") in VoiceOver's Actions rotor instead
     /// of a separate list of referenced items under the answer.
     /// </summary>
     private void OfferOpenActions(Label label, IReadOnlyList<MarkdownSpan> spans)
@@ -107,7 +108,7 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
             .OfType<IntelligenceInlineReference>()
             .Where(reference => reference.Object is { IsValid: true })
             .DistinctBy(reference => reference.Key)
-            .Select(reference => new AccessibilityActions(label, "Open " + IntelligenceStatusTone.Describe(reference),
+            .Select(reference => new AccessibilityActions(label, IntelligenceStatusTone.Describe(reference),
                 () => { ReferenceRequested?.Invoke(this, reference); return true; }))
             .ToArray();
         if (actions.Length == 0) return;

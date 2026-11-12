@@ -350,6 +350,9 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     private void ReserveFoot()
     {
         var reserve = Math.Max(Math.Max(0, _overlay.Height) + _lane.Gap, _lane.Clearance) + 16;
+        // A docked keyboard in a short landscape window can cover more than the
+        // viewport; keep the last message's end inside it rather than above it.
+        if (_scroll.Height > 0) reserve = Math.Min(reserve, Math.Max(0, _scroll.Height - 64));
         // From a little above the composer (not the Jump to latest slot) to the screen's base.
         var fade = Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance) + 24;
         if (_fade.HeightRequest != fade) _fade.HeightRequest = fade;
@@ -622,6 +625,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         private readonly HorizontalStackLayout _stateLine = new() { Spacing = 8 };
         private readonly Label _elapsed = new() { VerticalOptions = LayoutOptions.Center, IsVisible = false };
         private string? _stepsShown;
+        private bool _motionReduced = ReducedMotion.IsOn;
         private bool _activityExpanded;
         private readonly IntelligenceMarkdownView _answer = new();
         private readonly FlexLayout _images = new() { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, IsVisible = false };
@@ -777,7 +781,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             var running = _turn.State == IntelligenceTurnState.Running;
             _state.Text = running ? IntelligenceElapsed.Running(_turn.AskedAt, DateTimeOffset.UtcNow) : _turn.Message;
             // A spinner while it works; Reduce Motion keeps the counting text alone.
-            _working.IsVisible = _working.IsRunning = running && !ReducedMotion.IsOn;
+            _motionReduced = ReducedMotion.IsOn;
+            _working.IsVisible = _working.IsRunning = running && !_motionReduced;
             _elapsed.Text = IntelligenceElapsed.Answered(_turn) ?? "";
             _elapsed.IsVisible = _elapsed.Text.Length > 0;
             var count = _turn.Lookups.Count;
@@ -810,6 +815,13 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         internal void Tick()
         {
             if (_turn.State != IntelligenceTurnState.Running) return;
+            // Spinners only show while running, so that is when Reduce Motion matters;
+            // it can change while the app is away without the card being resumed.
+            if (ReducedMotion.IsOn != _motionReduced)
+            {
+                _dirty = true;
+                Render();
+            }
             var text = IntelligenceElapsed.Running(_turn.AskedAt, DateTimeOffset.UtcNow);
             if (_state.Text != text) _state.Text = text;
         }
@@ -820,7 +832,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         /// </summary>
         private void RenderSteps()
         {
-            var signature = string.Join("|", _turn.Lookups.Select(lookup => lookup.Name + ":" + lookup.State));
+            _motionReduced = ReducedMotion.IsOn;
+            var signature = _motionReduced + "|" + string.Join("|", _turn.Lookups.Select(lookup => lookup.Name + ":" + lookup.State));
             if (signature == _stepsShown) return;
             _stepsShown = signature;
             _steps.Children.Clear();

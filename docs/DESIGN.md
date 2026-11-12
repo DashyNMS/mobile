@@ -224,7 +224,8 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   that lane. A narrower window keeps it above the bar, and a docked keyboard
   always lifts it above the keyboard. The transcript footer reserves 16pt plus
   the larger of the overlay height plus its gap and the height of the bar,
-  glass or keyboard. The overlay includes a stable 44pt Jump to latest arrow
+  glass or keyboard, capped at the viewport height less 64pt so a short
+  landscape window with the keyboard up still shows the last message's end. The overlay includes a stable 44pt Jump to latest arrow
   slot, so hiding the arrow keeps the footer height unchanged. Keep
   retained-page activation and connection ownership guards.
 - Centre transcript, notice and composer in a column capped at 860pt. User
@@ -252,7 +253,7 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   lookup's name and its state, read as one element ("Find device: Completed").
   Success needs no second Completed line. A running answer shows a small
   spinner and "Answering… 4s" counting from when it was asked; Reduce Motion
-  hides the spinners and keeps the text. A completed answer from this session
+  hides the spinners and keeps the text, including when it changes mid-answer. A completed answer from this session
   shows "Answered in 6s" beside Copy. Reopened saved chats show no duration. Warnings,
   stopped/interrupted states and Retry remain visible. Copy is a rounded 44pt
   clipboard icon at the answer foot; Edit is a labelled icon by the question
@@ -265,9 +266,10 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   scroll with 260pt maximum cells; code wraps by character. Verified objects
   read as name and status in text, coloured only when Colour status indicators
   is on, and retain guarded inline navigation, with no chip rows or referenced-item
-  list under the answer. Each text block naming a verified item offers "Open
-  name, status" in VoiceOver's Actions rotor, as tappable spans are not
-  reliable screen-reader targets.
+  list under the answer. Each text block naming a verified item offers that
+  item's action ("Open device name, status", "Show devices in group name") in
+  VoiceOver's Actions rotor, as tappable spans are not reliable screen-reader
+  targets.
   Source links are 44pt buttons naming title and
   host. Answer images are native buttons announcing "Graph image … Enlarge";
   the enlarged view has a 44pt Close inside the safe area. Device acceptance
