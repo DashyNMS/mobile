@@ -87,12 +87,16 @@ public sealed class CompactNetworkLookupsTests
         var alert = Fakes.Alert(7, 1, "critical");
         alert.Source = source;
         var client = Fakes.Client(alerts: [alert]);
-        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
+        var evidence = new List<IntelligenceEvidence>();
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange);
         foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
         {
+            evidence.Clear();
             var text = await lookup.Run("", default);
-            // The marker links any source; the qualified key keeps alert 7 and fault 7 distinct.
-            Assert.True(text.Contains($"[[alert:7]] ({key}) on host1", StringComparison.Ordinal), text);
+            Assert.Contains("[[alert:7]] on host1", text);
+            Assert.DoesNotContain($"({key})", text);
+            var reference = Assert.Single(evidence, e => e.Reference.Key == "alert:7").Reference;
+            Assert.Equal(key, $"{reference.Object!.Kind}:{reference.Object.Id}");
             Assert.Equal(alert.Identity, DashyNMS.Mobile.Alerts.AlertTargets.ParseKey(key));
         }
     }

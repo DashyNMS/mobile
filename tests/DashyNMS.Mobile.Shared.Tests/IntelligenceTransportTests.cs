@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Intelligence;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Tests;
@@ -35,14 +36,18 @@ public sealed class IntelligenceTransportTests
     public async Task Alert_probe_preserves_the_identity_of_the_returning_resource(bool faults, string key, string endpoint)
     {
         var transport = new RecordedTransport(faults);
-        var text = await Lookup(transport, "active_alerts").Run("", default);
+        var evidence = new List<IntelligenceEvidence>();
+        var text = await Lookup(transport, "active_alerts", evidence.AddRange).Run("", default);
 
-        Assert.Contains(key, text);
+        Assert.Contains("[[alert:7]] on", text);
+        Assert.DoesNotContain($"({key})", text);
+        var reference = Assert.Single(evidence, e => e.Reference.Key == "alert:7").Reference;
+        Assert.Equal(key, $"{reference.Object!.Kind}:{reference.Object.Id}");
         Assert.Contains(transport.Requests, r => r.Path == "faults?state=-1");
         Assert.Contains(transport.Requests, r => r.Path.Split('?')[0] == endpoint);
     }
 
-    private static IntelligenceLookup Lookup(RecordedTransport transport, string name)
+    private static IntelligenceLookup Lookup(RecordedTransport transport, string name, Action<IReadOnlyList<IntelligenceEvidence>>? evidence = null)
     {
         var apis = new LibreNmsResourceApis(transport);
         var client = Substitute.For<ILibreNmsClient>();
@@ -51,7 +56,7 @@ public sealed class IntelligenceTransportTests
         client.Sensors.Returns(apis.Sensors);
         var session = Fakes.Session();
         session.Connection.Returns(transport.Connection);
-        return new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: _ => transport).Create().Single(l => l.Name == name);
+        return new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: _ => transport).Create(evidence ?? (_ => { })).Single(l => l.Name == name);
     }
 
     /// <summary>Answers only the expected GET routes, so writes and unexpected resource paths fail the test.</summary>
