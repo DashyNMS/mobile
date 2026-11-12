@@ -51,7 +51,7 @@ public sealed class IntelligenceTransportTests
         client.Sensors.Returns(apis.Sensors);
         var session = Substitute.For<ISessionService>();
         session.Connection.Returns(transport.Connection);
-        return new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: (_, _) => transport).Create().Single(l => l.Name == name);
+        return new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: _ => transport).Create().Single(l => l.Name == name);
     }
 
     /// <summary>Answers only the expected GET routes, so writes and unexpected resource paths fail the test.</summary>

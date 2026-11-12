@@ -302,7 +302,11 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 var attemptId = attempt;
                 using var attemptStop = CancellationTokenSource.CreateLinkedTokenSource(run.Stop.Token);
                 var token = attemptStop.Token;
-                var tools = _lookups.Create(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence))).Select(lookup => lookup with
+                // Owned by this attempt: however it ends (an answer, the context retry, a
+                // failure, Stop or a switch) the set is disposed with it, closing the device
+                // search's private transport rather than leaving it to the next switch.
+                using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)));
+                var tools = lookupSet.Lookups.Select(lookup => lookup with
                 {
                     Run = async (query, callerToken) =>
                     {

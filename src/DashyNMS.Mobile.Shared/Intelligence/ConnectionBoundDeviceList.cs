@@ -1,7 +1,6 @@
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DashyNMS.Mobile.Intelligence;
 
@@ -16,10 +15,15 @@ namespace DashyNMS.Mobile.Intelligence;
 /// each request leaves a window: a switch between the check and the send dials the
 /// new server with the old chat's request. The shared search warns about exactly this
 /// (its <c>HostDeviceSearch.Create</c> asks for a client that stays bound even after
-/// retirement). So this client never touches the session's transport. It opens its
-/// own, configured once with the captured connection object and never reconfigured,
-/// and builds Core's real device API on it. A switch cannot redirect it; at worst a
-/// request already sent reaches the old server, and its reply is discarded.
+/// retirement). So this client never touches the session's transport. It sends through
+/// one opened for the captured connection alone and builds Core's real device API on
+/// it. A switch cannot redirect it; at worst a request already sent reaches the old
+/// server, and its reply is discarded.
+/// </para>
+/// <para>
+/// In the app <see cref="IntelligenceDeviceTransports"/> opens that transport and keeps
+/// it in step with the session (timeout, trusted certificates, backup address and the
+/// certificate prompt) without ever changing its server or token.
 /// </para>
 /// <para>
 /// The transport is opened on the first search, not when the chat starts, so a chat
@@ -37,20 +41,20 @@ namespace DashyNMS.Mobile.Intelligence;
 internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
 {
     private readonly LibreNmsConnection connection;
-    private readonly bool onBackup;
-    private readonly Func<LibreNmsConnection, bool, ILibreNmsTransport> openTransport;
+    private readonly Func<LibreNmsConnection, ILibreNmsTransport> openTransport;
     private readonly ListOnly devices;
     private readonly Lock gate = new();
     private ILibreNmsTransport? transport;
     private bool retired;
 
-    /// <param name="connection">The captured connection; every request uses exactly this object's address, token and trust.</param>
-    /// <param name="onBackup">Whether the session was on the backup address at capture, so the first request dials the same one.</param>
-    /// <param name="openTransport">Opens a transport for one connection; <see cref="OpenTransport"/> in the app, a synthetic one in tests.</param>
-    public ConnectionBoundDeviceList(LibreNmsConnection connection, bool onBackup, Func<LibreNmsConnection, bool, ILibreNmsTransport> openTransport)
+    /// <param name="connection">The captured connection; every request goes to exactly this object's address and backup, with its token.</param>
+    /// <param name="openTransport">
+    /// Opens a transport for one connection, owned by this client from then on;
+    /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
+    /// </param>
+    public ConnectionBoundDeviceList(LibreNmsConnection connection, Func<LibreNmsConnection, ILibreNmsTransport> openTransport)
     {
         this.connection = connection;
-        this.onBackup = onBackup;
         this.openTransport = openTransport;
         devices = new ListOnly(this);
     }
@@ -60,23 +64,6 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
 
     /// <summary>Thrown for anything outside the reviewed read-only profile.</summary>
     internal sealed class RefusedException(string member) : NotSupportedException(member + " is not available to Intelligence device search.");
-
-    /// <summary>
-    /// The app's transport for one connection: Core's own HTTP transport, so URLs,
-    /// certificate pinning, redirects, retries and failover are Core's, but private to
-    /// this chat. Logging is off, as the lookups log nothing about the network.
-    /// </summary>
-    /// <param name="shared">
-    /// The session's transport, read only for its request timing hook when each transport
-    /// opens, so these requests are measured like any other. Never used to send.
-    /// </param>
-    internal static Func<LibreNmsConnection, bool, ILibreNmsTransport> OpenTransport(LibreNmsTransport? shared = null) =>
-        (connection, onBackup) =>
-        {
-            var transport = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance) { RequestObserver = shared?.RequestObserver };
-            transport.Configure(connection, onBackup);
-            return transport;
-        };
 
     /// <summary>The connection the transport was opened for; for tests and diagnostics only.</summary>
     internal LibreNmsConnection BoundConnection => connection;
@@ -110,11 +97,13 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         lock (gate)
         {
             if (retired) throw new RetiredException();
-            open = transport ??= openTransport(connection, onBackup);
+            open = transport ??= openTransport(connection);
         }
 
-        // Defence in depth: the transport must be the captured connection's, never a shared one.
-        if (!ReferenceEquals(open.Connection, connection) && open.Connection is not null)
+        // Defence in depth: the transport must be the captured connection's, never a shared
+        // one. Its connection object may be a newer copy (a timeout or a trusted certificate
+        // applied since), but never another server, backup or token.
+        if (open.Connection is { } dialling && !SameServer(dialling, connection))
             throw new RetiredException();
         var list = await new LibreNmsResourceApis(open).Devices.ListAsync(cancellationToken).ConfigureAwait(false);
         var byId = new Dictionary<int, Device>(list.Count);
@@ -122,6 +111,10 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         Volatile.Write(ref latest, byId);
         return list;
     }
+
+    /// <summary>Whether two connections reach the same server, by the same backup, with the same token.</summary>
+    internal static bool SameServer(LibreNmsConnection a, LibreNmsConnection b) =>
+        a.WebRoot == b.WebRoot && a.BackupWebRoot == b.BackupWebRoot && string.Equals(a.ApiToken, b.ApiToken, StringComparison.Ordinal);
 
     /// <summary>Retires the client and closes its transport. Safe to call more than once.</summary>
     public void Dispose()

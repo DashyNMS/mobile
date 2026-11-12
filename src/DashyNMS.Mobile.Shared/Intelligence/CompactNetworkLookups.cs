@@ -23,6 +23,27 @@ public interface IIntelligenceLookups
     /// against the model's own spelling of a name or id (#228).
     /// </summary>
     IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Create();
+
+    /// <summary>
+    /// As <see cref="Create(Action{IReadOnlyList{IntelligenceEvidence}})"/>, owned by the
+    /// caller: disposing the set retires its lookups and closes anything they opened (the
+    /// device search's transport). A conversation opens one per model attempt and disposes
+    /// it however the attempt ends, so a chat never leaves a connection behind.
+    /// </summary>
+    IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => new(Create(evidence));
+}
+
+/// <summary>
+/// One model attempt's lookups and whatever they hold open. Disposal is idempotent and
+/// safe while a lookup is still running: that lookup then fails rather than reading.
+/// </summary>
+public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> lookups, Action? retire = null) : IDisposable
+{
+    private Action? retire = retire;
+
+    public IReadOnlyList<IntelligenceLookup> Lookups { get; } = lookups;
+
+    public void Dispose() => Interlocked.Exchange(ref retire, null)?.Invoke();
 }
 
 /// <summary>
@@ -40,13 +61,14 @@ public interface IIntelligenceLookups
 /// </remarks>
 /// <param name="deviceTransport">
 /// Opens a transport for one captured connection, for <c>find_device</c> alone (see
-/// <see cref="ConnectionBoundDeviceList"/>). The app passes Core's HTTP transport; tests
-/// pass a synthetic one. Without it <c>find_device</c> fails closed rather than falling
-/// back to the session's shared client, whose connection can change under a request.
+/// <see cref="ConnectionBoundDeviceList"/>); the set owns and closes it. The app passes
+/// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
+/// <c>find_device</c> fails closed rather than falling back to the session's shared
+/// client, whose connection can change under a request.
 /// </param>
 public sealed partial class CompactNetworkLookups(
     ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
-    Func<LibreNmsConnection, bool, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
+    Func<LibreNmsConnection, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -78,8 +100,15 @@ public sealed partial class CompactNetworkLookups(
 
     public IReadOnlyList<IntelligenceLookup> Create() => Create(static _ => { });
 
+    /// <summary>
+    /// An unowned set, for callers that only need the lookups. Its device search transport
+    /// is closed when the set retires on a connection switch; anything that keeps sets
+    /// beyond one use (the conversation) calls <see cref="Open"/> and disposes it instead.
+    /// </summary>
+    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Open(evidence).Lookups;
+
     /// <summary>Captures the connection so replies and their evidence cannot cross between networks.</summary>
-    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
+    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
     {
         var connection = session.Connection;
         var style = settings.Current.DeviceNameStyle;
@@ -90,9 +119,10 @@ public sealed partial class CompactNetworkLookups(
         // and so per captured connection. The transport is pinned to that connection
         // object, so a switch can't redirect a search's request to another server.
         // Retiring cancels in-flight waits, refuses further calls (cached ones included)
-        // and closes the transport.
+        // and closes the transport. It happens on a connection switch and when the owner
+        // disposes the set, whichever comes first.
         var bound = connection is null || deviceTransport is null ? null
-            : new ConnectionBoundDeviceList(connection, client.Failover?.IsOnBackup ?? false, deviceTransport);
+            : new ConnectionBoundDeviceList(connection, deviceTransport);
         var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
         void RetireSearch()
         {
@@ -204,7 +234,7 @@ public sealed partial class CompactNetworkLookups(
             catch (Exception) { return null; }
         }
 
-        return
+        IReadOnlyList<IntelligenceLookup> lookups =
         [
             Lookup("network_overview", "Network counts and the open alerts. Query is unused.", async (_, at, ct) =>
             {
@@ -303,6 +333,7 @@ public sealed partial class CompactNetworkLookups(
                 }), headingReferences);
             }),
         ];
+        return new IntelligenceLookupSet(lookups, RetireSearch);
 
         async Task<Device?> DeviceOrNull(int id, CancellationToken ct)
         {

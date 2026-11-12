@@ -39,18 +39,27 @@ total in the heading, unfetched and over-budget matches counted as omitted, and
 
 **Host ownership and isolation.** No Agent registration runs; mobile passes its
 own clock, the server timestamp setting and `ConnectionBoundDeviceList`. That
-client never touches the session's shared client. On the first search it opens a
-Core `LibreNmsTransport` of its own, configured once with the captured
-connection object (address, token, trusted certificates, timeout, and the
-backup address if the session was on it) and never reconfigured, and builds
+client never touches the session's shared client. On the first search it asks
+the app's `IntelligenceDeviceTransports` for a Core `LibreNmsTransport` of its
+own, pinned to the captured connection's address, backup and token, and builds
 Core's device API on it. A switch can't redirect its requests to another server.
+The host keeps that transport in step with the session without changing its
+server: the current request timeout and saved trusted certificates when it opens
+and whenever settings change, the session's address (main or backup) at open and
+whenever the session fails over or is switched back, and the session's request
+timing. A certificate it refuses goes to the same `CertificatePrompt` as the
+session's, and accepting it trusts it on live chat transports straight away. Each
+chat transport has its own `ServerFailover`, so it never resets the session's.
 Of `IDevicesApi` only `ListAsync` is allowed; the other device endpoints, every
-other API and all session controls throw before transport. A switch or sign-out
-during a search disposes the search and closes the transport, which cancels the
-wait at once and refuses later calls, cached ones included. Late replies and
-their evidence are discarded and the lookup says the connection changed. A test
-over loopback HTTP reproduces the switch-before-send case. Without a transport
-factory, `find_device` fails closed rather than use the shared client.
+other API and all session controls throw before transport. Each model attempt
+opens its lookups as an owned `IntelligenceLookupSet` and disposes it however
+the attempt ends (answer, context retry, failure, Stop), which closes the
+transport. A switch or sign-out during a search does the same at once, which
+cancels the wait and refuses later calls, cached ones included. Late replies and
+their evidence are discarded and the lookup says the connection changed. Tests
+over loopback HTTP and TLS cover the switch-before-send case, the certificate
+prompt and live trust, timeout changes, failover and isolation. Without a
+transport factory, `find_device` fails closed rather than use the shared client.
 
 **Cancellation, deadline, failures.** Caller cancellation propagates. Mobile's
 linked 15-second deadline and `WaitAsync` bound remain around the call, and the

@@ -85,7 +85,7 @@ public sealed partial class SharedDeviceSearchTests
         public HttpStatusCode? Failure { get; } = failure;
 
         /// <summary>A transport for one connection, as find_device opens one.</summary>
-        public Func<LibreNmsConnection, bool, ILibreNmsTransport> Open => (connection, _) => new Transport(this, connection);
+        public Func<LibreNmsConnection, ILibreNmsTransport> Open => connection => new Transport(this, connection);
 
         /// <summary>The package's own executor wired as DashyNMS/mcp's tests wire it: Core's resource APIs over this transport.</summary>
         public ILibreNmsClient Client()
@@ -325,12 +325,12 @@ public sealed partial class SharedDeviceSearchTests
     public async Task The_bound_client_offers_only_the_device_list_and_opens_its_transport_once_for_its_own_connection()
     {
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token");
-        var opened = new List<(LibreNmsConnection Connection, bool OnBackup)>();
+        var opened = new List<LibreNmsConnection>();
         var nms = new FixtureLibreNms();
-        var bound = new ConnectionBoundDeviceList(connection, onBackup: true, (c, backup) =>
+        var bound = new ConnectionBoundDeviceList(connection, c =>
         {
-            opened.Add((c, backup));
-            return nms.Open(c, backup);
+            opened.Add(c);
+            return nms.Open(c);
         });
 
         // Nothing is dialled until the first search.
@@ -362,9 +362,7 @@ public sealed partial class SharedDeviceSearchTests
 
         Assert.Equal(11, (await devices.ListAsync()).Count);
         await devices.ListAsync();
-        var only = Assert.Single(opened);
-        Assert.Same(connection, only.Connection);
-        Assert.True(only.OnBackup);
+        Assert.Same(connection, Assert.Single(opened));
         Assert.Equal(new[] { "devices", "devices" }, nms.Requests);
 
         bound.Dispose();
@@ -379,8 +377,8 @@ public sealed partial class SharedDeviceSearchTests
         var closed = 0;
         var session = Session();
         var nms = new FixtureLibreNms();
-        var lookup = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), session, deviceTransport: (c, backup) =>
-                new ClosingTransport(nms.Open(c, backup), () => Interlocked.Increment(ref closed)))
+        var lookup = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), session, deviceTransport: c =>
+                new ClosingTransport(nms.Open(c), () => Interlocked.Increment(ref closed)))
             .Create().Single(l => l.Name == "find_device");
 
         Assert.StartsWith("Matching devices: 10.", await lookup.Run("sw", default));
@@ -416,10 +414,10 @@ public sealed partial class SharedDeviceSearchTests
         var serverB = new LibreNmsConnection(b.Root, "token-b");
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         using var client = new LibreNmsClient(shared, NullLogger<LibreNmsClient>.Instance);
+        using var transports = new IntelligenceDeviceTransports(shared, Fakes.Settings());
         client.Connect(serverA);
         var session = Session(serverA);
-        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session,
-                deviceTransport: ConnectionBoundDeviceList.OpenTransport(shared))
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: transports.Open)
             .Create().Single(l => l.Name == "find_device");
 
         // The window: the shared client now dials B; the chat's check still passes for A.

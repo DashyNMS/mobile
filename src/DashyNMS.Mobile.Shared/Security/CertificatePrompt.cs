@@ -19,18 +19,26 @@ namespace DashyNMS.Mobile.Security;
 /// this session about one that's been declined. Accepting trusts it on the
 /// running connection straight away and saves it to <c>trustedCertificates</c>,
 /// which desktop and phone share.
+/// <para>
+/// Intelligence's device search sends through transports of its own, pinned to the
+/// chat's connection (#596). Their refusals are asked about here too, and an accepted
+/// certificate is trusted on them as well as on the session's.
+/// </para>
 /// </remarks>
 public sealed class CertificatePrompt
 {
     private readonly ILibreNmsClient _client;
     private readonly ISessionService _session;
     private readonly IDialogService _dialogs;
+    private readonly DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? _chatTransports;
     private readonly HashSet<string> _declined = new(StringComparer.OrdinalIgnoreCase);
     private int _asking;
     private bool _started;
 
-    public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs)
+    public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs,
+        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null)
     {
+        _chatTransports = chatTransports;
         _client = client;
         _session = session;
         _dialogs = dialogs;
@@ -49,6 +57,10 @@ public sealed class CertificatePrompt
 
         _started = true;
         _client.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
+        if (_chatTransports is not null)
+        {
+            _chatTransports.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
+        }
     }
 
     /// <summary>
@@ -91,6 +103,7 @@ public sealed class CertificatePrompt
             }
 
             _session.TrustCertificate(certificate);
+            _chatTransports?.TrustCertificate(certificate.Fingerprint);
             Trusted?.Invoke(this, EventArgs.Empty);
             return true;
         }
