@@ -25,12 +25,9 @@ without changing the desktop repository's licence.
 
 ## Icon provenance
 
-The in-app Settings → About → Open-source licences catalogue embeds the complete
-Lucide upstream LICENSE, including its Feather-derived icon list and Cole Bemis
-MIT notice, from commit 03eae6069edfc373673bd05d723491f05ba936e3:
-https://github.com/lucide-icons/lucide/blob/03eae6069edfc373673bd05d723491f05ba936e3/LICENSE
-The unmodified text is in docs/licences/Lucide-LICENSE.txt and ships offline in
-DashyNMS.Mobile.Shared. The Lucide copyright line is copied from that source.
+The upstream Lucide licence, including Feather attribution, is retained in
+docs/licences/Lucide-LICENSE.txt. The in-app licence catalogue does not yet
+include this notice.
 DashboardPage.xaml identifies its sliders-horizontal drawing as Lucide-derived.
 The original import revision and an exhaustive mapping of other hand-drawn paths
 to upstream icons are not recorded. Shipping the complete upstream notice retains
