@@ -1073,7 +1073,16 @@ justify clearing newer text.
 Single-chat mode is described in its own section below (#230).
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
-or glass list button. Tests in `IntelligenceSavedChatTests` cover scoping,
+or glass list button. On iOS 26+, the modal uses the same native glass controls
+as the main chat header for Back and New chat, without taking ownership of the
+underlying tab bar. Older iOS and Android retain labelled header buttons. Back
+dismisses the modal; New chat uses the existing save/discard leave decision.
+Rows have themed separators and use reveal-only swipes with a 48pt threshold,
+so a shorter partial swipe can settle open. Rebinding a recycled row closes
+its previous swipe. Installed-build acceptance remains pending under #593,
+including swipe stability, large text and VoiceOver.
+
+Tests in `IntelligenceSavedChatTests` cover scoping,
 activity grouping, rename, pin and confirmed delete, restart restore of draft,
 detail, model, evidence filters and images, streaming and Interrupted restore,
 suspension, coalescing, delete, sign-out and wipe ordering, damaged files, an

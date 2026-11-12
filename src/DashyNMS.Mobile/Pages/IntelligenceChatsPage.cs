@@ -7,9 +7,9 @@ namespace DashyNMS.Mobile.Pages;
 
 /// <summary>
 /// Saved chats (#229): a modal sheet over the chat, grouped Pinned, Today,
-/// Yesterday and so on by Core. Like the report preview it stacks a 44pt Done
-/// above a wrapping title and owns its own safe area, as a modal with no glass
-/// owner. Each row opens its chat when tapped; swiping right pins, swiping left
+/// Yesterday and so on by Core. The modal owns its safe area and header glass
+/// rather than taking ownership of the underlying page's tab bar actions.
+/// Each row opens its chat when tapped; swiping right pins, swiping left
 /// reveals Rename and Delete, a long press opens the same actions as a menu
 /// (TalkBack's double-tap-and-hold reaches it too), and VoiceOver offers them
 /// as custom actions. Delete always confirms (#146).
@@ -23,7 +23,11 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
     private readonly Label _status = new() { LineBreakMode = LineBreakMode.WordWrap };
     private readonly CollectionView _list = new() { IsGrouped = true, SelectionMode = SelectionMode.None };
     private readonly Button _new = new() { Text = "New chat", MinimumHeightRequest = 44 };
-    private readonly Button _close = new() { Text = "Done", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
+    private readonly Button _close = new() { Text = "Back", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
+#if IOS
+    private readonly HeaderGlassGroup _backGlass = new();
+    private readonly HeaderGlassGroup _newGlass = new();
+#endif
     private bool _busy;
     private bool _visible;
     private readonly List<ChatRow> _rows = [];
@@ -41,14 +45,10 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
 
         _close.Style = ResourceStyle("SecondaryButton");
         _new.Style = ResourceStyle("SecondaryButton");
-        SemanticProperties.SetDescription(_close, "Close saved chats");
+        SemanticProperties.SetDescription(_close, "Back to Intelligence");
         SemanticProperties.SetDescription(_new, "Start a new chat");
         _close.Clicked += async (_, _) => await CloseAsync();
-        _new.Clicked += async (_, _) =>
-        {
-            await CloseAsync();
-            _newChat();
-        };
+        _new.Clicked += (_, _) => StartNewChat();
 
         var title = new Label { Text = "Chats", Style = ResourceStyle("PageTitle"), LineBreakMode = LineBreakMode.WordWrap };
         SemanticProperties.SetHeadingLevel(title, SemanticHeadingLevel.Level1);
@@ -82,11 +82,26 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
         top.Children.Add(title);
         top.Children.Add(scope);
         top.Children.Add(_status);
-        top.Children.Add(_new);
 
         var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star)] };
-        _close.Margin = new Thickness(16, 8);
-        grid.Add(_close, 0, 0);
+        var actions = new Grid
+        {
+            ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)],
+            Padding = new Thickness(16, 8), ColumnSpacing = 12,
+        };
+        actions.Add(_close, 0, 0);
+        actions.Add(_new, 1, 0);
+#if IOS
+        if (TabBarButtons.IsAvailable)
+        {
+            _close.IsVisible = _new.IsVisible = false;
+            _backGlass.HorizontalOptions = LayoutOptions.Start;
+            _backGlass.Actions = [new("chevron.backward", "Back to Intelligence", () => _ = CloseAsync(), IsBack: true)];
+            actions.Add(_backGlass, 0, 0);
+            actions.Add(_newGlass, 1, 0);
+        }
+#endif
+        grid.Add(actions, 0, 0);
         grid.Add(top, 0, 1);
         grid.Add(_list, 0, 2);
         Content = grid;
@@ -129,7 +144,25 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
             ? ResourceStyle("Error") : ResourceStyle("Caption");
         // Hidden in single-chat mode, and when the list can't be read.
         _list.IsVisible = _chats.IsListAvailable;
-        _new.IsEnabled = !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
+        var canStart = !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
+        _new.IsEnabled = canStart;
+#if IOS
+        // Avoid replacing native buttons on every streaming property change.
+        if (TabBarButtons.IsAvailable && (_newGlass.Actions.Count == 0 || _newGlass.Actions[0].IsEnabled != canStart))
+            _newGlass.Actions = [new("square.and.pencil", "New chat", StartNewChat, IsEnabled: canStart)];
+#endif
+    }
+
+    private async void StartNewChat()
+    {
+        if (_busy || _conversation.IsRunning || !_conversation.IsTranscriptCurrent) return;
+        _busy = true;
+        try
+        {
+            await CloseAsync();
+            _newChat();
+        }
+        finally { _busy = false; }
     }
 
     private async Task CloseAsync()
@@ -214,6 +247,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
             Padding = new Thickness(16, 10), MinimumHeightRequest = 56,
         };
         private readonly SwipeItem _pin = new();
+        private readonly SwipeView _swipe;
         private readonly AccessibilityActions _pinAction;
         private readonly AccessibilityActions _unpinAction;
         private readonly AccessibilityActions _renameAction;
@@ -238,13 +272,21 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
 
             // Revealing rather than acting, as Alerts' swipes do, so a stray
             // sideways scroll can't change anything; Delete still confirms.
-            Content = new SwipeView
+            _swipe = new SwipeView
             {
-                Threshold = 96,
+                // A short deliberate swipe settles open; it never invokes an action.
+                Threshold = 48,
                 LeftItems = new SwipeItems([_pin]) { Mode = SwipeMode.Reveal, SwipeBehaviorOnInvoked = SwipeBehaviorOnInvoked.Close },
                 RightItems = new SwipeItems([rename, delete]) { Mode = SwipeMode.Reveal, SwipeBehaviorOnInvoked = SwipeBehaviorOnInvoked.Close },
                 Content = _row,
             };
+
+            var separator = new BoxView { HeightRequest = 1, InputTransparent = true, Margin = new Thickness(16, 0) };
+            separator.SetAppThemeColor(BoxView.ColorProperty, ThemeColour("StrokeLight"), ThemeColour("StrokeDark"));
+            var content = new Grid { RowDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+            content.Add(_swipe, 0, 0);
+            content.Add(separator, 0, 1);
+            Content = content;
 
             _pinAction = new AccessibilityActions(_row, "Pin", () => Act(item => _page.TogglePin(item)));
             _unpinAction = new AccessibilityActions(_row, "Unpin", () => Act(item => _page.TogglePin(item)));
@@ -265,6 +307,8 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
         {
             base.OnBindingContextChanged();
             Detach();
+            // A recycled row must not expose actions for the previous chat.
+            _swipe.Close(false);
             _item = BindingContext as IntelligenceChatItem;
             if (_page._visible) Attach();
             Show();
@@ -293,8 +337,8 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
             _pin.Text = item.PinText;
             SemanticProperties.SetDescription(_row, item.Description);
             SemanticProperties.SetHint(_row, "Opens this chat. Actions: " + item.PinText + ", Rename, Delete");
-            if (item.IsOpen) _row.BackgroundColor = ThemeColour("PrimaryTint");
-            else _row.ClearValue(BackgroundColorProperty);
+            if (item.IsOpen) _row.SetAppThemeColor(BackgroundColorProperty, ThemeColour("PrimaryTint"), ThemeColour("PrimaryTint"));
+            else _row.SetAppThemeColor(BackgroundColorProperty, ThemeColour("BackgroundLight"), ThemeColour("BackgroundDark"));
             RefreshActions();
         }
 
