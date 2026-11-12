@@ -15,14 +15,28 @@ public sealed class LicencesTests
     private static LicencesViewModel Page(NoticePlatforms platform = NoticePlatforms.iOS) => new(new FakePlatform(platform));
 
     [Fact]
-    public void Every_licence_text_the_phone_names_is_in_Core()
+    public void Every_licence_text_the_phone_names_is_in_Core_or_the_phone()
     {
         foreach (var file in PhoneNotices.Own.Select(n => n.LicenceFile).OfType<string>().Distinct())
         {
-            Assert.Contains(file, OpenSourceNotices.LicenceFiles);
-            Assert.False(string.IsNullOrWhiteSpace(OpenSourceNotices.ReadLicence(file)), file + " is empty");
+            Assert.True(OpenSourceNotices.LicenceFiles.Contains(file) || PhoneNotices.LicenceFiles.Contains(file), file + " is not embedded");
+            Assert.False(string.IsNullOrWhiteSpace(PhoneNotices.ReadLicence(file)), file + " is empty");
         }
     }
+
+    [Fact]
+    public void The_shared_search_package_ships_its_own_licence()
+    {
+        var text = PhoneNotices.ReadLicence(PhoneNotices.AgentSearchMit);
+        Assert.NotNull(text);
+        Assert.StartsWith("MIT License", text);
+        Assert.Contains("Copyright (c) 2026 Thomas Pickup", text);
+        Assert.Contains("DashyNMS.Agent.Search", Page().Items.Select(i => i.Name));
+    }
+
+    [Fact]
+    public void Core_texts_are_still_read_through_the_phone()
+        => Assert.Equal(OpenSourceNotices.ReadLicence(OpenSourceNotices.Mit), PhoneNotices.ReadLicence(OpenSourceNotices.Mit));
 
     [Fact]
     public void Every_notice_has_a_copyright_a_licence_and_an_https_link()
@@ -100,7 +114,7 @@ public sealed class LicencesTests
             Assert.Equal(item.Notice.Licence, item.LicenceName);
             Assert.Equal(item.Notice.Copyright, item.Copyright);
             if (item.Notice.LicenceFile is not { } file) continue;
-            var complete = OpenSourceNotices.ReadLicence(file);
+            var complete = PhoneNotices.ReadLicence(file);
             Assert.False(string.IsNullOrWhiteSpace(complete));
             item.ToggleCommand.Execute(null);
             Assert.Equal(complete, item.LicenceText); // Includes all whitespace and the final notice.

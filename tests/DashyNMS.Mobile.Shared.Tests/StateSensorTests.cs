@@ -109,7 +109,7 @@ public sealed class StateSensorDefinitionsTests : IDisposable
         [
             new Sensor { SensorId = 7, DeviceId = 12, SensorClass = "state", SensorType = "exampleFanState", Oid = ".1.3.6.1.4.1.32473.1.7", Description = "Fan 1", Current = 2 },
         ]);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         _polling = new CorePolling(_client, session, _settings, definitions: _definitions);
     }

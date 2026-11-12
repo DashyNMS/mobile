@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
+using DashyNMS.Agent.Devices;
+using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -20,6 +23,27 @@ public interface IIntelligenceLookups
     /// against the model's own spelling of a name or id (#228).
     /// </summary>
     IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Create();
+
+    /// <summary>
+    /// As <see cref="Create(Action{IReadOnlyList{IntelligenceEvidence}})"/>, owned by the
+    /// caller: disposing the set retires its lookups and closes anything they opened (the
+    /// device search's transport). A conversation opens one per model attempt and disposes
+    /// it however the attempt ends, so a chat never leaves a connection behind.
+    /// </summary>
+    IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => new(Create(evidence));
+}
+
+/// <summary>
+/// One model attempt's lookups and whatever they hold open. Disposal is idempotent and
+/// safe while a lookup is still running: that lookup then fails rather than reading.
+/// </summary>
+public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> lookups, Action? retire = null) : IDisposable
+{
+    private Action? retire = retire;
+
+    public IReadOnlyList<IntelligenceLookup> Lookups { get; } = lookups;
+
+    public void Dispose() => Interlocked.Exchange(ref retire, null)?.Invoke();
 }
 
 /// <summary>
@@ -29,13 +53,38 @@ public interface IIntelligenceLookups
 /// inline marker beside it, so the model names devices rather than writing "device 708",
 /// while the stable id stays available for links.
 /// </summary>
-public sealed class CompactNetworkLookups(
-    ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null) : IIntelligenceLookups
+/// <remarks>
+/// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596), so its ranking,
+/// filtering and redaction are the MCP agent's rather than a mobile copy; this class
+/// only adapts the typed result to the compact profile and its evidence. The other
+/// lookups remain mobile queries until their own shared operations exist.
+/// </remarks>
+/// <param name="deviceTransport">
+/// Opens a transport for one captured connection and its session generation, for <c>find_device</c> alone (see
+/// <see cref="ConnectionBoundDeviceList"/>); the set owns and closes it. The app passes
+/// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
+/// <c>find_device</c> fails closed rather than falling back to the session's shared
+/// client, whose connection can change under a request.
+/// </param>
+public sealed partial class CompactNetworkLookups(
+    ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
+    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
     internal const string Failed = "The lookup failed. LibreNMS could not be reached.";
     internal const string Changed = "The connection changed. Start a new chat.";
+    internal const string Refused = "The lookup failed. LibreNMS refused this account access to the data.";
+    internal const string MacUnavailable = "Search by device name or IP address. MAC address search isn't available here yet.";
+
+    /// <summary>
+    /// Rows asked of the shared search. Ten or so fit in <see cref="MaxCharacters"/>;
+    /// the rest are counted from its exact total rather than fetched.
+    /// </summary>
+    internal const int FindLimit = 20;
+
+    /// <summary>True for a reply that reports a failed lookup rather than data or a refusal to run.</summary>
+    internal static bool IsFailure(string reply) => reply is Failed or Changed or Refused;
 
     /// <summary>One displayed row and the evidence it introduces; omitted rows contribute none.</summary>
     internal readonly record struct Row(string Text, IReadOnlyList<IntelligenceEvidence> References)
@@ -51,21 +100,51 @@ public sealed class CompactNetworkLookups(
 
     public IReadOnlyList<IntelligenceLookup> Create() => Create(static _ => { });
 
+    /// <summary>
+    /// An unowned set, for callers that only need the lookups. Its device search transport
+    /// is closed when the set retires on a connection switch; anything that keeps sets
+    /// beyond one use (the conversation) calls <see cref="Open"/> and disposes it instead.
+    /// </summary>
+    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Open(evidence).Lookups;
+
     /// <summary>Captures the connection so replies and their evidence cannot cross between networks.</summary>
-    public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
+    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
     {
-        var connection = session.Connection;
+        // By session generation, not the connection's reference: trusting a certificate or
+        // changing the timeout gives the session a new connection object for the same server,
+        // and must not end a chat (see SessionScope). Sign-in, a switch or sign-out does.
+        var scope = SessionScope.Capture(session);
         var style = settings.Current.DeviceNameStyle;
         var time = timeProvider ?? TimeProvider.System;
-        bool IsCurrent() => connection is not null && ReferenceEquals(connection, session.Connection);
+        bool IsCurrent() => scope is { } captured && captured.IsCurrent(session);
+
+        // One shared search, with its own caches and its own transport, per lookup set
+        // and so per captured connection. The transport is pinned to that connection,
+        // so a switch can't redirect a search's request to another server.
+        // Retiring cancels in-flight waits, refuses further calls (cached ones included)
+        // and closes the transport. It happens on a connection switch and when the owner
+        // disposes the set, whichever comes first.
+        var bound = scope is not { } open || deviceTransport is null ? null
+            : new ConnectionBoundDeviceList(open, deviceTransport);
+        var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
+        void RetireSearch()
+        {
+            search?.Dispose();
+            bound?.Dispose();
+        }
+        string Retire()
+        {
+            RetireSearch();
+            return Changed;
+        }
 
         IntelligenceLookup Lookup(string name, string purpose, Func<string, DateTimeOffset, CancellationToken, Task<Reply>> run) =>
             new(name, purpose, async (query, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (connection is null && session.Connection is null)
+                if (scope is null && session.Connection is null)
                     return "Sign in to LibreNMS to use network lookups.";
-                if (!IsCurrent()) return Changed;
+                if (!IsCurrent()) return Retire();
                 using var deadline = new CancellationTokenSource(Timeout, time);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
                 try
@@ -73,12 +152,12 @@ public sealed class CompactNetworkLookups(
                     // WaitAsync also bounds transports which do not honour cancellation.
                     var reply = await run(query, time.GetUtcNow(), timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (!IsCurrent()) return Changed;
+                    if (!IsCurrent()) return Retire();
                     if (reply.References.Count > 0) evidence(reply.References);
                     return reply.Text;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-                catch (Exception) { return IsCurrent() ? Failed : Changed; }
+                catch (Exception) { return IsCurrent() ? Failed : Retire(); }
             });
 
         // Names are sourced from LibreNMS only. A device with no usable name says so
@@ -93,8 +172,7 @@ public sealed class CompactNetworkLookups(
         IntelligenceEvidence DeviceReference(Device device, string name, DateTimeOffset at)
         {
             var state = device.ReportedState;
-            var tone = state == DeviceState.Up ? "up" : state == DeviceState.Down ? "down" : "unknown";
-            return new(new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), tone, at, "Device status at lookup time")
+            return new(new("device:" + Id(device.DeviceId), name, state.ToDisplayString(), StateTone(state), at, "Device status at lookup time")
             { Object = new("device", device.DeviceId) });
         }
 
@@ -102,6 +180,24 @@ public sealed class CompactNetworkLookups(
         {
             var name = DeviceName(d, d.Hostname, d.DeviceId);
             return new($"{name} [[device:{Id(d.DeviceId)}]]: {d.ReportedState.ToDisplayString()}; IP {Clean(d.Ip)}", [DeviceReference(d, name, at)]);
+        }
+
+        // A shared search row, already redacted upstream, in the person's naming style.
+        // LibreNMS fills display with the hostname when none is set; the shared summary
+        // drops that repeat, so it is restored before the style chooses a name.
+        // The state comes from the raw record's reported state, not the summary's word:
+        // the summary has only up, down and disabled, and says "down" for a device whose
+        // state LibreNMS didn't report. A row without its raw record says Unknown.
+        Row SearchRow(DeviceSummary d, DateTimeOffset at, IReadOnlyDictionary<int, Device> raw)
+        {
+            var named = new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
+            var name = DeviceName(named, d.Hostname, d.DeviceId);
+            var state = raw.TryGetValue(d.DeviceId, out var device) ? device.ReportedState : DeviceState.Unknown;
+            var (status, tone) = (state.ToDisplayString(), StateTone(state));
+            // Up to a minute old: the shared search caches the device list per connection.
+            IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
+            { Object = new("device", d.DeviceId) });
+            return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}", [reference]);
         }
 
         // The device list supplies names for every alert at once: one request per
@@ -141,7 +237,7 @@ public sealed class CompactNetworkLookups(
             catch (Exception) { return null; }
         }
 
-        return
+        IReadOnlyList<IntelligenceLookup> lookups =
         [
             Lookup("network_overview", "Network counts and the open alerts. Query is unused.", async (_, at, ct) =>
             {
@@ -158,12 +254,33 @@ public sealed class CompactNetworkLookups(
             Lookup("find_device", "Find devices by name or IP. Query is the search text.", async (query, at, ct) =>
             {
                 if (string.IsNullOrWhiteSpace(query)) return Reply.Say("Enter a device name or IP address.");
-                var devices = await client.Devices.ListAsync(ct).ConfigureAwait(false);
-                var found = devices.Where(d => (d.Hostname?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (d.SysName?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (d.Display?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
-                    || (d.Ip?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)).OrderBy(d => d.DeviceId).ToList();
-                return Rows($"Matching devices: {found.Count}.", found.Select(d => DeviceRow(d, at)));
+                // The reviewed profile is text search; MAC search reads ARP tables and isn't offered yet.
+                if (MacAddress().IsMatch(query.Trim())) return Reply.Say(MacUnavailable);
+                if (search is null || bound is null) return Reply.Say(Failed);
+                // Sign-out or a switch mid-search stops the wait at once rather than at the deadline.
+                EventHandler retire = (_, _) => { if (!IsCurrent()) RetireSearch(); };
+                session.StateChanged += retire;
+                try
+                {
+                    var outcome = await search.FindDevicesAsync(new FindDevicesRequest(query, Limit: FindLimit), ct).ConfigureAwait(false);
+                    if (outcome.Result is not { } found)
+                        return Reply.Say(outcome.Error?.Code switch
+                        {
+                            DeviceSearchFailure.Refused => Refused,
+                            DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
+                            _ => Failed,
+                        });
+                    // The list behind this result: the search fetched it, or its cache holds it.
+                    var raw = bound.Latest;
+                    // The heading carries the exact total visible to this account, so rows that
+                    // weren't fetched are counted as omitted, never silently dropped.
+                    return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at, raw)),
+                        alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
+                }
+                finally
+                {
+                    session.StateChanged -= retire;
+                }
             }),
             Lookup("device_summary", "Device state and hardware. Query is a numeric device id.", async (query, at, ct) =>
             {
@@ -219,6 +336,7 @@ public sealed class CompactNetworkLookups(
                 }), headingReferences);
             }),
         ];
+        return new IntelligenceLookupSet(lookups, RetireSearch);
 
         async Task<Device?> DeviceOrNull(int id, CancellationToken ct)
         {
@@ -241,6 +359,21 @@ public sealed class CompactNetworkLookups(
         return byId;
     }
 
+    /// <summary>The evidence chip's tone: only a reported up or down is coloured as one.</summary>
+    private static string StateTone(DeviceState state) => state switch
+    {
+        DeviceState.Up => "up",
+        DeviceState.Down => "down",
+        _ => "unknown",
+    };
+
+    /// <summary>
+    /// The shared search's MAC forms (colon or hyphen pairs, Cisco dotted, bare hex), refused
+    /// before any request so MAC lookups can't reach ARP until that profile is reviewed.
+    /// </summary>
+    [GeneratedRegex(@"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^(?:[0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$|^[0-9A-Fa-f]{12}$")]
+    private static partial Regex MacAddress();
+
     private static (string Label, string Tone) Severity(AlertSeverity severity) => severity switch
     {
         AlertSeverity.Critical => ("Critical", "critical"),
@@ -259,7 +392,8 @@ public sealed class CompactNetworkLookups(
     /// Only references from rows that fit are reported, so a chip can only point at
     /// something the model was actually shown.
     /// </summary>
-    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceEvidence>? headingReferences = null)
+    /// <param name="alsoOmitted">Rows known to exist but not supplied, such as beyond a search's page.</param>
+    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceEvidence>? headingReferences = null, int alsoOmitted = 0)
     {
         var text = new System.Text.StringBuilder(heading);
         var references = new List<IntelligenceEvidence>(headingReferences ?? []);
@@ -274,6 +408,7 @@ public sealed class CompactNetworkLookups(
             else
                 omitted++;
         }
+        omitted += alsoOmitted;
         if (omitted > 0) text.Append('\n').Append(omitted).Append(" more results omitted.");
         // Several alerts on one device repeat its reference; one is enough.
         return new(text.ToString(), references.DistinctBy(r => r.Reference.Key).ToList());

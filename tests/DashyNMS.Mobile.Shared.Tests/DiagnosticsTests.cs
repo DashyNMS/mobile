@@ -165,7 +165,7 @@ public sealed class DiagnosticsTests
 public sealed class BackupAddressStatusTests
 {
     private readonly ServerFailover _failover = new();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
 
     public BackupAddressStatusTests()
@@ -221,7 +221,7 @@ public sealed class BackupAddressStatusTests
 public sealed class DiagnosticsReportTests
 {
     private readonly AppSettings _appSettings = new() { ServerUrl = "https://nms.example.net/" };
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly ServerFailover _failover = new();
     private readonly InMemoryPreferences _preferences = new();
     private readonly ILibreNmsClient _client = Fakes.Client(devices: [Fakes.Device(1, "core-sw-01", ip: "10.0.0.1")]);

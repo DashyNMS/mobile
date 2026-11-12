@@ -32,7 +32,7 @@ public sealed class CertificateTrustTests
     private static readonly ConnectionTestResult Untrusted =
         ConnectionTestResult.Failure("LibreNMS's certificate isn't trusted yet.", untrustedCertificate: Certificate);
 
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly RecordingNavigation _navigation = new();
 

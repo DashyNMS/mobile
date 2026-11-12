@@ -48,6 +48,7 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(Intelligence.IntelligenceCheckViewModel))]
     [InlineData(typeof(Intelligence.IntelligenceAnswerActions))]
     [InlineData(typeof(Intelligence.IntelligenceAnswerReporter))]
+    [InlineData(typeof(Intelligence.IIntelligenceLookups))]
     public void Every_view_model_and_alert_service_resolves(Type viewModel)
     {
         var services = new ServiceCollection()

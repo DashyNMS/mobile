@@ -19,6 +19,8 @@ concurrency:
 permissions:
   contents: read
   packages: read
+  # Verifying DashyNMS/mcp's provenance for the shared Search package (#596).
+  attestations: read
 
 jobs:
   testflight:
@@ -150,6 +152,16 @@ jobs:
         run: |
           command -v xcodegen >/dev/null || brew install xcodegen
           xcodegen generate
+
+      # The shared Search package (#596) is verified after restore and before the
+      # publish compiles and ships it; see scripts/verify-search-package.sh.
+      - name: Restore and verify the shared Search package
+        env:
+          DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dotnet restore src/DashyNMS.Mobile.Shared
+          scripts/verify-search-package.sh
 
       # MobilePlatform=ios (see the csproj) so restore doesn't also want the
       # Android workload; publish still insists on -f as well. The display

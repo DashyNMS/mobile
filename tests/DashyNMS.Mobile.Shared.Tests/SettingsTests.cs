@@ -24,7 +24,7 @@ public sealed class MoreSettingsTests
     {
         _settings = Fakes.Settings(_appSettings);
         _threshold = new AlertCountThreshold(_settings, new InMemoryPreferences());
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var store = new InMemoryWatchStore();
         var watcher = new AlertWatcher(
             Fakes.Client(), session, Fakes.Secrets(), _settings, store, new SelfActionTracker(), new RecordingNotifier(),

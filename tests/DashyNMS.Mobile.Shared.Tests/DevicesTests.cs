@@ -569,7 +569,7 @@ public sealed class DeviceNameSettingTests
     {
         var appSettings = new AppSettings();
         var settings = Fakes.Settings(appSettings);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var coordinator = new AlertWatchCoordinator(
             session, settings, null!, Substitute.For<IBackgroundAlertScheduler>(), new InMemoryWatchStore(), new NoAppBadge(), new DashyNMS.Mobile.Widgets.NoHomeWidgets(), TimeProvider.System,
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AlertWatchCoordinator>.Instance);

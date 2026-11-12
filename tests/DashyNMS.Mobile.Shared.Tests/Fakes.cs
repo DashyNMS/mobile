@@ -19,6 +19,20 @@ internal static class Fakes
         return client;
     }
 
+    /// <summary>
+    /// A session substitute whose <see cref="DesktopNMS.Services.ISessionService.CurrentScope"/>
+    /// follows whatever <c>Connection</c> and <c>ConnectionGeneration</c> are set to, as the
+    /// real session's does, so tests can keep configuring those two.
+    /// </summary>
+    public static DesktopNMS.Services.ISessionService Session()
+    {
+        var session = Substitute.For<DesktopNMS.Services.ISessionService>();
+        session.CurrentScope.Returns(_ => session.Connection is { } connection
+            ? new SessionScope(session.ConnectionGeneration, connection)
+            : (SessionScope?)null);
+        return session;
+    }
+
     public static ISettingsStore Settings(AppSettings? settings = null)
     {
         var store = Substitute.For<ISettingsStore>();
@@ -72,6 +86,32 @@ internal static class Fakes
             Open = true,
             Timestamp = at ?? new DateTime(2026, 1, 1, 12, 0, 0),
         };
+
+    /// <summary>
+    /// find_device's per-connection transport for tests written against <see cref="Client"/>:
+    /// its device-list request is answered by the fake client's <c>Devices.ListAsync</c>, so
+    /// stubs and received-call checks on the fake keep working. Anything else fails the test.
+    /// </summary>
+    public static Func<DashyNMS.Mobile.Services.SessionScope, ILibreNmsTransport> DeviceTransport(ILibreNmsClient client) =>
+        scope => new ClientDeviceTransport(client, scope.Connection);
+
+    private sealed class ClientDeviceTransport(ILibreNmsClient client, LibreNmsConnection connection) : ILibreNmsTransport
+    {
+        public LibreNmsConnection? Connection => connection;
+
+        public async Task<IReadOnlyList<T>> GetCollectionAsync<T>(string relativeUrl, string collectionProperty, CancellationToken cancellationToken = default)
+        {
+            if (relativeUrl != "devices" || typeof(T) != typeof(Device))
+                throw new InvalidOperationException("Only the device list is expected");
+            return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
+        }
+
+        public Task<System.Text.Json.JsonDocument> SendAsync(HttpMethod method, string relativeUrl, object? body = null, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Only the device list is expected");
+
+        public Task<string> SendRawAsync(string relativeUrl, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Only the device list is expected");
+    }
 }
 
 /// <summary>Records what would have been shown on the phone.</summary>

@@ -67,7 +67,7 @@ public sealed class AlertTargetTests
 
     private static async Task<(string Route, IDictionary<string, object>? Parameters)> Route(NotificationTarget target)
     {
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         var navigation = new RecordingNavigation();
         var router = new NotificationRouter(session, navigation);
         await router.OpenAsync(target);

@@ -16,21 +16,60 @@ namespace DashyNMS.Mobile.Security;
 /// Core raises <see cref="ILibreNmsClient.CertificateRejected"/> for every
 /// request that fails on the certificate - several at once, from whichever
 /// thread made each - so it asks once while a prompt is open, and not again
-/// this session about one that's been declined. Accepting trusts it on the
+/// on this connection about one that's been declined. Accepting trusts it on the
 /// running connection straight away and saves it to <c>trustedCertificates</c>,
 /// which desktop and phone share.
+/// <para>
+/// Intelligence's device search sends through transports of its own, pinned to the
+/// chat's connection (#596). Their refusals are asked about here too, and an accepted
+/// certificate is trusted on them as well as on the session's.
+/// </para>
+/// <para>
+/// Each refusal is asked about only for the session generation it came from. A chat
+/// transport's carries the generation it was opened for. The client's can't be bound at all:
+/// it names only the certificate and its host, and the client is one long-lived object across
+/// every switch that keeps the last refused certificate in one field. A request still in
+/// flight from the previous connection - the same host on another port, or the same address
+/// before its certificate was rotated - reports the old certificate after the switch, and no
+/// comparison of hosts can tell. So the client's refusal is only a sign that something was
+/// refused: the prompt sends a fresh request to the connection in use now, on a transport
+/// bound to its generation (<see cref="IConnectionCertificateProbe"/>), and asks about the certificate
+/// that request meets, or nothing when it gets through. Without a probe it asks nothing; the
+/// next sign-in still asks as it always has.
+/// </para>
+/// <para>
+/// One from an earlier connection (a chat's late request after a switch) isn't asked
+/// about, and a prompt still open when the session signs in elsewhere or out trusts
+/// nothing when accepted: the check and the trust are one step with the switch
+/// (<see cref="ISessionService.TrustCertificate(CertificateDetails, long)"/>). So a
+/// certificate met on one server is never trusted for another, nor saved to the shared
+/// trusted list on its behalf.
+/// </para>
 /// </remarks>
 public sealed class CertificatePrompt
 {
     private readonly ILibreNmsClient _client;
     private readonly ISessionService _session;
     private readonly IDialogService _dialogs;
+    private readonly DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? _chatTransports;
+    private readonly IConnectionCertificateProbe? _probe;
+    /// <summary>Fingerprints declined on the connection <see cref="_declinedGeneration"/> names; lock on this set.</summary>
     private readonly HashSet<string> _declined = new(StringComparer.OrdinalIgnoreCase);
+    private long _declinedGeneration;
     private int _asking;
+    private int _probing;
+    private int _probeAgain;
     private bool _started;
 
-    public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs)
+    /// <param name="probe">
+    /// Checks the connection in use when the session's client reports a refusal; the chat
+    /// transports when not given, which is what the app uses.
+    /// </param>
+    public CertificatePrompt(ILibreNmsClient client, ISessionService session, IDialogService dialogs,
+        DashyNMS.Mobile.Intelligence.IntelligenceDeviceTransports? chatTransports = null, IConnectionCertificateProbe? probe = null)
     {
+        _chatTransports = chatTransports;
+        _probe = probe ?? chatTransports;
         _client = client;
         _session = session;
         _dialogs = dialogs;
@@ -49,26 +88,140 @@ public sealed class CertificatePrompt
 
         _started = true;
         _client.CertificateRejected += (_, certificate) => _ = AskAsync(certificate);
+        if (_chatTransports is not null)
+        {
+            _chatTransports.CertificateRejected += (_, rejection) =>
+                _ = AskAsync(rejection.Certificate, rejection.Generation, rejection.OnBackup);
+        }
     }
 
     /// <summary>
-    /// Asks whether to trust <paramref name="certificate"/> - unless signed
-    /// out (sign-in asks for itself), already asking, or it's been declined.
-    /// True when it was trusted.
+    /// A refusal from the session's own client, which names no connection: a sign to probe the
+    /// one in use now and ask about what that meets, never about this certificate as reported
+    /// (see remarks). One probe at a time; refusals while one runs make it check once more.
     /// </summary>
-    internal async Task<bool> AskAsync(CertificateDetails certificate)
+    internal async Task<bool> AskAsync(CertificateDetails reported)
     {
-        if (!_session.IsConnected)
+        ArgumentNullException.ThrowIfNull(reported);
+        // Cheap filters before any request: another server's host, a prompt already open, or a
+        // certificate already declined (asking again would be declined too).
+        if (_probe is null || _session.CurrentScope is not { } first || Dialled(first.Connection, reported.Host) is null
+            || Volatile.Read(ref _asking) == 1 || IsDeclined(reported.Fingerprint, first.Generation))
         {
             return false;
         }
 
+        if (Interlocked.Exchange(ref _probing, 1) == 1)
+        {
+            Volatile.Write(ref _probeAgain, 1);
+            return false;
+        }
+
+        try
+        {
+            // Bounded: a refusal that lands while probing (the session switched, say) earns one
+            // more look, not an endless loop.
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                Volatile.Write(ref _probeAgain, 0);
+                if (_session.CurrentScope is not { } scope)
+                {
+                    return false;
+                }
+
+                if (await _probe.ProbeAsync(scope).ConfigureAwait(false) is { } refused
+                    && await AskAsync(refused.Certificate, refused.Generation, refused.OnBackup).ConfigureAwait(false))
+                {
+                    return true;
+                }
+
+                if (Volatile.Read(ref _probeAgain) == 0)
+                {
+                    return false;
+                }
+            }
+
+            return false;
+        }
+        finally
+        {
+            Volatile.Write(ref _probing, 0);
+        }
+    }
+
+    /// <summary>
+    /// Declined on <paramref name="generation"/>'s connection. A decline answers for one
+    /// connection only: after sign-in, a reconnect or a restore the same certificate is asked
+    /// about again.
+    /// </summary>
+    private bool IsDeclined(string fingerprint, long generation)
+    {
         lock (_declined)
         {
-            if (_declined.Contains(certificate.Fingerprint))
+            return generation == _declinedGeneration && _declined.Contains(fingerprint);
+        }
+    }
+
+    private void Decline(string fingerprint, long generation)
+    {
+        lock (_declined)
+        {
+            if (generation != _declinedGeneration)
             {
-                return false;
+                _declined.Clear();
+                _declinedGeneration = generation;
             }
+
+            _declined.Add(fingerprint);
+        }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="host"/> is <paramref name="connection"/>'s backup address (true)
+    /// or its server address (false); null when it is neither, so the refusal came from
+    /// another connection. Only a filter before probing: a match can't bind a refusal, since a
+    /// host doesn't name the port, the connection or the certificate the server has now.
+    /// </summary>
+    internal static bool? Dialled(LibreNmsConnection connection, string? host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+        {
+            return null;
+        }
+
+        if (SameHost(connection.WebRoot, host))
+        {
+            return false;
+        }
+
+        return connection.BackupWebRoot is { } backup && SameHost(backup, host) ? true : null;
+    }
+
+    private static bool SameHost(Uri address, string host)
+    {
+        var bare = host.Trim().Trim('[', ']');
+        return string.Equals(address.Host.Trim('[', ']'), bare, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(address.IdnHost.Trim('[', ']'), bare, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Asks whether to trust <paramref name="certificate"/> - unless signed
+    /// out (sign-in asks for itself), the session has moved on from
+    /// <paramref name="generation"/>, already asking, or it's been declined.
+    /// True when it was trusted.
+    /// </summary>
+    /// <param name="generation">The session generation the refusal came from.</param>
+    /// <param name="onBackup">Whether the refused request was dialling the backup address.</param>
+    internal async Task<bool> AskAsync(CertificateDetails certificate, long generation, bool onBackup)
+    {
+        if (!_session.IsConnected || generation != _session.ConnectionGeneration)
+        {
+            return false;
+        }
+
+        if (IsDeclined(certificate.Fingerprint, generation))
+        {
+            return false;
         }
 
         if (Interlocked.Exchange(ref _asking, 1) == 1)
@@ -78,19 +231,27 @@ public sealed class CertificatePrompt
 
         try
         {
-            var service = _client.Failover.IsOnBackup ? "LibreNMS (backup address)" : "LibreNMS";
+            var service = onBackup ? "LibreNMS (backup address)" : "LibreNMS";
             var (title, message) = CertificateTrust.DescribeForPrompt(certificate, service);
             if (!await _dialogs.ConfirmAsync(title, message, "Trust", "Cancel"))
             {
-                lock (_declined)
+                // A decline answers for this connection's certificate only; after a switch
+                // the same certificate on the next connection is still worth asking about.
+                if (generation == _session.ConnectionGeneration)
                 {
-                    _declined.Add(certificate.Fingerprint);
+                    Decline(certificate.Fingerprint, generation);
                 }
 
                 return false;
             }
 
-            _session.TrustCertificate(certificate);
+            // Refused when the session signed in elsewhere or out while the prompt was open.
+            if (!_session.TrustCertificate(certificate, generation))
+            {
+                return false;
+            }
+
+            _chatTransports?.TrustCertificate(certificate.Fingerprint, generation);
             Trusted?.Invoke(this, EventArgs.Empty);
             return true;
         }

@@ -258,7 +258,7 @@ public sealed class IntelligenceAnswerTests
         store.TrySave().Returns(true);
         var preferences = new InMemoryPreferences();
         preferences.Set(IntelligencePreferences.NoticeKey, "accepted");
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
         return (new IntelligenceConversationViewModel(new Model(answer), new IntelligencePreferences(store, preferences),
             lookups?.Invoke(session) ?? new EvidenceLookups(EvidenceItems), session), session);
@@ -363,7 +363,7 @@ public sealed class IntelligenceAnswerTests
         {
             if (calls++ == 0) await tools.Single(t => t.Name == "device_summary").Run("12", default);
             return new IntelligenceAnswer("It is at [[location:4]].", null);
-        }, session => new CompactNetworkLookups(client, Fakes.Settings(), session));
+        }, session => new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: Fakes.DeviceTransport(client)));
         using var owned = conversation;
         var navigation = Substitute.For<INavigationService>();
         var actions = new IntelligenceAnswerActions(conversation, navigation, Substitute.For<ILauncherService>());

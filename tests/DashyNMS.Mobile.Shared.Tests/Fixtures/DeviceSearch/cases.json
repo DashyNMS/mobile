@@ -1,0 +1,26 @@
+{
+  "requests": ["devices"],
+  "cases": [
+    { "query": "sw", "ids": [3, 5, 2, 4, 1, 7, 8, 9, 10, 11], "total": 10 },
+    { "query": "  sw  ", "ids": [3, 5, 2, 4, 1, 7, 8, 9, 10, 11], "total": 10 },
+    { "query": "SW-CORE", "ids": [5], "total": 1 },
+    { "query": "192.0.2.10", "ids": [4], "total": 1 },
+    { "query": "192.0.2", "ids": [4, 6], "total": 2 },
+    { "query": "lab switch", "ids": [9, 10], "total": 2 },
+    { "query": "-sw.example", "ids": [1, 7, 8, 11], "total": 4 },
+    { "query": "absent", "ids": [], "total": 0 }
+  ],
+  "states": [
+    { "id": 3, "shared": "up", "reported": "Up" },
+    { "id": 7, "shared": "disabled", "reported": "Disabled" },
+    { "id": 8, "shared": "down", "reported": "Down" },
+    { "id": 11, "shared": "down", "reported": "Unknown" }
+  ],
+  "failures": [
+    { "status": 401, "code": "Refused" },
+    { "status": 403, "code": "Refused" },
+    { "status": 404, "code": "NotFound" },
+    { "status": 500, "code": "Unavailable" },
+    { "status": 503, "code": "Unavailable" }
+  ]
+}

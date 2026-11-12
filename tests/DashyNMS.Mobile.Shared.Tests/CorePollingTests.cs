@@ -11,7 +11,7 @@ public sealed class CorePollingTests
     public async Task Widget_and_page_share_Core_device_cache()
     {
         var client = Fakes.Client([Fakes.Device(7, "example.net")]);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         using var polling = new CorePolling(client, session, Fakes.Settings());
         Assert.Single(await polling.DevicesAsync());
@@ -23,7 +23,7 @@ public sealed class CorePollingTests
     public async Task Switching_session_drops_the_previous_device_cache()
     {
         var client = Fakes.Client([Fakes.Device(7, "first.example.net")]);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         using var polling = new CorePolling(client, session, Fakes.Settings());
         Assert.Single((await polling.CachedDevicesAsync())!);
@@ -37,7 +37,7 @@ public sealed class CorePollingTests
     {
         var client = Fakes.Client();
         client.Rules.ListAsync(Arg.Any<CancellationToken>()).Returns(new[] { new AlertRule { Id = 7, Name = "Example rule" } });
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         using var polling = new CorePolling(client, session, Fakes.Settings());
         Assert.NotNull(await polling.Rules.GetRuleAsync(7));
         Assert.NotNull(await polling.Rules.GetRuleAsync(7));
@@ -50,14 +50,14 @@ public sealed class CorePollingTests
     [Fact]
     public async Task Signed_out_requests_fail_without_starting_a_monitor()
     {
-        using var polling = new CorePolling(Fakes.Client(), Substitute.For<ISessionService>(), Fakes.Settings());
+        using var polling = new CorePolling(Fakes.Client(), Fakes.Session(), Fakes.Settings());
         await Assert.ThrowsAsync<InvalidOperationException>(() => polling.DevicesAsync());
     }
 
     private static (ILibreNmsClient Client, CorePolling Polling) SensorPolling()
     {
         var client = Fakes.Client([Fakes.Device(1, "example.net")]);
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         return (client, new CorePolling(client, session, Fakes.Settings()));
     }

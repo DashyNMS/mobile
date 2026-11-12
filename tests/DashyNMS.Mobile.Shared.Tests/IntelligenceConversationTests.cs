@@ -40,6 +40,14 @@ public sealed class IntelligenceConversationTests
         public int Calls;
         public bool Fail;
         public bool CancelIndependently;
+        public int Opened;
+        public int Closed;
+        /// <summary>Each attempt's owned set; closing it is what releases the device search's transport.</summary>
+        public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
+        {
+            Interlocked.Increment(ref Opened);
+            return new(Create(), () => Interlocked.Increment(ref Closed));
+        }
         public IReadOnlyList<IntelligenceLookup> Create() => [new("network_overview", "Overview", (_, _) =>
         {
             Calls++;
@@ -49,7 +57,7 @@ public sealed class IntelligenceConversationTests
     }
     private readonly Model _model = new();
     private readonly Lookups _lookups = new();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IntelligencePreferences _preferences;
 
     public IntelligenceConversationTests()
@@ -300,6 +308,49 @@ public sealed class IntelligenceConversationTests
         Assert.Equal(7000, vm.Turns[0].Answer.Length);
         Assert.Equal(omitted, vm.Turns[1].HistoryOmitted);
         Assert.Equal(!omitted, _model.Prompts[1].Contains("Seed question", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Each_attempt_closes_its_lookups_when_it_answers()
+    {
+        using var vm = Open();
+        Assert.True(await vm.AskAsync("Question"));
+        Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[0].State);
+        Assert.Equal(1, _lookups.Opened);
+        Assert.Equal(1, _lookups.Closed);
+    }
+
+    [Fact]
+    public async Task The_context_retry_closes_the_first_attempts_lookups_and_then_its_own()
+    {
+        using var vm = Open();
+        await vm.AskAsync("Seed question");
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromException<IntelligenceAnswer>(new IntelligenceException("private", kind: IntelligenceFailureKind.ContextLimit)));
+        await vm.AskAsync("Current question");
+        Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[1].State);
+        Assert.Equal(3, _lookups.Opened);
+        Assert.Equal(3, _lookups.Closed);
+    }
+
+    [Fact]
+    public async Task A_failed_or_stopped_attempt_still_closes_its_lookups()
+    {
+        using var vm = Open();
+        _model.Scripts.Enqueue((_, _, _, _) => Task.FromException<IntelligenceAnswer>(new IntelligenceException("private", kind: IntelligenceFailureKind.Unavailable)));
+        await vm.AskAsync("Fails");
+        Assert.Equal(IntelligenceTurnState.Failed, vm.Turns[0].State);
+        Assert.Equal(1, _lookups.Closed);
+
+        var held = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _model.Scripts.Enqueue((_, _, _, _) => held.Task);
+        var asking = vm.AskAsync("Stopped");
+        Assert.Equal(2, _lookups.Opened);
+        Assert.Equal(1, _lookups.Closed);
+        Assert.True(vm.Stop());
+        await asking.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(IntelligenceTurnState.Stopped, vm.Turns[1].State);
+        Assert.Equal(2, _lookups.Closed);
+        held.SetResult(new IntelligenceAnswer("Late answer", null));
     }
 
     [Fact]

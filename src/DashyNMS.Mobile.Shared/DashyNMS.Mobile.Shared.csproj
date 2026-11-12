@@ -20,6 +20,11 @@
 
   <ItemGroup>
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
+    <!-- Device search shared with the MCP agent (#596): one ranking, filtering and
+         redaction implementation instead of mobile's own. Exact CI version from
+         DashyNMS/mcp run 43135054163 (commit 0bdf50e); CI checks its SHA-256 and
+         provenance attestation. GeneratePathProperty exposes its LICENSE below. -->
+    <PackageReference Include="DashyNMS.Agent.Search" Version="0.1.0-ci.43135054163.1" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
@@ -29,5 +34,12 @@
   <ItemGroup>
     <!-- What's new in this release (#159), in desktop's WhatsNew.md shape. -->
     <EmbeddedResource Include="WhatsNew.md" LogicalName="DashyNMS.Mobile.WhatsNew.md" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Licence texts Core doesn't carry, shown on the licences page: the Search
+         package's is the LICENSE it ships, as its README asks. -->
+    <EmbeddedResource Include="$(PkgDashyNMS_Agent_Search)/LICENSE" LogicalName="DashyNMS.Mobile.Licences.dashynms-agent-search-mit.txt"
+                      Condition="'$(PkgDashyNMS_Agent_Search)' != ''" />
   </ItemGroup>
 </Project>

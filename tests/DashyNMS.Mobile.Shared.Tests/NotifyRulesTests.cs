@@ -119,7 +119,7 @@ public sealed class NotifyRulesTests
     public async Task A_left_out_alert_doesnt_notify_but_still_counts_on_the_badge()
     {
         var client = Fakes.Client();
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         session.Connection.Returns(new LibreNmsConnection(new Uri(Server), "token"));
         var store = new InMemoryWatchStore();
@@ -147,7 +147,7 @@ public sealed class NotifyRulesTests
     public async Task Only_the_chosen_rules_notify_in_Only_mode()
     {
         var client = Fakes.Client();
-        var session = Substitute.For<ISessionService>();
+        var session = Fakes.Session();
         session.IsConnected.Returns(true);
         session.Connection.Returns(new LibreNmsConnection(new Uri(Server), "token"));
         var store = new InMemoryWatchStore();
@@ -211,7 +211,7 @@ public sealed class NotifyRulesTests
     public void Settings_switches_modes_and_removes_rules_with_Undo()
     {
         var vm = new SettingsViewModel(
-            Substitute.For<ISessionService>(), _settings, Substitute.For<IDialogService>(), new RecordingNavigation(),
+            Fakes.Session(), _settings, Substitute.For<IDialogService>(), new RecordingNavigation(),
             new RecordingNotifier(), null!, new NoAppBadge(), new InMemoryAppearance(), new NoHomeWidgets(), notifyRules: _rules);
         Assert.True(vm.IsEveryAlert);
         Assert.False(vm.HasNotifyRuleList);

@@ -1234,8 +1234,10 @@ keyboard clearance and following while reading older text. No installed-device
 result is inferred from shared tests or platform CI builds.
 
 For the current Agent catalogue, lookup differences and the staged reuse proof
-under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). That
-design records upstream blockers and does not claim a completed migration.
+under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device
+search (`find_device`) now runs DashyNMS/mcp's shared `DashyNMS.Agent.Search`
+package; the other four lookups are still mobile queries, each with its own
+follow-up issue listed there.
 
 ### Compact network lookups (#572)
 
@@ -1249,7 +1251,11 @@ writing "device 708". A device without a usable name reads
 `alert:` or `fault:` key beside the `[[alert:ID]]` marker. Alert and overview
 lookups name every alert's device from one device-list request, never one
 request per alert; if that list can't be read, rows fall back to the alert's
-own hostname and carry no device link. Omitted rows are counted. Alerts put unacknowledged
+own hostname and carry no device link. Omitted rows are counted. Device search
+ranks exact, then starting, then containing matches over hostname, sysName,
+display name and IP, ties by hostname, as the MCP agent does; its heading gives
+the exact total and unfetched matches count as omitted. It searches by name or
+IP only: a MAC address is refused before any request. Alerts put unacknowledged
 items first, then severity. Sensor values are raw readings, not a health
 assessment. Network labels cannot form a marker of their own.
 

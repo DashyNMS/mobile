@@ -7,7 +7,7 @@ namespace DashyNMS.Mobile.ViewModels;
 
 /// <summary>
 /// One component on the licences page: its notice, and its licence text
-/// once opened - read from Core only then, so the page opens without
+/// once opened - read from the phone's or Core's texts only then, so the page opens without
 /// loading every licence.
 /// </summary>
 public sealed partial class LicenceItem : ObservableObject
@@ -56,7 +56,7 @@ public sealed partial class LicenceItem : ObservableObject
         {
             try
             {
-                LicenceText = OpenSourceNotices.ReadLicence(file);
+                LicenceText = PhoneNotices.ReadLicence(file);
             }
             catch (IOException) { LicenceText = null; }
             if (string.IsNullOrWhiteSpace(LicenceText))

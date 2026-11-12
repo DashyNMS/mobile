@@ -34,7 +34,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
 
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"dashynms-saved-chats-{Guid.NewGuid():N}");
     private readonly ChatKeyStorage _keys = new();
-    private readonly ISessionService _session = Substitute.For<ISessionService>();
+    private readonly ISessionService _session = Fakes.Session();
     private readonly IDialogService _dialogs = Substitute.For<IDialogService>();
     private readonly FakeTimeProvider _time = new(Now);
     private readonly AppSettings _settings = new();
