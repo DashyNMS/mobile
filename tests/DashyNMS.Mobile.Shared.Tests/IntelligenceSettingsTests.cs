@@ -26,7 +26,7 @@ public sealed class IntelligenceSettingsTests
     }
 
     [Theory]
-    [InlineData(IntelligenceAvailability.Available, true, true, "Ready")]
+    [InlineData(IntelligenceAvailability.Available, true, true, "")]
     [InlineData(IntelligenceAvailability.Unsupported, false, false, "iOS 26")]
     [InlineData(IntelligenceAvailability.DeviceNotEligible, true, false, "doesn't support")]
     [InlineData(IntelligenceAvailability.NotEnabled, true, false, "turned off")]
@@ -38,9 +38,67 @@ public sealed class IntelligenceSettingsTests
         _vm.Refresh();
         Assert.Equal(visible, _vm.IsVisible);
         Assert.Equal(available, _vm.IsAvailable);
-        Assert.Contains(reason, _vm.AvailabilityText);
+        Assert.Equal(!available, _vm.HasAvailabilityProblem);
+        if (available) Assert.Empty(_vm.AvailabilityText);
+        else Assert.Contains(reason, _vm.AvailabilityText);
         Assert.Equal(available, _vm.ToggleCommand.CanExecute(null));
         Assert.False(_vm.CanUseIntelligence);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Available_settings_show_the_choice_without_a_success_status(bool enabled)
+    {
+        _policy.SetEnabled(enabled);
+        _vm.Refresh();
+        Assert.Equal(enabled, _vm.Enabled);
+        Assert.Equal(enabled ? "Turn off Intelligence" : "Turn on Intelligence", _vm.ToggleText);
+        Assert.Empty(_vm.AvailabilityText);
+        Assert.False(_vm.HasAvailabilityProblem);
+    }
+
+    [Theory]
+    [InlineData(IntelligenceAvailability.Unsupported)]
+    [InlineData(IntelligenceAvailability.DeviceNotEligible)]
+    [InlineData(IntelligenceAvailability.NotEnabled)]
+    [InlineData(IntelligenceAvailability.ModelNotReady)]
+    [InlineData(IntelligenceAvailability.Unavailable)]
+    public void Availability_problems_remain_visible_with_either_saved_choice(IntelligenceAvailability state)
+    {
+        _model.Availability.Returns(state);
+        foreach (var enabled in new[] { false, true })
+        {
+            _policy.SetEnabled(enabled);
+            _vm.Refresh();
+            Assert.True(_vm.HasAvailabilityProblem);
+            Assert.NotEmpty(_vm.AvailabilityText);
+            Assert.Equal(enabled, _vm.Enabled);
+            Assert.Equal(enabled, _vm.ToggleCommand.CanExecute(null));
+            Assert.False(_vm.CanUseIntelligence);
+        }
+    }
+
+    [Fact]
+    public void Resume_notifies_when_an_availability_problem_appears_and_clears()
+    {
+        var changes = new List<string?>();
+        _vm.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        _model.Availability.Returns(IntelligenceAvailability.NotEnabled);
+        _vm.Refresh();
+        Assert.True(_vm.HasAvailabilityProblem);
+        Assert.True(_vm.CanOpenSettings);
+        Assert.Contains(nameof(_vm.HasAvailabilityProblem), changes);
+        Assert.Contains(nameof(_vm.AvailabilityText), changes);
+        changes.Clear();
+
+        _model.Availability.Returns(IntelligenceAvailability.Available);
+        _vm.Refresh();
+        Assert.False(_vm.HasAvailabilityProblem);
+        Assert.Empty(_vm.AvailabilityText);
+        Assert.False(_vm.CanOpenSettings);
+        Assert.Contains(nameof(_vm.HasAvailabilityProblem), changes);
+        Assert.Contains(nameof(_vm.AvailabilityText), changes);
     }
 
     [Fact]

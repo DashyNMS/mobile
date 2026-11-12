@@ -45,7 +45,6 @@ public sealed class ServiceRegistrationTests
     [InlineData(typeof(AlertWatchCoordinator))]
     [InlineData(typeof(NotificationRouter))]
     [InlineData(typeof(CertificatePrompt))]
-    [InlineData(typeof(Intelligence.IntelligenceCheckViewModel))]
     [InlineData(typeof(Intelligence.IntelligenceAnswerActions))]
     [InlineData(typeof(Intelligence.IntelligenceAnswerReporter))]
     [InlineData(typeof(Intelligence.IIntelligenceLookups))]
