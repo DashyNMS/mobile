@@ -97,22 +97,49 @@ from Core's `ReportedState` on the raw record from the same device list, so an
 unreported state shows as Unknown and ignored devices as Ignored. Upstream's
 summary itself is #604.
 
-**Fixtures.** `tests/.../Fixtures/DeviceSearch` is a synthetic device-list
-response (documentation addresses, `example.net`) and its expectations: ranked
-ids and totals per query, the only endpoints a text search reads, status words
-and reported states, and the failure category for each HTTP status. The files
-are byte-identical to DashyNMS/mcp's, merged in DashyNMS/mcp#115 (`9051820`),
-where the MCP `find_device` tool and `HostDeviceSearch` run against them;
-`scripts/check-search-fixture.sh` fails CI if mobile's copies differ from that
-pinned commit. Mobile tests serve the raw response through Core's real device
-API to both the package's executor and mobile `find_device` and require the same
-ids, order, totals, requests and failure categories. Failure categories are the
-host's contract; the MCP tool words each failure its own way, so the shared
-claim there is only that both fail without data. The fixture covers an
-unscoped text search with HTTP-status failures on the device list; scopes, MAC
-search, paging, timeouts, malformed responses, cancellation and faults are not
-compared across adapters by it (see the fixture README). A fixture package
-(#606) would replace the copy.
+**Fixtures.** `tests/.../Fixtures/DeviceSearch` holds synthetic LibreNMS
+responses (documentation addresses, `example.net`) and their expectations:
+
+- ranked ids and totals per query, the only endpoints a text search reads,
+  status words and reported states, and the failure category for each HTTP
+  status (`cases.json`);
+- group, location and status scope cases, with the requests each may read
+  (`scopes.json`, `groups.json`, `group-1.json`);
+- device-list failures served over HTTP: error envelopes, HTML, a non-list
+  body, retried 502 and 503, an unanswered request and an address with nothing
+  listening (`transport.json`).
+
+The files are byte-identical to DashyNMS/mcp's. `scripts/check-search-fixture.sh`
+fails CI if mobile's copies differ from the pinned upstream commit. Upstream,
+the MCP `find_device` tool and `HostDeviceSearch` run against them: over a fake
+transport, and over loopback HTTP through the MCP server's own services and
+Core's real transport.
+
+Mobile runs them two ways:
+
+- through Core's real device API over a fake transport, to both the package's
+  executor and mobile `find_device`;
+- over loopback HTTP, to mobile `find_device` through the app's per-chat
+  transports and to `HostDeviceSearch` over Core's real client.
+
+Both must give the same ids, order, totals and per-server request counts,
+including Core's retries. Only `HostDeviceSearch` is held to the exact failure
+category. Mobile `find_device` must give its refusal line for `Refused` and its
+failure line for every other category, with no rows, evidence or server text.
+Upstream, the MCP tool words failures its own way and reports no category, so
+its reply is checked only for an error with no data and nothing secret-shaped.
+No test shows the MCP tool and mobile agree on a category.
+
+Mobile's `find_device` takes search text only. The scope cases therefore run
+through the package on mobile's Core pin, which shows the package agrees with
+MCP there but doesn't show mobile offers scopes (#608). A separate test checks
+that text naming a group reads only the device list.
+
+Not compared across adapters: MAC search, paging, a combined group and location
+scope, TLS and failover, cancellation, and faults. `find_device` reads no
+alerts, and mobile's alert lookups remain its own implementation (#601), so
+fault identities, severity and grouping have no cross-host comparison yet. See
+the fixture README. A fixture package (#606) would replace the copy.
 
 **CI proof added.** The Android Release build fails on any trim, AOT or NuGet
 warning naming the package and reports the APK size and effective trimming/AOT

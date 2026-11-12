@@ -37,8 +37,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Licence texts Core doesn't carry, shown on the licences page: the Search
-         package's is the LICENSE it ships, as its README asks. -->
+    <!-- Licence texts Core doesn't carry, shown on the licences page. Lucide's is the
+         repository copy; the Search package's is the LICENSE it ships, as its README asks. -->
+    <EmbeddedResource Include="../../docs/licences/Lucide-LICENSE.txt" LogicalName="DashyNMS.Mobile.Licences.lucide-isc.txt" />
     <EmbeddedResource Include="$(PkgDashyNMS_Agent_Search)/LICENSE" LogicalName="DashyNMS.Mobile.Licences.dashynms-agent-search-mit.txt"
                       Condition="'$(PkgDashyNMS_Agent_Search)' != ''" />
   </ItemGroup>
