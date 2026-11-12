@@ -7,7 +7,7 @@ namespace DashyNMS.Mobile.ViewModels;
 
 /// <summary>
 /// One component on the licences page: its notice, and its licence text
-/// once opened - read from Core only then, so the page opens without
+/// once opened - read from embedded resources only then, so the page opens without
 /// loading every licence.
 /// </summary>
 public sealed partial class LicenceItem : ObservableObject
@@ -24,8 +24,11 @@ public sealed partial class LicenceItem : ObservableObject
 
     /// <summary>"MIT · github.com/dotnet/maui".</summary>
     public string LicenceLine => Notice.Licence + " · " + Notice.Link.Host + Notice.Link.AbsolutePath.TrimEnd('/');
+    /// <summary>Shows the full destination so users can inspect the upstream source.</summary>
     public string LinkText => Notice.Link.AbsoluteUri;
+    /// <summary>Keeps the licence name available separately from the upstream link.</summary>
     public string LicenceName => Notice.Licence;
+    /// <summary>Names the component so assistive tools can distinguish licence controls.</summary>
     public string ToggleDescription => ToggleText + " for " + Name;
 
     public bool HasLicenceText => Notice.LicenceFile is not null;
@@ -56,7 +59,7 @@ public sealed partial class LicenceItem : ObservableObject
         {
             try
             {
-                LicenceText = OpenSourceNotices.ReadLicence(file);
+                LicenceText = PhoneNotices.ReadLicence(file);
             }
             catch (IOException) { LicenceText = null; }
             if (string.IsNullOrWhiteSpace(LicenceText))
@@ -89,7 +92,8 @@ public sealed partial class LicencesViewModel : ObservableObject
 
     public IReadOnlyList<LicenceItem> Items { get; }
 
-    public string Trademarks => OpenSourceNotices.Trademarks;
+    /// <summary>Preserves both project and upstream trademark reservations on the phone.</summary>
+    public string Trademarks => PhoneNotices.TrademarkReservation + " " + OpenSourceNotices.Trademarks;
 
     [RelayCommand]
     private Task OpenAsync(LicenceItem? item) =>
