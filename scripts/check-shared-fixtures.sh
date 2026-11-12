@@ -28,8 +28,8 @@ check() {
   echo "$name fixture matches DashyNMS/mcp@$commit."
 }
 
-# DashyNMS/mcp#117's squash merge on main.
-check DeviceSearch e10c1f22838a1b5d183eed05c81d2cb795adb792 \
+# DashyNMS/mcp#119's squash merge on main.
+check DeviceSearch 57e09ca472783055c7909612ffbc1e99af5d18ab \
   devices.json cases.json groups.json group-1.json scopes.json transport.json
 
 # DashyNMS/mcp#124's squash merge on main.

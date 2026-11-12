@@ -92,14 +92,6 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     }
 
     /// <summary>
-    /// The devices from the latest list this client fetched, by id: the raw records
-    /// behind the shared summaries, so a row can say "Unknown" when LibreNMS didn't
-    /// report a state rather than the summary's "down".
-    /// </summary>
-    internal IReadOnlyDictionary<int, Device> Latest => Volatile.Read(ref latest);
-    private IReadOnlyDictionary<int, Device> latest = new Dictionary<int, Device>();
-
-    /// <summary>
     /// The resource APIs over the captured connection's transport, opened on first use and
     /// kept with it, so Core's alert source probe runs once per transport rather than per call.
     /// </summary>
@@ -122,14 +114,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
         return opened;
     }
 
-    private async Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken)
-    {
-        var list = await Apis().Devices.ListAsync(cancellationToken).ConfigureAwait(false);
-        var byId = new Dictionary<int, Device>(list.Count);
-        foreach (var device in list) byId.TryAdd(device.DeviceId, device);
-        Volatile.Write(ref latest, byId);
-        return list;
-    }
+    private Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken) => Apis().Devices.ListAsync(cancellationToken);
 
     private Task<IReadOnlyList<Alert>> ListOpenAsync(AlertQuery? query, CancellationToken cancellationToken)
     {

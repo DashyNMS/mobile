@@ -17,6 +17,36 @@ internal static class GlassActions
 }
 
 /// <summary>
+/// The look the app's glass buttons share - the tab bar's and the chat's
+/// header group (#594) - so they read as one set wherever they sit.
+/// </summary>
+internal static class GlassStyle
+{
+    /// <summary>An SF Symbol at the size and weight every glass action uses; it grows with the text size.</summary>
+    public static UIImageView Icon(string symbol) => new()
+    {
+        Image = UIImage.GetSystemImage(symbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium)),
+        TintColor = UIColor.Label,
+        ContentMode = UIViewContentMode.Center,
+    };
+
+    /// <summary>Liquid Glass, or the system material before iOS 26.</summary>
+    public static UIVisualEffect Effect(bool interactive = true)
+    {
+        if (!OperatingSystem.IsIOSVersionAtLeast(26))
+        {
+            return UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemMaterial);
+        }
+
+        // Reacts to the finger as the tab bar's own glass does. By key, as
+        // UIKit names it, whatever the binding calls the property.
+        var glass = new UIGlassEffect();
+        glass.SetValueForKey(NSNumber.FromBoolean(interactive), new NSString("interactive"));
+        return glass;
+    }
+}
+
+/// <summary>
 /// The page's search and actions as Liquid Glass buttons by the tab bar, as
 /// iOS 26 apps have them, for the page showing - so they're in the same place
 /// on every page rather than in each page's header.
@@ -56,6 +86,9 @@ internal static class TabBarButtons
     private static readonly TimeSpan Pause = TimeSpan.FromSeconds(1);
 
     private static object? _owner;
+    private static WeakReference<Page>? _presentationPage;
+    // The native parent can be a modal, so remember whose pill placed it.
+    private static WeakReference<UITabBarController>? _hostTabs;
     private static string? _reported;
 
     /// <summary>The pill last found, looked at again first rather than searching the window.</summary>
@@ -84,9 +117,11 @@ internal static class TabBarButtons
     /// <summary>
     /// Shows search (<paramref name="search"/>, said as <paramref name="searchLabel"/>)
     /// and <paramref name="actions"/> for <paramref name="owner"/>; no search
-    /// button where <paramref name="search"/> is null.
+    /// button where <paramref name="search"/> is null. A modal passes
+    /// <paramref name="presentationPage"/> so the same glass is hosted above
+    /// its content while still measuring the presenting controller's pill.
     /// </summary>
-    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions)
+    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null)
     {
         if (!IsAvailable)
         {
@@ -95,6 +130,7 @@ internal static class TabBarButtons
 
         _host ??= new Host();
         _owner = owner;
+        _presentationPage = presentationPage is null ? null : new(presentationPage);
         _host.Set(search, searchLabel, actions);
         _host.Hidden = false;
         if (TabDots.FindTabs() is { } tabs)
@@ -112,6 +148,7 @@ internal static class TabBarButtons
         }
 
         _owner = null;
+        _presentationPage = null;
         _host.Set(null, string.Empty, []);
         _host.Hidden = true;
         Moved?.Invoke(null, EventArgs.Empty);
@@ -136,8 +173,10 @@ internal static class TabBarButtons
     /// </remarks>
     public static void Relayout(UITabBarController tabs)
     {
-        if (_host is null || _owner is null || tabs.View is not { Window: not null } root)
+        if (_host is null || _owner is null) return;
+        if (tabs.View is not { Window: not null } root)
         {
+            UnplaceFor(tabs);
             return;
         }
 
@@ -151,10 +190,9 @@ internal static class TabBarButtons
         NSRunLoop.Main.BeginInvokeOnMainThread(() =>
         {
             _placeQueued = false;
-            if (_owner is not null && tabs.View is { Window: not null } later)
-            {
-                Place(tabs, later);
-            }
+            if (_owner is null) return;
+            if (tabs.View is { Window: not null } later) Place(tabs, later);
+            else UnplaceFor(tabs);
         });
     }
 
@@ -248,14 +286,10 @@ internal static class TabBarButtons
 
     private static void Place(UITabBarController tabs, UIView root)
     {
-        // A controller with no tab bar showing leaves the buttons where they are.
+        // Only clear controls placed using this controller, including modal hosts.
         if (tabs.TabBar is not { Hidden: false, Window: not null } tabBar)
         {
-            if (_host is { } shown && ReferenceEquals(shown.Superview, root))
-            {
-                Unplace(shown);
-            }
-
+            UnplaceFor(tabs);
             return;
         }
 
@@ -264,7 +298,20 @@ internal static class TabBarButtons
             return;
         }
 
+        // A modal keeps the underlying pill's geometry, but its controls must
+        // live above the modal content to receive touches and show its glass.
+        if (_presentationPage is not null)
+        {
+            if (!_presentationPage.TryGetTarget(out var page)
+                || page.Handler?.PlatformView is not UIView { Window: not null } modal)
+            {
+                Unplace(_host!);
+                return;
+            }
+            root = modal;
+        }
         var host = _host!;
+        _hostTabs = new(tabs);
         if (!ReferenceEquals(host.Superview, root))
         {
             host.RemoveFromSuperview();
@@ -389,6 +436,13 @@ internal static class TabBarButtons
         {
             Moved?.Invoke(null, EventArgs.Empty);
         }
+    }
+
+    private static void UnplaceFor(UITabBarController tabs)
+    {
+        if (_host is { } host && _hostTabs is { } source && source.TryGetTarget(out var placedBy)
+            && ReferenceEquals(placedBy, tabs))
+            Unplace(host);
     }
 
     private static OccupiedArea Area(CGRect r) => new(r.Left, r.Top, r.Right, r.Bottom);
@@ -687,26 +741,9 @@ internal static class TabBarButtons
             return moved;
         }
 
-        private static UIImageView Icon(string symbol) => new()
-        {
-            Image = UIImage.GetSystemImage(symbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium)),
-            TintColor = UIColor.Label,
-            ContentMode = UIViewContentMode.Center,
-        };
+        private static UIImageView Icon(string symbol) => GlassStyle.Icon(symbol);
 
-        private static UIVisualEffect Glass(bool interactive = true)
-        {
-            if (!OperatingSystem.IsIOSVersionAtLeast(26))
-            {
-                return UIBlurEffect.FromStyle(UIBlurEffectStyle.SystemMaterial);
-            }
-
-            // Reacts to the finger as the tab bar's own glass does. By key, as
-            // UIKit names it, whatever the binding calls the property.
-            var glass = new UIGlassEffect();
-            glass.SetValueForKey(NSNumber.FromBoolean(interactive), new NSString("interactive"));
-            return glass;
-        }
+        private static UIVisualEffect Glass(bool interactive = true) => GlassStyle.Effect(interactive);
 
         /// <summary>One action in the group: its icon, and a button to VoiceOver.</summary>
         private sealed class Slot : UIView

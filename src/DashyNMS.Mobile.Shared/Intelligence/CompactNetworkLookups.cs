@@ -215,15 +215,14 @@ public sealed partial class CompactNetworkLookups(
         // A shared search row, already redacted upstream, in the person's naming style.
         // LibreNMS fills display with the hostname when none is set; the shared summary
         // drops that repeat, so it is restored before the style chooses a name.
-        // The state comes from the raw record's reported state, not the summary's word:
-        // the summary has only up, down and disabled, and says "down" for a device whose
-        // state LibreNMS didn't report. A row without its raw record says Unknown.
-        Row SearchRow(DeviceSummary d, DateTimeOffset at, IReadOnlyDictionary<int, Device> raw)
+        // The state is the summary's typed State (Core's ReportedState), not its status word:
+        // the word has only up, down and disabled, says "down" when LibreNMS left a flag out,
+        // and doesn't tell ignored devices apart.
+        Row SearchRow(DeviceSummary d, DateTimeOffset at)
         {
             var named = new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
             var name = DeviceName(named, d.Hostname, d.DeviceId);
-            var state = raw.TryGetValue(d.DeviceId, out var device) ? device.ReportedState : DeviceState.Unknown;
-            var (status, tone) = (state.ToDisplayString(), StateTone(state));
+            var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
             // Up to a minute old: the shared search caches the device list per connection.
             IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
             { Object = new("device", d.DeviceId) });
@@ -322,7 +321,7 @@ public sealed partial class CompactNetworkLookups(
                 if (string.IsNullOrWhiteSpace(query)) return Reply.Say("Enter a device name or IP address.");
                 // The reviewed profile is text search; MAC search reads ARP tables and isn't offered yet.
                 if (MacAddress().IsMatch(query.Trim())) return Reply.Say(MacUnavailable);
-                if (search is not { } searching || bound is null) return Reply.Say(Failed);
+                if (search is not { } searching) return Reply.Say(Failed);
                 var outcome = await WhileCurrent(() => searching.FindDevicesAsync(new FindDevicesRequest(query, Limit: FindLimit), ct)).ConfigureAwait(false);
                 if (outcome.Result is not { } found)
                     return Reply.Say(outcome.Error?.Code switch
@@ -331,11 +330,9 @@ public sealed partial class CompactNetworkLookups(
                         DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
                         _ => Failed,
                     });
-                // The list behind this result: the search fetched it, or its cache holds it.
-                var raw = bound.Latest;
                 // The heading carries the exact total visible to this account, so rows that
                 // weren't fetched are counted as omitted, never silently dropped.
-                return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at, raw)),
+                return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at)),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_summary", "Device state and hardware. Query is a numeric device id.", async (query, at, ct) =>

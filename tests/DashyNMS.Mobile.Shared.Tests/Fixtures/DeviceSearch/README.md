@@ -17,9 +17,11 @@ Every name and address is invented: `example.net` and the documentation ranges
 - `cases`: device ids in ranked order and the exact total for each query
   (exact, then starts with, then contains, over hostname, sysName, display name
   and IP; ties by hostname, case-insensitive).
-- `states`: the shared status word for chosen devices, and the state LibreNMS
-  actually reported. Device 11 reports no state: the shared summary says `down`,
-  where mobile shows `Unknown`.
+- `states`: the shared status word for chosen devices (MCP's `status`) and the
+  state LibreNMS actually reported (the summary's typed `State`, which mobile
+  shows). Device 9 is ignored and device 10's response leaves out `disabled`:
+  both are `up` in the status word, but `Ignored` and `Unknown` in mobile.
+  Device 11 reports no flags at all: `down`, but `Unknown`.
 - `failures`: the HTTP status of a failed device list and the
   `DeviceSearchFailure` the host search maps it to. The category is the host's
   contract: the MCP tool returns its own sentence per status instead, so the
@@ -28,8 +30,8 @@ Every name and address is invented: `example.net` and the documentation ranges
 
 Devices 1 to 3 repeat the ranking case in DashyNMS/mcp's `DeviceSearchTests`.
 The rest add sysName prefixes, devices added by IP, duplicate display names,
-disabled, down and unreported devices, a secret-shaped display name and
-marker-shaped text. Every device has a location for the scope cases; location
+disabled, down, ignored, partly reported and unreported devices, a
+secret-shaped display name and marker-shaped text. Every device has a location for the scope cases; location
 doesn't affect text ranking.
 
 The other files are also copies of DashyNMS/mcp's:

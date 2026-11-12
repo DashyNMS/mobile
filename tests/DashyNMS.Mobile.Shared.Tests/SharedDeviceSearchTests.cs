@@ -27,7 +27,7 @@ namespace DashyNMS.Mobile.Tests;
 /// <remarks>
 /// The fixture files are byte-identical to DashyNMS/mcp's, which runs its MCP
 /// <c>find_device</c> tool against them; CI checks the copies match
-/// (scripts/check-search-fixture.sh).
+/// (scripts/check-shared-fixtures.sh).
 /// </remarks>
 public sealed partial class SharedDeviceSearchTests
 {
@@ -183,7 +183,7 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Fact]
-    public async Task States_come_from_what_LibreNMS_reported_and_unknown_is_never_shown_as_down()
+    public async Task States_come_from_what_LibreNMS_reported_so_unknown_and_ignored_are_never_shown_as_down_or_up()
     {
         var typed = await DeviceSearch.Create(new FixtureLibreNms().Client(), new FakeTimeProvider(), new AgentOptions())
             .FindDevicesAsync(new("sw", Limit: DeviceSearch.MaxMatches));
@@ -194,7 +194,9 @@ public sealed partial class SharedDeviceSearchTests
         {
             var id = state.GetProperty("id").GetInt32();
             var reported = state.GetProperty("reported").GetString()!;
-            Assert.Equal(state.GetProperty("shared").GetString(), typed.Matches.Single(m => m.Device.DeviceId == id).Device.Status);
+            var summary = typed.Matches.Single(m => m.Device.DeviceId == id).Device;
+            Assert.Equal(state.GetProperty("shared").GetString(), summary.Status);
+            Assert.Equal(reported, summary.State.ToDisplayString());
             Assert.Contains($"[[device:{id}]]: {reported};", text);
             var reference = evidence.Single(e => e.Reference.Key == "device:" + id).Reference;
             Assert.Equal(reported, reference.Status);
@@ -223,8 +225,8 @@ public sealed partial class SharedDeviceSearchTests
         var text = await Find(new FixtureLibreNms(), settings: new AppSettings { DeviceNameStyle = DeviceNameStyle.DisplayName }, evidence: evidence)
             .Run("lab switch", default);
 
-        Assert.Contains("Lab switch [[device:9]]: Up; IP 198.51.100.9", text);
-        Assert.Contains("Lab switch [[device:10]]: Up; IP 198.51.100.10", text);
+        Assert.Contains("Lab switch [[device:9]]: Ignored; IP 198.51.100.9", text);
+        Assert.Contains("Lab switch [[device:10]]: Unknown; IP 198.51.100.10", text);
         Assert.Equal(new[] { "device:9", "device:10" }, evidence.Select(e => e.Reference.Key));
         Assert.All(evidence, e => Assert.Equal("Lab switch", e.Reference.Name));
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("device", 10), evidence[1].Reference.Object);

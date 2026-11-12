@@ -285,7 +285,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         if (!CanAsk || question.Length == 0)
         {
             Notice = !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
-                : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
+                : _model.Availability != IntelligenceAvailability.Available ? IntelligenceAvailabilityText.Describe(_model.Availability)
                 : _session.Connection is null ? "Sign in to LibreNMS to ask about the network."
                 : !IsTranscriptCurrent ? "The connection changed. Wait for the previous chat to clear." : "Enter a question.";
             return false;

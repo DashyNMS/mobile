@@ -53,7 +53,10 @@ public static class MauiProgram
 
 #if IOS
 		builder.ConfigureMauiHandlers(handlers =>
-			handlers.AddHandler(typeof(AppShell), typeof(AppShellRenderer)));
+		{
+			handlers.AddHandler(typeof(AppShell), typeof(AppShellRenderer));
+			handlers.AddHandler(typeof(HeaderGlassGroup), typeof(HeaderGlassGroupHandler));
+		});
 
 #endif
 
@@ -178,7 +181,6 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
-		builder.Services.AddTransient<IntelligenceCheckPage>();
 		builder.Services.AddTransient<IntelligenceSettingsPage>();
         builder.Services.AddTransient<IntelligencePage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();

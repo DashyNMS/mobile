@@ -749,7 +749,7 @@ The constraints that shape it:
 ### What the on-device model can do (#570)
 
 **Result: the overview question completed on the tested device.** Measured on 2026-11-10 with
-Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
+the former Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
 27.2, a TestFlight Release build of `3d36e85`, against a LibreNMS server
 with 946 devices and 208 open alerts. One question, "How is the network
 doing?", asked once, so the times are a single reading and not an average.
@@ -881,8 +881,11 @@ The on-device detail choices are Brief, Balanced and Detailed. Legacy
 styles are normalised, and Full reads as Detailed without changing the
 stored value until the person chooses. Single-chat mode and Delete saved
 chats are described under "Single-chat mode (#230)". The chat entry follows in #227.
-The diagnostic check also requires the mobile opt-in gate before reading
-LibreNMS or starting a model session; availability remains visible while off.
+The diagnostic check was removed under #595. The enablement control shows
+the saved choice; there is no separate Ready or enabled status row. Availability
+problems remain visible whether Intelligence is on or off, alongside save errors.
+Installed-build acceptance for enabled, disabled and unavailable settings remains
+pending under #595; keep the issue open until the user accepts the presentation.
 
 Persistence requires Core's `ICheckedSettingsStore.TrySave()` acknowledgement
 from package `2.0.0-ci.64` or later. A best-effort-only store cannot report a
@@ -1073,7 +1076,27 @@ justify clearing newer text.
 Single-chat mode is described in its own section below (#230).
 
 The chat list is `IntelligenceChatsPage`, a modal sheet opened from the header
-or glass list button. Tests in `IntelligenceSavedChatTests` cover scoping,
+or glass list button. On iOS 26+, the modal uses normal tab-bar glass
+for Back and New chat on phone-sized and landscape windows. In a large portrait
+window, New chat moves alongside the title using the same `ChatActionPlacement`
+rule and `HeaderGlassGroup` as the main chat experiment. Back stays in normal
+glass. Older iOS and Android retain labelled header buttons.
+
+The opaque modal uses OverFullScreen on iOS to keep the presenting tab bar
+attached for measurement through folding and rotation. `TabBarButtons.Show`
+accepts the modal as its presentation page, hosting the normal controls above
+the modal content. Resume activates the top modal first. The underlying chat
+refuses to reclaim glass while a modal is present; closing Chats explicitly
+reactivates the conversation. The list runs to the screen base, with native
+scroll inset adjustment disabled, measured glass clearance inside the footer,
+and a 20pt themed fade and matching spacer beneath the fixed header.
+Back dismisses the modal; New chat uses the existing save/discard leave decision.
+Rows have themed separators and use reveal-only swipes with a 48pt threshold,
+so a shorter partial swipe can settle open. Rebinding a recycled row closes
+its previous swipe. Installed-build acceptance remains pending under #593,
+including swipe stability, large text and VoiceOver.
+
+Tests in `IntelligenceSavedChatTests` cover scoping,
 activity grouping, rename, pin and confirmed delete, restart restore of draft,
 detail, model, evidence filters and images, streaming and Interrupted restore,
 suspension, coalescing, delete, sign-out and wipe ordering, damaged files, an
@@ -1233,11 +1256,12 @@ routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
 result is inferred from shared tests or platform CI builds.
 
-For the current Agent catalogue, lookup differences and the staged reuse proof
-under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device
-search (`find_device`) and open alerts (`active_alerts`) now run DashyNMS/mcp's
-shared `DashyNMS.Agent.Shared` package; the other three lookups are still mobile
-queries, each with its own follow-up issue listed there.
+For the reuse decision, the Agent catalogue, the rules every shared tool keeps
+and what counts as a finished migration, see
+[Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device search
+(`find_device`) and open alerts (`active_alerts`) run DashyNMS/mcp's shared
+`DashyNMS.Agent.Shared` package; the other three lookups are still mobile
+queries, each with its own issue listed there.
 
 ### Compact network lookups (#572)
 
@@ -1273,9 +1297,9 @@ Create a fresh lookup set for each new model session. A set refuses calls
 after the connection object changes and discards replies arriving from the
 previous connection. Requests have a 15-second deadline and fixed failure
 text; cancellation propagates to the caller. No questions, replies or
-exception details are logged. The diagnostic check retains its original
-overview lookup so measurements remain comparable. The conversation in
-#573 will consume the new interface.
+exception details are logged. The former diagnostic and its separate overview
+lookup were removed under #595; the historical measurements above are unchanged.
+The conversation uses this interface.
 
 ### Formatted answers (#228)
 
