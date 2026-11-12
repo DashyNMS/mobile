@@ -127,8 +127,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<MoreViewModel>();
 
-        // The on-device model check (#570), until #571's Settings › Intelligence replaces it.
-        services.AddTransient<Intelligence.NetworkOverviewLookup>();
         // find_device gets a transport of its own per chat attempt, pinned to the connection
         // the chat captured (#596). The host keeps it in step with the session: timeout,
         // trusted certificates, backup address, timing and the certificate prompt.
@@ -137,7 +135,6 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<ILibreNmsClient>(), sp.GetRequiredService<ISettingsStore>(), sp.GetRequiredService<ISessionService>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<Intelligence.IntelligenceDeviceTransports>().Open));
-        services.AddTransient<Intelligence.IntelligenceCheckViewModel>();
         services.AddSingleton<Intelligence.IntelligencePreferences>();
         services.AddTransient<Intelligence.IntelligenceSettingsViewModel>();
         services.AddSingleton<Intelligence.IntelligenceConversationViewModel>();

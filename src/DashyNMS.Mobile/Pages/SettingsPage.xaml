@@ -86,18 +86,6 @@
        </VerticalStackLayout>
        <Switch Grid.Column="1" IsToggled="{Binding HideNamesInDiagnostics}" VerticalOptions="Center" SemanticProperties.Description="Hide names in diagnostics. Replace server and device names and IP addresses with placeholders." MinimumHeightRequest="44" MinimumWidthRequest="44" />
       </Grid>
-      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="False">
-       <BoxView.Triggers>
-        <MultiTrigger TargetType="BoxView">
-         <MultiTrigger.Conditions>
-          <BindingCondition Binding="{Binding CanCheckIntelligence}" Value="True" />
-          <BindingCondition Binding="{Binding CanShareDiagnostics}" Value="True" />
-         </MultiTrigger.Conditions>
-         <Setter Property="IsVisible" Value="True" />
-        </MultiTrigger>
-       </BoxView.Triggers>
-      </BoxView>
-      <controls:SettingsOverviewRow Title="Intelligence check" Summary="Try the on-device model on your network" IsVisible="{Binding CanCheckIntelligence}" Command="{Binding OpenIntelligenceCheckCommand}" />
      </VerticalStackLayout>
     <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="0,38,0,0" />
     <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" HeightRequest="-1" MinimumHeightRequest="52" BackgroundColor="Transparent" BorderWidth="0" Margin="0,0,0,24">
