@@ -22,9 +22,9 @@
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
     <!-- Device search shared with the MCP agent (#596): one ranking, filtering and
          redaction implementation instead of mobile's own. Exact CI version from
-         DashyNMS/mcp run 43135054163 (commit 0bdf50e); CI checks its SHA-256 and
+         DashyNMS/mcp run 43216437071 (commit 57e09ca); CI checks its SHA-256 and
          provenance attestation. GeneratePathProperty exposes its LICENSE below. -->
-    <PackageReference Include="DashyNMS.Agent.Search" Version="0.1.0-ci.43135054163.1" GeneratePathProperty="true" />
+    <PackageReference Include="DashyNMS.Agent.Search" Version="0.1.0-ci.43216437071.1" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>

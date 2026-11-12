@@ -14,10 +14,10 @@ set -euo pipefail
 
 # Pins: the version in DashyNMS.Mobile.Shared.csproj, the SHA-256 the publish run
 # attested, the DashyNMS/mcp commit it was built from, and the workflow that built it
-# (run 43135054163).
-SEARCH_VERSION="0.1.0-ci.43135054163.1"
-SEARCH_SHA256="731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d"
-SEARCH_COMMIT="0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe"
+# (run 43216437071).
+SEARCH_VERSION="0.1.0-ci.43216437071.1"
+SEARCH_SHA256="9b1f20ee38156a2947f57db10ca25d81f55c456adc376259e24a699b93bfb02a"
+SEARCH_COMMIT="57e09ca472783055c7909612ffbc1e99af5d18ab"
 SEARCH_REPO="DashyNMS/mcp"
 SEARCH_WORKFLOW="$SEARCH_REPO/.github/workflows/search-package.yml"
 

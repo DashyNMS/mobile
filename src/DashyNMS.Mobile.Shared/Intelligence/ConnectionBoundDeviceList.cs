@@ -87,14 +87,6 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         }
     }
 
-    /// <summary>
-    /// The devices from the latest list this client fetched, by id: the raw records
-    /// behind the shared summaries, so a row can say "Unknown" when LibreNMS didn't
-    /// report a state rather than the summary's "down".
-    /// </summary>
-    internal IReadOnlyDictionary<int, Device> Latest => Volatile.Read(ref latest);
-    private IReadOnlyDictionary<int, Device> latest = new Dictionary<int, Device>();
-
     private async Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken)
     {
         ILibreNmsTransport open;
@@ -109,11 +101,7 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         // applied since), but never another server, backup or token.
         if (open.Connection is { } dialling && !SameServer(dialling, scope.Connection))
             throw new RetiredException();
-        var list = await new LibreNmsResourceApis(open).Devices.ListAsync(cancellationToken).ConfigureAwait(false);
-        var byId = new Dictionary<int, Device>(list.Count);
-        foreach (var device in list) byId.TryAdd(device.DeviceId, device);
-        Volatile.Write(ref latest, byId);
-        return list;
+        return await new LibreNmsResourceApis(open).Devices.ListAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Whether two connections reach the same server, by the same backup, with the same token.</summary>
