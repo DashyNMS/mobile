@@ -13,13 +13,16 @@ namespace DashyNMS.Mobile.Services;
 /// Kept by hand: add a line here with any new package or bundled script,
 /// and its licence text to Core if it isn't there (a test checks each file
 /// is). Test-only packages don't ship, so they aren't listed. A text only
-/// the phone ships - a package's own LICENSE with its copyright line - is
+/// the phone ships - Lucide's, or a package's own copyright line - is
 /// embedded in this assembly instead and read by <see cref="ReadLicence"/>.
 /// </remarks>
 public static class PhoneNotices
 {
     private const NoticePlatforms Phone = NoticePlatforms.iOS | NoticePlatforms.Android;
     private const string ResourcePrefix = "DashyNMS.Mobile.Licences.";
+
+    /// <summary>Lucide's ISC licence with the Feather MIT terms it carries; Core has no copy.</summary>
+    public const string LucideIsc = "lucide-isc.txt";
 
     /// <summary>The LICENSE inside the DashyNMS.Agent.Search package, embedded at build time.</summary>
     public const string AgentSearchMit = "dashynms-agent-search-mit.txt";
@@ -38,6 +41,8 @@ public static class PhoneNotices
             new Uri("https://kotlinlang.org"), OpenSourceNotices.Apache2, NoticePlatforms.Android),
         new(".NET for Android bindings", "AndroidX for .NET", OpenSourceNotices.DotNetFoundation, "MIT",
             new Uri("https://github.com/dotnet/android-libraries"), OpenSourceNotices.Mit, NoticePlatforms.Android),
+        new("Lucide", "Some of the app's icons", "Copyright (c) 2026 Lucide Icons and Contributors; Feather icons copyright (c) 2013-present Cole Bemis",
+            "ISC (Feather-derived icons MIT)", new Uri("https://lucide.dev"), LucideIsc, Phone),
         new("DashyNMS.Agent.Search", "Device search when asking about the network", "Copyright (c) 2026 Thomas Pickup", "MIT",
             new Uri("https://github.com/DashyNMS/mcp"), AgentSearchMit, Phone),
     ];
