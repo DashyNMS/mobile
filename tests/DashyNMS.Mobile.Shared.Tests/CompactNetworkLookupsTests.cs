@@ -326,6 +326,29 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
+    public void A_key_withdrawn_in_one_turn_stays_withdrawn_in_later_turns_and_reopened_chats()
+    {
+        // Turn 1 saw legacy alert 12; turn 2 inherits it, then sees fault 12.
+        var first = new IntelligenceTurn("What is alerting?", "");
+        first.AddEvidence([Twelve("alert")]);
+        var second = new IntelligenceTurn("And now?", "");
+        second.AddEvidence(first.Carried);
+        second.AddEvidence([Twelve("fault")]);
+        Assert.Empty(second.Evidence);
+
+        // Turn 3 inherits as the conversation does, and turn 1's chip doesn't come back.
+        var third = new IntelligenceTurn("Anything else?", "");
+        third.AddEvidence(new[] { first, second }.SelectMany(t => t.Carried));
+        Assert.Empty(third.Evidence);
+
+        // Saved and reopened, turn 2 still withdraws the key.
+        var answer = IntelligenceSavedChats.Messages([second]).Single(m => !m.IsUser);
+        var reopened = new IntelligenceTurn("And now?", "");
+        reopened.AddEvidence(IntelligenceSavedChats.Evidence(answer));
+        Assert.Empty(reopened.Evidence);
+    }
+
+    [Fact]
     public void An_ambiguous_reply_withdraws_a_chip_an_earlier_lookup_supplied_and_it_stays_withdrawn()
     {
         var turn = new IntelligenceTurn("What is alerting?", "");

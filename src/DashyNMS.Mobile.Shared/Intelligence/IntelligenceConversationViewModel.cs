@@ -57,7 +57,9 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
     /// A later observation of the same object replaces the earlier one, filter value
     /// included, keeping first-seen order. A different object behind the same marker key
     /// (fault 12 after legacy alert 12, both <c>[[alert:12]]</c>) removes the key for the rest
-    /// of the answer: neither may claim the other's chip.
+    /// of the answer: neither may claim the other's chip. Both objects are kept in
+    /// <see cref="Withdrawn"/>, so a later turn or a reopened saved chat meets the same
+    /// conflict again rather than restoring the chip from an earlier turn.
     /// </summary>
     internal void AddEvidence(IEnumerable<IntelligenceEvidence> evidence)
     {
@@ -65,12 +67,18 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
         foreach (var item in evidence)
         {
             var key = item.Reference.Key;
-            if (_conflicting.Contains(key)) continue;
+            if (_conflicting.Contains(key))
+            {
+                Withdraw(item);
+                continue;
+            }
             var index = merged.FindIndex(e => e.Reference.Key == key);
             if (index < 0) merged.Add(item);
             else if (SameObject(merged[index], item)) merged[index] = item;
             else
             {
+                Withdraw(merged[index]);
+                Withdraw(item);
                 merged.RemoveAt(index);
                 _conflicting.Add(key);
             }
@@ -79,6 +87,18 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
     }
 
     private readonly HashSet<string> _conflicting = new(StringComparer.Ordinal);
+    private readonly List<IntelligenceEvidence> _withdrawn = [];
+
+    /// <summary>Evidence withdrawn because another object claimed its marker key; never rendered as a chip.</summary>
+    internal IReadOnlyList<IntelligenceEvidence> Withdrawn => _withdrawn;
+
+    /// <summary>What a later turn or a saved chat carries forward: the chips and the conflicts that withdrew others.</summary>
+    internal IEnumerable<IntelligenceEvidence> Carried => _evidence.Concat(_withdrawn);
+
+    private void Withdraw(IntelligenceEvidence item)
+    {
+        if (!_withdrawn.Any(w => w.Reference.Key == item.Reference.Key && SameObject(w, item))) _withdrawn.Add(item);
+    }
 
     private static bool SameObject(IntelligenceEvidence a, IntelligenceEvidence b)
         => a.Reference.Object?.Kind == b.Reference.Object?.Kind && a.Reference.Object?.Id == b.Reference.Object?.Id;
@@ -297,7 +317,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         var turn = new IntelligenceTurn(question, chosenDetail);
         // Earlier answers in this chat (the same connection) may mention objects
         // their lookups returned; the history the model sees can repeat those markers.
-        turn.AddEvidence(Turns.SelectMany(t => t.Evidence));
+        // A key an earlier turn withdrew stays withdrawn: its conflicting objects come too.
+        turn.AddEvidence(Turns.SelectMany(t => t.Carried));
         var run = new Run(turn, scope, generation);
         if (Interlocked.CompareExchange(ref _active, run, null) is not null) { run.Stop.Dispose(); return false; }
         Turns.Add(turn);
