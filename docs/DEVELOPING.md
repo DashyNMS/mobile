@@ -838,8 +838,9 @@ with desktop's full tool set. Two things gate it:
 
 - **OpenAI's terms.** OpenAI documents plan usage for "open-source and
   locally hosted apps" and offers other apps a commercial partner programme.
-  This app's licence isn't open source, so confirm with OpenAI before any
-  ChatGPT build reaches testers.
+  Project-owned app materials are now MIT licensed (see LICENSE and NOTICES.md).
+  Confirm that the integration meets the applicable service terms before any
+  ChatGPT build reaches testers; changing the licence alone does not verify that.
 - **The DashyNMS/mcp changes.** Core already has the ChatGPT engine: the
   sign-in (`ChatGptSignIn`, `IdTokenValidator`), the Responses client, the
   conversation loop and its instructions (`IntelligenceConversation`,
