@@ -55,19 +55,33 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
 
     /// <summary>
     /// A later observation of the same object replaces the earlier one, filter value
-    /// included, keeping first-seen order.
+    /// included, keeping first-seen order. A different object behind the same marker key
+    /// (fault 12 after legacy alert 12, both <c>[[alert:12]]</c>) removes the key for the rest
+    /// of the answer: neither may claim the other's chip.
     /// </summary>
     internal void AddEvidence(IEnumerable<IntelligenceEvidence> evidence)
     {
         var merged = _evidence.ToList();
         foreach (var item in evidence)
         {
-            var index = merged.FindIndex(e => e.Reference.Key == item.Reference.Key);
-            if (index >= 0) merged[index] = item;
-            else merged.Add(item);
+            var key = item.Reference.Key;
+            if (_conflicting.Contains(key)) continue;
+            var index = merged.FindIndex(e => e.Reference.Key == key);
+            if (index < 0) merged.Add(item);
+            else if (SameObject(merged[index], item)) merged[index] = item;
+            else
+            {
+                merged.RemoveAt(index);
+                _conflicting.Add(key);
+            }
         }
         Evidence = merged;
     }
+
+    private readonly HashSet<string> _conflicting = new(StringComparer.Ordinal);
+
+    private static bool SameObject(IntelligenceEvidence a, IntelligenceEvidence b)
+        => a.Reference.Object?.Kind == b.Reference.Object?.Kind && a.Reference.Object?.Id == b.Reference.Object?.Id;
 }
 
 /// <summary>Applies Core's image limits so an oversized or non-image attachment is never decoded.</summary>

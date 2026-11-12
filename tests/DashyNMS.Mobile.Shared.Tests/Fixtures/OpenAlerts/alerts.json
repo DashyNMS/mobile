@@ -1,0 +1,38 @@
+{
+  "status": "ok",
+  "count": 2,
+  "alerts": [
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 12,
+      "device_id": 1,
+      "rule_id": 3,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "note": "",
+      "timestamp": "2026-10-19 09:41:00",
+      "info": "{\"until_clear\":true}",
+      "severity": "critical",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": ""
+    },
+    {
+      "hostname": "dist-sw2.example.net",
+      "id": 13,
+      "device_id": 3,
+      "rule_id": 6,
+      "state": 2,
+      "alerted": 1,
+      "open": 1,
+      "note": "",
+      "timestamp": "2026-10-19 09:30:00",
+      "info": "{\"until_clear\":true}",
+      "severity": "warning",
+      "name": "Port errors",
+      "proc": null,
+      "notes": ""
+    }
+  ]
+}

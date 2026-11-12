@@ -323,12 +323,12 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Fact]
-    public async Task The_bound_client_offers_only_the_device_list_and_opens_its_transport_once_for_its_own_connection()
+    public async Task The_bound_client_offers_only_the_device_list_and_open_alerts_and_opens_its_transport_once_for_its_own_connection()
     {
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token");
         var opened = new List<LibreNmsConnection>();
         var nms = new FixtureLibreNms();
-        var bound = new ConnectionBoundDeviceList(new SessionScope(0, connection), c =>
+        var bound = new ConnectionBoundClient(new SessionScope(0, connection), c =>
         {
             opened.Add(c.Connection);
             return nms.Open(c);
@@ -337,28 +337,36 @@ public sealed partial class SharedDeviceSearchTests
         // Nothing is dialled until the first search.
         Assert.False(bound.IsOpen);
         var devices = bound.Devices;
+        var alerts = bound.Alerts;
         Assert.Empty(opened);
 
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.GetAsync("1"));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.IsUnderMaintenanceAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.ScheduleMaintenanceAsync(1, null!));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.DiscoverAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.RenameAsync(1, "renamed.example.net"));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.DeleteAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.UpdateFieldsAsync(1, new Dictionary<string, string?>()));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.AddAsync(null!));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.GetAvailabilityAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.GetOutagesAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.GetInventoryAsync(1));
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RefusedException>(() => devices.GetWirelessSensorsAsync(1));
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.Arp);
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.DeviceGroups);
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.Locations);
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.Alerts);
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.Connection);
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.Connect(new LibreNmsConnection(new Uri("https://other.example.net/"), "t")));
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.TrustCertificate("00"));
-        Assert.Throws<ConnectionBoundDeviceList.RefusedException>(() => bound.SetTimeout(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetAsync("1"));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.IsUnderMaintenanceAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.ScheduleMaintenanceAsync(1, null!));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.DiscoverAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.RenameAsync(1, "renamed.example.net"));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.DeleteAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.UpdateFieldsAsync(1, new Dictionary<string, string?>()));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.AddAsync(null!));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetAvailabilityAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetOutagesAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetInventoryAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetWirelessSensorsAsync(1));
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Arp);
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups);
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Locations);
+        // Of the alerts, only the open list: no other query, no single read, no action.
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.ListAsync(AlertQuery.All));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.ListAsync(null));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.GetAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.GetSourceAsync());
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.AcknowledgeAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.UnmuteAsync(1));
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Rules);
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Connection);
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Connect(new LibreNmsConnection(new Uri("https://other.example.net/"), "t")));
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.TrustCertificate("00"));
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.SetTimeout(1));
         Assert.Empty(nms.Requests);
 
         Assert.Equal(11, (await devices.ListAsync()).Count);
@@ -367,8 +375,10 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Equal(new[] { "devices", "devices" }, nms.Requests);
 
         bound.Dispose();
-        Assert.Throws<ConnectionBoundDeviceList.RetiredException>(() => bound.Devices);
-        await Assert.ThrowsAsync<ConnectionBoundDeviceList.RetiredException>(() => devices.ListAsync());
+        Assert.Throws<ConnectionBoundClient.RetiredException>(() => bound.Devices);
+        Assert.Throws<ConnectionBoundClient.RetiredException>(() => bound.Alerts);
+        await Assert.ThrowsAsync<ConnectionBoundClient.RetiredException>(() => devices.ListAsync());
+        await Assert.ThrowsAsync<ConnectionBoundClient.RetiredException>(() => alerts.ListAsync(AlertQuery.Open));
         Assert.Equal(2, nms.Requests.Count);
     }
 
@@ -506,10 +516,13 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Fact]
-    public void The_Search_assembly_brings_no_MCP_dependency()
+    public void The_shared_assembly_brings_no_MCP_dependency()
     {
         var names = typeof(HostDeviceSearch).Assembly.GetReferencedAssemblies().Select(a => a.Name).ToArray();
         Assert.DoesNotContain(names, n => n!.StartsWith("ModelContextProtocol", StringComparison.Ordinal));
-        Assert.Equal("DashyNMS.Agent.Search", typeof(HostDeviceSearch).Assembly.GetName().Name);
+        Assert.DoesNotContain("DashyNMS.Agent", names);
+        Assert.Equal("DashyNMS.Agent.Shared", typeof(HostDeviceSearch).Assembly.GetName().Name);
+        // Open alerts come from the same verified package, not a second one.
+        Assert.Same(typeof(HostDeviceSearch).Assembly, typeof(DashyNMS.Agent.Alerts.HostOpenAlerts).Assembly);
     }
 }

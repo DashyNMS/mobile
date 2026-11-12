@@ -36,13 +36,13 @@ public sealed class LicencesTests
     }
 
     [Fact]
-    public void The_shared_search_package_ships_its_own_licence()
+    public void The_shared_package_ships_its_own_licence()
     {
-        var text = PhoneNotices.ReadLicence(PhoneNotices.AgentSearchMit);
+        var text = PhoneNotices.ReadLicence(PhoneNotices.AgentSharedMit);
         Assert.NotNull(text);
         Assert.StartsWith("MIT License", text);
         Assert.Contains("Copyright (c) 2026 Thomas Pickup", text);
-        Assert.Contains("DashyNMS.Agent.Search", Page().Items.Select(i => i.Name));
+        Assert.Contains("DashyNMS.Agent.Shared", Page().Items.Select(i => i.Name));
     }
 
     [Fact]

@@ -32,7 +32,7 @@ concurrency:
 permissions:
   contents: read
   packages: read
-  # Verifying DashyNMS/mcp's provenance for the shared Search package (#596).
+  # Verifying DashyNMS/mcp's provenance for the shared package (#596, #601).
   attestations: read
 
 jobs:
@@ -81,15 +81,15 @@ jobs:
           echo "Version code: $BUILD_NUMBER"
           echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
 
-      # The shared Search package (#596) is verified after restore and before the
-      # publish compiles and ships it; see scripts/verify-search-package.sh.
-      - name: Restore and verify the shared Search package
+      # The shared package (#596, #601) is verified after restore and before the
+      # publish compiles and ships it; see scripts/verify-shared-package.sh.
+      - name: Restore and verify the shared package
         env:
           DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: |
           dotnet restore src/DashyNMS.Mobile.Shared
-          scripts/verify-search-package.sh
+          scripts/verify-shared-package.sh
 
       # MobilePlatform=android so restore doesn't also want the iOS workload.
       # The passwords are read from the environment (env:), so they never

@@ -2,7 +2,8 @@
 
 Design for [mobile #596](https://github.com/DashyNMS/mobile/issues/596), reviewed
 2026-11-11, with the first migration recorded on 2026-11-12 under
-[First migration: find_device](#first-migration-find_device). The sections after
+[First migration: find_device](#first-migration-find_device) and the second, the
+same day, under [Second migration: active_alerts](#second-migration-active_alerts). The sections after
 that one are the original inventory and plan; where they say no package exists,
 the first-migration section supersedes them.
 
@@ -11,14 +12,16 @@ the first-migration section supersedes them.
 Intelligence's `find_device` now runs DashyNMS/mcp's shared device search. The
 other four lookups and Diagnostics' `NetworkOverviewLookup` are unchanged.
 
-**Package.** `DashyNMS.Agent.Search` `0.1.0-ci.43135054163.1`, published by
+**Package.** Since the second migration the package is `DashyNMS.Agent.Shared`
+(see below), the same package under a name that fits more than search. What
+follows records the first pin: `DashyNMS.Agent.Search` `0.1.0-ci.43135054163.1`, published by
 DashyNMS/mcp's Search package workflow run 43135054163 from commit
 `0bdf50e9249eafd880f1a5ee3bcd66e0d81549fe` to GitHub Packages, SHA-256
 `731965d4bc971f62ff6ee49f47254335ee3295deea50184b9a49b2cdd7fcab1d`, with a
 build provenance attestation. It is MIT licensed, targets net10.0, references
 Core (minimum `2.0.0-ci.34`; mobile's direct `2.0.0-ci.64` pin wins) and has no
 `ModelContextProtocol` reference. Upstream CI ran its tests against the exact
-packed binary with Core ci.34 and ci.64. `scripts/verify-search-package.sh`
+packed binary with Core ci.34 and ci.64. `scripts/verify-shared-package.sh` (then `verify-search-package.sh`)
 runs straight after restore and before anything builds, tests or publishes
 against the package, in CI and in the Play and TestFlight workflows. It checks
 the file's SHA-256, its attestation (signed by DashyNMS/mcp's
@@ -38,7 +41,7 @@ total in the heading, unfetched and over-budget matches counted as omitted, and
 `IntelligenceEvidence` only for rows shown.
 
 **Host ownership and isolation.** No Agent registration runs; mobile passes its
-own clock, the server timestamp setting and `ConnectionBoundDeviceList`. That
+own clock, the server timestamp setting and `ConnectionBoundClient`. That
 client never touches the session's shared client. On the first search it asks
 the app's `IntelligenceDeviceTransports` for a Core `LibreNmsTransport` of its
 own, pinned to the captured connection's address, backup and token, and builds
@@ -68,8 +71,9 @@ Chats and lookups are bound by `SessionScope` (the session's connection
 generation plus server, backup and token), not the connection object, which
 Core replaces whenever a certificate is trusted or the timeout changes; those
 keep the chat, while sign-in, a switch or sign-out ends it.
-Of `IDevicesApi` only `ListAsync` is allowed; the other device endpoints, every
-other API and all session controls throw before transport. Each model attempt
+Of `IDevicesApi` only `ListAsync` is allowed (and, since the second migration, the
+open alerts list); the other device endpoints, every other API and all session
+controls throw before transport. Each model attempt
 opens its lookups as an owned `IntelligenceLookupSet` and disposes it however
 the attempt ends (answer, context retry, failure, Stop), which closes the
 transport. A switch or sign-out during a search does the same at once, which
@@ -109,7 +113,7 @@ responses (documentation addresses, `example.net`) and their expectations:
   body, retried 502 and 503, an unanswered request and an address with nothing
   listening (`transport.json`).
 
-The files are byte-identical to DashyNMS/mcp's. `scripts/check-search-fixture.sh`
+The files are byte-identical to DashyNMS/mcp's. `scripts/check-shared-fixtures.sh`
 fails CI if mobile's copies differ from the pinned upstream commit. Upstream,
 the MCP `find_device` tool and `HostDeviceSearch` run against them: over a fake
 transport, and over loopback HTTP through the MCP server's own services and
@@ -136,9 +140,8 @@ MCP there but doesn't show mobile offers scopes (#608). A separate test checks
 that text naming a group reads only the device list.
 
 Not compared across adapters: MAC search, paging, a combined group and location
-scope, TLS and failover, cancellation, and faults. `find_device` reads no
-alerts, and mobile's alert lookups remain its own implementation (#601), so
-fault identities, severity and grouping have no cross-host comparison yet. See
+scope, TLS and failover, and cancellation. `find_device` reads no alerts; faults are
+compared through `active_alerts` since the second migration. See
 the fixture README. A fixture package (#606) would replace the copy.
 
 **CI proof added.** The Android Release build fails on any trim, AOT or NuGet
@@ -156,6 +159,91 @@ size delta against a matched baseline (#607). Remaining migrations: overview
 tools (#610).
 
 **Measurements.** See [Measurements](#measurements-for-the-first-migration).
+
+## Second migration: active_alerts
+
+Intelligence's `active_alerts` now runs DashyNMS/mcp's shared open alerts
+(#601, DashyNMS/mcp#123). `network_overview` still uses mobile's own alert
+rows and order until the shared overview replaces it (#600).
+
+**Package.** DashyNMS/mcp renamed the package `DashyNMS.Agent.Shared` (DashyNMS/mcp#120),
+the one package of typed, MCP-free operations that hosts pin and verify once, and
+restarted its versions at 2.0.0. Mobile pins `2.0.0-ci.43231337443.1` from the Shared package
+workflow at commit `c463e92a2ec7794a6f231bf6ccfd0ed9f41f50c3`. `scripts/verify-shared-package.sh` checks it as
+it checked the Search package: SHA-256, attestation from `shared-package.yml` at that
+commit on `main`, nuspec, extracted files, no build-time assets. The licences page
+lists it under its new name with the LICENSE it ships.
+
+**What mobile now does.** Each lookup set creates one `HostOpenAlerts` beside its
+`HostDeviceSearch`, over the same `ConnectionBoundClient` (renamed from
+`ConnectionBoundDeviceList`), and asks for up to 20 groups, optionally for one
+device id. Upstream owns:
+
+- grouping by device and rule, using Core's `AlertGrouping`;
+- the worst-first order, and the filters and paging;
+- partial acknowledgement and the representative fault;
+- dropping recovered rows, and redaction.
+
+Mobile's own ordering for this lookup (unacknowledged first, then severity, then
+id) and its per-alert rows are gone. Mobile maps the typed result to the compact
+profile:
+
+- a heading with groups and faults counted apart, as MCP's summary is:
+  `Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning.`;
+- one row per group: severity, state (`partly acknowledged (2 of 8)` when it
+  is), rule, the representative's `[[alert:ID]]` marker with its source-qualified
+  key (`fault:9200`), the device in the person's naming style with its marker, and
+  for a group of several the fault count with up to three fault names;
+- groups not fetched, or that don't fit in 900 characters, are counted as omitted
+  from the totals;
+- evidence only for shown rows: the representative under its marker key, typed
+  `fault` or `alert` with the device and rule, and the device with its reported
+  state from the device list (up to a minute old).
+
+**Identities.** Core's markers have no `fault` kind, so a fault and a legacy alert
+with the same number share the `[[alert:12]]` marker. Rows keep the qualified key
+beside it, and the evidence carries the typed object. If two different objects
+claim one marker key, mobile offers neither as a chip. That applies within a reply
+(`CompactNetworkLookups.Distinct`) and across an answer's lookups
+(`IntelligenceTurn.AddEvidence`, which then drops the key for good). The group key
+(`device:7/rule:3`) is never offered as an id.
+
+**Host ownership.** `ConnectionBoundClient` now allows one more call:
+`IAlertsApi.ListAsync` with exactly `AlertQuery.Open`. Every other alert query, single
+reads, the source probe as a direct call, acknowledge and unmute throw before
+transport, as do all other APIs. Both operations share the captured connection's
+transport and one set of Core resource APIs, so Core's `/faults` probe runs once per
+transport. Sign-out or a switch mid-call retires both operations at once.
+
+**Failures.** The shared operation has no partial success: if the device list
+or alerts can't be read, the lookup fails rather than answering "no alerts". Before
+this change mobile fell back to the alert's own hostname when the device list
+failed. Refused maps to mobile's refusal line, everything else to its failure
+line, with no rows, evidence or server text.
+
+**Fixtures.** `tests/.../Fixtures/OpenAlerts` is a byte-identical copy of
+DashyNMS/mcp's, checked by `scripts/check-shared-fixtures.sh` against DashyNMS/mcp#124's
+merge. It is a 26.10 server and an older one, and covers:
+
+- a fault and a legacy alert both numbered 12;
+- eight faults on one rule, two of them acknowledged;
+- a recovered fault served beside its open siblings;
+- a fully acknowledged group, and a group whose only fault has recovered;
+- failures on the alert routes.
+
+Upstream, `SharedOpenAlertsHttpFixtureTests` holds MCP's `active_alerts` and
+`HostOpenAlerts` to the same groups, representatives, fault lists, counts, states,
+totals and request logs over loopback HTTP. Here, `SharedOpenAlertsHttpTests` holds
+mobile `active_alerts` (through the app's per-chat transports) and the package (over
+Core's real client) to the same expectations and request logs. That covers every case
+mobile can ask (all, one device, an older server) and every transport failure.
+Severity, location and paging run through the package alone, since mobile's lookup
+doesn't take them. As for search, only the package is held to the exact failure
+category.
+
+**Not compared.** Alert history windows (MCP's `hours`/`since`), group scopes,
+TLS and failover, and cancellation across adapters; Release runtime and devices
+(#607).
 
 ## Evidence and reproducibility
 
@@ -275,7 +363,7 @@ replaced so its measurements remain comparable.
 | Compact `network_overview` | NetworkTools overview typed service | Mobile counts raw open rows and lists alert/down-device evidence; Agent counts device/rule groups and faults separately, includes ports/system and down locations, and tolerates some failed sources. Agent counts alone cannot supply the current per-row evidence. Add shared typed bounded detail or deliberately change the profile; never invent references from aggregate counts. |
 | Compact `find_device` | DeviceTools find typed service | Mobile substring matches hostname/sysName/display/IP, sorts by numeric ID, refuses blank input, has no paging. Agent ranks exact/prefix/contains then hostname, trims input, supports MAC, status/group/location, default 10/max 50 and continuation. Adopt shared ranking intentionally, expose true omissions and keep the initial mobile profile to text search. |
 | Compact `device_summary` | No exact equivalent | Agent device_health is a much broader fan-out; verbose find results include OS/hardware, while device_details covers other sections. Add a small shared device-summary operation over existing resolver/device data upstream or agree a reviewed health profile. Do not recreate a composite query in mobile. Preserve location ID plus exact filter name and device-name settings. |
-| Compact `active_alerts` | AlertTools current-open typed service | Mobile accepts positive device ID or empty, sorts unacknowledged before severity then ID, and emits raw alert/fault rows. Agent groups by device/rule, orders worst first, has severity/scope/time-window filters, occurrence history and paging. Group totals, partial acknowledgement, representative fault and child evidence require a new explicit profile; name equality is not parity. |
+| Compact `active_alerts` | `OpenAlerts` / `HostOpenAlerts` (migrated, #601) | Shared since the second migration: grouped by device and rule, worst first, group and fault totals, partial acknowledgement, representative fault. Mobile takes a positive device id or empty only; severity, scope, time windows and paging stay unadvertised. |
 | Compact `device_sensors` | HealthTools device typed service | Mobile reads fleet sensors, filters by positive device ID, sorts by sensor ID and labels readings as raw with unknown health. Agent resolves names/IDs, uses SensorSource permission handling, assesses limits/defaults, orders problems first, supports type and caps at 100. Preserve missing-reading vs zero and avoid claiming an unassessed raw value is healthy. |
 | Diagnostic `NetworkOverviewLookup` | NetworkTools overview, later | Names capped at eight/40 characters; severity before acknowledgement; includes disabled/ignored/unknown device counts. No typed evidence. Keep separate from chat's 900-character results during the first proof. |
 

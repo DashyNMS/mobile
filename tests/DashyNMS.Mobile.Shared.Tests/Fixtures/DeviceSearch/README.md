@@ -5,7 +5,7 @@ A synthetic LibreNMS `/api/v0/devices` response (`devices.json`) and what
 behind Intelligence's `find_device` (#596). Both files are byte-identical copies
 of DashyNMS/mcp's `tests/DashyNMS.Agent.Tests/Fixtures/DeviceSearch`, where the
 MCP `find_device` tool and `HostDeviceSearch` run against them.
-`scripts/check-search-fixture.sh` fails CI if these differ from the DashyNMS/mcp
+`scripts/check-shared-fixtures.sh` fails CI if these differ from the DashyNMS/mcp
 commit it pins. Change them upstream first, then copy them here and move the pin.
 
 Every name and address is invented: `example.net` and the documentation ranges

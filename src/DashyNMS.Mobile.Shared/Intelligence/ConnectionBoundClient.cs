@@ -6,19 +6,19 @@ using DesktopNMS.Core.Security;
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>
-/// The client handed to the shared device search (#596): the device list only, over a
-/// transport of its own that can only ever dial the connection the chat captured.
+/// The client handed to the shared operations (#596, #601): the device list and the open
+/// alerts only, over a transport of its own that can only ever dial the connection the chat captured.
 /// </summary>
 /// <remarks>
 /// <para>
 /// Mobile's session client is one object whose connection changes on sign-in,
 /// reconnect, certificate trust and sign-out. Checking "is it still current?" before
 /// each request leaves a window: a switch between the check and the send dials the
-/// new server with the old chat's request. The shared search warns about exactly this
-/// (its <c>HostDeviceSearch.Create</c> asks for a client that stays bound even after
-/// retirement). So this client never touches the session's transport. It sends through
-/// one opened for the captured connection alone and builds Core's real device API on
-/// it. A switch cannot redirect it; at worst a request already sent reaches the old
+/// new server with the old chat's request. The shared operations warn about exactly this
+/// (<c>HostDeviceSearch.Create</c> and <c>HostOpenAlerts.Create</c> ask for a client that
+/// stays bound even after retirement). So this client never touches the session's transport.
+/// It sends through one opened for the captured connection alone and builds Core's real
+/// device and alert APIs on it. A switch cannot redirect it; at worst a request already sent reaches the old
 /// server, and its reply is discarded.
 /// </para>
 /// <para>
@@ -27,25 +27,28 @@ namespace DashyNMS.Mobile.Intelligence;
 /// certificate prompt) without ever changing its server or token.
 /// </para>
 /// <para>
-/// The transport is opened on the first search, not when the chat starts, so a chat
-/// that never searches makes no connection. <see cref="Dispose"/> retires the client:
+/// The transport is opened on the first lookup that needs it, not when the chat starts,
+/// so a chat that never searches or asks about alerts makes no connection. <see cref="Dispose"/> retires the client:
 /// later calls throw <see cref="RetiredException"/> and the transport is closed.
 /// </para>
 /// <para>
-/// Everything except <see cref="IDevicesApi.ListAsync"/> is refused before transport,
-/// including the other device endpoints (maintenance, discovery, rename, delete), so a
-/// change upstream (MAC search through ARP, group scopes, per-device reads) cannot
-/// quietly widen what the chat reads or let it write. The session-wide controls are
-/// never the search's to touch.
+/// Everything except <see cref="IDevicesApi.ListAsync"/> and <see cref="IAlertsApi.ListAsync"/>
+/// with <see cref="AlertQuery.Open"/> is refused before transport, including the other device
+/// endpoints (maintenance, discovery, rename, delete) and every alert action (acknowledge,
+/// unmute) or other alert read. A change upstream (MAC search through ARP, group scopes,
+/// per-device reads, recovered alerts) therefore cannot quietly widen what the chat reads
+/// or let it write. The session-wide controls are never the operations' to touch.
 /// </para>
 /// </remarks>
-internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
+internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
 {
     private readonly SessionScope scope;
     private readonly Func<SessionScope, ILibreNmsTransport> openTransport;
     private readonly ListOnly devices;
+    private readonly OpenOnly alerts;
     private readonly Lock gate = new();
     private ILibreNmsTransport? transport;
+    private LibreNmsResourceApis? apis;
     private bool retired;
 
     /// <param name="scope">
@@ -56,18 +59,19 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
     /// Opens a transport for one connection, owned by this client from then on;
     /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
     /// </param>
-    public ConnectionBoundDeviceList(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport)
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport)
     {
         this.scope = scope;
         this.openTransport = openTransport;
         devices = new ListOnly(this);
+        alerts = new OpenOnly(this);
     }
 
     /// <summary>Thrown instead of reading after retirement; the lookup reports the switch.</summary>
     internal sealed class RetiredException() : OperationCanceledException("The connection changed.");
 
     /// <summary>Thrown for anything outside the reviewed read-only profile.</summary>
-    internal sealed class RefusedException(string member) : NotSupportedException(member + " is not available to Intelligence device search.");
+    internal sealed class RefusedException(string member) : NotSupportedException(member + " is not available to Intelligence lookups.");
 
     /// <summary>The connection the transport was opened for; for tests and diagnostics only.</summary>
     internal LibreNmsConnection BoundConnection => scope.Connection;
@@ -95,13 +99,19 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
     internal IReadOnlyDictionary<int, Device> Latest => Volatile.Read(ref latest);
     private IReadOnlyDictionary<int, Device> latest = new Dictionary<int, Device>();
 
-    private async Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// The resource APIs over the captured connection's transport, opened on first use and
+    /// kept with it, so Core's alert source probe runs once per transport rather than per call.
+    /// </summary>
+    private LibreNmsResourceApis Apis()
     {
+        LibreNmsResourceApis opened;
         ILibreNmsTransport open;
         lock (gate)
         {
             if (retired) throw new RetiredException();
             open = transport ??= openTransport(scope);
+            opened = apis ??= new LibreNmsResourceApis(open);
         }
 
         // Defence in depth: the transport must be the captured connection's, never a shared
@@ -109,11 +119,23 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         // applied since), but never another server, backup or token.
         if (open.Connection is { } dialling && !SameServer(dialling, scope.Connection))
             throw new RetiredException();
-        var list = await new LibreNmsResourceApis(open).Devices.ListAsync(cancellationToken).ConfigureAwait(false);
+        return opened;
+    }
+
+    private async Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken)
+    {
+        var list = await Apis().Devices.ListAsync(cancellationToken).ConfigureAwait(false);
         var byId = new Dictionary<int, Device>(list.Count);
         foreach (var device in list) byId.TryAdd(device.DeviceId, device);
         Volatile.Write(ref latest, byId);
         return list;
+    }
+
+    private Task<IReadOnlyList<Alert>> ListOpenAsync(AlertQuery? query, CancellationToken cancellationToken)
+    {
+        // Only the reviewed query: firing and acknowledged, never recovered history or one by id.
+        if (!ReferenceEquals(query, AlertQuery.Open)) throw new RefusedException(nameof(IAlertsApi.ListAsync) + " other than the open alerts");
+        return Apis().Alerts.ListAsync(AlertQuery.Open, cancellationToken);
     }
 
     /// <summary>Whether two connections reach the same server, by the same backup, with the same token.</summary>
@@ -128,12 +150,13 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
             retired = true;
             closing = transport;
             transport = null;
+            apis = null;
         }
         (closing as IDisposable)?.Dispose();
     }
 
     /// <summary>The device list and nothing else of <see cref="IDevicesApi"/>.</summary>
-    private sealed class ListOnly(ConnectionBoundDeviceList owner) : IDevicesApi
+    private sealed class ListOnly(ConnectionBoundClient owner) : IDevicesApi
     {
         public Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken = default) => owner.ListAsync(cancellationToken);
 
@@ -151,7 +174,26 @@ internal sealed class ConnectionBoundDeviceList : ILibreNmsClient, IDisposable
         public Task<string> DeleteAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(DeleteAsync));
     }
 
-    public IAlertsApi Alerts => throw new RefusedException(nameof(Alerts));
+    /// <summary>The open alerts list and nothing else of <see cref="IAlertsApi"/>.</summary>
+    private sealed class OpenOnly(ConnectionBoundClient owner) : IAlertsApi
+    {
+        public Task<IReadOnlyList<Alert>> ListAsync(AlertQuery? query = null, CancellationToken cancellationToken = default) => owner.ListOpenAsync(query, cancellationToken);
+
+        public Task<AlertSource> GetSourceAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetSourceAsync));
+        public Task<Alert?> GetAsync(int alertId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task AcknowledgeAsync(int alertId, string? note = null, bool untilClear = true, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(AcknowledgeAsync));
+        public Task UnmuteAsync(int alertId, string? note = null, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(UnmuteAsync));
+    }
+
+    public IAlertsApi Alerts
+    {
+        get
+        {
+            lock (gate)
+                return retired ? throw new RetiredException() : alerts;
+        }
+    }
+
     public IAlertRulesApi Rules => throw new RefusedException(nameof(Rules));
     public IAlertTemplatesApi AlertTemplates => throw new RefusedException(nameof(AlertTemplates));
     public ISensorsApi Sensors => throw new RefusedException(nameof(Sensors));

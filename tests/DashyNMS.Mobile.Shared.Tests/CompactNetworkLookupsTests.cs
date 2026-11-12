@@ -64,15 +64,19 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Unacknowledged_warning_precedes_acknowledged_critical()
+    public async Task Overview_puts_unacknowledged_first_and_active_alerts_put_the_worst_first()
     {
         var client = Fakes.Client(alerts: [Fakes.Alert(1, 1, "critical", acknowledged: true), Fakes.Alert(2, 1, "warning")]);
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
-        foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
-        {
-            var text = await lookup.Run("", default);
-            Assert.True(text.IndexOf("alert:2", StringComparison.Ordinal) < text.IndexOf("alert:1", StringComparison.Ordinal));
-        }
+
+        // network_overview keeps mobile's order until it moves to the shared overview (#600).
+        var overview = await lookups.Single(l => l.Name == "network_overview").Run("", default);
+        Assert.True(overview.IndexOf("alert:2", StringComparison.Ordinal) < overview.IndexOf("alert:1", StringComparison.Ordinal));
+
+        // active_alerts is the shared order: worst severity first, as MCP's active_alerts.
+        var alerts = await lookups.Single(l => l.Name == "active_alerts").Run("", default);
+        Assert.True(alerts.IndexOf("alert:1", StringComparison.Ordinal) < alerts.IndexOf("alert:2", StringComparison.Ordinal), alerts);
+        Assert.Contains("Critical; acknowledged; Rule 1 [[alert:1]]", alerts);
     }
 
     [Theory]
@@ -82,7 +86,8 @@ public sealed class CompactNetworkLookupsTests
     {
         var alert = Fakes.Alert(7, 1, "critical");
         alert.Source = source;
-        var lookups = new CompactNetworkLookups(Fakes.Client(alerts: [alert]), Fakes.Settings(), Session()).Create();
+        var client = Fakes.Client(alerts: [alert]);
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
         foreach (var lookup in lookups.Where(l => l.Name is "network_overview" or "active_alerts"))
         {
             var text = await lookup.Run("", default);
@@ -182,12 +187,11 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Missing_names_say_so_and_unreadable_device_lists_fall_back_to_the_alert_hostname()
+    public async Task Missing_names_say_so_and_devices_absent_from_the_list_use_the_alert_hostname()
     {
         var unnamed = Fakes.Alert(5, 9, "warning");
         unnamed.Hostname = null;
         var client = Fakes.Client(alerts: [unnamed, Fakes.Alert(6, 10, "warning")]);
-        client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Device>>(new HttpRequestException("private")));
         var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
 
@@ -198,6 +202,137 @@ public sealed class CompactNetworkLookupsTests
         // Without a device row there is no verified device to link.
         Assert.DoesNotContain("[[device:", text);
         Assert.DoesNotContain(evidence, r => r.Reference.Key.StartsWith("device:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task An_unreadable_device_list_fails_active_alerts_rather_than_reporting_no_alerts()
+    {
+        var client = Fakes.Client(alerts: [Fakes.Alert(6, 10, "warning")]);
+        client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Device>>(new HttpRequestException("private-server secret-token")));
+        var evidence = new List<IntelligenceEvidence>();
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
+
+        Assert.Equal(CompactNetworkLookups.Failed, await lookup.Run("", default));
+        Assert.Empty(evidence);
+    }
+
+    [Fact]
+    public async Task Eight_faults_on_one_rule_are_one_row_with_partial_acknowledgement_and_counted_faults()
+    {
+        var cores = Enumerable.Range(0, 8).Select(i =>
+        {
+            var fault = Fakes.Alert(9200 + i, 1, "warning", acknowledged: i is 3 or 5);
+            fault.RuleId = 5;
+            fault.RuleName = "Processor usage over 90%";
+            fault.EntityType = "processor";
+            fault.EntityId = 300 + i;
+            fault.EntityKey = $"processor:{300 + i}";
+            fault.Source = AlertSource.Fault;
+            return fault;
+        }).ToList();
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")], cores);
+        var evidence = new List<IntelligenceEvidence>();
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange).Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("", default);
+
+        Assert.StartsWith("Open alerts: 1 (8 faults) on 1 device; 0 critical, 1 warning.", text);
+        Assert.Contains("Warning; partly acknowledged (2 of 8); Processor usage over 90% [[alert:9200]] (fault:9200) on core-sw1.example.net [[device:1]]; 8 faults", text);
+        Assert.Contains("and 5 more", text);
+        // One row, so one alert chip: the group's representative, never one per fault.
+        var alert = Assert.Single(evidence, r => r.Reference.Key.StartsWith("alert:", StringComparison.Ordinal)).Reference;
+        Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("fault", 9200, 1, 5), alert.Object);
+    }
+
+    [Fact]
+    public async Task A_recovered_fault_beside_open_siblings_is_not_counted()
+    {
+        var open = Fakes.Alert(1, 1, "warning");
+        var recovered = Fakes.Alert(2, 1, "warning");
+        recovered.RuleId = open.RuleId;
+        recovered.StateValue = 0;
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")], [open, recovered]);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("", default);
+
+        Assert.StartsWith("Open alerts: 1 (1 fault) on 1 device", text);
+        Assert.DoesNotContain("alert:2", text);
+    }
+
+    [Fact]
+    public async Task Groups_beyond_the_page_are_counted_as_omitted()
+    {
+        var alerts = Enumerable.Range(1, 30).Select(i => Fakes.Alert(i, 1, "warning")).ToList();
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")], alerts);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("", default);
+
+        Assert.StartsWith("Open alerts: 30 (30 faults)", text);
+        var shown = text.Split('\n').Count(l => l.Contains("[[alert:", StringComparison.Ordinal));
+        Assert.Contains($"{30 - shown} more results omitted.", text);
+    }
+
+    [Fact]
+    public async Task A_device_id_narrows_active_alerts_to_that_device()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net"), Fakes.Device(2, "edge-sw3.example.net")],
+            [Fakes.Alert(1, 1, "warning"), Fakes.Alert(2, 2, "critical")]);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "active_alerts");
+
+        var text = await lookup.Run("1", default);
+
+        Assert.Contains("[[alert:1]]", text);
+        Assert.DoesNotContain("[[alert:2]]", text);
+        Assert.StartsWith("Open alerts: 1 (1 fault) on 1 device", text);
+    }
+
+    [Fact]
+    public async Task Active_alerts_never_read_through_the_session_client()
+    {
+        var session = Fakes.Client();
+        var bound = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")], [Fakes.Alert(1, 1, "warning")]);
+        var lookup = new CompactNetworkLookups(session, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(bound)).Create().Single(l => l.Name == "active_alerts");
+
+        Assert.Contains("[[alert:1]]", await lookup.Run("", default));
+        await session.Alerts.DidNotReceive().ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+        await session.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Active_alerts_fail_closed_without_a_connection_bound_transport()
+    {
+        var client = Fakes.Client(alerts: [Fakes.Alert(1, 1, "warning")]);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create().Single(l => l.Name == "active_alerts");
+
+        Assert.Equal(CompactNetworkLookups.Failed, await lookup.Run("", default));
+        await client.Alerts.DidNotReceive().ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
+    }
+
+    private static IntelligenceEvidence Twelve(string kind) => new(new("alert:12", "Rule", "Critical", "critical", default, "")
+    { Object = new(kind, 12, 1, 3) });
+
+    [Fact]
+    public void A_fault_and_a_legacy_alert_with_the_same_number_never_share_a_chip()
+    {
+        Assert.Empty(CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("alert")]));
+        // The same object seen twice is still one chip.
+        Assert.Single(CompactNetworkLookups.Distinct([Twelve("fault"), Twelve("fault")]));
+    }
+
+    [Fact]
+    public void A_later_lookup_with_another_object_behind_the_same_marker_removes_the_chip_for_good()
+    {
+        var turn = new IntelligenceTurn("What is alerting?", "");
+        turn.AddEvidence([Twelve("alert")]);
+        turn.AddEvidence([Twelve("alert")]);
+        Assert.Single(turn.Evidence);
+
+        turn.AddEvidence([Twelve("fault")]);
+        Assert.Empty(turn.Evidence);
+        turn.AddEvidence([Twelve("alert")]);
+        Assert.Empty(turn.Evidence);
     }
 
     [Fact]

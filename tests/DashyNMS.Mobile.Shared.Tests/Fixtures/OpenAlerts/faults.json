@@ -1,0 +1,424 @@
+{
+  "status": "ok",
+  "count": 14,
+  "alerts": [
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9200,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:40:00",
+      "last_seen": "2026-10-20 07:40:00",
+      "timestamp": "2026-10-20 07:40:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 300,
+      "entity_key": "processor:300",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 300,
+            "processor_descr": "CPU 0"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9201,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:41:00",
+      "last_seen": "2026-10-20 07:41:00",
+      "timestamp": "2026-10-20 07:41:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 301,
+      "entity_key": "processor:301",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 301,
+            "processor_descr": "CPU 1"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9202,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:42:00",
+      "last_seen": "2026-10-20 07:42:00",
+      "timestamp": "2026-10-20 07:42:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 302,
+      "entity_key": "processor:302",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 302,
+            "processor_descr": "CPU 2"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9203,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 2,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:43:00",
+      "last_seen": "2026-10-20 07:43:00",
+      "timestamp": "2026-10-20 07:43:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 303,
+      "entity_key": "processor:303",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 303,
+            "processor_descr": "CPU 3"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9204,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:44:00",
+      "last_seen": "2026-10-20 07:44:00",
+      "timestamp": "2026-10-20 07:44:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 304,
+      "entity_key": "processor:304",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 304,
+            "processor_descr": "CPU 4"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9205,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 2,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:45:00",
+      "last_seen": "2026-10-20 07:45:00",
+      "timestamp": "2026-10-20 07:45:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 305,
+      "entity_key": "processor:305",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 305,
+            "processor_descr": "CPU 5"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9206,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:46:00",
+      "last_seen": "2026-10-20 07:46:00",
+      "timestamp": "2026-10-20 07:46:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 306,
+      "entity_key": "processor:306",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 306,
+            "processor_descr": "CPU 6"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9207,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:47:00",
+      "last_seen": "2026-10-20 07:47:00",
+      "timestamp": "2026-10-20 07:47:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 307,
+      "entity_key": "processor:307",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 307,
+            "processor_descr": "CPU 7"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "edge-sw3.example.net",
+      "id": 12,
+      "rule_id": 4,
+      "device_id": 2,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "critical",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:30:00",
+      "last_seen": "2026-10-20 07:30:00",
+      "timestamp": "2026-10-20 07:30:00",
+      "name": "Device down",
+      "proc": null,
+      "notes": "",
+      "entity_type": null,
+      "entity_id": null,
+      "entity_key": null,
+      "details": {
+        "rule": [
+          {
+            "hostname": "edge-sw3.example.net"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "dist-sw2.example.net",
+      "id": 9400,
+      "rule_id": 6,
+      "device_id": 3,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:50:00",
+      "last_seen": "2026-10-20 07:50:00",
+      "timestamp": "2026-10-20 07:50:00",
+      "name": "Port errors",
+      "proc": null,
+      "notes": "",
+      "entity_type": "port",
+      "entity_id": 40,
+      "entity_key": "port:40",
+      "details": {
+        "rule": [
+          {
+            "hostname": "dist-sw2.example.net",
+            "port_id": 40,
+            "ifDescr": "ge-0/0/40"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "dist-sw2.example.net",
+      "id": 9401,
+      "rule_id": 6,
+      "device_id": 3,
+      "state": 0,
+      "alerted": 1,
+      "open": 0,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:55:00",
+      "last_seen": "2026-10-20 07:55:00",
+      "timestamp": "2026-10-20 07:55:00",
+      "name": "Port errors",
+      "proc": null,
+      "notes": "",
+      "entity_type": "port",
+      "entity_id": 41,
+      "entity_key": "port:41",
+      "details": {
+        "rule": [
+          {
+            "hostname": "dist-sw2.example.net",
+            "port_id": 41,
+            "ifDescr": "ge-0/0/41"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "dist-sw2.example.net",
+      "id": 9402,
+      "rule_id": 6,
+      "device_id": 3,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:45:00",
+      "last_seen": "2026-10-20 07:45:00",
+      "timestamp": "2026-10-20 07:45:00",
+      "name": "Port errors",
+      "proc": null,
+      "notes": "",
+      "entity_type": "port",
+      "entity_id": 42,
+      "entity_key": "port:42",
+      "details": {
+        "rule": [
+          {
+            "hostname": "dist-sw2.example.net",
+            "port_id": 42,
+            "ifDescr": "ge-0/0/42"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "dist-sw2.example.net",
+      "id": 9500,
+      "rule_id": 7,
+      "device_id": 3,
+      "state": 2,
+      "alerted": 1,
+      "open": 1,
+      "severity": "critical",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:20:00",
+      "last_seen": "2026-10-20 07:20:00",
+      "timestamp": "2026-10-20 07:20:00",
+      "name": "Temperature high",
+      "proc": null,
+      "notes": "",
+      "entity_type": "sensor",
+      "entity_id": 50,
+      "entity_key": "sensor:50",
+      "details": {
+        "rule": [
+          {
+            "hostname": "dist-sw2.example.net",
+            "sensor_id": 50,
+            "sensor_descr": "Inlet"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "lab-sw4.example.net",
+      "id": 9600,
+      "rule_id": 9,
+      "device_id": 4,
+      "state": 0,
+      "alerted": 1,
+      "open": 0,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:10:00",
+      "last_seen": "2026-10-20 07:10:00",
+      "timestamp": "2026-10-20 07:10:00",
+      "name": "Disk usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "storage",
+      "entity_id": 60,
+      "entity_key": "storage:60",
+      "details": {
+        "rule": [
+          {
+            "hostname": "lab-sw4.example.net",
+            "storage_id": 60,
+            "storage_descr": "/var"
+          }
+        ]
+      }
+    }
+  ]
+}

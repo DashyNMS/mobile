@@ -1235,9 +1235,9 @@ result is inferred from shared tests or platform CI builds.
 
 For the current Agent catalogue, lookup differences and the staged reuse proof
 under #596, see [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device
-search (`find_device`) now runs DashyNMS/mcp's shared `DashyNMS.Agent.Search`
-package; the other four lookups are still mobile queries, each with its own
-follow-up issue listed there.
+search (`find_device`) and open alerts (`active_alerts`) now run DashyNMS/mcp's
+shared `DashyNMS.Agent.Shared` package; the other three lookups are still mobile
+queries, each with its own follow-up issue listed there.
 
 ### Compact network lookups (#572)
 
@@ -1248,15 +1248,17 @@ LibreNMS name in the person's device-name choice, followed by Core's marker,
 for example `core-sw1 [[device:708]]`, so the model names devices rather than
 writing "device 708". A device without a usable name reads
 "Device 708 (name unavailable)". Alert rows keep their source-qualified
-`alert:` or `fault:` key beside the `[[alert:ID]]` marker. Alert and overview
-lookups name every alert's device from one device-list request, never one
-request per alert; if that list can't be read, rows fall back to the alert's
-own hostname and carry no device link. Omitted rows are counted. Device search
+`alert:` or `fault:` key beside the `[[alert:ID]]` marker. Active alerts come from
+the shared open alerts (#601): one row per rule firing on a device, worst first,
+with groups and faults counted apart and partial acknowledgement shown; if the
+device list or alerts can't be read, the lookup fails rather than reporting none.
+The overview names every alert's device from the device list it already reads,
+never one request per alert. Omitted rows are counted. Device search
 ranks exact, then starting, then containing matches over hostname, sysName,
 display name and IP, ties by hostname, as the MCP agent does; its heading gives
 the exact total and unfetched matches count as omitted. It searches by name or
-IP only: a MAC address is refused before any request. Alerts put unacknowledged
-items first, then severity. Sensor values are raw readings, not a health
+IP only: a MAC address is refused before any request. The overview's alerts put
+unacknowledged items first, then severity, until it moves to the shared overview (#600). Sensor values are raw readings, not a health
 assessment. Network labels cannot form a marker of their own.
 
 `Create(evidence)` also reports the `IntelligenceEvidence` behind each accepted

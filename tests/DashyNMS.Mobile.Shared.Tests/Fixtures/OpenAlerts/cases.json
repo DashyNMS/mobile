@@ -1,0 +1,339 @@
+{
+  "routes": {
+    "faults": {
+      "devices": "devices.json",
+      "faults": "faults.json"
+    },
+    "legacy": {
+      "devices": "devices.json",
+      "alerts": "alerts.json"
+    }
+  },
+  "requests": {
+    "faults": [
+      "devices",
+      "faults",
+      "faults"
+    ],
+    "legacy": [
+      "devices",
+      "faults",
+      "alerts"
+    ]
+  },
+  "cases": [
+    {
+      "name": "all open alerts",
+      "server": "faults",
+      "groups": [
+        "device:2/rule:4",
+        "device:3/rule:7",
+        "device:3/rule:6",
+        "device:1/rule:5"
+      ],
+      "representatives": [
+        "fault:12",
+        "fault:9500",
+        "fault:9400",
+        "fault:9200"
+      ],
+      "faultCounts": [
+        1,
+        1,
+        2,
+        8
+      ],
+      "acknowledgedCounts": [
+        0,
+        1,
+        0,
+        2
+      ],
+      "faults": [
+        [
+          12
+        ],
+        [
+          9500
+        ],
+        [
+          9400,
+          9402
+        ],
+        [
+          9200,
+          9201,
+          9202,
+          9204,
+          9206,
+          9207,
+          9203,
+          9205
+        ]
+      ],
+      "states": [
+        "active",
+        "acknowledged",
+        "active",
+        "partly_acknowledged"
+      ],
+      "totals": {
+        "alert_groups": 4,
+        "faults": 12,
+        "devices": 3,
+        "critical": 2,
+        "warning": 2,
+        "acknowledged": 1,
+        "partly_acknowledged": 1
+      }
+    },
+    {
+      "name": "one device",
+      "server": "faults",
+      "device": 3,
+      "groups": [
+        "device:3/rule:7",
+        "device:3/rule:6"
+      ],
+      "representatives": [
+        "fault:9500",
+        "fault:9400"
+      ],
+      "faultCounts": [
+        1,
+        2
+      ],
+      "acknowledgedCounts": [
+        1,
+        0
+      ],
+      "faults": [
+        [
+          9500
+        ],
+        [
+          9400,
+          9402
+        ]
+      ],
+      "states": [
+        "acknowledged",
+        "active"
+      ],
+      "totals": {
+        "alert_groups": 2,
+        "faults": 3,
+        "devices": 1,
+        "critical": 1,
+        "warning": 1,
+        "acknowledged": 1,
+        "partly_acknowledged": 0
+      }
+    },
+    {
+      "name": "critical only",
+      "server": "faults",
+      "severity": "critical",
+      "groups": [
+        "device:2/rule:4",
+        "device:3/rule:7"
+      ],
+      "representatives": [
+        "fault:12",
+        "fault:9500"
+      ],
+      "faultCounts": [
+        1,
+        1
+      ],
+      "acknowledgedCounts": [
+        0,
+        1
+      ],
+      "faults": [
+        [
+          12
+        ],
+        [
+          9500
+        ]
+      ],
+      "states": [
+        "active",
+        "acknowledged"
+      ],
+      "totals": {
+        "alert_groups": 2,
+        "faults": 2,
+        "devices": 2,
+        "critical": 2,
+        "warning": 0,
+        "acknowledged": 1,
+        "partly_acknowledged": 0
+      }
+    },
+    {
+      "name": "no ok alerts",
+      "server": "faults",
+      "severity": "ok",
+      "groups": [],
+      "representatives": [],
+      "faultCounts": [],
+      "acknowledgedCounts": [],
+      "faults": [],
+      "states": [],
+      "totals": {
+        "alert_groups": 0,
+        "faults": 0,
+        "devices": 0,
+        "critical": 0,
+        "warning": 0,
+        "acknowledged": 0,
+        "partly_acknowledged": 0
+      }
+    },
+    {
+      "name": "one location",
+      "server": "faults",
+      "location": "Lab",
+      "groups": [
+        "device:3/rule:7",
+        "device:3/rule:6"
+      ],
+      "representatives": [
+        "fault:9500",
+        "fault:9400"
+      ],
+      "faultCounts": [
+        1,
+        2
+      ],
+      "acknowledgedCounts": [
+        1,
+        0
+      ],
+      "faults": [
+        [
+          9500
+        ],
+        [
+          9400,
+          9402
+        ]
+      ],
+      "states": [
+        "acknowledged",
+        "active"
+      ],
+      "totals": {
+        "alert_groups": 2,
+        "faults": 3,
+        "devices": 1,
+        "critical": 1,
+        "warning": 1,
+        "acknowledged": 1,
+        "partly_acknowledged": 0
+      }
+    },
+    {
+      "name": "first page",
+      "server": "faults",
+      "limit": 2,
+      "groups": [
+        "device:2/rule:4",
+        "device:3/rule:7"
+      ],
+      "representatives": [
+        "fault:12",
+        "fault:9500"
+      ],
+      "faultCounts": [
+        1,
+        1
+      ],
+      "acknowledgedCounts": [
+        0,
+        1
+      ],
+      "faults": [
+        [
+          12
+        ],
+        [
+          9500
+        ]
+      ],
+      "states": [
+        "active",
+        "acknowledged"
+      ],
+      "totals": {
+        "alert_groups": 4,
+        "faults": 12,
+        "devices": 3,
+        "critical": 2,
+        "warning": 2,
+        "acknowledged": 1,
+        "partly_acknowledged": 1
+      },
+      "nextOffset": 2
+    },
+    {
+      "name": "legacy server",
+      "server": "legacy",
+      "groups": [
+        "device:1/rule:3",
+        "device:3/rule:6"
+      ],
+      "representatives": [
+        "alert:12",
+        "alert:13"
+      ],
+      "faultCounts": [
+        1,
+        1
+      ],
+      "acknowledgedCounts": [
+        0,
+        1
+      ],
+      "faults": [
+        [
+          12
+        ],
+        [
+          13
+        ]
+      ],
+      "states": [
+        "active",
+        "acknowledged"
+      ],
+      "totals": {
+        "alert_groups": 2,
+        "faults": 2,
+        "devices": 2,
+        "critical": 1,
+        "warning": 1,
+        "acknowledged": 1,
+        "partly_acknowledged": 0
+      }
+    },
+    {
+      "name": "unknown severity",
+      "server": "faults",
+      "severity": "loud",
+      "code": "InvalidRequest",
+      "requests": []
+    },
+    {
+      "name": "unknown location",
+      "server": "faults",
+      "location": "Nowhere",
+      "code": "InvalidRequest",
+      "requests": [
+        "devices"
+      ]
+    }
+  ]
+}
