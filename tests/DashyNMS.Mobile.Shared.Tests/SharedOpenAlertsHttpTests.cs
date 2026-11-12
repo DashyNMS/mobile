@@ -297,8 +297,11 @@ public sealed partial class SharedOpenAlertsHttpTests
         var faultText = await onFaults.Alerts.Run("", default);
         var legacyText = await onLegacy.Alerts.Run("", default);
 
-        Assert.Contains("[[alert:12]] (fault:12)", faultText);
-        Assert.Contains("[[alert:12]] (alert:12)", legacyText);
+        // Both rows read the same; only the evidence tells them apart.
+        Assert.Contains("[[alert:12]] on", faultText);
+        Assert.Contains("[[alert:12]] on", legacyText);
+        Assert.DoesNotContain("fault:12", faultText);
+        Assert.DoesNotContain("(alert:12)", legacyText);
         Assert.Equal("fault", onFaults.Evidence.Single(e => e.Reference.Key == "alert:12").Reference.Object!.Kind);
         Assert.Equal("alert", onLegacy.Evidence.Single(e => e.Reference.Key == "alert:12").Reference.Object!.Kind);
         // The group key never stands in for an id.

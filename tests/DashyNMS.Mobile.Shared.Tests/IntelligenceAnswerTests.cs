@@ -69,8 +69,8 @@ public sealed class IntelligenceAnswerTests
     [Fact]
     public void Single_bracket_markers_the_lookups_returned_regain_their_brackets()
     {
-        var repaired = IntelligenceMarkdown.RepairMarkers("1. **[alert:7]** - Rule (fault:7) on host [[device:12]]", Evidence);
-        Assert.Equal("1. **[[alert:7]]** - Rule (fault:7) on host [[device:12]]", repaired);
+        var repaired = IntelligenceMarkdown.RepairMarkers("1. **[alert:7]** - Rule on host [[device:12]]", Evidence);
+        Assert.Equal("1. **[[alert:7]]** - Rule on host [[device:12]]", repaired);
         Assert.Equal(new[] { "alert:7", "device:12" }, IntelligenceMarkdown.LinkedObjects(IntelligenceMarkdown.Parse(repaired, Evidence)).Select(r => r.Key));
     }
 
@@ -81,6 +81,21 @@ public sealed class IntelligenceAnswerTests
     [InlineData("[alert:07] [alerts:7] [alert:7")]
     public void Other_bracketed_text_is_left_alone(string text) =>
         Assert.Equal(text, IntelligenceMarkdown.RepairMarkers(text, Evidence));
+
+    [Theory]
+    [InlineData("`[alert:7]`")]
+    [InlineData("``[alert:7]``")]
+    [InlineData("``example `[alert:7]` here``")]
+    [InlineData("```text\n[alert:7]\n```")]
+    [InlineData("```text\n[alert:7]")]
+    [InlineData("~~~text\n[alert:7]\n~~~")]
+    [InlineData("[details](https://example.net/[alert:7])")]
+    [InlineData("![details](https://example.net/[alert:7])")]
+    public void Literal_contexts_stay_unchanged_while_nearby_prose_is_repaired(string literal)
+    {
+        var text = "[alert:7]\n\n" + literal;
+        Assert.Equal("[[alert:7]]\n\n" + literal, IntelligenceMarkdown.RepairMarkers(text, Evidence));
+    }
 
     [Fact]
     public void A_turn_repairs_its_answer_whichever_of_answer_and_evidence_arrives_first()
