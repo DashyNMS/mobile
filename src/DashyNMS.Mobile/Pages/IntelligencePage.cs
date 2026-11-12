@@ -334,7 +334,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
         _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
-            : _model.Availability != IntelligenceAvailability.Available ? IntelligenceCheckViewModel.Describe(_model.Availability)
+            : _model.Availability != IntelligenceAvailability.Available ? IntelligenceAvailabilityText.Describe(_model.Availability)
             : "Answers can be wrong. Lookups may use cached data; check readings and their age in LibreNMS.";
         (_new.Command as Command)?.ChangeCanExecute();
         foreach (var card in _cards) card.UpdateActions();

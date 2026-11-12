@@ -183,7 +183,7 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 | `active_alerts` | Raw rows ordered unacknowledged, severity, id. Agent groups by device and rule and orders worst first. | #601 |
 | `device_summary` | No exact equivalent: `device_health` fans out much further. Keep the location id with the exact filter name, and the person's device-name choice. | #602 |
 | `device_sensors` | Fleet list labelled raw with unknown health. Agent assesses limits, orders problems first, and falls back per device when the fleet endpoint is denied. Keep a missing reading distinct from zero. | #603 |
-| Diagnostics `NetworkOverviewLookup` | Separate baseline for Diagnostics (eight names of up to 40 characters, no evidence). Kept as it is until replaced on purpose, so its readings stay comparable. | (#600) |
+| Former diagnostic `NetworkOverviewLookup` | Removed with the diagnostic under #595. Historical measurements remain documented; there is no diagnostic lookup to migrate. | (#595) |
 
 ## Remaining work
 

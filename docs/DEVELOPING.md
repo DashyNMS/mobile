@@ -749,7 +749,7 @@ The constraints that shape it:
 ### What the on-device model can do (#570)
 
 **Result: the overview question completed on the tested device.** Measured on 2026-11-10 with
-Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
+the former Settings › Diagnostics › Intelligence check, on an iPhone Duo running iOS
 27.2, a TestFlight Release build of `3d36e85`, against a LibreNMS server
 with 946 devices and 208 open alerts. One question, "How is the network
 doing?", asked once, so the times are a single reading and not an average.
@@ -881,8 +881,11 @@ The on-device detail choices are Brief, Balanced and Detailed. Legacy
 styles are normalised, and Full reads as Detailed without changing the
 stored value until the person chooses. Single-chat mode and Delete saved
 chats are described under "Single-chat mode (#230)". The chat entry follows in #227.
-The diagnostic check also requires the mobile opt-in gate before reading
-LibreNMS or starting a model session; availability remains visible while off.
+The diagnostic check was removed under #595. The enablement control shows
+the saved choice; there is no separate Ready or enabled status row. Availability
+problems remain visible whether Intelligence is on or off, alongside save errors.
+Installed-build acceptance for enabled, disabled and unavailable settings remains
+pending under #595; keep the issue open until the user accepts the presentation.
 
 Persistence requires Core's `ICheckedSettingsStore.TrySave()` acknowledgement
 from package `2.0.0-ci.64` or later. A best-effort-only store cannot report a
@@ -1281,9 +1284,9 @@ Create a fresh lookup set for each new model session. A set refuses calls
 after the connection object changes and discards replies arriving from the
 previous connection. Requests have a 15-second deadline and fixed failure
 text; cancellation propagates to the caller. No questions, replies or
-exception details are logged. The diagnostic check retains its original
-overview lookup so measurements remain comparable. The conversation in
-#573 will consume the new interface.
+exception details are logged. The former diagnostic and its separate overview
+lookup were removed under #595; the historical measurements above are unchanged.
+The conversation uses this interface.
 
 ### Formatted answers (#228)
 

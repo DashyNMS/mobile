@@ -38,13 +38,15 @@ public sealed partial class IntelligenceSettingsViewModel(
     public bool CanOpenSettings => model.Availability == IntelligenceAvailability.NotEnabled;
     public string AvailabilityText => model.Availability switch
     {
-        IntelligenceAvailability.Available => "Ready to answer on this device.",
+        IntelligenceAvailability.Available => string.Empty,
         IntelligenceAvailability.Unsupported => "Intelligence needs iOS 26 or later.",
         IntelligenceAvailability.DeviceNotEligible => "This device doesn't support Apple Intelligence.",
         IntelligenceAvailability.NotEnabled => "Apple Intelligence is turned off. Open Settings and turn it on in Apple Intelligence & Siri.",
         IntelligenceAvailability.ModelNotReady => "Apple Intelligence is still downloading or preparing its model. Try again later.",
         _ => "Apple Intelligence is unavailable. Try again later.",
     };
+    public bool HasAvailabilityProblem => !IsAvailable;
+
     public IReadOnlyList<string> DetailLabels { get; } = ["Brief", "Balanced", "Detailed"];
     private static readonly string[] Details = [IntelligenceDetail.Brief, IntelligenceDetail.Balanced, IntelligenceDetail.Detailed];
     public int DetailIndex
@@ -133,7 +135,7 @@ public sealed partial class IntelligenceSettingsViewModel(
     /// <summary>Availability can change while the person is in the system Settings app.</summary>
     public void Refresh()
     {
-        foreach (var name in new[] { nameof(IsVisible), nameof(IsAvailable), nameof(CanUseIntelligence), nameof(Enabled), nameof(ToggleText), nameof(CanOpenSettings), nameof(AvailabilityText), nameof(DetailIndex), nameof(ColourStatusIndicators), nameof(SingleChatMode) })
+        foreach (var name in new[] { nameof(IsVisible), nameof(IsAvailable), nameof(CanUseIntelligence), nameof(Enabled), nameof(ToggleText), nameof(CanOpenSettings), nameof(AvailabilityText), nameof(HasAvailabilityProblem), nameof(DetailIndex), nameof(ColourStatusIndicators), nameof(SingleChatMode) })
             OnPropertyChanged(name);
         ToggleCommand.NotifyCanExecuteChanged();
     }

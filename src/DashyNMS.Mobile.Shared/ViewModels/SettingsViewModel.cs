@@ -543,24 +543,16 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public bool CanChooseSharing => _consent?.IsAvailable == true;
 
     /// <summary>The Diagnostics card has something to show.</summary>
-    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing || CanCheckIntelligence;
+    public bool HasDiagnosticsCard => CanShareDiagnostics || CanChooseSharing;
 
     private readonly Intelligence.IIntelligenceModel? _intelligence;
 
-    /// <summary>
-    /// The diagnostic check stays available alongside Intelligence settings
-    /// so model availability and measurements can be inspected on a device.
-    /// </summary>
-    public bool CanCheckIntelligence =>
+    /// <summary>Show Intelligence settings on platforms with on-device model support.</summary>
+    public bool CanConfigureIntelligence =>
         _intelligence is not null && _intelligence.Availability != Intelligence.IntelligenceAvailability.Unsupported;
-
-    public bool CanConfigureIntelligence => CanCheckIntelligence;
 
     [RelayCommand]
     private Task OpenIntelligenceSettingsAsync() => _navigation.GoToAsync(Routes.IntelligenceSettings);
-
-    [RelayCommand]
-    private Task OpenIntelligenceCheckAsync() => _navigation.GoToAsync(Routes.IntelligenceCheck);
 
     /// <summary>Settings' Error reports switch (#216): on at once, and off deletes what's waiting to be sent.</summary>
     public bool ShareErrorReports
@@ -735,7 +727,6 @@ public sealed partial class SettingsViewModel : ViewModelBase
     public void Refresh()
     {
         OnPropertyChanged(nameof(CanConfigureIntelligence));
-        OnPropertyChanged(nameof(CanCheckIntelligence));
         OnPropertyChanged(nameof(ServerHost));
         OnPropertyChanged(nameof(ServerSummary));
         OnPropertyChanged(nameof(AppearanceSummary));

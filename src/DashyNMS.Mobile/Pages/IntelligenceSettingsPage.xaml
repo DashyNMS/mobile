@@ -33,7 +33,7 @@
             <ScrollView x:Name="FormScroll" SafeAreaEdges="None">
                 <VerticalStackLayout Spacing="8" Padding="0,20,0,8">
                     <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" IsVisible="{Binding HasError}" />
-                    <Label Text="{Binding AvailabilityText}" />
+                    <Label Text="{Binding AvailabilityText}" IsVisible="{Binding HasAvailabilityProblem}" />
                     <VerticalStackLayout Spacing="8" IsVisible="{Binding IsVisible}">
                         <Button Style="{StaticResource SettingsAction}" Text="Open Settings" IsVisible="{Binding CanOpenSettings}" Command="{Binding OpenSettingsCommand}" MinimumHeightRequest="44" />
                         <Border Style="{StaticResource Card}">
