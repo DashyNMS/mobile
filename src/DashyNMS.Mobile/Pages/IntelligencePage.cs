@@ -439,7 +439,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     private void ShowActions()
     {
-        if (!_showing || Shell.Current?.CurrentPage != this) return;
+        if (!_showing || Shell.Current?.CurrentPage != this || Navigation.ModalStack.Count > 0) return;
 #if IOS
         _place = ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
         GlassAction[] chatActions =

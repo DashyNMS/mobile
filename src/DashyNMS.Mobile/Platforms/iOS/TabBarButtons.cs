@@ -86,6 +86,7 @@ internal static class TabBarButtons
     private static readonly TimeSpan Pause = TimeSpan.FromSeconds(1);
 
     private static object? _owner;
+    private static WeakReference<Page>? _presentationPage;
     private static string? _reported;
 
     /// <summary>The pill last found, looked at again first rather than searching the window.</summary>
@@ -114,9 +115,11 @@ internal static class TabBarButtons
     /// <summary>
     /// Shows search (<paramref name="search"/>, said as <paramref name="searchLabel"/>)
     /// and <paramref name="actions"/> for <paramref name="owner"/>; no search
-    /// button where <paramref name="search"/> is null.
+    /// button where <paramref name="search"/> is null. A modal passes
+    /// <paramref name="presentationPage"/> so the same glass is hosted above
+    /// its content while still measuring the presenting controller's pill.
     /// </summary>
-    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions)
+    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null)
     {
         if (!IsAvailable)
         {
@@ -125,6 +128,7 @@ internal static class TabBarButtons
 
         _host ??= new Host();
         _owner = owner;
+        _presentationPage = presentationPage is null ? null : new(presentationPage);
         _host.Set(search, searchLabel, actions);
         _host.Hidden = false;
         if (TabDots.FindTabs() is { } tabs)
@@ -142,6 +146,7 @@ internal static class TabBarButtons
         }
 
         _owner = null;
+        _presentationPage = null;
         _host.Set(null, string.Empty, []);
         _host.Hidden = true;
         Moved?.Invoke(null, EventArgs.Empty);
@@ -294,6 +299,18 @@ internal static class TabBarButtons
             return;
         }
 
+        // A modal keeps the underlying pill's geometry, but its controls must
+        // live above the modal content to receive touches and show its glass.
+        if (_presentationPage is not null)
+        {
+            if (!_presentationPage.TryGetTarget(out var page)
+                || page.Handler?.PlatformView is not UIView { Window: not null } modal)
+            {
+                Unplace(_host!);
+                return;
+            }
+            root = modal;
+        }
         var host = _host!;
         if (!ReferenceEquals(host.Superview, root))
         {

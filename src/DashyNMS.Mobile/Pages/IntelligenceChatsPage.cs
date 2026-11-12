@@ -7,14 +7,14 @@ namespace DashyNMS.Mobile.Pages;
 
 /// <summary>
 /// Saved chats (#229): a modal sheet over the chat, grouped Pinned, Today,
-/// Yesterday and so on by Core. The modal owns its safe area and header glass
-/// rather than taking ownership of the underlying page's tab bar actions.
+/// Yesterday and so on by Core. The modal owns glass by the tab bar, with
+/// New chat beside the title on large portrait screens as in experiment #594.
 /// Each row opens its chat when tapped; swiping right pins, swiping left
 /// reveals Rename and Delete, a long press opens the same actions as a menu
 /// (TalkBack's double-tap-and-hold reaches it too), and VoiceOver offers them
 /// as custom actions. Delete always confirms (#146).
 /// </summary>
-public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
+public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IActivePage
 {
     private readonly IntelligenceChatListViewModel _chats;
     private readonly IntelligenceConversationViewModel _conversation;
@@ -25,9 +25,14 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
     private readonly Button _new = new() { Text = "New chat", MinimumHeightRequest = 44 };
     private readonly Button _close = new() { Text = "Back", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
 #if IOS
-    private readonly HeaderGlassGroup _backGlass = new();
-    private readonly HeaderGlassGroup _newGlass = new();
+    private readonly HeaderGlassGroup _headerGlass = new();
+    private ChatActionPlace? _actionPlace;
+    private bool? _canStart;
 #endif
+    private readonly Grid _titleLine = new() { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 12, SafeAreaEdges = SafeAreaEdges.None, MinimumHeightRequest = 44 };
+    private readonly VerticalStackLayout _top = new() { Spacing = 8, SafeAreaEdges = SafeAreaEdges.None };
+    private readonly BoxView _footer = new() { Color = Colors.Transparent, InputTransparent = true };
+    private IDisposable? _edges;
     private bool _busy;
     private bool _visible;
     private readonly List<ChatRow> _rows = [];
@@ -40,7 +45,15 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
         _dialogs = dialogs;
         _newChat = newChat;
         Title = "Chats";
+#if IOS
+        // Keep the presenting tab controller attached so its pill can be measured
+        // through rotation. The opaque Chats page still covers the whole screen.
+        SetValue(Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific.Page.ModalPresentationStyleProperty,
+            Microsoft.Maui.Controls.PlatformConfiguration.iOSSpecific.UIModalPresentationStyle.OverFullScreen);
+        SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+#else
         SafeAreaEdges = SafeAreaEdges.All;
+#endif
         this.SetAppThemeColor(BackgroundColorProperty, ThemeColour("BackgroundLight"), ThemeColour("BackgroundDark"));
 
         _close.Style = ResourceStyle("SecondaryButton");
@@ -50,7 +63,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
         _close.Clicked += async (_, _) => await CloseAsync();
         _new.Clicked += (_, _) => StartNewChat();
 
-        var title = new Label { Text = "Chats", Style = ResourceStyle("PageTitle"), LineBreakMode = LineBreakMode.WordWrap };
+        var title = new Label { Text = "Chats", Style = ResourceStyle("PageTitle"), LineBreakMode = LineBreakMode.WordWrap, VerticalOptions = LayoutOptions.Center };
         SemanticProperties.SetHeadingLevel(title, SemanticHeadingLevel.Level1);
         var scope = new Label
         {
@@ -78,40 +91,42 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
             Style = ResourceStyle("Caption"), Margin = new Thickness(16), LineBreakMode = LineBreakMode.WordWrap,
         };
 
-        var top = new VerticalStackLayout { Spacing = 8, Padding = new Thickness(16, 0, 16, 8) };
-        top.Children.Add(title);
-        top.Children.Add(scope);
-        top.Children.Add(_status);
-
-        var grid = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star)] };
-        var actions = new Grid
-        {
-            ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)],
-            Padding = new Thickness(16, 8), ColumnSpacing = 12,
-        };
-        actions.Add(_close, 0, 0);
-        actions.Add(_new, 1, 0);
+        _titleLine.Add(title, 0, 0);
+        var headerActions = new HorizontalStackLayout { Spacing = 8 };
+        headerActions.Children.Add(_close);
+        headerActions.Children.Add(_new);
 #if IOS
-        if (TabBarButtons.IsAvailable)
-        {
-            _close.IsVisible = _new.IsVisible = false;
-            _backGlass.HorizontalOptions = LayoutOptions.Start;
-            _backGlass.Actions = [new("chevron.backward", "Back to Intelligence", () => _ = CloseAsync(), IsBack: true)];
-            actions.Add(_backGlass, 0, 0);
-            actions.Add(_newGlass, 1, 0);
-        }
+        headerActions.Children.Add(_headerGlass);
 #endif
-        grid.Add(actions, 0, 0);
-        grid.Add(top, 0, 1);
-        grid.Add(_list, 0, 2);
-        Content = grid;
+        _titleLine.Add(headerActions, 1, 0);
+        _top.Children.Add(_titleLine);
+        _top.Children.Add(scope);
+        _top.Children.Add(_status);
+        _titleLine.Padding = new Thickness(0, TopBar.Offset, 0, 0);
+        _top.Padding = new Thickness(16, 0, 16, 8);
+        TopBar.Fit(_titleLine);
+
+        _list.Header = new BoxView { Color = Colors.Transparent, HeightRequest = 20, InputTransparent = true };
+        _list.Footer = _footer;
+        var viewport = new Grid { SafeAreaEdges = SafeAreaEdges.None };
+        viewport.Children.Add(_list);
+        var fade = new BoxView { HeightRequest = 20, VerticalOptions = LayoutOptions.Start, InputTransparent = true };
+        var start = new GradientStop { Offset = 0 };
+        start.SetAppThemeColor(GradientStop.ColorProperty, ThemeColour("BackgroundLight"), ThemeColour("BackgroundDark"));
+        var end = new GradientStop { Offset = 1 };
+        end.SetAppThemeColor(GradientStop.ColorProperty, ThemeColour("BackgroundLightClear"), ThemeColour("BackgroundDarkClear"));
+        fade.Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [start, end] };
+        viewport.Children.Add(fade);
+        Content = new SetupLayout { Header = _top, Body = viewport };
+        _list.HandlerChanged += OnGeometryChanged;
+        _list.Loaded += OnGeometryChanged;
         Update();
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        _visible = true;
+        Activate();
         foreach (var row in _rows) row.Attach();
         _chats.PropertyChanged -= OnChanged;
         _chats.PropertyChanged += OnChanged;
@@ -124,6 +139,13 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
     protected override void OnDisappearing()
     {
         _visible = false;
+        _edges?.Dispose();
+        _edges = null;
+#if IOS
+        TabBarButtons.Moved -= OnGeometryChanged;
+        TabBarButtons.Hide(this);
+        _actionPlace = null;
+#endif
         foreach (var row in _rows) row.Detach();
         _chats.PropertyChanged -= OnChanged;
         _conversation.PropertyChanged -= OnChanged;
@@ -146,12 +168,81 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
         _list.IsVisible = _chats.IsListAvailable;
         var canStart = !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
         _new.IsEnabled = canStart;
+        ShowActions();
+    }
+
+    /// <summary>Restores modal glass after resume without loading the list again.</summary>
+    public void Activate()
+    {
+        if (!_visible)
+        {
+            _visible = true;
+            _edges = CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        // Avoid replacing native buttons on every streaming property change.
-        if (TabBarButtons.IsAvailable && (_newGlass.Actions.Count == 0 || _newGlass.Actions[0].IsEnabled != canStart))
-            _newGlass.Actions = [new("square.and.pencil", "New chat", StartNewChat, IsEnabled: canStart)];
+            TabBarButtons.Moved -= OnGeometryChanged;
+            TabBarButtons.Moved += OnGeometryChanged;
+#endif
+        }
+#if IOS
+        _actionPlace = null;
+#endif
+        ShowActions();
+        Dispatcher.Dispatch(PlaceControls);
+    }
+
+    private void OnGeometryChanged(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+
+    private void ShowActions()
+    {
+        if (!_visible) return;
+#if IOS
+        var place = ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
+        var canStart = !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
+        if (_actionPlace == place && _canStart == canStart) return;
+        _actionPlace = place;
+        _canStart = canStart;
+        _close.IsVisible = _new.IsVisible = place == ChatActionPlace.HeaderIcons;
+        _headerGlass.IsVisible = place == ChatActionPlace.HeaderGlass;
+        GlassAction back = new("chevron.backward", "Back to Intelligence", () => _ = CloseAsync(), IsBack: true);
+        GlassAction create = new("square.and.pencil", "New chat", StartNewChat, IsEnabled: canStart);
+        _headerGlass.Actions = place == ChatActionPlace.HeaderGlass ? [create] : [];
+        if (TabBarButtons.IsAvailable)
+            TabBarButtons.Show(this, null, string.Empty,
+                place == ChatActionPlace.HeaderGlass ? [back] : [back, create], this);
 #endif
     }
+
+    private void PlaceControls()
+    {
+        if (!_visible) return;
+        ShowActions();
+#if IOS
+        if (TabDots.FindTabs() is { } tabs) TabBarButtons.Relayout(tabs);
+#endif
+        var clear = CoveredEdges.ForScrolling(this);
+        _top.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 8);
+        _list.Margin = new Thickness(clear.Left, 0, clear.Right, 0);
+        var footer = 24 + clear.Bottom;
+#if IOS
+        if (_list.Handler?.PlatformView is UIKit.UIView view)
+        {
+            if (FindScroll(view) is { } scroll)
+                scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+            var pill = TabBarButtons.PillIn(view);
+            var glass = TabBarButtons.Occupied(view)
+                .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
+            var gap = SetupActionPlacement.BottomGap(view.Bounds.Height, clear.Bottom,
+                pill is { } bar ? new OccupiedArea(bar.Left, bar.Top, bar.Right, bar.Bottom) : null, glass);
+            footer = 24 + gap;
+        }
+#endif
+        if (_footer.HeightRequest != footer) _footer.HeightRequest = footer;
+    }
+
+#if IOS
+    private static UIKit.UIScrollView? FindScroll(UIKit.UIView view) =>
+        view as UIKit.UIScrollView ?? view.Subviews.Select(FindScroll).FirstOrDefault(found => found is not null);
+#endif
 
     private async void StartNewChat()
     {
@@ -167,7 +258,11 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface
 
     private async Task CloseAsync()
     {
-        if (Navigation.ModalStack.Contains(this)) await Navigation.PopModalAsync();
+        if (!Navigation.ModalStack.Contains(this)) return;
+        await Navigation.PopModalAsync();
+        // OverFullScreen keeps the chat attached, so it may not get Appearing.
+        if ((Navigation.ModalStack.LastOrDefault() ?? Shell.Current?.CurrentPage) is IActivePage page)
+            page.Activate();
     }
 
     protected override bool OnBackButtonPressed()
