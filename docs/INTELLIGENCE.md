@@ -94,7 +94,8 @@ and resolves tools exactly as MCP does.
 
 DashyNMS/mcp stays a complete MCP server in its own right. Any MCP client can
 run it as an executable or container image, without DashyNMS desktop or
-mobile, and a hosted service is planned (DashyNMS/mcp#17, #36). The shared
+mobile. An HTTP service and single-file binaries are planned
+(DashyNMS/mcp#17, DashyNMS/mcp#36). The shared
 package is a library MCP uses. It never makes MCP depend on the apps.
 
 ## Adding a tool
