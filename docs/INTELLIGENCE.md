@@ -92,6 +92,11 @@ The same package will carry the tool catalogue (DashyNMS/mcp#130) and device
 resolution by name, address or ID (DashyNMS/mcp#131), so the phone describes
 and resolves tools exactly as MCP does.
 
+DashyNMS/mcp stays a complete MCP server in its own right. Any MCP client can
+run it as an executable or container image, without DashyNMS desktop or
+mobile, and a hosted service is planned (DashyNMS/mcp#17, #36). The shared
+package is a library MCP uses. It never makes MCP depend on the apps.
+
 ## Adding a tool
 
 1. Upstream, in DashyNMS/mcp: the typed operation in `DashyNMS.Agent.Shared`,
@@ -114,6 +119,12 @@ A tool is finished when every item in
 
 ## Rules every shared tool keeps
 
+- **MCP stays standalone.** MCP keeps its own service registration,
+  environment-variable configuration, JSON results, paging and every tool. A
+  change made for the phone leaves MCP's output unchanged, unless the change is
+  wanted for every MCP client and tested in MCP. What only the phone needs stays
+  in mobile: the device-name style, written markers, compact text, budgets and
+  tool choice.
 - **The host owns the clients.** Transport, certificate trust, failover,
   credentials, caches and timestamp settings come from the session. Directories
   and caches are created per connection generation. Integration tools (Graylog,
@@ -176,8 +187,10 @@ these:
 6. Tests cover host-owned transport, a connection switch mid-request,
    cancellation, the deadline, refusals, the endpoint allowlist and the absence
    of server text.
-7. Android Release and iOS Release CI pass with no new trim or AOT warnings.
-8. Mobile's old query, ordering and formatting for that tool are deleted, and
+7. MCP's own tool output is unchanged, or changed on purpose with MCP's own
+   tests, and MCP's container image and release builds still pass.
+8. Android Release and iOS Release CI pass with no new trim or AOT warnings.
+9. Mobile's old query, ordering and formatting for that tool are deleted, and
    this document's tables are updated.
 
 Device runs, token measurements and size deltas are recorded on devices and
