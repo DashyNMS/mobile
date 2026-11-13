@@ -428,7 +428,7 @@ public sealed partial class CompactNetworkLookups(
 
     /// <summary>
     /// One judged reading, already redacted upstream: "Module 2 [[sensor:2]]: temperature 81 °C;
-    /// critical (high limit 80)". A missing reading says so and is never written as zero, and a
+    /// critical (high critical limit 80)". A missing reading says so and is never written as zero, and a
     /// reading with nothing to judge it by says that rather than any health word, so the model
     /// can't call it healthy. The chip carries the same state.
     /// </summary>
@@ -464,8 +464,8 @@ public sealed partial class CompactNetworkLookups(
     private static string Limits(SensorReading r)
     {
         var parts = new List<string>(2);
-        if (r.LowCritical is { } low) parts.Add("low limit " + Number(low));
-        if (r.HighCritical is { } high) parts.Add("high limit " + Number(high));
+        if (r.LowCritical is { } low) parts.Add("low critical limit " + Number(low));
+        if (r.HighCritical is { } high) parts.Add("high critical limit " + Number(high));
         return parts.Count == 0 ? "" : " (" + string.Join(", ", parts) + ")";
     }
 

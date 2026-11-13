@@ -454,8 +454,8 @@ public sealed class CompactNetworkLookupsTests
 
         var lines = text.Split('\n');
         Assert.Equal("Sensors on core-sw1.example.net [[device:1]]: 5; 2 critical, 0 warning, 1 OK, 2 unknown.", lines[0]);
-        Assert.Equal("Fan 1 [[sensor:3]]: fanspeed 0 RPM; critical (low limit 1000)", lines[1]);
-        Assert.Equal("Module 2 [[sensor:2]]: temperature 81 °C; critical (high limit 80)", lines[2]);
+        Assert.Equal("Fan 1 [[sensor:3]]: fanspeed 0 RPM; critical (low critical limit 1000)", lines[1]);
+        Assert.Equal("Module 2 [[sensor:2]]: temperature 81 °C; critical (high critical limit 80)", lines[2]);
         Assert.Equal("Chassis [[sensor:1]]: temperature 48 °C; OK", lines[3]);
         Assert.Equal("Fan 2 [[sensor:4]]: fanspeed no reading; state unknown", lines[4]);
         Assert.Equal("PSU 1 Output [[sensor:5]]: voltage 12.1 V; not assessed: no limits", lines[5]);

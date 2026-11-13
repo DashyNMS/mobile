@@ -183,7 +183,7 @@ Mobile maps the result to:
   `Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown.`;
 - one row per reading, worst first: description, `[[sensor:ID]]`, class, value and unit or
   the state definition's label, and the state. A problem names the sensor's own critical
-  limits (`critical (high limit 80)`). A missing reading reads `no reading`, never `0`.
+  limits (`critical (high critical limit 80)`). A missing reading reads `no reading`, never `0`.
   A reading with nothing to judge it by reads `not assessed: no limits`; one in the dBm
   "nothing plugged in" band reads `state unknown`. Neither is ever called OK;
 - readings that don't fit counted as omitted from the totals;
