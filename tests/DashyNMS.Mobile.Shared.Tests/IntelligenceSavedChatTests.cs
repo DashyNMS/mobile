@@ -962,6 +962,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Assert.True(await app.Conversation.AskAsync("Saved history"));
         await app.SettleAsync();
 
+        var previousKey = _keys.Values[IntelligenceChatStorage.KeyName];
         _keys.FailRemove = true;
         Assert.Equal(ChatWipeResult.Retained, await app.Chats.DeleteSavedChatsAsync());
         Assert.True(File.Exists(_root + ".cleanup-pending"));
@@ -978,8 +979,11 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         _keys.FailRemove = false;
         Assert.Equal(ChatWipeResult.Removed, await app.Chats.DeleteSavedChatsAsync());
         Assert.False(File.Exists(_root + ".cleanup-pending"));
-        Assert.False(_keys.Values.ContainsKey(IntelligenceChatStorage.KeyName));
+        // Successful deletion starts a reload, which may already have created a fresh
+        // key. Wait for it and check rotation rather than racing that legitimate write.
         await app.Chats.LoadAsync();
+        Assert.True(_keys.Values.TryGetValue(IntelligenceChatStorage.KeyName, out var freshKey));
+        Assert.NotEqual(previousKey, freshKey);
         Assert.True(app.Chats.CanPersist);
         Assert.Empty(app.Chats.Chats);
         Assert.Equal(IntelligenceChatListViewModel.DeletedUnsavedStatus, app.Chats.Status);
