@@ -61,9 +61,12 @@ transport does the parsing, retrying and timing out itself. It covers:
   same requests. Only `HostDeviceSearch` is held to the exact failure category.
   Mobile says "refused" for `Refused` and its usual failure line for the rest,
   with no evidence and no server text.
-- **Scope cases:** these go through the package's executor on mobile's Core pin
-  only. Mobile's `find_device` takes search text alone. A separate test checks
-  that text naming a group or a location reads only the device list.
+- **Scope cases:** these go through both mobile and the package's executor on
+  mobile's Core pin, including invalid and ambiguous names and the empty group.
+  Plain text naming a group or location remains an ordinary text search.
+- Additional synthetic ARP replies in `SharedDeviceSearchHttpTests` cover all
+  supported MAC forms, empty observations and denied ARP/group reads. Those
+  replies are separate from the byte-identical upstream fixture bundle.
 
 DashyNMS/mcp's `SharedSearchHttpFixtureTests` serves the same files to the MCP
 server's own services and `find_device` tool. There too the category is checked
@@ -75,14 +78,11 @@ and nothing secret-shaped.
 These are not compared across adapters here, and parity on them should not be
 claimed from it:
 
-- Scopes in mobile itself. Mobile has no group, location or status search yet
-  (#608). The scope cases only show that the package agrees with MCP on mobile's
-  Core pin.
-- MAC search over ARP, paging past the first page and the verbose record.
-  Mobile refuses MAC search before any request (#608).
+- MAC parity with MCP's own HTTP adapter. Mobile and the package agree on the
+  additional synthetic ARP cases, but MCP does not consume those cases.
+- Paging past the first page and the verbose record.
 - Admin-only refusals, TLS and certificates, backup-address failover,
   cancellation and a retired connection. Mobile's own tests cover its side of
   these against other inputs.
-- Faults (alerts) and other tools. `find_device` reads no alerts, and mobile's
-  alert lookups are still its own implementation (#601), so nothing here
-  compares fault identities, severity or grouping.
+- Faults (alerts) and other tools. `find_device` reads no alerts; the separate
+  OpenAlerts fixture covers the shared alert lookup (#601).

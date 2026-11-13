@@ -6,8 +6,9 @@ using DesktopNMS.Core.Security;
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>
-/// The client handed to shared operations: device and open alert lists, plus explicitly
-/// opted-in port status and system reads for overview (#600), over a transport of its own that can only ever dial the connection the chat captured.
+/// The client handed to shared operations: reviewed search and open-alert reads,
+/// or the overview profile's device, open-alert, port-status and system reads.
+/// Each instance owns a transport bound to the connection the chat captured.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,14 +33,11 @@ namespace DashyNMS.Mobile.Intelligence;
 /// later calls throw <see cref="RetiredException"/> and the transport is closed.
 /// </para>
 /// <para>
-/// Everything except <see cref="IDevicesApi.ListAsync"/> and <see cref="IAlertsApi.ListAsync"/>
-/// with <see cref="AlertQuery.Open"/> is refused before transport, including the other device
-/// endpoints (maintenance, discovery, rename, delete) and every alert action (acknowledge,
-/// unmute) or other alert read. A change upstream (MAC search through ARP, group scopes,
-/// per-device reads, recovered alerts) therefore cannot quietly widen what the chat reads
-/// or let it write. Overview uses a separate instance opting into only the fleet port
-/// status list and system read; search and open alerts keep their narrower boundary.
-/// The session-wide controls are never the operations' to touch.
+/// Search allows the device list, MAC-specific ARP search, group catalogue and one
+/// group's membership, plus the open alerts query. Location filtering uses the device
+/// list. Overview uses a separate instance permitting only the device and open-alert
+/// lists, fleet port status and system information; it refuses ARP and groups.
+/// All other reads, writes and session controls throw before transport.
 /// </para>
 /// </remarks>
 internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
@@ -203,9 +201,31 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     public ILinksApi Links => throw new RefusedException(nameof(Links));
     public IDeviceHealthApi Health => throw new RefusedException(nameof(Health));
     public IFdbApi Fdb => throw new RefusedException(nameof(Fdb));
-    public IArpApi Arp => throw new RefusedException(nameof(Arp));
+    public IArpApi Arp => overview ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
+
+    private sealed class SearchArp(ConnectionBoundClient owner) : IArpApi
+    {
+        public Task<IReadOnlyList<ArpEntry>> FindByMacAsync(string mac, CancellationToken cancellationToken = default)
+            => owner.Apis().Arp.FindByMacAsync(mac, cancellationToken);
+        public Task<IReadOnlyList<ArpEntry>> ListAllAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllAsync));
+        public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
+    }
     public IVlansApi Vlans => throw new RefusedException(nameof(Vlans));
-    public IDeviceGroupsApi DeviceGroups => throw new RefusedException(nameof(DeviceGroups));
+    public IDeviceGroupsApi DeviceGroups => overview ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
+
+    private sealed class SearchGroups(ConnectionBoundClient owner) : IDeviceGroupsApi
+    {
+        public Task<IReadOnlyList<DeviceGroup>> ListAsync(CancellationToken cancellationToken = default)
+            => owner.Apis().DeviceGroups.ListAsync(cancellationToken);
+        public Task<IReadOnlyList<int>> GetMemberDeviceIdsAsync(int groupId, CancellationToken cancellationToken = default)
+            => owner.Apis().DeviceGroups.GetMemberDeviceIdsAsync(groupId, cancellationToken);
+        public Task<IReadOnlyList<DeviceGroup>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
+        public Task<IReadOnlyDictionary<int, IReadOnlyList<string>>> GetMembershipByDeviceAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetMembershipByDeviceAsync));
+        public Task<IReadOnlyDictionary<int, int>> GetMemberCountsAsync(IReadOnlyList<DeviceGroup> groups, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetMemberCountsAsync));
+        public Task CreateAsync(string name, string? description, IReadOnlyList<int> deviceIds, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(CreateAsync));
+        public Task UpdateAsync(string currentName, string newName, string? description, IReadOnlyList<int> deviceIds, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(UpdateAsync));
+        public Task DeleteAsync(string name, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(DeleteAsync));
+    }
     public ILocationsApi Locations => throw new RefusedException(nameof(Locations));
     public IRoutingApi Routing => throw new RefusedException(nameof(Routing));
     public IPollerGroupsApi PollerGroups => throw new RefusedException(nameof(PollerGroups));

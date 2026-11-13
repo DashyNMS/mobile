@@ -340,7 +340,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         Notify();
         try
         {
-            var budget = (int)(Math.Max(0, (_model.ContextSize ?? 4096) * .8 - 550 - 720 - 400) * 2.5);
+            // Reserve 80 extra tokens for find_device's four-argument schema (#608).
+            var budget = (int)(Math.Max(0, (_model.ContextSize ?? 4096) * .8 - 630 - 720 - 400) * 2.5);
             var prompt = Prompt(question, budget, out var omitted, out var hasHistory);
             turn.HistoryOmitted = omitted;
             if (prompt.Length > budget)

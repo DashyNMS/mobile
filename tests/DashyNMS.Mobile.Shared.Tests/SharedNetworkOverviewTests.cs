@@ -158,6 +158,7 @@ public sealed class SharedNetworkOverviewTests
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Alerts.AcknowledgeAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Devices.DeleteAsync(1));
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => overview.Arp);
+        Assert.Throws<ConnectionBoundClient.RefusedException>(() => overview.DeviceGroups);
         Assert.False(overview.IsOpen);
     }
 }
