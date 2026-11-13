@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": 5,
+      "hostname": "spare-sw5.example.net",
+      "ip": "198.51.100.5",
+      "os": "ios",
+      "hardware": "Synthetic Switch 24",
+      "status": false,
+      "disabled": true,
+      "ignore": false,
+      "uptime": 120,
+      "location": {
+        "id": 6,
+        "location": "Spare store"
+      }
+    }
+  ]
+}

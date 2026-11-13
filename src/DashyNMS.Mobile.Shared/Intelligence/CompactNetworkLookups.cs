@@ -61,15 +61,15 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// <remarks>
 /// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596), <c>active_alerts</c>
 /// its shared open alerts (#601), <c>network_overview</c> its shared overview (#600) and
-/// <c>device_sensors</c> its shared sensor assessment (#603). Their ranking, grouping, ordering,
-/// judging, filtering and redaction are the MCP agent's rather than a mobile copy; this class
-/// only adapts the typed results to the compact profile and its evidence. The other lookups
-/// remain mobile queries until their own shared operations exist.
+/// <c>device_summary</c> its shared device summary (#602) and <c>device_sensors</c> its shared
+/// sensor assessment (#603). Their reading, ranking, grouping, ordering, judging, filtering and
+/// redaction are the MCP agent's rather than a mobile copy; this class only adapts the typed
+/// results to the compact profile and its evidence.
 /// </remarks>
 /// <param name="deviceTransport">
 /// Opens a transport for one captured connection and its session generation, for the shared
-/// operations (<c>find_device</c>, <c>active_alerts</c>, <c>network_overview</c> and
-/// <c>device_sensors</c>) alone (see
+/// operations (<c>find_device</c>, <c>active_alerts</c>, <c>network_overview</c>,
+/// <c>device_summary</c> and <c>device_sensors</c>) alone (see
 /// <see cref="ConnectionBoundClient"/>); the set owns and closes it. The app passes
 /// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
 /// those lookups fail closed rather than falling back to the session's shared client,
@@ -108,6 +108,22 @@ public sealed partial class CompactNetworkLookups(
     /// <summary>Faults named on a group's row; the rest are counted.</summary>
     internal const int NamedFaults = 3;
 
+    /// <summary>
+    /// The reviewed contract behind each lookup name: the allowlisted shared tool it is a profile
+    /// of (Core's <c>IntelligenceToolAllowlist</c>). <c>device_summary</c> has no tool of its own
+    /// name upstream: it is a reviewed narrower profile of <c>device_health</c>, its device and
+    /// uptime only, built on the shared summary that <c>device_health</c> uses for that part (#602).
+    /// A new lookup name needs an entry here, so no name reaches the model without a reviewed tool.
+    /// </summary>
+    internal static readonly IReadOnlyDictionary<string, string> ReviewedTools = new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["network_overview"] = "network_overview",
+        ["find_device"] = "find_device",
+        ["device_summary"] = "device_health",
+        ["active_alerts"] = "active_alerts",
+        ["device_sensors"] = "device_sensors",
+    };
+
     /// <summary>True for a reply that reports a failed lookup rather than data or a refusal to run.</summary>
     internal static bool IsFailure(string reply) => reply is Failed or Changed or Refused;
 
@@ -143,8 +159,8 @@ public sealed partial class CompactNetworkLookups(
         var time = timeProvider ?? TimeProvider.System;
         bool IsCurrent() => scope is { } captured && captured.IsCurrent(session);
 
-        // One shared search and one shared open-alerts operation, each with its own caches,
-        // over one transport per lookup set and so per captured connection. The transport is
+        // One shared search, open-alerts and device summary operation, each with its own caches
+        // (the summary has none), over one transport per lookup set and so per captured connection. The transport is
         // pinned to that connection, so a switch can't redirect a request to another server.
         // Retiring cancels in-flight waits, refuses further calls (cached ones included)
         // and closes the transport. It happens on a connection switch and when the owner
@@ -156,6 +172,7 @@ public sealed partial class CompactNetworkLookups(
         var overviewBound = scope is not { } capturedOverview || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedOverview, deviceTransport, overview: true);
         var overview = overviewBound is null ? null : HostNetworkOverview.Create(overviewBound, time, settings.Current.ServerTimestampsAreUtc);
+        var summaries = bound is null ? null : HostDeviceSummary.Create(bound, settings.Current.ServerTimestampsAreUtc);
         // Sensors get their own profile too: the sensor list and health routes, never ARP,
         // groups or alerts.
         var sensorBound = scope is not { } capturedSensors || deviceTransport is null ? null
@@ -167,6 +184,7 @@ public sealed partial class CompactNetworkLookups(
             search?.Dispose();
             openAlerts?.Dispose();
             deviceSensors?.Dispose();
+            summaries?.Dispose();
             bound?.Dispose();
             overview?.Dispose();
             overviewBound?.Dispose();
@@ -232,27 +250,50 @@ public sealed partial class CompactNetworkLookups(
             { Object = new("device", device.DeviceId) });
         }
 
-        Row DeviceRow(Device d, DateTimeOffset at)
-        {
-            var name = DeviceName(d, d.Hostname, d.DeviceId);
-            return new($"{name} [[device:{Id(d.DeviceId)}]]: {d.ReportedState.ToDisplayString()}; IP {Clean(d.Ip)}", [DeviceReference(d, name, at)]);
-        }
-
-        // A shared search row, already redacted upstream, in the person's naming style.
+        // A shared device summary, already redacted upstream, named in the person's style.
         // LibreNMS fills display with the hostname when none is set; the shared summary
         // drops that repeat, so it is restored before the style chooses a name.
+        string SummaryName(DeviceSummary d) =>
+            DeviceName(new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip }, d.Hostname, d.DeviceId);
+
+        // A shared search row in the person's naming style.
         // The state is the summary's typed State (Core's ReportedState), not its status word:
         // the word has only up, down and disabled, says "down" when LibreNMS left a flag out,
         // and doesn't tell ignored devices apart.
         Row SearchRow(DeviceSummary d, DateTimeOffset at)
         {
-            var named = new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
-            var name = DeviceName(named, d.Hostname, d.DeviceId);
+            var name = SummaryName(d);
             var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
             // Up to a minute old: the shared search caches the device list per connection.
             IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
             { Object = new("device", d.DeviceId) });
             return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}", [reference]);
+        }
+
+        // The shared device summary (#602), already redacted upstream: the device in the person's
+        // naming style with its reported state, then OS, hardware, location and uptime. The read is
+        // devices/{id}, so the state is as of this lookup, not the cached device list's. The location
+        // chip shows the cleaned name and keeps LibreNMS's exact name only as its Devices filter.
+        Reply SummaryRows(DeviceSummaryResult found, DateTimeOffset at)
+        {
+            var d = found.Device;
+            var name = SummaryName(d);
+            var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
+            IntelligenceEvidence device = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status at lookup time")
+            { Object = new("device", d.DeviceId) });
+            var location = Clean(d.Location);
+            var references = new List<IntelligenceEvidence>();
+            if (found.Location is { } place)
+            {
+                location = Clean(place.Name);
+                references.Add(new(new("location:" + Id(place.Id), location, "", "unknown", at, "Location")
+                { Object = new("location", place.Id) }, place.FilterName));
+                location += $" [[location:{Id(place.Id)}]]";
+            }
+            var uptime = found.UptimeSeconds is { } seconds ? seconds.ToString(CultureInfo.InvariantCulture) + " seconds" : "unknown";
+            return Rows($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}",
+                [new($"OS: {Clean(d.Os)}; hardware: {Clean(d.Hardware)}; location: {location}; uptime: {uptime}.", references)],
+                [device]);
         }
 
         // A shared alert group, already redacted upstream: one row per rule firing on a device.
@@ -352,21 +393,16 @@ public sealed partial class CompactNetworkLookups(
             Lookup("device_summary", "Device state and hardware. Query is a numeric device id.", async (query, at, ct) =>
             {
                 if (!TryId(query, out var id)) return Reply.Say("Supply a numeric device id from find_device.");
-                var device = await client.Devices.GetAsync(Id(id), ct).ConfigureAwait(false);
-                if (device is null) return Reply.Say("Device not found.");
-                var row = DeviceRow(device, at);
-                var location = Clean(device.Location);
-                var references = new List<IntelligenceEvidence>();
-                if (device.LocationId is { } locationId && locationId > 0 && !string.IsNullOrWhiteSpace(device.Location))
-                {
-                    // The chip shows the cleaned label; Devices filters by LibreNMS's exact name.
-                    references.Add(new(new("location:" + Id(locationId), location, "", "unknown", at, "Location")
-                    { Object = new("location", locationId) }, device.Location));
-                    location += $" [[location:{Id(locationId)}]]";
-                }
-                return Rows(row.Text,
-                    [new($"OS: {Clean(device.Os)}; hardware: {Clean(device.Hardware)}; location: {location}; uptime: {device.Uptime} seconds.", references)],
-                    row.References);
+                if (summaries is not { } reading) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => reading.ReadAsync(new DeviceSummaryRequest(id), ct)).ConfigureAwait(false);
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code switch
+                    {
+                        DashyNMS.Agent.HostFailure.NotFound => "Device not found.",
+                        DashyNMS.Agent.HostFailure.Refused => Refused,
+                        _ => Failed,
+                    });
+                return SummaryRows(found, at);
             }),
             Lookup("active_alerts", "Open alerts by device and rule, worst first. Query is a device id or empty for all.", async (query, at, ct) =>
             {

@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": 3,
+      "hostname": "dist-sw2.example.net",
+      "sysName": "dist-sw2",
+      "ip": "198.51.100.3",
+      "os": "arubaos-cx",
+      "hardware": "Synthetic Distribution 8",
+      "status": true,
+      "disabled": false,
+      "location": null
+    }
+  ]
+}

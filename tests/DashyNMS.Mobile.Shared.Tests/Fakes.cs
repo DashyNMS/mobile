@@ -107,8 +107,13 @@ internal static class Fakes
                 return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
             if (relativeUrl == "resources/sensors" && typeof(T) == typeof(Sensor))
                 return (IReadOnlyList<T>)(object)await client.Sensors.ListAsync(cancellationToken);
+            // devices/{id}, as Core's GetAsync asks for one device: the fake's GetAsync answers it.
+            if (relativeUrl.StartsWith("devices/", StringComparison.Ordinal) && typeof(T) == typeof(Device))
+                return await client.Devices.GetAsync(relativeUrl["devices/".Length..], cancellationToken) is { } one
+                    ? (IReadOnlyList<T>)(object)new[] { one }
+                    : [];
             if (typeof(T) != typeof(Alert))
-                throw new InvalidOperationException("Only the device list, open alerts and sensor list are expected");
+                throw new InvalidOperationException("Only the device list, one device, open alerts and sensor list are expected");
             if (relativeUrl == "faults?state=-1")
                 return await client.Alerts.GetSourceAsync(cancellationToken) == AlertSource.Fault
                     ? []

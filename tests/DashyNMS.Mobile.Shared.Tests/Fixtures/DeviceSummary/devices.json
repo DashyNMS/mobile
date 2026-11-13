@@ -1,0 +1,67 @@
+{
+  "status": "ok",
+  "count": 6,
+  "devices": [
+    {
+      "device_id": 1,
+      "hostname": "core-sw1.example.net",
+      "display": "Core switch 1",
+      "sysName": "core-sw1",
+      "ip": "198.51.100.1",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "location": "Core site",
+      "location_id": 3
+    },
+    {
+      "device_id": 2,
+      "hostname": "edge-sw3.example.net",
+      "display": "edge-sw3.example.net",
+      "ip": "198.51.100.2",
+      "status": false,
+      "disabled": false,
+      "ignore": false,
+      "location": "Core site",
+      "location_id": 3
+    },
+    {
+      "device_id": 3,
+      "hostname": "dist-sw2.example.net",
+      "ip": "198.51.100.3",
+      "status": true,
+      "disabled": false
+    },
+    {
+      "device_id": 4,
+      "hostname": "lab-rtr4.example.net",
+      "ip": "198.51.100.4",
+      "status": true,
+      "disabled": false,
+      "ignore": true,
+      "location": " Lab annex ",
+      "location_id": 5
+    },
+    {
+      "device_id": 5,
+      "hostname": "spare-sw5.example.net",
+      "ip": "198.51.100.5",
+      "status": false,
+      "disabled": true,
+      "ignore": false,
+      "location": "Spare store"
+    },
+    {
+      "device_id": 6,
+      "hostname": "gone-sw6.example.net",
+      "display": "Retired switch",
+      "ip": "198.51.100.6",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "location": "Lab",
+      "location_id": 7,
+      "uptime": 7200
+    }
+  ]
+}

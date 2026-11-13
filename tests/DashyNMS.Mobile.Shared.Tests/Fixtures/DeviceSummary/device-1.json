@@ -1,0 +1,26 @@
+{
+  "status": "ok",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": 1,
+      "hostname": "core-sw1.example.net",
+      "display": "Core switch 1",
+      "sysName": "core-sw1",
+      "ip": "198.51.100.1",
+      "os": "ios",
+      "hardware": "Synthetic Switch 48",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "uptime": 864000,
+      "location_id": 3,
+      "location": {
+        "id": 3,
+        "location": "Core site",
+        "lat": 51.5,
+        "lng": -0.12
+      }
+    }
+  ]
+}

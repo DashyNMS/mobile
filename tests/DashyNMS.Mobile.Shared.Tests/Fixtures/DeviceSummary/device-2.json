@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": 2,
+      "hostname": "edge-sw3.example.net",
+      "display": "edge-sw3.example.net",
+      "sysName": "edge-sw3",
+      "ip": "198.51.100.2",
+      "os": "junos",
+      "hardware": "Synthetic Edge 24",
+      "status": false,
+      "disabled": false,
+      "ignore": false,
+      "uptime": 0,
+      "location_id": 3,
+      "location": "Core site"
+    }
+  ]
+}

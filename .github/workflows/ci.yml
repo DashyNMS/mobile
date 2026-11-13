@@ -40,8 +40,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/verify-shared-package.sh
 
-      # The synthetic device search and open alerts fixtures must be byte-identical
-      # to the ones DashyNMS/mcp tests its MCP find_device and active_alerts against.
+      # The synthetic shared fixtures must be byte-identical to the ones DashyNMS/mcp
+      # tests its MCP tools against.
       - name: Check the shared fixtures match DashyNMS/mcp
         env:
           GH_TOKEN: ${{ github.token }}

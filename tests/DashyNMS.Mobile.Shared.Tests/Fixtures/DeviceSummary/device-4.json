@@ -1,0 +1,20 @@
+{
+  "status": "ok",
+  "count": 1,
+  "devices": [
+    {
+      "device_id": 4,
+      "hostname": "lab-rtr4.example.net",
+      "display": "Lab router",
+      "ip": "198.51.100.4",
+      "os": "routeros",
+      "hardware": "Synthetic Router password=synthetic-secret",
+      "status": true,
+      "disabled": false,
+      "ignore": true,
+      "uptime": 3600,
+      "location_id": 5,
+      "location": " Lab annex "
+    }
+  ]
+}
