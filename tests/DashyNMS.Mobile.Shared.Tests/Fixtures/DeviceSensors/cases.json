@@ -1,0 +1,234 @@
+{
+  "servers": {
+    "fleet": {
+      "devices": "devices.json",
+      "resources/sensors": "sensors.json"
+    },
+    "deviceByDevice": {
+      "devices": "devices.json",
+      "resources/sensors": 403,
+      "health": "health.json"
+    }
+  },
+  "cases": [
+    {
+      "name": "every reading, problems first",
+      "server": "fleet",
+      "device": 1,
+      "readings": [
+        3,
+        2,
+        5,
+        8,
+        1,
+        6,
+        4,
+        9,
+        7
+      ],
+      "states": [
+        "critical",
+        "critical",
+        "warning",
+        "warning",
+        "ok",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown"
+      ],
+      "assessments": [
+        "Thresholds",
+        "Thresholds",
+        "Thresholds",
+        "SensorLimits",
+        "Thresholds",
+        "Thresholds",
+        "NoReading",
+        "NoLimits",
+        "NoLimits"
+      ],
+      "values": [
+        0,
+        81,
+        -13,
+        3.22,
+        48,
+        -40,
+        null,
+        1,
+        12.1
+      ],
+      "totals": {
+        "readings": 9,
+        "critical": 2,
+        "warning": 2,
+        "ok": 1,
+        "unknown": 4
+      },
+      "types": {
+        "dbm": 2,
+        "fanspeed": 2,
+        "state": 1,
+        "temperature": 2,
+        "voltage": 2
+      },
+      "deviceByDevice": false,
+      "requests": [
+        "devices",
+        "resources/sensors"
+      ]
+    },
+    {
+      "name": "one type by its everyday name",
+      "server": "fleet",
+      "device": 1,
+      "type": "fans",
+      "readings": [
+        3,
+        4
+      ],
+      "states": [
+        "critical",
+        "unknown"
+      ],
+      "assessments": [
+        "Thresholds",
+        "NoReading"
+      ],
+      "values": [
+        0,
+        null
+      ],
+      "totals": {
+        "readings": 2,
+        "critical": 1,
+        "warning": 0,
+        "ok": 0,
+        "unknown": 1
+      },
+      "types": {
+        "fanspeed": 2
+      },
+      "deviceByDevice": false,
+      "requests": [
+        "devices",
+        "resources/sensors"
+      ]
+    },
+    {
+      "name": "read device by device",
+      "server": "deviceByDevice",
+      "device": 1,
+      "readings": [
+        3,
+        2,
+        5,
+        8,
+        1,
+        6,
+        4,
+        9,
+        7
+      ],
+      "states": [
+        "critical",
+        "critical",
+        "warning",
+        "warning",
+        "ok",
+        "unknown",
+        "unknown",
+        "unknown",
+        "unknown"
+      ],
+      "assessments": [
+        "Thresholds",
+        "Thresholds",
+        "Thresholds",
+        "SensorLimits",
+        "Thresholds",
+        "Thresholds",
+        "NoReading",
+        "NoLimits",
+        "NoLimits"
+      ],
+      "values": [
+        0,
+        81,
+        -13,
+        3.22,
+        48,
+        -40,
+        null,
+        1,
+        12.1
+      ],
+      "totals": {
+        "readings": 9,
+        "critical": 2,
+        "warning": 2,
+        "ok": 1,
+        "unknown": 4
+      },
+      "types": {
+        "dbm": 2,
+        "fanspeed": 2,
+        "state": 1,
+        "temperature": 2,
+        "voltage": 2
+      },
+      "deviceByDevice": true,
+      "requests": [
+        "devices",
+        "devices/1/health",
+        "devices/1/health/device_dbm",
+        "devices/1/health/device_dbm/5",
+        "devices/1/health/device_dbm/6",
+        "devices/1/health/device_fanspeed",
+        "devices/1/health/device_fanspeed/3",
+        "devices/1/health/device_fanspeed/4",
+        "devices/1/health/device_state",
+        "devices/1/health/device_state/9",
+        "devices/1/health/device_temperature",
+        "devices/1/health/device_temperature/1",
+        "devices/1/health/device_temperature/2",
+        "devices/1/health/device_voltage",
+        "devices/1/health/device_voltage/7",
+        "devices/1/health/device_voltage/8",
+        "resources/sensors"
+      ]
+    },
+    {
+      "name": "no sensors",
+      "server": "fleet",
+      "device": 3,
+      "readings": [],
+      "states": [],
+      "assessments": [],
+      "values": [],
+      "totals": {
+        "readings": 0,
+        "critical": 0,
+        "warning": 0,
+        "ok": 0,
+        "unknown": 0
+      },
+      "types": {},
+      "deviceByDevice": false,
+      "requests": [
+        "devices",
+        "resources/sensors"
+      ]
+    },
+    {
+      "name": "device not in the list",
+      "server": "fleet",
+      "device": 99,
+      "code": "InvalidRequest",
+      "requests": [
+        "devices"
+      ]
+    }
+  ]
+}

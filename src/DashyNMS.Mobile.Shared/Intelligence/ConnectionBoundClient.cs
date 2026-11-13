@@ -2,12 +2,14 @@ using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
+using System.Text.RegularExpressions;
 
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>
 /// The client handed to shared operations: reviewed search and open-alert reads,
-/// or the overview profile's device, open-alert, port-status and system reads.
+/// the overview profile's device, open-alert, port-status and system reads, or the sensor
+/// profile's device list, sensor list and sensor health routes (#603).
 /// Each instance owns a transport bound to the connection the chat captured.
 /// </summary>
 /// <remarks>
@@ -36,17 +38,22 @@ namespace DashyNMS.Mobile.Intelligence;
 /// Search allows the device list, MAC-specific ARP search, group catalogue and one
 /// group's membership, plus the open alerts query. Location filtering uses the device
 /// list. Overview uses a separate instance permitting only the device and open-alert
-/// lists, fleet port status and system information; it refuses ARP and groups.
+/// lists, fleet port status and system information; it refuses ARP and groups. Sensors use
+/// another instance permitting only the device list, the network-wide sensor list and the
+/// sensor health reads of <see cref="SensorTransport"/>; it refuses alerts, ARP and groups.
 /// All other reads, writes and session controls throw before transport.
 /// </para>
 /// </remarks>
-internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
+internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposable
 {
     private readonly SessionScope scope;
     private readonly Func<SessionScope, ILibreNmsTransport> openTransport;
     private readonly ListOnly devices;
     private readonly OpenOnly alerts;
     private readonly bool overview;
+    private readonly bool sensorProfile;
+    private readonly SensorListOnly sensors;
+    private readonly SensorRoutesOnly sensorRoutes;
     private readonly Lock gate = new();
     private ILibreNmsTransport? transport;
     private LibreNmsResourceApis? apis;
@@ -60,10 +67,15 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     /// Opens a transport for one connection, owned by this client from then on;
     /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
     /// </param>
-    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false)
+    /// <param name="sensors">The sensor profile (#603) rather than search's.</param>
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false)
     {
+        if (overview && sensors) throw new ArgumentException("One profile per client.", nameof(sensors));
         this.scope = scope;
         this.overview = overview;
+        sensorProfile = sensors;
+        this.sensors = new SensorListOnly(this);
+        sensorRoutes = new SensorRoutesOnly(this);
         this.openTransport = openTransport;
         devices = new ListOnly(this);
         alerts = new OpenOnly(this);
@@ -97,7 +109,10 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     /// The resource APIs over the captured connection's transport, opened on first use and
     /// kept with it, so Core's alert source probe runs once per transport rather than per call.
     /// </summary>
-    private LibreNmsResourceApis Apis()
+    private LibreNmsResourceApis Apis() => Open().Apis;
+
+    /// <summary>The captured connection's transport and the resource APIs over it, opened on first use.</summary>
+    private (ILibreNmsTransport Transport, LibreNmsResourceApis Apis) Open()
     {
         LibreNmsResourceApis opened;
         ILibreNmsTransport open;
@@ -113,7 +128,65 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
         // applied since), but never another server, backup or token.
         if (open.Connection is { } dialling && !SameServer(dialling, scope.Connection))
             throw new RetiredException();
-        return opened;
+        return (open, opened);
+    }
+
+    /// <summary>
+    /// The transport handed to the shared sensor operation for LibreNMS's per-device sensor
+    /// routes, which aren't in Core's client yet. Sensor profile only. It reads only
+    /// <c>devices/{id}/health</c>, a sensor type beneath it and one sensor of that type;
+    /// processors, memory pools, storage, every other path and every write are refused before
+    /// transport.
+    /// </summary>
+    public ILibreNmsTransport SensorTransport
+    {
+        get
+        {
+            if (!sensorProfile) throw new RefusedException(nameof(SensorTransport));
+            lock (gate)
+                return retired ? throw new RetiredException() : sensorRoutes;
+        }
+    }
+
+    /// <summary>Whether a path is one of the reviewed sensor health reads.</summary>
+    internal static bool IsSensorRoute(string relativeUrl)
+    {
+        var match = SensorRoute().Match(relativeUrl);
+        return match.Success && !(match.Groups["type"] is { Success: true } type && NotSensors.Contains(type.Value));
+    }
+
+    /// <summary>Health types that aren't sensors; the shared source skips them too.</summary>
+    private static readonly HashSet<string> NotSensors = new(StringComparer.OrdinalIgnoreCase) { "device_processor", "device_mempool", "device_storage" };
+
+    [GeneratedRegex(@"^devices/[1-9][0-9]{0,9}/health(?:/(?<type>device_[a-z0-9_]{1,40})(?:/[1-9][0-9]{0,9})?)?$", RegexOptions.CultureInvariant)]
+    private static partial Regex SensorRoute();
+
+    private Task<IReadOnlyList<Sensor>> ListSensorsAsync(CancellationToken cancellationToken) => Apis().Sensors.ListAsync(cancellationToken);
+
+    private Task<IReadOnlyList<T>> GetSensorRouteAsync<T>(string relativeUrl, string collectionProperty, CancellationToken cancellationToken)
+    {
+        if (!IsSensorRoute(relativeUrl)) throw new RefusedException("Reading " + nameof(ILibreNmsTransport) + " paths other than sensor health");
+        return Open().Transport.GetCollectionAsync<T>(relativeUrl, collectionProperty, cancellationToken);
+    }
+
+    /// <summary>The network-wide sensor list and nothing else of <see cref="ISensorsApi"/>.</summary>
+    private sealed class SensorListOnly(ConnectionBoundClient owner) : ISensorsApi
+    {
+        public Task<IReadOnlyList<Sensor>> ListAsync(CancellationToken cancellationToken = default) => owner.ListSensorsAsync(cancellationToken);
+    }
+
+    /// <summary>Typed reads of the sensor health routes; nothing raw, nothing written.</summary>
+    private sealed class SensorRoutesOnly(ConnectionBoundClient owner) : ILibreNmsTransport
+    {
+        public LibreNmsConnection? Connection => throw new RefusedException(nameof(Connection));
+
+        public Task<IReadOnlyList<T>> GetCollectionAsync<T>(string relativeUrl, string collectionProperty, CancellationToken cancellationToken = default)
+            => owner.GetSensorRouteAsync<T>(relativeUrl, collectionProperty, cancellationToken);
+
+        public Task<System.Text.Json.JsonDocument> SendAsync(HttpMethod method, string relativeUrl, object? body = null, CancellationToken cancellationToken = default)
+            => throw new RefusedException(nameof(SendAsync));
+
+        public Task<string> SendRawAsync(string relativeUrl, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(SendRawAsync));
     }
 
     private Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken) => Apis().Devices.ListAsync(cancellationToken);
@@ -176,6 +249,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     {
         get
         {
+            if (sensorProfile) throw new RefusedException(nameof(Alerts));
             lock (gate)
                 return retired ? throw new RetiredException() : alerts;
         }
@@ -183,7 +257,16 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
 
     public IAlertRulesApi Rules => throw new RefusedException(nameof(Rules));
     public IAlertTemplatesApi AlertTemplates => throw new RefusedException(nameof(AlertTemplates));
-    public ISensorsApi Sensors => throw new RefusedException(nameof(Sensors));
+    public ISensorsApi Sensors
+    {
+        get
+        {
+            if (!sensorProfile) throw new RefusedException(nameof(Sensors));
+            lock (gate)
+                return retired ? throw new RetiredException() : sensors;
+        }
+    }
+
     public IPortsApi Ports => overview ? new StatusOnly(this) : throw new RefusedException(nameof(Ports));
 
     private sealed class StatusOnly(ConnectionBoundClient owner) : IPortsApi
@@ -201,7 +284,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     public ILinksApi Links => throw new RefusedException(nameof(Links));
     public IDeviceHealthApi Health => throw new RefusedException(nameof(Health));
     public IFdbApi Fdb => throw new RefusedException(nameof(Fdb));
-    public IArpApi Arp => overview ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
+    public IArpApi Arp => overview || sensorProfile ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
 
     private sealed class SearchArp(ConnectionBoundClient owner) : IArpApi
     {
@@ -211,7 +294,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
         public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
     }
     public IVlansApi Vlans => throw new RefusedException(nameof(Vlans));
-    public IDeviceGroupsApi DeviceGroups => overview ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
+    public IDeviceGroupsApi DeviceGroups => overview || sensorProfile ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
 
     private sealed class SearchGroups(ConnectionBoundClient owner) : IDeviceGroupsApi
     {

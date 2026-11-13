@@ -127,14 +127,15 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<SettingsViewModel>();
         services.AddTransient<MoreViewModel>();
 
-        // find_device gets a transport of its own per chat attempt, pinned to the connection
+        // The shared lookups get a transport of its own per chat attempt, pinned to the connection
         // the chat captured (#596). The host keeps it in step with the session: timeout,
         // trusted certificates, backup address, timing and the certificate prompt.
         services.AddSingleton<Intelligence.IntelligenceDeviceTransports>();
         services.AddTransient<Intelligence.IIntelligenceLookups>(sp => new Intelligence.CompactNetworkLookups(
             sp.GetRequiredService<ILibreNmsClient>(), sp.GetRequiredService<ISettingsStore>(), sp.GetRequiredService<ISessionService>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<Intelligence.IntelligenceDeviceTransports>().Open));
+            sp.GetRequiredService<Intelligence.IntelligenceDeviceTransports>().Open,
+            sp.GetRequiredService<SensorDefinitions>().ReadOnlyStore));
         services.AddSingleton<Intelligence.IntelligencePreferences>();
         services.AddTransient<Intelligence.IntelligenceSettingsViewModel>();
         services.AddSingleton<Intelligence.IntelligenceConversationViewModel>();

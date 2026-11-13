@@ -1,0 +1,220 @@
+{
+  "devices/1/health": {
+    "status": "ok",
+    "graphs": [
+      {
+        "desc": "Temperature",
+        "name": "device_temperature"
+      },
+      {
+        "desc": "Fanspeed",
+        "name": "device_fanspeed"
+      },
+      {
+        "desc": "Dbm",
+        "name": "device_dbm"
+      },
+      {
+        "desc": "Voltage",
+        "name": "device_voltage"
+      },
+      {
+        "desc": "State",
+        "name": "device_state"
+      },
+      {
+        "desc": "Processor",
+        "name": "device_processor"
+      },
+      {
+        "desc": "Storage",
+        "name": "device_storage"
+      }
+    ]
+  },
+  "devices/1/health/device_temperature": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 1,
+        "desc": "Chassis"
+      },
+      {
+        "sensor_id": 2,
+        "desc": "Module 2"
+      }
+    ]
+  },
+  "devices/1/health/device_temperature/1": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 1,
+        "device_id": 1,
+        "sensor_class": "temperature",
+        "sensor_descr": "Chassis",
+        "sensor_current": 48,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_temperature/2": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 2,
+        "device_id": 1,
+        "sensor_class": "temperature",
+        "sensor_descr": "Module 2",
+        "sensor_current": 81,
+        "sensor_limit": 80,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_fanspeed": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 3,
+        "desc": "Fan 1"
+      },
+      {
+        "sensor_id": 4,
+        "desc": "Fan 2"
+      }
+    ]
+  },
+  "devices/1/health/device_fanspeed/3": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 3,
+        "device_id": 1,
+        "sensor_class": "fanspeed",
+        "sensor_descr": "Fan 1",
+        "sensor_current": 0,
+        "sensor_limit_low": 1000,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_fanspeed/4": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 4,
+        "device_id": 1,
+        "sensor_class": "fanspeed",
+        "sensor_descr": "Fan 2",
+        "sensor_current": null,
+        "sensor_limit_low": 1000,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_dbm": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 5,
+        "desc": "1/1/49 Rx Power"
+      },
+      {
+        "sensor_id": 6,
+        "desc": "1/1/50 Rx Power"
+      }
+    ]
+  },
+  "devices/1/health/device_dbm/5": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 5,
+        "device_id": 1,
+        "sensor_class": "dbm",
+        "sensor_descr": "1/1/49 Rx Power",
+        "sensor_current": -13,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_dbm/6": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 6,
+        "device_id": 1,
+        "sensor_class": "dbm",
+        "sensor_descr": "1/1/50 Rx Power",
+        "sensor_current": -40,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_voltage": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 7,
+        "desc": "PSU 1 Output"
+      },
+      {
+        "sensor_id": 8,
+        "desc": "3.3 V Rail"
+      }
+    ]
+  },
+  "devices/1/health/device_voltage/7": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 7,
+        "device_id": 1,
+        "sensor_class": "voltage",
+        "sensor_descr": "PSU 1 Output",
+        "sensor_current": 12.1,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_voltage/8": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 8,
+        "device_id": 1,
+        "sensor_class": "voltage",
+        "sensor_descr": "3.3 V Rail",
+        "sensor_current": 3.22,
+        "sensor_limit_low": 3.0,
+        "sensor_limit_low_warn": 3.25,
+        "sensor_limit_warn": 3.4,
+        "sensor_limit": 3.6,
+        "sensor_deleted": 0
+      }
+    ]
+  },
+  "devices/1/health/device_state": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 9,
+        "desc": "PSU 1 State"
+      }
+    ]
+  },
+  "devices/1/health/device_state/9": {
+    "status": "ok",
+    "graphs": [
+      {
+        "sensor_id": 9,
+        "device_id": 1,
+        "sensor_class": "state",
+        "sensor_descr": "PSU 1 State",
+        "sensor_current": 1,
+        "sensor_deleted": 0
+      }
+    ]
+  }
+}

@@ -107,7 +107,7 @@ public static class IntelligenceStatusTone
         {
             "device" => $"Open device {reference.Name}{status}",
             "alert" or "fault" => $"Open alert {reference.Name}{status}",
-            "sensor" => $"Open sensors including {reference.Name}",
+            "sensor" => $"Open sensors including {reference.Name}{status}",
             "group" => $"Show devices in group {reference.Name}",
             "location" => $"Show devices at location {reference.Name}",
             _ => reference.Name + status,

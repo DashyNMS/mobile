@@ -413,7 +413,7 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Sensors_and_locations_carry_navigable_references_without_a_health_claim()
+    public async Task Sensors_carry_their_assessed_state_and_locations_a_navigable_reference()
     {
         var device = Fakes.Device(12, "edge.example.net", sysName: "edge-router-a", location: "Example lab");
         device.LocationId = 4;
@@ -426,13 +426,93 @@ public sealed class CompactNetworkLookupsTests
         var sensors = await lookups.Single(l => l.Name == "device_sensors").Run("12", default);
         var summary = await lookups.Single(l => l.Name == "device_summary").Run("12", default);
 
-        Assert.StartsWith("Sensors on edge-router-a [[device:12]]: 1.", sensors);
-        Assert.Contains("Inlet temperature [[sensor:31]]: temperature; reading 41; unit C", sensors);
+        Assert.StartsWith("Sensors on edge-router-a [[device:12]]: 1; 0 critical, 0 warning, 1 OK, 0 unknown.", sensors);
+        Assert.Contains("Inlet temperature [[sensor:31]]: temperature 41 °C; OK", sensors);
         Assert.Contains("location: Example lab [[location:4]]", summary);
         var sensor = Assert.Single(evidence, r => r.Reference.Key == "sensor:31").Reference;
-        Assert.Equal("", sensor.Status);
+        Assert.Equal("OK", sensor.Status);
+        Assert.Equal("up", sensor.Tone);
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("sensor", 31, 12), sensor.Object);
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("location", 4), Assert.Single(evidence, r => r.Reference.Key == "location:4").Reference.Object);
+    }
+
+    [Fact]
+    public async Task Sensor_problems_come_first_and_missing_or_unassessed_readings_are_never_ok()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new Sensor { SensorId = 1, DeviceId = 1, Description = "Chassis", Current = 48, SensorClass = "temperature" },
+            new Sensor { SensorId = 2, DeviceId = 1, Description = "Module 2", Current = 81, SensorClass = "temperature", LimitHigh = 80 },
+            new Sensor { SensorId = 3, DeviceId = 1, Description = "Fan 1", Current = 0, SensorClass = "fanspeed", LimitLow = 1000 },
+            new Sensor { SensorId = 4, DeviceId = 1, Description = "Fan 2", Current = null, SensorClass = "fanspeed", LimitLow = 1000 },
+            new Sensor { SensorId = 5, DeviceId = 1, Description = "PSU 1 Output", Current = 12.1, SensorClass = "voltage" },
+        });
+        var evidence = new List<IntelligenceEvidence>();
+        var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client))
+            .Create(evidence.AddRange).Single(l => l.Name == "device_sensors").Run("1", default);
+
+        var lines = text.Split('\n');
+        Assert.Equal("Sensors on core-sw1.example.net [[device:1]]: 5; 2 critical, 0 warning, 1 OK, 2 unknown.", lines[0]);
+        Assert.Equal("Fan 1 [[sensor:3]]: fanspeed 0 RPM; critical (low critical limit 1000)", lines[1]);
+        Assert.Equal("Module 2 [[sensor:2]]: temperature 81 °C; critical (high critical limit 80)", lines[2]);
+        Assert.Equal("Chassis [[sensor:1]]: temperature 48 °C; OK", lines[3]);
+        Assert.Equal("Fan 2 [[sensor:4]]: fanspeed no reading; state unknown", lines[4]);
+        Assert.Equal("PSU 1 Output [[sensor:5]]: voltage 12.1 V; not assessed: no limits", lines[5]);
+        Assert.Equal(["critical", "critical", "up", "unknown", "unknown"],
+            evidence.Where(e => e.Reference.Key.StartsWith("sensor:", StringComparison.Ordinal)).Select(e => e.Reference.Tone));
+        Assert.Equal("Not assessed", evidence.Single(e => e.Reference.Key == "sensor:5").Reference.Status);
+    }
+
+    [Fact]
+    public async Task Sensor_rows_that_do_not_fit_are_counted_and_get_no_evidence()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Enumerable.Range(1, 60)
+            .Select(i => new Sensor { SensorId = i, DeviceId = 1, Description = $"Sensor {i} with a longer description", Current = 20, SensorClass = "temperature" }).ToList());
+        var evidence = new List<IntelligenceEvidence>();
+        var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client))
+            .Create(evidence.AddRange).Single(l => l.Name == "device_sensors").Run("1", default);
+
+        Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
+        Assert.Contains("more results omitted", text);
+        Assert.All(evidence, r => Assert.Contains("[[" + r.Reference.Key + "]]", text));
+        Assert.DoesNotContain(evidence, r => r.Reference.Key == "sensor:60");
+    }
+
+    [Fact]
+    public async Task Sensors_never_read_through_the_session_client()
+    {
+        var session = Fakes.Client();
+        var bound = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        bound.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new[] { new Sensor { SensorId = 9, DeviceId = 1, Description = "Inlet", Current = 20, SensorClass = "temperature" } });
+        var lookup = new CompactNetworkLookups(session, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(bound)).Create().Single(l => l.Name == "device_sensors");
+
+        Assert.Contains("[[sensor:9]]", await lookup.Run("1", default));
+        await session.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+        await session.Devices.DidNotReceive().GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Sensors_fail_closed_without_a_connection_bound_transport()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create().Single(l => l.Name == "device_sensors");
+
+        Assert.Equal(CompactNetworkLookups.Failed, await lookup.Run("1", default));
+        await client.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_device_the_list_does_not_hold_and_a_refused_sensor_list_get_fixed_lines()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "device_sensors");
+        Assert.Equal(CompactNetworkLookups.UnknownDevice, await lookup.Run("99", default));
+
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Sensor>>(
+            new LibreNmsApiException("password=synthetic-secret", System.Net.HttpStatusCode.Unauthorized, serverMessage: "password=synthetic-secret")));
+        Assert.Equal(CompactNetworkLookups.Refused, await lookup.Run("1", default));
     }
 
     [Fact]

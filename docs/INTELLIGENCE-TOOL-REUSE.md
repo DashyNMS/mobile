@@ -67,7 +67,9 @@ changes. Without a transport factory, `find_device` fails closed.
 `IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
 `IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
 list, without a locations endpoint. For
-`active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` is allowed; every other
+`active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` is allowed. `device_sensors` has a
+profile of its own: `IDevicesApi.ListAsync`, `ISensorsApi.ListAsync` and the sensor health
+routes (see below), with no alerts, ARP or groups. Every other
 endpoint, alert query, alert action and session control throws before transport. Each model attempt
 owns an `IntelligenceLookupSet` and disposes it however the attempt ends, which
 closes the transport. A switch or sign-out does the same straight away: waits
@@ -159,6 +161,67 @@ beside its open siblings, and failures on the alert routes.
 states, counts, totals and request logs as MCP, and fail alike. Cases mobile can't
 ask (severity, location, paging) run through the package alone.
 
+## How device_sensors is built
+
+The sensor migration (#603), built on DashyNMS/mcp's `DeviceSensors` (DashyNMS/mcp#129,
+published at `812266d` as `2.0.0-ci.43365576634.1`).
+Everything under find_device's host ownership, lifetime, cancellation and CI applies
+unchanged; this section covers only what differs.
+
+**Adapter.** Each lookup set creates one `HostDeviceSensors` over its own sensor-profile
+`ConnectionBoundClient` and transport, as the overview has its own, and asks for one device id.
+Judging each reading, the problem-first order, the device-by-device fallback and
+redaction come from upstream. MCP's `device_sensors` runs the same operation. The
+assessment is MCP's: the sensor's own LibreNMS limits, Core's default thresholds for dBm,
+signal, temperature and fan speed where it has none, and an installed state definition's
+severity. Desktop doesn't give MCP the person's own thresholds, so chat doesn't use
+them on either platform: a reading can differ between chat and the Health page when
+someone has changed Settings › Thresholds. Fixing that is an upstream change for both.
+Mobile maps the result to:
+
+- a heading with every count, unknown kept apart from OK:
+  `Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown.`;
+- one row per reading, worst first: description, `[[sensor:ID]]`, class, value and unit or
+  the state definition's label, and the state. A problem names the sensor's own critical
+  limits (`critical (high critical limit 80)`). A missing reading reads `no reading`, never `0`.
+  A reading with nothing to judge it by reads `not assessed: no limits`; one in the dBm
+  "nothing plugged in" band reads `state unknown`. Neither is ever called OK;
+- readings that don't fit counted as omitted from the totals;
+- evidence only for rows shown: each sensor with its state (`critical`, `warning`, `up` for
+  OK, `unknown` otherwise) and the device with its reported state.
+
+**Sensor routes.** When LibreNMS refuses this account the network-wide list (403),
+upstream reads the device's own health routes instead, which Core's client doesn't have
+yet. `ConnectionBoundClient.SensorTransport` hands it typed reads of exactly
+`devices/{id}/health`, `devices/{id}/health/device_{type}` and
+`devices/{id}/health/device_{type}/{sensor}` on the captured connection's transport.
+Processors, memory pools and storage, every other path, raw reads and writes are
+refused before transport. The refusal is remembered for the lookup set, so later
+questions in the same attempt go straight to the device's routes.
+
+**Definitions.** The lookups get `SensorDefinitions.ReadOnlyStore`, a read-only store over
+the app's cached catalogue, as desktop gives MCP. A question never downloads or writes
+definitions; it rereads the saved choice, so turning them off applies at once.
+
+**Failures.** No partial success. `Refused` maps to the refusal line, a device the list
+doesn't hold to `No device with that id is visible to this account. Use find_device for its id.`,
+everything else to the failure line.
+
+**Profile.** Name and single `query` argument unchanged: a positive device id. The type
+filter stays unadvertised.
+
+**Fixtures.** `tests/.../Fixtures/DeviceSensors` is a byte-for-byte copy of DashyNMS/mcp's:
+a zero fan reading beside a missing one, readings judged by their own limits and by the
+defaults, a dBm reading in the "nothing plugged in" band, a voltage and a state sensor with
+nothing to judge them by, another device's sensor, the device's health routes for the
+fallback (listing processor and storage types that must never be read), and failures on
+the network-wide list and the device route. `scripts/check-shared-fixtures.sh` covers it.
+Over loopback HTTP, mobile `device_sensors` and `HostDeviceSensors` must give the same
+readings, order, states, values, totals and request logs as MCP, and fail alike. The
+fallback reads concurrently, so its requests are compared as a set. The type case runs
+through the package alone. Installed state definitions need a catalogue on disk and
+are covered in Core, not here.
+
 ## Rules every shared tool keeps
 
 - **The host owns the clients.** Transport, certificate trust, failover,
@@ -232,7 +295,7 @@ and compare them with `IntelligenceToolAllowlist.Names`.
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared, compact rows and evidence (#600) |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, paging | Shared, device id only (#601) |
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Nearest to mobile's `device_summary` (#602) |
-| `device_sensors` | Threshold-assessed readings, problems first | Mobile's own, raw readings (#603) |
+| `device_sensors` | Threshold-assessed readings, problems first | Shared, device id only (#603) |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not offered (#610) |
 | `list_groups_and_locations` | Group and location catalogue | Not offered (#610) |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Not offered (#610) |
@@ -251,14 +314,13 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 | Mobile lookup | Difference from the shared tool | Issue |
 | --- | --- | --- |
 | `device_summary` | No exact equivalent: `device_health` fans out much further. Keep the location id with the exact filter name, and the person's device-name choice. | #602 |
-| `device_sensors` | Fleet list labelled raw with unknown health. Agent assesses limits, orders problems first, and falls back per device when the fleet endpoint is denied. Keep a missing reading distinct from zero. | #603 |
 | Former diagnostic `NetworkOverviewLookup` | Removed with the diagnostic under #595. Historical measurements remain documented; there is no diagnostic lookup to migrate. | (#595) |
 
 ## Remaining work
 
 - #620: search rows say when a device is in maintenance.
 - #609: NuGet lock files for the Core and Shared pins.
-- #603: shared sensor assessment. #602: shared device summary.
+- #602: shared device summary.
 - #607: trimmed Android and installed iOS runs, tokens and size deltas.
 - #610: further catalogue tools (epic), one issue per group as each starts.
 
