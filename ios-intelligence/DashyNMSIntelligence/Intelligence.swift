@@ -64,7 +64,7 @@ public final class Lookup: NSObject, @unchecked Sendable {
     }
 }
 
-/// A lookup as Foundation Models sees it. Its one argument, `query`, is
+/// A lookup as Foundation Models sees it. Its arguments are
 /// described by hand rather than with the @Generable macro: CodeQL builds
 /// this under Rosetta, where the compiler's macro plugin can't load.
 @available(iOS 26.0, *)
@@ -75,7 +75,15 @@ struct LookupTool: Tool {
     var description: String { lookup.purpose }
 
     var parameters: GenerationSchema {
-        GenerationSchema(
+        if lookup.name == "find_device" {
+            return GenerationSchema(type: GeneratedContent.self, description: "Device search", properties: [
+                GenerationSchema.Property(name: "query", description: "Name, IP or MAC", type: String?.self),
+                GenerationSchema.Property(name: "status", description: "up, down, disabled", type: String?.self),
+                GenerationSchema.Property(name: "group", description: "Group name", type: String?.self),
+                GenerationSchema.Property(name: "location", description: "Location name", type: String?.self)
+            ])
+        }
+        return GenerationSchema(
             type: GeneratedContent.self,
             description: "What to look up",
             properties: [
@@ -87,6 +95,19 @@ struct LookupTool: Tool {
     }
 
     func call(arguments: GeneratedContent) async throws -> String {
+        if lookup.name == "find_device" {
+            var fields: [String: String] = [:]
+            for key in ["query", "status", "group", "location"] {
+                if let value = try? arguments.value(String.self, forProperty: key) {
+                    fields[key] = value
+                }
+            }
+            guard let data = try? JSONSerialization.data(withJSONObject: fields),
+                  let payload = String(data: data, encoding: .utf8) else {
+                return "The lookup failed."
+            }
+            return await lookup.run(payload)
+        }
         let query = (try? arguments.value(String.self, forProperty: "query")) ?? ""
         return await lookup.run(query)
     }

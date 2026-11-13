@@ -23,10 +23,8 @@ namespace DashyNMS.Mobile.Tests;
 /// <remarks>
 /// Nothing in Core is faked: status codes, bodies, retries, the timeout and an address with
 /// nothing listening reach each side through Core's own parsing and retry policy, and each
-/// side's server counts what reached it. Mobile's <c>find_device</c> takes only search text, so
-/// the scope cases run through the package's executor alone. That shows the package and mobile's
-/// Core pin agree with MCP on scopes, not that mobile offers them. A separate test checks that
-/// <c>find_device</c> never reads a group. The fixture README lists what is still not compared.
+/// side's server counts what reached it. Scope cases run through both adapters.
+/// MAC cases below use additional synthetic ARP responses, separate from the shared bundle.
 /// </remarks>
 public sealed partial class SharedDeviceSearchHttpTests
 {
@@ -176,12 +174,16 @@ public sealed partial class SharedDeviceSearchHttpTests
 
     [Theory]
     [MemberData(nameof(ScopeCases))]
-    public async Task The_package_on_mobiles_Core_applies_the_shared_scope_boundaries(int index)
+    public async Task Mobile_and_the_package_apply_the_shared_scope_boundaries(int index)
     {
         var c = Scopes.GetProperty("cases")[index];
         var routes = ScopeRoutes();
         using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
         using var package = new Package(server.Root);
+        using var mobileServer = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(mobileServer.Root);
+        var payload = JsonSerializer.Serialize(new { query = Text(c, "query"), status = Text(c, "status"), group = Text(c, "group"), location = Text(c, "location") });
+        var reply = await mobile.Find.Run(payload, default);
 
         var outcome = await package.Search.FindDevicesAsync(new(Text(c, "query"), Text(c, "status"), Text(c, "group"), Text(c, "location"),
             Limit: DeviceSearch.MaxMatches));
@@ -190,14 +192,85 @@ public sealed partial class SharedDeviceSearchHttpTests
         {
             Assert.Null(outcome.Result);
             Assert.Equal(Enum.Parse<DeviceSearchFailure>(code), outcome.Error!.Code);
+            Assert.Equal(CompactNetworkLookups.InvalidSearch, reply);
+            Assert.Empty(mobile.Evidence);
         }
         else
         {
             Assert.Null(outcome.Error);
             Assert.Equal(Ints(c, "ids"), outcome.Result!.Matches.Select(m => m.Device.DeviceId));
             Assert.Equal(c.GetProperty("total").GetInt32(), outcome.Result.Page.Total);
+            Assert.Equal(Ints(c, "ids"), ShownIds(reply));
+            Assert.StartsWith($"Matching devices: {outcome.Result.Page.Total}.", reply);
         }
         Assert.Equal(Strings(c, "requests"), server.Requests);
+        Assert.Equal(Strings(c, "requests"), mobileServer.Requests);
+    }
+
+    [Fact]
+    public async Task Search_combines_text_status_group_and_location()
+    {
+        var routes = ScopeRoutes();
+        using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(server.Root);
+        var reply = await mobile.Find.Run("{\"query\":\"sw\",\"status\":\"up\",\"group\":\"Core switches\",\"location\":\"Core\"}", default);
+        // All four group members are up and at Core in the shared fixture.
+        Assert.StartsWith("Matching devices: 4.", reply);
+        Assert.Equal(new[] { 3, 5, 2, 1 }, ShownIds(reply));
+        Assert.Contains("devicegroups/1", server.Requests);
+    }
+
+    [Theory]
+    [InlineData("02:00:00:00:00:01")]
+    [InlineData("02-00-00-00-00-01")]
+    [InlineData("0200.0000.0001")]
+    [InlineData("020000000001")]
+    public async Task MAC_search_reports_stored_observations_and_matches_the_package(string query)
+    {
+        var routes = ScopeRoutes();
+        routes["resources/ip/arp/02:00:00:00:00:01"] = new(200,
+            """{"arp":[{"device_id":1,"port_id":7,"ipv4_address":"192.0.2.77","mac_address":"020000000001"},{"device_id":1,"port_id":8,"ipv4_address":"192.0.2.78","mac_address":"020000000001"}]}""");
+        using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var packageServer = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(server.Root);
+        using var package = new Package(packageServer.Root);
+        var reply = await mobile.Find.Run(JsonSerializer.Serialize(new { query }), default);
+        var result = (await package.Search.FindDevicesAsync(new(query))).Result!;
+        Assert.True(result.IsMacSearch);
+        Assert.Equal(result.Matches.Select(m => m.Device.DeviceId), ShownIds(reply));
+        Assert.StartsWith("Devices with stored ARP observations: 1. Observations do not prove ownership.", reply);
+        Assert.Contains("192.0.2.77 on port 7", reply);
+        Assert.Contains("192.0.2.78 on port 8", reply);
+        Assert.Single(mobile.Evidence);
+        Assert.True(reply.Length <= CompactNetworkLookups.MaxCharacters);
+        Assert.Equal(packageServer.Requests, server.Requests);
+    }
+
+    [Theory]
+    [InlineData("resources/ip/arp/02:00:00:00:00:01", 403)]
+    [InlineData("devicegroups", 403)]
+    [InlineData("devicegroups/1", 403)]
+    public async Task Denied_search_sources_are_refusals_not_empty_results(string denied, int status)
+    {
+        var routes = ScopeRoutes();
+        routes[denied] = new(status, """{"status":"error","message":"synthetic-secret"}""");
+        using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(server.Root);
+        var payload = denied.StartsWith("resources") ? "{\"query\":\"020000000001\"}" : "{\"group\":\"Core switches\"}";
+        Assert.Equal(CompactNetworkLookups.Refused, await mobile.Find.Run(payload, default));
+        Assert.Empty(mobile.Evidence);
+    }
+
+    [Fact]
+    public async Task An_empty_ARP_table_is_an_empty_observation_result()
+    {
+        var routes = ScopeRoutes();
+        routes["resources/ip/arp/02:00:00:00:00:01"] = new(200, """{"arp":[]}""");
+        using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(server.Root);
+        var reply = await mobile.Find.Run("020000000001", default);
+        Assert.StartsWith("Devices with stored ARP observations: 0.", reply);
+        Assert.Empty(mobile.Evidence);
     }
 
     /// <summary>

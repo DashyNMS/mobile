@@ -31,7 +31,7 @@ public enum IntelligenceAvailability
 /// </summary>
 /// <param name="Name">What the model calls it; letters and underscores.</param>
 /// <param name="Purpose">When and how to use it, in a sentence. This is spent from the context on every question.</param>
-/// <param name="Run">Runs the lookup for the model's query, which is empty when it wants everything.</param>
+/// <param name="Run">Runs the lookup for the model's query, or the native bridge's named search arguments encoded as JSON.</param>
 public sealed record IntelligenceLookup(string Name, string Purpose, Func<string, CancellationToken, Task<string>> Run);
 
 /// <summary>

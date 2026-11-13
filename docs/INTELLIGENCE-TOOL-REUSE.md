@@ -63,8 +63,11 @@ generation they came from. Chats and lookups are bound by `SessionScope`
 object, which Core replaces whenever a certificate is trusted or the timeout
 changes. Without a transport factory, `find_device` fails closed.
 
-**Allowlist and lifetime.** Only `IDevicesApi.ListAsync` and, for
-`active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` are allowed; every other
+**Allowlist and lifetime.** Device search permits `IDevicesApi.ListAsync`,
+`IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
+`IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
+list, without a locations endpoint. For
+`active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` is allowed; every other
 endpoint, alert query, alert action and session control throws before transport. Each model attempt
 owns an `IntelligenceLookupSet` and disposes it however the attempt ends, which
 closes the transport. A switch or sign-out does the same straight away: waits
@@ -77,16 +80,30 @@ as fixed upstream categories with no server text; mobile maps `Refused` to its
 refusal line and everything else to its failure line. An empty result is not a
 failure. Nothing is logged.
 
-**Profile.** The model-facing name, purpose and single `query` argument are
-unchanged. Search is by text only: MAC-shaped queries are refused before any
-request, and ARP and group endpoints are blocked (#608).
+**Profile (#608).** `find_device` takes optional string arguments `query` (name,
+IP or MAC), `status` (up, down or disabled), `group` and `location`. At least one
+must be supplied. Filters can be combined or used without text. The native
+schema passes a JSON object through the existing string bridge; plain text
+callers still search by query. Unknown, duplicate and non-string arguments are
+rejected before transport. The shared operation resolves exact names first,
+then unambiguous partial names. Filter names are passed untouched, separate
+from cleaned display labels; search returns device evidence, never group or
+location evidence inferred from a filter.
+
+MAC results name devices whose stored ARP tables contain the MAC. The heading
+explicitly says observations do not prove ownership. Each row includes up to
+two observed IP/port pairs, counts further sightings and keeps the normal device
+reference. No ARP sighting becomes an endpoint ownership claim or a separate link.
+Empty observations and refused reads remain distinct.
 
 **Fixtures.** `tests/.../Fixtures/DeviceSearch` is a byte-for-byte copy of
 DashyNMS/mcp's synthetic bundle, and `scripts/check-shared-fixtures.sh` fails CI
 if it drifts. Over loopback HTTP, mobile `find_device` (through the per-chat
 transports) and `HostDeviceSearch` (over Core's real client) must give the same
 ids, order, totals and per-server request counts as MCP, including Core's
-retries. Scope cases run through the package on mobile's Core pin. The fixture
+retries. Scope cases run through both the package and mobile on mobile's Core pin.
+Additional synthetic HTTP cases cover MAC formats, observations, empty ARP and
+refused ARP/group reads without changing the upstream fixture bundle. The fixture
 README lists what isn't compared.
 
 **CI.** Android Release and `iOS Release (device, unsigned)` (`ios-arm64`, Mono
@@ -167,9 +184,11 @@ ask (severity, location, paging) run through the package alone.
   Evidence comes only from rows shown, and an aggregate count never becomes an
   entity link. Alert groups use a device/rule key distinct from fault ids, so a
   fault and a legacy alert with the same number never share ownership.
-- **Budgets.** Definitions stay within 80 tokens each, inside the conversation
-  budget in `IntelligenceConversationViewModel` (550 fixed, 720 for two
-  results, 400 for output, within 80% of the reported context). Measured
+- **Budgets.** Definitions reserve 80 tokens each, with 160 reserved for the
+  four-argument device search. This is a conservative allowance, not a new
+  device measurement. The conversation budget in `IntelligenceConversationViewModel`
+  reserves 630 fixed, 720 for two
+  results and 400 for output, within 80% of the reported context. Measured
   figures are in [DEVELOPING.md](DEVELOPING.md#what-the-on-device-model-can-do-570).
   Tools are chosen by task; all 24 schemas are never placed in the on-device
   context.
@@ -209,7 +228,7 @@ and compare them with `IntelligenceToolAllowlist.Names`.
 
 | Tool | Capability | Mobile |
 | --- | --- | --- |
-| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, text only (#608) |
+| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, MAC and scope filters (#608) |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Mobile's own, narrower (#600) |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, paging | Shared, device id only (#601) |
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Nearest to mobile's `device_summary` (#602) |
@@ -243,5 +262,4 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 - #600: shared overview.
 - #603: shared sensor assessment. #602: shared device summary.
 - #607: trimmed Android and installed iOS runs, tokens and size deltas.
-- #608: MAC, group and location search in chat.
 - #610: further catalogue tools (epic), one issue per group as each starts.

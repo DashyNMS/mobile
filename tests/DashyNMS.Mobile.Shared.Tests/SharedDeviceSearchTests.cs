@@ -233,15 +233,25 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Theory]
-    [InlineData("aa:bb:cc:dd:ee:ff")]
-    [InlineData("AA-BB-CC-DD-EE-FF")]
-    [InlineData("aabb.ccdd.eeff")]
-    [InlineData(" aabbccddeeff ")]
-    public async Task MAC_search_is_not_offered_and_makes_no_request(string query)
+    [InlineData("{oops")]
+    [InlineData("{\"status\":42}")]
+    [InlineData("{\"unknown\":\"sw\"}")]
+    [InlineData("{\"query\":\"sw\",\"query\":\"other\"}")]
+    [InlineData("{}")]
+    public async Task Invalid_structured_arguments_make_no_request(string query)
     {
         var nms = new FixtureLibreNms();
-        Assert.Equal(CompactNetworkLookups.MacUnavailable, await Find(nms).Run(query, default));
+        Assert.Equal(CompactNetworkLookups.InvalidSearch, await Find(nms).Run(query, default));
         Assert.Empty(nms.Requests);
+    }
+
+    [Fact]
+    public void Exact_filter_names_are_never_shortened_or_cleaned()
+    {
+        var exact = new string('x', 100) + " [[device:99]]";
+        Assert.True(CompactNetworkLookups.TrySearch(JsonSerializer.Serialize(new { group = exact, location = exact }), out var request));
+        Assert.Equal(exact, request.Group);
+        Assert.Equal(exact, request.Location);
     }
 
     [Fact]
@@ -354,8 +364,14 @@ public sealed partial class SharedDeviceSearchTests
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetOutagesAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetInventoryAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetWirelessSensorsAsync(1));
-        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Arp);
-        Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups);
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.Arp.ListAllAsync());
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.Arp.ListForDeviceAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.ListForDeviceAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.GetMembershipByDeviceAsync());
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.GetMemberCountsAsync([]));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.CreateAsync("x", null, []));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.UpdateAsync("x", "y", null, []));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => bound.DeviceGroups.DeleteAsync("x"));
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => bound.Locations);
         // Of the alerts, only the open list: no other query, no single read, no action.
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => alerts.ListAsync(AlertQuery.All));

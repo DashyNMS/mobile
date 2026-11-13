@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using DashyNMS.Agent.Alerts;
 using DashyNMS.Agent.Devices;
@@ -78,7 +79,7 @@ public sealed partial class CompactNetworkLookups(
     internal const string Failed = "The lookup failed. LibreNMS could not be reached.";
     internal const string Changed = "The connection changed. Start a new chat.";
     internal const string Refused = "The lookup failed. LibreNMS refused this account access to the data.";
-    internal const string MacUnavailable = "Search by device name or IP address. MAC address search isn't available here yet.";
+    internal const string InvalidSearch = "Supply a name, IP or MAC, or a status (up, down, disabled), group or location. Use an unambiguous group or location name.";
 
     /// <summary>
     /// Rows asked of the shared search. Ten or so fit in <see cref="MaxCharacters"/>;
@@ -317,23 +318,30 @@ public sealed partial class CompactNetworkLookups(
                     Ordered(als).Select(a => AlertRow(a, byId, at))
                         .Concat(ds.Where(d => d.ReportedState == DeviceState.Down).OrderBy(d => d.DeviceId).Select(d => DeviceRow(d, at))));
             }),
-            Lookup("find_device", "Find devices by name or IP. Query is the search text.", async (query, at, ct) =>
+            Lookup("find_device", "Find devices by name, IP or MAC; filter by status, group or location.", async (query, at, ct) =>
             {
-                if (string.IsNullOrWhiteSpace(query)) return Reply.Say("Enter a device name or IP address.");
-                // The reviewed profile is text search; MAC search reads ARP tables and isn't offered yet.
-                if (MacAddress().IsMatch(query.Trim())) return Reply.Say(MacUnavailable);
+                if (!TrySearch(query, out var request)) return Reply.Say(InvalidSearch);
                 if (search is not { } searching) return Reply.Say(Failed);
-                var outcome = await WhileCurrent(() => searching.FindDevicesAsync(new FindDevicesRequest(query, Limit: FindLimit), ct)).ConfigureAwait(false);
+                var outcome = await WhileCurrent(() => searching.FindDevicesAsync(request, ct)).ConfigureAwait(false);
                 if (outcome.Result is not { } found)
                     return Reply.Say(outcome.Error?.Code switch
                     {
                         DeviceSearchFailure.Refused => Refused,
-                        DeviceSearchFailure.InvalidRequest => "Search by part of a device name or an IP address.",
+                        DeviceSearchFailure.InvalidRequest => InvalidSearch,
                         _ => Failed,
                     });
                 // The heading carries the exact total visible to this account, so rows that
                 // weren't fetched are counted as omitted, never silently dropped.
-                return Rows($"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m => SearchRow(m.Device, at)),
+                return Rows(found.IsMacSearch
+                    ? $"Devices with stored ARP observations: {Id(found.Page.Total)}. Observations do not prove ownership."
+                    : $"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m =>
+                    {
+                        var row = SearchRow(m.Device, at);
+                        if (!found.IsMacSearch) return row;
+                        var sightings = m.SeenAs.Take(2).Select(a => $"{Clean(a.Ip)} on port {Id(a.PortId)}");
+                        return row with { Text = row.Text + "; ARP observed " + string.Join(", ", sightings)
+                            + (m.SeenAs.Count > 2 ? $"; {Id(m.SeenAs.Count - 2)} more observations" : "") };
+                    }),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_summary", "Device state and hardware. Query is a numeric device id.", async (query, at, ct) =>
@@ -439,11 +447,34 @@ public sealed partial class CompactNetworkLookups(
     };
 
     /// <summary>
-    /// The shared search's MAC forms (colon or hyphen pairs, Cisco dotted, bare hex), refused
-    /// before any request so MAC lookups can't reach ARP until that profile is reviewed.
+    /// Named arguments cross the native string bridge as JSON. Plain text remains a query.
+    /// Exact filter names are passed untouched, never through display-label cleaning.
     /// </summary>
-    [GeneratedRegex(@"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^(?:[0-9A-Fa-f]{4}\.){2}[0-9A-Fa-f]{4}$|^[0-9A-Fa-f]{12}$")]
-    private static partial Regex MacAddress();
+    internal static bool TrySearch(string input, out FindDevicesRequest request)
+    {
+        request = new(Limit: FindLimit);
+        if (input.Length > 4096) return false;
+        if (!input.TrimStart().StartsWith('{'))
+        {
+            request = new(input, Limit: FindLimit);
+            return !string.IsNullOrWhiteSpace(input);
+        }
+        try
+        {
+            using var json = JsonDocument.Parse(input);
+            var values = new Dictionary<string, string?>();
+            foreach (var property in json.RootElement.EnumerateObject())
+            {
+                if (property.Name is not ("query" or "status" or "group" or "location")
+                    || property.Value.ValueKind is not (JsonValueKind.String or JsonValueKind.Null)
+                    || !values.TryAdd(property.Name, property.Value.GetString())) return false;
+            }
+            request = new(values.GetValueOrDefault("query"), values.GetValueOrDefault("status"),
+                values.GetValueOrDefault("group"), values.GetValueOrDefault("location"), Limit: FindLimit);
+            return values.Values.Any(v => !string.IsNullOrWhiteSpace(v));
+        }
+        catch (JsonException) { return false; }
+    }
 
     private static (string Label, string Tone) Severity(AlertSeverity severity) => severity switch
     {

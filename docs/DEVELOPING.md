@@ -794,14 +794,16 @@ way; iOS 27 then has room to spare.
 | Part | Budget |
 | --- | --- |
 | Instructions | 150 tokens (about 400 characters) |
-| Lookups | 5, each defined in 80 tokens or fewer: a name, one sentence and one argument |
+| Lookups | 5: reserve 80 tokens each, 160 for device search with four optional arguments |
 | A lookup's result | 900 characters (about 360 tokens), whatever the network's size |
 | Lookups per question | 2 at most |
 | An answer | about 300 tokens; the detail dial moves it between 150 and 400 |
 | Turns the model sees | The newest that fit in 80% of `contextSize`: about 3 on 4,096 and 7 on 8,192 |
 
-That is 550 tokens fixed for instructions and lookups, and about 750 for
-each turn with one lookup. Older turns stay on screen but are dropped from
+That reserves 630 tokens fixed for instructions and lookups, and about 750 for
+each turn with one lookup. The extra 80 tokens for #608 cover its expanded
+search schema conservatively; the four-argument schema has not yet been
+measured on a device. Record that measurement under #607. Older turns stay on screen but are dropped from
 what the model sees (#573). The 2.5-characters-per-token rate is an estimate
 from this single lookup, not a safe upper bound. Other text and languages,
 including Japanese, Chinese and Korean, may use more tokens. Read
@@ -1284,8 +1286,11 @@ The overview names every alert's device from the device list it already reads,
 never one request per alert. Omitted rows are counted. Device search
 ranks exact, then starting, then containing matches over hostname, sysName,
 display name and IP, ties by hostname, as the MCP agent does; its heading gives
-the exact total and unfetched matches count as omitted. It searches by name or
-IP only: a MAC address is refused before any request. The overview's alerts put
+the exact total and unfetched matches count as omitted. It searches by name, IP or MAC and accepts optional status, group and location
+filters, including filter-only queries (#608). MAC results describe stored ARP
+observations rather than ownership. Exact filter names stay separate from display
+labels. Only MAC-specific ARP, the group catalogue and a single group membership
+read are added to the connection-bound allowlist. The overview's alerts put
 unacknowledged items first, then severity, until it moves to the shared overview (#600). Sensor values are raw readings, not a health
 assessment. Network labels cannot form a marker of their own.
 
