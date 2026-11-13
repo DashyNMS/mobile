@@ -79,7 +79,7 @@ public sealed class ConnectionBoundSensorTests
     }
 
     [Fact]
-    public void Each_profile_keeps_to_its_own_reads()
+    public async Task Each_profile_keeps_to_its_own_reads()
     {
         var transport = new Recording();
         using var search = new ConnectionBoundClient(new SessionScope(0, Captured), _ => transport);
@@ -97,6 +97,8 @@ public sealed class ConnectionBoundSensorTests
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => sensors.DeviceGroups);
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => sensors.Ports);
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => sensors.System);
+        // Nor the single-device read, which is the device summary's (#602).
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => sensors.Devices.GetAsync("1"));
         Assert.Throws<ArgumentException>(() => new ConnectionBoundClient(new SessionScope(0, Captured), _ => transport, overview: true, sensors: true));
         Assert.Empty(transport.Requests);
     }
