@@ -1,0 +1,96 @@
+{
+  "status": "ok",
+  "count": 3,
+  "alerts": [
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9200,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:40:00",
+      "last_seen": "2026-10-20 07:40:00",
+      "timestamp": "2026-10-20 07:40:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 300,
+      "entity_key": "processor:300",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 300,
+            "processor_descr": "CPU 0"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9201,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:41:00",
+      "last_seen": "2026-10-20 07:41:00",
+      "timestamp": "2026-10-20 07:41:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 301,
+      "entity_key": "processor:301",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 301,
+            "processor_descr": "CPU 1"
+          }
+        ]
+      }
+    },
+    {
+      "hostname": "core-sw1.example.net",
+      "id": 9202,
+      "rule_id": 5,
+      "device_id": 1,
+      "state": 1,
+      "alerted": 1,
+      "open": 1,
+      "severity": "warning",
+      "note": null,
+      "info": "[]",
+      "first_seen": "2026-10-20 07:42:00",
+      "last_seen": "2026-10-20 07:42:00",
+      "timestamp": "2026-10-20 07:42:00",
+      "name": "Processor usage over 90%",
+      "proc": null,
+      "notes": "",
+      "entity_type": "processor",
+      "entity_id": 302,
+      "entity_key": "processor:302",
+      "details": {
+        "rule": [
+          {
+            "hostname": "core-sw1.example.net",
+            "processor_id": 302,
+            "processor_descr": "CPU 2"
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "status": "ok",
+  "ports": [
+    {
+      "port_id": 1,
+      "device_id": 1,
+      "ifAdminStatus": "up",
+      "ifOperStatus": "down",
+      "disabled": 0,
+      "deleted": 0,
+      "ignore": 0,
+      "ifInErrors_rate": 2
+    },
+    {
+      "port_id": 2,
+      "device_id": 1,
+      "ifAdminStatus": "up",
+      "ifOperStatus": "up",
+      "disabled": 1
+    }
+  ]
+}

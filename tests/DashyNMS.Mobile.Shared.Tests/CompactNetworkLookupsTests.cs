@@ -55,7 +55,8 @@ public sealed class CompactNetworkLookupsTests
     {
         var alerts = Enumerable.Range(1, 100).Select(i => Fakes.Alert(i, 1, "ok"))
             .Append(Fakes.Alert(101, 1, "warning")).ToList();
-        var lookup = new CompactNetworkLookups(Fakes.Client(alerts: alerts), Fakes.Settings(), Session())
+        var client = Fakes.Client(alerts: alerts);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client))
             .Create().Single(l => l.Name == "network_overview");
         var text = await lookup.Run("", default);
         Assert.Contains("[[alert:101]]", text);
@@ -64,14 +65,14 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Overview_puts_unacknowledged_first_and_active_alerts_put_the_worst_first()
+    public async Task Overview_and_active_alerts_share_the_worst_first_order()
     {
         var client = Fakes.Client(alerts: [Fakes.Alert(1, 1, "critical", acknowledged: true), Fakes.Alert(2, 1, "warning")]);
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
 
-        // network_overview keeps mobile's order until it moves to the shared overview (#600).
+        // Both adapters consume the shared group order: worst severity first.
         var overview = await lookups.Single(l => l.Name == "network_overview").Run("", default);
-        Assert.True(overview.IndexOf("alert:2", StringComparison.Ordinal) < overview.IndexOf("alert:1", StringComparison.Ordinal));
+        Assert.True(overview.IndexOf("alert:1", StringComparison.Ordinal) < overview.IndexOf("alert:2", StringComparison.Ordinal));
 
         // active_alerts is the shared order: worst severity first, as MCP's active_alerts.
         var alerts = await lookups.Single(l => l.Name == "active_alerts").Run("", default);
@@ -384,7 +385,8 @@ public sealed class CompactNetworkLookupsTests
     {
         var devices = Enumerable.Range(1, 400).Select(i => Fakes.Device(i, $"switch-{i}.example.net", up: false)).ToList();
         var evidence = new List<IntelligenceEvidence>();
-        var lookup = new CompactNetworkLookups(Fakes.Client(devices), Fakes.Settings(), Session()).Create(evidence.AddRange).Single(l => l.Name == "network_overview");
+        var client = Fakes.Client(devices);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange).Single(l => l.Name == "network_overview");
 
         var text = await lookup.Run("", default);
 
