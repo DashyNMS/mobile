@@ -6,8 +6,9 @@ using DesktopNMS.Core.Security;
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>
-/// The client handed to the shared operations (#596, #601): the reviewed search reads and open
-/// alerts only, over a transport of its own that can only ever dial the connection the chat captured.
+/// The client handed to shared operations: reviewed search and open-alert reads,
+/// or the overview profile's device, open-alert, port-status and system reads.
+/// Each instance owns a transport bound to the connection the chat captured.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -32,9 +33,11 @@ namespace DashyNMS.Mobile.Intelligence;
 /// later calls throw <see cref="RetiredException"/> and the transport is closed.
 /// </para>
 /// <para>
-/// Only the device list, MAC-specific ARP search, group catalogue and one group's
-/// membership, plus the open alerts query, are allowed. All other reads, writes and
-/// session controls throw before transport. Location filtering uses the device list.
+/// Search allows the device list, MAC-specific ARP search, group catalogue and one
+/// group's membership, plus the open alerts query. Location filtering uses the device
+/// list. Overview uses a separate instance permitting only the device and open-alert
+/// lists, fleet port status and system information; it refuses ARP and groups.
+/// All other reads, writes and session controls throw before transport.
 /// </para>
 /// </remarks>
 internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
@@ -43,6 +46,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     private readonly Func<SessionScope, ILibreNmsTransport> openTransport;
     private readonly ListOnly devices;
     private readonly OpenOnly alerts;
+    private readonly bool overview;
     private readonly Lock gate = new();
     private ILibreNmsTransport? transport;
     private LibreNmsResourceApis? apis;
@@ -56,9 +60,10 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     /// Opens a transport for one connection, owned by this client from then on;
     /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
     /// </param>
-    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport)
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false)
     {
         this.scope = scope;
+        this.overview = overview;
         this.openTransport = openTransport;
         devices = new ListOnly(this);
         alerts = new OpenOnly(this);
@@ -179,11 +184,24 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     public IAlertRulesApi Rules => throw new RefusedException(nameof(Rules));
     public IAlertTemplatesApi AlertTemplates => throw new RefusedException(nameof(AlertTemplates));
     public ISensorsApi Sensors => throw new RefusedException(nameof(Sensors));
-    public IPortsApi Ports => throw new RefusedException(nameof(Ports));
+    public IPortsApi Ports => overview ? new StatusOnly(this) : throw new RefusedException(nameof(Ports));
+
+    private sealed class StatusOnly(ConnectionBoundClient owner) : IPortsApi
+    {
+        public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => owner.Apis().Ports.ListAllStatusAsync(cancellationToken);
+        public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
+        public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
+        public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListIpAddressesAsync));
+    }
+
+    private sealed class SystemOnly(ConnectionBoundClient owner) : ISystemApi
+    {
+        public Task<SystemInfo> GetAsync(CancellationToken cancellationToken = default) => owner.Apis().System.GetAsync(cancellationToken);
+    }
     public ILinksApi Links => throw new RefusedException(nameof(Links));
     public IDeviceHealthApi Health => throw new RefusedException(nameof(Health));
     public IFdbApi Fdb => throw new RefusedException(nameof(Fdb));
-    public IArpApi Arp => new SearchArp(this);
+    public IArpApi Arp => overview ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
 
     private sealed class SearchArp(ConnectionBoundClient owner) : IArpApi
     {
@@ -193,7 +211,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
         public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
     }
     public IVlansApi Vlans => throw new RefusedException(nameof(Vlans));
-    public IDeviceGroupsApi DeviceGroups => new SearchGroups(this);
+    public IDeviceGroupsApi DeviceGroups => overview ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
 
     private sealed class SearchGroups(ConnectionBoundClient owner) : IDeviceGroupsApi
     {
@@ -212,7 +230,7 @@ internal sealed class ConnectionBoundClient : ILibreNmsClient, IDisposable
     public IRoutingApi Routing => throw new RefusedException(nameof(Routing));
     public IPollerGroupsApi PollerGroups => throw new RefusedException(nameof(PollerGroups));
     public ILogsApi Logs => throw new RefusedException(nameof(Logs));
-    public ISystemApi System => throw new RefusedException(nameof(System));
+    public ISystemApi System => overview ? new SystemOnly(this) : throw new RefusedException(nameof(System));
     public IGraphsApi Graphs => throw new RefusedException(nameof(Graphs));
 
     public LibreNmsConnection? Connection => throw new RefusedException(nameof(Connection));

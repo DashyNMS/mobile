@@ -35,3 +35,7 @@ check DeviceSearch 57e09ca472783055c7909612ffbc1e99af5d18ab \
 # DashyNMS/mcp#124's squash merge on main.
 check OpenAlerts c463e92a2ec7794a6f231bf6ccfd0ed9f41f50c3 \
   devices.json faults.json alerts.json cases.json transport.json
+
+# DashyNMS/mcp#125's squash merge on main.
+check NetworkOverview 7a84405254c57a2be7e35e1f7a296f163a5a7ed0 \
+  devices.json faults.json ports.json system.json

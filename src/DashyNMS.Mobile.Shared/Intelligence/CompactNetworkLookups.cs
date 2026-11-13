@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using DashyNMS.Agent.Alerts;
 using DashyNMS.Agent.Devices;
+using DashyNMS.Agent.Overview;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -57,14 +58,15 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// </summary>
 /// <remarks>
 /// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596) and <c>active_alerts</c>
-/// its shared open alerts (#601), so their ranking, grouping, ordering, filtering and
+/// its shared open alerts (#601), and <c>network_overview</c> its shared overview (#600).
+/// Their ranking, grouping, ordering, filtering and
 /// redaction are the MCP agent's rather than a mobile copy; this class only adapts the
 /// typed results to the compact profile and its evidence. The other lookups remain mobile
 /// queries until their own shared operations exist.
 /// </remarks>
 /// <param name="deviceTransport">
 /// Opens a transport for one captured connection and its session generation, for the shared
-/// operations (<c>find_device</c> and <c>active_alerts</c>) alone (see
+/// operations (<c>find_device</c>, <c>active_alerts</c> and <c>network_overview</c>) alone (see
 /// <see cref="ConnectionBoundClient"/>); the set owns and closes it. The app passes
 /// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
 /// those lookups fail closed rather than falling back to the session's shared client,
@@ -141,11 +143,16 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(open, deviceTransport);
         var search = bound is null ? null : HostDeviceSearch.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
         var openAlerts = bound is null ? null : HostOpenAlerts.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
+        var overviewBound = scope is not { } capturedOverview || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedOverview, deviceTransport, overview: true);
+        var overview = overviewBound is null ? null : HostNetworkOverview.Create(overviewBound, time, settings.Current.ServerTimestampsAreUtc);
         void RetireShared()
         {
             search?.Dispose();
             openAlerts?.Dispose();
             bound?.Dispose();
+            overview?.Dispose();
+            overviewBound?.Dispose();
         }
         string Retire()
         {
@@ -230,33 +237,6 @@ public sealed partial class CompactNetworkLookups(
             return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}", [reference]);
         }
 
-        // network_overview's alert rows, until the shared overview replaces them (#600). The
-        // device list supplies names for every alert at once, never one request per alert.
-        // The row names an alert by its marker alone: a bare "fault:7" beside it is no marker,
-        // so the model would only pass it through as text. The evidence carries the source.
-        Row AlertRow(Alert a, IReadOnlyDictionary<int, Device>? devices, DateTimeOffset at)
-        {
-            var device = devices is not null && devices.TryGetValue(a.DeviceId, out var found) ? found : null;
-            var deviceName = DeviceName(device, a.Hostname, a.DeviceId);
-            var (severity, tone) = Severity(a.Severity);
-            var rule = Clean(a.DisplayRuleName);
-            var references = new List<IntelligenceEvidence>
-            {
-                new(new("alert:" + Id(a.Id), rule, severity, tone, at, deviceName + " · " + a.State)
-                {
-                    Object = new(a.Source == AlertSource.Fault ? "fault" : "alert", a.Id,
-                        a.DeviceId > 0 ? a.DeviceId : null, a.RuleId > 0 ? a.RuleId : null),
-                }),
-            };
-            var on = deviceName;
-            if (device is not null && device.DeviceId > 0)
-            {
-                references.Add(DeviceReference(device, deviceName, at));
-                on += $" [[device:{Id(device.DeviceId)}]]";
-            }
-            return new($"{severity}; {a.State}; {rule} [[alert:{Id(a.Id)}]] on {on}", references);
-        }
-
         // A shared alert group, already redacted upstream: one row per rule firing on a device.
         // The marker is the representative fault's; its source travels in the evidence's typed
         // object, so navigation retains the fault or legacy alert source. The group key
@@ -308,15 +288,22 @@ public sealed partial class CompactNetworkLookups(
         [
             Lookup("network_overview", "Network counts and the open alerts. Query is unused.", async (_, at, ct) =>
             {
-                var devices = client.Devices.ListAsync(ct);
-                var alerts = client.Alerts.ListAsync(AlertQuery.Open, ct);
-                await Task.WhenAll(devices, alerts).ConfigureAwait(false);
-                var ds = await devices.ConfigureAwait(false);
-                var als = await alerts.ConfigureAwait(false);
-                var byId = ById(ds);
-                return Rows($"Devices: {ds.Count} total, {ds.Count(d => d.ReportedState == DeviceState.Up)} up, {ds.Count(d => d.ReportedState == DeviceState.Down)} down. Open alerts: {als.Count}, {als.Count(a => a.Severity == AlertSeverity.Critical)} critical, {als.Count(a => a.Severity == AlertSeverity.Warning)} warning, {als.Count(a => a.State == AlertState.Acknowledged)} acknowledged.",
-                    Ordered(als).Select(a => AlertRow(a, byId, at))
-                        .Concat(ds.Where(d => d.ReportedState == DeviceState.Down).OrderBy(d => d.DeviceId).Select(d => DeviceRow(d, at))));
+                if (overview is null) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => overview.ReadAsync(ct)).ConfigureAwait(false);
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
+                var d = found.Devices;
+                var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored. " +
+                    (found.Alerts is { } a ? AlertHeading(a) + $" {Id(a.Acknowledged)} acknowledged, {Id(a.PartlyAcknowledged)} partly acknowledged. " : "Alerts unavailable. ") +
+                    (found.Ports is { } p ? $"Ports: {Id(p.Total)} total, {Id(p.DownWhileEnabled)} down while enabled, {Id(p.CountingErrors)} counting errors. " : "Ports unavailable. ") +
+                    (found.LibreNmsVersion is { } v ? $"LibreNMS: {Clean(v)}." : "Version unavailable.");
+                // Reserve failure information before rows so the budget cannot hide a failed source.
+                if (found.Unavailable.Count > 0)
+                    heading += " Unavailable: " + string.Join(", ", found.Unavailable.Select(u => u.Source)) + ".";
+                return Rows(heading, found.AlertGroups.Select(g => GroupRow(g, at))
+                    .Concat(found.DownDevices.Select(down => SearchRow(down, at)))
+                    .Concat(found.DownLocations.Select(l => new Row($"Location {Clean(l.Location)}: {Id(l.Down)} down."))),
+                    alsoOmitted: found.AlertGroupsOmitted + found.DownDevicesOmitted + found.DownLocationsOmitted);
             }),
             Lookup("find_device", "Find devices by name, IP or MAC; filter by status, group or location.", async (query, at, ct) =>
             {
@@ -424,19 +411,6 @@ public sealed partial class CompactNetworkLookups(
         : $"Open alerts: {Id(totals.AlertGroups)} ({Count(totals.Faults, "fault")}) on {Count(totals.Devices, "device")}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning.";
 
     private static string Count(int count, string noun) => $"{Id(count)} {noun}{(count == 1 ? "" : "s")}";
-
-    /// <summary>Network overview's own ordering, until it moves to the shared overview (#600).</summary>
-    private static IEnumerable<Alert> Ordered(IEnumerable<Alert> alerts) => alerts
-        .OrderBy(a => a.State == AlertState.Acknowledged ? 1 : 0)
-        .ThenBy(a => a.Severity == AlertSeverity.Critical ? 0 : a.Severity == AlertSeverity.Warning ? 1 : 2)
-        .ThenBy(a => a.Id);
-
-    private static IReadOnlyDictionary<int, Device> ById(IEnumerable<Device> devices)
-    {
-        var byId = new Dictionary<int, Device>();
-        foreach (var device in devices) byId.TryAdd(device.DeviceId, device);
-        return byId;
-    }
 
     /// <summary>The evidence chip's tone: only a reported up or down is coloured as one.</summary>
     private static string StateTone(DeviceState state) => state switch

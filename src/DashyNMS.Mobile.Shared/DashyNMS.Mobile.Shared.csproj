@@ -20,12 +20,12 @@
 
   <ItemGroup>
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
-    <!-- Device search (#596) and open alerts (#601) shared with the MCP agent: one
+    <!-- Device search (#596), open alerts (#601) and overview (#600) shared with the MCP agent: one
          ranking, grouping, ordering, filtering and redaction implementation instead of
-         mobile's own. Exact CI version from DashyNMS/mcp run 43231337443 (commit c463e92);
+         mobile's own. Exact CI version from DashyNMS/mcp run 43332463880 (commit 7a84405);
          CI checks its SHA-256 and provenance attestation. GeneratePathProperty exposes
          its LICENSE below. -->
-    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.43231337443.1" GeneratePathProperty="true" />
+    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.43332463880.1" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>

@@ -229,7 +229,7 @@ and compare them with `IntelligenceToolAllowlist.Names`.
 | Tool | Capability | Mobile |
 | --- | --- | --- |
 | `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, MAC and scope filters (#608) |
-| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Mobile's own, narrower (#600) |
+| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared, compact rows and evidence (#600) |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, paging | Shared, device id only (#601) |
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Nearest to mobile's `device_summary` (#602) |
 | `device_sensors` | Threshold-assessed readings, problems first | Mobile's own, raw readings (#603) |
@@ -250,7 +250,6 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 
 | Mobile lookup | Difference from the shared tool | Issue |
 | --- | --- | --- |
-| `network_overview` | Counts raw open alert rows and lists alert and down-device evidence. Agent counts groups and faults separately and tolerates failed sources. Counts alone can't supply per-row evidence. | #600 |
 | `device_summary` | No exact equivalent: `device_health` fans out much further. Keep the location id with the exact filter name, and the person's device-name choice. | #602 |
 | `device_sensors` | Fleet list labelled raw with unknown health. Agent assesses limits, orders problems first, and falls back per device when the fleet endpoint is denied. Keep a missing reading distinct from zero. | #603 |
 | Former diagnostic `NetworkOverviewLookup` | Removed with the diagnostic under #595. Historical measurements remain documented; there is no diagnostic lookup to migrate. | (#595) |
@@ -259,7 +258,37 @@ acknowledgement, rediscovery or remote MCP service is proposed.
 
 - #620: search rows say when a device is in maintenance.
 - #609: NuGet lock files for the Core and Shared pins.
-- #600: shared overview.
 - #603: shared sensor assessment. #602: shared device summary.
 - #607: trimmed Android and installed iOS runs, tokens and size deltas.
 - #610: further catalogue tools (epic), one issue per group as each starts.
+
+## Shared network overview (#600)
+
+Intelligence consumes `HostNetworkOverview` from Agent.Shared, published by
+DashyNMS/mcp#125 at `7a84405` as `2.0.0-ci.43332463880.1`. The operation owns
+counts and bounded alert groups, down devices and down locations. Mobile adapts
+those typed rows to its 900-character profile, names and evidence. Its previous
+query and alert ordering are removed. Alert groups and faults have separate totals.
+Counts describe data visible to the account. Group and fault identities stay distinct.
+
+Device data remains required, as in MCP. Alerts, ports and system are independent
+optional sources. A failure keeps other data, marks its totals unavailable and
+returns a fixed category without server text. Failure notices precede detail rows,
+so the compact budget cannot hide them. Omitted rows are counted and contribute
+no evidence; counts and location summaries never create entity references.
+
+Overview has its own per-attempt, connection-bound client. Its reviewed reads are
+the device list, open alerts including Core's source probe, fleet port status and
+system information. Search and active alerts retain their narrower client profile.
+Session changes and disposal retire both clients. The same 15-second deadline,
+caller cancellation, certificate handling, failover and late-result checks apply.
+
+The NetworkOverview fixtures are copied from MCP and checked byte for byte. Both
+repositories exercise complete and refused-port cases over loopback HTTP through
+Core. Mobile checks matching counts, displayed rows, evidence and partial failures,
+plus retirement, cancellation, deadlines and the endpoint boundary. Release CI
+continues to verify package provenance and reject package trim/AOT warnings.
+
+Diagnostics' former `NetworkOverviewLookup` was removed under #595 and stays
+removed. No diagnostic query is retained or migrated. Device measurements remain
+tracked separately in #607.
