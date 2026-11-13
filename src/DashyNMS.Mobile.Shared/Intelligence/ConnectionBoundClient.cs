@@ -1,3 +1,4 @@
+using System.Globalization;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
@@ -200,8 +201,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         if (overview || sensorProfile) throw new RefusedException(nameof(IDevicesApi.GetAsync) + " outside device search and summary");
         // Only the reviewed read: one device by its id, as device search returns them. A hostname
         // would make LibreNMS pick the device, and a padded or signed number isn't an id it gave us.
-        if (!int.TryParse(idOrHostname, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id)
-            || id <= 0 || id.ToString(System.Globalization.CultureInfo.InvariantCulture) != idOrHostname)
+        if (!int.TryParse(idOrHostname, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
+            || id <= 0 || id.ToString(CultureInfo.InvariantCulture) != idOrHostname)
             throw new RefusedException(nameof(IDevicesApi.GetAsync) + " other than by a device id");
         return Apis().Devices.GetAsync(idOrHostname, cancellationToken);
     }
