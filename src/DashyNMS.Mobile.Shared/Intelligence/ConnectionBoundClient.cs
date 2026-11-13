@@ -2,6 +2,7 @@ using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Security;
+using System.Text.RegularExpressions;
 
 namespace DashyNMS.Mobile.Intelligence;
 
@@ -157,8 +158,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     /// <summary>Health types that aren't sensors; the shared source skips them too.</summary>
     private static readonly HashSet<string> NotSensors = new(StringComparer.OrdinalIgnoreCase) { "device_processor", "device_mempool", "device_storage" };
 
-    [System.Text.RegularExpressions.GeneratedRegex(@"^devices/[1-9][0-9]{0,9}/health(?:/(?<type>device_[a-z0-9_]{1,40})(?:/[1-9][0-9]{0,9})?)?$", System.Text.RegularExpressions.RegexOptions.CultureInvariant)]
-    private static partial System.Text.RegularExpressions.Regex SensorRoute();
+    [GeneratedRegex(@"^devices/[1-9][0-9]{0,9}/health(?:/(?<type>device_[a-z0-9_]{1,40})(?:/[1-9][0-9]{0,9})?)?$", RegexOptions.CultureInvariant)]
+    private static partial Regex SensorRoute();
 
     private Task<IReadOnlyList<Sensor>> ListSensorsAsync(CancellationToken cancellationToken) => Apis().Sensors.ListAsync(cancellationToken);
 
