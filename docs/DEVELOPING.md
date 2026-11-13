@@ -1240,8 +1240,8 @@ an expandable summary. Successful answers omit the redundant Completed
 line, while warnings and interrupted outcomes stay explicit. Copy is a rounded clipboard icon at the answer foot; the question owns an
 Edit icon which refuses to overwrite a draft. The view model permits editing owned,
 settled questions only while the normal ask gate is open. Assistant headings and repeated
-reference chip rows are omitted; verified inline references keep their guards. A collapsed Open referenced item
-chooser supplies accessible 44pt navigation targets without persistent pill rows. Installed-device visual acceptance remains pending under #227.
+reference chip rows are omitted; verified inline references keep their guards. There is no referenced-item list
+under the answer; VoiceOver users open items through "Open …" custom actions on the text naming them. Installed-device visual acceptance remains pending under #227.
 
 The initial page permits the existing client's cached lookup results; it does
 not claim live authentication or fresh readings. A visible note says lookups
@@ -1323,8 +1323,8 @@ nowhere. A malformed marker stays literal text. Status colour follows
 Settings › Intelligence › Colour status indicators and always accompanies the words.
 
 Verified device, alert or fault, sensor, group and location references remain
-inline without duplicate chip rows beneath the answer. A collapsed
-Open referenced item chooser provides accessible navigation with 44pt targets. `IntelligenceAnswerActions` opens it through the
+inline without duplicate chip rows or a referenced-item list beneath the answer.
+Text naming an item offers "Open …" as a VoiceOver custom action. `IntelligenceAnswerActions` opens it through the
 existing pages: Device View, alert detail with the qualified key, the device's
 Sensors section, or Devices filtered by the evidence's exact group or location
 name, never the chip's display text. A group or location without that name stays

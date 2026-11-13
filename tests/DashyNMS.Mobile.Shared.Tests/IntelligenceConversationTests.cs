@@ -71,6 +71,17 @@ public sealed class IntelligenceConversationTests
         _session.Connection.Returns(new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token"));
     }
     [Fact]
+    public async Task A_settled_answer_records_when_it_finished()
+    {
+        using var vm = Open();
+        Assert.True(await vm.AskAsync("How many devices?"));
+        var turn = vm.Turns[0];
+        Assert.NotNull(turn.AnsweredAt);
+        Assert.True(turn.AnsweredAt >= turn.AskedAt);
+        Assert.StartsWith("Answered in ", IntelligenceElapsed.Answered(turn));
+    }
+
+    [Fact]
     public async Task EditPreservesDraftAndRequiresOwnedSettledAvailableQuestion()
     {
         using var vm = Open();
