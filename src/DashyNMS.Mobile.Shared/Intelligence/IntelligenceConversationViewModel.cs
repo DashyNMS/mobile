@@ -18,6 +18,13 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
 
     /// <summary>When it was asked; a saved chat (#229) keeps it, so a reopened chat shows its own times.</summary>
     public DateTimeOffset AskedAt { get; internal init; } = DateTimeOffset.UtcNow;
+
+    private DateTimeOffset? _answeredAt;
+    /// <summary>
+    /// When this session's answer settled, for "Answered in 6s". A reopened saved
+    /// chat has none, rather than a duration measured from its reopening.
+    /// </summary>
+    public DateTimeOffset? AnsweredAt { get => _answeredAt; internal set => SetProperty(ref _answeredAt, value); }
     private string _answer = "";
     /// <summary>
     /// Always carries verified markers in their double-bracket form, so the answer renders,
@@ -464,6 +471,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 foreach (var progress in turn.Lookups.Where(p => p.State == IntelligenceLookupState.Running))
                     progress.State = IntelligenceLookupState.Stopped;
+                turn.AnsweredAt ??= DateTimeOffset.UtcNow;
                 Interlocked.CompareExchange(ref _active, null, run);
                 Notify();
             });

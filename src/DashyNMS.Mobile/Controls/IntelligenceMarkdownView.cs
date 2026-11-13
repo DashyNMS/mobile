@@ -18,7 +18,6 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
     private string? _markdown;
     private IReadOnlyList<IntelligenceInlineReference>? _references;
     private bool? _colour;
-    private bool _referencesExpanded;
 
     public IntelligenceMarkdownView() => Spacing = 10;
 
@@ -38,31 +37,6 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
         if (markdown.Length == 0) return;
         var blocks = IntelligenceMarkdown.Parse(markdown, references);
         foreach (var block in blocks) Children.Add(Block(block));
-
-        // Spans alone are not reliable accessible activation targets on native labels.
-        // A single disclosure offers full touch targets without persistent reference rows.
-        var objects = IntelligenceMarkdown.LinkedObjects(blocks);
-        if (objects.Count > 0)
-        {
-            var choices = new VerticalStackLayout { Spacing = 0, IsVisible = _referencesExpanded };
-            var toggle = new Button { Text = _referencesExpanded ? "Hide referenced items" : "Open referenced item", MinimumHeightRequest = 44, Style = Resource<Style>("LinkButton") };
-            SemanticProperties.SetDescription(toggle, _referencesExpanded ? "Hide referenced items, expanded" : "Open referenced item, collapsed");
-            toggle.Clicked += (_, _) =>
-            {
-                choices.IsVisible = !choices.IsVisible;
-                _referencesExpanded = choices.IsVisible;
-                toggle.Text = choices.IsVisible ? "Hide referenced items" : "Open referenced item";
-                SemanticProperties.SetDescription(toggle, choices.IsVisible ? "Hide referenced items, expanded" : "Open referenced item, collapsed");
-            };
-            foreach (var reference in objects)
-            {
-                var button = new Button { Text = IntelligenceStatusTone.Describe(reference), MinimumHeightRequest = 44, Style = Resource<Style>("LinkButton") };
-                button.Clicked += (_, _) => ReferenceRequested?.Invoke(this, reference);
-                choices.Children.Add(button);
-            }
-            Children.Add(toggle);
-            Children.Add(choices);
-        }
 
         var links = IntelligenceMarkdown.Links(blocks);
         if (links.Count > 0)
@@ -118,7 +92,27 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
         var label = new Label { FormattedText = text, FontSize = size, LineBreakMode = LineBreakMode.WordWrap };
         if (bold) label.FontFamily = "BodySemibold";
         if (secondary) label.SetAppThemeColor(Label.TextColorProperty, Resource<Color>("TextSecondaryLight"), Resource<Color>("TextSecondaryDark"));
+        OfferOpenActions(label, spans);
         return label;
+    }
+
+    /// <summary>
+    /// Tappable spans are not reliable screen-reader targets, so the text that
+    /// names a verified item offers its action ("Open device …", "Show devices
+    /// in group …") in VoiceOver's Actions rotor instead
+    /// of a separate list of referenced items under the answer.
+    /// </summary>
+    private void OfferOpenActions(Label label, IReadOnlyList<MarkdownSpan> spans)
+    {
+        var actions = spans.Select(span => span.Reference)
+            .OfType<IntelligenceInlineReference>()
+            .Where(reference => reference.Object is { IsValid: true })
+            .DistinctBy(reference => reference.Key)
+            .Select(reference => new AccessibilityActions(label, IntelligenceStatusTone.Describe(reference),
+                () => { ReferenceRequested?.Invoke(this, reference); return true; }))
+            .ToArray();
+        if (actions.Length == 0) return;
+        label.HandlerChanged += (_, _) => { foreach (var action in actions) action.Refresh(true); };
     }
 
     private Span ToSpan(MarkdownSpan span, bool bold)

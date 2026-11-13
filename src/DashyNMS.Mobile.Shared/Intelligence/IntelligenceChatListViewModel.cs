@@ -1002,6 +1002,9 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
 
     private void TurnChanged(object? sender, PropertyChangedEventArgs e)
     {
+        // Display-only and never saved: it must not schedule a write, which could
+        // otherwise land after Delete saved chats and recreate the key.
+        if (e.PropertyName == nameof(IntelligenceTurn.AnsweredAt)) return;
         _contentVersion++;
         if (_changing) return;
         if (e.PropertyName == nameof(IntelligenceTurn.State) && sender is IntelligenceTurn { State: not IntelligenceTurnState.Running })
