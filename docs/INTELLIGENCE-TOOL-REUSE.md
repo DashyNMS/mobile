@@ -26,10 +26,10 @@ so a shared instance could hand one network's data to another.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43231337443.1`, from DashyNMS/mcp's
-`shared-package.yml` run 43231337443 at commit
-`c463e92a2ec7794a6f231bf6ccfd0ed9f41f50c3` (DashyNMS/mcp#124), SHA-256
-`9207d92dfb7352881ed1bb7d8021beadf72b476396a04d91c8fb97f08c1a106f`. It was
+**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43365576634.1`, from DashyNMS/mcp's
+`shared-package.yml` run 43365576634 at commit
+`812266dd63c8201406c47282a8c45899d94abe4e` (DashyNMS/mcp#129, after #128), SHA-256
+`eb36eadf9ac008bf0e0d6a3479dfad481b4cfe18d40f54305a2cc91dc7bafcbd`. It was
 `DashyNMS.Agent.Search` until DashyNMS/mcp#122 renamed it and restarted its
 versions at 2.0.0. It is MIT licensed and targets net10.0. Its minimum Core is
 `2.0.0-ci.64`, the same build as mobile's direct pin.

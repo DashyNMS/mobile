@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
-    <!-- Device search (#596), open alerts (#601), overview (#600) and device sensors (#603)
+    <!-- Device search (#596), open alerts (#601), overview (#600), device summary (#602) and device sensors (#603)
          shared with the MCP agent: one ranking, grouping, ordering, filtering, assessment and
          redaction implementation instead of mobile's own. Exact CI version from DashyNMS/mcp
          run 43365576634 (commit 812266d);
