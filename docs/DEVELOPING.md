@@ -1262,7 +1262,7 @@ tool keeps and when a tool is done, see [Intelligence](INTELLIGENCE.md). Device 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the
 session's client: overview, device search, device summary, active alerts and
 device sensors. The device summary is to be replaced by desktop's
-`device_health` (#634), and the rest of desktop's tools follow under #610.
+`device_health` (#634), and the rest of desktop's tools follow in #236's build order.
 Each reply is at most 900 characters. Rows lead with the
 LibreNMS name in the person's device-name choice, followed by Core's marker,
 for example `core-sw1 [[device:708]]`, so the model names devices rather than
