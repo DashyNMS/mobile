@@ -1261,9 +1261,9 @@ result is inferred from shared tests or platform CI builds.
 For the reuse decision, the Agent catalogue, the rules every shared tool keeps
 and what counts as a finished migration, see
 [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device search
-(`find_device`) and open alerts (`active_alerts`) run DashyNMS/mcp's shared
-`DashyNMS.Agent.Shared` package; the other three lookups are still mobile
-queries, each with its own issue listed there.
+(`find_device`), open alerts (`active_alerts`) and device sensors
+(`device_sensors`) run DashyNMS/mcp's shared `DashyNMS.Agent.Shared` package;
+the other two lookups are still mobile queries, each with its own issue listed there.
 
 ### Compact network lookups (#572)
 
@@ -1291,8 +1291,9 @@ filters, including filter-only queries (#608). MAC results describe stored ARP
 observations rather than ownership. Exact filter names stay separate from display
 labels. Only MAC-specific ARP, the group catalogue and a single group membership
 read are added to the connection-bound allowlist. The overview's alerts put
-unacknowledged items first, then severity, until it moves to the shared overview (#600). Sensor values are raw readings, not a health
-assessment. Network labels cannot form a marker of their own.
+unacknowledged items first, then severity, until it moves to the shared overview (#600). Sensor readings carry the shared
+assessment, problems first; a missing reading says so and a reading with nothing to
+judge it by is never called OK (#603). Network labels cannot form a marker of their own.
 
 `Create(evidence)` also reports the `IntelligenceEvidence` behind each accepted
 reply, only for rows that fitted in the reply and only while the connection is

@@ -23,9 +23,18 @@ public sealed class SensorDefinitions : IDisposable
         Store = new SensorDefinitionStore(
             new SensorDefinitionPaths(Path.Combine(dataDirectory, "installation-settings.json"), Path.Combine(dataDirectory, "sensor-definitions")),
             http);
+        ReadOnlyStore = new SensorDefinitionStore(Store.Paths, http, readOnly: true);
     }
 
     public SensorDefinitionStore Store { get; }
+
+    /// <summary>
+    /// The same cached definitions, read-only, for Intelligence's sensor lookup (#603). Desktop
+    /// gives its MCP server a read-only store, so a chat question never downloads a catalogue or
+    /// writes the cache; this mirrors that. It rereads the saved choice on each use, so turning
+    /// definitions off in Settings applies to the next lookup.
+    /// </summary>
+    public SensorDefinitionStore ReadOnlyStore { get; }
 
     /// <summary>Start-up: the saved choice (or official definitions, with none saved), then a check for a newer catalogue.</summary>
     public async Task StartAsync()
@@ -78,5 +87,9 @@ public sealed class SensorDefinitions : IDisposable
         }
     }
 
-    public void Dispose() => Store.Dispose();
+    public void Dispose()
+    {
+        ReadOnlyStore.Dispose();
+        Store.Dispose();
+    }
 }

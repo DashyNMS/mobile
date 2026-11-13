@@ -1,0 +1,38 @@
+{
+  "status": "ok",
+  "count": 3,
+  "devices": [
+    {
+      "device_id": 1,
+      "hostname": "core-sw1.example.net",
+      "sysName": "core-sw1",
+      "ip": "198.51.100.1",
+      "os": "arubaos-cx",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "location": "Core site"
+    },
+    {
+      "device_id": 2,
+      "hostname": "edge-sw3.example.net",
+      "display": "Edge 3",
+      "ip": "198.51.100.2",
+      "os": "procurve",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "location": "Core site"
+    },
+    {
+      "device_id": 3,
+      "hostname": "ap-lobby.example.net",
+      "ip": "198.51.100.3",
+      "os": "arubaos",
+      "status": true,
+      "disabled": false,
+      "ignore": false,
+      "location": "Lobby"
+    }
+  ]
+}

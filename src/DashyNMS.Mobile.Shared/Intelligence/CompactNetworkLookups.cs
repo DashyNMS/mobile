@@ -4,12 +4,14 @@ using System.Text.RegularExpressions;
 using DashyNMS.Agent.Alerts;
 using DashyNMS.Agent.Devices;
 using DashyNMS.Agent.Overview;
+using DashyNMS.Agent.Health;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Intelligence;
 using DesktopNMS.Core.Models;
+using DesktopNMS.Core.Sensors;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Intelligence;
@@ -57,24 +59,30 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// while the stable id stays available for links.
 /// </summary>
 /// <remarks>
-/// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596) and <c>active_alerts</c>
-/// its shared open alerts (#601), and <c>network_overview</c> its shared overview (#600).
-/// Their ranking, grouping, ordering, filtering and
-/// redaction are the MCP agent's rather than a mobile copy; this class only adapts the
-/// typed results to the compact profile and its evidence. The other lookups remain mobile
-/// queries until their own shared operations exist.
+/// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596), <c>active_alerts</c>
+/// its shared open alerts (#601), <c>network_overview</c> its shared overview (#600) and
+/// <c>device_sensors</c> its shared sensor assessment (#603). Their ranking, grouping, ordering,
+/// judging, filtering and redaction are the MCP agent's rather than a mobile copy; this class
+/// only adapts the typed results to the compact profile and its evidence. The other lookups
+/// remain mobile queries until their own shared operations exist.
 /// </remarks>
 /// <param name="deviceTransport">
 /// Opens a transport for one captured connection and its session generation, for the shared
-/// operations (<c>find_device</c>, <c>active_alerts</c> and <c>network_overview</c>) alone (see
+/// operations (<c>find_device</c>, <c>active_alerts</c>, <c>network_overview</c> and
+/// <c>device_sensors</c>) alone (see
 /// <see cref="ConnectionBoundClient"/>); the set owns and closes it. The app passes
 /// <see cref="IntelligenceDeviceTransports.Open"/>; tests pass a synthetic one. Without it
 /// those lookups fail closed rather than falling back to the session's shared client,
 /// whose connection can change under a request.
 /// </param>
+/// <param name="sensorDefinitions">
+/// The installed sensor definitions, read-only (<see cref="Services.SensorDefinitions.ReadOnlyStore"/>),
+/// so a state sensor reads as it does on the Health page. Read-only as desktop gives its MCP
+/// server: a question never downloads a catalogue. Without it state sensors stay unassessed.
+/// </param>
 public sealed partial class CompactNetworkLookups(
     ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
-    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null) : IIntelligenceLookups
+    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null, SensorDefinitionStore? sensorDefinitions = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -94,6 +102,8 @@ public sealed partial class CompactNetworkLookups(
     /// the rest are counted from its totals rather than fetched.
     /// </summary>
     internal const int AlertLimit = 20;
+
+    internal const string UnknownDevice = "No device with that id is visible to this account. Use find_device for its id.";
 
     /// <summary>Faults named on a group's row; the rest are counted.</summary>
     internal const int NamedFaults = 3;
@@ -146,13 +156,21 @@ public sealed partial class CompactNetworkLookups(
         var overviewBound = scope is not { } capturedOverview || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedOverview, deviceTransport, overview: true);
         var overview = overviewBound is null ? null : HostNetworkOverview.Create(overviewBound, time, settings.Current.ServerTimestampsAreUtc);
+        // Sensors get their own profile too: the sensor list and health routes, never ARP,
+        // groups or alerts.
+        var sensorBound = scope is not { } capturedSensors || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedSensors, deviceTransport, sensors: true);
+        var deviceSensors = sensorBound is null ? null
+            : HostDeviceSensors.Create(sensorBound, sensorBound.SensorTransport, time, settings.Current.ServerTimestampsAreUtc, sensorDefinitions);
         void RetireShared()
         {
             search?.Dispose();
             openAlerts?.Dispose();
+            deviceSensors?.Dispose();
             bound?.Dispose();
             overview?.Dispose();
             overviewBound?.Dispose();
+            sensorBound?.Dispose();
         }
         string Retire()
         {
@@ -368,47 +386,94 @@ public sealed partial class CompactNetworkLookups(
                 return Rows(AlertHeading(found.Totals), found.Groups.Select(g => GroupRow(g, at)),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
-            Lookup("device_sensors", "Sensor readings. Query is a numeric device id.", async (query, at, ct) =>
+            Lookup("device_sensors", "Sensor readings and their health, problems first. Query is a numeric device id.", async (query, at, ct) =>
             {
                 if (!TryId(query, out var id)) return Reply.Say("Supply a numeric device id from find_device.");
-                var deviceTask = DeviceOrNull(id, ct);
-                var sensors = await client.Sensors.ListAsync(ct).ConfigureAwait(false);
-                var device = await deviceTask.ConfigureAwait(false);
-                var deviceName = DeviceName(device, null, id);
-                var heading = $"Sensors on {deviceName}";
-                IReadOnlyList<IntelligenceEvidence> headingReferences = [];
-                if (device is not null && device.DeviceId == id)
-                {
-                    heading += $" [[device:{Id(id)}]]";
-                    headingReferences = [DeviceReference(device, deviceName, at)];
-                }
-                var found = sensors.Where(s => s.DeviceId == id).OrderBy(s => s.SensorId).ToList();
-                // Readings are raw values, not a health assessment, so a sensor chip carries no status.
-                return Rows($"{heading}: {found.Count}.", found.Select(s =>
-                {
-                    var description = Clean(s.Description);
-                    var reading = s.HasReading ? s.Current!.Value.ToString(CultureInfo.InvariantCulture) : "unavailable";
-                    return new Row($"{description} [[sensor:{Id(s.SensorId)}]]: {Clean(s.SensorClass)}; reading {reading}; unit {Clean(s.Unit)}",
-                        [new(new("sensor:" + Id(s.SensorId), description, "", "unknown", at, $"{Clean(s.SensorClass)} reading on {deviceName}")
-                        { Object = new("sensor", s.SensorId, id) })]);
-                }), headingReferences);
+                if (deviceSensors is not { } sensors) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => sensors.ReadAsync(new DeviceSensorsRequest(id), ct)).ConfigureAwait(false);
+                // An unreadable device list or sensor source fails the whole lookup: never "no sensors".
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code switch
+                    {
+                        DashyNMS.Agent.HostFailure.Refused => Refused,
+                        DashyNMS.Agent.HostFailure.InvalidRequest => UnknownDevice,
+                        _ => Failed,
+                    });
+                var d = found.Device;
+                var named = new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip };
+                var deviceName = DeviceName(named, d.Hostname, d.DeviceId);
+                IntelligenceEvidence device = new(new("device:" + Id(d.DeviceId), deviceName, d.State.ToDisplayString(), StateTone(d.State), at, "Device status from the device list, up to a minute old")
+                { Object = new("device", d.DeviceId) });
+                // Totals are over every reading, so rows that don't fit are counted as omitted.
+                return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals),
+                    found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
             }),
         ];
         return new IntelligenceLookupSet(lookups, RetireShared);
-
-        async Task<Device?> DeviceOrNull(int id, CancellationToken ct)
-        {
-            try { return await client.Devices.GetAsync(Id(id), ct).ConfigureAwait(false); }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            // Readings still answer if the name can't be read; the heading says so.
-            catch (Exception) { return null; }
-        }
     }
 
     /// <summary>"Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning." Groups and faults counted apart, as MCP does.</summary>
     private static string AlertHeading(OpenAlertTotals totals) => totals.AlertGroups == 0
         ? "Open alerts: 0."
         : $"Open alerts: {Id(totals.AlertGroups)} ({Count(totals.Faults, "fault")}) on {Count(totals.Devices, "device")}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning.";
+
+    /// <summary>
+    /// "Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown." Unknown is
+    /// counted on its own and never folded into OK: no reading, nothing to judge by, or a
+    /// "nothing plugged in" value.
+    /// </summary>
+    private static string SensorHeading(string device, SensorTotals totals) => totals.Readings == 0
+        ? $"Sensors on {device}: 0."
+        : $"Sensors on {device}: {Id(totals.Readings)}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning, {Id(totals.Ok)} OK, {Id(totals.Unknown)} unknown.";
+
+    /// <summary>
+    /// One judged reading, already redacted upstream: "Module 2 [[sensor:2]]: temperature 81 °C;
+    /// critical (high limit 80)". A missing reading says so and is never written as zero, and a
+    /// reading with nothing to judge it by says that rather than any health word, so the model
+    /// can't call it healthy. The chip carries the same state.
+    /// </summary>
+    private static Row SensorRow(SensorReading r, int deviceId, string deviceName, DateTimeOffset at)
+    {
+        var description = string.IsNullOrWhiteSpace(r.Description) ? $"Sensor {Id(r.SensorId)}" : Clean(r.Description);
+        var type = Clean(r.Type);
+        var value = r.StateLabel is { Length: > 0 } label ? Clean(label)
+            : r.Value is { } v ? Number(v) + (r.Unit is { Length: > 0 } unit ? " " + Clean(unit) : "")
+            : "no reading";
+        var (status, tone) = SensorState(r);
+        var state = r.State switch
+        {
+            "critical" or "warning" => status.ToLowerInvariant() + Limits(r),
+            "ok" => "OK",
+            _ => r.Assessment is SensorAssessment.NoLimits ? "not assessed: no limits" : "state unknown",
+        };
+        return new($"{description} [[sensor:{Id(r.SensorId)}]]: {type} {value}; {state}",
+            [new(new("sensor:" + Id(r.SensorId), description, status, tone, at, $"{type} reading on {deviceName}")
+            { Object = new("sensor", r.SensorId, deviceId) })]);
+    }
+
+    /// <summary>The chip's status and tone: only a judged reading is coloured, and unknown is never OK.</summary>
+    private static (string Label, string Tone) SensorState(SensorReading r) => r.State switch
+    {
+        "critical" => ("Critical", "critical"),
+        "warning" => ("Warning", "warning"),
+        "ok" => ("OK", "up"),
+        _ => r.Assessment is SensorAssessment.NoLimits ? ("Not assessed", "unknown") : ("Unknown", "unknown"),
+    };
+
+    /// <summary>The sensor's own critical limits beside a problem, so the model can say what was crossed.</summary>
+    private static string Limits(SensorReading r)
+    {
+        var parts = new List<string>(2);
+        if (r.LowCritical is { } low) parts.Add("low limit " + Number(low));
+        if (r.HighCritical is { } high) parts.Add("high limit " + Number(high));
+        return parts.Count == 0 ? "" : " (" + string.Join(", ", parts) + ")";
+    }
+
+    /// <summary>
+    /// Upstream rounds readings to two places, but a double can still print as 3.2200000000000002;
+    /// two places at most keeps the row short and the number as the Health page shows it.
+    /// </summary>
+    private static string Number(double value) => value.ToString("0.##", CultureInfo.InvariantCulture);
 
     private static string Count(int count, string noun) => $"{Id(count)} {noun}{(count == 1 ? "" : "s")}";
 

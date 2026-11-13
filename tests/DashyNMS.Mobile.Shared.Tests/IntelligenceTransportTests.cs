@@ -24,7 +24,7 @@ public sealed class IntelligenceTransportTests
 
         Assert.Contains(expected, text);
         Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
-        if (name == "device_sensors") Assert.Contains("reading 20.5", text);
+        if (name == "device_sensors") Assert.Contains("Inlet [[sensor:9]]: temperature 20.5 °C; OK", text);
         if (name == "device_summary") Assert.Contains("Example switch", text);
         Assert.Contains(transport.Requests, r => r.Path.Split('?')[0] == endpoint);
         Assert.All(transport.Requests, r => Assert.Equal(HttpMethod.Get, r.Method));

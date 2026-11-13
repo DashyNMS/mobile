@@ -1,0 +1,84 @@
+{
+  "status": "ok",
+  "count": 10,
+  "sensors": [
+    {
+      "sensor_id": 1,
+      "device_id": 1,
+      "sensor_class": "temperature",
+      "sensor_descr": "Chassis",
+      "sensor_current": 48
+    },
+    {
+      "sensor_id": 2,
+      "device_id": 1,
+      "sensor_class": "temperature",
+      "sensor_descr": "Module 2",
+      "sensor_current": 81,
+      "sensor_limit": 80
+    },
+    {
+      "sensor_id": 3,
+      "device_id": 1,
+      "sensor_class": "fanspeed",
+      "sensor_descr": "Fan 1",
+      "sensor_current": 0,
+      "sensor_limit_low": 1000
+    },
+    {
+      "sensor_id": 4,
+      "device_id": 1,
+      "sensor_class": "fanspeed",
+      "sensor_descr": "Fan 2",
+      "sensor_current": null,
+      "sensor_limit_low": 1000
+    },
+    {
+      "sensor_id": 5,
+      "device_id": 1,
+      "sensor_class": "dbm",
+      "sensor_descr": "1/1/49 Rx Power",
+      "sensor_current": -13
+    },
+    {
+      "sensor_id": 6,
+      "device_id": 1,
+      "sensor_class": "dbm",
+      "sensor_descr": "1/1/50 Rx Power",
+      "sensor_current": -40
+    },
+    {
+      "sensor_id": 7,
+      "device_id": 1,
+      "sensor_class": "voltage",
+      "sensor_descr": "PSU 1 Output",
+      "sensor_current": 12.1
+    },
+    {
+      "sensor_id": 8,
+      "device_id": 1,
+      "sensor_class": "voltage",
+      "sensor_descr": "3.3 V Rail",
+      "sensor_current": 3.22,
+      "sensor_limit_low": 3.0,
+      "sensor_limit_low_warn": 3.25,
+      "sensor_limit_warn": 3.4,
+      "sensor_limit": 3.6
+    },
+    {
+      "sensor_id": 9,
+      "device_id": 1,
+      "sensor_class": "state",
+      "sensor_descr": "PSU 1 State",
+      "sensor_current": 1
+    },
+    {
+      "sensor_id": 10,
+      "device_id": 2,
+      "sensor_class": "temperature",
+      "sensor_descr": "Chassis",
+      "sensor_current": 90,
+      "sensor_limit": 70
+    }
+  ]
+}

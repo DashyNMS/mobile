@@ -105,8 +105,10 @@ internal static class Fakes
         {
             if (relativeUrl == "devices" && typeof(T) == typeof(Device))
                 return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
+            if (relativeUrl == "resources/sensors" && typeof(T) == typeof(Sensor))
+                return (IReadOnlyList<T>)(object)await client.Sensors.ListAsync(cancellationToken);
             if (typeof(T) != typeof(Alert))
-                throw new InvalidOperationException("Only the device list and open alerts are expected");
+                throw new InvalidOperationException("Only the device list, open alerts and sensor list are expected");
             if (relativeUrl == "faults?state=-1")
                 return await client.Alerts.GetSourceAsync(cancellationToken) == AlertSource.Fault
                     ? []
