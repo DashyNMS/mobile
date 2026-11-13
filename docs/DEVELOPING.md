@@ -693,6 +693,7 @@ stands. ✅ done, 🟡 partly, ⬜ not yet, ➖ not planned for a phone.
 | Logs: event log, Graylog | ✅ | 🟡 Network-wide event log and alert log (Alerts → Logs); Graylog to come |
 | Unimus config backups and diffs | ✅ | ✅ Device View's Config backups: read and search a backup, compare any two, share either through the share sheet (no Backup now) |
 | Settings: poll interval, thresholds, device name style, theme/accent, server logo | ✅ | ✅ Poll interval, thresholds, device names, light/dark, timestamps, notifications (accent colour and server logo stay desktop's) |
+| Intelligence | Answers from a ChatGPT plan with 24 read-only network tools | 🟡 On Apple Intelligence (iPhone and iPad, iOS 26+): chat, saved chats and five of the tools so far; the rest of desktop's tools and chat features are planned for 2.0.0, see [Intelligence](INTELLIGENCE.md) |
 | Update checks | ✅ | ➖ The stores handle it |
 
 The website describes desktop only, and leaves out several things desktop
@@ -717,9 +718,12 @@ Intelligence is split across two releases (re-planned on 2026-11-10, after
 #297's groundwork check on 2026-10-31 against Core 2.0.0-ci.49 and
 DashyNMS/mcp at `61161c4`).
 
-**2.0.0: Apple's models on iPhone and iPad (#236).** Intelligence uses
-Apple's Foundation Models framework. It runs on the device and, from iOS 27,
-can optionally use Apple's Private Cloud Compute. This route was chosen
+**2.0.0: desktop's Intelligence on Apple Intelligence (#236).** The goal is
+parity with desktop's Intelligence: its tools, results, instructions and chat
+features, answered by Apple's Foundation Models framework instead of ChatGPT.
+It runs on the device and, from iOS 27, can optionally use Apple's Private
+Cloud Compute. What parity means, the allowed differences and the rules for
+every tool are in [Intelligence](INTELLIGENCE.md). This route was chosen
 because:
 
 - it needs no account, sign-in or API key, and costs the person nothing;
@@ -738,10 +742,11 @@ The constraints that shape it:
   Apple Intelligence turned on. Elsewhere Intelligence is hidden or says why.
 - The on-device context is small: 8,192 tokens measured on iOS 27.2, and
   4,096 by Apple's notes for iOS 26.4. It covers instructions, tools,
-  question, lookups and answer together. The current 24 MCP tools and GPT
-  prompts don't fit, so the phone has five compact lookups over Core's
-  clients that return short text, and its own short instructions. #570
-  measured the budget on a device; see below.
+  question, lookups and answer together. Desktop's 24 tool descriptions
+  (about 6,000 tokens) and instructions don't fit at once. So each question
+  gets the tools and lookups its context holds (#637), results are compact
+  text carrying desktop's facts (#636), and the instructions are a short form
+  of Core's (#638). #570 measured the budget on a device; see below.
 - The model sits behind an `IIntelligenceModel` interface in Mobile.Shared.
   The pages, saved chats, Spotlight, reporting and export are shared, so later
   models need no new pages.
@@ -807,7 +812,9 @@ measured on a device. Record that measurement under #607. Older turns stay on sc
 what the model sees (#573). The 2.5-characters-per-token rate is an estimate
 from this single lookup, not a safe upper bound. Other text and languages,
 including Japanese, Chinese and Korean, may use more tokens. Read
-`contextSize` at run time and never assume either figure.
+`contextSize` at run time and never assume either figure. #637 replaces
+these fixed figures with measured per-tool costs scaled to the reported
+context.
 
 For #573, if the model reports a context-limit error, discard the failed
 session and retry the current question once in a fresh session without
@@ -827,41 +834,27 @@ What this means for the lookups (#572) and the conversation (#573):
 - Show that a lookup is running. LibreNMS took a third of the wait.
 
 The check supports keeping the on-device model as the default for 2.0.0.
-Private Cloud Compute (32,000 tokens, #575) stays what it was: an optional
-way to get deeper answers on iOS 27, not a replacement.
+Private Cloud Compute (32,000 tokens, #575) stays an optional way to get
+deeper answers on iOS 27, not a replacement. It's where the whole tool
+catalogue and Core's own instructions fit.
 
 Still to check on a device, under #571: the 4,096-token context on iOS
 26.4, a launch before iOS 26 (CI proves Foundation Models is weak-linked,
 not that the app starts), and Stop partway through an answer.
 
 **2.1.0: ChatGPT, and Android (#577).** The person's own ChatGPT plan, as on
-desktop, becomes a second model on iPhone and the first on Android (#576),
-with desktop's full tool set. Two things gate it:
-
-- **OpenAI's terms.** OpenAI documents plan usage for "open-source and
-  locally hosted apps" and offers other apps a commercial partner programme.
-  Project-owned app materials are now MIT licensed (see LICENSE and NOTICES.md).
-  Confirm that the integration meets the applicable service terms before any
-  ChatGPT build reaches testers; changing the licence alone does not verify that.
-- **The DashyNMS/mcp changes.** Core already has the ChatGPT engine: the
-  sign-in (`ChatGptSignIn`, `IdTokenValidator`), the Responses client, the
-  conversation loop and its instructions (`IntelligenceConversation`,
-  `IntelligenceInstructions`), consent, the detail dial, and the allowlist of
-  24 tool names in current Core source (`IntelligenceToolAllowlist`), which
-  must also be verified against the consumed package. The network tools are the
-  missing piece. A phone can't start desktop's `dashynms-mcp` process, so the
-  tools have to run in the app, from DashyNMS/mcp's `DashyNMS.Agent`. Against
-  #221's four upstream needs:
-
-| Need | Where it stands |
-| --- | --- |
-| A published package | Not yet: the mcp repository's CI doesn't pack or push it, and there's no `DashyNMS.Agent` on GitHub Packages |
-| The host's own clients | Not yet: `AddDashyNmsAgent` registers its own `LibreNmsClient`, `UnimusApi` and `GraylogApi` with `AddSingleton`, not `TryAdd`, so certificate trust and the backup address wouldn't follow the app's |
-| Plain options | Done: `AgentOptions` is plain; only the `DashyNMS.Mcp` host reads environment variables |
-| A tool table safe for AOT | Not yet: the 24 attributed tool methods are found by reflecting over `[McpServerToolType]` classes, which iOS's AOT and trimming may strip |
-
-If the package still can't run in-process once those land, the ChatGPT
-route uses 2.0's compact lookups, extended.
+desktop, becomes a second model on iPhone and the first on Android (#576).
+It uses the tools 2.0 builds, from DashyNMS/mcp's shared typed operations and
+catalogue, with every tool on every question and MCP's JSON results (#225).
+Core already has the rest of the engine: the sign-in (`ChatGptSignIn`,
+`IdTokenValidator`), the Responses client, the conversation loop and its
+instructions (`IntelligenceConversation`, `IntelligenceInstructions`),
+consent, the detail dial and the allowlist (`IntelligenceToolAllowlist`).
+OpenAI's terms gate it. OpenAI documents plan usage for "open-source and
+locally hosted apps" and offers other apps a commercial partner programme.
+Project-owned app materials are MIT licensed (see LICENSE and NOTICES.md).
+Confirm that the integration meets the applicable service terms before any
+ChatGPT build reaches testers; changing the licence alone does not verify that.
 
 ### Intelligence settings (#571)
 
@@ -1258,9 +1251,8 @@ routes and resume, a small/large phone and iPad, large text, VoiceOver, themes,
 keyboard clearance and following while reading older text. No installed-device
 result is inferred from shared tests or platform CI builds.
 
-For the reuse decision, the Agent catalogue, the rules every shared tool keeps
-and what counts as a finished migration, see
-[Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device search
+For the parity direction, how the phone runs desktop's tools, the rules every
+tool keeps and when a tool is done, see [Intelligence](INTELLIGENCE.md). Device search
 (`find_device`), open alerts (`active_alerts`), the network overview
 (`network_overview`), the device summary (`device_summary`) and device sensors
 (`device_sensors`) all run DashyNMS/mcp's shared `DashyNMS.Agent.Shared` package.
@@ -1269,7 +1261,9 @@ and what counts as a finished migration, see
 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the
 session's client: overview, device search, device summary, active alerts and
-device sensors. Each reply is at most 900 characters. Rows lead with the
+device sensors. The device summary is to be replaced by desktop's
+`device_health` (#634), and the rest of desktop's tools follow under #610.
+Each reply is at most 900 characters. Rows lead with the
 LibreNMS name in the person's device-name choice, followed by Core's marker,
 for example `core-sw1 [[device:708]]`, so the model names devices rather than
 writing "device 708". A device without a usable name reads
@@ -1295,8 +1289,8 @@ the exact total and unfetched matches count as omitted. It searches by name, IP 
 filters, including filter-only queries (#608). MAC results describe stored ARP
 observations rather than ownership. Exact filter names stay separate from display
 labels. Only MAC-specific ARP, the group catalogue and a single group membership
-read are added to the connection-bound allowlist. The overview's alerts put
-unacknowledged items first, then severity, until it moves to the shared overview (#600). Sensor readings carry the shared
+read are added to the connection-bound allowlist. The overview's alert groups
+and their order come from the shared overview (#600). Sensor readings carry the shared
 assessment, problems first; a missing reading says so and a reading with nothing to
 judge it by is never called OK (#603). Network labels cannot form a marker of their own.
 
@@ -1345,8 +1339,8 @@ since been deleted. Links open in the system browser only if Core's
 `WebSearchCitations.TryGetLink` accepts them (http or https, no user
 information) and the answer still contains them.
 
-Graph images and web citations arrive only with the ChatGPT route (#577), so
-their display is tested with recorded answers. `IntelligenceAnswer.Images`
+Graph images arrive with the `graph` tool (#649) and web citations with the
+ChatGPT route (#577). Until then their display is tested with recorded answers. `IntelligenceAnswer.Images`
 carries Core's `IntelligenceImage`; PNG and JPEG within Core's 2 MB limit, at
 most eight, show inline and enlarge in a modal view. An enlarged preview
 clears its image when its turn loses connection ownership and rechecks on

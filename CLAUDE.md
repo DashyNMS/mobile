@@ -11,4 +11,5 @@
 - Commits, PRs and release notes carry no AI attribution or Co-Authored-By lines.
 - Never put real device names, hostnames, addresses or other identifiable network data in issues, PRs, commits, screenshots or test fixtures.
 
+- Intelligence: read `docs/INTELLIGENCE.md` before changing its tools, lookup results, model instructions or chat features. 2.0.0 aims at desktop parity on Apple Intelligence, and the doc lists the allowed differences.
 - Page design: read `docs/DESIGN.md` before creating, changing or reviewing any mobile page, including layout, navigation, forms, pickers, accessibility and motion.
