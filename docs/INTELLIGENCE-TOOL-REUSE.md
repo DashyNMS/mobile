@@ -66,11 +66,14 @@ changes. Without a transport factory, `find_device` fails closed.
 **Allowlist and lifetime.** Device search permits `IDevicesApi.ListAsync`,
 `IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
 `IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
-list, without a locations endpoint. For
+list, without a locations endpoint. `device_summary` permits
+`IDevicesApi.GetAsync` by a positive numeric id, never by hostname. For
 `active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` is allowed. `device_sensors` has a
 profile of its own: `IDevicesApi.ListAsync`, `ISensorsApi.ListAsync` and the sensor health
 routes (see below), with no alerts, ARP or groups. Every other
-endpoint, alert query, alert action and session control throws before transport. Each model attempt
+endpoint, alert query, alert action and session control throws before transport.
+Overview's and sensors' separate clients (see
+[Shared network overview](#shared-network-overview-600)) refuse the single-device read. Each model attempt
 owns an `IntelligenceLookupSet` and disposes it however the attempt ends, which
 closes the transport. A switch or sign-out does the same straight away: waits
 are cancelled, later calls are refused, and late replies and their evidence are
@@ -222,6 +225,56 @@ fallback reads concurrently, so its requests are compared as a set. The type cas
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
 
+## How device_summary is built
+
+The device summary migration (#602), built on DashyNMS/mcp's `DeviceSummaries`
+(DashyNMS/mcp#128). Everything under find_device's host ownership, lifetime,
+cancellation and CI applies unchanged; this section covers only what differs.
+
+**Contract.** The Agent has no `device_summary` tool, and Core's
+`IntelligenceToolAllowlist` has no such name. Mobile's `device_summary` is a
+reviewed narrower profile of the allowlisted `device_health`: its device and
+uptime only, without maintenance, alerts, CPU, memory, storage or ports.
+`device_health` builds that part on the same shared read and shaping, so the two
+can't drift. `CompactNetworkLookups.ReviewedTools` records the tool behind every
+lookup name, and a test holds each to the allowlist, so a new name can't reach the
+model without a reviewed tool.
+
+**Adapter.** Each lookup set creates one `HostDeviceSummary` beside the search and
+open alerts, over the same `ConnectionBoundClient` and transport, and asks for one
+device id. Upstream reads `devices/{id}` and returns the redacted summary with its
+reported `State`, uptime (null when LibreNMS reports none or zero) and a
+`DeviceLocation`: the id, the trimmed and redacted name, and the exact LibreNMS
+name. `devices/{id}` can send the location as the whole JSON record; upstream
+reads the name, and the id when `location_id` is missing, out of it. Mobile
+maps the result to:
+
+- a heading: the device in the person's naming style with `[[device:ID]]`, its
+  reported state and IP;
+- one row: OS, hardware, location with `[[location:ID]]`, and uptime in seconds or
+  `unknown`;
+- evidence: the device with its state at lookup time, and the location chip,
+  whose label is the cleaned name and whose Devices filter is LibreNMS's exact
+  name. The exact name never goes into model text.
+
+**Failures.** No fallback, unlike `device_health`, which answers from its device
+list when the read fails: a device the server doesn't return, or returns under
+another id, is "Device not found."; `Refused` maps to the refusal line, and
+everything else to the failure line.
+
+**Profile.** The name and single `query` argument are unchanged: a positive device
+id from `find_device`.
+
+**Fixtures.** `tests/.../Fixtures/DeviceSummary` is a byte-for-byte copy of
+DashyNMS/mcp's. It covers a location sent as a record, a display name repeating the
+hostname, zero uptime, a missing flag (Unknown), ignored and disabled devices, a
+secret in the hardware text, a padded location name, a location id only in the
+record, a listed device `devices/{id}` doesn't return, and transport failures on
+`devices/1`. `scripts/check-shared-fixtures.sh` covers it. Over loopback HTTP,
+mobile `device_summary` and `HostDeviceSummary` must give the same values,
+requests (`devices/{id}` only) and failures, and upstream holds `device_health`'s
+device and uptime to the same fixture.
+
 ## Rules every shared tool keeps
 
 - **The host owns the clients.** Transport, certificate trust, failover,
@@ -294,7 +347,7 @@ and compare them with `IntelligenceToolAllowlist.Names`.
 | `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, MAC and scope filters (#608) |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared, compact rows and evidence (#600) |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, paging | Shared, device id only (#601) |
-| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Nearest to mobile's `device_summary` (#602) |
+| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared device and uptime only, as `device_summary` (#602) |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, device id only (#603) |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not offered (#610) |
 | `list_groups_and_locations` | Group and location catalogue | Not offered (#610) |
@@ -306,21 +359,20 @@ and compare them with `IntelligenceToolAllowlist.Names`.
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Needs Unimus; not offered (#610) |
 | `graph` | Graph images as MCP content | Needs image handling; not offered (#610) |
 
-There is no Agent `device_summary`; #602 decides its contract. No write,
+There is no Agent `device_summary`: mobile's is a reviewed profile of
+`device_health` (see [How device_summary is built](#how-device_summary-is-built)). No write,
 acknowledgement, rediscovery or remote MCP service is proposed.
 
 ## Remaining lookups and their differences
 
 | Mobile lookup | Difference from the shared tool | Issue |
 | --- | --- | --- |
-| `device_summary` | No exact equivalent: `device_health` fans out much further. Keep the location id with the exact filter name, and the person's device-name choice. | #602 |
 | Former diagnostic `NetworkOverviewLookup` | Removed with the diagnostic under #595. Historical measurements remain documented; there is no diagnostic lookup to migrate. | (#595) |
 
 ## Remaining work
 
 - #620: search rows say when a device is in maintenance.
 - #609: NuGet lock files for the Core and Shared pins.
-- #602: shared device summary.
 - #607: trimmed Android and installed iOS runs, tokens and size deltas.
 - #610: further catalogue tools (epic), one issue per group as each starts.
 

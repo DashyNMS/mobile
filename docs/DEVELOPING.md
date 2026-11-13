@@ -1261,9 +1261,9 @@ result is inferred from shared tests or platform CI builds.
 For the reuse decision, the Agent catalogue, the rules every shared tool keeps
 and what counts as a finished migration, see
 [Shared Intelligence tools](INTELLIGENCE-TOOL-REUSE.md). Device search
-(`find_device`), open alerts (`active_alerts`) and device sensors
-(`device_sensors`) run DashyNMS/mcp's shared `DashyNMS.Agent.Shared` package;
-the other two lookups are still mobile queries, each with its own issue listed there.
+(`find_device`), open alerts (`active_alerts`), the network overview
+(`network_overview`), the device summary (`device_summary`) and device sensors
+(`device_sensors`) all run DashyNMS/mcp's shared `DashyNMS.Agent.Shared` package.
 
 ### Compact network lookups (#572)
 
@@ -1282,6 +1282,11 @@ Markdown links keep their original text. Active alerts come from
 the shared open alerts (#601): one row per rule firing on a device, worst first,
 with groups and faults counted apart and partial acknowledgement shown; if the
 device list or alerts can't be read, the lookup fails rather than reporting none.
+The device summary comes from the shared device summary (#602): one `devices/{id}`
+read giving the reported state, OS, hardware, location (its name even when LibreNMS
+sends the whole location record) and uptime, which reads "unknown" when LibreNMS
+reports none. A device the server doesn't return is "Device not found.", never a
+device-list row.
 The overview names every alert's device from the device list it already reads,
 never one request per alert. Omitted rows are counted. Device search
 ranks exact, then starting, then containing matches over hostname, sysName,

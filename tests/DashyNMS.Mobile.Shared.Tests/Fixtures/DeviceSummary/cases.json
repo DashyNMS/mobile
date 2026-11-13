@@ -1,0 +1,141 @@
+{
+  "routes": {
+    "devices": "devices.json",
+    "devices/1": "device-1.json",
+    "devices/2": "device-2.json",
+    "devices/3": "device-3.json",
+    "devices/4": "device-4.json",
+    "devices/5": "device-5.json",
+    "devices/6": "device-6.json"
+  },
+  "cases": [
+    {
+      "name": "location as a record",
+      "device": 1,
+      "requests": [
+        "devices/1"
+      ],
+      "expected": {
+        "hostname": "core-sw1.example.net",
+        "display": "Core switch 1",
+        "sysName": "core-sw1",
+        "ip": "198.51.100.1",
+        "os": "ios",
+        "hardware": "Synthetic Switch 48",
+        "location": "Core site",
+        "status": "up",
+        "state": "Up",
+        "uptimeSeconds": 864000,
+        "locationId": 3,
+        "locationName": "Core site",
+        "filterName": "Core site"
+      }
+    },
+    {
+      "name": "display repeats the hostname and uptime is zero",
+      "device": 2,
+      "requests": [
+        "devices/2"
+      ],
+      "expected": {
+        "hostname": "edge-sw3.example.net",
+        "display": null,
+        "sysName": "edge-sw3",
+        "ip": "198.51.100.2",
+        "os": "junos",
+        "hardware": "Synthetic Edge 24",
+        "location": "Core site",
+        "status": "down",
+        "state": "Down",
+        "uptimeSeconds": null,
+        "locationId": 3,
+        "locationName": "Core site",
+        "filterName": "Core site"
+      }
+    },
+    {
+      "name": "ignore flag missing and no location",
+      "device": 3,
+      "requests": [
+        "devices/3"
+      ],
+      "expected": {
+        "hostname": "dist-sw2.example.net",
+        "display": null,
+        "sysName": "dist-sw2",
+        "ip": "198.51.100.3",
+        "os": "arubaos-cx",
+        "hardware": "Synthetic Distribution 8",
+        "location": null,
+        "status": "up",
+        "state": "Unknown",
+        "uptimeSeconds": null,
+        "locationId": null,
+        "locationName": null,
+        "filterName": null
+      }
+    },
+    {
+      "name": "ignored, a secret in the hardware and a padded location name",
+      "device": 4,
+      "requests": [
+        "devices/4"
+      ],
+      "expected": {
+        "hostname": "lab-rtr4.example.net",
+        "display": "Lab router",
+        "sysName": null,
+        "ip": "198.51.100.4",
+        "os": "routeros",
+        "hardware": "Synthetic Router password=‹redacted›",
+        "location": "Lab annex",
+        "status": "up",
+        "state": "Ignored",
+        "uptimeSeconds": 3600,
+        "locationId": 5,
+        "locationName": "Lab annex",
+        "filterName": " Lab annex "
+      }
+    },
+    {
+      "name": "disabled, location id only in the record",
+      "device": 5,
+      "requests": [
+        "devices/5"
+      ],
+      "expected": {
+        "hostname": "spare-sw5.example.net",
+        "display": null,
+        "sysName": null,
+        "ip": "198.51.100.5",
+        "os": "ios",
+        "hardware": "Synthetic Switch 24",
+        "location": "Spare store",
+        "status": "disabled",
+        "state": "Disabled",
+        "uptimeSeconds": 120,
+        "locationId": 6,
+        "locationName": "Spare store",
+        "filterName": "Spare store"
+      }
+    },
+    {
+      "name": "listed but not returned",
+      "device": 6,
+      "requests": [
+        "devices/6"
+      ],
+      "code": "NotFound",
+      "mcp": "list"
+    },
+    {
+      "name": "not on the server",
+      "device": 42,
+      "requests": [
+        "devices/42"
+      ],
+      "code": "NotFound",
+      "mcp": "error"
+    }
+  ]
+}

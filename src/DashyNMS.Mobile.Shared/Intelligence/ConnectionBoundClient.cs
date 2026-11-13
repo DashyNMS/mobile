@@ -7,9 +7,9 @@ using System.Text.RegularExpressions;
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>
-/// The client handed to shared operations: reviewed search and open-alert reads,
-/// the overview profile's device, open-alert, port-status and system reads, or the sensor
-/// profile's device list, sensor list and sensor health routes (#603).
+/// The client handed to shared operations: reviewed search, device summary and open-alert
+/// reads, the overview profile's device, open-alert, port-status and system reads, or the
+/// sensor profile's device list, sensor list and sensor health routes (#603).
 /// Each instance owns a transport bound to the connection the chat captured.
 /// </summary>
 /// <remarks>
@@ -18,7 +18,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// reconnect, certificate trust and sign-out. Checking "is it still current?" before
 /// each request leaves a window: a switch between the check and the send dials the
 /// new server with the old chat's request. The shared operations warn about exactly this
-/// (<c>HostDeviceSearch.Create</c> and <c>HostOpenAlerts.Create</c> ask for a client that
+/// (<c>HostDeviceSearch.Create</c>, <c>HostOpenAlerts.Create</c> and <c>HostDeviceSummary.Create</c> ask for a client that
 /// stays bound even after retirement). So this client never touches the session's transport.
 /// It sends through one opened for the captured connection alone and builds Core's real
 /// device and alert APIs on it. A switch cannot redirect it; at worst a request already sent reaches the old
@@ -31,16 +31,19 @@ namespace DashyNMS.Mobile.Intelligence;
 /// </para>
 /// <para>
 /// The transport is opened on the first lookup that needs it, not when the chat starts,
-/// so a chat that never searches or asks about alerts makes no connection. <see cref="Dispose"/> retires the client:
+/// so a chat that never searches, asks about a device or asks about alerts makes no connection. <see cref="Dispose"/> retires the client:
 /// later calls throw <see cref="RetiredException"/> and the transport is closed.
 /// </para>
 /// <para>
 /// Search allows the device list, MAC-specific ARP search, group catalogue and one
 /// group's membership, plus the open alerts query. Location filtering uses the device
-/// list. Overview uses a separate instance permitting only the device and open-alert
-/// lists, fleet port status and system information; it refuses ARP and groups. Sensors use
-/// another instance permitting only the device list, the network-wide sensor list and the
-/// sensor health reads of <see cref="SensorTransport"/>; it refuses alerts, ARP and groups.
+/// list. The device summary (#602) reads one device by a positive numeric id; a read by
+/// hostname, or a padded or signed number, is refused. Overview uses a separate instance
+/// permitting only the device and open-alert lists, fleet port status and system
+/// information; it refuses ARP, groups and the single-device read. Sensors use another
+/// instance permitting only the device list, the network-wide sensor list and the sensor
+/// health reads of <see cref="SensorTransport"/>; it refuses alerts, ARP, groups and the
+/// single-device read.
 /// All other reads, writes and session controls throw before transport.
 /// </para>
 /// </remarks>
@@ -48,7 +51,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
 {
     private readonly SessionScope scope;
     private readonly Func<SessionScope, ILibreNmsTransport> openTransport;
-    private readonly ListOnly devices;
+    private readonly ListAndOne devices;
     private readonly OpenOnly alerts;
     private readonly bool overview;
     private readonly bool sensorProfile;
@@ -77,7 +80,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         this.sensors = new SensorListOnly(this);
         sensorRoutes = new SensorRoutesOnly(this);
         this.openTransport = openTransport;
-        devices = new ListOnly(this);
+        devices = new ListAndOne(this);
         alerts = new OpenOnly(this);
     }
 
@@ -191,6 +194,18 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
 
     private Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken) => Apis().Devices.ListAsync(cancellationToken);
 
+    private Task<Device?> GetAsync(string idOrHostname, CancellationToken cancellationToken)
+    {
+        // Overview's and sensors' instances have no use for one device, so they don't get one.
+        if (overview || sensorProfile) throw new RefusedException(nameof(IDevicesApi.GetAsync) + " outside device search and summary");
+        // Only the reviewed read: one device by its id, as device search returns them. A hostname
+        // would make LibreNMS pick the device, and a padded or signed number isn't an id it gave us.
+        if (!int.TryParse(idOrHostname, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var id)
+            || id <= 0 || id.ToString(System.Globalization.CultureInfo.InvariantCulture) != idOrHostname)
+            throw new RefusedException(nameof(IDevicesApi.GetAsync) + " other than by a device id");
+        return Apis().Devices.GetAsync(idOrHostname, cancellationToken);
+    }
+
     private Task<IReadOnlyList<Alert>> ListOpenAsync(AlertQuery? query, CancellationToken cancellationToken)
     {
         // Only the reviewed query: firing and acknowledged, never recovered history or one by id.
@@ -215,12 +230,12 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         (closing as IDisposable)?.Dispose();
     }
 
-    /// <summary>The device list and nothing else of <see cref="IDevicesApi"/>.</summary>
-    private sealed class ListOnly(ConnectionBoundClient owner) : IDevicesApi
+    /// <summary>The device list and one device by id, and nothing else of <see cref="IDevicesApi"/>.</summary>
+    private sealed class ListAndOne(ConnectionBoundClient owner) : IDevicesApi
     {
         public Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken = default) => owner.ListAsync(cancellationToken);
 
-        public Task<Device?> GetAsync(string idOrHostname, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<Device?> GetAsync(string idOrHostname, CancellationToken cancellationToken = default) => owner.GetAsync(idOrHostname, cancellationToken);
         public Task<bool> IsUnderMaintenanceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(IsUnderMaintenanceAsync));
         public Task<string> ScheduleMaintenanceAsync(int deviceId, DeviceMaintenanceRequest request, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ScheduleMaintenanceAsync));
         public Task<IReadOnlyList<AvailabilityWindow>> GetAvailabilityAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAvailabilityAsync));

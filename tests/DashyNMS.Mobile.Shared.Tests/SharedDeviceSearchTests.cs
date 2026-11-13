@@ -335,7 +335,7 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Fact]
-    public async Task The_bound_client_offers_only_the_device_list_and_open_alerts_and_opens_its_transport_once_for_its_own_connection()
+    public async Task The_bound_client_offers_only_the_device_list_one_device_by_id_and_open_alerts_and_opens_its_transport_once_for_its_own_connection()
     {
         var connection = new LibreNmsConnection(new Uri("https://nms.example.net/"), "test-token");
         var opened = new List<LibreNmsConnection>();
@@ -352,7 +352,9 @@ public sealed partial class SharedDeviceSearchTests
         var alerts = bound.Alerts;
         Assert.Empty(opened);
 
-        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetAsync("1"));
+        // One device by the id device search gave, never by a hostname or a reshaped number.
+        foreach (var notAnId in new[] { "core-sw1.example.net", "0", "-1", "01", " 1", "1 ", "+1", "1.0", "" })
+            await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetAsync(notAnId));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.IsUnderMaintenanceAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.ScheduleMaintenanceAsync(1, null!));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.DiscoverAsync(1));
@@ -391,13 +393,17 @@ public sealed partial class SharedDeviceSearchTests
         await devices.ListAsync();
         Assert.Same(connection, Assert.Single(opened));
         Assert.Equal(new[] { "devices", "devices" }, nms.Requests);
+        // A device id reaches the transport (this fixture has no devices/1, so it answers 404).
+        await Assert.ThrowsAsync<LibreNmsApiException>(() => devices.GetAsync("1"));
+        Assert.Equal(new[] { "devices", "devices", "devices/1" }, nms.Requests);
 
         bound.Dispose();
         Assert.Throws<ConnectionBoundClient.RetiredException>(() => bound.Devices);
         Assert.Throws<ConnectionBoundClient.RetiredException>(() => bound.Alerts);
         await Assert.ThrowsAsync<ConnectionBoundClient.RetiredException>(() => devices.ListAsync());
         await Assert.ThrowsAsync<ConnectionBoundClient.RetiredException>(() => alerts.ListAsync(AlertQuery.Open));
-        Assert.Equal(2, nms.Requests.Count);
+        await Assert.ThrowsAsync<ConnectionBoundClient.RetiredException>(() => devices.GetAsync("1"));
+        Assert.Equal(3, nms.Requests.Count);
     }
 
     [Fact]

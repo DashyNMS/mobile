@@ -157,6 +157,8 @@ public sealed class SharedNetworkOverviewTests
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Ports.ListIpAddressesAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Alerts.AcknowledgeAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Devices.DeleteAsync(1));
+        // The single-device read is the device summary's (#602), not the overview's.
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => overview.Devices.GetAsync("1"));
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => overview.Arp);
         Assert.Throws<ConnectionBoundClient.RefusedException>(() => overview.DeviceGroups);
         Assert.False(overview.IsOpen);
