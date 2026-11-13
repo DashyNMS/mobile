@@ -1,20 +1,86 @@
-# Shared Intelligence tools
+# Intelligence
 
-How Intelligence reuses DashyNMS/mcp's network tools instead of keeping its own
-copies. The decision and first migration came from #596 (closed 2026-11-12).
-Each remaining tool has its own issue, listed under
-[Remaining work](#remaining-work). This document holds what stays true across
-those issues. Progress is tracked in the issues, not here.
+How Intelligence on the phone reaches parity with desktop's, and the rules for
+every network tool it runs. The epic is #236. Progress is tracked in its
+issues, not here; this document holds what stays true across them.
 
-## Decision
+## Direction
+
+Mobile 2.0.0 gives iPhone and iPad desktop's Intelligence, answered by Apple
+Intelligence instead of ChatGPT. That means Apple's on-device model through the
+Foundation Models framework, and on iOS 27 optionally Private Cloud Compute
+(#575). Parity covers four things:
+
+- **Tools.** The model gets desktop's tools, with the same names, arguments and
+  descriptions. The text comes from DashyNMS/mcp's shared catalogue
+  (DashyNMS/mcp#130) and is never written on the phone (#635). Every tool MCP
+  has comes to the phone (#610).
+- **Results.** A lookup returns the facts desktop's tool returns, from the same
+  shared typed operation, written as compact text. Any fact left out is listed
+  under [Facts left out](#facts-left-out) with its reason (#636).
+- **Instructions.** The model follows the rules in Core's `Instructions/*.md`
+  that desktop's model follows: evidence, safety, alerts and faults, writing,
+  markers and detail levels (#638).
+- **Chat.** Desktop's chat features: saved chats, Spotlight, Ask Intelligence,
+  export and starter questions.
+
+In 2.1.0, ChatGPT (#577) and Android (#576) join as further models over the
+same tools and pages. ChatGPT then gets every tool on every question and MCP's
+JSON results (#225).
+
+## Allowed differences
+
+The phone differs from desktop only where the model forces it. Each difference
+is listed here with its reason. Anything else is a gap and needs an issue.
+
+| Difference | Reason |
+| --- | --- |
+| Fewer tools and lookups per question | The context is 4,096 tokens on iOS 26.4 and 8,192 on iOS 27.2. The catalogue's descriptions alone are about 23,700 characters, roughly 6,000 tokens. Each question gets the tools and lookups its context holds (#637). Private Cloud Compute's 32,000 tokens hold the whole catalogue. |
+| Compact text results, at most 900 characters on the device, instead of MCP's JSON | The context again. The facts match, except those under [Facts left out](#facts-left-out). |
+| Short instructions on the device | The context again. Each of Core's rules maps to a short form or a written exclusion (#638). Private Cloud Compute uses Core's text where it fits. |
+| Results name devices in the person's device-name style, with Core's markers already written | Left to itself, the on-device model drops parts of names and writes "device 708" (#570). Desktop's model writes markers from the JSON itself. |
+| No Full report detail level on the device | Too long for the on-device answer budget. |
+| No web search | It's ChatGPT's hosted tool, and arrives with #577. |
+| Graph images may not reach the model | It depends on whether Apple's models accept images (#649). The person still sees the graph. |
+| Report this answer, and the Private Cloud Compute notice | Store rules for the phone (#574, #575). |
+
+Where the phone is more accurate than MCP, it keeps its value and the fix goes
+upstream. Device search, for example, reports Ignored and Unknown states that
+MCP doesn't yet (DashyNMS/mcp#121).
+
+## Parity
+
+| Desktop | Phone now | Issue |
+| --- | --- | --- |
+| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_summary` in place of `device_health` | #610, #634 |
+| Tool names, arguments and descriptions from MCP | The phone's own short descriptions, one `query` string, numeric device IDs | #635, DashyNMS/mcp#130, DashyNMS/mcp#131 |
+| Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
+| Every tool on every question, 48 lookups in 16 rounds | Five tools, two lookups | #637 |
+| Core's instructions, about 1,300 words | One 400-character string | #638 |
+| Sensor readings judged by limits and defaults, not the person's thresholds | The same | #639, DashyNMS/mcp#132 |
+| Device search without maintenance | The same | #620 |
+| Brief, Balanced, Detailed and Full report | Brief, Balanced and Detailed | Allowed difference |
+| Saved chats to rename, pin and delete, grouped by date | Done | #229 |
+| Single-chat mode | Done | #230 |
+| Copy, Retry, Edit question and Stop | Done | #227, #573 |
+| Spotlight on devices, a group, a location or an object | Not yet | #231 |
+| Ask Intelligence from devices, alerts, sensors, ports and more | Not yet | #232 |
+| Export as Markdown or PDF | Not yet | #233 |
+| Twelve starter questions, four at a time, and "Checking alerts" activity | Three fixed sets of three, and tool titles | #640 |
+| Graph images in answers | Rendered, but no tool returns one | #649 |
+| Web search | Not on Apple Intelligence | #577 |
+| Dashy, desktop's companion | Undecided | #236 |
+
+## How the phone runs desktop's tools
 
 Typed operations are extracted **inside DashyNMS/mcp's Agent library** and
 published in one package, `DashyNMS.Agent.Shared`, with no `ModelContextProtocol`
 reference. Each new operation joins that package rather than shipping its own, so
-mobile pins and verifies one package. The MCP server
-and mobile are both thin adapters over them. Core keeps transport, LibreNMS
-models and alert grouping; a new Core API is only for behaviour every Core
-consumer needs.
+mobile pins and verifies one package. The MCP server and mobile are both thin
+adapters over them. Core keeps transport, LibreNMS models and alert grouping; a
+new Core API is only for behaviour every Core consumer needs. This was decided
+in #596 (closed 2026-11-12), which replaced #221's plan to host the whole Agent
+library in the app.
 
 Mobile never copies an MCP query, parses an MCP tool's JSON, or calls
 `AddDashyNmsAgent`. That registration adds its own transports, failover and
@@ -22,7 +88,160 @@ LibreNMS, Graylog and Unimus clients, which would replace the session's. Agent's
 `DeviceDirectory` and `FleetCache` also cache for 60 seconds with no server key,
 so a shared instance could hand one network's data to another.
 
-## How find_device is built
+The same package will carry the tool catalogue (DashyNMS/mcp#130) and device
+resolution by name, address or ID (DashyNMS/mcp#131), so the phone describes
+and resolves tools exactly as MCP does.
+
+DashyNMS/mcp stays a complete MCP server in its own right. Any MCP client can
+run it as an executable or container image, without DashyNMS desktop or
+mobile. An HTTP service and single-file binaries are planned
+(DashyNMS/mcp#17, DashyNMS/mcp#36). The shared
+package is a library MCP uses. It never makes MCP depend on the apps.
+
+## Adding a tool
+
+1. Upstream, in DashyNMS/mcp: the typed operation in `DashyNMS.Agent.Shared`,
+   its catalogue entry and synthetic fixtures. MCP's own tool runs the
+   operation and takes its text from the catalogue.
+2. Pin the published package version and hash, and keep
+   `scripts/verify-shared-package.sh` covering it.
+3. Copy the fixtures byte for byte and add them to
+   `scripts/check-shared-fixtures.sh`.
+4. Write the adapter in `CompactNetworkLookups`: its endpoint allowlist, its
+   compact text built from the typed result, and its evidence from the rows
+   shown. Record its name in `ReviewedTools`.
+5. Compare its text with MCP's JSON field by field, and list any fact left out
+   under [Facts left out](#facts-left-out).
+6. Update [Catalogue](#catalogue) and [Parity](#parity). Add a section under
+   [Built tools](#built-tools) for anything that differs from the pattern.
+
+A tool is finished when every item in
+[When a tool is done](#when-a-tool-is-done) holds.
+
+## Rules every shared tool keeps
+
+- **MCP stays standalone.** MCP keeps its own service registration,
+  environment-variable configuration, JSON results, paging and every tool. A
+  change made for the phone leaves MCP's output unchanged, unless the change is
+  wanted for every MCP client and tested in MCP. What only the phone needs stays
+  in mobile: the device-name style, written markers, compact text, budgets and
+  tool choice.
+- **The host owns the clients.** Transport, certificate trust, failover,
+  credentials, caches and timestamp settings come from the session. Directories
+  and caches are created per connection generation. Integration tools (Graylog,
+  Unimus) are offered only when the phone has that integration set up, use the
+  phone's own settings, and never read server environment variables.
+- **Text from the catalogue.** A tool's name, description and parameters come
+  from the shared catalogue, unchanged. A parameter the phone doesn't support
+  yet is left out of the schema and listed under
+  [Facts left out](#facts-left-out). Until #635 lands, the five tools carry the
+  phone's own text.
+- **Read-only allowlist.** The wrapper allows only the endpoints the tool's
+  review names, and unknown tools fail before transport. A tool is offered to
+  the model only if it's in Core's `IntelligenceToolAllowlist`, the static
+  registry and the question's tool choice. No reflection-based MCP discovery
+  ships on mobile.
+- **Safe failures.** Model text, evidence and diagnostics never contain server
+  messages, raw bodies, URLs, exception text or stack traces. Upstream returns
+  fixed categories, and mobile maps them to fixed lines. Partial component
+  failures follow the same rule.
+- **Untrusted data.** Device, log and configuration text stays untrusted model
+  input. Upstream redaction and mobile's `Clean` are both kept; neither replaces
+  the other.
+- **The same facts, compactly.** At most 900 characters per reply on the
+  device, built from the typed result rather than by slicing upstream JSON. Every
+  fact MCP returns is shown or listed under [Facts left out](#facts-left-out).
+  Rows are whole, with names and intact ids. Omissions and failures are stated
+  truthfully. Evidence comes only from rows shown, and an aggregate count never
+  becomes an entity link. Alert groups use a device/rule key distinct from fault
+  ids, so a fault and a legacy alert with the same number never share ownership.
+- **Budgets.** Definitions reserve 80 tokens each, with 160 reserved for the
+  four-argument device search. This is a conservative allowance, not a device
+  measurement. The conversation budget in `IntelligenceConversationViewModel`
+  reserves 630 fixed, 720 for two results and 400 for output, within 80% of the
+  reported context. Measured figures are in
+  [DEVELOPING.md](DEVELOPING.md#what-the-on-device-model-can-do-570). #637
+  replaces these fixed figures with measured per-tool costs and a budget read
+  from `contextSize`. All 24 definitions never go into the on-device context at
+  once.
+- **Notices before data leaves the phone.** On the device nothing is sent.
+  Private Cloud Compute (#575) and ChatGPT (#577) send questions and lookup
+  results, so each has its own notice, which names log and config text when
+  those tools are offered.
+
+## When a tool is done
+
+A tool counts as done when its PR, and the upstream PR it pins, show all of
+these:
+
+1. The upstream typed operation is in an Agent package with no MCP reference,
+   published from `main` with a provenance attestation, and MCP's own tool uses
+   it.
+2. Mobile pins the exact version, and `verify-shared-package.sh` covers the
+   package.
+3. Upstream's synthetic fixtures are copied byte for byte, the check script
+   covers the copy, and the cases include the issue's named edge cases.
+4. Mobile's tool and the package give the same results as MCP over loopback
+   HTTP, including failures.
+5. The tool's name, description and parameters match the catalogue (from #635),
+   and a test compares its text with MCP's JSON fields (from #636).
+6. Tests cover host-owned transport, a connection switch mid-request,
+   cancellation, the deadline, refusals, the endpoint allowlist and the absence
+   of server text.
+7. MCP's own tool output is unchanged, or changed on purpose with MCP's own
+   tests, and MCP's container image and release builds still pass.
+8. Android Release and iOS Release CI pass with no new trim or AOT warnings.
+9. Mobile's old query, ordering and formatting for that tool are deleted, and
+   this document's tables are updated.
+
+Device runs, token measurements and size deltas are recorded on devices and
+never inferred from CI.
+
+## Catalogue
+
+DashyNMS/mcp's Agent has 24 tools, all in Core's allowlist and marked read-only.
+To refresh, count the `McpServerTool(Name = ...)` attributes under
+`src/DashyNMS.Agent/Tools` and compare them with `IntelligenceToolAllowlist.Names`.
+
+| Tool | Capability | Phone | Issue |
+| --- | --- | --- | --- |
+| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC and scope filters | #620, #635, #636 |
+| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | #635 |
+| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
+| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Device and uptime only, as `device_summary` | #634 |
+| `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
+| `list_groups_and_locations` | Group and location catalogue | Not yet | #642 |
+| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not yet | #641 |
+| `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Not yet | #643 |
+| `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Not yet | #644 |
+| `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
+| `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
+| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
+| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Not yet | #648 |
+| `graph` | Graph images | Not yet | #649 |
+
+No write, acknowledgement, rediscovery or remote MCP service is proposed.
+
+## Facts left out
+
+What each shared tool's MCP result has that the phone's text doesn't, and why.
+"#636" marks a fact still to add.
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `network_overview` | Nothing | |
+| `find_device` | Location; the hostname when the display name differs; `verbose`'s sysName, OS, hardware and last poll | #636 |
+| `find_device` | `offset`, `limit` and `page.next_offset` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
+| `active_alerts` | When each alert opened; its note; each fault's state and start time; fault names beyond three; `group_id` | #636. `group_id` stays out: it isn't an object the person can open. |
+| `active_alerts` | `severity`, `group` and `location` filters; `hours`, `since` and `until` | #635 for the filters, #645 for the window |
+| `device_summary` | Everything `device_health` adds | Replaced by `device_health` in #634 |
+| `device_sensors` | Warning limits, and limits on readings that aren't problems; the `type` filter | #636 for the limits, #635 for the filter |
+
+## Built tools
+
+What each shared tool on the phone does beyond the pattern above.
+
+### How find_device is built
 
 `find_device` is the first migration and the pattern for the rest.
 
@@ -73,7 +292,7 @@ profile of its own: `IDevicesApi.ListAsync`, `ISensorsApi.ListAsync` and the sen
 routes (see below), with no alerts, ARP or groups. Every other
 endpoint, alert query, alert action and session control throws before transport.
 Overview's and sensors' separate clients (see
-[Shared network overview](#shared-network-overview-600)) refuse the single-device read. Each model attempt
+[How network_overview is built](#how-network_overview-is-built-600)) refuse the single-device read. Each model attempt
 owns an `IntelligenceLookupSet` and disposes it however the attempt ends, which
 closes the transport. A switch or sign-out does the same straight away: waits
 are cancelled, later calls are refused, and late replies and their evidence are
@@ -117,7 +336,7 @@ naming the package. They record evaluated properties and sizes, and the iOS job
 keeps the Foundation Models weak-link check. These prove compilation, not
 execution; runtime and device checks are #607.
 
-## How active_alerts is built
+### How active_alerts is built
 
 The second migration (#601), built on DashyNMS/mcp's `OpenAlerts` (DashyNMS/mcp#123).
 Everything under find_device's host ownership, lifetime, cancellation and CI
@@ -153,7 +372,7 @@ lookup fails rather than reporting no alerts. `Refused` maps to the refusal line
 everything else to the failure line.
 
 **Profile.** Name and single `query` argument unchanged: a positive device id or
-empty. Severity, scope, time windows and paging stay unadvertised.
+empty. Severity, scope, time windows and paging stay unadvertised until #635 and #645.
 
 **Fixtures.** `tests/.../Fixtures/OpenAlerts` is a byte-for-byte copy of
 DashyNMS/mcp's: a 26.10 server and an older one, with a fault and a legacy alert
@@ -164,7 +383,7 @@ beside its open siblings, and failures on the alert routes.
 states, counts, totals and request logs as MCP, and fail alike. Cases mobile can't
 ask (severity, location, paging) run through the package alone.
 
-## How device_sensors is built
+### How device_sensors is built
 
 The sensor migration (#603), built on DashyNMS/mcp's `DeviceSensors` (DashyNMS/mcp#129,
 published at `812266d` as `2.0.0-ci.43365576634.1`).
@@ -179,7 +398,7 @@ assessment is MCP's: the sensor's own LibreNMS limits, Core's default thresholds
 signal, temperature and fan speed where it has none, and an installed state definition's
 severity. Desktop doesn't give MCP the person's own thresholds, so chat doesn't use
 them on either platform: a reading can differ between chat and the Health page when
-someone has changed Settings › Thresholds. Fixing that is an upstream change for both.
+someone has changed Settings › Thresholds. Fixing that is an upstream change for both (DashyNMS/mcp#132, #639).
 Mobile maps the result to:
 
 - a heading with every count, unknown kept apart from OK:
@@ -211,7 +430,7 @@ doesn't hold to `No device with that id is visible to this account. Use find_dev
 everything else to the failure line.
 
 **Profile.** Name and single `query` argument unchanged: a positive device id. The type
-filter stays unadvertised.
+filter stays unadvertised until #635.
 
 **Fixtures.** `tests/.../Fixtures/DeviceSensors` is a byte-for-byte copy of DashyNMS/mcp's:
 a zero fan reading beside a missing one, readings judged by their own limits and by the
@@ -225,7 +444,9 @@ fallback reads concurrently, so its requests are compared as a set. The type cas
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
 
-## How device_summary is built
+### How device_summary is built
+
+`device_health` replaces this tool under #634.
 
 The device summary migration (#602), built on DashyNMS/mcp's `DeviceSummaries`
 (DashyNMS/mcp#128). Everything under find_device's host ownership, lifetime,
@@ -275,108 +496,7 @@ mobile `device_summary` and `HostDeviceSummary` must give the same values,
 requests (`devices/{id}` only) and failures, and upstream holds `device_health`'s
 device and uptime to the same fixture.
 
-## Rules every shared tool keeps
-
-- **The host owns the clients.** Transport, certificate trust, failover,
-  credentials, caches and timestamp settings come from the session. Directories
-  and caches are created per connection generation. Integration tools (Graylog,
-  Unimus) stay disabled until mobile has a captured, consented configuration for
-  them, and never read server environment variables.
-- **Read-only allowlist.** The wrapper allows only the endpoints the tool's
-  review names, and unknown tools fail before transport. A tool is offered to
-  the model only if it's in Core's `IntelligenceToolAllowlist`, the static
-  registry and the current task profile. No reflection-based MCP discovery
-  ships on mobile.
-- **Safe failures.** Model text, evidence and diagnostics never contain server
-  messages, raw bodies, URLs, exception text or stack traces. Upstream returns
-  fixed categories, and mobile maps them to fixed lines. Partial component
-  failures follow the same rule.
-- **Untrusted data.** Device, log and configuration text stays untrusted model
-  input. Upstream redaction and mobile's `Clean` are both kept; neither replaces
-  the other.
-- **Compact output from typed rows.** At most 900 characters per reply, built
-  from the typed result rather than by slicing upstream JSON. Rows are whole,
-  with names and intact ids. Omissions and failures are stated truthfully.
-  Evidence comes only from rows shown, and an aggregate count never becomes an
-  entity link. Alert groups use a device/rule key distinct from fault ids, so a
-  fault and a legacy alert with the same number never share ownership.
-- **Budgets.** Definitions reserve 80 tokens each, with 160 reserved for the
-  four-argument device search. This is a conservative allowance, not a new
-  device measurement. The conversation budget in `IntelligenceConversationViewModel`
-  reserves 630 fixed, 720 for two
-  results and 400 for output, within 80% of the reported context. Measured
-  figures are in [DEVELOPING.md](DEVELOPING.md#what-the-on-device-model-can-do-570).
-  Tools are chosen by task; all 24 schemas are never placed in the on-device
-  context.
-- **On-device only.** Nothing here changes the deferred ChatGPT route. Cloud use
-  needs its own consent and data-minimisation profile first.
-
-## Migration done means
-
-A lookup counts as migrated when its PR, and the upstream PR it pins, show all
-of these:
-
-1. The upstream typed operation is in an Agent package with no MCP reference,
-   published from `main` with a provenance attestation, and MCP's own tool uses
-   it.
-2. Mobile pins the exact version, and `verify-shared-package.sh` covers the
-   package.
-3. Upstream's synthetic fixtures are copied byte for byte, the check script
-   covers the copy, and the cases include the issue's named edge cases.
-4. Mobile's tool and the package give the same results as MCP over loopback
-   HTTP, including failures.
-5. Tests cover host-owned transport, a connection switch mid-request,
-   cancellation, the deadline, refusals, the endpoint allowlist and the absence
-   of server text.
-6. Android Release and iOS Release CI pass with no new trim or AOT warnings.
-7. Mobile's old query, ordering and formatting for that tool are deleted, and
-   this document's tables are updated.
-
-Device runs, token measurements and size deltas are recorded separately (#607)
-and never inferred from CI.
-
-## Current catalogue
-
-DashyNMS/mcp's Agent has 24 tools, all in Core's allowlist and marked read-only.
-Being on the list doesn't mean mobile supports a tool. To refresh, count the
-`McpServerTool(Name = ...)` attributes under `src/DashyNMS.Agent/Tools`
-and compare them with `IntelligenceToolAllowlist.Names`.
-
-| Tool | Capability | Mobile |
-| --- | --- | --- |
-| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, MAC and scope filters (#608) |
-| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared, compact rows and evidence (#600) |
-| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, paging | Shared, device id only (#601) |
-| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared device and uptime only, as `device_summary` (#602) |
-| `device_sensors` | Threshold-assessed readings, problems first | Shared, device id only (#603) |
-| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not offered (#610) |
-| `list_groups_and_locations` | Group and location catalogue | Not offered (#610) |
-| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Not offered (#610) |
-| `device_neighbours`, `port_status`, `trace_endpoint` | Links, one port's state, tracing through stored ARP/FDB | Not offered (#610) |
-| `top_devices`, `top_errors`, `top_interfaces`, `health_overview` | Ranked metrics and scoped sensor assessment | Not offered (#610) |
-| `device_events`, `network_events`, `what_changed` | Event and change history | Not offered (#610) |
-| `search_logs` | Graylog messages | Needs Graylog; not offered (#610) |
-| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Needs Unimus; not offered (#610) |
-| `graph` | Graph images as MCP content | Needs image handling; not offered (#610) |
-
-There is no Agent `device_summary`: mobile's is a reviewed profile of
-`device_health` (see [How device_summary is built](#how-device_summary-is-built)). No write,
-acknowledgement, rediscovery or remote MCP service is proposed.
-
-## Remaining lookups and their differences
-
-| Mobile lookup | Difference from the shared tool | Issue |
-| --- | --- | --- |
-| Former diagnostic `NetworkOverviewLookup` | Removed with the diagnostic under #595. Historical measurements remain documented; there is no diagnostic lookup to migrate. | (#595) |
-
-## Remaining work
-
-- #620: search rows say when a device is in maintenance.
-- #609: NuGet lock files for the Core and Shared pins.
-- #607: trimmed Android and installed iOS runs, tokens and size deltas.
-- #610: further catalogue tools (epic), one issue per group as each starts.
-
-## Shared network overview (#600)
+### How network_overview is built (#600)
 
 Intelligence consumes `HostNetworkOverview` from Agent.Shared, published by
 DashyNMS/mcp#125 at `7a84405` as `2.0.0-ci.43332463880.1`. The operation owns
