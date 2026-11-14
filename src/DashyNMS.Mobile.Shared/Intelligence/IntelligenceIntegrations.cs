@@ -21,8 +21,15 @@ public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup u
     {
         var logs = graylog.Captured;
         var configs = unimus.Captured;
-        return new(logs.Connection, configs.Connection, settings.Current,
-            () => graylog.Generation == logs.Generation && unimus.Revision == configs.Generation);
+        var current = settings.Current;
+        var textMode = current.IntelligenceConfigText;
+        var queryField = current.Graylog.QueryField;
+        var anyAddress = current.Graylog.MatchAnyAddress;
+        return new(logs.Connection, configs.Connection, current,
+            () => graylog.Generation == logs.Generation && unimus.Revision == configs.Generation
+                && settings.Current.IntelligenceConfigText == textMode
+                && settings.Current.Graylog.QueryField == queryField
+                && settings.Current.Graylog.MatchAnyAddress == anyAddress);
     }
 }
 

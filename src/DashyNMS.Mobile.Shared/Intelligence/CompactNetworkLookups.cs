@@ -122,7 +122,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed",
     };
 
     /// <summary>
@@ -134,6 +134,7 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["what_changed"] = ["device", "hours", "since", "until"],
         ["device_events"] = ["device", "hours", "since", "until", "offset", "limit"],
         ["network_events"] = ["log", "hours", "since", "until", "type", "severity", "device", "group", "location", "offset", "limit"],
         ["top_interfaces"] = ["by", "limit", "group", "location"],
@@ -257,10 +258,16 @@ public sealed partial class CompactNetworkLookups(
         var integrationClients = integrations?.Capture() ?? new IntelligenceIntegrationClients(null, null, settings.Current);
         var histories = historyBound is null ? null : HostEventLookups.Create(historyBound, integrationClients.Unimus, integrationClients.Graylog,
             time, integrationClients.Options);
+        var changesBound = scope is not { } capturedChanges || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedChanges, deviceTransport, changes: true);
+        var changes = changesBound is null ? null : HostEventLookups.Create(changesBound, integrationClients.Unimus, integrationClients.Graylog,
+            time, integrationClients.Options);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            changes?.Dispose();
+            changesBound?.Dispose();
             histories?.Dispose();
             historyBound?.Dispose();
             integrationClients.Dispose();
@@ -699,6 +706,17 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("what_changed", "device", async (arguments, at, ct) =>
+            {
+                if (changes is null) return Reply.Say(Failed);
+                integrationClients.Current();
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var request = new WhatChangedRequest(id, arguments.Number("hours"), arguments.Text("since"), arguments.Text("until"));
+                var outcome = await WhileCurrent(() => changes.ReadChangesAsync(request, ct)).ConfigureAwait(false);
+                integrationClients.Current();
+                return outcome.Result is { } found ? WhatChangedRows(found, at, time, SummaryName(found.Data.Device)) : HistoryFailure(outcome.Error);
             }),
             Lookup("device_events", "device", async (arguments, at, ct) =>
             {

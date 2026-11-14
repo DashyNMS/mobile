@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 18: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, and `network_events` | #236 |
+| 24 network tools | 19: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, and `what_changed` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -213,7 +213,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
 | `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
-| `device_events`, `network_events`, `what_changed` | Event and change history | Shared device/fleet history; what_changed pending | #645 |
+| `device_events`, `network_events`, `what_changed` | Event and change history | Shared timelines and optional-service change context | #645 |
 | `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
@@ -512,9 +512,33 @@ or forgotten. The main LibreNMS generation still governs the whole lookup set.
 The captured options include server timestamps, Graylog query field/address
 matching and the phone's config-text choice (Summary by default). The history
 factory now receives these clients; its LibreNMS-only tools do not call them.
-WhatChanged and the integration tool adapters follow. CI tests use two synthetic
+WhatChanged uses them; the remaining integration tool adapters follow. CI tests use two synthetic
 HTTP services to check addresses, credentials, capture against settings changes,
 retirement and refused configuration/write methods.
+
+### How what_changed is built
+
+The adapter calls the shared `ReadChangesAsync` with captured read-only optional
+clients. The heading states whether config changed, is unknown without a
+baseline, is disabled by the saved choice, is unavailable or has no matching
+device. Graylog is independently unconfigured, counted, unavailable or skipped
+for a past window. Failed interface-address coverage prevents a narrowed log
+search. Config Summary shows counts without text; Full shows shared-redacted
+diff rows; Off makes no Unimus request. Internal MCP environment-variable wording
+is replaced with the phone's saved preference wording.
+
+Source failures and window coverage precede detail rows. Config version and
+backup times, change counts, timeline events, optional log samples and diff rows
+then share the whole-row budget. Omitted rows and upstream caps are counted;
+only a shown verified device gets a chip. The adapter checks integration state
+before and after the shared read. Integration changes, forgotten credentials or
+changed config-text/query preferences reject late results and evidence.
+
+HTTP tests cover configured services, text modes and redaction, a missing config
+baseline, disabled config reads, missing address coverage and a privacy change
+during an in-flight read. Unconfigured services retain the LibreNMS timeline.
+The history deadline/retirement test also covers this adapter. Full field
+accounting and iPhone acceptance remain pending while this PR is draft.
 
 ### How event and alert history is built
 
@@ -523,7 +547,8 @@ dedicated captured LibreNMS client. It allows device and group lists/membership,
 rule names, open alerts, positive-device outages, and device/global event and
 alert logs at the shared 200/1,000/2,000 depths. Other reads, maintenance, actions
 and writes are refused. These three operations do not use Graylog or Unimus;
-the WhatChanged adapter and captured optional-service clients follow next.
+WhatChanged uses a separate profile that additionally permits per-device IPs
+for configured Graylog address coverage.
 
 All catalogue history parameters are offered. active_alerts uses historical
 occurrences when hours/since/until is supplied and current groups otherwise;
@@ -539,7 +564,7 @@ recovered facts with the shared host and its request set. Failure tests preserve
 unknown coverage and severity/open state; a busy log reaches the shared cap
 without becoming complete. Deadline, caller cancellation and retirement are
 covered during pending history reads. Full field accounting, optional-service
-WhatChanged wiring and iPhone acceptance remain pending while this PR is draft.
+history field accounting and iPhone acceptance remain pending while this PR is draft.
 
 ### How fleet rankings and health_overview are built
 

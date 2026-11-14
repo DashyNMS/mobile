@@ -147,6 +147,7 @@ public sealed class SharedEventHistoryHttpTests
     [Theory]
     [InlineData("device_events", "{\"device\":\"1\"}")]
     [InlineData("network_events", "{}")]
+    [InlineData("what_changed", "{\"device\":\"1\"}")]
     [InlineData("active_alerts", "{\"hours\":24}")]
     public async Task Pending_history_reads_obey_deadline_cancellation_and_retirement(string name, string arguments)
     {

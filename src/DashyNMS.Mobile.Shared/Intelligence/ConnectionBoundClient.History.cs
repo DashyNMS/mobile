@@ -10,6 +10,14 @@ internal sealed partial class ConnectionBoundClient
         if (!historyProfile || id <= 0) throw new RefusedException("History device read outside its reviewed profile");
         return read(Apis());
     }
+    private sealed class ChangesAddressesOnly(ConnectionBoundClient owner) : IPortsApi
+    {
+        public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default)
+            => owner.ReadHistoryDeviceAsync(deviceId, apis => apis.Ports.ListIpAddressesAsync(deviceId, cancellationToken));
+        public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
+        public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
+        public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
+    }
     private sealed class HistoryLogsOnly(ConnectionBoundClient owner) : ILogsApi
     {
         private static void Check(int? id, int limit)

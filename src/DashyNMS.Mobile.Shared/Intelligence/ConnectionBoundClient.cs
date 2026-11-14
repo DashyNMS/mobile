@@ -65,6 +65,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     private readonly bool rankingProfile;
     private readonly bool healthOverviewProfile;
     private readonly bool historyProfile;
+    private readonly bool changesProfile;
     private readonly SensorListOnly sensors;
     private readonly SensorRoutesOnly sensorRoutes;
     private readonly Lock gate = new();
@@ -88,10 +89,11 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     /// <param name="fleetRankings">Fleet port-status and scope reads (#644).</param>
     /// <param name="healthOverview">Fleet/scoped sensor and scope reads (#644).</param>
     /// <param name="history">Read-only event, alert and outage history (#645).</param>
+    /// <param name="changes">History plus interface addresses for configured WhatChanged log coverage (#645).</param>
     /// <param name="health">The complete device-health profile (#634).</param>
-    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false, bool health = false, bool scopes = false, bool alertRules = false, bool portLookups = false, bool deviceDetails = false, bool fleetRankings = false, bool healthOverview = false, bool history = false)
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false, bool health = false, bool scopes = false, bool alertRules = false, bool portLookups = false, bool deviceDetails = false, bool fleetRankings = false, bool healthOverview = false, bool history = false, bool changes = false)
     {
-        if ((overview ? 1 : 0) + (sensors ? 1 : 0) + (health ? 1 : 0) + (scopes ? 1 : 0) + (alertRules ? 1 : 0) + (portLookups ? 1 : 0) + (deviceDetails ? 1 : 0) + (fleetRankings ? 1 : 0) + (healthOverview ? 1 : 0) + (history ? 1 : 0) > 1) throw new ArgumentException("One profile per client.", nameof(sensors));
+        if ((overview ? 1 : 0) + (sensors ? 1 : 0) + (health ? 1 : 0) + (scopes ? 1 : 0) + (alertRules ? 1 : 0) + (portLookups ? 1 : 0) + (deviceDetails ? 1 : 0) + (fleetRankings ? 1 : 0) + (healthOverview ? 1 : 0) + (history ? 1 : 0) + (changes ? 1 : 0) > 1) throw new ArgumentException("One profile per client.", nameof(sensors));
         this.scope = scope;
         this.overview = overview;
         sensorProfile = sensors;
@@ -102,7 +104,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         detailProfile = deviceDetails;
         rankingProfile = fleetRankings;
         healthOverviewProfile = healthOverview;
-        historyProfile = history;
+        historyProfile = history || changes;
+        changesProfile = changes;
         this.sensors = new SensorListOnly(this);
         sensorRoutes = new SensorRoutesOnly(this);
         this.openTransport = openTransport;
@@ -310,7 +313,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         }
     }
 
-    public IPortsApi Ports => rankingProfile ? new StatusOnly(this) : detailProfile ? new DetailPortsOnly(this) : portProfile ? new TopologyPortsOnly(this) : overview ? new StatusOnly(this) : healthProfile ? new DevicePortsOnly(this) : throw new RefusedException(nameof(Ports));
+    public IPortsApi Ports => changesProfile ? new ChangesAddressesOnly(this) : rankingProfile ? new StatusOnly(this) : detailProfile ? new DetailPortsOnly(this) : portProfile ? new TopologyPortsOnly(this) : overview ? new StatusOnly(this) : healthProfile ? new DevicePortsOnly(this) : throw new RefusedException(nameof(Ports));
 
     private void CheckHealthDevice(int deviceId)
     {

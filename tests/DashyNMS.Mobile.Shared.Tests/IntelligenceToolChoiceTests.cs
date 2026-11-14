@@ -60,6 +60,7 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("What changed on core-sw1 since yesterday?", "what_changed")]
     [InlineData("Show device events and outages", "device_events")]
     [InlineData("Show the network event log", "network_events")]
     [InlineData("Show the busiest interfaces by bandwidth", "top_interfaces")]
