@@ -94,6 +94,14 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[entry:", StringComparison.Ordinal))
+        {
+            var parts = marker[8..^2].Split(':', 2);
+            var instant = new DateTime(long.Parse(parts[1], CultureInfo.InvariantCulture), DateTimeKind.Utc);
+            var at = IntelligenceTime.At(instant, new FakeTimeProvider());
+            var entryRows = lines.Where(l => l.Contains(at, StringComparison.Ordinal) && l.Contains("; source " + parts[0] + ";", StringComparison.Ordinal)).ToArray();
+            return entryRows.Length == 0 ? null : string.Join("\n", entryRows);
+        }
         if (marker.StartsWith("[[rule:", StringComparison.Ordinal))
         {
             var id = marker[7..^2];
@@ -157,7 +165,8 @@ public sealed partial class IntelligenceFactsTests
 
     private static async Task<string> Run(string tool, string arguments)
     {
-        var routes = Routes(tool);
+        var routeTool = tool == "active_alerts" && arguments.Contains("since", StringComparison.Ordinal) ? "active_alerts-history" : tool;
+        var routes = Routes(routeTool);
         using var server = new FixtureServer(path => routes.GetValueOrDefault(path) ?? routes.GetValueOrDefault(path.Split('?')[0]));
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var settings = Fakes.Settings(new AppSettings { TimeoutSeconds = 5 });
@@ -201,6 +210,13 @@ public sealed partial class IntelligenceFactsTests
             case "list_groups_and_locations":
                 routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
                 routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
+                break;
+            case "device_events":
+            case "network_events":
+            case "active_alerts-history":
+            case "what_changed":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "EventHistory", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
                 break;
             case "top_interfaces":
             case "top_errors":
@@ -249,7 +265,7 @@ public sealed partial class IntelligenceFactsTests
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
                         Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
                     break;
@@ -269,6 +285,11 @@ public sealed partial class IntelligenceFactsTests
             Walk(property.Value, property.Name == "data" ? "" : property.Name, null);
         return fields;
     }
+
+    private static string? HistoryEntryMarker(JsonElement record)
+        => record.TryGetProperty("time", out var time) && record.TryGetProperty("source", out var source)
+            ? "[[entry:" + source.GetString() + ":" + DateTime.Parse(time.GetString()!, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal).Ticks.ToString(CultureInfo.InvariantCulture) + "]]" : null;
 
     private static string? Marker(JsonElement record, string idField, string kind)
         => record.TryGetProperty(idField, out var id) && id.ValueKind == JsonValueKind.Number ? $"[[{kind}:{id.GetInt64().ToString(CultureInfo.InvariantCulture)}]]" : null;
@@ -290,6 +311,22 @@ public sealed partial class IntelligenceFactsTests
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
         if (path.EndsWith("device.status", StringComparison.Ordinal) && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (name == "window_complete") return text.Contains(value.GetBoolean() ? "; complete." : "; incomplete;", StringComparison.Ordinal)
+            || !value.GetBoolean() && text.Contains("; coverage unknown;", StringComparison.Ordinal);
+        if (path.StartsWith("window.", StringComparison.Ordinal) && name is ("since" or "until" or "covered_since")
+            || name is ("time" or "raised_at" or "recovered_at"))
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
+        if (name == "still_open") return text.Contains("still open " + (value.GetBoolean() ? "yes" : "no"), StringComparison.Ordinal);
+        if (name == "recovery_time_unknown") return value.GetBoolean() && text.Contains("recovery time unknown", StringComparison.Ordinal);
+        if (name == "configured")
+        {
+            var service = path.StartsWith("unimus.", StringComparison.Ordinal) ? "Unimus" : "Graylog";
+            return text.Contains(service + " ", StringComparison.Ordinal) && (value.GetBoolean() != text.Contains(service + " not configured", StringComparison.Ordinal));
+        }
         if (name is "found" or "ambiguous") return text.Contains(name + (value.GetBoolean() ? " yes" : " no"), StringComparison.OrdinalIgnoreCase);
         if (name == "untagged") return text.Contains(value.GetBoolean() ? ": untagged" : ": tagged", StringComparison.Ordinal);
         if (name is "replaceable" or "admin_down")

@@ -537,8 +537,10 @@ changed config-text/query preferences reject late results and evidence.
 HTTP tests cover configured services, text modes and redaction, a missing config
 baseline, disabled config reads, missing address coverage and a privacy change
 during an in-flight read. Unconfigured services retain the LibreNMS timeline.
-The history deadline/retirement test also covers this adapter. Full field
-accounting and iPhone acceptance remain pending while this PR is draft.
+The history deadline/retirement test also covers this adapter. Current MCP
+field accounting covers its unconfigured-service projection and shared timeline;
+configured-service facts have independent HTTP assertions. iPhone acceptance
+remains pending while this PR is draft.
 
 ### How event and alert history is built
 
@@ -563,8 +565,18 @@ Copied event-history fixtures compare independent outage, port-event and raised/
 recovered facts with the shared host and its request set. Failure tests preserve
 unknown coverage and severity/open state; a busy log reaches the shared cap
 without becoming complete. Deadline, caller cancellation and retirement are
-covered during pending history reads. Full field accounting, optional-service
-history field accounting and iPhone acceptance remain pending while this PR is draft.
+covered during pending history reads. Field accounting compares populated MCP
+Data leaves on fixed explicit windows, one-row event/alert pages and the shared
+WhatChanged timeline. Time/source pairs identify timeline rows without inventing
+entity IDs; omitted rows pass only when counted. iPhone acceptance remains pending.
+
+#### History facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `device_events` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | Budget. History names the device with IP, location and state; device_health supplies inventory and last poll. |
+| `what_changed` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | The same budget choice for change context. |
+
 
 ### How fleet rankings and health_overview are built
 
