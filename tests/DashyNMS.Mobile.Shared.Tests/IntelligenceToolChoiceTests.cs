@@ -63,6 +63,8 @@ public sealed class IntelligenceToolChoiceTests
     [InlineData("Show the busiest interfaces by bandwidth", "top_interfaces")]
     [InlineData("Show the top errors", "top_errors")]
     [InlineData("Which devices carry most traffic?", "top_devices")]
+    [InlineData("Which devices are carrying most traffic?", "top_devices")]
+    [InlineData("Which devices are down?", "find_device")]
     [InlineData("Give a health overview of overheating sensors", "health_overview")]
     [InlineData("What is in its inventory?", "device_details")]
     [InlineData("Which VLANs are on this switch?", "device_details")]
