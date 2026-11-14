@@ -39,6 +39,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Intelligence's instruction blocks, laid out as Core's Instructions/*.md (#638). -->
+    <EmbeddedResource Include="Intelligence/Instructions/*.md" LogicalName="DashyNMS.Mobile.Intelligence.Instructions.%(Filename).md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Licence texts Core doesn't carry, shown on the licences page. Lucide's is the
          repository copy; the shared package's is the LICENSE it ships, as its README asks. -->
     <EmbeddedResource Include="../../docs/licences/Lucide-LICENSE.txt" LogicalName="DashyNMS.Mobile.Licences.lucide-isc.txt" />

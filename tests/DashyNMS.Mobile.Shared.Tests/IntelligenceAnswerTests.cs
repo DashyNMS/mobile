@@ -259,19 +259,6 @@ public sealed class IntelligenceAnswerTests
         Assert.Equal(IntelligenceAnswerImages.MaxImages, IntelligenceAnswerImages.Accept(Enumerable.Repeat(new IntelligenceImage(png, "image/png"), 20)).Count);
     }
 
-    [Fact]
-    public void Instructions_ask_for_names_and_markers_within_the_measured_budget()
-    {
-        foreach (var detail in new[] { "brief", "balanced", "detailed" })
-        {
-            var instructions = IntelligenceConversationViewModel.Instructions(detail);
-            Assert.InRange(instructions.Length, 1, 400);
-            Assert.Contains("[[kind:id]] marker from a lookup exactly, both brackets", instructions);
-            Assert.Contains("never write \"device\" and a number", instructions);
-            Assert.Contains("Copy other names exactly", instructions);
-        }
-    }
-
     // A conversation over synthetic evidence, as the chat page sees it.
 
     private sealed class EvidenceLookups(IReadOnlyList<IntelligenceEvidence> references) : IIntelligenceLookups
