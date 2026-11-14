@@ -94,6 +94,12 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[rule:", StringComparison.Ordinal))
+        {
+            var id = marker[7..^2];
+            var ruleRows = lines.Where(l => l.StartsWith("Rule " + id + ":", StringComparison.Ordinal) || l.StartsWith("Rule " + id + " ", StringComparison.Ordinal)).ToArray();
+            return ruleRows.Length == 0 ? null : string.Join("\n", ruleRows);
+        }
         var start = Array.FindIndex(lines, l => l.Contains(marker, StringComparison.Ordinal));
         if (start < 0) return null;
         var kind = marker[..(marker.IndexOf(':') + 1)];
@@ -196,6 +202,11 @@ public sealed partial class IntelligenceFactsTests
                 routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
                 routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
                 break;
+            case "alert_details":
+            case "alert_rules":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "AlertRules", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
             case "device_health":
                 Files("DeviceHealth", Load("DeviceHealth", "cases.json").GetProperty("routes"));
                 break;
@@ -221,7 +232,7 @@ public sealed partial class IntelligenceFactsTests
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
                         Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
                     break;
@@ -261,6 +272,14 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
+        if (name == "enabled") return text.Contains(value.GetBoolean() ? "; enabled;" : "; disabled;", StringComparison.Ordinal);
+        if (name == "rule_condition_known") return text.Contains(value.GetBoolean() ? "rule condition known" : "rule condition unknown", StringComparison.Ordinal);
+        if (name == "open_minutes") return text.Contains(IntelligenceTime.Length(TimeSpan.FromMinutes(value.GetInt64())), StringComparison.Ordinal);
+        if (name is "recorded_at" or "recent")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
         if (name is "status" or "device_status")
             return States(value.GetString() ?? "").Any(state => Regex.IsMatch(text, $@"\b{state}\b"));
         // Measured when MCP's JSON was recorded, so not comparable by value; its source, the alert's
@@ -289,7 +308,8 @@ public sealed partial class IntelligenceFactsTests
             // A fault's start is its time alone; an alert's is its length, with verbose its time and length.
             return path.EndsWith("faults.since", StringComparison.Ordinal)
                 ? text.Contains("since " + opened, StringComparison.Ordinal)
-                : text.Contains("open " + length, StringComparison.Ordinal) || text.Contains($"opened {opened}, {length} ago", StringComparison.Ordinal);
+                : path == "alert.since" && text.Contains("Changed " + opened, StringComparison.Ordinal)
+                    || text.Contains("open " + length, StringComparison.Ordinal) || text.Contains($"opened {opened}, {length} ago", StringComparison.Ordinal);
         }
 
         var written = value.ValueKind switch

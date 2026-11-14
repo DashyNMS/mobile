@@ -523,9 +523,12 @@ labels and whole rows within 900 characters. Omitted rows and pages are counted
 and create no evidence. The shared summary retains incomplete-history notices.
 The copied AlertRules fixtures are checked byte for byte in CI. HTTP tests check
 shared detail facts, legacy/fault navigation, source mismatch, optional failures,
-rule filters, sorts and paging, required failures and refused APIs. Full MCP JSON
-field accounting and on-device follow-up acceptance remain pending while this
-PR is draft.
+rule filters, sorts and paging, required failures and refused APIs. `IntelligenceAlertFactsTests` checks every non-null leaf of MCP's current
+projection on the shared fixtures, including the disabled rule's removed-column
+advice. This projection is constructed from the shared typed results and the
+reviewed `RuleTools` shape, rather than a frozen recording or MCP runtime on the
+phone. Independent HTTP assertions still cover the known trigger/history facts.
+On-device follow-up acceptance remains pending while this PR is draft.
 
 ### How list_groups_and_locations is built
 

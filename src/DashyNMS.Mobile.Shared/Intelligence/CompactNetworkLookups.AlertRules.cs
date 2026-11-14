@@ -18,11 +18,12 @@ public sealed partial class CompactNetworkLookups
         var marker = "";
         if (data.Device is { DeviceId: > 0 } device)
         {
+            var state = device.Status[..1].ToUpperInvariant() + device.Status[1..];
             marker = $" [[alert:{Id(alert.AlertId)}]]";
             evidence.Add(new(new("alert:" + Id(alert.AlertId), Clean(data.Rule.Name), alert.State, alert.Severity, at, "Alert detail at lookup time")
                 { Object = new(alert.Source == "fault" ? "fault" : "alert", alert.AlertId, device.DeviceId) }));
-            rows.Add(new($"Device {Clean(device.Display ?? device.Hostname)} [[device:{Id(device.DeviceId)}]]; IP {Clean(device.Ip)}; location {Clean(device.Location)}; state {Clean(device.Status)}.",
-                [new(new("device:" + Id(device.DeviceId), Clean(device.Display ?? device.Hostname), device.Status, device.Status, at, "Device list for this alert")
+            rows.Add(new($"Device {Clean(device.Display ?? device.Hostname)} [[device:{Id(device.DeviceId)}]]; hostname {Clean(device.Hostname)}; IP {Clean(device.Ip)}; location {Clean(device.Location)}; state {state}.",
+                [new(new("device:" + Id(device.DeviceId), Clean(device.Display ?? device.Hostname), state, device.Status, at, "Device list for this alert")
                     { Object = new("device", device.DeviceId) })]));
         }
         var history = data.History;
@@ -72,7 +73,7 @@ public sealed partial class CompactNetworkLookups
         }
         // Whole detail rows are counted too; rule totals and page bounds remain explicit.
         var page = data.Page;
-        return Rows(AlertUnavailable(data.Unavailable) + found.Summary + $" Total {Id(page.Total)}; offset {Id(page.Offset)}; returned {Id(page.Returned)}."
+        return Rows(AlertUnavailable(data.Unavailable) + found.Summary + $" Total {Id(page.Total)}; offset {Id(page.Offset)}; limit {Id(page.Limit)}; returned {Id(page.Returned)}."
             + (page.NextOffset is { } next ? $" Next offset {Id(next)}." : ""),
             RuleRows(), alsoOmitted: Math.Max(0, page.Total - page.Offset - page.Returned));
     }
