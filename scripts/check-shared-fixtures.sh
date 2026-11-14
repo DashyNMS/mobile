@@ -2,7 +2,8 @@
 # Checks the shared fixtures are byte-identical to DashyNMS/mcp's, which runs its MCP
 # tools against the same files: device search (#596) for find_device, open alerts
 # (#601) for active_alerts, the network overview (#600) for network_overview, the device
-# summary (#602) for device_summary and device sensors (#603) for device_sensors. Both
+# summary (#602) for device_summary, device sensors (#603) for device_sensors and device
+# resolution (DashyNMS/mcp#131) for every tool's device argument (#635). Both
 # adapters are then held to one set of expectations from
 # one response. Move a pin when upstream changes that fixture.
 #
@@ -50,3 +51,7 @@ check DeviceSummary 59cf2b623583366abcc2785685ba362cc1b1da4b \
 # DashyNMS/mcp#129's squash merge on main.
 check DeviceSensors 812266dd63c8201406c47282a8c45899d94abe4e \
   README.md devices.json sensors.json health.json cases.json transport.json
+
+# DashyNMS/mcp#134's rebase merge on main (DashyNMS/mcp#131).
+check DeviceResolution ce4ec6219c1212e2584524ed7ac3643720ab5635 \
+  README.md devices.json cases.json transport.json

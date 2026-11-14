@@ -1,0 +1,98 @@
+{
+  "status": "ok",
+  "count": 10,
+  "devices": [
+    {
+      "device_id": 1,
+      "hostname": "core-sw1.example.net",
+      "display": "Core switch 1",
+      "sysName": "core-sw1",
+      "ip": "198.51.100.1",
+      "status": true,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 2,
+      "hostname": "core-sw2.example.net",
+      "display": "Core switch 2",
+      "sysName": "core-sw2",
+      "ip": "198.51.100.2",
+      "status": false,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 3,
+      "hostname": "edge-fw1.example.net",
+      "display": "Edge firewall",
+      "sysName": "edge-fw1",
+      "ip": "2001:db8::3",
+      "status": true,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 4,
+      "hostname": "dist-sw4.example.net",
+      "display": "Distribution 4",
+      "ip": "198.51.100.4",
+      "status": true,
+      "disabled": false,
+      "ignore": true
+    },
+    {
+      "device_id": 5,
+      "hostname": "198.51.100.5",
+      "sysName": "lab-ap5",
+      "ip": "198.51.100.5",
+      "status": true,
+      "disabled": false
+    },
+    {
+      "device_id": 6,
+      "hostname": "42.example.net",
+      "display": "Rack 42 PDU",
+      "ip": "198.51.100.6",
+      "status": true,
+      "disabled": true,
+      "ignore": false
+    },
+    {
+      "device_id": 7,
+      "hostname": "spare-sw7.example.net",
+      "display": "Core switch 1",
+      "sysName": "spare-sw7",
+      "ip": "198.51.100.7",
+      "status": false,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 8,
+      "hostname": "lab-sw8.example.net",
+      "display": "Lab switch password=synthetic-secret",
+      "sysName": "lab-sw8",
+      "ip": "198.51.100.8",
+      "status": true,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 9,
+      "hostname": "edge-sw9.example.net",
+      "ip": "198.51.100.9",
+      "status": true,
+      "disabled": false,
+      "ignore": false
+    },
+    {
+      "device_id": 10,
+      "hostname": "edge-sw9.example.org",
+      "ip": "198.51.100.10",
+      "status": true,
+      "disabled": false,
+      "ignore": false
+    }
+  ]
+}

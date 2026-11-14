@@ -1,0 +1,159 @@
+{
+  "routes": {
+    "devices": "devices.json"
+  },
+  "cases": [
+    {
+      "name": "device id",
+      "device": "4",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 4,
+      "state": "Ignored"
+    },
+    {
+      "name": "exact hostname",
+      "device": "core-sw2.example.net",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 2,
+      "state": "Down"
+    },
+    {
+      "name": "exact hostname in another case with spaces around it",
+      "device": "  CORE-SW2.EXAMPLE.NET ",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 2,
+      "state": "Down"
+    },
+    {
+      "name": "exact display name",
+      "device": "Edge firewall",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 3,
+      "state": "Up"
+    },
+    {
+      "name": "exact sysName",
+      "device": "lab-ap5",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 5,
+      "state": "Unknown"
+    },
+    {
+      "name": "exact IPv4 address",
+      "device": "198.51.100.4",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 4,
+      "state": "Ignored"
+    },
+    {
+      "name": "IPv6 address written another way",
+      "device": "2001:0db8:0:0::3",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 3,
+      "state": "Up"
+    },
+    {
+      "name": "short hostname",
+      "device": "dist-sw4",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 4,
+      "state": "Ignored"
+    },
+    {
+      "name": "a number that is no device id falls through to names",
+      "device": "42",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 6,
+      "state": "Disabled"
+    },
+    {
+      "name": "part of a name",
+      "device": "firewall",
+      "requests": ["devices"],
+      "match": "Found",
+      "id": 3,
+      "state": "Up"
+    },
+    {
+      "name": "two devices share a display name",
+      "device": "Core switch 1",
+      "requests": ["devices"],
+      "match": "Ambiguous",
+      "candidates": [
+        { "deviceId": 1, "hostname": "core-sw1.example.net", "display": "Core switch 1", "ip": "198.51.100.1" },
+        { "deviceId": 7, "hostname": "spare-sw7.example.net", "display": "Core switch 1", "ip": "198.51.100.7" }
+      ],
+      "omitted": 0,
+      "mcp": "2 devices match. Ask which one is meant, or use its device ID."
+    },
+    {
+      "name": "part of a name matches two, one with a secret in its display name",
+      "device": "lab",
+      "requests": ["devices"],
+      "match": "Ambiguous",
+      "candidates": [
+        { "deviceId": 5, "hostname": "198.51.100.5", "display": null, "ip": "198.51.100.5" },
+        { "deviceId": 8, "hostname": "lab-sw8.example.net", "display": "Lab switch password=‹redacted›", "ip": "198.51.100.8" }
+      ],
+      "omitted": 0,
+      "mcp": "2 devices match. Ask which one is meant, or use its device ID."
+    },
+    {
+      "name": "more matches than candidates listed",
+      "device": "example.net",
+      "requests": ["devices"],
+      "match": "Ambiguous",
+      "candidates": [
+        { "deviceId": 1, "hostname": "core-sw1.example.net", "display": "Core switch 1", "ip": "198.51.100.1" },
+        { "deviceId": 2, "hostname": "core-sw2.example.net", "display": "Core switch 2", "ip": "198.51.100.2" },
+        { "deviceId": 3, "hostname": "edge-fw1.example.net", "display": "Edge firewall", "ip": "2001:db8::3" },
+        { "deviceId": 4, "hostname": "dist-sw4.example.net", "display": "Distribution 4", "ip": "198.51.100.4" },
+        { "deviceId": 6, "hostname": "42.example.net", "display": "Rack 42 PDU", "ip": "198.51.100.6" }
+      ],
+      "omitted": 3,
+      "mcp": "8 devices match. Ask which one is meant, or use its device ID."
+    },
+    {
+      "name": "two devices share a short hostname under different domains",
+      "device": "edge-sw9",
+      "requests": ["devices"],
+      "match": "Ambiguous",
+      "candidates": [
+        { "deviceId": 9, "hostname": "edge-sw9.example.net", "display": null, "ip": "198.51.100.9" },
+        { "deviceId": 10, "hostname": "edge-sw9.example.org", "display": null, "ip": "198.51.100.10" }
+      ],
+      "omitted": 0,
+      "mcp": "2 devices match. Ask which one is meant, or use its device ID."
+    },
+    {
+      "name": "unknown name",
+      "device": "core-rtr9",
+      "requests": ["devices"],
+      "match": "NoMatch",
+      "mcp": "No device visible to this account matches. Check the name or address, or search with find_device."
+    },
+    {
+      "name": "an id no device has",
+      "device": "99",
+      "requests": ["devices"],
+      "match": "NoMatch",
+      "mcp": "No device visible to this account matches. Check the name or address, or search with find_device."
+    },
+    {
+      "name": "nothing named",
+      "device": "   ",
+      "requests": [],
+      "code": "InvalidRequest",
+      "mcp": "Say which device: a hostname, display name, IP address or LibreNMS device ID."
+    }
+  ]
+}
