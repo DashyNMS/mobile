@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 19: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, and `what_changed` | #236 |
+| 24 network tools | Up to 20: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, and configured `search_logs` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -214,7 +214,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
 | `device_events`, `network_events`, `what_changed` | Event and change history | Shared timelines and optional-service change context | #645 |
-| `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
+| `search_logs` | Graylog messages | Shared, offered after a configured readiness probe | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
 | `graph` | Graph images | Not yet | #649 |
@@ -497,6 +497,34 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How search_logs is built
+
+The tool is offered only after Graylog setup and a successful per-attempt streams
+read. The probe uses a separate captured client, the saved credentials/TLS
+choices, caller cancellation and a 15-second deadline. A failed or refused probe
+leaves the tool out; it sends no question or device data. WhatChanged remains
+available for its independent partial-source result. The operation itself uses
+`HostLogSearch` with captured options and clients, never environment settings.
+
+All catalogue arguments are offered. A dedicated LibreNMS profile allows only
+the device list and positive-device interface addresses for configured address
+matching. Other reads and actions are refused. Failed interface coverage stops
+the search rather than silently narrowing it. Shared logic owns query/stream/
+level resolution, relative count buckets, past windows, sampling and redaction.
+
+Replies retain criteria, exact count/window, top-value sample provenance,
+newest/oldest caveats, cleaned lines and count buckets as whole rows within 900
+characters. Sample sources never create device links; only a shared device filter
+can supply one. Upstream-unreturned messages and omitted rows are counted, using
+64-bit counts. Integration state is checked before and after the read.
+
+Copied Graylog fixtures run through real Core clients with synthetic Basic auth.
+HTTP tests compare current/past counts, samples and query sets against the shared
+host, accounting separately for the readiness probe. Further checks cover absent/
+refused setup, denied searches, marker-shaped log text, redaction, missing address
+coverage, caller cancellation, the profile and large omission counts. Full field
+accounting and iPhone acceptance remain pending while this PR is draft.
 
 ### Captured integration clients
 

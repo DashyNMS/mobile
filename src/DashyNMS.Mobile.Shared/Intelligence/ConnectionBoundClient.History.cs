@@ -13,7 +13,10 @@ internal sealed partial class ConnectionBoundClient
     private sealed class ChangesAddressesOnly(ConnectionBoundClient owner) : IPortsApi
     {
         public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default)
-            => owner.ReadHistoryDeviceAsync(deviceId, apis => apis.Ports.ListIpAddressesAsync(deviceId, cancellationToken));
+        {
+            if ((!owner.changesProfile && !owner.logProfile) || deviceId <= 0) throw new RefusedException(nameof(ListIpAddressesAsync));
+            return owner.Apis().Ports.ListIpAddressesAsync(deviceId, cancellationToken);
+        }
         public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
         public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));

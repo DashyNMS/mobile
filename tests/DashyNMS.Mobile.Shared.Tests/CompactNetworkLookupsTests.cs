@@ -440,7 +440,7 @@ public sealed class CompactNetworkLookupsTests
     {
         var lookups = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Session()).Create();
 
-        Assert.Equal(CompactNetworkLookups.ReviewedTools.Order(StringComparer.Ordinal), lookups.Select(l => l.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(CompactNetworkLookups.ReviewedTools.Where(n => !CompactNetworkLookups.ConfiguredTools.Contains(n)).Order(StringComparer.Ordinal), lookups.Select(l => l.Name).Order(StringComparer.Ordinal));
         Assert.All(lookups, lookup =>
         {
             Assert.Contains(lookup.Name, DesktopNMS.Core.Intelligence.IntelligenceToolAllowlist.Names);

@@ -1,0 +1,11 @@
+{
+  "now": "2026-10-17T10:00:00Z",
+  "streams": [{"id":"5f0a","title":"Network devices"}],
+  "messages": [
+    {"timestamp":"2026-10-17T09:00:00Z","source":"core-sw1.example.net","level":3,"message":"Interface went down"},
+    {"timestamp":"2026-10-17T08:00:00Z","source":"core-sw1.example.net","level":4,"message":"Temperature high"},
+    {"timestamp":"2026-10-16T08:00:00Z","source":"core-sw1.example.net","level":6,"message":"Outside today's window"}
+  ],
+  "currentWindowCount": 2,
+  "pastWindowCount": 1
+}

@@ -53,7 +53,7 @@ public sealed class IntelligenceIntegrationTests
         using var next = factory.Capture();
         Assert.Empty(await next.Graylog.GetStreamsAsync());
         Assert.Empty(await next.Unimus.ListAllDevicesAsync());
-        Assert.Equal(new[] { "/api/streams", "/api/v2/devices" }, a.Requests);
+        Assert.Equal(new[] { "/api/streams", "/api/streams", "/api/v2/devices" }, a.Requests);
         Assert.Equal(new[] { "/api/streams", "/api/v2/devices" }, b.Requests);
         configs.ForgetToken();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => next.Unimus.ListAllDevicesAsync());

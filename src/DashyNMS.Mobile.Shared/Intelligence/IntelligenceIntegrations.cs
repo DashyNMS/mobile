@@ -12,9 +12,25 @@ namespace DashyNMS.Mobile.Intelligence;
 /// <summary>Prepares existing setup once, then captures immutable connections for each attempt.</summary>
 public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup unimus, ISettingsStore settings)
 {
+    private GraylogConnection? reachableGraylog;
+
     public async Task PrepareAsync(CancellationToken cancellationToken = default)
     {
         await Task.WhenAll(graylog.EnsureConfiguredAsync(), unimus.EnsureConfiguredAsync()).WaitAsync(cancellationToken).ConfigureAwait(false);
+        Volatile.Write(ref reachableGraylog, null);
+        var connection = graylog.Captured.Connection;
+        if (connection is null) return;
+        using var probe = Capture();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(CompactNetworkLookups.Timeout);
+        try
+        {
+            await probe.Graylog.GetStreamsAsync(timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false);
+            probe.Current();
+            Volatile.Write(ref reachableGraylog, connection);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception) { /* Unreachable or refused: don't offer the log tool for this attempt. */ }
     }
 
     internal IntelligenceIntegrationClients Capture()
@@ -29,7 +45,8 @@ public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup u
             () => graylog.Generation == logs.Generation && unimus.Revision == configs.Generation
                 && settings.Current.IntelligenceConfigText == textMode
                 && settings.Current.Graylog.QueryField == queryField
-                && settings.Current.Graylog.MatchAnyAddress == anyAddress);
+                && settings.Current.Graylog.MatchAnyAddress == anyAddress,
+            graylogReachable: logs.Connection is not null && ReferenceEquals(Volatile.Read(ref reachableGraylog), logs.Connection));
     }
 }
 
@@ -41,9 +58,10 @@ internal sealed class IntelligenceIntegrationClients : IDisposable
     private int retired;
     private readonly Func<bool> stillCurrent;
 
-    internal IntelligenceIntegrationClients(GraylogConnection? graylogConnection, UnimusConnection? unimusConnection, AppSettings settings, Func<bool>? stillCurrent = null)
+    internal IntelligenceIntegrationClients(GraylogConnection? graylogConnection, UnimusConnection? unimusConnection, AppSettings settings, Func<bool>? stillCurrent = null, bool graylogReachable = false)
     {
         this.stillCurrent = stillCurrent ?? (() => true);
+        GraylogReachable = graylogReachable;
         if (graylogConnection is not null) graylog.Configure(graylogConnection);
         if (unimusConnection is not null) unimus.Configure(unimusConnection);
         Graylog = new ReadOnlyGraylog(this);
@@ -61,6 +79,7 @@ internal sealed class IntelligenceIntegrationClients : IDisposable
             },
         };
     }
+    internal bool GraylogReachable { get; }
     internal IGraylogApi Graylog { get; }
     internal IUnimusApi Unimus { get; }
     internal AgentOptions Options { get; }

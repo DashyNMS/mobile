@@ -8,6 +8,7 @@ using DashyNMS.Agent.Health;
 using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Rankings;
 using DashyNMS.Agent.Events;
+using DashyNMS.Agent.Graylog;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -122,8 +123,11 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed", "search_logs",
     };
+
+    /// <summary>Reviewed capabilities offered only after their integration is ready.</summary>
+    internal static readonly IReadOnlySet<string> ConfiguredTools = new HashSet<string>(StringComparer.Ordinal) { "search_logs" };
 
     /// <summary>
     /// The catalogue parameters each tool offers on the phone. The rest are left out of the model's
@@ -134,6 +138,7 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["search_logs"] = ["text", "device", "since", "until", "hours", "level", "stream", "limit"],
         ["what_changed"] = ["device", "hours", "since", "until"],
         ["device_events"] = ["device", "hours", "since", "until", "offset", "limit"],
         ["network_events"] = ["log", "hours", "since", "until", "type", "severity", "device", "group", "location", "offset", "limit"],
@@ -262,10 +267,15 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedChanges, deviceTransport, changes: true);
         var changes = changesBound is null ? null : HostEventLookups.Create(changesBound, integrationClients.Unimus, integrationClients.Graylog,
             time, integrationClients.Options);
+        var logsBound = scope is not { } capturedLogs || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedLogs, deviceTransport, logSearch: true);
+        var logSearch = logsBound is null ? null : HostLogSearch.Create(logsBound, integrationClients.Graylog, time, integrationClients.Options);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            logSearch?.Dispose();
+            logsBound?.Dispose();
             changes?.Dispose();
             changesBound?.Dispose();
             histories?.Dispose();
@@ -707,6 +717,28 @@ public sealed partial class CompactNetworkLookups(
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
             }),
+            Lookup("search_logs", "text", async (arguments, at, ct) =>
+            {
+                if (logSearch is null) return Reply.Say(Failed);
+                integrationClients.Current();
+                int? id = null;
+                if (arguments.Text("device") is { } named)
+                {
+                    var resolved = await ResolveDevice(named, at, ct).ConfigureAwait(false);
+                    if (resolved.Id is null) return resolved.Reply!;
+                    id = resolved.Id;
+                }
+                var request = new SearchLogsRequest(arguments.Text("text"), id, arguments.Text("since"), arguments.Text("until"), arguments.Number("hours"),
+                    arguments.Number("level"), arguments.Text("stream"), arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => logSearch.ReadAsync(request, ct)).ConfigureAwait(false);
+                integrationClients.Current();
+                return outcome.Result is { } found ? LogSearchRows(found, at, time, BriefName) : Reply.Say(outcome.Error switch
+                {
+                    DashyNMS.Agent.HostFailure.Refused => Refused,
+                    DashyNMS.Agent.HostFailure.InvalidRequest => "The log query, stream or time window is invalid.",
+                    _ => Failed,
+                });
+            }),
             Lookup("what_changed", "device", async (arguments, at, ct) =>
             {
                 if (changes is null) return Reply.Say(Failed);
@@ -844,7 +876,8 @@ public sealed partial class CompactNetworkLookups(
                 return ScopeRows(found, at);
             }),
         ];
-        return new IntelligenceLookupSet(lookups, RetireShared);
+        var available = lookups.Where(l => l.Name != "search_logs" || integrationClients.GraylogReachable).ToList();
+        return new IntelligenceLookupSet(available, RetireShared);
     }
 
     /// <summary>
@@ -970,11 +1003,11 @@ public sealed partial class CompactNetworkLookups(
     /// something the model was actually shown.
     /// </summary>
     /// <param name="alsoOmitted">Rows known to exist but not supplied, such as beyond a search's page.</param>
-    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceEvidence>? headingReferences = null, int alsoOmitted = 0)
+    internal static Reply Rows(string heading, IEnumerable<Row> rows, IReadOnlyList<IntelligenceEvidence>? headingReferences = null, long alsoOmitted = 0)
     {
         var text = new System.Text.StringBuilder(heading);
         var references = new List<IntelligenceEvidence>(headingReferences ?? []);
-        var omitted = 0;
+        long omitted = 0;
         foreach (var row in rows)
         {
             if (omitted == 0 && text.Length + 1 + row.Text.Length <= MaxCharacters - 50)
