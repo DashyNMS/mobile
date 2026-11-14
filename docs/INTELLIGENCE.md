@@ -58,7 +58,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
-| Core's instructions, about 1,300 words | One 400-character string | #638 |
+| Core's instructions, about 1,300 words | Short forms of Core's base, detail and Spotlight blocks, each rule mapped or excluded with its reason; Core's own text on Private Cloud Compute | Allowed difference (#638) |
 | Sensor readings judged by limits and defaults, not the person's thresholds | The same | #639, DashyNMS/mcp#132 |
 | Device search without maintenance | The same | #620 |
 | Brief, Balanced, Detailed and Full report | Brief, Balanced and Detailed | Allowed difference |
@@ -630,3 +630,26 @@ some lookups failed, as desktop's "lookups used up" note does.
 
 Device measurements of these costs on iOS 26.4 and iOS 27 are recorded here once
 taken on devices; they are never inferred from CI.
+
+### Instructions (#638)
+
+`IntelligenceInstructions` lays the instructions out as Core's
+`Instructions/*.md`: the base block, the detail level's block, and Spotlight
+when the chat has one (#231). Web search stays desktop's. On the device each
+block is a short form of Core's, embedded from
+`src/DashyNMS.Mobile.Shared/Intelligence/Instructions/*.md`, with `{max_calls}`
+set to the question's lookup limit (#637) and a closing line naming the tools
+it doesn't get. A context of 32,000 tokens or more (Private Cloud Compute, #575)
+gets Core's own blocks word for word, read from the pinned Core package, with
+web search marked off.
+
+`Fixtures/Intelligence/core-instruction-rules.json` maps every line of Core's
+base, Brief, Balanced, Detailed and Spotlight blocks to its short form on the
+phone, which must appear in the phone's block, or to a reviewed exclusion with
+its reason. `IntelligenceInstructionsTests` reads Core's blocks from the pinned
+package and fails when one has a line the map doesn't, so a rule desktop adds
+shows up here. Full report is desktop's alone and isn't mapped.
+
+Device checks (a request to change the network declined, an ambiguous name
+answered with a question, a status answer with coloured bullets) are recorded
+here once run on an eligible iPhone.

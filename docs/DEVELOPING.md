@@ -794,7 +794,10 @@ How to read these:
 
 **The budget for the rest of #236.** Sized for the 4,096-token context of
 iOS 26.4, which wasn't measured and is assumed to count tokens the same
-way; iOS 27 then has room to spare.
+way; iOS 27 then has room to spare. #637 replaced these fixed figures with each
+question's measured costs, and #638 the instruction string with Core-shaped
+blocks; see [Intelligence](INTELLIGENCE.md#tool-choice-and-budgets-637). The table
+is kept as #570's record.
 
 | Part | Budget |
 | --- | --- |
@@ -1358,8 +1361,8 @@ this model, conversation and renderer path. Saving images
 with a chat follows under #222 and #229. Copy answer copies the original
 Markdown, markers included.
 
-The on-device instructions now ask for Markdown and markers within the
-400-character budget. Golden tests cover a table with markers, malformed
+The on-device instructions ask for Markdown and markers (since #638, as the
+phone's short forms of Core's blocks). Golden tests cover a table with markers, malformed
 markers, safe and unsafe links, nested lists, quotes, code and a recorded
 citation. Device acceptance remains pending for layout, large text, VoiceOver,
 themes, sideways table scrolling, chip navigation and the image view.

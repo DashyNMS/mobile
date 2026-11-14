@@ -416,12 +416,12 @@ public sealed class IntelligenceConversationTests
         using var vm = Open();
         await vm.AskAsync("Question", "brief");
         Assert.Equal("balanced", _preferences.Detail);
-        Assert.Contains("150 tokens", _model.Instructions[^1]);
+        Assert.Contains("# Detail: Brief", _model.Instructions[^1]);
         _preferences.SetDetail("detailed");
         await vm.RetryAsync(vm.Turns[0]);
-        Assert.Contains("150 tokens", _model.Instructions[^1]);
+        Assert.Contains("# Detail: Brief", _model.Instructions[^1]);
         await vm.AskAsync("Question with default detail");
-        Assert.Contains("400 tokens", _model.Instructions[^1]);
+        Assert.Contains("# Detail: Detailed", _model.Instructions[^1]);
     }
 
     [Fact]
