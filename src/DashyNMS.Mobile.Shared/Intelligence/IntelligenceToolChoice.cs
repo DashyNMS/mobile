@@ -139,10 +139,16 @@ public static partial class IntelligenceToolChoice
     /// <summary>Lower case with punctuation as spaces, padded, so cues match at word starts.</summary>
     private static string Normalise(string text) => " " + Punctuation().Replace(text.ToLowerInvariant(), " ") + " ";
 
+    /// <summary>
+    /// A cue matches at a word start; a short one (four letters or fewer) only as a whole word or its
+    /// plural, so "os" isn't found in "ospf" nor "temp" in "template".
+    /// </summary>
     private static bool Matches(string words, string cue)
     {
         var plain = Punctuation().Replace(cue, " ").Trim();
-        return words.Contains(" " + plain, StringComparison.Ordinal);
+        return plain.Length > 4
+            ? words.Contains(" " + plain, StringComparison.Ordinal)
+            : words.Contains(" " + plain + " ", StringComparison.Ordinal) || words.Contains(" " + plain + "s ", StringComparison.Ordinal);
     }
 
     /// <summary>An address, or a name with a digit joined by a dash or dot (core-sw1, edge.rtr2): a device the question names.</summary>

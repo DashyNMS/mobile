@@ -613,15 +613,20 @@ Costs are the model's own token counts (`tokenCount(for:)`, iOS 26.4 and later):
 the instructions, the prompt, each tool's definition (its name, description and
 parameter schema) and a full 900-character result. Definitions and the result
 are counted once per context size and kept. Before iOS 26.4, which can't count,
-the phone estimates three characters a token, fewer than English takes, so it
-offers less rather than overflowing.
+the phone estimates two and a half characters a token, about as densely as
+lookup text full of markers, ids and addresses packs, so it offers less rather
+than overflowing. That figure is checked against device counts once measured.
 
 Within 80% of the reported context, after the instructions, prompt and the
 answer's room (150, 300 or 400 tokens by detail level), tools are added in order
 while two full results still fit; the first is always offered. The lookup limit
 is two at 4,096 tokens; above that it's the room left divided by one result, at
 least two and at most desktop's 48. The prompt's own share is what's left after
-the instructions, the answer, two results and the cheapest tool.
+the instructions, the answer, two results and the cheapest tool. Once the tools
+are chosen and the instructions name the limit and the tools left out, the total
+is counted again; if the first tool or that closing line takes it past 80%,
+earlier turns give way and the choice is made again, as on a context limit. A
+retry after a context limit starts its lookup count again.
 
 Tools an offered description names that the question doesn't get, and tools not
 on the phone yet, are listed in the instructions, so the answer says what it
