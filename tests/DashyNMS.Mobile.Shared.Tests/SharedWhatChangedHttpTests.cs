@@ -3,6 +3,7 @@ using System.Text.Json;
 using DashyNMS.Mobile.Graylog;
 using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Security;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Unimus;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
