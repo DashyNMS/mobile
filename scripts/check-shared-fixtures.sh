@@ -71,3 +71,7 @@ check PortLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
 # Device detail sections, paging and partial failures.
 check DeviceDetails a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md cases.json routes.json
+
+# Fleet port/device rankings and sensor overview.
+check FleetRankings a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md cases.json routes.json

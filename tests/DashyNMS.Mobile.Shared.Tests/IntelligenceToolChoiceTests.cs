@@ -60,6 +60,10 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("Show the busiest interfaces by bandwidth", "top_interfaces")]
+    [InlineData("Show the top errors", "top_errors")]
+    [InlineData("Which devices carry most traffic?", "top_devices")]
+    [InlineData("Give a health overview of overheating sensors", "health_overview")]
     [InlineData("What is in its inventory?", "device_details")]
     [InlineData("Which VLANs are on this switch?", "device_details")]
     [InlineData("What is the port duplex and VLAN?", "port_status")]
@@ -115,9 +119,10 @@ public sealed class IntelligenceToolChoiceTests
     {
         var choice = Choose("How is the network doing?", 8192);
 
-        // network_overview names find_device and active_alerts; the top_ tools aren't on the phone yet.
+        // The overview now brings its implemented ranking tools along with search and alerts.
         Assert.Equal(["network_overview", "find_device", "active_alerts"], Names(choice).Take(3));
-        Assert.Contains("top_interfaces", choice.NotOffered);
+        Assert.Contains("top_interfaces", Names(choice));
+        Assert.DoesNotContain("top_interfaces", choice.NotOffered);
         Assert.DoesNotContain("find_device", choice.NotOffered);
     }
 

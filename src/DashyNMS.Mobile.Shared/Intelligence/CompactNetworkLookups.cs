@@ -6,6 +6,7 @@ using DashyNMS.Agent.Devices;
 using DashyNMS.Agent.Overview;
 using DashyNMS.Agent.Health;
 using DashyNMS.Agent.Ports;
+using DashyNMS.Agent.Rankings;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -117,7 +118,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview",
     };
 
     /// <summary>
@@ -129,6 +130,10 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["top_interfaces"] = ["by", "limit", "group", "location"],
+        ["top_errors"] = ["by", "limit", "group", "location"],
+        ["top_devices"] = ["by", "limit", "group", "location"],
+        ["health_overview"] = ["type", "only_problems", "group", "location", "offset", "limit"],
         ["device_details"] = ["device", "sections", "offset", "limit"],
         ["port_status"] = ["device", "port"],
         ["device_neighbours"] = ["device"],
@@ -231,10 +236,21 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedDetails, deviceTransport, deviceDetails: true);
         var detailTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc;
         var deviceDetails = detailBound is null ? null : HostDeviceDetails.Create(detailBound, detailBound.SensorTransport, time);
+        var rankingBound = scope is not { } capturedRankings || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedRankings, deviceTransport, fleetRankings: true);
+        var rankings = rankingBound is null ? null : HostFleetRankings.Create(rankingBound, time);
+        var healthOverviewBound = scope is not { } capturedHealthOverview || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedHealthOverview, deviceTransport, healthOverview: true);
+        var healthOverview = healthOverviewBound is null ? null : HostHealthOverview.Create(healthOverviewBound,
+            healthOverviewBound.SensorTransport, time, SensorOptions(settings.Current), sensorDefinitions);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            rankings?.Dispose();
+            rankingBound?.Dispose();
+            healthOverview?.Dispose();
+            healthOverviewBound?.Dispose();
             deviceDetails?.Dispose();
             detailBound?.Dispose();
             portLookups?.Dispose();
@@ -372,6 +388,9 @@ public sealed partial class CompactNetworkLookups(
         // drops that repeat, so it is restored before the style chooses a name.
         string SummaryName(DeviceSummary d) =>
             DeviceName(new Device { DeviceId = d.DeviceId, Hostname = d.Hostname, SysName = d.SysName, Display = d.Display ?? d.Hostname, Ip = d.Ip }, d.Hostname, d.DeviceId);
+
+        string BriefName(DeviceBrief d) => DeviceName(new Device { DeviceId = d.DeviceId, Hostname = d.Hostname,
+            Display = d.Display ?? d.Hostname, Ip = d.Ip }, d.Hostname, d.DeviceId);
 
         // A shared search row in the person's naming style.
         // The state is the summary's typed State (Core's ReportedState), not its status word:
@@ -655,6 +674,35 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("top_interfaces", null, async (arguments, at, ct) =>
+            {
+                if (rankings is null) return Reply.Say(Failed);
+                var request = new TopPortsRequest(false, arguments.Text("by"), arguments.Number("limit") ?? 10, arguments.Text("group"), arguments.Text("location"));
+                var outcome = await WhileCurrent(() => rankings.ReadPortsAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? TopPortRows(found, at, BriefName) : FleetFailure(outcome.Error);
+            }),
+            Lookup("top_errors", null, async (arguments, at, ct) =>
+            {
+                if (rankings is null) return Reply.Say(Failed);
+                var request = new TopPortsRequest(true, arguments.Text("by"), arguments.Number("limit") ?? 10, arguments.Text("group"), arguments.Text("location"));
+                var outcome = await WhileCurrent(() => rankings.ReadPortsAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? TopPortRows(found, at, BriefName) : FleetFailure(outcome.Error);
+            }),
+            Lookup("top_devices", null, async (arguments, at, ct) =>
+            {
+                if (rankings is null) return Reply.Say(Failed);
+                var request = new TopDevicesRequest(arguments.Text("by"), arguments.Number("limit") ?? 10, arguments.Text("group"), arguments.Text("location"));
+                var outcome = await WhileCurrent(() => rankings.ReadDevicesAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? TopDeviceRows(found, at, BriefName) : FleetFailure(outcome.Error);
+            }),
+            Lookup("health_overview", null, async (arguments, at, ct) =>
+            {
+                if (healthOverview is null) return Reply.Say(Failed);
+                var request = new HealthOverviewRequest(arguments.Text("type"), arguments.Flag("only_problems", true), arguments.Text("group"),
+                    arguments.Text("location"), arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => healthOverview.ReadAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? HealthOverviewRows(found, at, BriefName) : FleetFailure(outcome.Error);
             }),
             Lookup("device_details", "device", async (arguments, at, ct) =>
             {

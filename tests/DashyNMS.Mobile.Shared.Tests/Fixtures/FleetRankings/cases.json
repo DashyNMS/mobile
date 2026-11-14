@@ -1,0 +1,22 @@
+{
+  "trafficPorts": [
+    101,
+    249,
+    108
+  ],
+  "errorPorts": [
+    108,
+    249
+  ],
+  "deviceTraffic": [
+    1,
+    2
+  ],
+  "deviceOutbound": [
+    2,
+    1
+  ],
+  "healthReadings": 9,
+  "healthCritical": 3,
+  "healthWarning": 0
+}

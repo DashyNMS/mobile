@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 12: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, and `device_details` | #236 |
+| 24 network tools | 16: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, and `health_overview` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -212,7 +212,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `list_groups_and_locations` | Group and location catalogue | Shared, with exact filter names in evidence | #642 |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
 | `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
-| `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Not yet | #644 |
+| `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
 | `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
 | `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
@@ -499,6 +499,31 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How fleet rankings and health_overview are built
+
+`HostFleetRankings` owns traffic/error direction, ranking, scoped filters and
+counts. Its dedicated client allows only the device list, fleet port-status
+snapshot and group catalogue/membership. `HostHealthOverview` has a separate
+profile for device/scope lists, sensors and the restricted sensor fallback
+transport. Other reads, maintenance, single-device reads and writes are refused.
+
+All catalogue parameters are offered. Rankings keep the shared order, candidate
+and checked-port totals, directions, rates, problem counts and traffic double-
+counting notice. Health overview captures saved thresholds and the override
+choice per attempt using the same options as device_sensors. The shared operation
+owns type/problem filtering, the bounded scope fallback, denied-device count and
+paging. An unscoped denied sensor fleet read is refused; denied devices in a
+permitted fallback lead the reply and are excluded from sensor counts.
+
+Whole rows outside 900 characters and candidates outside the requested page are
+counted as omitted. Only displayed rows supply device and sensor chips. Health
+paging metadata precedes readings, and type counts are separate rows. HTTP tests
+compare the pinned MCP fixture and independent rank/count facts with the shared
+host, including request sets, groups, directions, limit, denied reads, scoped
+fallback, captured thresholds and fresh choices on the next question. Deadline,
+cancellation and retirement checks cover both profiles. Full MCP field accounting
+and device acceptance remain pending while this PR is draft.
 
 ### How device_details is built
 
