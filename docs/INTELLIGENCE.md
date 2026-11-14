@@ -268,6 +268,19 @@ catalogue parameter of an offered tool that is neither offered
 | `active_alerts` | `offset`, `limit` | The same, for 20 groups. |
 | `active_alerts` | `hours`, `since`, `until` | The time window comes with #645. |
 
+## Batch 5 package provenance
+
+The reviewed network operations are published as `DashyNMS.Agent.Shared`
+`2.0.0-ci.43619927507.1` by DashyNMS/mcp's Shared package workflow, run
+43619927507, from protected `main` commit
+`a9032220aa18c3234d920f0503eba6de0348d6ba`, after PR #135. The package SHA-256 is
+`74d0675b045c73f85a95788544fd88784e3896679230dedf3aaf8089e5fcb3c1`.
+Publication verified the feed's bytes, and the provenance attestation verifies
+against that source commit and workflow. Mobile's verification script pins the
+same version, hash and commit. The Core pin remains `2.0.0-ci.64`, covered by
+upstream's package compatibility job. Mobile Release CI separately checks trim
+and AOT compatibility.
+
 ## Built tools
 
 What each shared tool on the phone does beyond the pattern above.
