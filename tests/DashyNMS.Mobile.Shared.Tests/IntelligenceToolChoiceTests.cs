@@ -73,6 +73,14 @@ public sealed class IntelligenceToolChoiceTests
         => Assert.Equal(tool, Names(Choose(question))[0]);
 
     [Fact]
+    public void A_location_follow_up_does_not_become_an_endpoint_trace_without_trace_language()
+    {
+        var choice = Choose("And where is it now?", 4096, null, "What hardware is the edge router?");
+        Assert.Equal("find_device", Names(choice)[0]);
+        Assert.DoesNotContain("trace_endpoint", Names(choice));
+    }
+
+    [Fact]
     public void A_question_that_names_nothing_starts_with_the_overview_and_alerts()
     {
         var choice = Choose("Hello", 8192);
