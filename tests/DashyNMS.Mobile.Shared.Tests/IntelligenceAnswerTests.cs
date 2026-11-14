@@ -414,7 +414,8 @@ public sealed class IntelligenceAnswerTests
         var navigation = Substitute.For<INavigationService>();
         var actions = new IntelligenceAnswerActions(conversation, navigation, Substitute.For<ILauncherService>());
 
-        await conversation.AskAsync("Where is the edge router?");
+        // A question about one device's hardware, so its tools include device_health (#637).
+        await conversation.AskAsync("What hardware is the edge router?");
         await conversation.AskAsync("And where is it now?");
 
         Assert.Equal(2, conversation.Turns.Count);

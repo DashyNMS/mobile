@@ -57,7 +57,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_health` (its device and uptime part) | #236, #634 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
-| Every tool on every question, 48 lookups in 16 rounds | Five tools, two lookups | #637 |
+| Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
 | Core's instructions, about 1,300 words | One 400-character string | #638 |
 | Sensor readings judged by limits and defaults, not the person's thresholds | The same | #639, DashyNMS/mcp#132 |
 | Device search without maintenance | The same | #620 |
@@ -158,14 +158,10 @@ A tool is finished when every item in
   truthfully. Evidence comes only from rows shown, and an aggregate count never
   becomes an entity link. Alert groups use a device/rule key distinct from fault
   ids, so a fault and a legacy alert with the same number never share ownership.
-- **Budgets.** Definitions reserve 80 tokens each, with 160 reserved for the
-  four-argument device search. This is a conservative allowance, not a device
-  measurement. The conversation budget in `IntelligenceConversationViewModel`
-  reserves 630 fixed, 720 for two results and 400 for output, within 80% of the
-  reported context. Measured figures are in
-  [DEVELOPING.md](DEVELOPING.md#what-the-on-device-model-can-do-570). #637
-  replaces these fixed figures with measured per-tool costs and a budget read
-  from `contextSize`. All 24 definitions never go into the on-device context at
+- **Budgets.** Each question's tools and lookup limit are chosen from the model's
+  reported `contextSize` and measured token costs (#637); see
+  [Tool choice and budgets](#tool-choice-and-budgets-637). Everything stays within
+  80% of the context. All 24 definitions never go into the on-device context at
   once.
 - **Notices before data leaves the phone.** On the device nothing is sent.
   Private Cloud Compute (#575) and ChatGPT (#577) send questions and lookup
@@ -598,3 +594,39 @@ found device's state comes from the tool's own read, never the resolver.
 
 `Fixtures/DeviceResolution` is a byte-for-byte copy of DashyNMS/mcp's, and
 `scripts/check-shared-fixtures.sh` covers it.
+
+### Tool choice and budgets (#637)
+
+Each question gets a fresh model session, so `IntelligenceToolChoice` chooses its
+tools per question:
+
+1. The tools its words point to (alerts, sensors, a device's health, finding
+   devices, the overview), and the device tools when it names a device by an
+   address or a name with a digit in it.
+2. The device tools and `find_device` when the chat has a Spotlight (#231).
+3. What the last two earlier questions pointed to, at half weight, so "and its
+   sensors?" keeps its subject.
+4. The overview and active alerts when nothing else matched.
+5. Then the tools those tools' descriptions name, while they fit.
+
+Costs are the model's own token counts (`tokenCount(for:)`, iOS 26.4 and later):
+the instructions, the prompt, each tool's definition (its name, description and
+parameter schema) and a full 900-character result. Definitions and the result
+are counted once per context size and kept. Before iOS 26.4, which can't count,
+the phone estimates three characters a token, fewer than English takes, so it
+offers less rather than overflowing.
+
+Within 80% of the reported context, after the instructions, prompt and the
+answer's room (150, 300 or 400 tokens by detail level), tools are added in order
+while two full results still fit; the first is always offered. The lookup limit
+is two at 4,096 tokens; above that it's the room left divided by one result, at
+least two and at most desktop's 48. The prompt's own share is what's left after
+the instructions, the answer, two results and the cheapest tool.
+
+Tools an offered description names that the question doesn't get, and tools not
+on the phone yet, are listed in the instructions, so the answer says what it
+couldn't check. When the lookups run out, the lookup says so and the turn says
+some lookups failed, as desktop's "lookups used up" note does.
+
+Device measurements of these costs on iOS 26.4 and iOS 27 are recorded here once
+taken on devices; they are never inferred from CI.

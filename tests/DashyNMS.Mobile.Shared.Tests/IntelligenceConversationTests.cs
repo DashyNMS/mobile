@@ -425,6 +425,26 @@ public sealed class IntelligenceConversationTests
     }
 
     [Fact]
+    public async Task A_larger_context_allows_more_lookups_and_says_so()
+    {
+        _model.ContextSize = 8192;
+        var calls = 0;
+        _model.Scripts.Enqueue(async (_, tools, _, token) =>
+        {
+            for (var i = 0; i < 3; i++)
+                if (await tools[0].Run("", token) == "Devices: 10 total.") calls++;
+            return new IntelligenceAnswer("Done.", null);
+        });
+        using var vm = Open();
+        await vm.AskAsync("How is the network doing?");
+
+        // 8,192 tokens holds more than iOS 26.4's two lookups, and the instructions give the limit.
+        Assert.Equal(3, calls);
+        Assert.DoesNotContain("at most two lookups", _model.Instructions[^1]);
+        Assert.Matches(@"Use at most ([3-9]|[1-4]\d) lookups", _model.Instructions[^1]);
+    }
+
+    [Fact]
     public async Task An_oversized_question_does_not_start_a_model()
     {
         using var vm = Open();
