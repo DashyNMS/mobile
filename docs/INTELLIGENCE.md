@@ -523,8 +523,17 @@ ownership. The shared caps on switches, MACs and observations apply before the
 The host owns caches, and the common deadline and retirement checks cover all
 three tools. HTTP tests compare the pinned upstream envelopes and independent
 port, neighbour and edge facts with the package operation, including request
-sets, reverse links, optional failures and invalid input. Full MCP field accounting
-and iPhone example-question acceptance remain pending while this PR is draft.
+sets, reverse links, optional failures and invalid input. Current MCP projections
+serialise these operations' Data directly; IntelligenceTopologyFactsTests compares
+every populated leaf on the fixture with the displayed text or the explicit table
+below. iPhone example-question acceptance remains pending while this PR is draft.
+
+#### Topology facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `port_status` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | Budget. The device row gives its names, IP, location and state; device_health supplies inventory and last poll. |
+
 
 ### How alert_details and alert_rules are built
 

@@ -1,5 +1,6 @@
 using DashyNMS.Agent;
 using DashyNMS.Agent.Ports;
+using DesktopNMS.Core.Models;
 
 namespace DashyNMS.Mobile.Intelligence;
 
@@ -25,7 +26,7 @@ public sealed partial class CompactNetworkLookups
         var port = data.Port;
         var rows = new List<Row>
         {
-            TopologyDevice(data.Device.DeviceId, name, name, at),
+            TopologyDevice(data.Device.DeviceId, name, $"{name}; hostname {Clean(data.Device.Hostname)}; display {Clean(data.Device.Display)}; IP {Clean(data.Device.Ip)}; location {Clean(data.Device.Location)}; state {data.Device.State.ToDisplayString()}", at),
             new($"Port {Id(port.PortId)} {Clean(port.IfName)}; description {Clean(port.IfDescr)}; alias {Clean(port.Alias)}."),
             new($"Admin {Clean(port.AdminStatus)}; operational {Clean(port.OperStatus)}; speed {Count(port.SpeedMbps)} Mbps; duplex {Clean(port.Duplex)}; MTU {Count(port.Mtu)}; VLAN {Count(port.Vlan)}."),
             new($"Traffic in {Number(port.InMbps)} Mbps; out {Number(port.OutMbps)} Mbps. Errors in {Number(port.InErrorsPerSec)}/s; out {Number(port.OutErrorsPerSec)}/s; last poll in {Count(port.InErrorsLastPoll)}; out {Count(port.OutErrorsLastPoll)}."),
@@ -40,7 +41,7 @@ public sealed partial class CompactNetworkLookups
     private static Reply NeighbourRows(DeviceNeighboursResult found, DateTimeOffset at, string name)
     {
         var device = found.Data.Device;
-        var heading = TopologyDevice(device.DeviceId, name, name, at);
+        var heading = TopologyDevice(device.DeviceId, name, $"{name}; hostname {Clean(device.Hostname)}; display {Clean(device.Display)}; IP {Clean(device.Ip)}; location {Clean(device.Location)}; state {Clean(device.Status)}", at);
         return Rows(AlertUnavailable(found.Data.Unavailable) + found.Summary,
             new[] { heading }.Concat(found.Data.Neighbours.Select(n => TopologyDevice(n.RemoteDeviceId ?? 0, n.RemoteHostname,
                 $"Local {Clean(n.LocalPort)} → {Clean(n.RemoteHostname)}; remote port {Clean(n.RemotePort)}; platform {Clean(n.RemotePlatform)}; {Clean(n.Protocol)}; seen from {Clean(n.SeenFrom)}.", at))),

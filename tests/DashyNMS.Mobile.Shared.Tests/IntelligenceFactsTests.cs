@@ -202,6 +202,12 @@ public sealed partial class IntelligenceFactsTests
                 routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
                 routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
                 break;
+            case "port_status":
+            case "device_neighbours":
+            case "trace_endpoint":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "PortLookups", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
             case "alert_details":
             case "alert_rules":
                 using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "AlertRules", "routes.json"))))
@@ -272,6 +278,14 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
+        if (path == "device.status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (name is "found" or "ambiguous") return text.Contains(name + (value.GetBoolean() ? " yes" : " no"), StringComparison.OrdinalIgnoreCase);
+        if (name == "untagged") return text.Contains(value.GetBoolean() ? ": untagged" : ": tagged", StringComparison.Ordinal);
+        if (name == "last_seen")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
         if (name == "enabled") return text.Contains(value.GetBoolean() ? "; enabled;" : "; disabled;", StringComparison.Ordinal);
         if (name == "rule_condition_known") return text.Contains(value.GetBoolean() ? "rule condition known" : "rule condition unknown", StringComparison.Ordinal);
         if (name == "open_minutes") return text.Contains(IntelligenceTime.Length(TimeSpan.FromMinutes(value.GetInt64())), StringComparison.Ordinal);
