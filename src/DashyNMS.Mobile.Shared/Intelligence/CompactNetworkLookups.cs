@@ -204,7 +204,7 @@ public sealed partial class CompactNetworkLookups(
         var sensorBound = scope is not { } capturedSensors || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedSensors, deviceTransport, sensors: true);
         var deviceSensors = sensorBound is null ? null
-            : HostDeviceSensors.Create(sensorBound, sensorBound.SensorTransport, time, settings.Current.ServerTimestampsAreUtc, sensorDefinitions);
+            : HostDeviceSensors.Create(sensorBound, sensorBound.SensorTransport, time, SensorOptions(settings.Current), sensorDefinitions);
         void RetireShared()
         {
             search?.Dispose();
@@ -654,6 +654,17 @@ public sealed partial class CompactNetworkLookups(
         _ => r.Assessment is SensorAssessment.NoLimits ? ("Not assessed", "unknown") : ("Unknown", "unknown"),
     };
 
+    /// <summary>Each question captures the saved choices; Shared owns severity evaluation.</summary>
+    private static DashyNMS.Agent.AgentOptions SensorOptions(AppSettings current) => new()
+    {
+        ServerTimestampsAreUtc = current.ServerTimestampsAreUtc,
+        DbmThresholds = current.DbmThresholds.Clone(),
+        SignalThresholds = current.SignalThresholds.Clone(),
+        TemperatureThresholds = current.TemperatureThresholds.Clone(),
+        FanSpeedThresholds = current.FanSpeedThresholds.Clone(),
+        OverrideSensorLimitsWithAppThresholds = current.OverrideSensorLimitsWithAppThresholds,
+    };
+
     /// <summary>
     /// Every limit the reading has, warning and critical, on any reading (#636), so the model can say
     /// what was crossed or how close a reading is.
@@ -665,7 +676,8 @@ public sealed partial class CompactNetworkLookups(
         if (r.LowWarning is { } lowWarning) parts.Add("low warning limit " + Number(lowWarning));
         if (r.HighWarning is { } highWarning) parts.Add("high warning limit " + Number(highWarning));
         if (r.HighCritical is { } highCritical) parts.Add("high critical limit " + Number(highCritical));
-        return parts.Count == 0 ? "" : " (" + string.Join(", ", parts) + ")";
+        return parts.Count == 0 ? "" : " (" + (r.Assessment == SensorAssessment.Thresholds ? "sensor-reported limits, overridden: " : "")
+            + string.Join(", ", parts) + ")";
     }
 
     /// <summary>

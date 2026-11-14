@@ -59,7 +59,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
 | Core's instructions, about 1,300 words | Short forms of Core's base, detail and Spotlight blocks, each rule mapped or excluded with its reason; Core's own text on Private Cloud Compute | Allowed difference (#638) |
-| Sensor readings judged by limits and defaults, not the person's thresholds | The same | #639, DashyNMS/mcp#132 |
+| Sensor readings judged by the host's saved thresholds and sensor-limit override | The same Core evaluation as the Health page, captured per question | #639 |
 | Device search without maintenance | The same | #620 |
 | Brief, Balanced, Detailed and Full report | Brief, Balanced and Detailed | Allowed difference |
 | Saved chats to rename, pin and delete, grouped by date | Done | #229 |
@@ -439,11 +439,12 @@ unchanged; this section covers only what differs.
 `ConnectionBoundClient` and transport, as the overview has its own, and asks for one device id.
 Judging each reading, the problem-first order, the device-by-device fallback and
 redaction come from upstream. MCP's `device_sensors` runs the same operation. The
-assessment is MCP's: the sensor's own LibreNMS limits, Core's default thresholds for dBm,
-signal, temperature and fan speed where it has none, and an installed state definition's
-severity. Desktop doesn't give MCP the person's own thresholds, so chat doesn't use
-them on either platform: a reading can differ between chat and the Health page when
-someone has changed Settings › Thresholds. Fixing that is an upstream change for both (DashyNMS/mcp#132, #639).
+assessment uses the same Core evaluator as the Health page. Each model attempt
+captures the person's saved dBm, signal, temperature and fan thresholds and the
+sensor-limit override in `AgentOptions`. A later question opens a fresh set and
+reads changed settings without restarting the chat. Sensor definitions still
+supply state-sensor severity. Sensor-reported limits remain visible; when saved
+thresholds override them, the text labels those limits as overridden.
 Mobile maps the result to:
 
 - a heading with every count, unknown kept apart from OK:

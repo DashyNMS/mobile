@@ -38,8 +38,8 @@
         "unknown"
       ],
       "assessments": [
-        "Thresholds",
-        "Thresholds",
+        "MixedLimits",
+        "MixedLimits",
         "Thresholds",
         "SensorLimits",
         "Thresholds",
@@ -93,7 +93,7 @@
         "unknown"
       ],
       "assessments": [
-        "Thresholds",
+        "MixedLimits",
         "NoReading"
       ],
       "values": [
@@ -143,8 +143,8 @@
         "unknown"
       ],
       "assessments": [
-        "Thresholds",
-        "Thresholds",
+        "MixedLimits",
+        "MixedLimits",
         "Thresholds",
         "SensorLimits",
         "Thresholds",

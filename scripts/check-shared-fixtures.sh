@@ -48,8 +48,8 @@ check DeviceSummary 59cf2b623583366abcc2785685ba362cc1b1da4b \
   devices.json device-1.json device-2.json device-3.json device-4.json device-5.json \
   device-6.json cases.json transport.json
 
-# DashyNMS/mcp#129's squash merge on main.
-check DeviceSensors 812266dd63c8201406c47282a8c45899d94abe4e \
+# DashyNMS/mcp#135 retains the sensor fixtures and updates effective-limit metadata.
+check DeviceSensors a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md devices.json sensors.json health.json cases.json transport.json
 
 # DashyNMS/mcp#134's rebase merge on main (DashyNMS/mcp#131).
