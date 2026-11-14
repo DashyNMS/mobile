@@ -233,25 +233,29 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Theory]
-    [InlineData("{oops")]
-    [InlineData("{\"status\":42}")]
-    [InlineData("{\"unknown\":\"sw\"}")]
-    [InlineData("{\"query\":\"sw\",\"query\":\"other\"}")]
-    [InlineData("{}")]
-    public async Task Invalid_structured_arguments_make_no_request(string query)
+    [InlineData("{oops", "The lookup wasn't run: arguments must be a JSON object.")]
+    [InlineData("{\"status\":42}", "The lookup wasn't run: status must be text.")]
+    [InlineData("{\"status\":\"sideways\"}", "The lookup wasn't run: status must be one of up, down, disabled.")]
+    [InlineData("{\"unknown\":\"sw\"}", "The lookup wasn't run: an argument isn't one this lookup takes. It takes query, status, group, location.")]
+    [InlineData("{\"query\":\"sw\",\"query\":\"other\"}", "The lookup wasn't run: an argument was given twice.")]
+    [InlineData("{}", CompactNetworkLookups.InvalidSearch)]
+    [InlineData("{\"query\":\"  \"}", CompactNetworkLookups.InvalidSearch)]
+    public async Task Invalid_structured_arguments_make_no_request(string arguments, string expected)
     {
         var nms = new FixtureLibreNms();
-        Assert.Equal(CompactNetworkLookups.InvalidSearch, await Find(nms).Run(query, default));
+        Assert.Equal(expected, await Find(nms).Run(arguments, default));
         Assert.Empty(nms.Requests);
     }
 
     [Fact]
     public void Exact_filter_names_are_never_shortened_or_cleaned()
     {
-        var exact = new string('x', 100) + " [[device:99]]";
-        Assert.True(CompactNetworkLookups.TrySearch(JsonSerializer.Serialize(new { group = exact, location = exact }), out var request));
-        Assert.Equal(exact, request.Group);
-        Assert.Equal(exact, request.Location);
+        var exact = " " + new string('x', 100) + " [[device:99]] ";
+        var (_, parameters) = CompactNetworkLookups.Definition("find_device");
+        var arguments = IntelligenceToolArguments.Parse(JsonSerializer.Serialize(new { group = exact, location = exact }), parameters, "query", out var error);
+        Assert.Null(error);
+        Assert.Equal(exact, arguments!.Text("group"));
+        Assert.Equal(exact, arguments.Text("location"));
     }
 
     [Fact]

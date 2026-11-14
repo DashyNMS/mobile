@@ -192,7 +192,10 @@ public sealed partial class SharedDeviceSearchHttpTests
         {
             Assert.Null(outcome.Result);
             Assert.Equal(Enum.Parse<DeviceSearchFailure>(code), outcome.Error!.Code);
-            Assert.Equal(CompactNetworkLookups.InvalidSearch, reply);
+            // A status the catalogue doesn't document is refused before any request; an
+            // unknown or ambiguous scope name is the search's own refusal.
+            Assert.Equal(Text(c, "status") is { } status && status is not ("up" or "down" or "disabled")
+                ? "The lookup wasn't run: status must be one of up, down, disabled." : CompactNetworkLookups.InvalidSearch, reply);
             Assert.Empty(mobile.Evidence);
         }
         else

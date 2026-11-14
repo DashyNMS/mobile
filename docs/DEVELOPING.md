@@ -1254,15 +1254,17 @@ result is inferred from shared tests or platform CI builds.
 For the parity direction, how the phone runs desktop's tools, the rules every
 tool keeps and when a tool is done, see [Intelligence](INTELLIGENCE.md). Device search
 (`find_device`), open alerts (`active_alerts`), the network overview
-(`network_overview`), the device summary (`device_summary`) and device sensors
+(`network_overview`), the device summary (`device_health`) and device sensors
 (`device_sensors`) all run DashyNMS/mcp's shared `DashyNMS.Agent.Shared` package.
 
 ### Compact network lookups (#572)
 
 `IIntelligenceLookups.Create()` supplies five read-only lookups over the
-session's client: overview, device search, device summary, active alerts and
-device sensors. The device summary is to be replaced by desktop's
-`device_health` (#634), and the rest of desktop's tools follow in #236's build order.
+session's client: overview, device search, device health (its device and uptime
+part until #634), active alerts and device sensors. Each takes its name,
+description and parameters from DashyNMS/mcp's shared catalogue, and a device
+argument resolves by name, address or ID through the shared resolver (#635). The
+rest of desktop's tools follow in #236's build order.
 Each reply is at most 900 characters. Rows lead with the
 LibreNMS name in the person's device-name choice, followed by Core's marker,
 for example `core-sw1 [[device:708]]`, so the model names devices rather than
@@ -1276,7 +1278,7 @@ Markdown links keep their original text. Active alerts come from
 the shared open alerts (#601): one row per rule firing on a device, worst first,
 with groups and faults counted apart and partial acknowledgement shown; if the
 device list or alerts can't be read, the lookup fails rather than reporting none.
-The device summary comes from the shared device summary (#602): one `devices/{id}`
+Device health comes from the shared device summary (#602): one `devices/{id}`
 read giving the reported state, OS, hardware, location (its name even when LibreNMS
 sends the whole location record) and uptime, which reads "unknown" when LibreNMS
 reports none. A device the server doesn't return is "Device not found.", never a

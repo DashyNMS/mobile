@@ -407,7 +407,7 @@ public sealed class IntelligenceAnswerTests
         var calls = 0;
         var (conversation, _) = Conversation(async tools =>
         {
-            if (calls++ == 0) await tools.Single(t => t.Name == "device_summary").Run("12", default);
+            if (calls++ == 0) await tools.Single(t => t.Name == "device_health").Run("12", default);
             return new IntelligenceAnswer("It is at [[location:4]].", null);
         }, session => new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: Fakes.DeviceTransport(client)));
         using var owned = conversation;

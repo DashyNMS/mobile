@@ -903,11 +903,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             _images.IsVisible = images.Count > 0;
         }
 
-        private static string LookupName(string name) => name switch
-        {
-            "network_overview" => "Network overview", "find_device" => "Find device", "device_summary" => "Device summary",
-            "active_alerts" => "Active alerts", "device_sensors" => "Device sensors", _ => "Network lookup",
-        };
+        /// <summary>The tool's title from the shared catalogue, as MCP clients show it (#635).</summary>
+        private static string LookupName(string name) => DashyNMS.Agent.Catalogue.ToolCatalogue.Find(name)?.Title ?? "Network lookup";
         public void Dispose()
         {
             _turn.PropertyChanged -= OnChanged;

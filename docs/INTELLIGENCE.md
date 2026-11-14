@@ -54,8 +54,8 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_summary` in place of `device_health` | #236, #634 |
-| Tool names, arguments and descriptions from MCP | The phone's own short descriptions, one `query` string, numeric device IDs | #635, DashyNMS/mcp#130, DashyNMS/mcp#131 |
+| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_health` (its device and uptime part) | #236, #634 |
+| Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | Five tools, two lookups | #637 |
 | Core's instructions, about 1,300 words | One 400-character string | #638 |
@@ -136,8 +136,9 @@ A tool is finished when every item in
 - **Text from the catalogue.** A tool's name, description and parameters come
   from the shared catalogue, unchanged. A parameter the phone doesn't support
   yet is left out of the schema and listed under
-  [Facts left out](#facts-left-out). Until #635 lands, the five tools carry the
-  phone's own text.
+  [Facts left out](#facts-left-out). `CompactNetworkLookups.Offered` lists the
+  parameters each tool offers, and a test holds every offered tool's description
+  and parameters to the pinned package's catalogue.
 - **Read-only allowlist.** The wrapper allows only the endpoints the tool's
   review names, and unknown tools fail before transport. A tool is offered to
   the model only if it's in Core's `IntelligenceToolAllowlist`, the static
@@ -208,9 +209,9 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | Tool | Capability | Phone | Issue |
 | --- | --- | --- | --- |
 | `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC and scope filters | #620, #635, #636 |
-| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | #635 |
+| `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
-| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Device and uptime only, as `device_summary` | #634 |
+| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Device and uptime only | #634 |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
 | `list_groups_and_locations` | Group and location catalogue | Not yet | #642 |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not yet | #641 |
@@ -235,9 +236,10 @@ What each shared tool's MCP result has that the phone's text doesn't, and why.
 | `find_device` | Location; the hostname when the display name differs; `verbose`'s sysName, OS, hardware and last poll | #636 |
 | `find_device` | `offset`, `limit` and `page.next_offset` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
 | `active_alerts` | When each alert opened; its note; each fault's state and start time; fault names beyond three; `group_id` | #636. `group_id` stays out: it isn't an object the person can open. |
-| `active_alerts` | `severity`, `group` and `location` filters; `hours`, `since` and `until` | #635 for the filters, #645 for the window |
-| `device_summary` | Everything `device_health` adds | Replaced by `device_health` in #634 |
-| `device_sensors` | Warning limits, and limits on readings that aren't problems; the `type` filter | #636 for the limits, #635 for the filter |
+| `active_alerts` | `hours`, `since` and `until` | #645 brings the window |
+| `active_alerts` | `offset` and `limit`, `page` | The phone asks for 20 groups and counts the rest in the heading. A further page wouldn't fit the reply. |
+| `device_health` | Maintenance, open alerts, CPU, memory, storage and problem ports | #634 |
+| `device_sensors` | Warning limits, and limits on readings that aren't problems | #636 |
 
 ## Built tools
 
@@ -288,8 +290,10 @@ changes. Without a transport factory, `find_device` fails closed.
 **Allowlist and lifetime.** Device search permits `IDevicesApi.ListAsync`,
 `IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
 `IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
-list, without a locations endpoint. `device_summary` permits
-`IDevicesApi.GetAsync` by a positive numeric id, never by hostname. For
+list, without a locations endpoint. A device argument resolves over the same
+profile's `IDevicesApi.ListAsync` (see [Device arguments](#device-arguments-635)).
+`device_health` permits `IDevicesApi.GetAsync` by a positive numeric id, never by
+hostname. For
 `active_alerts`, `IAlertsApi.ListAsync(AlertQuery.Open)` is allowed. `device_sensors` has a
 profile of its own: `IDevicesApi.ListAsync`, `ISensorsApi.ListAsync` and the sensor health
 routes (see below), with no alerts, ARP or groups. Every other
@@ -307,12 +311,10 @@ as fixed upstream categories with no server text; mobile maps `Refused` to its
 refusal line and everything else to its failure line. An empty result is not a
 failure. Nothing is logged.
 
-**Profile (#608).** `find_device` takes optional string arguments `query` (name,
-IP or MAC), `status` (up, down or disabled), `group` and `location`. At least one
-must be supplied. Filters can be combined or used without text. The native
-schema passes a JSON object through the existing string bridge; plain text
-callers still search by query. Unknown, duplicate and non-string arguments are
-rejected before transport. The shared operation resolves exact names first,
+**Profile (#608, #635).** `find_device` offers the catalogue's `query` (name, IP
+or MAC), `status` (up, down or disabled), `group` and `location`. At least one
+must be supplied. Filters can be combined or used without text. Arguments are
+checked as in [Tool definitions](#tool-definitions-635). The shared operation resolves exact names first,
 then unambiguous partial names. Filter names are passed untouched, separate
 from cleaned display labels; search returns device evidence, never group or
 location evidence inferred from a filter.
@@ -374,8 +376,8 @@ turn into later turns and saved chats, so the key stays withdrawn there too. The
 lookup fails rather than reporting no alerts. `Refused` maps to the refusal line,
 everything else to the failure line.
 
-**Profile.** Name and single `query` argument unchanged: a positive device id or
-empty. Severity, scope, time windows and paging stay unadvertised until #635 and #645.
+**Profile.** The catalogue's `severity`, `device`, `group` and `location`. Time
+windows and paging stay unadvertised until #645.
 
 **Fixtures.** `tests/.../Fixtures/OpenAlerts` is a byte-for-byte copy of
 DashyNMS/mcp's: a 26.10 server and an older one, with a fault and a legacy alert
@@ -432,8 +434,7 @@ definitions; it rereads the saved choice, so turning them off applies at once.
 doesn't hold to `No device with that id is visible to this account. Use find_device for its id.`,
 everything else to the failure line.
 
-**Profile.** Name and single `query` argument unchanged: a positive device id. The type
-filter stays unadvertised until #635.
+**Profile.** The catalogue's `device` and `type`.
 
 **Fixtures.** `tests/.../Fixtures/DeviceSensors` is a byte-for-byte copy of DashyNMS/mcp's:
 a zero fan reading beside a missing one, readings judged by their own limits and by the
@@ -447,21 +448,20 @@ fallback reads concurrently, so its requests are compared as a set. The type cas
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
 
-### How device_summary is built
-
-`device_health` replaces this tool under #634.
+### How device_health is built
 
 The device summary migration (#602), built on DashyNMS/mcp's `DeviceSummaries`
-(DashyNMS/mcp#128). Everything under find_device's host ownership, lifetime,
-cancellation and CI applies unchanged; this section covers only what differs.
+(DashyNMS/mcp#128), is the device and uptime part of `device_health`; #634 brings
+the rest. Everything under find_device's host ownership, lifetime, cancellation
+and CI applies unchanged; this section covers only what differs.
 
-**Contract.** The Agent has no `device_summary` tool, and Core's
-`IntelligenceToolAllowlist` has no such name. Mobile's `device_summary` is a
-reviewed narrower profile of the allowlisted `device_health`: its device and
-uptime only, without maintenance, alerts, CPU, memory, storage or ports.
+**Contract.** Until #635 this was `device_summary`, a name Core's
+`IntelligenceToolAllowlist` doesn't have. It now carries `device_health`'s
+catalogue name, description and `device` parameter, and its text says what it
+doesn't cover yet (listed under [Facts left out](#facts-left-out)). MCP's
 `device_health` builds that part on the same shared read and shaping, so the two
-can't drift. `CompactNetworkLookups.ReviewedTools` records the tool behind every
-lookup name, and a test holds each to the allowlist, so a new name can't reach the
+can't drift. `CompactNetworkLookups.ReviewedTools` holds every lookup name, and a
+test holds each to the allowlist and the catalogue, so a new name can't reach the
 model without a reviewed tool.
 
 **Adapter.** Each lookup set creates one `HostDeviceSummary` beside the search and
@@ -486,8 +486,8 @@ list when the read fails: a device the server doesn't return, or returns under
 another id, is "Device not found."; `Refused` maps to the refusal line, and
 everything else to the failure line.
 
-**Profile.** The name and single `query` argument are unchanged: a positive device
-id from `find_device`.
+**Profile.** The catalogue's `device`, resolved as in
+[Device arguments](#device-arguments-635).
 
 **Fixtures.** `tests/.../Fixtures/DeviceSummary` is a byte-for-byte copy of
 DashyNMS/mcp's. It covers a location sent as a record, a display name repeating the
@@ -495,8 +495,8 @@ hostname, zero uptime, a missing flag (Unknown), ignored and disabled devices, a
 secret in the hardware text, a padded location name, a location id only in the
 record, a listed device `devices/{id}` doesn't return, and transport failures on
 `devices/1`. `scripts/check-shared-fixtures.sh` covers it. Over loopback HTTP,
-mobile `device_summary` and `HostDeviceSummary` must give the same values,
-requests (`devices/{id}` only) and failures, and upstream holds `device_health`'s
+mobile `device_health` and `HostDeviceSummary` must give the same values and
+failures, with the same `devices/{id}` reads after mobile's device-list read, and upstream holds `device_health`'s
 device and uptime to the same fixture.
 
 ### How network_overview is built (#600)
@@ -529,3 +529,41 @@ continues to verify package provenance and reject package trim/AOT warnings.
 Diagnostics' former `NetworkOverviewLookup` was removed under #595 and stays
 removed. No diagnostic query is retained or migrated. Device measurements remain
 tracked separately in #607.
+
+### Tool definitions (#635)
+
+Each lookup's name, description and parameters are the shared catalogue's
+(`ToolCatalogue` in `DashyNMS.Agent.Shared`, DashyNMS/mcp#130), word for word. The
+phone writes none of this text. `CompactNetworkLookups.Offered` names the
+catalogue parameters each tool offers, and the rest are listed under
+[Facts left out](#facts-left-out) with the reason.
+
+The Swift bridge builds each tool's `GenerationSchema` at run time from those
+parameters with `DynamicGenerationSchema`: string, integer, boolean or string
+list, optional unless the catalogue requires it, each with its own description,
+documented values as `anyOf` choices and ranges as guides. The model's arguments
+come back as one JSON object (`GeneratedContent.jsonString`).
+`IntelligenceToolArguments` checks them against the same parameters before any
+request. Unknown, duplicate and mistyped arguments are refused, and so are values
+outside the documented choices or range. A refusal names the parameter, never the
+model's own text. Plain text that isn't a JSON object reads as the tool's main
+argument (`query` or `device`), for tests and older callers.
+
+A description may name a tool the question doesn't offer; #637's tool choice
+decides what then happens, and the description is never edited.
+
+### Device arguments (#635)
+
+`device_health`, `device_sensors` and `active_alerts` take the catalogue's `device`:
+a hostname, display name, IP address or ID. Each lookup set owns one
+`HostDeviceResolver` (DashyNMS/mcp#131) over search's connection-bound client,
+which reads the device list and resolves in MCP's tiers: ID, exact name or
+address, short hostname, part of a name. One match runs the tool for that id.
+Several in a tier return the candidates in the person's naming style with their
+markers and IPs, and the model asks which; nothing is guessed. No match gives MCP's
+own sentence. A refused or failed device list is the refusal or failure line,
+never "no match". The resolver's list is cached for a minute per lookup set, so a
+found device's state comes from the tool's own read, never the resolver.
+
+`Fixtures/DeviceResolution` is a byte-for-byte copy of DashyNMS/mcp's, and
+`scripts/check-shared-fixtures.sh` covers it.
