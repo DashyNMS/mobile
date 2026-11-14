@@ -184,7 +184,7 @@ public sealed partial class SharedDeviceSearchHttpTests
         Assert.Equal(Ints(expected, "ids"), outcome.Result!.Matches.Select(m => m.Device.DeviceId));
         Assert.Equal(total, outcome.Result.Page.Total);
         Assert.Equal(Strings(Basic, "requests"), mobileServer.Requests);
-        Assert.Equal(Strings(Basic, "requests"), packageServer.Requests);
+        Assert.Equal(Strings(Basic, "requests").Concat(Ints(expected, "ids").Select(id => $"devices/{id}/maintenance")), packageServer.Requests);
     }
 
     [Theory]
@@ -221,7 +221,8 @@ public sealed partial class SharedDeviceSearchHttpTests
             Assert.Equal(Ints(c, "ids"), ShownIds(reply));
             Assert.StartsWith($"Matching devices: {outcome.Result.Page.Total}.", reply);
         }
-        Assert.Equal(Strings(c, "requests"), server.Requests);
+        var maintenance = Text(c, "code") is null ? Ints(c, "ids").Select(id => $"devices/{id}/maintenance") : [];
+        Assert.Equal(Strings(c, "requests").Concat(maintenance), server.Requests);
         Assert.Equal(Strings(c, "requests"), mobileServer.Requests);
     }
 
@@ -261,7 +262,8 @@ public sealed partial class SharedDeviceSearchHttpTests
         Assert.Contains("192.0.2.78 on port 8", reply);
         Assert.Single(mobile.Evidence);
         Assert.True(reply.Length <= CompactNetworkLookups.MaxCharacters);
-        Assert.Equal(packageServer.Requests, server.Requests);
+        Assert.Equal(new[] { "resources/ip/arp/02:00:00:00:00:01", "devices" }, server.Requests);
+        Assert.Equal(new[] { "resources/ip/arp/02:00:00:00:00:01", "devices", "devices/1/maintenance" }, packageServer.Requests);
     }
 
     [Theory]

@@ -170,8 +170,9 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Equal(total, typed.Page.Total);
         AssertShownInOrder(expected, text);
         Assert.StartsWith($"Matching devices: {total}.", text);
-        // Scope: a text search reads the device list and nothing else, on both sides.
-        Assert.Equal(ExpectedRequests(), upstream.Requests);
+        // The new package checks maintenance only for its returned rows. Mobile's
+        // maintenance endpoint profile follows in #620, after device health and groups.
+        Assert.Equal(ExpectedRequests().Concat(expected.Select(id => $"devices/{id}/maintenance")), upstream.Requests);
         Assert.Equal(ExpectedRequests(), mobile.Requests);
     }
 
