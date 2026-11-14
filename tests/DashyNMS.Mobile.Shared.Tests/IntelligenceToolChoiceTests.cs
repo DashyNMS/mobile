@@ -60,6 +60,8 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("What is in its inventory?", "device_details")]
+    [InlineData("Which VLANs are on this switch?", "device_details")]
     [InlineData("What is the port duplex and VLAN?", "port_status")]
     [InlineData("Show LLDP neighbours", "device_neighbours")]
     [InlineData("Trace where this MAC is plugged in", "trace_endpoint")]

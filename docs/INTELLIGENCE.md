@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 11: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, and `trace_endpoint` | #236 |
+| 24 network tools | 12: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, and `device_details` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -216,7 +216,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
 | `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
-| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Not yet | #648 |
+| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
 | `graph` | Graph images | Not yet | #649 |
 
 No write, acknowledgement, rediscovery or remote MCP service is proposed.
@@ -499,6 +499,30 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How device_details is built
+
+`HostDeviceDetails` owns the default/selected sections, paging, sorting, sensor
+fallbacks and partial failures. The adapter offers every catalogue parameter:
+`device`, `sections`, `offset` and `limit`. Its compact default page is 20 rows.
+Ask for one or a few sections when their detail matters; the shared default
+section selection still applies if none are supplied.
+
+A dedicated captured client allows device inventory, wireless and availability,
+per-device ports, IPs, ARP and FDB, fleet VLANs and sensors, and per-device BGP,
+OSPF, OSPFv3 and VRFs. Sensor health fallback uses the existing restricted sensor
+transport. IDs must be positive; alert reads, memberships, single-device reads,
+maintenance, unrelated APIs, raw sends and writes are refused before transport.
+
+Source failures lead the reply; section totals distinguish known empty sections
+from unreadable ones. Every section is formatted from its typed result. The
+900-character budget retains whole rows, counts both unfetched page rows and
+rows that do not fit, and offers only the displayed device chip. Pages retain
+their offset, limit and next offset. The common deadline and retirement logic
+covers the operation. Copied upstream HTTP fixtures test every section, request
+sets, inventory/VLAN/PoE/routing/availability/address facts, failed VLAN reads,
+page counts, invalid arguments and the client restrictions. Full MCP field
+accounting and iPhone acceptance remain pending while this PR is draft.
 
 ### How port, neighbour and trace tools are built
 

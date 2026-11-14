@@ -117,7 +117,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details",
     };
 
     /// <summary>
@@ -129,6 +129,7 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["device_details"] = ["device", "sections", "offset", "limit"],
         ["port_status"] = ["device", "port"],
         ["device_neighbours"] = ["device"],
         ["trace_endpoint"] = ["address"],
@@ -226,10 +227,16 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedPorts, deviceTransport, portLookups: true);
         var portLookups = portBound is null ? null : HostPortLookups.Create(portBound, portBound.TraceTransport, time,
             new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
+        var detailBound = scope is not { } capturedDetails || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedDetails, deviceTransport, deviceDetails: true);
+        var detailTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc;
+        var deviceDetails = detailBound is null ? null : HostDeviceDetails.Create(detailBound, detailBound.SensorTransport, time);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            deviceDetails?.Dispose();
+            detailBound?.Dispose();
             portLookups?.Dispose();
             portBound?.Dispose();
             alertRules?.Dispose();
@@ -648,6 +655,19 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("device_details", "device", async (arguments, at, ct) =>
+            {
+                if (deviceDetails is null) return Reply.Say(Failed);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var request = new DeviceDetailsRequest(id, arguments.List("sections")?.ToArray(),
+                    arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => deviceDetails.ReadAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? DeviceDetailRows(found, at, time, detailTimestampsAreUtc,
+                    DeviceName(new Device { DeviceId = found.Data.Device.DeviceId, Hostname = found.Data.Device.Hostname,
+                        Display = found.Data.Device.Display, Ip = found.Data.Device.Ip }, found.Data.Device.Hostname, found.Data.Device.DeviceId))
+                    : Reply.Say(outcome.Error == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
             }),
             Lookup("port_status", "device", async (arguments, at, ct) =>
             {
