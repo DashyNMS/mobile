@@ -1,0 +1,131 @@
+{
+  "status": "ok",
+  "summary": "4 open alerts (12 faults) on 3 devices (2 critical, 2 warning).",
+  "data": {
+    "totals": {
+      "alert_groups": 4,
+      "faults": 12,
+      "devices": 3,
+      "critical": 2,
+      "warning": 2,
+      "acknowledged": 1,
+      "partly_acknowledged": 1
+    },
+    "devices": [
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "device_status": "down",
+        "alerts": [
+          {
+            "group_id": "device:2/rule:4",
+            "alert_id": 12,
+            "rule_id": 4,
+            "source": "fault",
+            "rule": "Device down",
+            "severity": "critical",
+            "state": "active",
+            "fault_count": 1,
+            "age_minutes": 35601
+          }
+        ]
+      },
+      {
+        "device_id": 3,
+        "hostname": "dist-sw2.example.net",
+        "display": "Distribution 2",
+        "device_status": "up",
+        "alerts": [
+          {
+            "group_id": "device:3/rule:7",
+            "alert_id": 9500,
+            "rule_id": 7,
+            "source": "fault",
+            "rule": "Temperature high",
+            "severity": "critical",
+            "state": "acknowledged",
+            "fault_count": 1,
+            "entity": "Inlet",
+            "age_minutes": 35611
+          },
+          {
+            "group_id": "device:3/rule:6",
+            "alert_id": 9400,
+            "rule_id": 6,
+            "source": "fault",
+            "rule": "Port errors",
+            "severity": "warning",
+            "state": "active",
+            "fault_count": 2,
+            "age_minutes": 35586,
+            "faults": [
+              {
+                "fault_id": 9400,
+                "entity": "ge-0/0/40",
+                "state": "active"
+              },
+              {
+                "fault_id": 9402,
+                "entity": "ge-0/0/42",
+                "state": "active"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "device_status": "up",
+        "alerts": [
+          {
+            "group_id": "device:1/rule:5",
+            "alert_id": 9200,
+            "rule_id": 5,
+            "source": "fault",
+            "rule": "Processor usage over 90%",
+            "severity": "warning",
+            "state": "partly_acknowledged",
+            "fault_count": 8,
+            "acknowledged_count": 2,
+            "age_minutes": 35591,
+            "faults": [
+              {
+                "fault_id": 9200,
+                "entity": "CPU 0",
+                "state": "active"
+              },
+              {
+                "fault_id": 9201,
+                "entity": "CPU 1",
+                "state": "active"
+              },
+              {
+                "fault_id": 9202,
+                "entity": "CPU 2",
+                "state": "active"
+              },
+              {
+                "fault_id": 9204,
+                "entity": "CPU 4",
+                "state": "active"
+              },
+              {
+                "fault_id": 9206,
+                "entity": "CPU 6",
+                "state": "active"
+              }
+            ],
+            "faults_omitted": 3
+          }
+        ]
+      }
+    ],
+    "page": {
+      "offset": 0,
+      "limit": 50,
+      "returned": 4,
+      "total": 4
+    }
+  }
+}

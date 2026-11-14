@@ -100,7 +100,7 @@ public sealed partial class SharedDeviceSensorsHttpTests
     }
 
     /// <summary>One server's routes from <c>cases.json</c>, as LibreNMS would answer them; any other path is a 404.</summary>
-    private static Dictionary<string, Answer> Routes(string server)
+    internal static Dictionary<string, Answer> Routes(string server)
     {
         var routes = new Dictionary<string, Answer>(StringComparer.Ordinal);
         foreach (var route in Cases.GetProperty("servers").GetProperty(server).EnumerateObject())

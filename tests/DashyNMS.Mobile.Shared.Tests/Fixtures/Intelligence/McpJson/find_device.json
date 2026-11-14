@@ -1,0 +1,87 @@
+{
+  "status": "ok",
+  "summary": "All 10 matching devices.",
+  "data": {
+    "devices": [
+      {
+        "device_id": 3,
+        "hostname": "sw",
+        "ip": "198.51.100.3",
+        "location": "Core site",
+        "status": "up"
+      },
+      {
+        "device_id": 5,
+        "hostname": "core-rtr.example.net",
+        "ip": "198.51.100.5",
+        "location": "Core site",
+        "status": "up"
+      },
+      {
+        "device_id": 2,
+        "hostname": "sw-prefix.example.net",
+        "display": "password=‹redacted›",
+        "ip": "198.51.100.2",
+        "location": "Core site",
+        "status": "up"
+      },
+      {
+        "device_id": 4,
+        "hostname": "192.0.2.10",
+        "display": "Edge switch B",
+        "location": "Lab",
+        "status": "up"
+      },
+      {
+        "device_id": 1,
+        "hostname": "a-sw.example.net",
+        "ip": "198.51.100.1",
+        "location": "Core site",
+        "status": "up"
+      },
+      {
+        "device_id": 7,
+        "hostname": "disabled-sw.example.net",
+        "ip": "198.51.100.7",
+        "location": "Lab annexe",
+        "status": "disabled"
+      },
+      {
+        "device_id": 8,
+        "hostname": "down-sw.example.net",
+        "ip": "198.51.100.8",
+        "location": "Lab annexe",
+        "status": "down"
+      },
+      {
+        "device_id": 9,
+        "hostname": "lab-a.example.net",
+        "display": "Lab switch",
+        "ip": "198.51.100.9",
+        "location": "Lab",
+        "status": "up"
+      },
+      {
+        "device_id": 10,
+        "hostname": "lab-b.example.net",
+        "display": "Lab switch",
+        "ip": "198.51.100.10",
+        "location": "Lab",
+        "status": "up"
+      },
+      {
+        "device_id": 11,
+        "hostname": "unreported-sw.example.net",
+        "ip": "198.51.100.11",
+        "location": "Lab annexe",
+        "status": "down"
+      }
+    ],
+    "page": {
+      "offset": 0,
+      "limit": 10,
+      "returned": 10,
+      "total": 10
+    }
+  }
+}

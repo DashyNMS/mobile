@@ -187,7 +187,8 @@ public sealed class SharedDeviceSummaryHttpTests
         var location = Text(expected, "locationName") is { } shown
             ? $"{shown} [[location:{locationId!.Value.ToString(CultureInfo.InvariantCulture)}]]"
             : CompactNetworkLookups.Clean(Text(expected, "location"));
-        var uptime = Number(expected, "uptimeSeconds") is { } seconds ? $"{seconds.ToString(CultureInfo.InvariantCulture)} seconds" : "unknown";
+        // Uptime in days and hours, so the model doesn't convert seconds (#636).
+        var uptime = Number(expected, "uptimeSeconds") is { } seconds ? IntelligenceTime.Length(TimeSpan.FromSeconds(seconds)) : "unknown";
         Assert.Contains($"OS: {Text(expected, "os")}; hardware: {CompactNetworkLookups.Clean(Text(expected, "hardware"))}; location: {location}; uptime: {uptime}.", text);
         Assert.DoesNotContain("synthetic-secret", text);
         Assert.DoesNotContain("{", text);

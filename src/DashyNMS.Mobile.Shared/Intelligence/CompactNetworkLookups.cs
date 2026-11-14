@@ -106,8 +106,8 @@ public sealed partial class CompactNetworkLookups(
 
     internal const string UnknownDevice = "No device with that name or ID is visible to this account. Use find_device to look for it.";
 
-    /// <summary>Faults named on a group's row; the rest are counted.</summary>
-    internal const int NamedFaults = 3;
+    /// <summary>Faults named on a group's row without verbose, as MCP's brief record lists them; the rest are counted.</summary>
+    internal const int NamedFaults = 5;
 
     /// <summary>
     /// The tools the phone runs, each a reviewed adapter over its shared operation. Names, descriptions
@@ -127,9 +127,9 @@ public sealed partial class CompactNetworkLookups(
     internal static readonly IReadOnlyDictionary<string, string[]> Offered = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["network_overview"] = [],
-        ["find_device"] = ["query", "status", "group", "location"],
+        ["find_device"] = ["query", "status", "group", "location", "verbose"],
         ["device_health"] = ["device"],
-        ["active_alerts"] = ["severity", "device", "group", "location"],
+        ["active_alerts"] = ["severity", "device", "group", "location", "verbose"],
         ["device_sensors"] = ["device", "type"],
     };
 
@@ -330,20 +330,50 @@ public sealed partial class CompactNetworkLookups(
         // The state is the summary's typed State (Core's ReportedState), not its status word:
         // the word has only up, down and disabled, says "down" when LibreNMS left a flag out,
         // and doesn't tell ignored devices apart.
-        Row SearchRow(DeviceSummary d, DateTimeOffset at)
+        // Then MCP's other facts (#636): its location, the hostname and display name wherever they
+        // differ from the name shown, and with verbose its sysName, OS, hardware and last poll.
+        Row SearchRow(DeviceSummary d, DateTimeOffset at, bool verbose = false)
         {
             var name = SummaryName(d);
             var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
             // Up to a minute old: the shared search caches the device list per connection.
             IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
             { Object = new("device", d.DeviceId) });
-            return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}", [reference]);
+            return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}" + OtherNames(d, name, verbose)
+                + (string.IsNullOrWhiteSpace(d.Location) ? "" : "; location " + Clean(d.Location))
+                + (verbose ? Inventory(d) + (d.LastPolled is { } polled ? "; last polled " + IntelligenceTime.AtAndAgo(polled, at, time) : "") : ""),
+                [reference]);
         }
+
+        // The names the row didn't lead with: a model asked about "core-sw1" can then match a
+        // device shown by its display name. The sysName only on request, as MCP's verbose has it.
+        static string OtherNames(DeviceSummary d, string shown, bool sysName)
+        {
+            var text = "";
+            // A hostname that is the address adds nothing the row's IP doesn't say.
+            var seen = new List<string> { shown, Clean(d.Ip) };
+            void Add(string label, string? value)
+            {
+                if (string.IsNullOrWhiteSpace(value) || seen.Contains(Clean(value), StringComparer.OrdinalIgnoreCase)) return;
+                seen.Add(Clean(value));
+                text += $"; {label} {Clean(value)}";
+            }
+            Add("hostname", d.Hostname);
+            Add("display name", d.Display);
+            if (sysName) Add("sysName", d.SysName);
+            return text;
+        }
+
+        // OS and hardware, as MCP's verbose record gives them.
+        static string Inventory(DeviceSummary d)
+            => (string.IsNullOrWhiteSpace(d.Os) ? "" : "; OS " + Clean(d.Os)) + (string.IsNullOrWhiteSpace(d.Hardware) ? "" : "; hardware " + Clean(d.Hardware));
 
         // The shared device summary (#602), already redacted upstream: the device in the person's
         // naming style with its reported state, then OS, hardware, location and uptime. The read is
         // devices/{id}, so the state is as of this lookup, not the cached device list's. The location
         // chip shows the cleaned name and keeps LibreNMS's exact name only as its Devices filter.
+        // It is device_health's device and uptime part, and says what the rest of device_health
+        // gives that it doesn't yet (#634), so the model doesn't read a missing fact as a clean one.
         Reply SummaryRows(DeviceSummaryResult found, DateTimeOffset at)
         {
             var d = found.Device;
@@ -360,9 +390,14 @@ public sealed partial class CompactNetworkLookups(
                 { Object = new("location", place.Id) }, place.FilterName));
                 location += $" [[location:{Id(place.Id)}]]";
             }
-            var uptime = found.UptimeSeconds is { } seconds ? seconds.ToString(CultureInfo.InvariantCulture) + " seconds" : "unknown";
-            return Rows($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}",
-                [new($"OS: {Clean(d.Os)}; hardware: {Clean(d.Hardware)}; location: {location}; uptime: {uptime}.", references)],
+            var uptime = found.UptimeSeconds is { } seconds ? IntelligenceTime.Length(TimeSpan.FromSeconds(seconds)) : "unknown";
+            return Rows($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}" + OtherNames(d, name, sysName: true),
+                [
+                    // The last poll, so "when was it last polled?" is answered from this lookup and a stale poll shows.
+                    new($"OS: {Clean(d.Os)}; hardware: {Clean(d.Hardware)}; location: {location}; uptime: {uptime}"
+                        + (d.LastPolled is { } polled ? "; last polled " + IntelligenceTime.AtAndAgo(polled, at, time) : "") + ".", references),
+                    new(NotYetInHealth),
+                ],
                 [device]);
         }
 
@@ -370,7 +405,10 @@ public sealed partial class CompactNetworkLookups(
         // The marker is the representative fault's; its source travels in the evidence's typed
         // object, so navigation retains the fault or legacy alert source. The group key
         // (device and rule) is never offered as an id; the evidence carries the rule instead.
-        Row GroupRow(OpenAlertGroup g, DateTimeOffset at)
+        // MCP's facts follow (#636): the device's state, how long the alert has been open, its
+        // faults by name with their states, and with verbose when it opened, its note and when
+        // each fault started.
+        Row GroupRow(OpenAlertGroup g, DateTimeOffset at, bool verbose = false)
         {
             var d = g.Device;
             var named = d is null ? null
@@ -399,17 +437,32 @@ public sealed partial class CompactNetworkLookups(
                 // Up to a minute old: the shared operation caches the device list per connection.
                 references.Add(new(new("device:" + Id(d.DeviceId), deviceName, d.State.ToDisplayString(), StateTone(d.State), at, "Device status from the device list, up to a minute old")
                 { Object = new("device", d.DeviceId) }));
-                on += $" [[device:{Id(d.DeviceId)}]]";
+                on += $" [[device:{Id(d.DeviceId)}]] ({d.State.ToDisplayString()})";
             }
             var text = $"{severity}; {state}; {rule} [[alert:{Id(representative.Id)}]] on {on}";
+            if (g.Since is { } since)
+                text += verbose ? "; opened " + IntelligenceTime.AtAndAgo(since, at, time) : "; open " + IntelligenceTime.Since(since, at);
             if (g.FaultCount > 1)
             {
-                var names = g.Faults.Select(f => f.Entity).Where(e => !string.IsNullOrWhiteSpace(e)).Take(NamedFaults).Select(e => Clean(e)).ToList();
-                var rest = g.FaultCount - names.Count;
-                text += $"; {Id(g.FaultCount)} faults" + (names.Count == 0 ? "" : ": " + string.Join(", ", names) + (rest > 0 ? $" and {Id(rest)} more" : ""));
+                // Faults are named while the row stays within RowCharacters, so a rule with many faults
+                // still gets its row rather than being dropped whole; the rest are counted.
+                var listed = new List<string>();
+                var length = text.Length;
+                foreach (var f in g.Faults.Where(f => !string.IsNullOrWhiteSpace(f.Entity)).Take(verbose ? OpenAlerts.MaxFaults : NamedFaults))
+                {
+                    var item = Clean(f.Entity) + " (" + f.State.ToString().ToLowerInvariant()
+                        + (verbose && f.Since is { } started ? " since " + IntelligenceTime.At(started, time) : "") + ")";
+                    if (length + item.Length + 2 > RowCharacters) break;
+                    listed.Add(item);
+                    length += item.Length + 2;
+                }
+                var rest = g.FaultCount - listed.Count;
+                text += $"; {Id(g.FaultCount)} faults" + (listed.Count == 0 ? "" : ": " + string.Join(", ", listed) + (rest > 0 ? $" and {Id(rest)} more" : ""));
             }
             else if (!string.IsNullOrWhiteSpace(g.Entity))
                 text += "; for " + Clean(g.Entity);
+            if (verbose && !string.IsNullOrWhiteSpace(g.Note))
+                text += "; note: " + Clean(g.Note);
             return new(text, references);
         }
 
@@ -423,7 +476,7 @@ public sealed partial class CompactNetworkLookups(
                     return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
                 var d = found.Devices;
                 var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored. " +
-                    (found.Alerts is { } a ? AlertHeading(a) + $" {Id(a.Acknowledged)} acknowledged, {Id(a.PartlyAcknowledged)} partly acknowledged. " : "Alerts unavailable. ") +
+                    (found.Alerts is { } a ? AlertHeading(a) + " " : "Alerts unavailable. ") +
                     (found.Ports is { } p ? $"Ports: {Id(p.Total)} total, {Id(p.DownWhileEnabled)} down while enabled, {Id(p.CountingErrors)} counting errors. " : "Ports unavailable. ") +
                     (found.LibreNmsVersion is { } v ? $"LibreNMS: {Clean(v)}." : "Version unavailable.");
                 // Reserve failure information before rows so the budget cannot hide a failed source.
@@ -453,7 +506,10 @@ public sealed partial class CompactNetworkLookups(
                     ? $"Devices with stored ARP observations: {Id(found.Page.Total)}. Observations do not prove ownership."
                     : $"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m =>
                     {
-                        var row = SearchRow(m.Device, at);
+                        var row = SearchRow(m.Device, at, arguments.Flag("verbose"));
+                        // A verbose row too long to show falls back to the brief one, so a single match
+                        // is never dropped whole for its inventory; MAC observations still follow it.
+                        if (row.Text.Length > RowCharacters) row = SearchRow(m.Device, at);
                         if (!found.IsMacSearch) return row;
                         var sightings = m.SeenAs.Take(2).Select(a => $"{Clean(a.Ip)} on port {Id(a.PortId)}");
                         return row with { Text = row.Text + "; ARP observed " + string.Join(", ", sightings)
@@ -501,7 +557,8 @@ public sealed partial class CompactNetworkLookups(
                     });
                 // Groups and faults are totals over every match, so groups not fetched or not
                 // fitting are counted as omitted, never silently dropped.
-                return Rows(AlertHeading(found.Totals), found.Groups.Select(g => GroupRow(g, at)),
+                var verbose = arguments.Flag("verbose");
+                return Rows(AlertHeading(found.Totals), found.Groups.Select(g => GroupRow(g, at, verbose)),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_sensors", "device", async (arguments, at, ct) =>
@@ -524,26 +581,44 @@ public sealed partial class CompactNetworkLookups(
                 IntelligenceEvidence device = new(new("device:" + Id(d.DeviceId), deviceName, d.State.ToDisplayString(), StateTone(d.State), at, "Device status from the device list, up to a minute old")
                 { Object = new("device", d.DeviceId) });
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
-                return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals),
+                return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
             }),
         ];
         return new IntelligenceLookupSet(lookups, RetireShared);
     }
 
-    /// <summary>"Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning." Groups and faults counted apart, as MCP does.</summary>
+    /// <summary>
+    /// "Open alerts: 3 (11 faults) on 2 devices; 1 critical, 2 warning; 1 acknowledged, 0 partly acknowledged."
+    /// Groups and faults counted apart, as MCP does.
+    /// </summary>
     private static string AlertHeading(OpenAlertTotals totals) => totals.AlertGroups == 0
         ? "Open alerts: 0."
-        : $"Open alerts: {Id(totals.AlertGroups)} ({Count(totals.Faults, "fault")}) on {Count(totals.Devices, "device")}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning.";
+        : $"Open alerts: {Id(totals.AlertGroups)} ({Count(totals.Faults, "fault")}) on {Count(totals.Devices, "device")}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning; " +
+          $"{Id(totals.Acknowledged)} acknowledged, {Id(totals.PartlyAcknowledged)} partly acknowledged.";
 
     /// <summary>
-    /// "Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown." Unknown is
-    /// counted on its own and never folded into OK: no reading, nothing to judge by, or a
-    /// "nothing plugged in" value.
+    /// The longest an alert row grows by naming faults: well within a reply, so verbose's 25 fault
+    /// names can never make the row too long to show at all.
     /// </summary>
-    private static string SensorHeading(string device, SensorTotals totals) => totals.Readings == 0
+    internal const int RowCharacters = 420;
+
+    /// <summary>Sensor types named in the heading; the rest are counted.</summary>
+    internal const int NamedTypes = 8;
+
+    /// <summary>What MCP's device_health gives that the phone's doesn't yet (#634).</summary>
+    internal const string NotYetInHealth = "Not in this lookup yet: maintenance, open alerts, CPU, memory, storage and problem ports.";
+
+    /// <summary>
+    /// "Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown. Types: dbm 2, fanspeed 2."
+    /// Unknown is counted on its own and never folded into OK: no reading, nothing to judge by, or a
+    /// "nothing plugged in" value. The types are the names the type filter takes.
+    /// </summary>
+    private static string SensorHeading(string device, SensorTotals totals, IReadOnlyList<SensorTypeCount> types) => (totals.Readings == 0
         ? $"Sensors on {device}: 0."
-        : $"Sensors on {device}: {Id(totals.Readings)}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning, {Id(totals.Ok)} OK, {Id(totals.Unknown)} unknown.";
+        : $"Sensors on {device}: {Id(totals.Readings)}; {Id(totals.Critical)} critical, {Id(totals.Warning)} warning, {Id(totals.Ok)} OK, {Id(totals.Unknown)} unknown.")
+        + (types.Count == 0 ? "" : " Types: " + string.Join(", ", types.Take(NamedTypes).Select(t => $"{Clean(t.Type)} {Id(t.Count)}"))
+            + (types.Count > NamedTypes ? $" and {Id(types.Count - NamedTypes)} more" : "") + ".");
 
     /// <summary>
     /// One judged reading, already redacted upstream: "Module 2 [[sensor:2]]: temperature 81 °C;
@@ -561,10 +636,10 @@ public sealed partial class CompactNetworkLookups(
         var (status, tone) = SensorState(r);
         var state = r.State switch
         {
-            "critical" or "warning" => status.ToLowerInvariant() + Limits(r),
+            "critical" or "warning" => status.ToLowerInvariant(),
             "ok" => "OK",
             _ => r.Assessment is SensorAssessment.NoLimits ? "not assessed: no limits" : "state unknown",
-        };
+        } + Limits(r);
         return new($"{description} [[sensor:{Id(r.SensorId)}]]: {type} {value}; {state}",
             [new(new("sensor:" + Id(r.SensorId), description, status, tone, at, $"{type} reading on {deviceName}")
             { Object = new("sensor", r.SensorId, deviceId) })]);
@@ -579,12 +654,17 @@ public sealed partial class CompactNetworkLookups(
         _ => r.Assessment is SensorAssessment.NoLimits ? ("Not assessed", "unknown") : ("Unknown", "unknown"),
     };
 
-    /// <summary>The sensor's own critical limits beside a problem, so the model can say what was crossed.</summary>
+    /// <summary>
+    /// Every limit the reading has, warning and critical, on any reading (#636), so the model can say
+    /// what was crossed or how close a reading is.
+    /// </summary>
     private static string Limits(SensorReading r)
     {
-        var parts = new List<string>(2);
-        if (r.LowCritical is { } low) parts.Add("low critical limit " + Number(low));
-        if (r.HighCritical is { } high) parts.Add("high critical limit " + Number(high));
+        var parts = new List<string>(4);
+        if (r.LowCritical is { } lowCritical) parts.Add("low critical limit " + Number(lowCritical));
+        if (r.LowWarning is { } lowWarning) parts.Add("low warning limit " + Number(lowWarning));
+        if (r.HighWarning is { } highWarning) parts.Add("high warning limit " + Number(highWarning));
+        if (r.HighCritical is { } highCritical) parts.Add("high critical limit " + Number(highCritical));
         return parts.Count == 0 ? "" : " (" + string.Join(", ", parts) + ")";
     }
 

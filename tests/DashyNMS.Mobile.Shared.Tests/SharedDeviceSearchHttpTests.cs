@@ -146,6 +146,21 @@ public sealed partial class SharedDeviceSearchHttpTests
 
     private static int[] ShownIds(string text) => DeviceMarker().Matches(text).Select(m => int.Parse(m.Groups[1].Value)).ToArray();
 
+    /// <summary>
+    /// The rows shown are the shared order's first rows, whole, and the rest are counted (#636 made rows
+    /// longer, so a ten-row answer no longer always fits the 900 characters).
+    /// </summary>
+    private static void AssertShownInOrder(IReadOnlyList<int> expected, string text)
+    {
+        var shown = ShownIds(text);
+        // At least one row whenever there is one to show: a row never exceeds the budget alone.
+        Assert.Equal(expected.Count == 0, shown.Length == 0);
+        Assert.Equal(expected.Take(shown.Length), shown);
+        var omitted = expected.Count - shown.Length;
+        if (omitted > 0) Assert.Contains($"{omitted} more results omitted.", text);
+        else Assert.DoesNotContain("more results omitted", text);
+    }
+
     [GeneratedRegex(@"\[\[device:(\d+)\]\]")]
     private static partial Regex DeviceMarker();
 
@@ -164,7 +179,7 @@ public sealed partial class SharedDeviceSearchHttpTests
         var outcome = await package.Search.FindDevicesAsync(new(query, Limit: DeviceSearch.MaxMatches));
 
         var total = expected.GetProperty("total").GetInt32();
-        Assert.Equal(Ints(expected, "ids"), ShownIds(text));
+        AssertShownInOrder(Ints(expected, "ids"), text);
         Assert.StartsWith($"Matching devices: {total}.", text);
         Assert.Equal(Ints(expected, "ids"), outcome.Result!.Matches.Select(m => m.Device.DeviceId));
         Assert.Equal(total, outcome.Result.Page.Total);

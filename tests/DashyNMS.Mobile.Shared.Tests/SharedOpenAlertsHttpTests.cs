@@ -198,7 +198,8 @@ public sealed partial class SharedOpenAlertsHttpTests
         var groups = totals.GetProperty("alert_groups").GetInt32();
         Assert.StartsWith(groups == 0 ? "Open alerts: 0."
             : $"Open alerts: {groups} ({Count(totals.GetProperty("faults").GetInt32(), "fault")}) on {Count(totals.GetProperty("devices").GetInt32(), "device")}; " +
-              $"{totals.GetProperty("critical").GetInt32()} critical, {totals.GetProperty("warning").GetInt32()} warning.", text);
+              $"{totals.GetProperty("critical").GetInt32()} critical, {totals.GetProperty("warning").GetInt32()} warning; " +
+              $"{totals.GetProperty("acknowledged").GetInt32()} acknowledged, {totals.GetProperty("partly_acknowledged").GetInt32()} partly acknowledged.", text);
 
         var rows = Rows(text);
         // The text supplies the marker id; the evidence below verifies its source.

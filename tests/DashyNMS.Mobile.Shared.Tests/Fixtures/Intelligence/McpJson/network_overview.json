@@ -1,0 +1,111 @@
+{
+  "status": "ok",
+  "summary": "4 devices visible to this account: 3 up, 1 down; 1 open alert (3 faults) (0 critical, 1 warning).",
+  "data": {
+    "devices": {
+      "total": 4,
+      "up": 3,
+      "down": 1,
+      "disabled": 0,
+      "ignored": 0
+    },
+    "most_down_by_location": [
+      {
+        "location": "Core site",
+        "down": 1
+      }
+    ],
+    "alerts": {
+      "open": 1,
+      "faults": 3,
+      "critical": 0,
+      "warning": 1,
+      "acknowledged": 0,
+      "partly_acknowledged": 0,
+      "devices_alerting": 1
+    },
+    "ports": {
+      "total": 1,
+      "down_while_enabled": 1,
+      "counting_errors": 1
+    },
+    "librenms_version": "26.10.0",
+    "down_devices": [
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "ip": "198.51.100.2",
+        "location": "Core site",
+        "status": "down"
+      }
+    ],
+    "alert_groups": [
+      {
+        "key": {
+          "device_id": 1,
+          "rule_id": 5
+        },
+        "representative": {
+          "source": "fault",
+          "id": 9200
+        },
+        "rule": "Processor usage over 90%",
+        "severity": "warning",
+        "state": "active",
+        "fault_count": 3,
+        "acknowledged_count": 0,
+        "since": "2026-10-20T07:40:00Z",
+        "last_changed": "2026-10-20T07:42:00Z",
+        "faults": [
+          {
+            "key": {
+              "source": "fault",
+              "id": 9200
+            },
+            "entity": "CPU 0",
+            "entity_type": "processor",
+            "entity_id": 300,
+            "state": "active",
+            "since": "2026-10-20T07:40:00Z"
+          },
+          {
+            "key": {
+              "source": "fault",
+              "id": 9201
+            },
+            "entity": "CPU 1",
+            "entity_type": "processor",
+            "entity_id": 301,
+            "state": "active",
+            "since": "2026-10-20T07:41:00Z"
+          },
+          {
+            "key": {
+              "source": "fault",
+              "id": 9202
+            },
+            "entity": "CPU 2",
+            "entity_type": "processor",
+            "entity_id": 302,
+            "state": "active",
+            "since": "2026-10-20T07:42:00Z"
+          }
+        ],
+        "faults_omitted": 0,
+        "hostname": "core-sw1.example.net",
+        "device": {
+          "device_id": 1,
+          "hostname": "core-sw1.example.net",
+          "ip": "198.51.100.1",
+          "location": "Core site",
+          "status": "up"
+        },
+        "device_id": 1,
+        "rule_id": 5
+      }
+    ],
+    "down_devices_omitted": 0,
+    "alert_groups_omitted": 0,
+    "down_locations_omitted": 0
+  }
+}
