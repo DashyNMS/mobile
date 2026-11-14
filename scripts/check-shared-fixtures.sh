@@ -63,3 +63,7 @@ UPSTREAM_FIXTURE=DeviceSearch check GroupsAndLocations a9032220aa18c3234d920f050
 # Alert details and rule queries share these HTTP envelopes with MCP.
 check AlertRules a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md cases.json routes.json
+
+# Port, neighbour and endpoint trace HTTP inputs.
+check PortLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md cases.json routes.json

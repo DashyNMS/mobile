@@ -5,6 +5,7 @@ using DashyNMS.Agent.Catalogue;
 using DashyNMS.Agent.Devices;
 using DashyNMS.Agent.Overview;
 using DashyNMS.Agent.Health;
+using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -116,7 +117,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint",
     };
 
     /// <summary>
@@ -128,6 +129,9 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["port_status"] = ["device", "port"],
+        ["device_neighbours"] = ["device"],
+        ["trace_endpoint"] = ["address"],
         ["alert_details"] = ["alert_id"],
         ["alert_rules"] = ["name", "severity", "include_disabled", "sort", "offset", "limit", "verbose"],
         ["find_device"] = ["query", "status", "group", "location", "verbose"],
@@ -218,10 +222,16 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedRules, deviceTransport, alertRules: true);
         var alertRules = ruleBound is null ? null : HostAlertRules.Create(ruleBound, time,
             new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
+        var portBound = scope is not { } capturedPorts || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedPorts, deviceTransport, portLookups: true);
+        var portLookups = portBound is null ? null : HostPortLookups.Create(portBound, portBound.TraceTransport, time,
+            new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            portLookups?.Dispose();
+            portBound?.Dispose();
             alertRules?.Dispose();
             ruleBound?.Dispose();
             groupsAndLocations?.Dispose();
@@ -638,6 +648,28 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("port_status", "device", async (arguments, at, ct) =>
+            {
+                if (portLookups is null) return Reply.Say(Failed);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var outcome = await WhileCurrent(() => portLookups.ReadStatusAsync(new(id, arguments.Text("port")!), ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? PortRows(found, at, SummaryName(found.Data.Device)) : PortFailure(outcome.Error);
+            }),
+            Lookup("device_neighbours", "device", async (arguments, at, ct) =>
+            {
+                if (portLookups is null) return Reply.Say(Failed);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var outcome = await WhileCurrent(() => portLookups.ReadNeighboursAsync(new(id), ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? NeighbourRows(found, at, DeviceName(new Device { DeviceId = found.Data.Device.DeviceId, Hostname = found.Data.Device.Hostname, Display = found.Data.Device.Display, Ip = found.Data.Device.Ip }, found.Data.Device.Hostname, found.Data.Device.DeviceId)) : PortFailure(outcome.Error);
+            }),
+            Lookup("trace_endpoint", "address", async (arguments, at, ct) =>
+            {
+                if (portLookups is null) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => portLookups.TraceAsync(new(arguments.Text("address")!), ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? TraceRows(found, at, time) : PortFailure(outcome.Error);
             }),
             Lookup("alert_details", null, async (arguments, at, ct) =>
             {

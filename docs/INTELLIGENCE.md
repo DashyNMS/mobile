@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 8: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, and `alert_rules` | #236 |
+| 24 network tools | 11: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, and `trace_endpoint` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -211,7 +211,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
 | `list_groups_and_locations` | Group and location catalogue | Shared, with exact filter names in evidence | #642 |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
-| `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Not yet | #643 |
+| `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Not yet | #644 |
 | `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
 | `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
@@ -499,6 +499,32 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How port, neighbour and trace tools are built
+
+`HostPortLookups` owns all port resolution, topology ordering, reverse-neighbour
+observations and endpoint classification. Port and neighbour device arguments
+use the common shared device resolver first. Their dedicated client permits the
+device list, per-device ports and links, fleet links and VLANs, a MAC-specific ARP
+read and per-device FDB reads. The extra transport permits only canonical IPv4
+ARP collection paths and 12-digit lowercase MAC FDB collection paths, with the
+right model type and collection key. Query strings, path escapes, raw sends,
+maintenance, other resources and writes are refused before transport.
+
+Port rows include state, speed, duplex, MTU, VLANs, traffic, errors and neighbour
+observations. Neighbour rows retain reported/reverse direction and protocol.
+Known positive device IDs supply chips; an unmonitored neighbour stays text.
+The app has no port marker, so port IDs are plain facts beside a device chip.
+
+Trace replies explicitly describe stored observations, preserve ambiguity,
+source failures, candidate ports and bounded omissions, and never claim address
+ownership. The shared caps on switches, MACs and observations apply before the
+900-character whole-row budget. Device evidence comes only from displayed rows.
+The host owns caches, and the common deadline and retirement checks cover all
+three tools. HTTP tests compare the pinned upstream envelopes and independent
+port, neighbour and edge facts with the package operation, including request
+sets, reverse links, optional failures and invalid input. Full MCP field accounting
+and iPhone example-question acceptance remain pending while this PR is draft.
 
 ### How alert_details and alert_rules are built
 

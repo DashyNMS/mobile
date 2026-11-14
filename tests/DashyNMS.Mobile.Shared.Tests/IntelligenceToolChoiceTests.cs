@@ -60,6 +60,9 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("What is the port duplex and VLAN?", "port_status")]
+    [InlineData("Show LLDP neighbours", "device_neighbours")]
+    [InlineData("Trace where this MAC is plugged in", "trace_endpoint")]
     [InlineData("Why did this alert fire?", "alert_details")]
     [InlineData("Which rules are noisiest?", "alert_rules")]
     [InlineData("Which groups and locations are available?", "list_groups_and_locations")]
