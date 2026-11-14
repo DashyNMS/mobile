@@ -1,6 +1,7 @@
 using DashyNMS.Agent.Catalogue;
 using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Api;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Services;
 using Microsoft.Extensions.Time.Testing;
@@ -250,9 +251,12 @@ public sealed class CompactNetworkLookupsTests
 
         var text = await lookup.Run("", default);
 
-        Assert.StartsWith("Open alerts: 1 (8 faults) on 1 device; 0 critical, 1 warning.", text);
-        Assert.Contains("Warning; partly acknowledged (2 of 8); Processor usage over 90% [[alert:9200]] on core-sw1.example.net [[device:1]]; 8 faults", text);
-        Assert.Contains("and 5 more", text);
+        Assert.StartsWith("Open alerts: 1 (8 faults) on 1 device; 0 critical, 1 warning; 0 acknowledged, 1 partly acknowledged.", text);
+        Assert.Contains("Warning; partly acknowledged (2 of 8); Processor usage over 90% [[alert:9200]] on core-sw1.example.net [[device:1]] (Up)", text);
+        // As MCP's brief record: the first five faults by name, each with its own state, and the rest counted.
+        Assert.Contains("; 8 faults: ", text);
+        Assert.Contains("and 3 more", text);
+        Assert.Matches(@"\(acknowledged\)|\(active\)", text);
         // One row, so one alert chip: the group's representative, never one per fault.
         var alert = Assert.Single(evidence, r => r.Reference.Key.StartsWith("alert:", StringComparison.Ordinal)).Reference;
         Assert.Equal(new DesktopNMS.Core.Intelligence.IntelligenceObjectReference("fault", 9200, 1, 5), alert.Object);
@@ -590,11 +594,11 @@ public sealed class CompactNetworkLookupsTests
             .Create(evidence.AddRange).Single(l => l.Name == "device_sensors").Run("1", default);
 
         var lines = text.Split('\n');
-        Assert.Equal("Sensors on core-sw1.example.net [[device:1]]: 5; 2 critical, 0 warning, 1 OK, 2 unknown.", lines[0]);
+        Assert.Equal("Sensors on core-sw1.example.net [[device:1]]: 5; 2 critical, 0 warning, 1 OK, 2 unknown. Types: fanspeed 2, temperature 2, voltage 1.", lines[0]);
         Assert.Equal("Fan 1 [[sensor:3]]: fanspeed 0 RPM; critical (low critical limit 1000)", lines[1]);
         Assert.Equal("Module 2 [[sensor:2]]: temperature 81 °C; critical (high critical limit 80)", lines[2]);
         Assert.Equal("Chassis [[sensor:1]]: temperature 48 °C; OK", lines[3]);
-        Assert.Equal("Fan 2 [[sensor:4]]: fanspeed no reading; state unknown", lines[4]);
+        Assert.Equal("Fan 2 [[sensor:4]]: fanspeed no reading; state unknown (low critical limit 1000)", lines[4]);
         Assert.Equal("PSU 1 Output [[sensor:5]]: voltage 12.1 V; not assessed: no limits", lines[5]);
         Assert.Equal(["critical", "critical", "up", "unknown", "unknown"],
             evidence.Where(e => e.Reference.Key.StartsWith("sensor:", StringComparison.Ordinal)).Select(e => e.Reference.Tone));
@@ -612,7 +616,9 @@ public sealed class CompactNetworkLookupsTests
             .Create(evidence.AddRange).Single(l => l.Name == "device_sensors").Run("1", default);
 
         Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
-        Assert.Contains("more results omitted", text);
+        // Every reading not shown is counted: 60 in all, less the rows that fit.
+        var shown = System.Text.RegularExpressions.Regex.Matches(text, @"\[\[sensor:\d+\]\]").Count;
+        Assert.Contains($"{60 - shown} more results omitted.", text);
         Assert.All(evidence, r => Assert.Contains("[[" + r.Reference.Key + "]]", text));
         Assert.DoesNotContain(evidence, r => r.Reference.Key == "sensor:60");
     }
@@ -677,6 +683,90 @@ public sealed class CompactNetworkLookupsTests
         Assert.DoesNotContain(original, summary);
         // Only locations need a filter value; other kinds route by id.
         Assert.All(evidence.Where(r => r.Reference.Key != "location:4"), r => Assert.Null(r.Filter));
+    }
+
+    [Fact]
+    public async Task Search_rows_give_the_other_names_and_location_and_verbose_adds_inventory_and_the_last_poll()
+    {
+        var device = Fakes.Device(4, "lab-sw4.example.net", ip: "198.51.100.4", location: "Lab", sysName: "lab-sw4");
+        device.Display = "Lab switch 4";
+        device.Os = "ios";
+        device.Hardware = "Synthetic Switch 24";
+        device.LastPolled = new DateTime(2026, 11, 13, 22, 55, 0, DateTimeKind.Utc);
+        var client = Fakes.Client([device]);
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 14, 0, 0, 0, TimeSpan.Zero));
+        time.SetLocalTimeZone(TimeZoneInfo.Utc);
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(new AppSettings { ServerTimestampsAreUtc = true }), Session(), time, Fakes.DeviceTransport(client))
+            .Create().Single(l => l.Name == "find_device");
+
+        var brief = await lookup.Run("""{"query":"lab"}""", default);
+        var verbose = await lookup.Run("""{"query":"lab","verbose":true}""", default);
+
+        Assert.Contains("lab-sw4 [[device:4]]: Up; IP 198.51.100.4; hostname lab-sw4.example.net; display name Lab switch 4; location Lab", brief);
+        Assert.DoesNotContain("; OS ", brief);
+        Assert.DoesNotContain("last polled", brief);
+        // The last poll in local time with its date and how long ago, so the model can spot a stale poll.
+        Assert.Contains("; OS ios; hardware Synthetic Switch 24; last polled 13 Nov 2026 22:55, 1 hour ago", verbose);
+    }
+
+    [Fact]
+    public async Task Verbose_alerts_add_the_note_and_device_health_says_what_it_leaves_to_later()
+    {
+        var alert = Fakes.Alert(7, 1, "critical");
+        alert.Note = "Engineer on site";
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net", uptime: 90061)], [alert]);
+        var read = Fakes.Device(1, "core-sw1.example.net", uptime: 90061);
+        read.LastPolled = DateTime.UtcNow.AddMinutes(-5);
+        client.Devices.GetAsync("1", Arg.Any<CancellationToken>()).Returns(read);
+        var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
+
+        var brief = await lookups.Single(l => l.Name == "active_alerts").Run("{}", default);
+        var verbose = await lookups.Single(l => l.Name == "active_alerts").Run("""{"verbose":true}""", default);
+        var health = await lookups.Single(l => l.Name == "device_health").Run("core-sw1", default);
+
+        Assert.DoesNotContain("Engineer on site", brief);
+        Assert.Contains("; note: Engineer on site", verbose);
+        Assert.Contains("uptime: 1 day 1 hour; last polled ", health);
+        Assert.Matches(@"last polled \d+ \w+ \d{4} \d{2}:\d{2}, \d+ minutes? ago\.", health);
+        Assert.Contains(CompactNetworkLookups.NotYetInHealth, health);
+    }
+
+    [Fact]
+    public async Task A_verbose_alert_with_many_faults_still_gets_its_row()
+    {
+        var faults = Enumerable.Range(1, 25).Select(i =>
+        {
+            var fault = Fakes.Alert(9000 + i, 1, "warning");
+            fault.RuleId = 5;
+            fault.RuleName = "Port errors";
+            fault.EntityType = "port";
+            fault.EntityId = i;
+            fault.EntityKey = $"port:{i}";
+            fault.Source = AlertSource.Fault;
+            return fault;
+        }).ToList();
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")], faults);
+        var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client))
+            .Create().Single(l => l.Name == "active_alerts").Run("""{"verbose":true}""", default);
+
+        Assert.Contains("Port errors [[alert:", text);
+        Assert.Contains("; 25 faults", text);
+        Assert.DoesNotContain("more results omitted", text);
+        Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
+    }
+
+    [Fact]
+    public async Task Every_reading_carries_its_warning_and_critical_limits()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
+        client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new Sensor { SensorId = 1, DeviceId = 1, Description = "Inlet", Current = 30, SensorClass = "temperature", LimitHigh = 80, LimitHighWarn = 70, LimitLow = 5, LimitLowWarn = 10 },
+        });
+        var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client))
+            .Create().Single(l => l.Name == "device_sensors").Run("1", default);
+
+        Assert.Contains("Inlet [[sensor:1]]: temperature 30 °C; OK (low critical limit 5, low warning limit 10, high warning limit 70, high critical limit 80)", text);
     }
 
     [Fact]

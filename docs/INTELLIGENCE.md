@@ -228,18 +228,49 @@ No write, acknowledgement, rediscovery or remote MCP service is proposed.
 ## Facts left out
 
 What each shared tool's MCP result has that the phone's text doesn't, and why.
-"#636" marks a fact still to add.
+Every other field of MCP's JSON appears in the phone's text: `IntelligenceFactsTests`
+runs each tool over the shared fixtures, reads MCP's recorded JSON for the same
+fixture (`Fixtures/Intelligence/McpJson`) and fails on a field that is neither
+shown nor in this table (#636). Field paths are under MCP's `data`, arrays left
+out of the path. Where the phone is more accurate than MCP it keeps its own value:
+a device's state is Core's reported state, Ignored and Unknown included, rather
+than MCP's status word (DashyNMS/mcp#121).
+
+Times are written in the person's local time with the date
+(`20 Oct 2026 08:30`) and lengths in days and hours (`24 days 17 hours`), so the
+model copies them rather than converting UTC or seconds.
 
 | Tool | Left out | Why |
 | --- | --- | --- |
-| `network_overview` | Nothing | |
-| `find_device` | Location; the hostname when the display name differs; `verbose`'s sysName, OS, hardware and last poll | #636 |
-| `find_device` | `offset`, `limit` and `page.next_offset` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
-| `active_alerts` | When each alert opened; its note; each fault's state and start time; fault names beyond three; `group_id` | #636. `group_id` stays out: it isn't an object the person can open. |
-| `active_alerts` | `hours`, `since` and `until` | #645 brings the window |
-| `active_alerts` | `offset` and `limit`, `page` | The phone asks for 20 groups and counts the rest in the heading. A further page wouldn't fit the reply. |
-| `device_health` | Maintenance, open alerts, CPU, memory, storage and problem ports | #634 |
-| `device_sensors` | Warning limits, and limits on readings that aren't problems | #636 |
+| every tool | `status`, `summary` | MCP's envelope. The phone writes its own heading and fixed failure lines. |
+| `find_device` | `page.offset`, `page.limit`, `page.returned` | The phone fetches 20 rows and counts the rest from `page.total` in the heading. A further page wouldn't fit the reply. |
+| `active_alerts` | `devices.alerts.group_id` | It isn't an object the person can open. |
+| `active_alerts` | `devices.alerts.rule_id`, `devices.alerts.source` | They travel in the chip's typed object, so a chip opens the right rule, fault or legacy alert, without spending the model's context. |
+| `active_alerts` | `devices.alerts.faults.fault_id`, `devices.alerts.faults.entity_type`, `devices.alerts.faults.entity_id` | Faults are named with their states. Only a group's representative is offered as an id, so the model is never given an id it can't link. |
+| `active_alerts` | `devices.hostname`, `devices.display` | Rows name the device in the person's naming style with its marker, which opens the device. `find_device` gives its other names. |
+| `active_alerts` | `page.offset`, `page.limit`, `page.returned` | The phone asks for 20 groups and counts the rest from the totals in the heading. |
+| `network_overview` | `alert_groups.key.rule_id`, `alert_groups.rule_id`, `alert_groups.representative.source` | They travel in the chip's typed object. |
+| `network_overview` | `alert_groups.faults.key.id`, `alert_groups.faults.key.source`, `alert_groups.faults.entity_type`, `alert_groups.faults.entity_id` | Faults are named with their states; only the representative is offered as an id. |
+| `network_overview` | `alert_groups.faults.since`, `alert_groups.last_changed` | Budget. Each group says how long it has been open; `active_alerts` with `verbose` gives when each alert and fault started. |
+| `network_overview` | `alert_groups.hostname`, `alert_groups.device.hostname`, `alert_groups.device.ip`, `alert_groups.device.location` | Rows name the device in the person's naming style with its marker and state. `find_device` gives the rest. |
+| `device_health` | `under_maintenance`, `open_alerts`, `open_faults`, `cpu_max_percent`, `memory_max_percent`, `fullest_storage`, `ports_total`, `ports_down_while_enabled`, `problem_ports`, `problem_ports_omitted`, `unavailable.source`, `unavailable.reason`, `unavailable.message` | Not on the phone yet: #634 brings them. The reply says so. |
+| `device_sensors` | `readings.rank` | MCP's sort key. Rows are already problems first. |
+| `device_sensors` | `device.hostname`, `device.ip`, `device.location`, `device.status` | Budget. The heading names the device in the person's naming style with its marker, whose chip carries its state; `device_health` gives the rest. |
+
+An alert's `since` is shown as how long it has been open, and with `verbose` also
+as the time it opened, so the test accepts either.
+
+### Parameters left out
+
+The catalogue parameters the phone doesn't offer the model yet. A test fails on a
+catalogue parameter of an offered tool that is neither offered
+(`CompactNetworkLookups.Offered`) nor listed here.
+
+| Tool | Parameters | Why |
+| --- | --- | --- |
+| `find_device` | `offset`, `limit` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
+| `active_alerts` | `offset`, `limit` | The same, for 20 groups. |
+| `active_alerts` | `hours`, `since`, `until` | The time window comes with #645. |
 
 ## Built tools
 

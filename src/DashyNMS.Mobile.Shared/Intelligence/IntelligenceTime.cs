@@ -35,7 +35,10 @@ public static class IntelligenceTime
 
     /// <summary>"20 Oct 2026 08:30, 24 days 17 hours ago": when, and how long before this lookup.</summary>
     public static string AtAndAgo(DateTime utc, DateTimeOffset now, TimeProvider time)
-        => At(utc, time) + ", " + Length(now.UtcDateTime - Utc(utc)) + " ago";
+        => At(utc, time) + ", " + Since(utc, now) + " ago";
+
+    /// <summary>How long before <paramref name="now"/> it was: "24 days 17 hours".</summary>
+    public static string Since(DateTime utc, DateTimeOffset now) => Length(now.UtcDateTime - Utc(utc));
 
     /// <summary>Shared results give UTC; one without a kind is taken as UTC too.</summary>
     private static DateTime Utc(DateTime value)

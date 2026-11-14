@@ -138,6 +138,21 @@ public sealed partial class SharedDeviceSearchTests
 
     private static int[] ShownIds(string text) => DeviceMarker().Matches(text).Select(m => int.Parse(m.Groups[1].Value)).ToArray();
 
+    /// <summary>
+    /// The rows shown are the shared order's first rows, whole, and the rest are counted (#636 made rows
+    /// longer, so a ten-row answer no longer always fits the 900 characters).
+    /// </summary>
+    private static void AssertShownInOrder(IReadOnlyList<int> expected, string text)
+    {
+        var shown = ShownIds(text);
+        // At least one row whenever there is one to show: a row never exceeds the budget alone.
+        Assert.Equal(expected.Count == 0, shown.Length == 0);
+        Assert.Equal(expected.Take(shown.Length), shown);
+        var omitted = expected.Count - shown.Length;
+        if (omitted > 0) Assert.Contains($"{omitted} more results omitted.", text);
+        else Assert.DoesNotContain("more results omitted", text);
+    }
+
     [GeneratedRegex(@"\[\[device:(\d+)\]\]")]
     private static partial Regex DeviceMarker();
 
@@ -153,9 +168,8 @@ public sealed partial class SharedDeviceSearchTests
 
         Assert.Equal(expected, typed.Matches.Select(m => m.Device.DeviceId));
         Assert.Equal(total, typed.Page.Total);
-        Assert.Equal(expected, ShownIds(text));
+        AssertShownInOrder(expected, text);
         Assert.StartsWith($"Matching devices: {total}.", text);
-        Assert.DoesNotContain("more results omitted", text);
         // Scope: a text search reads the device list and nothing else, on both sides.
         Assert.Equal(ExpectedRequests(), upstream.Requests);
         Assert.Equal(ExpectedRequests(), mobile.Requests);
@@ -187,14 +201,14 @@ public sealed partial class SharedDeviceSearchTests
     {
         var typed = await DeviceSearch.Create(new FixtureLibreNms().Client(), new FakeTimeProvider(), new AgentOptions())
             .FindDevicesAsync(new("sw", Limit: DeviceSearch.MaxMatches));
-        var evidence = new List<IntelligenceEvidence>();
-        var text = await Find(new FixtureLibreNms(), evidence: evidence).Run("sw", default);
-
         foreach (var state in Expectations().GetProperty("states").EnumerateArray())
         {
             var id = state.GetProperty("id").GetInt32();
             var reported = state.GetProperty("reported").GetString()!;
             var summary = typed.Matches.Single(m => m.Device.DeviceId == id).Device;
+            // Each device by its own hostname, so its row is shown however long the others are.
+            var evidence = new List<IntelligenceEvidence>();
+            var text = await Find(new FixtureLibreNms(), evidence: evidence).Run(summary.Hostname!, default);
             Assert.Equal(state.GetProperty("shared").GetString(), summary.Status);
             Assert.Equal(reported, summary.State.ToDisplayString());
             Assert.Contains($"[[device:{id}]]: {reported};", text);
@@ -236,7 +250,7 @@ public sealed partial class SharedDeviceSearchTests
     [InlineData("{oops", "The lookup wasn't run: arguments must be a JSON object.")]
     [InlineData("{\"status\":42}", "The lookup wasn't run: status must be text.")]
     [InlineData("{\"status\":\"sideways\"}", "The lookup wasn't run: status must be one of up, down, disabled.")]
-    [InlineData("{\"unknown\":\"sw\"}", "The lookup wasn't run: an argument isn't one this lookup takes. It takes query, status, group, location.")]
+    [InlineData("{\"unknown\":\"sw\"}", "The lookup wasn't run: an argument isn't one this lookup takes. It takes query, status, group, location, verbose.")]
     [InlineData("{\"query\":\"sw\",\"query\":\"other\"}", "The lookup wasn't run: an argument was given twice.")]
     [InlineData("{}", CompactNetworkLookups.InvalidSearch)]
     [InlineData("{\"query\":\"  \"}", CompactNetworkLookups.InvalidSearch)]
@@ -540,7 +554,7 @@ public sealed partial class SharedDeviceSearchTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => call);
         pending.SetException(new HttpRequestException(Sensitive));
 
-        Assert.Equal(new[] { 3, 5, 2, 4, 1, 7, 8, 9, 10, 11 }, ShownIds(await lookup.Run("sw", default)));
+        AssertShownInOrder(new[] { 3, 5, 2, 4, 1, 7, 8, 9, 10, 11 }, await lookup.Run("sw", default));
     }
 
     [Fact]

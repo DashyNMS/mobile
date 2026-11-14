@@ -1,0 +1,179 @@
+{
+  "status": "ok",
+  "summary": "4 open alerts (12 faults) on 3 devices (2 critical, 2 warning).",
+  "data": {
+    "totals": {
+      "alert_groups": 4,
+      "faults": 12,
+      "devices": 3,
+      "critical": 2,
+      "warning": 2,
+      "acknowledged": 1,
+      "partly_acknowledged": 1
+    },
+    "devices": [
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "device_status": "down",
+        "alerts": [
+          {
+            "group_id": "device:2/rule:4",
+            "alert_id": 12,
+            "rule_id": 4,
+            "source": "fault",
+            "rule": "Device down",
+            "severity": "critical",
+            "state": "active",
+            "fault_count": 1,
+            "since": "2026-10-20T07:30:00Z",
+            "age_minutes": 35601
+          }
+        ]
+      },
+      {
+        "device_id": 3,
+        "hostname": "dist-sw2.example.net",
+        "display": "Distribution 2",
+        "device_status": "up",
+        "alerts": [
+          {
+            "group_id": "device:3/rule:7",
+            "alert_id": 9500,
+            "rule_id": 7,
+            "source": "fault",
+            "rule": "Temperature high",
+            "severity": "critical",
+            "state": "acknowledged",
+            "fault_count": 1,
+            "entity": "Inlet",
+            "since": "2026-10-20T07:20:00Z",
+            "age_minutes": 35611
+          },
+          {
+            "group_id": "device:3/rule:6",
+            "alert_id": 9400,
+            "rule_id": 6,
+            "source": "fault",
+            "rule": "Port errors",
+            "severity": "warning",
+            "state": "active",
+            "fault_count": 2,
+            "since": "2026-10-20T07:45:00Z",
+            "age_minutes": 35586,
+            "faults": [
+              {
+                "fault_id": 9400,
+                "entity": "ge-0/0/40",
+                "entity_type": "port",
+                "entity_id": 40,
+                "state": "active",
+                "since": "2026-10-20T07:50:00Z"
+              },
+              {
+                "fault_id": 9402,
+                "entity": "ge-0/0/42",
+                "entity_type": "port",
+                "entity_id": 42,
+                "state": "active",
+                "since": "2026-10-20T07:45:00Z"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "device_status": "up",
+        "alerts": [
+          {
+            "group_id": "device:1/rule:5",
+            "alert_id": 9200,
+            "rule_id": 5,
+            "source": "fault",
+            "rule": "Processor usage over 90%",
+            "severity": "warning",
+            "state": "partly_acknowledged",
+            "fault_count": 8,
+            "acknowledged_count": 2,
+            "since": "2026-10-20T07:40:00Z",
+            "age_minutes": 35591,
+            "faults": [
+              {
+                "fault_id": 9200,
+                "entity": "CPU 0",
+                "entity_type": "processor",
+                "entity_id": 300,
+                "state": "active",
+                "since": "2026-10-20T07:40:00Z"
+              },
+              {
+                "fault_id": 9201,
+                "entity": "CPU 1",
+                "entity_type": "processor",
+                "entity_id": 301,
+                "state": "active",
+                "since": "2026-10-20T07:41:00Z"
+              },
+              {
+                "fault_id": 9202,
+                "entity": "CPU 2",
+                "entity_type": "processor",
+                "entity_id": 302,
+                "state": "active",
+                "since": "2026-10-20T07:42:00Z"
+              },
+              {
+                "fault_id": 9204,
+                "entity": "CPU 4",
+                "entity_type": "processor",
+                "entity_id": 304,
+                "state": "active",
+                "since": "2026-10-20T07:44:00Z"
+              },
+              {
+                "fault_id": 9206,
+                "entity": "CPU 6",
+                "entity_type": "processor",
+                "entity_id": 306,
+                "state": "active",
+                "since": "2026-10-20T07:46:00Z"
+              },
+              {
+                "fault_id": 9207,
+                "entity": "CPU 7",
+                "entity_type": "processor",
+                "entity_id": 307,
+                "state": "active",
+                "since": "2026-10-20T07:47:00Z"
+              },
+              {
+                "fault_id": 9203,
+                "entity": "CPU 3",
+                "entity_type": "processor",
+                "entity_id": 303,
+                "state": "acknowledged",
+                "since": "2026-10-20T07:43:00Z"
+              },
+              {
+                "fault_id": 9205,
+                "entity": "CPU 5",
+                "entity_type": "processor",
+                "entity_id": 305,
+                "state": "acknowledged",
+                "since": "2026-10-20T07:45:00Z"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "page": {
+      "offset": 0,
+      "limit": 50,
+      "returned": 4,
+      "total": 4
+    }
+  }
+}

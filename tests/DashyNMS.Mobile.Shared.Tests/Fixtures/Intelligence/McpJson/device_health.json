@@ -1,0 +1,55 @@
+{
+  "status": "ok",
+  "summary": "Device is up, open alerts unknown, 0 ports down while enabled; 6 parts couldn't be fetched.",
+  "data": {
+    "device": {
+      "device_id": 1,
+      "hostname": "core-sw1.example.net",
+      "display": "Core switch 1",
+      "sys_name": "core-sw1",
+      "ip": "198.51.100.1",
+      "os": "ios",
+      "hardware": "Synthetic Switch 48",
+      "location": "Core site",
+      "status": "up"
+    },
+    "uptime_seconds": 864000,
+    "under_maintenance": false,
+    "open_alerts": [],
+    "ports_total": 0,
+    "ports_down_while_enabled": 0,
+    "problem_ports": [],
+    "unavailable": [
+      {
+        "source": "alerts",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      },
+      {
+        "source": "ports",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      },
+      {
+        "source": "maintenance",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      },
+      {
+        "source": "processors",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      },
+      {
+        "source": "memory",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      },
+      {
+        "source": "storage",
+        "message": "LibreNMS: it doesn't have what was asked for (HTTP 404).",
+        "reason": "failed"
+      }
+    ]
+  }
+}
