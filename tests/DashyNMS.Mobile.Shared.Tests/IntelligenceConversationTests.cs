@@ -18,10 +18,14 @@ public sealed class IntelligenceConversationTests
         public List<string> Prompts { get; } = [];
         public List<string> Instructions { get; } = [];
         public int Disposed;
-        public Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult<int?>(null);
+        /// <summary>A token counter, as iOS 26.4 has; null for none, as before it.</summary>
+        public Func<string, int>? Counter { get; set; }
+        public List<IReadOnlyList<IntelligenceLookup>> Offered { get; } = [];
+        public Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult(Counter is { } count ? count(text) : (int?)null);
         public IIntelligenceSession StartSession(string instructions, IReadOnlyList<IntelligenceLookup> lookups)
         {
             Instructions.Add(instructions);
+            Offered.Add(lookups);
             var script = Scripts.Count > 0 ? Scripts.Dequeue() : (_, _, _, _) => Task.FromResult(new IntelligenceAnswer("Answer", null));
             return new Session(this, lookups, script);
         }
@@ -442,6 +446,67 @@ public sealed class IntelligenceConversationTests
         Assert.Equal(3, calls);
         Assert.DoesNotContain("at most two lookups", _model.Instructions[^1]);
         Assert.Matches(@"Use at most ([3-9]|[1-4]\d) lookups", _model.Instructions[^1]);
+    }
+
+    [Fact]
+    public async Task The_stated_lookup_limit_and_everything_counted_fit_within_80_percent()
+    {
+        // An unusual context, so no other test's counts are reused; a heavy counter, so the budget is tight.
+        _model.ContextSize = 8_193;
+        _model.Counter = text => text.Length / 2;
+        using var vm = Open();
+        await vm.AskAsync("How is the network doing?");
+
+        var instructions = _model.Instructions[^1];
+        var limit = int.Parse(System.Text.RegularExpressions.Regex.Match(instructions, @"Use at most (\d+|two) lookups").Groups[1].Value is var n && n == "two" ? "2" : n);
+        var count = _model.Counter;
+        var tools = _model.Offered[^1].Sum(t => count(IntelligenceConversationViewModel.Definition(t.Name, t.Purpose, t.Parameters)));
+        var total = count(instructions) + count(_model.Prompts[^1]) + IntelligenceConversationViewModel.OutputTokens("balanced") + tools
+            + limit * count(IntelligenceConversationViewModel.SampleResult);
+        // Every case, the two-lookup floor included: a question that can't hold two results never starts.
+        Assert.True(total <= (int)(8_193 * IntelligenceBudget.Usable), $"{limit} lookups, {total} tokens");
+    }
+
+    [Fact]
+    public async Task A_follow_up_whose_history_would_overflow_drops_it_and_still_answers()
+    {
+        // The history alone costs more than the context holds; the question without it fits.
+        _model.ContextSize = 8_195;
+        _model.Counter = text => text.Contains("Earlier question", StringComparison.Ordinal) ? 50_000 : text.Length / 3;
+        using var vm = Open();
+        await vm.AskAsync("How is the network doing?");
+        await vm.AskAsync("And the alerts?");
+
+        Assert.Equal(2, _model.Instructions.Count);
+        Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[1].State);
+        Assert.True(vm.Turns[1].HistoryOmitted);
+        Assert.DoesNotContain("Earlier question", _model.Prompts[^1], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_long_question_that_fits_by_the_models_own_count_is_asked()
+    {
+        // Ten characters a token: far longer than the 2.5-character estimate allows, but it fits.
+        _model.ContextSize = 8_199;
+        _model.Counter = text => text.Length / 10;
+        using var vm = Open();
+        await vm.AskAsync("How is the network doing? " + new string('x', 20_000));
+
+        Assert.Single(_model.Instructions);
+        Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[0].State);
+    }
+
+    [Fact]
+    public async Task A_question_too_long_for_its_tools_and_two_results_starts_no_model()
+    {
+        _model.ContextSize = 8_197;
+        _model.Counter = text => text.StartsWith("Question:", StringComparison.Ordinal) ? 6_000 : text.Length / 3;
+        using var vm = Open();
+        await vm.AskAsync("How is the network doing?");
+
+        Assert.Empty(_model.Instructions);
+        Assert.Equal(IntelligenceTurnState.Failed, vm.Turns[0].State);
+        Assert.Contains("Shorten", vm.Turns[0].Message);
     }
 
     [Fact]

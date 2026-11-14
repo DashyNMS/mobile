@@ -234,7 +234,8 @@ public sealed partial class SharedDeviceSearchTests
             return new IntelligenceAnswer("Still here", null);
         });
 
-        Assert.True(await vm.AskAsync("Is it up?").WaitAsync(TimeSpan.FromSeconds(30)));
+        // A question that asks to find the device, so its tools include find_device (#637).
+        Assert.True(await vm.AskAsync("Find the timeout device.").WaitAsync(TimeSpan.FromSeconds(30)));
 
         Assert.Contains("timeout.example.net [[device:1]]: Up", before);
         Assert.Contains("timeout.example.net [[device:1]]: Up", after);
@@ -261,7 +262,7 @@ public sealed partial class SharedDeviceSearchTests
             return new IntelligenceAnswer("Should not be shown", null);
         });
 
-        await vm.AskAsync("Question").WaitAsync(TimeSpan.FromSeconds(30));
+        await vm.AskAsync("Find the resign device.").WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Empty(vm.Turns);
         Assert.Equal("The connection changed. The previous chat was cleared.", vm.Notice);

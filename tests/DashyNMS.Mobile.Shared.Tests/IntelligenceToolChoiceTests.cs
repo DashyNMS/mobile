@@ -11,7 +11,7 @@ public sealed class IntelligenceToolChoiceTests
     private static readonly IReadOnlyList<IntelligenceLookup> Tools =
         new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Fakes.Session()).Create();
 
-    private static int Estimate(string text) => (text.Length + IntelligenceConversationViewModel.CharactersPerToken - 1) / IntelligenceConversationViewModel.CharactersPerToken;
+    private static int Estimate(string text) => IntelligenceConversationViewModel.Estimate(text);
 
     private static IntelligenceBudget Budget(int context, int instructions = 600, int prompt = 40, int output = 300) => new(
         context, instructions, prompt, output, Estimate(IntelligenceConversationViewModel.SampleResult),
@@ -132,6 +132,17 @@ public sealed class IntelligenceToolChoiceTests
 
         Assert.Equal("active_alerts", Assert.Single(choice.Tools).Name);
         Assert.Equal(2, choice.MaxLookups);
+    }
+
+    [Theory]
+    [InlineData("Is OSPF up between the cores?")]
+    [InlineData("Which alert template does the rule use?")]
+    public void Short_cues_match_whole_words_only(string question)
+    {
+        var choice = Choose(question, 8192);
+
+        Assert.DoesNotContain("device_health", Names(choice).Take(1));
+        Assert.DoesNotContain("device_sensors", Names(choice).Take(1));
     }
 
     [Fact]

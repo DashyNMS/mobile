@@ -349,12 +349,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             var toolReserve = await CheapestToolAsync(run.Stop.Token);
             var promptTokens = (int)(context * IntelligenceBudget.Usable) - instructionTokens - output
                 - IntelligenceToolChoice.MinimumLookups * resultTokens - toolReserve;
-            // Characters at three a token, fewer than English takes, so the prompt never outruns its share.
-            var budget = Math.Max(0, promptTokens) * CharactersPerToken;
+            var budget = Characters(Math.Max(0, promptTokens));
             var earlier = Turns.Where(t => !ReferenceEquals(t, turn)).Select(t => t.Question).ToList();
             var prompt = Prompt(question, budget, out var omitted, out var hasHistory);
             turn.HistoryOmitted = omitted;
-            if (prompt.Length > budget)
+            // The character budget is an estimate; where the model counts, its own count of the question
+            // decides, so a long question that fits by its real cost isn't turned away.
+            if (prompt.Length > budget
+                && (await _model.CountTokensAsync(prompt, run.Stop.Token) is not { } counted || counted > Math.Max(0, promptTokens)))
             {
                 turn.State = IntelligenceTurnState.Failed;
                 turn.Message = "This question is too long. Shorten it or narrow its scope.";
@@ -364,6 +366,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             {
                 RequireCurrent(run);
                 Volatile.Write(ref run.Attempt, attempt);
+                // The retry after a context limit is a new session: its lookups start again.
+                Volatile.Write(ref run.Lookups, 0);
                 var attemptId = attempt;
                 using var attemptStop = CancellationTokenSource.CreateLinkedTokenSource(run.Stop.Token);
                 var token = attemptStop.Token;
@@ -374,9 +378,48 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 // This question's tools and lookup limit, from what was asked and what the context holds (#637).
                 var costs = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var lookup in lookupSet.Lookups) costs[lookup.Name] = await ToolTokensAsync(lookup, token);
-                var choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
-                    new IntelligenceBudget(context, instructionTokens, await TokensAsync(prompt, token), output, resultTokens, costs));
-                var maxLookups = choice.MaxLookups;
+                // Choose, build the instructions (they name the limit and the tools left out) and count them
+                // as built. Two results must fit beside them: if not, earlier turns give way and the choice is
+                // made again, as on a context limit; with none left, the question itself is too long.
+                IntelligenceChoice choice;
+                string instructions;
+                int room;
+                var baseTokens = instructionTokens;
+                while (true)
+                {
+                    var promptCost = await TokensAsync(prompt, token);
+                    choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
+                        new IntelligenceBudget(context, baseTokens, promptCost, output, resultTokens, costs));
+                    instructions = IntelligenceInstructions.Build(turn.Detail, null, choice.MaxLookups, context, choice.NotOffered);
+                    var built = await TokensAsync(instructions, token);
+                    room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
+                    var missing = IntelligenceToolChoice.MinimumLookups * resultTokens - room;
+                    if (missing <= 0)
+                    {
+                        // The limit stated must be one the room holds.
+                        if (built > baseTokens && room / Math.Max(1, resultTokens) < choice.MaxLookups)
+                        {
+                            baseTokens = built;
+                            continue;
+                        }
+                        break;
+                    }
+                    if (!hasHistory) break;
+                    prompt = Prompt(question, Math.Max(0, prompt.Length - Characters(missing)), out omitted, out hasHistory);
+                    turn.HistoryOmitted = true;
+                }
+                if (room < IntelligenceToolChoice.MinimumLookups * resultTokens)
+                {
+                    await OnUiAsync(() =>
+                    {
+                        turn.State = IntelligenceTurnState.Failed;
+                        turn.Message = "This question is too long. Shorten it or narrow its scope.";
+                    });
+                    break;
+                }
+                var maxLookups = Math.Min(choice.MaxLookups, Math.Max(IntelligenceToolChoice.MinimumLookups, room / Math.Max(1, resultTokens)));
+                if (maxLookups != choice.MaxLookups)
+                    instructions = IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered);
                 var tools = choice.Tools.Select(lookup => lookup with
                 {
                     Run = async (query, callerToken) =>
@@ -409,7 +452,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         }
                     },
                 }).ToArray();
-                using var modelSession = _model.StartSession(IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered), tools);
+                using var modelSession = _model.StartSession(instructions, tools);
                 try
                 {
                     var answer = await modelSession.AskAsync(prompt,
@@ -499,10 +542,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     }
 
     /// <summary>
-    /// Characters per token where the model can't count (before iOS 26.4): fewer than English text
-    /// takes, so an estimate errs towards offering less rather than overflowing the context.
+    /// Tokens for <paramref name="text"/> where the model can't count (before iOS 26.4), at two and a
+    /// half characters a token: lookup text full of markers, ids and addresses packs about that densely,
+    /// so the estimate errs towards offering less rather than overflowing the context.
     /// </summary>
-    internal const int CharactersPerToken = 3;
+    internal static int Estimate(string text) => (text.Length * 2 + 4) / 5;
+
+    /// <summary>The characters a number of tokens holds at the same rate.</summary>
+    internal static int Characters(int tokens) => tokens * 5 / 2;
 
     /// <summary>Room kept for the answer, by detail level: the lengths the detail levels ask for, with some over.</summary>
     internal static int OutputTokens(string detail) => detail switch
@@ -531,14 +578,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
 
     /// <summary>The model's own count, or a conservative estimate where it can't count.</summary>
     private async Task<int> TokensAsync(string text, CancellationToken token)
-        => await _model.CountTokensAsync(text, token).ConfigureAwait(false) ?? (text.Length + CharactersPerToken - 1) / CharactersPerToken;
+        => await _model.CountTokensAsync(text, token).ConfigureAwait(false) ?? Estimate(text);
 
     private async Task<int> MeasuredAsync(string text, CancellationToken token)
     {
         var key = (_model.ContextSize ?? 0, text);
         if (Measured.TryGetValue(key, out var known)) return known;
         var counted = await _model.CountTokensAsync(text, token).ConfigureAwait(false);
-        if (counted is not { } tokens) return (text.Length + CharactersPerToken - 1) / CharactersPerToken;
+        if (counted is not { } tokens) return Estimate(text);
         Measured[key] = tokens;
         return tokens;
     }
