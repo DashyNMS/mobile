@@ -29,10 +29,21 @@ public enum IntelligenceAvailability
 /// text, not JSON: the on-device model's context is a few thousand tokens for
 /// instructions, lookups, question and answer together (#570).
 /// </summary>
-/// <param name="Name">What the model calls it; letters and underscores.</param>
-/// <param name="Purpose">When and how to use it, in a sentence. This is spent from the context on every question.</param>
-/// <param name="Run">Runs the lookup for the model's query, or the native bridge's named search arguments encoded as JSON.</param>
-public sealed record IntelligenceLookup(string Name, string Purpose, Func<string, CancellationToken, Task<string>> Run);
+/// <param name="Name">What the model calls it: the catalogue's tool name (#635).</param>
+/// <param name="Purpose">When and how to use it: the catalogue's description, unchanged. This is spent from the context on every question it's offered to.</param>
+/// <param name="Run">Runs the lookup for the native bridge's arguments, encoded as one JSON object.</param>
+public sealed record IntelligenceLookup(string Name, string Purpose, Func<string, CancellationToken, Task<string>> Run)
+{
+    /// <summary>
+    /// The catalogue parameters the phone offers for this tool, in the catalogue's order. The bridge
+    /// builds the model's argument schema from them; one the phone doesn't support yet is left out and
+    /// listed in docs/INTELLIGENCE.md.
+    /// </summary>
+    public IReadOnlyList<DashyNMS.Agent.Catalogue.ToolParameter> Parameters { get; init; } = [];
+
+    /// <summary>The other tools this tool's description names, from the catalogue, for the question's tool choice (#637).</summary>
+    public IReadOnlyList<string> NamedTools { get; init; } = [];
+}
 
 /// <summary>
 /// A language model that answers on the phone. Pages and view models see only

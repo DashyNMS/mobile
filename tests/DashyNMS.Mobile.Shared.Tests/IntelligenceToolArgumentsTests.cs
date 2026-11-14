@@ -121,4 +121,15 @@ public sealed class IntelligenceToolArgumentsTests
         Assert.False(list[3].TryGetProperty("minimum", out _));
         Assert.Equal("[]", IntelligenceToolArguments.Schema([]));
     }
+
+    [Fact]
+    public void Every_offered_tool_has_a_schema_the_bridge_can_read()
+    {
+        foreach (var name in CompactNetworkLookups.ReviewedTools)
+        {
+            var (_, parameters) = CompactNetworkLookups.Definition(name);
+            using var json = JsonDocument.Parse(IntelligenceToolArguments.Schema(parameters));
+            Assert.Equal(parameters.Select(p => p.Name), json.RootElement.EnumerateArray().Select(p => p.GetProperty("name").GetString()));
+        }
+    }
 }

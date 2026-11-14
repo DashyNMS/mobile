@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Tests;
 /// <summary>
 /// The shared device summary fixture (#602) served over loopback HTTP, as DashyNMS/mcp's
 /// <c>SharedDeviceSummaryHttpFixtureTests</c> serves it to the MCP server's <c>device_health</c>. Here
-/// it goes to Intelligence's <c>device_summary</c> through the app's per-chat transports
+/// it goes to Intelligence's <c>device_health</c> through the app's per-chat transports
 /// (<see cref="IntelligenceDeviceTransports"/>, Core's real <see cref="LibreNmsTransport"/>), and to the
 /// package's <see cref="HostDeviceSummary"/> over Core's real client on mobile's Core pin.
 /// </summary>
@@ -35,6 +35,13 @@ public sealed class SharedDeviceSummaryHttpTests
 
     private static readonly JsonElement Cases = Load("cases.json");
     private static readonly JsonElement Transport = Load("transport.json");
+
+    /// <summary>The ids the device list holds: mobile resolves the device from it before reading <c>devices/{id}</c>.</summary>
+    private static readonly HashSet<int> Listed = Load("devices.json").GetProperty("devices").EnumerateArray()
+        .Select(d => d.GetProperty("device_id").GetInt32()).ToHashSet();
+
+    /// <summary>Mobile's requests: the device list for resolution (#635), then the package's own reads if the list holds the device.</summary>
+    private static string[] MobileRequests(int id, string[] package) => Listed.Contains(id) ? ["devices", .. package] : ["devices"];
 
     private static int TimeoutSeconds => Transport.GetProperty("timeoutSeconds").GetInt32();
 
@@ -75,7 +82,7 @@ public sealed class SharedDeviceSummaryHttpTests
 
     private static LibreNmsConnection Connection(Uri root) => new(root, FixtureServer.Token, timeoutSeconds: TimeoutSeconds);
 
-    /// <summary>Mobile's device_summary as the app builds it: a session on this address and the app's per-chat transports.</summary>
+    /// <summary>Mobile's device_health as the app builds it: a session on this address and the app's per-chat transports.</summary>
     private sealed class Mobile : IDisposable
     {
         private readonly LibreNmsTransport shared = new(NullLogger<LibreNmsTransport>.Instance);
@@ -89,10 +96,10 @@ public sealed class SharedDeviceSummaryHttpTests
             transports = new IntelligenceDeviceTransports(shared, settings, session);
             Client = Fakes.Client();
             Summary = new CompactNetworkLookups(Client, settings, session, deviceTransport: transports.Open)
-                .Create(found => Evidence.AddRange(found)).Single(l => l.Name == "device_summary");
+                .Create(found => Evidence.AddRange(found)).Single(l => l.Name == "device_health");
         }
 
-        /// <summary>The session's own client, which device_summary must never use.</summary>
+        /// <summary>The session's own client, which device_health must never use.</summary>
         public ILibreNmsClient Client { get; }
 
         public IntelligenceLookup Summary { get; }
@@ -145,8 +152,9 @@ public sealed class SharedDeviceSummaryHttpTests
         var text = await mobile.Summary.Run(id.ToString(CultureInfo.InvariantCulture), default);
         var outcome = await package.Summary.ReadAsync(new DeviceSummaryRequest(id));
 
-        // One read each, devices/{id}, and never through the session's own client.
-        Assert.Equal(Strings(c, "requests"), mobileServer.Requests);
+        // The package reads devices/{id} once; mobile resolves the device from the list first. Neither
+        // reads through the session's own client.
+        Assert.Equal(MobileRequests(id, Strings(c, "requests")), mobileServer.Requests);
         Assert.Equal(Strings(c, "requests"), packageServer.Requests);
         await mobile.Client.Devices.DidNotReceive().GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         await mobile.Client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
@@ -156,7 +164,8 @@ public sealed class SharedDeviceSummaryHttpTests
             // A listed device that devices/{id} doesn't return is not reported from the list.
             Assert.Equal(Enum.Parse<HostFailure>(code), outcome.Error!.Code);
             Assert.Null(outcome.Result);
-            Assert.Equal("Device not found.", text);
+            // A device the list doesn't hold gets MCP's sentence; a listed device devices/{id} doesn't return is not found.
+            Assert.Equal(Listed.Contains(id) ? "Device not found." : CompactNetworkLookups.NoDevice, text);
             Assert.Empty(mobile.Evidence);
             return;
         }
@@ -236,7 +245,7 @@ public sealed class SharedDeviceSummaryHttpTests
         Assert.Equal(code, outcome.Error!.Code);
         Assert.DoesNotContain("synthetic-secret", outcome.Error.Message);
 
-        Assert.Equal(Strings(failure, "requests"), mobileServer.Requests);
+        Assert.Equal(MobileRequests(id, Strings(failure, "requests")), mobileServer.Requests);
         Assert.Equal(Strings(failure, "requests"), packageServer.Requests);
     }
 }

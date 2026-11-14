@@ -54,7 +54,18 @@ public sealed partial class SharedOpenAlertsHttpTests
     private static JsonElement Case(string name) => Cases.GetProperty("cases").EnumerateArray().Single(c => c.GetProperty("name").GetString() == name);
 
     /// <summary>Cases mobile can ask: no severity, location or page size, which its lookup doesn't take.</summary>
-    private static bool MobileAsks(JsonElement c) => Text(c, "severity") is null && Text(c, "location") is null && Number(c, "limit") is null;
+    /// <summary>Mobile offers device, severity, group and location (#635), but not paging.</summary>
+    private static bool MobileAsks(JsonElement c) => Number(c, "limit") is null && Text(c, "code") is null;
+
+    /// <summary>The case's arguments as the Swift bridge would send them: one JSON object.</summary>
+    private static string Arguments(JsonElement c)
+    {
+        var arguments = new Dictionary<string, string>();
+        if (Number(c, "device") is { } device) arguments["device"] = device.ToString(CultureInfo.InvariantCulture);
+        if (Text(c, "severity") is { } severity) arguments["severity"] = severity;
+        if (Text(c, "location") is { } location) arguments["location"] = location;
+        return JsonSerializer.Serialize(arguments);
+    }
 
     public static TheoryData<string> AllCases()
     {
@@ -180,8 +191,8 @@ public sealed partial class SharedOpenAlertsHttpTests
         using var package = new Package(packageServer.Root);
         var device = Number(c, "device");
 
-        var text = await mobile.Alerts.Run(device?.ToString(CultureInfo.InvariantCulture) ?? "", default);
-        var outcome = await package.Alerts.ListAsync(new(device));
+        var text = await mobile.Alerts.Run(Arguments(c), default);
+        var outcome = await package.Alerts.ListAsync(new(device, Text(c, "severity"), Location: Text(c, "location")));
 
         var totals = c.GetProperty("totals");
         var groups = totals.GetProperty("alert_groups").GetInt32();
@@ -205,8 +216,22 @@ public sealed partial class SharedOpenAlertsHttpTests
         var alertEvidence = mobile.Evidence.Where(e => e.Reference.Key.StartsWith("alert:", StringComparison.Ordinal)).ToList();
         Assert.Equal(Strings(c, "representatives"), alertEvidence.Select(e => $"{e.Reference.Object!.Kind}:{e.Reference.Object.Id}"));
 
-        Assert.Equal(Requests(c), mobileServer.Requests);
+        // Mobile resolves a named device from the device list first, as MCP's tools do.
+        Assert.Equal(device is null ? Requests(c) : ["devices", .. Requests(c)], mobileServer.Requests);
         Assert.Equal(Requests(c), packageServer.Requests);
+    }
+
+    [Fact]
+    public async Task Mobile_refuses_an_undocumented_severity_before_any_request_and_names_an_unknown_location()
+    {
+        var routes = Routes("faults");
+        using var server = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(server.Root);
+
+        Assert.StartsWith("The lookup wasn't run: severity must be one of critical, warning, ok.", await mobile.Alerts.Run(Arguments(Case("unknown severity")), default));
+        Assert.Empty(server.Requests);
+        Assert.Equal(CompactNetworkLookups.InvalidScope, await mobile.Alerts.Run(Arguments(Case("unknown location")), default));
+        Assert.Empty(mobile.Evidence);
     }
 
     [Theory]

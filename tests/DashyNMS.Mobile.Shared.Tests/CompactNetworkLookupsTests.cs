@@ -1,3 +1,4 @@
+using DashyNMS.Agent.Catalogue;
 using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Models;
@@ -155,14 +156,22 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Theory]
-    [InlineData("device_summary")]
-    [InlineData("device_sensors")]
-    [InlineData("active_alerts")]
-    public async Task Invalid_device_ids_do_not_make_requests(string name)
+    [InlineData("device_health", "{\"device\":12}")]
+    [InlineData("device_health", "{}")]
+    [InlineData("device_sensors", "{\"device\":\"core\",\"device\":\"edge\"}")]
+    [InlineData("device_sensors", "{\"device\":\"core\",\"sensor\":\"fan\"}")]
+    [InlineData("active_alerts", "{\"severity\":\"urgent\"}")]
+    [InlineData("active_alerts", "[\"core\"]")]
+    [InlineData("find_device", "{\"query\":\"core\",\"limit\":50}")]
+    [InlineData("find_device", "{\"status\":\"sleeping\"}")]
+    [InlineData("network_overview", "{\"query\":\"core\"}")]
+    [InlineData("network_overview", "everything")]
+    public async Task Arguments_that_dont_fit_the_catalogue_make_no_requests(string name, string arguments)
     {
-        var client = Fakes.Client();
+        var client = Fakes.Client([Fakes.Device(12, "core-sw1.example.net")]);
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == name);
-        Assert.Contains("numeric device id", await lookup.Run("-1", default));
+
+        Assert.StartsWith("The lookup wasn't run: ", await lookup.Run(arguments, default));
         await client.Devices.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
         await client.Alerts.DidNotReceive().ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>());
         await client.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
@@ -280,13 +289,13 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task A_device_id_narrows_active_alerts_to_that_device()
+    public async Task A_device_name_narrows_active_alerts_to_that_device()
     {
         var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net"), Fakes.Device(2, "edge-sw3.example.net")],
             [Fakes.Alert(1, 1, "warning"), Fakes.Alert(2, 2, "critical")]);
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "active_alerts");
 
-        var text = await lookup.Run("1", default);
+        var text = await lookup.Run("{\"device\":\"core-sw1\"}", default);
 
         Assert.Contains("[[alert:1]]", text);
         Assert.DoesNotContain("[[alert:2]]", text);
@@ -316,12 +325,12 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_summary_reads_through_the_bound_client_and_never_the_session_client()
+    public async Task Device_health_reads_through_the_bound_client_and_never_the_session_client()
     {
         var session = Fakes.Client();
-        var bound = Fakes.Client();
+        var bound = Fakes.Client([Fakes.Device(12, "edge.example.net", ip: "192.0.2.12")]);
         bound.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(Fakes.Device(12, "edge.example.net", ip: "192.0.2.12"));
-        var lookup = new CompactNetworkLookups(session, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(bound)).Create().Single(l => l.Name == "device_summary");
+        var lookup = new CompactNetworkLookups(session, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(bound)).Create().Single(l => l.Name == "device_health");
 
         Assert.StartsWith("edge.example.net [[device:12]]: ", await lookup.Run("12", default));
         await session.Devices.DidNotReceive().GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -329,26 +338,26 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_summary_fails_closed_without_a_connection_bound_transport()
+    public async Task Device_health_fails_closed_without_a_connection_bound_transport()
     {
         var client = Fakes.Client();
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(Fakes.Device(12, "edge.example.net"));
-        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create().Single(l => l.Name == "device_summary");
+        var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session()).Create().Single(l => l.Name == "device_health");
 
         Assert.Equal(CompactNetworkLookups.Failed, await lookup.Run("12", default));
         await client.Devices.DidNotReceive().GetAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Device_summary_names_the_location_sent_as_a_record_and_says_when_uptime_is_unknown()
+    public async Task Device_health_names_the_location_sent_as_a_record_and_says_when_uptime_is_unknown()
     {
         // devices/{id} can send the whole location record; only its name is shown.
         var device = Fakes.Device(12, "edge.example.net", location: """{"id":4,"location":"Example lab","lat":51.5}""");
-        var client = Fakes.Client();
+        var client = Fakes.Client([Fakes.Device(12, "edge.example.net")]);
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
         var evidence = new List<IntelligenceEvidence>();
         var text = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange)
-            .Single(l => l.Name == "device_summary").Run("12", default);
+            .Single(l => l.Name == "device_health").Run("12", default);
 
         Assert.Contains("location: Example lab [[location:4]]; uptime: unknown.", text);
         Assert.DoesNotContain("lat", text);
@@ -357,16 +366,16 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_summary_reports_a_missing_device_and_a_refusal_in_fixed_words()
+    public async Task Device_health_reports_a_missing_device_and_a_refusal_in_fixed_words()
     {
-        var client = Fakes.Client();
+        var client = Fakes.Client([Fakes.Device(12, "a.example.net"), Fakes.Device(13, "b.example.net"), Fakes.Device(14, "c.example.net")]);
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns((Device?)null);
         client.Devices.GetAsync("13", Arg.Any<CancellationToken>()).Returns(Task.FromException<Device?>(
             new LibreNmsApiException("password=synthetic-secret", System.Net.HttpStatusCode.Forbidden, serverMessage: "password=synthetic-secret")));
         client.Devices.GetAsync("14", Arg.Any<CancellationToken>()).Returns(Fakes.Device(15, "other.example.net"));
         var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange)
-            .Single(l => l.Name == "device_summary");
+            .Single(l => l.Name == "device_health");
 
         Assert.Equal("Device not found.", await lookup.Run("12", default));
         Assert.Equal(CompactNetworkLookups.Refused, await lookup.Run("13", default));
@@ -376,15 +385,15 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_summary_from_a_previous_connection_is_discarded_with_its_evidence()
+    public async Task Device_health_from_a_previous_connection_is_discarded_with_its_evidence()
     {
-        var client = Fakes.Client();
+        var client = Fakes.Client([Fakes.Device(12, "old-switch")]);
         var response = new TaskCompletionSource<Device?>();
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(response.Task);
         var session = Session();
         var evidence = new List<IntelligenceEvidence>();
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), session, deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange)
-            .Single(l => l.Name == "device_summary");
+            .Single(l => l.Name == "device_health");
         var pending = lookup.Run("12", default);
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://new.example.net/"), "new-test-token"));
         response.SetResult(Fakes.Device(12, "old-switch"));
@@ -395,32 +404,52 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_summary_is_bounded_by_the_deadline_and_cancellation_propagates()
+    public async Task Device_health_is_bounded_by_the_deadline_and_cancellation_propagates()
     {
         var time = new FakeTimeProvider();
-        var client = Fakes.Client();
+        var client = Fakes.Client([Fakes.Device(12, "edge.example.net")]);
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(new TaskCompletionSource<Device?>().Task);
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), time, deviceTransport: Fakes.DeviceTransport(client));
-        var timed = lookups.Create().Single(l => l.Name == "device_summary").Run("12", default);
+        var timed = lookups.Create().Single(l => l.Name == "device_health").Run("12", default);
         time.Advance(CompactNetworkLookups.Timeout);
         Assert.Equal(CompactNetworkLookups.Failed, await timed);
 
         using var stopping = new CancellationTokenSource();
-        var cancelled = lookups.Create().Single(l => l.Name == "device_summary").Run("12", stopping.Token);
+        var cancelled = lookups.Create().Single(l => l.Name == "device_health").Run("12", stopping.Token);
         stopping.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled);
     }
 
     [Fact]
-    public void Every_lookup_name_has_a_reviewed_allowlisted_tool_and_device_summary_is_device_health()
+    public void Every_lookup_is_a_reviewed_allowlisted_tool_described_as_the_catalogue_describes_it()
     {
-        var names = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Session()).Create().Select(l => l.Name).ToList();
+        var lookups = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Session()).Create();
 
-        Assert.Equal(names.Order(StringComparer.Ordinal), CompactNetworkLookups.ReviewedTools.Keys.Order(StringComparer.Ordinal));
-        Assert.All(CompactNetworkLookups.ReviewedTools.Values, tool => Assert.Contains(tool, DesktopNMS.Core.Intelligence.IntelligenceToolAllowlist.Names));
-        // The alias: Core has no device_summary tool, so the name is held to device_health.
-        Assert.DoesNotContain("device_summary", DesktopNMS.Core.Intelligence.IntelligenceToolAllowlist.Names);
-        Assert.Equal("device_health", CompactNetworkLookups.ReviewedTools["device_summary"]);
+        Assert.Equal(CompactNetworkLookups.ReviewedTools.Order(StringComparer.Ordinal), lookups.Select(l => l.Name).Order(StringComparer.Ordinal));
+        Assert.All(lookups, lookup =>
+        {
+            Assert.Contains(lookup.Name, DesktopNMS.Core.Intelligence.IntelligenceToolAllowlist.Names);
+            var tool = ToolCatalogue.Find(lookup.Name)!;
+            // The catalogue's text, word for word, and its parameters in its order: the phone only leaves some out.
+            Assert.Equal(tool.Description, lookup.Purpose);
+            Assert.Equal(tool.NamedTools, lookup.NamedTools);
+            Assert.Equal(tool.Parameters.Where(p => lookup.Parameters.Contains(p)), lookup.Parameters);
+            Assert.All(lookup.Parameters, p => Assert.Same(tool.Parameters.Single(c => c.Name == p.Name), p));
+            Assert.Equal(CompactNetworkLookups.Offered[lookup.Name], lookup.Parameters.Select(p => p.Name));
+        });
+    }
+
+    [Fact]
+    public void Device_tools_take_a_device_as_the_catalogue_describes_it()
+    {
+        var lookups = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Session()).Create();
+
+        foreach (var name in new[] { "device_health", "device_sensors", "active_alerts" })
+        {
+            var device = lookups.Single(l => l.Name == name).Parameters.Single(p => p.Name == "device");
+            Assert.Equal(ToolParameterType.String, device.Type);
+            Assert.Contains("hostname, display name, IP address or LibreNMS device ID", device.Description, StringComparison.Ordinal);
+        }
     }
 
     private static IntelligenceEvidence Twelve(string kind) => new(new("alert:12", "Rule", "Critical", "critical", default, "")
@@ -532,7 +561,7 @@ public sealed class CompactNetworkLookupsTests
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange);
 
         var sensors = await lookups.Single(l => l.Name == "device_sensors").Run("12", default);
-        var summary = await lookups.Single(l => l.Name == "device_summary").Run("12", default);
+        var summary = await lookups.Single(l => l.Name == "device_health").Run("12", default);
 
         Assert.StartsWith("Sensors on edge-router-a [[device:12]]: 1; 0 critical, 0 warning, 1 OK, 0 unknown.", sensors);
         Assert.Contains("Inlet temperature [[sensor:31]]: temperature 41 °C; OK", sensors);
@@ -616,7 +645,9 @@ public sealed class CompactNetworkLookupsTests
     {
         var client = Fakes.Client([Fakes.Device(1, "core-sw1.example.net")]);
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create().Single(l => l.Name == "device_sensors");
-        Assert.Equal(CompactNetworkLookups.UnknownDevice, await lookup.Run("99", default));
+        // A name or id the device list doesn't hold gets MCP's own sentence, before any sensor read.
+        Assert.Equal(CompactNetworkLookups.NoDevice, await lookup.Run("99", default));
+        await client.Sensors.DidNotReceive().ListAsync(Arg.Any<CancellationToken>());
 
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Sensor>>(
             new LibreNmsApiException("password=synthetic-secret", System.Net.HttpStatusCode.Unauthorized, serverMessage: "password=synthetic-secret")));
@@ -634,7 +665,7 @@ public sealed class CompactNetworkLookupsTests
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns(device);
         var evidence = new List<IntelligenceEvidence>();
         var summary = await new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange)
-            .Single(l => l.Name == "device_summary").Run("12", default);
+            .Single(l => l.Name == "device_health").Run("12", default);
 
         var location = Assert.Single(evidence, r => r.Reference.Key == "location:4");
         Assert.Equal(original, location.Filter);

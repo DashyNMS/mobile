@@ -21,8 +21,8 @@ namespace DashyNMS.Mobile.Tests;
 /// <remarks>
 /// Nothing in Core is faked: status codes, bodies, retries and the timeout reach each side through
 /// Core's own parsing and retry policy. The device-by-device route reads concurrently, so those
-/// requests are compared as a set. Mobile's lookup takes only a device id, so the type case runs
-/// through the package alone.
+/// requests are compared as a set. Mobile takes the device and the type filter (#635), as the
+/// catalogue describes them.
 /// </remarks>
 public sealed partial class SharedDeviceSensorsHttpTests
 {
@@ -65,6 +65,13 @@ public sealed partial class SharedDeviceSensorsHttpTests
 
     private static string[] Sorted(IEnumerable<string> requests) => requests.Order(StringComparer.Ordinal).ToArray();
 
+    /// <summary>The ids the device list holds: mobile resolves the device from it before reading sensors.</summary>
+    private static readonly HashSet<int> Listed = Load("devices.json").GetProperty("devices").EnumerateArray()
+        .Select(d => d.GetProperty("device_id").GetInt32()).ToHashSet();
+
+    /// <summary>Mobile's requests: the device list for resolution (#635), then the package's own if the list holds the device.</summary>
+    private static string[] MobileRequests(int device, string[] package) => Listed.Contains(device) ? ["devices", .. package] : ["devices"];
+
     private static JsonElement Case(string name) => Cases.GetProperty("cases").EnumerateArray().Single(c => c.GetProperty("name").GetString() == name);
 
     public static TheoryData<string> AllCases()
@@ -79,7 +86,7 @@ public sealed partial class SharedDeviceSensorsHttpTests
     public static TheoryData<string> MobileCases()
     {
         var data = new TheoryData<string>();
-        foreach (var c in Cases.GetProperty("cases").EnumerateArray().Where(c => Text(c, "type") is null))
+        foreach (var c in Cases.GetProperty("cases").EnumerateArray())
             data.Add(c.GetProperty("name").GetString()!);
         return data;
     }
@@ -193,15 +200,18 @@ public sealed partial class SharedDeviceSensorsHttpTests
         using var package = new Package(packageServer.Root);
         var device = c.GetProperty("device").GetInt32();
 
-        var text = await mobile.Sensors.Run(device.ToString(CultureInfo.InvariantCulture), default);
-        var outcome = await package.Sensors.ReadAsync(new(device));
+        var type = Text(c, "type");
+        var arguments = type is null ? $$"""{"device":"{{device}}"}""" : $$"""{"device":"{{device}}","type":"{{type}}"}""";
+        var text = await mobile.Sensors.Run(arguments, default);
+        var outcome = await package.Sensors.ReadAsync(new(device, type));
 
-        Assert.Equal(Sorted(Strings(c, "requests")), Sorted(mobileServer.Requests));
+        Assert.Equal(Sorted(MobileRequests(device, Strings(c, "requests"))), Sorted(mobileServer.Requests));
         Assert.Equal(Sorted(Strings(c, "requests")), Sorted(packageServer.Requests));
 
         if (Text(c, "code") is { } code)
         {
-            Assert.Equal(CompactNetworkLookups.UnknownDevice, text);
+            // A device the list doesn't hold gets MCP's sentence from resolution, before any sensor read.
+            Assert.Equal(CompactNetworkLookups.NoDevice, text);
             Assert.Empty(mobile.Evidence);
             Assert.Equal(Enum.Parse<HostFailure>(code), outcome.Error!.Code);
             return;
@@ -301,7 +311,7 @@ public sealed partial class SharedDeviceSensorsHttpTests
         Assert.Null(outcome.Result);
         Assert.Equal(code, outcome.Error!.Code);
 
-        Assert.Equal(Strings(failure, "requests"), mobileServer.Requests);
+        Assert.Equal(MobileRequests(1, Strings(failure, "requests")), mobileServer.Requests);
         Assert.Equal(Strings(failure, "requests"), packageServer.Requests);
     }
 }
