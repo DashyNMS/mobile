@@ -522,8 +522,17 @@ paging metadata precedes readings, and type counts are separate rows. HTTP tests
 compare the pinned MCP fixture and independent rank/count facts with the shared
 host, including request sets, groups, directions, limit, denied reads, scoped
 fallback, captured thresholds and fresh choices on the next question. Deadline,
-cancellation and retirement checks cover both profiles. Full MCP field accounting
-and device acceptance remain pending while this PR is draft.
+cancellation and retirement checks cover both profiles. IntelligenceFleetFactsTests
+compares the populated fields in MCP's direct Data projections with one-row
+traffic/error/problem pages and a health page, including type totals and next
+offset. Device acceptance remains pending while this PR is draft.
+
+#### Fleet facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `health_overview` | `readings.reading.rank` | Sorting metadata. The displayed readings already follow the shared order. |
+
 
 ### How device_details is built
 

@@ -202,6 +202,13 @@ public sealed partial class IntelligenceFactsTests
                 routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
                 routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
                 break;
+            case "top_interfaces":
+            case "top_errors":
+            case "top_devices":
+            case "health_overview":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "FleetRankings", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
             case "device_details":
                 using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "DeviceDetails", "routes.json"))))
                     foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
@@ -282,7 +289,7 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
-        if (path == "device.status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (path.EndsWith("device.status", StringComparison.Ordinal) && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name is "found" or "ambiguous") return text.Contains(name + (value.GetBoolean() ? " yes" : " no"), StringComparison.OrdinalIgnoreCase);
         if (name == "untagged") return text.Contains(value.GetBoolean() ? ": untagged" : ": tagged", StringComparison.Ordinal);
         if (name is "replaceable" or "admin_down")
