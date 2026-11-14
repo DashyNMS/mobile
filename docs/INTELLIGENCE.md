@@ -1,8 +1,10 @@
 # Intelligence
 
 How Intelligence on the phone reaches parity with desktop's, and the rules for
-every network tool it runs. The epic is #236. Progress is tracked in its
-issues, not here; this document holds what stays true across them.
+every network tool it runs. #236 is the only 2.0.0 Intelligence epic, and its
+Order section is the build order: work starts at its first unchecked item.
+Progress is tracked there, not here; this document holds what stays true
+across the issues.
 
 ## Direction
 
@@ -14,7 +16,7 @@ Foundation Models framework, and on iOS 27 optionally Private Cloud Compute
 - **Tools.** The model gets desktop's tools, with the same names, arguments and
   descriptions. The text comes from DashyNMS/mcp's shared catalogue
   (DashyNMS/mcp#130) and is never written on the phone (#635). Every tool MCP
-  has comes to the phone (#610).
+  has comes to the phone (#236, batch 5).
 - **Results.** A lookup returns the facts desktop's tool returns, from the same
   shared typed operation, written as compact text. Any fact left out is listed
   under [Facts left out](#facts-left-out) with its reason (#636).
@@ -52,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_summary` in place of `device_health` | #610, #634 |
+| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_summary` in place of `device_health` | #236, #634 |
 | Tool names, arguments and descriptions from MCP | The phone's own short descriptions, one `query` string, numeric device IDs | #635, DashyNMS/mcp#130, DashyNMS/mcp#131 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | Five tools, two lookups | #637 |
