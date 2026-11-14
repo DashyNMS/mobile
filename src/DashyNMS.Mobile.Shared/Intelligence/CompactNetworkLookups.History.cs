@@ -22,7 +22,7 @@ public sealed partial class CompactNetworkLookups
                 ? "; incomplete; covered since " + IntelligenceTime.At(covered, time) + "."
                 : "; coverage unknown; a source could not be read.");
     private static string TimelineText(TimelineEntry e, DateTimeOffset at, TimeProvider time)
-        => IntelligenceTime.AtAndAgo(e.Time, at, time) + $"; source {Clean(e.Source)}; kind {Clean(e.Kind)}; severity {Clean(e.Severity)}"
+        => IntelligenceTime.AtAndAgo(e.Time, at, time) + $"; source {Clean(e.Source)}; kind {Clean(e.Kind).Replace('_', ' ')}; severity {Clean(e.Severity)}"
             + (e.Rule is { } rule ? "; rule " + Clean(rule) : "")
             + (e.Text is { } text ? "; " + Clean(text) : "")
             + (e.User is { } user ? "; user " + Clean(user) : "")

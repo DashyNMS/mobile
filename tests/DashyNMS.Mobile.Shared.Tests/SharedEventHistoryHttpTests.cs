@@ -58,6 +58,8 @@ public sealed class SharedEventHistoryHttpTests
             Assert.Contains(result.Data.Entries, e => e.Source == "outage");
             Assert.Contains("Interface 1/1/7 went down", text);
             Assert.Contains("source outage", text);
+            Assert.Contains("kind came back", text);
+            Assert.Contains("kind went down", text);
         }
         else if (tool == "network_events")
         {
