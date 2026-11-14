@@ -88,6 +88,40 @@ public sealed class SharedDeviceDetailsHttpTests
         Assert.Equal(new[] { "devices", "devices", "inventory/1/all" }.Order(), server.Requests.Order());
     }
     [Fact]
+    public async Task Filled_wireless_rows_keep_class_description_and_value()
+    {
+        var routes = Routes();
+        routes["devices/1/wireless-sensors"] = new(200, """{"wireless_sensors":[{"sensor_id":17,"device_id":1,"sensor_class":"clients","sensor_descr":"Lab radio","sensor_current":12}]}""");
+        using var server = new FixtureServer(p => routes.GetValueOrDefault(p));
+        using var mobile = new Mobile(server.Root);
+        var text = await mobile.Details.Run("""{"device":"1","sections":["wireless"]}""", default);
+        Assert.Contains("wireless 1", text);
+        Assert.Contains("Wireless clients Lab radio; value 12", text);
+        Assert.Contains("[[device:1]]", text);
+    }
+
+    [Fact]
+    public async Task Page_metadata_precedes_detail_rows_when_the_page_exceeds_the_text_budget()
+    {
+        var routes = Routes();
+        routes["inventory/1/all"] = new(200, JsonSerializer.Serialize(new
+        {
+            inventory = Enumerable.Range(1, 30).Select(id => new
+            {
+                entPhysical_id = id, entPhysicalIndex = id, entPhysicalClass = "chassis", entPhysicalName = "Module " + id,
+                entPhysicalModelName = new string('x', 40), entPhysicalSerialNum = "TEST" + id,
+            }),
+        }));
+        using var server = new FixtureServer(p => routes.GetValueOrDefault(p));
+        using var mobile = new Mobile(server.Root);
+        var text = await mobile.Details.Run("""{"device":"1","sections":["inventory"],"limit":20}""", default);
+        Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
+        Assert.Contains("inventory page: offset 0; limit 20; returned 20; total 30; next offset 20.", text);
+        Assert.Contains("more results omitted", text);
+        Assert.True(text.IndexOf("inventory page:", StringComparison.Ordinal) < text.IndexOf("Inventory Module", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Invalid_section_and_negative_offset_are_rejected_before_transport()
     {
         using var server = new FixtureServer(_ => throw new InvalidOperationException("No reads expected"));

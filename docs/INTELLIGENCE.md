@@ -521,8 +521,11 @@ rows that do not fit, and offers only the displayed device chip. Pages retain
 their offset, limit and next offset. The common deadline and retirement logic
 covers the operation. Copied upstream HTTP fixtures test every section, request
 sets, inventory/VLAN/PoE/routing/availability/address facts, failed VLAN reads,
-page counts, invalid arguments and the client restrictions. Full MCP field
-accounting and iPhone acceptance remain pending while this PR is draft.
+page counts, invalid arguments and the client restrictions. Device-detail field
+accounting compares every populated MCP Data leaf in each section fixture and
+an inventory page with the phone's text. Additional HTTP cases cover populated
+wireless data and page metadata before budget omissions. iPhone acceptance
+remains pending while this PR is draft.
 
 ### How port, neighbour and trace tools are built
 

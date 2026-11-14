@@ -202,6 +202,10 @@ public sealed partial class IntelligenceFactsTests
                 routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
                 routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
                 break;
+            case "device_details":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "DeviceDetails", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
             case "port_status":
             case "device_neighbours":
             case "trace_endpoint":
@@ -281,7 +285,11 @@ public sealed partial class IntelligenceFactsTests
         if (path == "device.status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name is "found" or "ambiguous") return text.Contains(name + (value.GetBoolean() ? " yes" : " no"), StringComparison.OrdinalIgnoreCase);
         if (name == "untagged") return text.Contains(value.GetBoolean() ? ": untagged" : ": tagged", StringComparison.Ordinal);
-        if (name == "last_seen")
+        if (name is "replaceable" or "admin_down")
+            return text.Contains((name == "replaceable" ? "replaceable " : "admin down ") + (value.GetBoolean() ? "yes" : "no"), StringComparison.Ordinal);
+        if (path == "availability.percent")
+            return text.Contains(value.GetDouble().ToString("0.###", CultureInfo.InvariantCulture) + "%", StringComparison.Ordinal);
+        if (name is "last_seen" or "updated_at")
         {
             var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
             return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);

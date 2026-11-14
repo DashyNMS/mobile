@@ -12,6 +12,10 @@ public sealed partial class CompactNetworkLookups
         {
             TopologyDevice(device.DeviceId, name, $"{name}; hostname {Clean(device.Hostname)}; display {Clean(device.Display)}; IP {Clean(device.Ip)}; location {Clean(device.Location)}; state {Clean(device.Status)}", at),
         };
+        var pages = data.Pages;
+        if (pages is not null)
+            rows.AddRange(pages.Select(p => new Row($"{Clean(p.Key)} page: offset {Id(p.Value.Offset)}; limit {Id(p.Value.Limit)}; returned {Id(p.Value.Returned)}; total {Id(p.Value.Total)}"
+                + (p.Value.NextOffset is { } next ? $"; next offset {Id(next)}" : "") + ".")));
         if (data.Inventory is { } inventory)
             rows.AddRange(inventory.Select(i => new Row($"Inventory {Clean(i.Name)}; class {Clean(i.Class)}; description {Clean(i.Description)}; model {Clean(i.Model)}; serial {Clean(i.Serial)}; manufacturer {Clean(i.Manufacturer)}; hardware rev {Clean(i.HardwareRev)}; firmware rev {Clean(i.FirmwareRev)}; software rev {Clean(i.SoftwareRev)}; replaceable {(i.Replaceable == true ? "yes" : "unknown")}.")));
         if (data.Vlans is { } vlans)
@@ -39,10 +43,6 @@ public sealed partial class CompactNetworkLookups
             rows.AddRange(availability.Select(a => new Row($"Availability over {Clean(a.Over)}: {a.Percent.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}%.")));
         if (data.Addresses is { } addresses)
             rows.AddRange(addresses.Select(a => new Row($"Address {Clean(a.Address)}; family {Clean(a.Family)}; port {Clean(a.Port)}.")));
-        var pages = data.Pages;
-        if (pages is not null)
-            rows.AddRange(pages.Select(p => new Row($"{Clean(p.Key)} page: offset {Id(p.Value.Offset)}; limit {Id(p.Value.Limit)}; returned {Id(p.Value.Returned)}; total {Id(p.Value.Total)}"
-                + (p.Value.NextOffset is { } next ? $"; next offset {Id(next)}" : "") + ".")));
         var heading = AlertUnavailable(data.Unavailable) + (found.SectionTotals.Count == 0 ? "No sections available."
             : "Section totals: " + string.Join(", ", found.SectionTotals.Select(s => Clean(s.Key) + " " + Id(s.Value))) + ".");
         var unfetched = pages?.Values.Sum(p => Math.Max(0, p.Total - p.Offset - p.Returned)) ?? 0;
