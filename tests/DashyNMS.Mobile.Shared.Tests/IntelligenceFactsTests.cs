@@ -300,9 +300,21 @@ public sealed partial class IntelligenceFactsTests
             _ => "false",
         };
         // A number must stand on its own, so a 2 isn't found inside 2026 or 198.51.100.2.
+        // A trailing sentence stop is allowed; a dot followed by a digit is part of a decimal/IP.
         return value.ValueKind == JsonValueKind.Number
-            ? Regex.IsMatch(text, $@"(?<![\d.]){Regex.Escape(written)}(?![\d.])")
+            ? Regex.IsMatch(text, $@"(?<![\d.]){Regex.Escape(written)}(?!\d|\.\d)")
             : text.Contains(written, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Matching devices: 10.", true)]
+    [InlineData("Matching devices: 110.", false)]
+    [InlineData("Reading: 10.5", false)]
+    [InlineData("IP 198.51.100.10", false)]
+    public void Numeric_facts_accept_sentence_stops_without_matching_parts_of_other_numbers(string text, bool expected)
+    {
+        using var value = JsonDocument.Parse("10");
+        Assert.Equal(expected, Shown("page.total", value.RootElement, text));
     }
 
     /// <summary>An age written as a length: "open 3 hours" without verbose, "opened …, 24 days 16 hours ago" with it.</summary>
