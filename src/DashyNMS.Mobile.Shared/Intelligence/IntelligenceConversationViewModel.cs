@@ -394,16 +394,15 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     var built = await TokensAsync(instructions, token);
                     room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
                     var missing = IntelligenceToolChoice.MinimumLookups * resultTokens - room;
-                    if (missing <= 0)
+                    // Final instructions can name unavailable tools and cost more than
+                    // the base estimate. Reselect against that cost before dropping history
+                    // or rejecting a short question; fewer tools may still leave two results.
+                    if (built > baseTokens && (missing > 0 || room / Math.Max(1, resultTokens) < choice.MaxLookups))
                     {
-                        // The limit stated must be one the room holds.
-                        if (built > baseTokens && room / Math.Max(1, resultTokens) < choice.MaxLookups)
-                        {
-                            baseTokens = built;
-                            continue;
-                        }
-                        break;
+                        baseTokens = built;
+                        continue;
                     }
+                    if (missing <= 0) break;
                     if (!hasHistory) break;
                     prompt = Prompt(question, Math.Max(0, prompt.Length - Characters(missing)), out omitted, out hasHistory);
                     turn.HistoryOmitted = true;

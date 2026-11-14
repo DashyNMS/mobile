@@ -467,6 +467,37 @@ public sealed class IntelligenceConversationTests
         Assert.True(total <= (int)(8_193 * IntelligenceBudget.Usable), $"{limit} lookups, {total} tokens");
     }
 
+    private sealed class RelatedBudgetLookups : IIntelligenceLookups
+    {
+        public IReadOnlyList<IntelligenceLookup> Create() =>
+        [
+            new("network_overview", "Budget overview", (_, _) => Task.FromResult("Overview")) { NamedTools = ["active_alerts", "graph"] },
+            new("active_alerts", "Budget alerts", (_, _) => Task.FromResult("Alerts")),
+        ];
+    }
+
+    [Fact]
+    public async Task More_expensive_final_instructions_drop_a_related_tool_before_rejecting_a_short_question()
+    {
+        _model.ContextSize = 4_099; // Keep this model counter separate from cached measurements in other tests.
+        _model.Counter = text => text == IntelligenceConversationViewModel.SampleResult ? 300
+            : text.StartsWith("network_overview\n", StringComparison.Ordinal) || text.StartsWith("active_alerts\n", StringComparison.Ordinal) ? 700
+            : text.Contains("Not offered for this question:", StringComparison.Ordinal) ? 1200
+            : text.Contains("Use at most", StringComparison.Ordinal) ? 600 : 10;
+        using var vm = new IntelligenceConversationViewModel(_model, _preferences, new RelatedBudgetLookups(), _session);
+        Assert.True(await vm.AskAsync("Hello"));
+        var turn = Assert.Single(vm.Turns);
+        Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+        Assert.Equal("network_overview", Assert.Single(_model.Offered.Single()).Name);
+        Assert.Contains("Not offered for this question:", _model.Instructions.Single());
+        var instructions = _model.Instructions.Single();
+        var written = System.Text.RegularExpressions.Regex.Match(instructions, @"Use at most (\d+|two) lookups").Groups[1].Value;
+        var limit = written == "two" ? 2 : int.Parse(written);
+        var total = _model.Counter(instructions) + _model.Counter(_model.Prompts.Single()) + IntelligenceConversationViewModel.OutputTokens("balanced")
+            + 700 + limit * _model.Counter(IntelligenceConversationViewModel.SampleResult);
+        Assert.True(total <= (int)(4_099 * IntelligenceBudget.Usable));
+    }
+
     [Fact]
     public async Task A_follow_up_whose_history_would_overflow_drops_it_and_still_answers()
     {

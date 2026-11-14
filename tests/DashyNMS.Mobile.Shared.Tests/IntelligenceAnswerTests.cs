@@ -408,7 +408,7 @@ public sealed class IntelligenceAnswerTests
         Assert.Equal(2, conversation.Turns.Count);
         foreach (var turn in conversation.Turns)
         {
-            Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+            Assert.True(turn.State == IntelligenceTurnState.Completed, $"{turn.Question}: {turn.Message}");
             var chip = Assert.Single(IntelligenceMarkdown.LinkedObjects(IntelligenceMarkdown.Parse(turn.Answer, turn.References)));
             // The chip shows the cleaned label; the route carries LibreNMS's name unchanged.
             Assert.Equal(CompactNetworkLookups.Clean(original), chip.Name);
