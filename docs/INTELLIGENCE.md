@@ -247,10 +247,11 @@ What each shared tool on the phone does beyond the pattern above.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43365576634.1`, from DashyNMS/mcp's
-`shared-package.yml` run 43365576634 at commit
-`812266dd63c8201406c47282a8c45899d94abe4e` (DashyNMS/mcp#129, after #128), SHA-256
-`eb36eadf9ac008bf0e0d6a3479dfad481b4cfe18d40f54305a2cc91dc7bafcbd`. It was
+**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43536733548.1`, from DashyNMS/mcp's
+`shared-package.yml` run 43536733548 at commit
+`ce4ec6219c1212e2584524ed7ac3643720ab5635` (DashyNMS/mcp#134: the tool catalogue and
+device resolution, DashyNMS/mcp#130 and #131), SHA-256
+`59f948a9daecbb799b1ec37fb69aad5d2f23e13a7a2ca832c2261fdbbd96bef5`. It was
 `DashyNMS.Agent.Search` until DashyNMS/mcp#122 renamed it and restarted its
 versions at 2.0.0. It is MIT licensed and targets net10.0. Its minimum Core is
 `2.0.0-ci.64`, the same build as mobile's direct pin.
