@@ -56,6 +56,7 @@ public static partial class IntelligenceToolChoice
     {
         ["network_overview"] = ["network", "overview", "how is", "how's", "status", "summary", "summarise", "summarize", "everything", "overall", "how many", "dashboard", "doing", "brief"],
         ["active_alerts"] = ["alert", "alarm", "critical", "warning", "fault", "firing", "acknowledg", "unacknowledg", "attention", "severe", "severity", "problem", "issue", "wrong"],
+        ["list_groups_and_locations"] = ["group", "location", "site", "which groups", "which locations"],
         ["find_device"] = ["find", "search", "which device", "which devices", "where", "list", "mac", "address", "location", "site", "group", "down", "disabled", "offline"],
         ["device_health"] = ["health", "uptime", "os", "running", "hardware", "model", "reboot", "version", "firmware"],
         ["device_sensors"] = ["sensor", "temperature", "temp", "hot", "fan", "optic", "dbm", "power", "voltage", "psu", "humidity", "signal", "current"],

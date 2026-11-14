@@ -60,6 +60,7 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("Which groups and locations are available?", "list_groups_and_locations")]
     [InlineData("Which sensors are too hot?", "device_sensors")]
     [InlineData("Are the fans on 198.51.100.4 OK?", "device_sensors")]
     [InlineData("Find the switches at the lab site", "find_device")]

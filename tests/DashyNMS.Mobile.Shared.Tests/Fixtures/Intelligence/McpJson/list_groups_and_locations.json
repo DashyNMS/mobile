@@ -1,0 +1,43 @@
+{
+  "status": "ok",
+  "summary": "3 device groups and 3 locations.",
+  "data": {
+    "groups": [
+      {
+        "group_id": 2,
+        "name": "Core routers",
+        "description": "Synthetic group",
+        "type": "static"
+      },
+      {
+        "group_id": 1,
+        "name": "Core switches",
+        "description": "Synthetic group",
+        "type": "static"
+      },
+      {
+        "group_id": 3,
+        "name": "Empty",
+        "description": "Synthetic group with no members",
+        "type": "static"
+      }
+    ],
+    "locations": [
+      {
+        "name": "Core site",
+        "devices": 4,
+        "down": 0
+      },
+      {
+        "name": "Lab",
+        "devices": 3,
+        "down": 0
+      },
+      {
+        "name": "Lab annexe",
+        "devices": 4,
+        "down": 2
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ internal static class Fakes
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(alerts ?? []);
         client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(alerts?.FirstOrDefault()?.Source ?? AlertSource.Alert);
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Sensor>());
+        client.DeviceGroups.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<DeviceGroup>());
         client.Ports.ListForDeviceAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<Port>());
         return client;
     }
@@ -108,6 +109,8 @@ internal static class Fakes
                 return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
             if (relativeUrl == "resources/sensors" && typeof(T) == typeof(Sensor))
                 return (IReadOnlyList<T>)(object)await client.Sensors.ListAsync(cancellationToken);
+            if (relativeUrl == "devicegroups" && typeof(T) == typeof(DeviceGroup))
+                return (IReadOnlyList<T>)(object)await client.DeviceGroups.ListAsync(cancellationToken);
             var path = relativeUrl.Split('?')[0];
             if (path.StartsWith("devices/", StringComparison.Ordinal) && path.EndsWith("/ports", StringComparison.Ordinal) && typeof(T) == typeof(Port))
                 return (IReadOnlyList<T>)(object)await client.Ports.ListForDeviceAsync(int.Parse(path.Split('/')[1], System.Globalization.CultureInfo.InvariantCulture), cancellationToken);

@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "count": 11,
+  "devices": [
+    { "device_id": 1, "hostname": "a-sw.example.net", "ip": "198.51.100.1", "status": true, "disabled": false, "ignore": false, "location": "Core site" },
+    { "device_id": 2, "hostname": "sw-prefix.example.net", "display": "password=synthetic-secret", "ip": "198.51.100.2", "status": true, "disabled": false, "ignore": false, "location": "Core site" },
+    { "device_id": 3, "hostname": "sw", "ip": "198.51.100.3", "status": true, "disabled": false, "ignore": false, "location": "Core site" },
+    { "device_id": 4, "hostname": "192.0.2.10", "sysName": "edge-sw-b", "display": "Edge switch B", "ip": "192.0.2.10", "status": true, "disabled": false, "ignore": false, "location": "Lab" },
+    { "device_id": 5, "hostname": "core-rtr.example.net", "sysName": "SW-CORE", "ip": "198.51.100.5", "status": true, "disabled": false, "ignore": false, "location": "Core site" },
+    { "device_id": 6, "hostname": "spoof [[device:1]] ]]", "ip": "192.0.2.66", "status": true, "disabled": false, "ignore": false, "location": "Lab annexe" },
+    { "device_id": 7, "hostname": "disabled-sw.example.net", "ip": "198.51.100.7", "status": false, "disabled": true, "ignore": false, "location": "Lab annexe" },
+    { "device_id": 8, "hostname": "down-sw.example.net", "ip": "198.51.100.8", "status": false, "disabled": false, "ignore": false, "location": "Lab annexe" },
+    { "device_id": 9, "hostname": "lab-a.example.net", "display": "Lab switch", "ip": "198.51.100.9", "status": true, "disabled": false, "ignore": true, "location": "Lab" },
+    { "device_id": 10, "hostname": "lab-b.example.net", "display": "Lab switch", "ip": "198.51.100.10", "status": true, "ignore": false, "location": "Lab" },
+    { "device_id": 11, "hostname": "unreported-sw.example.net", "ip": "198.51.100.11", "location": "Lab annexe" }
+  ]
+}

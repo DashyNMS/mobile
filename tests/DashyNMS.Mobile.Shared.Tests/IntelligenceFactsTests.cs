@@ -32,6 +32,7 @@ public sealed partial class IntelligenceFactsTests
         { "active_alerts", "active_alerts", "{}" },
         { "active_alerts-verbose", "active_alerts", """{"verbose":true}""" },
         { "network_overview", "network_overview", "{}" },
+        { "list_groups_and_locations", "list_groups_and_locations", "{}" },
         { "device_health", "device_health", """{"device":"1"}""" },
         { "device_sensors", "device_sensors", """{"device":"1"}""" },
     };
@@ -190,6 +191,10 @@ public sealed partial class IntelligenceFactsTests
             case "network_overview":
                 foreach (var name in new[] { "devices", "faults", "ports", "system" })
                     routes[name] = new(200, File.ReadAllText(Path.Combine(Fixtures, "NetworkOverview", name + ".json")));
+                break;
+            case "list_groups_and_locations":
+                routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
+                routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
                 break;
             case "device_health":
                 Files("DeviceHealth", Load("DeviceHealth", "cases.json").GetProperty("routes"));

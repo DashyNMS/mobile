@@ -116,7 +116,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations",
     };
 
     /// <summary>
@@ -127,6 +127,7 @@ public sealed partial class CompactNetworkLookups(
     internal static readonly IReadOnlyDictionary<string, string[]> Offered = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["network_overview"] = [],
+        ["list_groups_and_locations"] = [],
         ["find_device"] = ["query", "status", "group", "location", "verbose"],
         ["device_health"] = ["device"],
         ["active_alerts"] = ["severity", "device", "group", "location", "verbose"],
@@ -208,8 +209,13 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedSensors, deviceTransport, sensors: true);
         var deviceSensors = sensorBound is null ? null
             : HostDeviceSensors.Create(sensorBound, sensorBound.SensorTransport, time, SensorOptions(settings.Current), sensorDefinitions);
+        var scopeBound = scope is not { } capturedScopes || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedScopes, deviceTransport, scopes: true);
+        var groupsAndLocations = scopeBound is null ? null : HostGroupsAndLocations.Create(scopeBound, time);
         void RetireShared()
         {
+            groupsAndLocations?.Dispose();
+            scopeBound?.Dispose();
             search?.Dispose();
             resolver?.Dispose();
             openAlerts?.Dispose();
@@ -607,6 +613,14 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("list_groups_and_locations", null, async (_, at, ct) =>
+            {
+                if (groupsAndLocations is null) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => groupsAndLocations.ReadAsync(ct)).ConfigureAwait(false);
+                if (outcome.Result is not { } found)
+                    return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
+                return ScopeRows(found, at);
             }),
         ];
         return new IntelligenceLookupSet(lookups, RetireShared);

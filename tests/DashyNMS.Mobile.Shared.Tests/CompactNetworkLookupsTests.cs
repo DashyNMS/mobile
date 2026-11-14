@@ -41,13 +41,19 @@ public sealed class CompactNetworkLookupsTests
             .Select(i => new Sensor { SensorId = i, DeviceId = 1, Description = new string('x', 500), Current = 20, SensorClass = "temperature" }).ToList());
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
 
-        Assert.Equal(5, lookups.Count);
+        Assert.Equal(6, lookups.Count);
         foreach (var lookup in lookups)
         {
-            var query = lookup.Name == "find_device" ? "switch" : lookup.Name == "network_overview" ? "" : "1";
+            var query = lookup.Name == "find_device" ? "switch" : lookup.Name is "network_overview" or "list_groups_and_locations" ? "" : "1";
             var text = await lookup.Run(query, default);
             Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
             Assert.NotEqual(CompactNetworkLookups.Failed, text);
+            if (lookup.Name == "list_groups_and_locations")
+            {
+                Assert.Contains("Groups: 0; locations: 0", text);
+                Assert.DoesNotContain("[[", text);
+                continue;
+            }
             Assert.Contains(lookup.Name == "device_sensors" ? "[[sensor:1]]" : lookup.Name is "active_alerts" or "network_overview" ? "[[alert:1]]" : "[[device:1]]", text);
         }
     }

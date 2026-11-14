@@ -27,3 +27,8 @@ counts. Unknown maintenance is omitted after the upstream Batch 5 correction.
 Mobile reports failed sections as unavailable, and the facts table documents why
 it does not present their zero fallback values as known counts. Complete health
 values are independently checked over HTTP in SharedDeviceHealthHttpTests.
+
+`list_groups_and_locations.json` is an independently written expected MCP
+projection of the pinned Batch 5 `GroupsAndLocations` envelopes. It was checked
+against the shared operation and MCP adapter source; it is not a runtime recording.
+The HTTP test independently checks its group and location facts in CI.
