@@ -23,11 +23,13 @@ internal sealed class FixtureServer : IDisposable
     private readonly HttpListener listener = new();
     private readonly ConcurrentQueue<string> requests = new();
     private readonly Func<string, Answer?> answer;
+    private readonly Func<HttpListenerRequest, bool> authorise;
     private readonly CancellationTokenSource stopping = new();
 
-    public FixtureServer(Func<string, Answer?> answer)
+    public FixtureServer(Func<string, Answer?> answer, Func<HttpListenerRequest, bool>? authorise = null)
     {
         this.answer = answer;
+        this.authorise = authorise ?? (request => request.Headers["X-Auth-Token"] == Token);
         using (var probe = new TcpListener(IPAddress.Loopback, 0))
         {
             probe.Start();
@@ -70,7 +72,7 @@ internal sealed class FixtureServer : IDisposable
         const string api = "/api/v0/";
         var relative = path.StartsWith(api, StringComparison.Ordinal) ? path[api.Length..] : path;
         requests.Enqueue(relative);
-        var reply = context.Request.Headers["X-Auth-Token"] == Token
+        var reply = authorise(context.Request)
             ? answer(relative) ?? new Answer(404, """{"status":"error","message":"No fixture for this path"}""")
             : new Answer(401, """{"status":"error","message":"Unauthenticated."}""");
         try

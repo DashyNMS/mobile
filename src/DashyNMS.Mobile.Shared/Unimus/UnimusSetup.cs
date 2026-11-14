@@ -53,7 +53,11 @@ public sealed class UnimusSetup
         _logger = logger;
     }
 
-    /// <summary>True once Unimus is switched on and has an address and token - not necessarily reachable.</summary>
+    /// <summary>The last completely configured immutable connection, for isolated read-only consumers.</summary>
+    internal sealed record ConnectionSnapshot(UnimusConnection? Connection, int Generation);
+    internal ConnectionSnapshot Captured { get; private set; } = new(null, 0);
+
+    /// <summary>Whether setup has configured the integration; reachability is checked by reads.</summary>
     public bool IsConfigured => _unimus.IsConfigured;
 
     /// <summary>Configures Unimus from settings the first time it's needed; after that only Save changes it.</summary>
@@ -94,6 +98,7 @@ public sealed class UnimusSetup
         Revision++;
         _tokens.Clear();
         _unimus.Clear();
+        Captured = new(null, Revision);
         ForgetDevices();
     }
 
@@ -172,10 +177,13 @@ public sealed class UnimusSetup
             }
 
             _unimus.Clear();
+            Captured = new(null, Revision);
             return;
         }
 
-        _unimus.Configure(Connection(settings, root!, token));
+        var connection = Connection(settings, root!, token);
+        _unimus.Configure(connection);
+        Captured = new(connection, Revision);
     }
 
     /// <summary>A connection from settings, as Save and Test both build it.</summary>

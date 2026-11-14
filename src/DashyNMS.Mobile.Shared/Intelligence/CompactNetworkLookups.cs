@@ -8,7 +8,6 @@ using DashyNMS.Agent.Health;
 using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Rankings;
 using DashyNMS.Agent.Events;
-using Microsoft.Extensions.Logging.Abstractions;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -23,6 +22,9 @@ namespace DashyNMS.Mobile.Intelligence;
 /// <summary>Creates read-only lookups scoped to the current connection, for a model session.</summary>
 public interface IIntelligenceLookups
 {
+    /// <summary>Loads optional integration credentials before capturing an immutable attempt.</summary>
+    Task PrepareAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
+
     /// <summary>Creates a fresh set for one model session and the current connection.</summary>
     IReadOnlyList<IntelligenceLookup> Create();
 
@@ -87,7 +89,7 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// </param>
 public sealed partial class CompactNetworkLookups(
     ILibreNmsClient client, ISettingsStore settings, ISessionService session, TimeProvider? timeProvider = null,
-    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null, SensorDefinitionStore? sensorDefinitions = null) : IIntelligenceLookups
+    Func<SessionScope, ILibreNmsTransport>? deviceTransport = null, SensorDefinitionStore? sensorDefinitions = null, IntelligenceIntegrations? integrations = null) : IIntelligenceLookups
 {
     public const int MaxCharacters = 900;
     internal static readonly TimeSpan Timeout = TimeSpan.FromSeconds(15);
@@ -180,6 +182,9 @@ public sealed partial class CompactNetworkLookups(
         public static Reply Say(string text) => new(text, []);
     }
 
+    public Task PrepareAsync(CancellationToken cancellationToken = default)
+        => integrations?.PrepareAsync(cancellationToken) ?? Task.CompletedTask;
+
     public IReadOnlyList<IntelligenceLookup> Create() => Create(static _ => { });
 
     /// <summary>
@@ -249,20 +254,16 @@ public sealed partial class CompactNetworkLookups(
             healthOverviewBound.SensorTransport, time, SensorOptions(settings.Current), sensorDefinitions);
         var historyBound = scope is not { } capturedHistory || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedHistory, deviceTransport, history: true);
-        // These history reads use only LibreNMS. WhatChanged gets captured optional
-        // integration clients when its adapter is added; it is not offered yet.
-        var historyUnimus = new UnimusApi(NullLogger<UnimusApi>.Instance);
-        var historyGraylog = new GraylogApi(NullLogger<GraylogApi>.Instance);
-        var histories = historyBound is null ? null : HostEventLookups.Create(historyBound, historyUnimus, historyGraylog, time,
-            new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
+        var integrationClients = integrations?.Capture() ?? new IntelligenceIntegrationClients(null, null, settings.Current);
+        var histories = historyBound is null ? null : HostEventLookups.Create(historyBound, integrationClients.Unimus, integrationClients.Graylog,
+            time, integrationClients.Options);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
             histories?.Dispose();
             historyBound?.Dispose();
-            historyUnimus.Dispose();
-            historyGraylog.Dispose();
+            integrationClients.Dispose();
             rankings?.Dispose();
             rankingBound?.Dispose();
             healthOverview?.Dispose();

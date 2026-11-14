@@ -41,7 +41,11 @@ public sealed class GraylogSetup
         _logger = logger;
     }
 
-    /// <summary>True once Graylog is switched on and has everything it needs to connect - not necessarily reachable.</summary>
+    /// <summary>The last completely configured immutable connection, for isolated read-only consumers.</summary>
+    internal sealed record ConnectionSnapshot(GraylogConnection? Connection, int Generation);
+    internal ConnectionSnapshot Captured { get; private set; } = new(null, 0);
+
+    /// <summary>Whether setup has configured the integration; reachability is checked by reads.</summary>
     public bool IsConfigured => _graylog.IsConfigured;
 
     /// <summary>
@@ -89,6 +93,7 @@ public sealed class GraylogSetup
         Generation++;
         _passwords.Clear();
         _graylog.Clear();
+        Captured = new(null, Generation);
     }
 
     private void Configure(GraylogSettings settings, string? password)
@@ -97,6 +102,7 @@ public sealed class GraylogSetup
         if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.Server))
         {
             _graylog.Clear();
+            Captured = new(null, Generation);
             return;
         }
 
@@ -105,9 +111,11 @@ public sealed class GraylogSetup
         {
             _logger.LogWarning("Graylog is switched on but can't be connected to: {Error}", error);
             _graylog.Clear();
+            Captured = new(null, Generation);
             return;
         }
 
         _graylog.Configure(connection);
+        Captured = new(connection, Generation);
     }
 }

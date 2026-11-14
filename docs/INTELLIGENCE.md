@@ -498,6 +498,24 @@ fallback reads concurrently, so its requests are compared as a set. The type cas
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
 
+### Captured integration clients
+
+Before opening a model attempt, the conversation awaits the phone's existing
+Graylog/Unimus setup and secure-storage preparation, with caller cancellation.
+Setup publishes immutable connection snapshots only after configuration. Each
+attempt creates separate Core clients from those snapshots, including the saved
+TLS and credential choices; operations cannot reconfigure them, test a connection
+or trigger a backup. These clients use no request logger and close with the
+attempt. Setup generations reject further reads after an integration is changed
+or forgotten. The main LibreNMS generation still governs the whole lookup set.
+
+The captured options include server timestamps, Graylog query field/address
+matching and the phone's config-text choice (Summary by default). The history
+factory now receives these clients; its LibreNMS-only tools do not call them.
+WhatChanged and the integration tool adapters follow. CI tests use two synthetic
+HTTP services to check addresses, credentials, capture against settings changes,
+retirement and refused configuration/write methods.
+
 ### How event and alert history is built
 
 Device/fleet events and historical active_alerts use `HostEventLookups` with a

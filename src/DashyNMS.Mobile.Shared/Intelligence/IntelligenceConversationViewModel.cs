@@ -374,6 +374,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 // Owned by this attempt: however it ends (an answer, the context retry, a
                 // failure, Stop or a switch) the set is disposed with it, closing the device
                 // search's private transport rather than leaving it to the next switch.
+                await _lookups.PrepareAsync(token).ConfigureAwait(false);
+                RequireCurrent(run);
                 using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)));
                 // This question's tools and lookup limit, from what was asked and what the context holds (#637).
                 var costs = new Dictionary<string, int>(StringComparer.Ordinal);
