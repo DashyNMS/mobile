@@ -54,13 +54,13 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 6: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, and `list_groups_and_locations` | #236 |
+| 24 network tools | 8: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, and `alert_rules` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
 | Core's instructions, about 1,300 words | Short forms of Core's base, detail and Spotlight blocks, each rule mapped or excluded with its reason; Core's own text on Private Cloud Compute | Allowed difference (#638) |
 | Sensor readings judged by the host's saved thresholds and sensor-limit override | The same Core evaluation as the Health page, captured per question | #639 |
-| Device search without maintenance | The same | #620 |
+| Device search with maintenance on returned rows | Shared operation and evidence | #620 |
 | Brief, Balanced, Detailed and Full report | Brief, Balanced and Detailed | Allowed difference |
 | Saved chats to rename, pin and delete, grouped by date | Done | #229 |
 | Single-chat mode | Done | #230 |
@@ -210,7 +210,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared, complete operation with bounded rows | #634 |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
 | `list_groups_and_locations` | Group and location catalogue | Shared, with exact filter names in evidence | #642 |
-| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not yet | #641 |
+| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
 | `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Not yet | #643 |
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Not yet | #644 |
 | `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
@@ -499,6 +499,33 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How alert_details and alert_rules are built
+
+Both adapters use `HostAlertRules` in a dedicated captured client. It permits
+only the device, rule, template, group and location lists, system version, open
+alerts, a positive alert/fault ID in all states, open siblings for a positive
+rule ID, and alert history. History is bounded by the shared operation: 200 for
+one device, or 200/1,000/2,000 globally. Other queries, event logs, single device
+reads, memberships, maintenance and writes are refused before transport.
+
+All rule catalogue arguments are offered unchanged, including sorts, paging,
+severity, enabled/disabled choice and verbose notes. Rule and target IDs are
+plain facts; the app has no rule route and cleaned target names are not exact
+navigation filters. Alert details link the source-qualified alert or fault and
+its device only when the shared result supplies that device. A follow-up carries
+the source previously observed in this lookup set; a different source or an
+ambiguous identity is refused. Unknown or failed history stays unknown.
+
+Source notices precede detail rows. Rule conditions, procedures, notes, trigger
+fields, history, counts, scope targets and compatibility advice use bounded
+labels and whole rows within 900 characters. Omitted rows and pages are counted
+and create no evidence. The shared summary retains incomplete-history notices.
+The copied AlertRules fixtures are checked byte for byte in CI. HTTP tests check
+shared detail facts, legacy/fault navigation, source mismatch, optional failures,
+rule filters, sorts and paging, required failures and refused APIs. Full MCP JSON
+field accounting and on-device follow-up acceptance remain pending while this
+PR is draft.
 
 ### How list_groups_and_locations is built
 

@@ -59,6 +59,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     private readonly bool sensorProfile;
     private readonly bool healthProfile;
     private readonly bool scopeProfile;
+    private readonly bool alertRuleProfile;
     private readonly SensorListOnly sensors;
     private readonly SensorRoutesOnly sensorRoutes;
     private readonly Lock gate = new();
@@ -76,15 +77,17 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     /// </param>
     /// <param name="sensors">The sensor profile (#603) rather than search's.</param>
     /// <param name="scopes">Only the device and group lists for the scope catalogue (#642).</param>
+    /// <param name="alertRules">Alert details and rule catalogue reads (#641).</param>
     /// <param name="health">The complete device-health profile (#634).</param>
-    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false, bool health = false, bool scopes = false)
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false, bool health = false, bool scopes = false, bool alertRules = false)
     {
-        if ((overview ? 1 : 0) + (sensors ? 1 : 0) + (health ? 1 : 0) + (scopes ? 1 : 0) > 1) throw new ArgumentException("One profile per client.", nameof(sensors));
+        if ((overview ? 1 : 0) + (sensors ? 1 : 0) + (health ? 1 : 0) + (scopes ? 1 : 0) + (alertRules ? 1 : 0) > 1) throw new ArgumentException("One profile per client.", nameof(sensors));
         this.scope = scope;
         this.overview = overview;
         sensorProfile = sensors;
         healthProfile = health;
         scopeProfile = scopes;
+        alertRuleProfile = alertRules;
         this.sensors = new SensorListOnly(this);
         sensorRoutes = new SensorRoutesOnly(this);
         this.openTransport = openTransport;
@@ -205,7 +208,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     private Task<Device?> GetAsync(string idOrHostname, CancellationToken cancellationToken)
     {
         // Overview's and sensors' instances have no use for one device, so they don't get one.
-        if (overview || sensorProfile || scopeProfile) throw new RefusedException(nameof(IDevicesApi.GetAsync) + " outside device search and summary");
+        if (overview || sensorProfile || scopeProfile || alertRuleProfile) throw new RefusedException(nameof(IDevicesApi.GetAsync) + " outside device search and summary");
         // Only the reviewed read: one device by its id, as device search returns them. A hostname
         // would make LibreNMS pick the device, and a padded or signed number isn't an id it gave us.
         if (!int.TryParse(idOrHostname, NumberStyles.None, CultureInfo.InvariantCulture, out var id)
@@ -275,12 +278,12 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         {
             if (sensorProfile || scopeProfile) throw new RefusedException(nameof(Alerts));
             lock (gate)
-                return retired ? throw new RetiredException() : alerts;
+                return retired ? throw new RetiredException() : alertRuleProfile ? new RuleAlertsOnly(this) : alerts;
         }
     }
 
-    public IAlertRulesApi Rules => throw new RefusedException(nameof(Rules));
-    public IAlertTemplatesApi AlertTemplates => throw new RefusedException(nameof(AlertTemplates));
+    public IAlertRulesApi Rules => alertRuleProfile ? new RulesOnly(this) : throw new RefusedException(nameof(Rules));
+    public IAlertTemplatesApi AlertTemplates => alertRuleProfile ? new TemplatesOnly(this) : throw new RefusedException(nameof(AlertTemplates));
     public ISensorsApi Sensors
     {
         get
@@ -301,7 +304,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     private Task<bool> ReadMaintenanceAsync(int deviceId, CancellationToken cancellationToken)
     {
         // Search and health own this read. Other profiles cannot probe maintenance.
-        if (deviceId <= 0 || overview || sensorProfile || scopeProfile)
+        if (deviceId <= 0 || overview || sensorProfile || scopeProfile || alertRuleProfile)
             throw new RefusedException("Reading maintenance outside search and health");
         return Apis().Devices.IsUnderMaintenanceAsync(deviceId, cancellationToken);
     }
@@ -352,7 +355,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     public ILinksApi Links => throw new RefusedException(nameof(Links));
     public IDeviceHealthApi Health => healthProfile ? new DeviceHealthOnly(this) : throw new RefusedException(nameof(Health));
     public IFdbApi Fdb => throw new RefusedException(nameof(Fdb));
-    public IArpApi Arp => overview || sensorProfile || healthProfile || scopeProfile ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
+    public IArpApi Arp => overview || sensorProfile || healthProfile || scopeProfile || alertRuleProfile ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
 
     private sealed class SearchArp(ConnectionBoundClient owner) : IArpApi
     {
@@ -362,7 +365,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
     }
     public IVlansApi Vlans => throw new RefusedException(nameof(Vlans));
-    public IDeviceGroupsApi DeviceGroups => scopeProfile ? new CatalogueGroupsOnly(this)
+    public IDeviceGroupsApi DeviceGroups => (scopeProfile || alertRuleProfile) ? new CatalogueGroupsOnly(this)
         : overview || sensorProfile || healthProfile ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
 
     private sealed class CatalogueGroupsOnly(ConnectionBoundClient owner) : IDeviceGroupsApi
@@ -390,11 +393,11 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task UpdateAsync(string currentName, string newName, string? description, IReadOnlyList<int> deviceIds, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(UpdateAsync));
         public Task DeleteAsync(string name, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(DeleteAsync));
     }
-    public ILocationsApi Locations => throw new RefusedException(nameof(Locations));
+    public ILocationsApi Locations => alertRuleProfile ? new LocationsOnly(this) : throw new RefusedException(nameof(Locations));
     public IRoutingApi Routing => throw new RefusedException(nameof(Routing));
     public IPollerGroupsApi PollerGroups => throw new RefusedException(nameof(PollerGroups));
-    public ILogsApi Logs => throw new RefusedException(nameof(Logs));
-    public ISystemApi System => overview ? new SystemOnly(this) : throw new RefusedException(nameof(System));
+    public ILogsApi Logs => alertRuleProfile ? new AlertLogsOnly(this) : throw new RefusedException(nameof(Logs));
+    public ISystemApi System => overview || alertRuleProfile ? new SystemOnly(this) : throw new RefusedException(nameof(System));
     public IGraphsApi Graphs => throw new RefusedException(nameof(Graphs));
 
     public LibreNmsConnection? Connection => throw new RefusedException(nameof(Connection));

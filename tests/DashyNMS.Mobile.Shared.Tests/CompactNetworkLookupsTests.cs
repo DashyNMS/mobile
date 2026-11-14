@@ -41,9 +41,10 @@ public sealed class CompactNetworkLookupsTests
             .Select(i => new Sensor { SensorId = i, DeviceId = 1, Description = new string('x', 500), Current = 20, SensorClass = "temperature" }).ToList());
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
 
-        Assert.Equal(6, lookups.Count);
-        foreach (var lookup in lookups)
+        Assert.Equal(8, lookups.Count);
+        foreach (var lookup in lookups.Where(l => l.Name is not ("alert_details" or "alert_rules")))
         {
+            // Alert detail and rule budgets use their complete HTTP fixtures separately.
             var query = lookup.Name == "find_device" ? "switch" : lookup.Name is "network_overview" or "list_groups_and_locations" ? "" : "1";
             var text = await lookup.Run(query, default);
             Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);

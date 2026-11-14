@@ -55,6 +55,8 @@ public static partial class IntelligenceToolChoice
     private static readonly IReadOnlyDictionary<string, string[]> Cues = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["network_overview"] = ["network", "overview", "how is", "how's", "status", "summary", "summarise", "summarize", "everything", "overall", "how many", "dashboard", "doing", "brief"],
+        ["alert_details"] = ["why", "fired", "fire", "trigger", "alert detail", "fault detail"],
+        ["alert_rules"] = ["rule", "rules", "condition", "template", "noisiest"],
         ["active_alerts"] = ["alert", "alarm", "critical", "warning", "fault", "firing", "acknowledg", "unacknowledg", "attention", "severe", "severity", "problem", "issue", "wrong"],
         ["list_groups_and_locations"] = ["group", "location", "site", "which groups", "which locations"],
         ["find_device"] = ["find", "search", "which device", "which devices", "where", "list", "mac", "address", "location", "site", "group", "down", "disabled", "offline"],

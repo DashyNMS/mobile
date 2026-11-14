@@ -59,3 +59,7 @@ check DeviceResolution ce4ec6219c1212e2584524ed7ac3643720ab5635 \
 # Scope catalogue reads the same device and group envelopes, without membership or maintenance.
 UPSTREAM_FIXTURE=DeviceSearch check GroupsAndLocations a9032220aa18c3234d920f0503eba6de0348d6ba \
   devices.json groups.json
+
+# Alert details and rule queries share these HTTP envelopes with MCP.
+check AlertRules a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md cases.json routes.json

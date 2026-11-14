@@ -1,0 +1,14 @@
+{
+  "alertId": 10,
+  "source": "Alert",
+  "deviceId": 1,
+  "ruleId": 3,
+  "matched": 1,
+  "earlierFirings": 1,
+  "ruleIdsByName": [
+    4,
+    5,
+    3
+  ],
+  "retiredCode": "OperationCanceledException"
+}

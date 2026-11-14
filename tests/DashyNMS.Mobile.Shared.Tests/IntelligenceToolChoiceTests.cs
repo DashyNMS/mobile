@@ -60,6 +60,8 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("Why did this alert fire?", "alert_details")]
+    [InlineData("Which rules are noisiest?", "alert_rules")]
     [InlineData("Which groups and locations are available?", "list_groups_and_locations")]
     [InlineData("Which sensors are too hot?", "device_sensors")]
     [InlineData("Are the fans on 198.51.100.4 OK?", "device_sensors")]

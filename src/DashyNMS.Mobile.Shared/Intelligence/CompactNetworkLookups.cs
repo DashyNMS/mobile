@@ -116,7 +116,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules",
     };
 
     /// <summary>
@@ -128,6 +128,8 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["alert_details"] = ["alert_id"],
+        ["alert_rules"] = ["name", "severity", "include_disabled", "sort", "offset", "limit", "verbose"],
         ["find_device"] = ["query", "status", "group", "location", "verbose"],
         ["device_health"] = ["device"],
         ["active_alerts"] = ["severity", "device", "group", "location", "verbose"],
@@ -212,8 +214,16 @@ public sealed partial class CompactNetworkLookups(
         var scopeBound = scope is not { } capturedScopes || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedScopes, deviceTransport, scopes: true);
         var groupsAndLocations = scopeBound is null ? null : HostGroupsAndLocations.Create(scopeBound, time);
+        var ruleBound = scope is not { } capturedRules || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedRules, deviceTransport, alertRules: true);
+        var alertRules = ruleBound is null ? null : HostAlertRules.Create(ruleBound, time,
+            new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
+        var alertSources = new Dictionary<int, AlertSource?>();
+        var alertSourceGate = new Lock();
         void RetireShared()
         {
+            alertRules?.Dispose();
+            ruleBound?.Dispose();
             groupsAndLocations?.Dispose();
             scopeBound?.Dispose();
             search?.Dispose();
@@ -269,7 +279,17 @@ public sealed partial class CompactNetworkLookups(
                     var reply = await run(arguments, time.GetUtcNow(), timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                     if (!IsCurrent()) return Retire();
-                    if (reply.References.Count > 0) evidence(reply.References);
+                    if (reply.References.Count > 0)
+                    {
+                        lock (alertSourceGate)
+                            foreach (var reference in reply.References)
+                                if (reference.Reference.Object is { Kind: "alert" or "fault" } target)
+                                {
+                                    var source = target.Kind == "fault" ? AlertSource.Fault : AlertSource.Alert;
+                                    alertSources[target.Id] = alertSources.TryGetValue(target.Id, out var previous) && previous != source ? null : source;
+                                }
+                        evidence(reply.References);
+                    }
                     return reply.Text;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -618,6 +638,33 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("alert_details", null, async (arguments, at, ct) =>
+            {
+                if (arguments.Number("alert_id") is not { } id || id <= 0)
+                    return Reply.Say(IntelligenceToolArguments.Refusal("alert_id must be positive."));
+                if (alertRules is null) return Reply.Say(Failed);
+                AlertSource? source = null;
+                lock (alertSourceGate)
+                {
+                    if (alertSources.TryGetValue(id, out var observed))
+                    {
+                        if (observed is null) return Reply.Say("The alert identity is ambiguous. Read active_alerts again before asking for its detail.");
+                        source = observed;
+                    }
+                }
+                var outcome = await WhileCurrent(() => alertRules.ReadDetailsAsync(new(id, source), ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? AlertDetailRows(found, at, time)
+                    : Reply.Say(outcome.Error == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
+            }),
+            Lookup("alert_rules", "name", async (arguments, at, ct) =>
+            {
+                if (alertRules is null) return Reply.Say(Failed);
+                var request = new AlertRulesRequest(arguments.Text("name"), arguments.Text("severity"), arguments.Flag("include_disabled"),
+                    arguments.Text("sort"), arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20, arguments.Flag("verbose"));
+                var outcome = await WhileCurrent(() => alertRules.ReadRulesAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? AlertRuleRows(found)
+                    : Reply.Say(outcome.Error == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
             }),
             Lookup("list_groups_and_locations", null, async (_, at, ct) =>
             {
