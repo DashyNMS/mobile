@@ -54,10 +54,18 @@ public sealed class IntelligenceToolChoiceTests
     [Fact]
     public void A_question_naming_a_device_gets_the_device_tools()
     {
-        var choice = Choose("What OS is core-sw1 running?");
+        var choice = Choose("Is core-sw1 OK?");
 
         Assert.Equal("device_health", Names(choice)[0]);
     }
+
+    // device_health's catalogue description doesn't mention OS or hardware; find_device's verbose does.
+    [Theory]
+    [InlineData("What OS is core-sw1 running?")]
+    [InlineData("What hardware is 198.51.100.4?")]
+    [InlineData("Which firmware version is edge-rtr2 on?")]
+    public void A_question_about_what_a_device_is_gets_find_device_first(string question)
+        => Assert.Equal("find_device", Names(Choose(question))[0]);
 
     [Theory]
     [InlineData("Which sensors are too hot?", "device_sensors")]

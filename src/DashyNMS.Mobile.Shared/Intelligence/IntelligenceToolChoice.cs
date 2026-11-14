@@ -57,9 +57,17 @@ public static partial class IntelligenceToolChoice
         ["network_overview"] = ["network", "overview", "how is", "how's", "status", "summary", "summarise", "summarize", "everything", "overall", "how many", "dashboard", "doing", "brief"],
         ["active_alerts"] = ["alert", "alarm", "critical", "warning", "fault", "firing", "acknowledg", "unacknowledg", "attention", "severe", "severity", "problem", "issue", "wrong"],
         ["find_device"] = ["find", "search", "which device", "which devices", "where", "list", "mac", "address", "location", "site", "group", "down", "disabled", "offline"],
-        ["device_health"] = ["health", "uptime", "os", "running", "hardware", "model", "reboot", "version", "firmware"],
+        ["device_health"] = ["health", "uptime", "reboot", "maintenance", "cpu", "memory", "storage"],
         ["device_sensors"] = ["sensor", "temperature", "temp", "hot", "fan", "optic", "dbm", "power", "voltage", "psu", "humidity", "signal", "current"],
     };
+
+    /// <summary>
+    /// Words asking what a device is: its OS, hardware or version. Only find_device's verbose record has
+    /// these in the catalogue (device_health's description doesn't mention them), so the model looks
+    /// there only if find_device is offered. They count double, ahead of the device tools a named
+    /// device brings.
+    /// </summary>
+    private static readonly string[] Inventory = ["os", "operating system", "hardware", "model", "version", "firmware", "software", "sysname", "platform"];
 
     /// <summary>The tools a question about one device wants, besides any its words point to.</summary>
     private static readonly string[] DeviceTools = ["device_health", "active_alerts", "device_sensors"];
@@ -85,6 +93,8 @@ public static partial class IntelligenceToolChoice
             foreach (var (tool, cues) in Cues)
                 if (scores.ContainsKey(tool))
                     scores[tool] += weight * cues.Count(cue => Matches(words, cue));
+            if (scores.ContainsKey("find_device"))
+                scores["find_device"] += 2 * weight * Inventory.Count(cue => Matches(words, cue));
             if (NamesADevice(text))
                 foreach (var tool in DeviceTools.Where(scores.ContainsKey))
                     scores[tool] += weight;

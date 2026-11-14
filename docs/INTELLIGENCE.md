@@ -602,7 +602,10 @@ tools per question:
 
 1. The tools its words point to (alerts, sensors, a device's health, finding
    devices, the overview), and the device tools when it names a device by an
-   address or a name with a digit in it.
+   address or a name with a digit in it. A question about what a device is (its
+   OS, hardware, model or version) puts `find_device` first: its `verbose`
+   record is the only catalogue tool that promises those, and `device_health`'s
+   description doesn't mention them, so the model wouldn't look there.
 2. The device tools and `find_device` when the chat has a Spotlight (#231).
 3. What the last two earlier questions pointed to, at half weight, so "and its
    sensors?" keeps its subject.
