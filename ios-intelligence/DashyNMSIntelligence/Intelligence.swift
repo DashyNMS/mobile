@@ -42,31 +42,36 @@ public final class LookupReply: NSObject, @unchecked Sendable {
     }
 }
 
-/// A lookup the model may call: its name, when to use it, and the C# that runs it.
+/// A lookup the model may call: its name, when to use it, its parameters
+/// and the C# that runs it.
 @objc(DNMLookup)
 public final class Lookup: NSObject, @unchecked Sendable {
     let name: String
     let purpose: String
+    /// The catalogue parameters C# offers, as a JSON array (see IntelligenceToolArguments.Schema).
+    let parameters: String
     let handler: (String, LookupReply) -> Void
 
-    @objc(initWithName:purpose:handler:)
-    public init(name: String, purpose: String, handler: @escaping (String, LookupReply) -> Void) {
+    @objc(initWithName:purpose:parameters:handler:)
+    public init(name: String, purpose: String, parameters: String, handler: @escaping (String, LookupReply) -> Void) {
         self.name = name
         self.purpose = purpose
+        self.parameters = parameters
         self.handler = handler
         super.init()
     }
 
-    func run(_ query: String) async -> String {
+    func run(_ arguments: String) async -> String {
         await withCheckedContinuation { continuation in
-            handler(query, LookupReply(continuation))
+            handler(arguments, LookupReply(continuation))
         }
     }
 }
 
-/// A lookup as Foundation Models sees it. Its arguments are
-/// described by hand rather than with the @Generable macro: CodeQL builds
-/// this under Rosetta, where the compiler's macro plugin can't load.
+/// A lookup as Foundation Models sees it. Its arguments are built at run
+/// time from the shared catalogue's parameters (#635) rather than with the
+/// @Generable macro: the tools aren't known when this compiles, and CodeQL
+/// builds this under Rosetta, where the compiler's macro plugin can't load.
 @available(iOS 26.0, *)
 struct LookupTool: Tool {
     let lookup: Lookup
@@ -75,41 +80,62 @@ struct LookupTool: Tool {
     var description: String { lookup.purpose }
 
     var parameters: GenerationSchema {
-        if lookup.name == "find_device" {
-            return GenerationSchema(type: GeneratedContent.self, description: "Device search", properties: [
-                GenerationSchema.Property(name: "query", description: "Name, IP or MAC", type: String?.self),
-                GenerationSchema.Property(name: "status", description: "up, down, disabled", type: String?.self),
-                GenerationSchema.Property(name: "group", description: "Group name", type: String?.self),
-                GenerationSchema.Property(name: "location", description: "Location name", type: String?.self)
-            ])
+        if let schema = try? Self.schema(name: lookup.name, parameters: lookup.parameters) {
+            return schema
         }
-        return GenerationSchema(
-            type: GeneratedContent.self,
-            description: "What to look up",
-            properties: [
-                GenerationSchema.Property(
-                    name: "query",
-                    description: "What to look for, or an empty string for everything",
-                    type: String.self)
-            ])
+        // An unreadable parameter list offers no arguments; C# then refuses any the model invents.
+        return GenerationSchema(type: GeneratedContent.self, description: nil, properties: [])
     }
 
+    /// The model's arguments go to C# as one JSON object, which checks them
+    /// against the catalogue before any request.
     func call(arguments: GeneratedContent) async throws -> String {
-        if lookup.name == "find_device" {
-            var fields: [String: String] = [:]
-            for key in ["query", "status", "group", "location"] {
-                if let value = try? arguments.value(String.self, forProperty: key) {
-                    fields[key] = value
-                }
-            }
-            guard let data = try? JSONSerialization.data(withJSONObject: fields),
-                  let payload = String(data: data, encoding: .utf8) else {
-                return "The lookup failed."
-            }
-            return await lookup.run(payload)
+        await lookup.run(arguments.jsonString)
+    }
+
+    /// One property per catalogue parameter: its type, its description, and
+    /// guides for documented values and ranges, so the model is steered to
+    /// arguments the tool accepts. Optional unless the catalogue requires it.
+    static func schema(name: String, parameters json: String) throws -> GenerationSchema {
+        guard let data = json.data(using: .utf8),
+              let list = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            throw CocoaError(.coderReadCorrupt)
         }
-        let query = (try? arguments.value(String.self, forProperty: "query")) ?? ""
-        return await lookup.run(query)
+        let properties: [DynamicGenerationSchema.Property] = list.compactMap { parameter in
+            guard let property = parameter["name"] as? String, let type = parameter["type"] as? String else { return nil }
+            let allowed = parameter["allowedValues"] as? [String]
+            let minimum = parameter["minimum"] as? Int
+            let maximum = parameter["maximum"] as? Int
+            let schema: DynamicGenerationSchema
+            switch type {
+            case "integer":
+                var guides: [GenerationGuide<Int>] = []
+                if let low = minimum, let high = maximum {
+                    guides.append(.range(low...high))
+                } else if let low = minimum {
+                    guides.append(.minimum(low))
+                } else if let high = maximum {
+                    guides.append(.maximum(high))
+                }
+                schema = DynamicGenerationSchema(type: Int.self, guides: guides)
+            case "boolean":
+                schema = DynamicGenerationSchema(type: Bool.self)
+            case "stringList":
+                let item = allowed.map { DynamicGenerationSchema(name: "\(name)_\(property)_item", anyOf: $0) }
+                    ?? DynamicGenerationSchema(type: String.self)
+                schema = DynamicGenerationSchema(arrayOf: item)
+            default:
+                // Choice schemas are named with letters and underscores only, as tool names are.
+                schema = allowed.map { DynamicGenerationSchema(name: "\(name)_\(property)", anyOf: $0) }
+                    ?? DynamicGenerationSchema(type: String.self)
+            }
+            return DynamicGenerationSchema.Property(
+                name: property,
+                description: parameter["description"] as? String,
+                schema: schema,
+                isOptional: !((parameter["required"] as? Bool) ?? false))
+        }
+        return try GenerationSchema(root: DynamicGenerationSchema(name: name, properties: properties), dependencies: [])
     }
 }
 

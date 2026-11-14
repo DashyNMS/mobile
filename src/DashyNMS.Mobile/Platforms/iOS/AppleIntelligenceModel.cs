@@ -61,7 +61,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 		/// exception's, which could carry an address or a token.
 		/// </summary>
 		private DnmLookup Bridge(IntelligenceLookup lookup) =>
-			new(lookup.Name, lookup.Purpose, (query, reply) =>
+			new(lookup.Name, lookup.Purpose, IntelligenceToolArguments.Schema(lookup.Parameters), (arguments, reply) =>
 			{
 				// Read now, on the model's thread, so the lookup belongs to the
 				// question that asked for it. One that arrives after its question
@@ -80,7 +80,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				{
 					try
 					{
-						reply.Finish(await lookup.Run(query ?? string.Empty, token));
+						reply.Finish(await lookup.Run(arguments ?? string.Empty, token));
 					}
 					catch (Exception)
 					{

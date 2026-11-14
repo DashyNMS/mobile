@@ -6,8 +6,8 @@ namespace DashyNMS.Mobile.Intelligence.Native;
 // Written by hand against ios-intelligence/DashyNMSIntelligence/Intelligence.swift:
 // each selector here is spelled out in an @objc(...) there. Change both together.
 
-/// <summary>Runs a lookup for the model's query and answers through <paramref name="reply"/>.</summary>
-delegate void DnmLookupHandler(string query, DnmLookupReply reply);
+/// <summary>Runs a lookup for the model's arguments, one JSON object, and answers through <paramref name="reply"/>.</summary>
+delegate void DnmLookupHandler(string arguments, DnmLookupReply reply);
 
 /// <summary>The answer so far, all of it.</summary>
 delegate void DnmTextHandler(string text);
@@ -33,9 +33,9 @@ interface DnmLookupReply
 [DisableDefaultCtor]
 interface DnmLookup
 {
-    // - (instancetype)initWithName:(NSString *)name purpose:(NSString *)purpose handler:(void (^)(NSString *, DNMLookupReply *))handler;
-    [Export("initWithName:purpose:handler:")]
-    NativeHandle Constructor(string name, string purpose, DnmLookupHandler handler);
+    // - (instancetype)initWithName:(NSString *)name purpose:(NSString *)purpose parameters:(NSString *)parameters handler:(void (^)(NSString *, DNMLookupReply *))handler;
+    [Export("initWithName:purpose:parameters:handler:")]
+    NativeHandle Constructor(string name, string purpose, string parameters, DnmLookupHandler handler);
 }
 
 // @interface DNMIntelligenceModel : NSObject
