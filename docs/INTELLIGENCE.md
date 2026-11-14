@@ -204,7 +204,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 
 | Tool | Capability | Phone | Issue |
 | --- | --- | --- | --- |
-| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC and scope filters | #620, #635, #636 |
+| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC, scope filters and maintenance | #620, #635, #636 |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared, complete operation with bounded rows | #634 |
@@ -290,11 +290,10 @@ What each shared tool on the phone does beyond the pattern above.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43536733548.1`, from DashyNMS/mcp's
-`shared-package.yml` run 43536733548 at commit
-`ce4ec6219c1212e2584524ed7ac3643720ab5635` (DashyNMS/mcp#134: the tool catalogue and
-device resolution, DashyNMS/mcp#130 and #131), SHA-256
-`59f948a9daecbb799b1ec37fb69aad5d2f23e13a7a2ca832c2261fdbbd96bef5`. It was
+**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43619927507.1`, from DashyNMS/mcp's
+`shared-package.yml` run 43619927507 at commit
+`a9032220aa18c3234d920f0503eba6de0348d6ba` (DashyNMS/mcp#135), SHA-256
+`74d0675b045c73f85a95788544fd88784e3896679230dedf3aaf8089e5fcb3c1`. It was
 `DashyNMS.Agent.Search` until DashyNMS/mcp#122 renamed it and restarted its
 versions at 2.0.0. It is MIT licensed and targets net10.0. Its minimum Core is
 `2.0.0-ci.64`, the same build as mobile's direct pin.
@@ -328,9 +327,20 @@ generation they came from. Chats and lookups are bound by `SessionScope`
 object, which Core replaces whenever a certificate is trusted or the timeout
 changes. Without a transport factory, `find_device` fails closed.
 
+**Maintenance.** The shared search checks each returned row sequentially, at most
+the phone's 20-row page; it does not check the entire match set. The typed shared
+state supplies the row and evidence state. Active maintenance takes precedence;
+a failed check keeps the device-list state, labels maintenance unknown and never
+claims it is off. The evidence source distinguishes a completed check from an
+unavailable one. Maintenance is read again on the next lookup even while the
+device list remains cached. Cancellation, the deadline and retirement cover the
+extra reads. The pinned request-count fixtures and HTTP active/inactive/refused/
+missing cases check both hosts, with separate page-bound and late-result tests.
+
 **Allowlist and lifetime.** Device search permits `IDevicesApi.ListAsync`,
 `IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
-`IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
+`IDeviceGroupsApi.GetMemberDeviceIdsAsync` and `IDevicesApi.IsUnderMaintenanceAsync`
+for positive IDs on the returned page. Location filtering reads the device
 list, without a locations endpoint. A device argument resolves over the same
 profile's `IDevicesApi.ListAsync` (see [Device arguments](#device-arguments-635)).
 `device_health` permits `IDevicesApi.GetAsync` by a positive numeric id, never by

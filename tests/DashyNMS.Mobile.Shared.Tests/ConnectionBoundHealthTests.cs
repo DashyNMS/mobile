@@ -49,6 +49,19 @@ public sealed class ConnectionBoundHealthTests
         Assert.Empty(transport.Requests);
     }
 
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    public async Task Maintenance_is_unavailable_to_other_profiles_before_transport(bool overview, bool sensors, bool scopes)
+    {
+        var opened = false;
+        using var client = new ConnectionBoundClient(new SessionScope(0, Captured), _ => { opened = true; return new Recording(); },
+            overview: overview, sensors: sensors, scopes: scopes);
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => client.Devices.IsUnderMaintenanceAsync(1));
+        Assert.False(opened);
+    }
+
     private sealed class Recording : ILibreNmsTransport
     {
         internal List<string> Requests { get; } = [];

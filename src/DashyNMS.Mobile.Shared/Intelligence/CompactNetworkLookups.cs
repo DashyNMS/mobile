@@ -342,15 +342,20 @@ public sealed partial class CompactNetworkLookups(
         // and doesn't tell ignored devices apart.
         // Then MCP's other facts (#636): its location, the hostname and display name wherever they
         // differ from the name shown, and with verbose its sysName, OS, hardware and last poll.
-        Row SearchRow(DeviceSummary d, DateTimeOffset at, bool verbose = false)
+        Row SearchRow(DeviceSummary d, DateTimeOffset at, bool verbose = false, bool maintenanceChecked = false)
         {
             var name = SummaryName(d);
             var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
             // Up to a minute old: the shared search caches the device list per connection.
-            IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status from the device list, up to a minute old")
+            var source = maintenanceChecked
+                ? d.UnderMaintenance is null ? "Device list state, up to a minute old; maintenance unavailable"
+                    : "Device list state, up to a minute old; maintenance checked for this search"
+                : "Device status from the device list, up to a minute old";
+            IntelligenceEvidence reference = new(new("device:" + Id(d.DeviceId), name, status, tone, at, source)
             { Object = new("device", d.DeviceId) });
             return new($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}" + OtherNames(d, name, verbose)
                 + (string.IsNullOrWhiteSpace(d.Location) ? "" : "; location " + Clean(d.Location))
+                + (maintenanceChecked && d.UnderMaintenance is null ? "; maintenance unknown" : "")
                 + (verbose ? Inventory(d) + (d.LastPolled is { } polled ? "; last polled " + IntelligenceTime.AtAndAgo(polled, at, time) : "") : ""),
                 [reference]);
         }
@@ -538,10 +543,10 @@ public sealed partial class CompactNetworkLookups(
                     ? $"Devices with stored ARP observations: {Id(found.Page.Total)}. Observations do not prove ownership."
                     : $"Matching devices: {Id(found.Page.Total)}.", found.Matches.Select(m =>
                     {
-                        var row = SearchRow(m.Device, at, arguments.Flag("verbose"));
+                        var row = SearchRow(m.Device, at, arguments.Flag("verbose"), maintenanceChecked: true);
                         // A verbose row too long to show falls back to the brief one, so a single match
                         // is never dropped whole for its inventory; MAC observations still follow it.
-                        if (row.Text.Length > RowCharacters) row = SearchRow(m.Device, at);
+                        if (row.Text.Length > RowCharacters) row = SearchRow(m.Device, at, maintenanceChecked: true);
                         if (!found.IsMacSearch) return row;
                         var sightings = m.SeenAs.Take(2).Select(a => $"{Clean(a.Ip)} on port {Id(a.PortId)}");
                         return row with { Text = row.Text + "; ARP observed " + string.Join(", ", sightings)

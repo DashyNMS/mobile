@@ -31,9 +31,9 @@ check() {
   echo "$name fixture matches DashyNMS/mcp@$commit."
 }
 
-# DashyNMS/mcp#119's squash merge on main.
-check DeviceSearch 57e09ca472783055c7909612ffbc1e99af5d18ab \
-  devices.json cases.json groups.json group-1.json scopes.json transport.json
+# Batch 5 search includes bounded maintenance reads.
+check DeviceSearch a9032220aa18c3234d920f0503eba6de0348d6ba \
+  devices.json cases.json groups.json group-1.json scopes.json transport.json maintenance.json
 
 # DashyNMS/mcp#124's squash merge on main.
 check OpenAlerts c463e92a2ec7794a6f231bf6ccfd0ed9f41f50c3 \

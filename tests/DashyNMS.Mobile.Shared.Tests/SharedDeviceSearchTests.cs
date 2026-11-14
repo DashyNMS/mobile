@@ -170,10 +170,10 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Equal(total, typed.Page.Total);
         AssertShownInOrder(expected, text);
         Assert.StartsWith($"Matching devices: {total}.", text);
-        // The new package checks maintenance only for its returned rows. Mobile's
-        // maintenance endpoint profile follows in #620, after device health and groups.
-        Assert.Equal(ExpectedRequests().Concat(expected.Select(id => $"devices/{id}/maintenance")), upstream.Requests);
-        Assert.Equal(ExpectedRequests(), mobile.Requests);
+        var requests = Expectations().GetProperty("cases").EnumerateArray().Single(c => c.GetProperty("query").GetString() == query)
+            .GetProperty("requests").EnumerateArray().Select(r => r.GetString()!).ToArray();
+        Assert.Equal(requests, upstream.Requests);
+        Assert.Equal(requests, mobile.Requests);
     }
 
     [Theory]
@@ -220,7 +220,7 @@ public sealed partial class SharedDeviceSearchTests
     }
 
     [Fact]
-    public async Task Only_the_device_list_is_read_and_the_shared_result_is_redacted()
+    public async Task Only_the_device_list_and_returned_maintenance_are_read_and_the_shared_result_is_redacted()
     {
         var client = Fakes.Client(FixtureDevices());
         var text = await Find(client, settings: new AppSettings { DeviceNameStyle = DeviceNameStyle.DisplayName }).Run("sw-prefix", default);
@@ -228,6 +228,7 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Contains("[[device:2]]", text);
         Assert.DoesNotContain("synthetic-secret", text);
         await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
+        await client.Devices.Received(1).IsUnderMaintenanceAsync(2, Arg.Any<CancellationToken>());
         Assert.Empty(client.Arp.ReceivedCalls());
         Assert.Empty(client.DeviceGroups.ReceivedCalls());
         Assert.Empty(client.Alerts.ReceivedCalls());
@@ -287,6 +288,50 @@ public sealed partial class SharedDeviceSearchTests
         var omitted = int.Parse(OmittedCount().Match(text).Groups[1].Value);
         Assert.Equal(60, shown.Length + omitted);
         Assert.Equal(shown.Select(id => "device:" + id), evidence.Select(e => e.Reference.Key));
+    }
+
+    [Fact]
+    public async Task Maintenance_reads_stop_at_the_returned_page_and_repeat_on_the_next_search()
+    {
+        var client = Fakes.Client(Enumerable.Range(1, 60).Select(i => Fakes.Device(i, $"access-switch-{i:D2}.example.net")).ToArray());
+        client.Devices.IsUnderMaintenanceAsync(1, Arg.Any<CancellationToken>()).Returns(true);
+        var evidence = new List<IntelligenceEvidence>();
+        var find = Find(client, evidence: evidence);
+        var first = await find.Run("access-switch", default);
+        Assert.Contains("[[device:1]]: Maintenance;", first);
+        Assert.Equal("Maintenance", evidence.Single(e => e.Reference.Key == "device:1").Reference.Status);
+        var checkedIds = client.Devices.ReceivedCalls().Where(c => c.GetMethodInfo().Name == nameof(IDevicesApi.IsUnderMaintenanceAsync))
+            .Select(c => (int)c.GetArguments()[0]!).ToArray();
+        Assert.Equal(Enumerable.Range(1, 20), checkedIds);
+        Assert.True(checkedIds.Length <= DeviceSearch.MaxMatches);
+        Assert.True(ShownIds(first).Length < checkedIds.Length); // Budget omission doesn't widen the upstream page.
+        evidence.Clear();
+        client.Devices.IsUnderMaintenanceAsync(1, Arg.Any<CancellationToken>()).Returns(false);
+        var second = await find.Run("access-switch", default);
+        Assert.Contains("[[device:1]]: Up;", second);
+        Assert.DoesNotContain("Maintenance", second);
+        Assert.Equal("Up", evidence.Single(e => e.Reference.Key == "device:1").Reference.Status);
+        await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>()); // Device cache retained; maintenance is fresh.
+        await client.Devices.Received(2).IsUnderMaintenanceAsync(1, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task A_late_maintenance_reply_after_retirement_never_creates_evidence()
+    {
+        var client = Fakes.Client([Fakes.Device(1, "access-switch.example.net")]);
+        var pending = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        client.Devices.IsUnderMaintenanceAsync(1, Arg.Any<CancellationToken>()).Returns(_ => { started.SetResult(); return pending.Task; });
+        var session = Session();
+        var evidence = new List<IntelligenceEvidence>();
+        var find = Find(client, session, evidence: evidence);
+        var call = find.Run("access-switch", default);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        session.Connection.Returns((LibreNmsConnection?)null);
+        session.StateChanged += Raise.Event();
+        Assert.Equal(CompactNetworkLookups.Changed, await call.WaitAsync(TimeSpan.FromSeconds(5)));
+        pending.SetResult(true);
+        Assert.Empty(evidence);
     }
 
     [GeneratedRegex(@"(\d+) more results omitted\.")]
@@ -374,7 +419,8 @@ public sealed partial class SharedDeviceSearchTests
         // One device by the id device search gave, never by a hostname or a reshaped number.
         foreach (var notAnId in new[] { "core-sw1.example.net", "0", "-1", "01", " 1", "1 ", "+1", "1.0", "" })
             await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.GetAsync(notAnId));
-        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.IsUnderMaintenanceAsync(1));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.IsUnderMaintenanceAsync(0));
+        await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.IsUnderMaintenanceAsync(-1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.ScheduleMaintenanceAsync(1, null!));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.DiscoverAsync(1));
         await Assert.ThrowsAsync<ConnectionBoundClient.RefusedException>(() => devices.RenameAsync(1, "renamed.example.net"));

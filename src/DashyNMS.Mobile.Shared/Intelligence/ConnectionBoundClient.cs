@@ -38,7 +38,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// </para>
 /// <para>
 /// Search allows the device list, MAC-specific ARP search, group catalogue and one
-/// group's membership, plus the open alerts query. Location filtering uses the device
+/// group's membership and maintenance for returned positive device IDs, plus the open alerts query. Location filtering uses the device
 /// list. The device summary (#602) reads one device by a positive numeric id; a read by
 /// hostname, or a padded or signed number, is refused. Overview uses a separate instance
 /// permitting only the device and open-alert lists, fleet port status and system
@@ -300,7 +300,9 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
 
     private Task<bool> ReadMaintenanceAsync(int deviceId, CancellationToken cancellationToken)
     {
-        CheckHealthDevice(deviceId);
+        // Search and health own this read. Other profiles cannot probe maintenance.
+        if (deviceId <= 0 || overview || sensorProfile || scopeProfile)
+            throw new RefusedException("Reading maintenance outside search and health");
         return Apis().Devices.IsUnderMaintenanceAsync(deviceId, cancellationToken);
     }
 

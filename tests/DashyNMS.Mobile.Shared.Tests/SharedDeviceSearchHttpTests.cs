@@ -9,6 +9,7 @@ using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace DashyNMS.Mobile.Tests;
@@ -183,8 +184,50 @@ public sealed partial class SharedDeviceSearchHttpTests
         Assert.StartsWith($"Matching devices: {total}.", text);
         Assert.Equal(Ints(expected, "ids"), outcome.Result!.Matches.Select(m => m.Device.DeviceId));
         Assert.Equal(total, outcome.Result.Page.Total);
-        Assert.Equal(Strings(Basic, "requests"), mobileServer.Requests);
-        Assert.Equal(Strings(Basic, "requests").Concat(Ints(expected, "ids").Select(id => $"devices/{id}/maintenance")), packageServer.Requests);
+        Assert.Equal(Strings(expected, "requests"), mobileServer.Requests);
+        Assert.Equal(Strings(expected, "requests"), packageServer.Requests);
+    }
+
+    [Theory]
+    [InlineData(200)]
+    [InlineData(403)]
+    [InlineData(404)]
+    public async Task Maintenance_rows_and_evidence_match_the_shared_active_inactive_and_unknown_states(int status)
+    {
+        var fixture = Load("maintenance.json");
+        var expected = fixture.GetProperty("cases").EnumerateArray().Single(c => c.GetProperty("status").GetInt32() == status);
+        var routes = ScopeRoutes();
+        using var devices = JsonDocument.Parse(routes["devices"].Body);
+        // Keep only the fixture's two returned rows so the phone's fixed page size and
+        // the upstream limit-two case have the same page, with no local ranking logic.
+        var ids = Ints(fixture, "ids");
+        routes["devices"] = new(200, JsonSerializer.Serialize(new
+        {
+            devices = devices.RootElement.GetProperty("devices").EnumerateArray()
+                .Where(d => ids.Contains(d.GetProperty("device_id").GetInt32())).ToArray(),
+        }));
+        routes["devices/3/maintenance"] = new(200, fixture.GetProperty("active").GetRawText());
+        routes["devices/5/maintenance"] = new(status, status == 200 ? fixture.GetProperty("inactive").GetRawText()
+            : """{"message":"password=synthetic-secret"}""");
+        using var mobileServer = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var packageServer = new FixtureServer(path => routes.GetValueOrDefault(path));
+        using var mobile = new Mobile(mobileServer.Root);
+        using var package = new Package(packageServer.Root);
+        var text = await mobile.Find.Run(fixture.GetProperty("query").GetString()!, default);
+        var result = (await package.Search.FindDevicesAsync(new("sw", Limit: fixture.GetProperty("limit").GetInt32()))).Result!;
+        Assert.True(result.Matches[0].Device.UnderMaintenance);
+        Assert.Equal("Maintenance", result.Matches[0].Device.State.ToDisplayString());
+        Assert.Equal(expected.GetProperty("underMaintenance").ValueKind == JsonValueKind.Null ? null : (bool?)false,
+            result.Matches[1].Device.UnderMaintenance);
+        Assert.Contains("sw [[device:3]]: Maintenance;", text);
+        Assert.Contains("core-rtr.example.net [[device:5]]: Up;", text);
+        Assert.Equal("Maintenance", mobile.Evidence.Single(e => e.Reference.Key == "device:3").Reference.Status);
+        Assert.Equal("Up", mobile.Evidence.Single(e => e.Reference.Key == "device:5").Reference.Status);
+        Assert.Equal("unknown", mobile.Evidence.Single(e => e.Reference.Key == "device:3").Reference.Tone);
+        Assert.Equal(status != 200, text.Contains("maintenance unknown", StringComparison.Ordinal));
+        Assert.DoesNotContain("synthetic-secret", text);
+        Assert.Equal(Strings(fixture, "requests"), mobileServer.Requests);
+        Assert.Equal(Strings(fixture, "requests"), packageServer.Requests);
     }
 
     [Theory]
@@ -221,8 +264,7 @@ public sealed partial class SharedDeviceSearchHttpTests
             Assert.Equal(Ints(c, "ids"), ShownIds(reply));
             Assert.StartsWith($"Matching devices: {outcome.Result.Page.Total}.", reply);
         }
-        var maintenance = Text(c, "code") is null ? Ints(c, "ids").Select(id => $"devices/{id}/maintenance") : [];
-        Assert.Equal(Strings(c, "requests").Concat(maintenance), server.Requests);
+        Assert.Equal(Strings(c, "requests"), server.Requests);
         Assert.Equal(Strings(c, "requests"), mobileServer.Requests);
     }
 
@@ -262,7 +304,7 @@ public sealed partial class SharedDeviceSearchHttpTests
         Assert.Contains("192.0.2.78 on port 8", reply);
         Assert.Single(mobile.Evidence);
         Assert.True(reply.Length <= CompactNetworkLookups.MaxCharacters);
-        Assert.Equal(new[] { "resources/ip/arp/02:00:00:00:00:01", "devices" }, server.Requests);
+        Assert.Equal(new[] { "resources/ip/arp/02:00:00:00:00:01", "devices", "devices/1/maintenance" }, server.Requests);
         Assert.Equal(new[] { "resources/ip/arp/02:00:00:00:00:01", "devices", "devices/1/maintenance" }, packageServer.Requests);
     }
 

@@ -1,0 +1,13 @@
+{
+  "query": "sw",
+  "limit": 2,
+  "ids": [3, 5],
+  "requests": ["devices", "devices/3/maintenance", "devices/5/maintenance"],
+  "active": {"is_under_maintenance": true},
+  "inactive": {"is_under_maintenance": false},
+  "cases": [
+    {"status": 200, "underMaintenance": false, "secondState": "Up"},
+    {"status": 403, "underMaintenance": null, "secondState": "Up"},
+    {"status": 404, "underMaintenance": null, "secondState": "Up"}
+  ]
+}
