@@ -60,6 +60,8 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("Show device events and outages", "device_events")]
+    [InlineData("Show the network event log", "network_events")]
     [InlineData("Show the busiest interfaces by bandwidth", "top_interfaces")]
     [InlineData("Show the top errors", "top_errors")]
     [InlineData("Which devices carry most traffic?", "top_devices")]

@@ -7,6 +7,8 @@ using DashyNMS.Agent.Overview;
 using DashyNMS.Agent.Health;
 using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Rankings;
+using DashyNMS.Agent.Events;
+using Microsoft.Extensions.Logging.Abstractions;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -118,7 +120,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events",
     };
 
     /// <summary>
@@ -130,6 +132,8 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["device_events"] = ["device", "hours", "since", "until", "offset", "limit"],
+        ["network_events"] = ["log", "hours", "since", "until", "type", "severity", "device", "group", "location", "offset", "limit"],
         ["top_interfaces"] = ["by", "limit", "group", "location"],
         ["top_errors"] = ["by", "limit", "group", "location"],
         ["top_devices"] = ["by", "limit", "group", "location"],
@@ -142,7 +146,7 @@ public sealed partial class CompactNetworkLookups(
         ["alert_rules"] = ["name", "severity", "include_disabled", "sort", "offset", "limit", "verbose"],
         ["find_device"] = ["query", "status", "group", "location", "verbose"],
         ["device_health"] = ["device"],
-        ["active_alerts"] = ["severity", "device", "group", "location", "verbose"],
+        ["active_alerts"] = ["severity", "device", "group", "location", "hours", "since", "until", "offset", "limit", "verbose"],
         ["device_sensors"] = ["device", "type"],
     };
 
@@ -243,10 +247,22 @@ public sealed partial class CompactNetworkLookups(
             : new ConnectionBoundClient(capturedHealthOverview, deviceTransport, healthOverview: true);
         var healthOverview = healthOverviewBound is null ? null : HostHealthOverview.Create(healthOverviewBound,
             healthOverviewBound.SensorTransport, time, SensorOptions(settings.Current), sensorDefinitions);
+        var historyBound = scope is not { } capturedHistory || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedHistory, deviceTransport, history: true);
+        // These history reads use only LibreNMS. WhatChanged gets captured optional
+        // integration clients when its adapter is added; it is not offered yet.
+        var historyUnimus = new UnimusApi(NullLogger<UnimusApi>.Instance);
+        var historyGraylog = new GraylogApi(NullLogger<GraylogApi>.Instance);
+        var histories = historyBound is null ? null : HostEventLookups.Create(historyBound, historyUnimus, historyGraylog, time,
+            new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            histories?.Dispose();
+            historyBound?.Dispose();
+            historyUnimus.Dispose();
+            historyGraylog.Dispose();
             rankings?.Dispose();
             rankingBound?.Dispose();
             healthOverview?.Dispose();
@@ -635,8 +651,16 @@ public sealed partial class CompactNetworkLookups(
                     if (id is null) return unresolved!;
                     deviceId = id;
                 }
+                if (arguments.Number("hours") is not null || arguments.Text("since") is not null || arguments.Text("until") is not null)
+                {
+                    if (histories is null) return Reply.Say(Failed);
+                    var historical = new RaisedAlertsRequest(deviceId, arguments.Text("severity"), arguments.Text("group"), arguments.Text("location"),
+                        arguments.Number("hours"), arguments.Text("since"), arguments.Text("until"), arguments.Number("offset") ?? 0, arguments.Number("limit") ?? AlertLimit);
+                    var raised = await WhileCurrent(() => histories.ReadRaisedAlertsAsync(historical, ct)).ConfigureAwait(false);
+                    return raised.Result is { } foundHistory ? RaisedRows(foundHistory, at, time) : HistoryFailure(raised.Error);
+                }
                 if (openAlerts is not { } alerts) return Reply.Say(Failed);
-                var request = new OpenAlertsRequest(deviceId, arguments.Text("severity"), arguments.Text("group"), arguments.Text("location"), Limit: AlertLimit);
+                var request = new OpenAlertsRequest(deviceId, arguments.Text("severity"), arguments.Text("group"), arguments.Text("location"), arguments.Number("offset") ?? 0, arguments.Number("limit") ?? AlertLimit);
                 var outcome = await WhileCurrent(() => alerts.ListAsync(request, ct)).ConfigureAwait(false);
                 // An unreadable device list or alert list fails the whole lookup: never "no alerts".
                 if (outcome.Result is not { } found)
@@ -649,7 +673,7 @@ public sealed partial class CompactNetworkLookups(
                 // Groups and faults are totals over every match, so groups not fetched or not
                 // fitting are counted as omitted, never silently dropped.
                 var verbose = arguments.Flag("verbose");
-                return Rows(AlertHeading(found.Totals), found.Groups.Select(g => GroupRow(g, at, verbose)),
+                return Rows(AlertHeading(found.Totals) + HistoryPage(found.Page), found.Groups.Select(g => GroupRow(g, at, verbose)),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
             Lookup("device_sensors", "device", async (arguments, at, ct) =>
@@ -674,6 +698,32 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("device_events", "device", async (arguments, at, ct) =>
+            {
+                if (histories is null) return Reply.Say(Failed);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var request = new DeviceEventsRequest(id, arguments.Number("hours"), arguments.Text("since"), arguments.Text("until"),
+                    arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => histories.ReadDeviceAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? DeviceEventRows(found, at, time, SummaryName(found.Data.Device)) : HistoryFailure(outcome.Error);
+            }),
+            Lookup("network_events", null, async (arguments, at, ct) =>
+            {
+                if (histories is null) return Reply.Say(Failed);
+                int? id = null;
+                if (arguments.Text("device") is { } named)
+                {
+                    var resolved = await ResolveDevice(named, at, ct).ConfigureAwait(false);
+                    if (resolved.Id is null) return resolved.Reply!;
+                    id = resolved.Id;
+                }
+                var request = new NetworkEventsRequest(arguments.Text("log"), arguments.Number("hours"), arguments.Text("since"), arguments.Text("until"),
+                    arguments.Text("type"), arguments.Text("severity"), id, arguments.Text("group"), arguments.Text("location"),
+                    arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => histories.ReadNetworkAsync(request, ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? NetworkEventRows(found, at, time) : HistoryFailure(outcome.Error);
             }),
             Lookup("top_interfaces", null, async (arguments, at, ct) =>
             {

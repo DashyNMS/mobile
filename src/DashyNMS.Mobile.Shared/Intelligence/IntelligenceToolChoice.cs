@@ -55,6 +55,8 @@ public static partial class IntelligenceToolChoice
     private static readonly IReadOnlyDictionary<string, string[]> Cues = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["network_overview"] = ["network", "overview", "how is", "how's", "status", "summary", "summarise", "summarize", "everything", "overall", "how many", "dashboard", "doing", "brief"],
+        ["device_events"] = ["device events", "reboot", "device history", "outage"],
+        ["network_events"] = ["network event", "event log", "audit", "network history"],
         ["top_interfaces"] = ["busiest", "traffic", "utilisation", "bandwidth", "top interfaces"],
         ["top_errors"] = ["errors", "error rates", "top errors"],
         ["top_devices"] = ["devices", "busiest devices", "devices carry", "devices carrying", "device traffic", "most traffic", "top devices", "most port problems"],

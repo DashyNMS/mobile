@@ -75,3 +75,7 @@ check DeviceDetails a9032220aa18c3234d920f0503eba6de0348d6ba \
 # Fleet port/device rankings and sensor overview.
 check FleetRankings a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md cases.json routes.json
+
+# Device/fleet timelines and historical alert occurrences.
+check EventHistory a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md routes.json incomplete.json

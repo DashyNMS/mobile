@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 16: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, and `health_overview` | #236 |
+| 24 network tools | 18: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, and `network_events` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -206,14 +206,14 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | --- | --- | --- | --- |
 | `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC, scope filters and maintenance | #620, #635, #636 |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | |
-| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
+| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, current groups or historical occurrences with paging | #636, #645 |
 | `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared, complete operation with bounded rows | #634 |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
 | `list_groups_and_locations` | Group and location catalogue | Shared, with exact filter names in evidence | #642 |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
 | `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
-| `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
+| `device_events`, `network_events`, `what_changed` | Event and change history | Shared device/fleet history; what_changed pending | #645 |
 | `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
@@ -244,7 +244,7 @@ model copies them rather than converting UTC or seconds.
 | `active_alerts` | `devices.alerts.rule_id`, `devices.alerts.source` | They travel in the chip's typed object, so a chip opens the right rule, fault or legacy alert, without spending the model's context. |
 | `active_alerts` | `devices.alerts.faults.fault_id`, `devices.alerts.faults.entity_type`, `devices.alerts.faults.entity_id` | Faults are named with their states. Only a group's representative is offered as an id, so the model is never given an id it can't link. |
 | `active_alerts` | `devices.hostname`, `devices.display` | Rows name the device in the person's naming style with its marker, which opens the device. `find_device` gives its other names. |
-| `active_alerts` | `page.offset`, `page.limit`, `page.returned` | The phone asks for 20 groups and counts the rest from the totals in the heading. |
+| `active_alerts` | `page.limit` | The recorded MCP fixture asks for 10 groups; the phone defaults to 20. Its requested limit is shown explicitly. |
 | `network_overview` | `alert_groups.key.rule_id`, `alert_groups.rule_id`, `alert_groups.representative.source` | They travel in the chip's typed object. |
 | `network_overview` | `alert_groups.faults.key.id`, `alert_groups.faults.key.source`, `alert_groups.faults.entity_type`, `alert_groups.faults.entity_id` | Faults are named with their states; only the representative is offered as an id. |
 | `network_overview` | `alert_groups.faults.since`, `alert_groups.last_changed` | Budget. Each group says how long it has been open; `active_alerts` with `verbose` gives when each alert and fault started. |
@@ -266,8 +266,6 @@ catalogue parameter of an offered tool that is neither offered
 | Tool | Parameters | Why |
 | --- | --- | --- |
 | `find_device` | `offset`, `limit` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
-| `active_alerts` | `offset`, `limit` | The same, for 20 groups. |
-| `active_alerts` | `hours`, `since`, `until` | The time window comes with #645. |
 
 ## Batch 5 package provenance
 
@@ -499,6 +497,31 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How event and alert history is built
+
+Device/fleet events and historical active_alerts use `HostEventLookups` with a
+dedicated captured LibreNMS client. It allows device and group lists/membership,
+rule names, open alerts, positive-device outages, and device/global event and
+alert logs at the shared 200/1,000/2,000 depths. Other reads, maintenance, actions
+and writes are refused. These three operations do not use Graylog or Unimus;
+the WhatChanged adapter and captured optional-service clients follow next.
+
+All catalogue history parameters are offered. active_alerts uses historical
+occurrences when hours/since/until is supplied and current groups otherwise;
+both modes now accept offset/limit. Historical rows have no live alert ID, so
+they link only the verified device. Rows retain raised/recovered times, unknown
+recovery/open state, severities, fault counts, event source/kind/text/user and
+outage duration. Window bounds, completeness/unknown coverage, source notices
+and page metadata lead the reply. Omitted whole rows and unfetched page rows
+are counted, and only shown rows create evidence.
+
+Copied event-history fixtures compare independent outage, port-event and raised/
+recovered facts with the shared host and its request set. Failure tests preserve
+unknown coverage and severity/open state; a busy log reaches the shared cap
+without becoming complete. Deadline, caller cancellation and retirement are
+covered during pending history reads. Full field accounting, optional-service
+WhatChanged wiring and iPhone acceptance remain pending while this PR is draft.
 
 ### How fleet rankings and health_overview are built
 
