@@ -220,7 +220,7 @@ public sealed partial class SharedDeviceSearchHttpTests
         Assert.Equal(expected.GetProperty("underMaintenance").ValueKind == JsonValueKind.Null ? null : (bool?)false,
             result.Matches[1].Device.UnderMaintenance);
         Assert.Contains("sw [[device:3]]: Maintenance;", text);
-        Assert.Contains("core-rtr.example.net [[device:5]]: Up;", text);
+        Assert.Contains("SW-CORE [[device:5]]: Up;", text);
         Assert.Equal("Maintenance", mobile.Evidence.Single(e => e.Reference.Key == "device:3").Reference.Status);
         Assert.Equal("Up", mobile.Evidence.Single(e => e.Reference.Key == "device:5").Reference.Status);
         Assert.Equal("unknown", mobile.Evidence.Single(e => e.Reference.Key == "device:3").Reference.Tone);

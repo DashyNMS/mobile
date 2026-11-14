@@ -45,6 +45,10 @@ public sealed partial class SharedDeviceSearchTests
     private static string[] ExpectedRequests() =>
         Expectations().GetProperty("requests").EnumerateArray().Select(r => r.GetString()!).ToArray();
 
+    private static string[] ExpectedSearchRequests(string query) => Expectations().GetProperty("cases").EnumerateArray()
+        .Single(c => c.GetProperty("query").GetString() == query).GetProperty("requests").EnumerateArray()
+        .Select(r => r.GetString()!).ToArray();
+
     private static ISessionService Session(LibreNmsConnection? connection = null)
     {
         var session = Fakes.Session();
@@ -170,8 +174,7 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Equal(total, typed.Page.Total);
         AssertShownInOrder(expected, text);
         Assert.StartsWith($"Matching devices: {total}.", text);
-        var requests = Expectations().GetProperty("cases").EnumerateArray().Single(c => c.GetProperty("query").GetString() == query)
-            .GetProperty("requests").EnumerateArray().Select(r => r.GetString()!).ToArray();
+        var requests = ExpectedSearchRequests(query);
         Assert.Equal(requests, upstream.Requests);
         Assert.Equal(requests, mobile.Requests);
     }
@@ -485,7 +488,7 @@ public sealed partial class SharedDeviceSearchTests
         session.Connection.Returns(new LibreNmsConnection(new Uri("https://other.example.net/"), "other-test-token"));
         Assert.Equal(CompactNetworkLookups.Changed, await lookup.Run("sw", default));
         Assert.Equal(1, closed);
-        Assert.Single(nms.Requests);
+        Assert.Equal(ExpectedSearchRequests("sw"), nms.Requests);
     }
 
     private sealed class ClosingTransport(ILibreNmsTransport inner, Action closed) : ILibreNmsTransport, IDisposable
@@ -526,13 +529,13 @@ public sealed partial class SharedDeviceSearchTests
 
         Assert.Contains("a-switch.example.net [[device:1]]: Up", text);
         Assert.DoesNotContain("b-switch", text);
-        Assert.Equal(new[] { ("/api/v0/devices", "token-a") }, a.Requests);
+        Assert.Equal(new[] { ("/api/v0/devices", "token-a"), ("/api/v0/devices/1/maintenance", "token-a") }, a.Requests);
         Assert.Empty(b.Requests);
 
         // Once the session itself moves on, the set is retired and nothing more is sent anywhere.
         session.Connection.Returns(serverB);
         Assert.Equal(CompactNetworkLookups.Changed, await lookup.Run("switch", default));
-        Assert.Single(a.Requests);
+        Assert.Equal(new[] { ("/api/v0/devices", "token-a"), ("/api/v0/devices/1/maintenance", "token-a") }, a.Requests);
         Assert.Empty(b.Requests);
     }
 
