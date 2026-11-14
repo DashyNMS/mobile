@@ -109,7 +109,8 @@ public sealed partial class IntelligenceFactsTests
         var recorded = Cases().Select(c => ((string)c[1], (string)c[0]))
             .GroupBy(c => c.Item1)
             .ToDictionary(g => g.Key, g => g.SelectMany(c => Fields(JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "Intelligence", "McpJson", c.Item2 + ".json"))).RootElement).Keys).ToHashSet());
-        // device_health's later facts are absent from the fixture's empty or failed parts; #634 brings them.
+        // Arrays and resource readings can be absent in this failure fixture. Complete health
+        // values have independent assertions in SharedDeviceHealthHttpTests.
         string[] notInFixture = ["open_alerts", "open_faults", "cpu_max_percent", "memory_max_percent", "fullest_storage", "problem_ports", "problem_ports_omitted"];
         foreach (var (tool, fields) in Table("Facts left out").Where(r => r.Tool != "every tool"))
         {
@@ -191,7 +192,7 @@ public sealed partial class IntelligenceFactsTests
                     routes[name] = new(200, File.ReadAllText(Path.Combine(Fixtures, "NetworkOverview", name + ".json")));
                 break;
             case "device_health":
-                Files("DeviceSummary", Load("DeviceSummary", "cases.json").GetProperty("routes"));
+                Files("DeviceHealth", Load("DeviceHealth", "cases.json").GetProperty("routes"));
                 break;
             case "device_sensors":
                 return SharedDeviceSensorsHttpTests.Routes("fleet");

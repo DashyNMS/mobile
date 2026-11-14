@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_health` (its device and uptime part) | #236, #634 |
+| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_health` | #236, #634 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -207,7 +207,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC and scope filters | #620, #635, #636 |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | |
 | `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
-| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Device and uptime only | #634 |
+| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared, complete operation with bounded rows | #634 |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
 | `list_groups_and_locations` | Group and location catalogue | Not yet | #642 |
 | `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not yet | #641 |
@@ -249,7 +249,8 @@ model copies them rather than converting UTC or seconds.
 | `network_overview` | `alert_groups.faults.key.id`, `alert_groups.faults.key.source`, `alert_groups.faults.entity_type`, `alert_groups.faults.entity_id` | Faults are named with their states; only the representative is offered as an id. |
 | `network_overview` | `alert_groups.faults.since`, `alert_groups.last_changed` | Budget. Each group says how long it has been open; `active_alerts` with `verbose` gives when each alert and fault started. |
 | `network_overview` | `alert_groups.hostname`, `alert_groups.device.hostname`, `alert_groups.device.ip`, `alert_groups.device.location` | Rows name the device in the person's naming style with its marker and state. `find_device` gives the rest. |
-| `device_health` | `under_maintenance`, `open_alerts`, `open_faults`, `cpu_max_percent`, `memory_max_percent`, `fullest_storage`, `ports_total`, `ports_down_while_enabled`, `problem_ports`, `problem_ports_omitted`, `unavailable.source`, `unavailable.reason`, `unavailable.message` | Not on the phone yet: #634 brings them. The reply says so. |
+| `device_health` | `ports_total`, `ports_down_while_enabled` when their source failed | MCP carries zero fallback values alongside unavailable metadata. The phone reports the section unavailable instead of presenting a known zero. Successful counts are shown and tested independently. |
+| `device_health` | `unavailable.reason`, `unavailable.message` | Fixed unavailable source names lead the reply. Transport wording is excluded; the model cannot treat it as device data. |
 | `device_sensors` | `readings.rank` | MCP's sort key. Rows are already problems first. |
 | `device_sensors` | `device.hostname`, `device.ip`, `device.location`, `device.status` | Budget. The heading names the device in the person's naming style with its marker, whose chip carries its state; `device_health` gives the rest. |
 
@@ -491,54 +492,39 @@ are covered in Core, not here.
 
 ### How device_health is built
 
-The device summary migration (#602), built on DashyNMS/mcp's `DeviceSummaries`
-(DashyNMS/mcp#128), is the device and uptime part of `device_health`; #634 brings
-the rest. Everything under find_device's host ownership, lifetime, cancellation
-and CI applies unchanged; this section covers only what differs.
+The complete `HostDeviceHealth` operation replaces the narrow summary adapter
+under #634. The tool keeps the catalogue's name, description and `device`
+argument, resolved by the existing shared resolver. There is no phone-only
+`device_summary` tool or descriptor.
 
-**Contract.** Until #635 this was `device_summary`, a name Core's
-`IntelligenceToolAllowlist` doesn't have. It now carries `device_health`'s
-catalogue name, description and `device` parameter, and its text says what it
-doesn't cover yet (listed under [Facts left out](#facts-left-out)). MCP's
-`device_health` builds that part on the same shared read and shaping, so the two
-can't drift. `CompactNetworkLookups.ReviewedTools` holds every lookup name, and a
-test holds each to the allowlist and the catalogue, so a new name can't reach the
-model without a reviewed tool.
+Each attempt owns a health-profile `ConnectionBoundClient` and operation beside
+the resolver. Its reviewed reads are the device list, one device by positive
+numeric ID, that device's maintenance, processors, memory, storage and ports,
+and the open-alert query with Core's source probe. Other reads, all writes and
+session controls are refused before transport. Disposal and connection changes
+retire it. The common caller cancellation, 15-second deadline, late-result and
+evidence checks remain around the operation.
 
-**Adapter.** Each lookup set creates one `HostDeviceSummary` beside the search and
-open alerts, over the same `ConnectionBoundClient` and transport, and asks for one
-device id. Upstream reads `devices/{id}` and returns the redacted summary with its
-reported `State`, uptime (null when LibreNMS reports none or zero) and a
-`DeviceLocation`: the id, the trimmed and redacted name, and the exact LibreNMS
-name. `devices/{id}` can send the location as the whole JSON record; upstream
-reads the name, and the id when `location_id` is missing, out of it. Mobile
-maps the result to:
+The reply puts unavailable source names before data rows, then the device's OS,
+hardware, names, IP, location and last poll, uptime, maintenance, resource maxima,
+open group/fault counts, port counts, fullest storage, grouped alerts and problem
+ports. A failed source never becomes zero or an empty healthy section. Missing
+or mismatched fresh devices use only the listed device and identify the fresh
+read as unavailable. Location evidence keeps the exact filter name; alert evidence
+retains its fault or legacy-alert source; port evidence includes its owning device.
+Only rows shown create evidence. Whole rows outside 900 characters, including
+upstream-capped problem ports, are counted as omitted.
 
-- a heading: the device in the person's naming style with `[[device:ID]]`, its
-  reported state and IP;
-- one row: OS, hardware, location with `[[location:ID]]`, and uptime in seconds or
-  `unknown`;
-- evidence: the device with its state at lookup time, and the location chip,
-  whose label is the cleaned name and whose Devices filter is LibreNMS's exact
-  name. The exact name never goes into model text.
-
-**Failures.** No fallback, unlike `device_health`, which answers from its device
-list when the read fails: a device the server doesn't return, or returns under
-another id, is "Device not found."; `Refused` maps to the refusal line, and
-everything else to the failure line.
-
-**Profile.** The catalogue's `device`, resolved as in
-[Device arguments](#device-arguments-635).
-
-**Fixtures.** `tests/.../Fixtures/DeviceSummary` is a byte-for-byte copy of
-DashyNMS/mcp's. It covers a location sent as a record, a display name repeating the
-hostname, zero uptime, a missing flag (Unknown), ignored and disabled devices, a
-secret in the hardware text, a padded location name, a location id only in the
-record, a listed device `devices/{id}` doesn't return, and transport failures on
-`devices/1`. `scripts/check-shared-fixtures.sh` covers it. Over loopback HTTP,
-mobile `device_health` and `HostDeviceSummary` must give the same values and
-failures, with the same `devices/{id}` reads after mobile's device-list read, and upstream holds `device_health`'s
-device and uptime to the same fixture.
+`Fixtures/DeviceHealth` retains the upstream device-field bytes from MCP's
+`DeviceSummary` fixture at the pinned Batch 5 commit. The old mobile summary
+fixture path and adapter tests are removed. Independent HTTP tests add all health
+sources, check the values against the package result and displayed text, and fail
+each source separately. The shared device-field cases cover ignored and unknown
+states, location records, redaction, missing fresh devices and uptime. Profile
+tests reject other reads and writes; the existing lookup tests cover switching,
+retirement, caller cancellation and the deadline. On-device model selection for
+OS, summary and hardware questions remains a device acceptance check; CI alone
+cannot establish it.
 
 ### How network_overview is built (#600)
 

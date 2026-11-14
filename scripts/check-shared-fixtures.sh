@@ -2,7 +2,7 @@
 # Checks the shared fixtures are byte-identical to DashyNMS/mcp's, which runs its MCP
 # tools against the same files: device search (#596) for find_device, open alerts
 # (#601) for active_alerts, the network overview (#600) for network_overview, the device
-# summary (#602) for device_summary, device sensors (#603) for device_sensors and device
+# fields for device_health (#634), device sensors (#603) for device_sensors and device
 # resolution (DashyNMS/mcp#131) for every tool's device argument (#635). Both
 # adapters are then held to one set of expectations from
 # one response. Move a pin when upstream changes that fixture.
@@ -18,7 +18,7 @@ trap 'rm -rf "$TMP"' EXIT
 check() {
   local name="$1" commit="$2"
   shift 2
-  local upstream="tests/DashyNMS.Agent.Tests/Fixtures/$name"
+  local upstream="tests/DashyNMS.Agent.Tests/Fixtures/${UPSTREAM_FIXTURE:-$name}"
   local local_dir="$ROOT/tests/DashyNMS.Mobile.Shared.Tests/Fixtures/$name"
   for file in "$@"; do
     gh api -H "Accept: application/vnd.github.raw" "repos/DashyNMS/mcp/contents/$upstream/$file?ref=$commit" > "$TMP/$file"
@@ -43,8 +43,8 @@ check OpenAlerts c463e92a2ec7794a6f231bf6ccfd0ed9f41f50c3 \
 check NetworkOverview 7a84405254c57a2be7e35e1f7a296f163a5a7ed0 \
   devices.json faults.json ports.json system.json
 
-# DashyNMS/mcp#128's squash merge on main.
-check DeviceSummary 59cf2b623583366abcc2785685ba362cc1b1da4b \
+# Complete health retains the shared device-field fixtures; mobile adds full-source HTTP cases.
+UPSTREAM_FIXTURE=DeviceSummary check DeviceHealth a9032220aa18c3234d920f0503eba6de0348d6ba \
   devices.json device-1.json device-2.json device-3.json device-4.json device-5.json \
   device-6.json cases.json transport.json
 

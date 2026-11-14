@@ -11,7 +11,8 @@ namespace DashyNMS.Mobile.Intelligence;
 /// The client handed to shared operations: reviewed search, device summary and open-alert
 /// reads, the overview profile's device, open-alert, port-status and system reads, or the
 /// sensor profile's device list, sensor list and sensor health routes (#603).
-/// Each instance owns a transport bound to the connection the chat captured.
+/// The health profile additionally permits maintenance, device ports and Core's processor,
+/// memory and storage reads. Each instance owns a captured-connection transport.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -19,7 +20,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// reconnect, certificate trust and sign-out. Checking "is it still current?" before
 /// each request leaves a window: a switch between the check and the send dials the
 /// new server with the old chat's request. The shared operations warn about exactly this
-/// (<c>HostDeviceSearch.Create</c>, <c>HostOpenAlerts.Create</c> and <c>HostDeviceSummary.Create</c> ask for a client that
+/// (<c>HostDeviceSearch.Create</c>, <c>HostOpenAlerts.Create</c> and <c>HostDeviceHealth.Create</c> ask for a client that
 /// stays bound even after retirement). So this client never touches the session's transport.
 /// It sends through one opened for the captured connection alone and builds Core's real
 /// device and alert APIs on it. A switch cannot redirect it; at worst a request already sent reaches the old
@@ -56,6 +57,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     private readonly OpenOnly alerts;
     private readonly bool overview;
     private readonly bool sensorProfile;
+    private readonly bool healthProfile;
     private readonly SensorListOnly sensors;
     private readonly SensorRoutesOnly sensorRoutes;
     private readonly Lock gate = new();
@@ -72,12 +74,14 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     /// <see cref="IntelligenceDeviceTransports.Open"/> in the app, a synthetic one in tests.
     /// </param>
     /// <param name="sensors">The sensor profile (#603) rather than search's.</param>
-    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false)
+    /// <param name="health">The complete device-health profile (#634).</param>
+    public ConnectionBoundClient(SessionScope scope, Func<SessionScope, ILibreNmsTransport> openTransport, bool overview = false, bool sensors = false, bool health = false)
     {
-        if (overview && sensors) throw new ArgumentException("One profile per client.", nameof(sensors));
+        if ((overview ? 1 : 0) + (sensors ? 1 : 0) + (health ? 1 : 0) > 1) throw new ArgumentException("One profile per client.", nameof(sensors));
         this.scope = scope;
         this.overview = overview;
         sensorProfile = sensors;
+        healthProfile = health;
         this.sensors = new SensorListOnly(this);
         sensorRoutes = new SensorRoutesOnly(this);
         this.openTransport = openTransport;
@@ -237,7 +241,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<IReadOnlyList<Device>> ListAsync(CancellationToken cancellationToken = default) => owner.ListAsync(cancellationToken);
 
         public Task<Device?> GetAsync(string idOrHostname, CancellationToken cancellationToken = default) => owner.GetAsync(idOrHostname, cancellationToken);
-        public Task<bool> IsUnderMaintenanceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(IsUnderMaintenanceAsync));
+        public Task<bool> IsUnderMaintenanceAsync(int deviceId, CancellationToken cancellationToken = default)
+            => owner.ReadMaintenanceAsync(deviceId, cancellationToken);
         public Task<string> ScheduleMaintenanceAsync(int deviceId, DeviceMaintenanceRequest request, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ScheduleMaintenanceAsync));
         public Task<IReadOnlyList<AvailabilityWindow>> GetAvailabilityAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAvailabilityAsync));
         public Task<IReadOnlyList<DeviceOutage>> GetOutagesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetOutagesAsync));
@@ -283,7 +288,49 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         }
     }
 
-    public IPortsApi Ports => overview ? new StatusOnly(this) : throw new RefusedException(nameof(Ports));
+    public IPortsApi Ports => overview ? new StatusOnly(this) : healthProfile ? new DevicePortsOnly(this) : throw new RefusedException(nameof(Ports));
+
+    private void CheckHealthDevice(int deviceId)
+    {
+        if (!healthProfile || deviceId <= 0) throw new RefusedException("Reading device health outside its reviewed profile");
+    }
+
+    private Task<bool> ReadMaintenanceAsync(int deviceId, CancellationToken cancellationToken)
+    {
+        CheckHealthDevice(deviceId);
+        return Apis().Devices.IsUnderMaintenanceAsync(deviceId, cancellationToken);
+    }
+
+    private sealed class DevicePortsOnly(ConnectionBoundClient owner) : IPortsApi
+    {
+        public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default)
+        {
+            owner.CheckHealthDevice(deviceId);
+            return owner.Apis().Ports.ListForDeviceAsync(deviceId, cancellationToken);
+        }
+        public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
+        public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
+        public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListIpAddressesAsync));
+    }
+
+    private sealed class DeviceHealthOnly(ConnectionBoundClient owner) : IDeviceHealthApi
+    {
+        public Task<IReadOnlyList<ProcessorSensor>> ListProcessorsAsync(int deviceId, CancellationToken cancellationToken = default)
+        {
+            owner.CheckHealthDevice(deviceId);
+            return owner.Apis().Health.ListProcessorsAsync(deviceId, cancellationToken);
+        }
+        public Task<IReadOnlyList<MempoolSensor>> ListMempoolsAsync(int deviceId, CancellationToken cancellationToken = default)
+        {
+            owner.CheckHealthDevice(deviceId);
+            return owner.Apis().Health.ListMempoolsAsync(deviceId, cancellationToken);
+        }
+        public Task<IReadOnlyList<StorageVolume>> ListStorageAsync(int deviceId, CancellationToken cancellationToken = default)
+        {
+            owner.CheckHealthDevice(deviceId);
+            return owner.Apis().Health.ListStorageAsync(deviceId, cancellationToken);
+        }
+    }
 
     private sealed class StatusOnly(ConnectionBoundClient owner) : IPortsApi
     {
@@ -298,9 +345,9 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<SystemInfo> GetAsync(CancellationToken cancellationToken = default) => owner.Apis().System.GetAsync(cancellationToken);
     }
     public ILinksApi Links => throw new RefusedException(nameof(Links));
-    public IDeviceHealthApi Health => throw new RefusedException(nameof(Health));
+    public IDeviceHealthApi Health => healthProfile ? new DeviceHealthOnly(this) : throw new RefusedException(nameof(Health));
     public IFdbApi Fdb => throw new RefusedException(nameof(Fdb));
-    public IArpApi Arp => overview || sensorProfile ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
+    public IArpApi Arp => overview || sensorProfile || healthProfile ? throw new RefusedException(nameof(Arp)) : new SearchArp(this);
 
     private sealed class SearchArp(ConnectionBoundClient owner) : IArpApi
     {
@@ -310,7 +357,7 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
     }
     public IVlansApi Vlans => throw new RefusedException(nameof(Vlans));
-    public IDeviceGroupsApi DeviceGroups => overview || sensorProfile ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
+    public IDeviceGroupsApi DeviceGroups => overview || sensorProfile || healthProfile ? throw new RefusedException(nameof(DeviceGroups)) : new SearchGroups(this);
 
     private sealed class SearchGroups(ConnectionBoundClient owner) : IDeviceGroupsApi
     {

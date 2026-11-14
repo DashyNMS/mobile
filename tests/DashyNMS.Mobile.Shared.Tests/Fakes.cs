@@ -16,6 +16,7 @@ internal static class Fakes
         client.Alerts.ListAsync(Arg.Any<AlertQuery?>(), Arg.Any<CancellationToken>()).Returns(alerts ?? []);
         client.Alerts.GetSourceAsync(Arg.Any<CancellationToken>()).Returns(alerts?.FirstOrDefault()?.Source ?? AlertSource.Alert);
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Sensor>());
+        client.Ports.ListForDeviceAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Array.Empty<Port>());
         return client;
     }
 
@@ -107,6 +108,11 @@ internal static class Fakes
                 return (IReadOnlyList<T>)(object)await client.Devices.ListAsync(cancellationToken);
             if (relativeUrl == "resources/sensors" && typeof(T) == typeof(Sensor))
                 return (IReadOnlyList<T>)(object)await client.Sensors.ListAsync(cancellationToken);
+            var path = relativeUrl.Split('?')[0];
+            if (path.StartsWith("devices/", StringComparison.Ordinal) && path.EndsWith("/ports", StringComparison.Ordinal) && typeof(T) == typeof(Port))
+                return (IReadOnlyList<T>)(object)await client.Ports.ListForDeviceAsync(int.Parse(path.Split('/')[1], System.Globalization.CultureInfo.InvariantCulture), cancellationToken);
+            if (path.EndsWith("/health/processor", StringComparison.Ordinal) || path.EndsWith("/health/mempool", StringComparison.Ordinal) || path.EndsWith("/health/storage", StringComparison.Ordinal))
+                return [];
             // devices/{id}, as Core's GetAsync asks for one device: the fake's GetAsync answers it.
             if (relativeUrl.StartsWith("devices/", StringComparison.Ordinal) && typeof(T) == typeof(Device))
                 return await client.Devices.GetAsync(relativeUrl["devices/".Length..], cancellationToken) is { } one
@@ -123,8 +129,16 @@ internal static class Fakes
             throw new InvalidOperationException("Only the open alerts are expected, not " + relativeUrl);
         }
 
-        public Task<System.Text.Json.JsonDocument> SendAsync(HttpMethod method, string relativeUrl, object? body = null, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Only the device list and open alerts are expected");
+        public async Task<System.Text.Json.JsonDocument> SendAsync(HttpMethod method, string relativeUrl, object? body = null, CancellationToken cancellationToken = default)
+        {
+            if (method == HttpMethod.Get && body is null && relativeUrl.StartsWith("devices/", StringComparison.Ordinal) && relativeUrl.EndsWith("/maintenance", StringComparison.Ordinal))
+            {
+                var id = int.Parse(relativeUrl.Split('/')[1], System.Globalization.CultureInfo.InvariantCulture);
+                var maintenance = await client.Devices.IsUnderMaintenanceAsync(id, cancellationToken);
+                return System.Text.Json.JsonDocument.Parse(System.Text.Json.JsonSerializer.Serialize(new { is_under_maintenance = maintenance }));
+            }
+            throw new InvalidOperationException("Only reviewed test reads are expected");
+        }
 
         public Task<string> SendRawAsync(string relativeUrl, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("Only the device list and open alerts are expected");

@@ -61,7 +61,7 @@ public sealed class IntelligenceLookupSet(IReadOnlyList<IntelligenceLookup> look
 /// <remarks>
 /// <c>find_device</c> runs DashyNMS/mcp's shared device search (#596), <c>active_alerts</c>
 /// its shared open alerts (#601), <c>network_overview</c> its shared overview (#600),
-/// <c>device_health</c> its shared device summary (#602) and <c>device_sensors</c> its shared
+/// <c>device_health</c> its complete shared device health (#634) and <c>device_sensors</c> its shared
 /// sensor assessment (#603). Each tool's name, description and parameters are the shared
 /// catalogue's (#635), and a device argument resolves through the shared resolver. Their reading, ranking, grouping, ordering, judging, filtering and
 /// redaction are the MCP agent's rather than a mobile copy; this class only adapts the typed
@@ -183,8 +183,8 @@ public sealed partial class CompactNetworkLookups(
         var time = timeProvider ?? TimeProvider.System;
         bool IsCurrent() => scope is { } captured && captured.IsCurrent(session);
 
-        // One shared search, open-alerts and device summary operation, each with its own caches
-        // (the summary has none), over one transport per lookup set and so per captured connection. The transport is
+        // Shared operations own caches only for this attempt. Each reviewed profile uses a
+        // transport for the captured connection. The transport is
         // pinned to that connection, so a switch can't redirect a request to another server.
         // Retiring cancels in-flight waits, refuses further calls (cached ones included)
         // and closes the transport. It happens on a connection switch and when the owner
@@ -196,7 +196,10 @@ public sealed partial class CompactNetworkLookups(
         var overviewBound = scope is not { } capturedOverview || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedOverview, deviceTransport, overview: true);
         var overview = overviewBound is null ? null : HostNetworkOverview.Create(overviewBound, time, settings.Current.ServerTimestampsAreUtc);
-        var summaries = bound is null ? null : HostDeviceSummary.Create(bound, settings.Current.ServerTimestampsAreUtc);
+        var healthBound = scope is not { } capturedHealth || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedHealth, deviceTransport, health: true);
+        var health = healthBound is null ? null : HostDeviceHealth.Create(healthBound, time,
+            new DashyNMS.Agent.AgentOptions { ServerTimestampsAreUtc = settings.Current.ServerTimestampsAreUtc });
         // Device phrases resolve over search's profile, which already reads the device list.
         var resolver = bound is null ? null : HostDeviceResolver.Create(bound, time, settings.Current.ServerTimestampsAreUtc);
         // Sensors get their own profile too: the sensor list and health routes, never ARP,
@@ -211,7 +214,8 @@ public sealed partial class CompactNetworkLookups(
             resolver?.Dispose();
             openAlerts?.Dispose();
             deviceSensors?.Dispose();
-            summaries?.Dispose();
+            health?.Dispose();
+            healthBound?.Dispose();
             bound?.Dispose();
             overview?.Dispose();
             overviewBound?.Dispose();
@@ -368,18 +372,18 @@ public sealed partial class CompactNetworkLookups(
         static string Inventory(DeviceSummary d)
             => (string.IsNullOrWhiteSpace(d.Os) ? "" : "; OS " + Clean(d.Os)) + (string.IsNullOrWhiteSpace(d.Hardware) ? "" : "; hardware " + Clean(d.Hardware));
 
-        // The shared device summary (#602), already redacted upstream: the device in the person's
-        // naming style with its reported state, then OS, hardware, location and uptime. The read is
-        // devices/{id}, so the state is as of this lookup, not the cached device list's. The location
-        // chip shows the cleaned name and keeps LibreNMS's exact name only as its Devices filter.
-        // It is device_health's device and uptime part, and says what the rest of device_health
-        // gives that it doesn't yet (#634), so the model doesn't read a missing fact as a clean one.
-        Reply SummaryRows(DeviceSummaryResult found, DateTimeOffset at)
+        // Shared device health owns every source and its fallback. Fixed source names lead the
+        // compact reply, so the budget cannot turn unavailable sections into healthy empty ones.
+        // Location filter names remain in evidence only, never in model text.
+        Reply HealthRows(DeviceHealthResult found, DateTimeOffset at)
         {
-            var d = found.Device;
+            var data = found.Data;
+            var d = data.Device;
             var name = SummaryName(d);
-            var (status, tone) = (d.State.ToDisplayString(), StateTone(d.State));
-            IntelligenceEvidence device = new(new("device:" + Id(d.DeviceId), name, status, tone, at, "Device status at lookup time")
+            var healthState = data.UnderMaintenance == true ? DeviceState.Maintenance : d.State;
+            var (status, tone) = (healthState.ToDisplayString(), StateTone(healthState));
+            IntelligenceEvidence device = new(new("device:" + Id(d.DeviceId), name, status, tone, at, data.Unavailable?.Any(u => u.Source == "device") == true
+                ? "Listed device state; fresh device read unavailable" : "Device status at lookup time")
             { Object = new("device", d.DeviceId) });
             var location = Clean(d.Location);
             var references = new List<IntelligenceEvidence>();
@@ -390,15 +394,36 @@ public sealed partial class CompactNetworkLookups(
                 { Object = new("location", place.Id) }, place.FilterName));
                 location += $" [[location:{Id(place.Id)}]]";
             }
-            var uptime = found.UptimeSeconds is { } seconds ? IntelligenceTime.Length(TimeSpan.FromSeconds(seconds)) : "unknown";
-            return Rows($"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}" + OtherNames(d, name, sysName: true),
-                [
-                    // The last poll, so "when was it last polled?" is answered from this lookup and a stale poll shows.
-                    new($"OS: {Clean(d.Os)}; hardware: {Clean(d.Hardware)}; location: {location}; uptime: {uptime}"
-                        + (d.LastPolled is { } polled ? "; last polled " + IntelligenceTime.AtAndAgo(polled, at, time) : "") + ".", references),
-                    new(NotYetInHealth),
-                ],
-                [device]);
+            var uptime = data.UptimeSeconds is { } seconds ? IntelligenceTime.Length(TimeSpan.FromSeconds(seconds)) : "unknown";
+            var missing = (data.Unavailable ?? []).Select(u => u.Source).ToHashSet(StringComparer.Ordinal);
+            string Percent(double? value) => value is { } number ? Number(number) + "%" : "no reading";
+            var rows = new List<Row>
+            {
+                new($"OS: {Clean(d.Os)}; hardware: {Clean(d.Hardware)}; location: {location}; uptime: {uptime}"
+                    + (d.LastPolled is { } polled ? "; last polled " + IntelligenceTime.AtAndAgo(polled, at, time) : "") + ".", references),
+                new("Maintenance: " + (data.UnderMaintenance is { } maintenance ? maintenance ? "yes" : "no" : "unknown")
+                    + "; CPU maximum: " + (missing.Contains("processors") ? "unavailable" : Percent(data.CpuMaxPercent))
+                    + "; memory maximum: " + (missing.Contains("memory") ? "unavailable" : Percent(data.MemoryMaxPercent)) + "."),
+            };
+            if (!missing.Contains("alerts"))
+                rows.Add(new($"Open alerts: {Id(data.OpenAlerts.Count)}; faults: {Id(data.OpenFaults ?? data.OpenAlerts.Count)}."));
+            if (!missing.Contains("ports"))
+                rows.Add(new($"Ports: {Id(data.PortsTotal)}; down while enabled: {Id(data.PortsDownWhileEnabled)}."));
+            if (!missing.Contains("storage"))
+            {
+                if (data.FullestStorage is not { Count: > 0 }) rows.Add(new("Storage: no readings."));
+                else rows.AddRange(data.FullestStorage.Select(volume => new Row("Storage: " + Clean(volume.Description) + "; " + Percent(volume.UsagePercent))));
+            }
+            rows.AddRange(found.AlertGroups.Select(group => GroupRow(group, at, verbose: true, deviceState: healthState)));
+            rows.AddRange(data.ProblemPorts.Select(port => new Row(
+                $"Port {Clean(port.IfName)} [[port:{Id(port.PortId)}]]: {Clean(port.Alias)}; {Clean(port.OperStatus)}; "
+                + "errors in/out " + (port.InErrorsPerSec is { } input ? Number(input) : "unknown") + "/"
+                + (port.OutErrorsPerSec is { } output ? Number(output) : "unknown") + " per second",
+                [new(new("port:" + Id(port.PortId), Clean(port.IfName), Clean(port.OperStatus), port.OperStatus switch { "up" => "up", "down" => "down", _ => "unknown" }, at, name)
+                    { Object = new("port", port.PortId, d.DeviceId) })])));
+            var heading = $"{name} [[device:{Id(d.DeviceId)}]]: {status}; IP {Clean(d.Ip)}" + OtherNames(d, name, sysName: true);
+            if (missing.Count > 0) heading += ". Unavailable: " + string.Join(", ", missing.Select(Clean)) + ".";
+            return Rows(heading, rows, [device], alsoOmitted: data.ProblemPortsOmitted ?? 0);
         }
 
         // A shared alert group, already redacted upstream: one row per rule firing on a device.
@@ -408,7 +433,7 @@ public sealed partial class CompactNetworkLookups(
         // MCP's facts follow (#636): the device's state, how long the alert has been open, its
         // faults by name with their states, and with verbose when it opened, its note and when
         // each fault started.
-        Row GroupRow(OpenAlertGroup g, DateTimeOffset at, bool verbose = false)
+        Row GroupRow(OpenAlertGroup g, DateTimeOffset at, bool verbose = false, DeviceState? deviceState = null)
         {
             var d = g.Device;
             var named = d is null ? null
@@ -435,9 +460,10 @@ public sealed partial class CompactNetworkLookups(
             if (d is not null && d.DeviceId > 0)
             {
                 // Up to a minute old: the shared operation caches the device list per connection.
-                references.Add(new(new("device:" + Id(d.DeviceId), deviceName, d.State.ToDisplayString(), StateTone(d.State), at, "Device status from the device list, up to a minute old")
+                var shownState = deviceState ?? d.State;
+                references.Add(new(new("device:" + Id(d.DeviceId), deviceName, shownState.ToDisplayString(), StateTone(shownState), at, "Device status from the device list, up to a minute old")
                 { Object = new("device", d.DeviceId) }));
-                on += $" [[device:{Id(d.DeviceId)}]] ({d.State.ToDisplayString()})";
+                on += $" [[device:{Id(d.DeviceId)}]] ({shownState.ToDisplayString()})";
             }
             var text = $"{severity}; {state}; {rule} [[alert:{Id(representative.Id)}]] on {on}";
             if (g.Since is { } since)
@@ -517,15 +543,13 @@ public sealed partial class CompactNetworkLookups(
                     }),
                     alsoOmitted: Math.Max(0, found.Page.Total - found.Page.Offset - found.Page.Returned));
             }),
-            // device_health on the phone is its device and uptime part, from the shared summary
-            // device_health itself builds on (#602); the rest is listed in docs/INTELLIGENCE.md until
-            // #634 brings it.
+            // Every section comes from the shared health operation, with independent source failures.
             Lookup("device_health", "device", async (arguments, at, ct) =>
             {
                 var (id, unresolved) = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
                 if (id is not { } deviceId) return unresolved!;
-                if (summaries is not { } reading) return Reply.Say(Failed);
-                var outcome = await WhileCurrent(() => reading.ReadAsync(new DeviceSummaryRequest(deviceId), ct)).ConfigureAwait(false);
+                if (health is not { } reading) return Reply.Say(Failed);
+                var outcome = await WhileCurrent(() => reading.ReadAsync(new DeviceHealthRequest(deviceId), ct)).ConfigureAwait(false);
                 if (outcome.Result is not { } found)
                     return Reply.Say(outcome.Error?.Code switch
                     {
@@ -533,7 +557,7 @@ public sealed partial class CompactNetworkLookups(
                         DashyNMS.Agent.HostFailure.Refused => Refused,
                         _ => Failed,
                     });
-                return SummaryRows(found, at);
+                return HealthRows(found, at);
             }),
             Lookup("active_alerts", "device", async (arguments, at, ct) =>
             {
@@ -607,7 +631,6 @@ public sealed partial class CompactNetworkLookups(
     internal const int NamedTypes = 8;
 
     /// <summary>What MCP's device_health gives that the phone's doesn't yet (#634).</summary>
-    internal const string NotYetInHealth = "Not in this lookup yet: maintenance, open alerts, CPU, memory, storage and problem ports.";
 
     /// <summary>
     /// "Sensors on core-sw1 [[device:1]]: 9; 2 critical, 2 warning, 1 OK, 4 unknown. Types: dbm 2, fanspeed 2."
