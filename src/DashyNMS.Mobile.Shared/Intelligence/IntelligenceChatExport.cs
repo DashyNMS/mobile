@@ -171,20 +171,39 @@ public static partial class IntelligenceChatMarkdown
     internal static string DemoteHeadings(string markdown)
     {
         var lines = markdown.Replace("\r\n", "\n").Split('\n');
-        var inCode = false;
+        var fenceLength = 0;
+        var fenceCharacter = '\0';
         for (var i = 0; i < lines.Length; i++)
         {
-            if (lines[i].TrimStart().StartsWith("```", StringComparison.Ordinal))
+            var line = lines[i].AsSpan();
+            var indentation = 0;
+            while (indentation < line.Length && line[indentation] == ' ') indentation++;
+            var trimmed = line[indentation..];
+            if (indentation <= 3 && trimmed.Length >= 3 && trimmed[0] is '`' or '~')
             {
-                inCode = !inCode;
-                continue;
+                var character = trimmed[0];
+                var length = 0;
+                while (length < trimmed.Length && trimmed[length] == character) length++;
+                var remainder = trimmed[length..];
+                if (length >= 3)
+                {
+                    if (fenceLength == 0 && (character != '`' || !remainder.Contains('`')))
+                    {
+                        fenceLength = length;
+                        fenceCharacter = character;
+                    }
+                    else if (character == fenceCharacter && length >= fenceLength && remainder.Trim().IsEmpty)
+                        fenceLength = 0;
+                    continue;
+                }
             }
 
-            if (!inCode && HeadingLine().Match(lines[i]) is { Success: true } heading)
+            if (fenceLength == 0 && HeadingLine().Match(lines[i]) is { Success: true } heading)
                 lines[i] = new string('#', Math.Min(6, heading.Groups[1].Length + 2)) + heading.Groups[2].Value;
         }
 
-        return string.Join('\n', lines) + (inCode ? "\n```" : "");
+        // Close a partial answer before the next message's Markdown begins.
+        return string.Join('\n', lines) + (fenceLength > 0 ? "\n" + new string(fenceCharacter, fenceLength) : "");
     }
 
     /// <summary>A question is plain text, so anything Markdown would read as formatting is escaped.</summary>

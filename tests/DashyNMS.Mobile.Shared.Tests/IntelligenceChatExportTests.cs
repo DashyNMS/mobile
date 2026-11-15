@@ -31,6 +31,23 @@ public sealed class IntelligenceChatExportTests
         Assert.Contains("## Dashy\n\nNext answer", markdown);
     }
 
+    [Theory]
+    [InlineData("````text\n```\n# Literal heading\n````", "````text\n```\n# Literal heading\n````")]
+    [InlineData("````text\n```\n# Literal heading", "````text\n```\n# Literal heading\n````")]
+    [InlineData("```text\n```more\n# Literal heading", "```text\n```more\n# Literal heading\n```")]
+    [InlineData("```text\n````\n# Heading", "```text\n````\n### Heading")]
+    [InlineData("~~~~text\n~~~\n# Literal heading", "~~~~text\n~~~\n# Literal heading\n~~~~")]
+    [InlineData("```text\n    ```\n# Literal heading", "```text\n    ```\n# Literal heading\n```")]
+    public void Fences_preserve_literal_content_and_cannot_capture_later_messages(string answer, string expected)
+    {
+        var chat = new ExportedChat("Chat", DateTimeOffset.UnixEpoch,
+            [new(false, null, answer, [], null), new(true, null, "Next question", [], null),
+             new(false, null, "Next answer", [], null)]);
+        var markdown = IntelligenceChatMarkdown.Write(chat, (_, _, _) => "");
+        Assert.Contains("## Dashy\n\n" + expected + "\n\n---\n\n## You\n\nNext question", markdown);
+        Assert.EndsWith("## Dashy\n\nNext answer\n", markdown);
+    }
+
     [Fact]
     public void Snapshot_excludes_raw_lookups_and_names_verified_markers()
     {
