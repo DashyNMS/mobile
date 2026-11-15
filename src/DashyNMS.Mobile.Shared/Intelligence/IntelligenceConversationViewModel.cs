@@ -514,6 +514,11 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 catch (IntelligenceException ex) when (ex.Kind == IntelligenceFailureKind.ContextLimit && hasHistory && attempt == 1)
                 {
+                    // Retire callbacks before cancellation can complete an in-flight
+                    // lookup. Queued posts must fail their attempt check before we
+                    // clear the abandoned attempt's attachments and tracking.
+                    Volatile.Write(ref run.Attempt, 0);
+                    attemptStop.Cancel();
                     await OnUiAsync(() =>
                     {
                         if (run.Stop.IsCancellationRequested) return;
@@ -524,7 +529,6 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         run.LookupImageIdsProvided = [];
                         run.LookupImageIds.Clear();
                     });
-                    attemptStop.Cancel();
                     prompt = "Question:\n" + question;
                     hasHistory = false;
                 }

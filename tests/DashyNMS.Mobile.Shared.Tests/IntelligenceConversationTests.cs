@@ -3,6 +3,7 @@ using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
+using DesktopNMS.Core.Intelligence;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Tests;
@@ -345,6 +346,57 @@ public sealed class IntelligenceConversationTests
         Assert.Equal(IntelligenceTurnState.Completed, vm.Turns[1].State);
         Assert.Equal(3, _lookups.Opened);
         Assert.Equal(3, _lookups.Closed);
+    }
+
+    private sealed class RetryImageLookups : IIntelligenceLookups
+    {
+        internal Action<IReadOnlyList<IntelligenceImage>> Images { get; private set; } = _ => { };
+        public IReadOnlyList<IntelligenceLookup> Create() => [new("network_overview", "Overview", (_, _) => Task.FromResult("Devices: 10 total."))];
+        public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images)
+        {
+            Images = images;
+            return new(Create());
+        }
+    }
+
+    [Fact]
+    public async Task Context_retry_retires_image_callbacks_before_cancellation_and_clearing()
+    {
+        var lookups = new RetryImageLookups();
+        using var vm = new IntelligenceConversationViewModel(_model, _preferences, lookups, _session);
+        await vm.AskAsync("Seed question");
+        Action<IReadOnlyList<IntelligenceImage>>? abandoned = null;
+        var cancellationCallbackRan = false;
+        _model.Scripts.Enqueue((_, _, text, token) =>
+        {
+            abandoned = lookups.Images;
+            abandoned([new IntelligenceImage([1], "image/png")]);
+            Assert.Single(vm.Turns[1].Images);
+            // A lookup may complete synchronously when its cancellation is signalled.
+            // With the old order this repopulated images after the retry cleared them.
+            token.Register(() =>
+            {
+                cancellationCallbackRan = true;
+                abandoned([new IntelligenceImage([2], "image/png")]);
+                text("Stale partial answer");
+            });
+            return Task.FromException<IntelligenceAnswer>(new IntelligenceException("private", kind: IntelligenceFailureKind.ContextLimit));
+        });
+        _model.Scripts.Enqueue((_, _, _, _) =>
+        {
+            Assert.True(cancellationCallbackRan);
+            Assert.Empty(vm.Turns[1].Images);
+            // A callback queued beyond retirement must also stay rejected.
+            abandoned!([new IntelligenceImage([3], "image/png")]);
+            Assert.Empty(vm.Turns[1].Images);
+            return Task.FromResult(new IntelligenceAnswer("Fresh answer", null));
+        });
+        await vm.AskAsync("Current question");
+        var turn = vm.Turns[1];
+        Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+        Assert.Empty(turn.Images);
+        Assert.Equal("Fresh answer", turn.Answer);
+        Assert.Empty(IntelligenceSavedChats.Messages([turn]).SelectMany(m => m.Images));
     }
 
     [Fact]
