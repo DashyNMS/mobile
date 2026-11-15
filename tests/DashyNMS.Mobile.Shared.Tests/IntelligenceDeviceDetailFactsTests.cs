@@ -12,6 +12,35 @@ namespace DashyNMS.Mobile.Tests;
 public sealed partial class IntelligenceFactsTests
 {
     [Theory]
+    [InlineData("wireless", 12.345, "12.345")]
+    [InlineData("wireless", 0.00012345, "0.00012345")]
+    [InlineData("wireless", null, "unknown")]
+    [InlineData("poe", 12.345, "12.345")]
+    [InlineData("poe", null, "unknown")]
+    [InlineData("availability", 99.9999, "99.9999")]
+    public void Detail_measurements_preserve_precision_and_missing_values(string section, double? value, string expected)
+    {
+        var data = new DeviceDetailsData
+        {
+            Device = new DeviceBrief(1, "core-sw1.example.net", "Core switch", "192.0.2.1", "Lab", "up"),
+            Wireless = section == "wireless" ? [new WirelessDetail("signal", "Radio", value, null)] : null,
+            Poe = section == "poe" ? new PoeDetails([new PoeDetailBudget("Power", value, value, value, value)], null, null) : null,
+            Availability = section == "availability" ? [new AvailabilityDetail("day", value!.Value)] : null,
+        };
+        var found = new DeviceDetailsResult("Details", data, [section], new Dictionary<string, int> { [section] = 1 });
+        var text = CompactNetworkLookups.DeviceDetailRows(found, Now, new FakeTimeProvider(Now), true, "Core switch").Text;
+        if (section == "wireless") Assert.Contains("value " + expected, text);
+        if (section == "poe")
+        {
+            Assert.Contains("used " + expected + " W", text);
+            Assert.Contains("total " + expected + " W", text);
+            Assert.Contains("remaining " + expected + " W", text);
+            Assert.Contains("used " + expected + "%", text);
+        }
+        if (section == "availability") Assert.Contains(expected + "%", text);
+    }
+
+    [Theory]
     [InlineData("inventory", true, "yes")]
     [InlineData("inventory", false, "no")]
     [InlineData("inventory", null, "unknown")]

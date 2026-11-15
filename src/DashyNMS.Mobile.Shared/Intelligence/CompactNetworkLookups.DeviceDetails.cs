@@ -29,10 +29,10 @@ public sealed partial class CompactNetworkLookups
         {
             if (poe.None is { } none) rows.Add(new("PoE: " + Clean(none)));
             if (poe.DevicesConnected is { } connected) rows.Add(new($"PoE connected devices: {Id(connected)}."));
-            rows.AddRange((poe.Budgets ?? []).Select(p => new Row($"PoE {Clean(p.Label)}; used {Number(p.UsedWatts)} W; total {Number(p.TotalWatts)} W; remaining {Number(p.RemainingWatts)} W; used {Number(p.UsedPercent)}%.")));
+            rows.AddRange((poe.Budgets ?? []).Select(p => new Row($"PoE {Clean(p.Label)}; used {DetailNumber(p.UsedWatts)} W; total {DetailNumber(p.TotalWatts)} W; remaining {DetailNumber(p.RemainingWatts)} W; used {DetailNumber(p.UsedPercent)}%.")));
         }
         if (data.Wireless is { } wireless)
-            rows.AddRange(wireless.Select(w => new Row($"Wireless {Clean(w.Type)} {Clean(w.Description)}; value {Number(w.Value)}; state {Clean(w.State)}.")));
+            rows.AddRange(wireless.Select(w => new Row($"Wireless {Clean(w.Type)} {Clean(w.Description)}; value {DetailNumber(w.Value)}; state {Clean(w.State)}.")));
         if (data.Routing is { } routing)
         {
             rows.AddRange(routing.BgpSessions.Select(b => new Row($"BGP {Clean(b.Peer)}; remote AS {b.RemoteAs.ToString(System.Globalization.CultureInfo.InvariantCulture)} {Clean(b.RemoteAsName)}; description {Clean(b.Description)}; state {Clean(b.State)}; admin down {YesNo(b.AdminDown)}; established seconds {Count(b.EstablishedSeconds)}; last error {Clean(b.LastError)}.")));
@@ -40,7 +40,7 @@ public sealed partial class CompactNetworkLookups
             rows.AddRange(routing.Vrfs.Select(v => new Row($"VRF {Clean(v.Name)}; route distinguisher {Clean(v.RouteDistinguisher)}; description {Clean(v.Description)}.")));
         }
         if (data.Availability is { } availability)
-            rows.AddRange(availability.Select(a => new Row($"Availability over {Clean(a.Over)}: {a.Percent.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)}%.")));
+            rows.AddRange(availability.Select(a => new Row($"Availability over {Clean(a.Over)}: {DetailNumber(a.Percent)}%.")));
         if (data.Addresses is { } addresses)
             rows.AddRange(addresses.Select(a => new Row($"Address {Clean(a.Address)}; family {Clean(a.Family)}; port {Clean(a.Port)}.")));
         var heading = AlertUnavailable(data.Unavailable) + (found.SectionTotals.Count == 0 ? "No sections available."
@@ -48,6 +48,8 @@ public sealed partial class CompactNetworkLookups
         var unfetched = pages?.Values.Sum(p => Math.Max(0, p.Total - p.Offset - p.Returned)) ?? 0;
         return Rows(heading, rows, alsoOmitted: unfetched);
     }
+
+    private static string DetailNumber(double? value) => value?.ToString("R", System.Globalization.CultureInfo.InvariantCulture) ?? "unknown";
 
     private static string YesNo(bool? value) => value switch { true => "yes", false => "no", _ => "unknown" };
 
