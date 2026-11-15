@@ -45,8 +45,8 @@ public sealed partial class IntelligencePage
         {
             var choices = await _spotlightSource.ChoicesAsync(key);
             if (revision != _conversation.ChatRevision || _conversation.CurrentScope != scope) return;
-            var picker = new IntelligenceSpotlightPickerPage(choices, _conversation, revision, async choice =>
-                await _conversation.SetSpotlightAsync(choice, revision, _spotlightSource.ResolveAsync));
+            var picker = new IntelligenceSpotlightPickerPage(choices, _conversation, revision, async (choice, token) =>
+                await _conversation.SetSpotlightAsync(choice, revision, _spotlightSource.ResolveAsync, token: token));
             await Navigation.PushModalAsync(picker);
         }
         catch { await DisplayAlertAsync("Spotlight", "The choices could not be read. Try again.", "OK"); }
@@ -66,10 +66,11 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly long _revision;
     private bool _valid = true;
+    private readonly CancellationTokenSource _lifetime = new();
     private SearchBar? _search;
     private Label? _status;
     private readonly CollectionView _list = new() { SelectionMode = SelectionMode.None };
-    public IntelligenceSpotlightPickerPage(IReadOnlyList<SpotlightChoice> choices, IntelligenceConversationViewModel conversation, long revision, Func<SpotlightChoice, Task<bool>> select)
+    public IntelligenceSpotlightPickerPage(IReadOnlyList<SpotlightChoice> choices, IntelligenceConversationViewModel conversation, long revision, Func<SpotlightChoice, CancellationToken, Task<bool>> select)
     {
         _conversation = conversation;
         _revision = revision;
@@ -91,7 +92,12 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             {
                 if (!_valid || button.BindingContext is not SpotlightChoice choice) return;
                 button.IsEnabled = false;
-                try { status.Text = await select(choice) ? "Added to Spotlight." : "Not added. Return to the chat for details."; }
+                try
+                {
+                    var added = await select(choice, _lifetime.Token);
+                    if (!_lifetime.IsCancellationRequested)
+                        status.Text = added ? "Added to Spotlight." : conversation.Notice;
+                }
                 finally { button.IsEnabled = true; }
             };
             return button;
@@ -108,6 +114,8 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
     }
     protected override void OnDisappearing()
     {
+        _lifetime.Cancel();
+        _valid = false;
         _conversation.PropertyChanged -= ConversationChanged;
         base.OnDisappearing();
     }
