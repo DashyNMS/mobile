@@ -10,8 +10,32 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace DashyNMS.Mobile.Intelligence;
 
 /// <summary>Prepares existing setup once, then captures immutable connections for each attempt.</summary>
-public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup unimus, ISettingsStore settings)
+public sealed class IntelligenceIntegrations : IDisposable
 {
+    private readonly GraylogSetup graylog;
+    private readonly UnimusSetup unimus;
+    private readonly ISettingsStore settings;
+    private long settingsRevision;
+    private int disposed;
+
+    public IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup unimus, ISettingsStore settings)
+    {
+        this.graylog = graylog;
+        this.unimus = unimus;
+        this.settings = settings;
+        settings.Changed += SettingsChanged;
+    }
+
+    // A saved A-to-B-to-A change must retire the old authority even when the
+    // final values match. Conservatively retire on every settings save.
+    private void SettingsChanged(object? sender, AppSettings value) => Interlocked.Increment(ref settingsRevision);
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref disposed, 1) != 0) return;
+        settings.Changed -= SettingsChanged;
+    }
+
     private GraylogConnection? reachableGraylog;
 
     public async Task PrepareAsync(CancellationToken cancellationToken = default)
@@ -35,6 +59,7 @@ public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup u
 
     internal IntelligenceIntegrationClients Capture()
     {
+        var revision = Volatile.Read(ref settingsRevision);
         var logs = graylog.Captured;
         var configs = unimus.Captured;
         var current = settings.Current;
@@ -42,7 +67,8 @@ public sealed class IntelligenceIntegrations(GraylogSetup graylog, UnimusSetup u
         var queryField = current.Graylog.QueryField;
         var anyAddress = current.Graylog.MatchAnyAddress;
         return new(logs.Connection, configs.Connection, current,
-            () => graylog.Generation == logs.Generation && unimus.Revision == configs.Generation
+            () => Volatile.Read(ref disposed) == 0 && Volatile.Read(ref settingsRevision) == revision
+                && graylog.Generation == logs.Generation && unimus.Revision == configs.Generation
                 && settings.Current.IntelligenceConfigText == textMode
                 && settings.Current.Graylog.QueryField == queryField
                 && settings.Current.Graylog.MatchAnyAddress == anyAddress,

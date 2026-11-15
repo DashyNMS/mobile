@@ -38,10 +38,12 @@ public sealed class SharedConfigLookupsHttpTests
         private readonly LibreNmsTransport transport = new(NullLogger<LibreNmsTransport>.Instance);
         private readonly IntelligenceDeviceTransports transports;
         private readonly IntelligenceLookupSet set;
+        private readonly IntelligenceIntegrations integrations;
+        private readonly ISettingsStore settingsStore;
         internal Mobile(Uri nms, Uri? configs, string mode = AppSettings.IntelligenceConfigTextSummary)
         {
             Settings = new() { Unimus = new() { Enabled = configs is not null, Url = configs?.ToString() }, IntelligenceConfigText = mode };
-            var settings = Fakes.Settings(Settings);
+            var settings = settingsStore = Fakes.Settings(Settings);
             var secrets = Fakes.Secrets();
             var logs = new GraylogSetup(Substitute.For<IGraylogApi>(), new SecureGraylogPasswordProtector(secrets), settings, secrets, NullLogger<GraylogSetup>.Instance);
             Configs = new UnimusSetup(Substitute.For<IUnimusApi>(), new SecureUnimusTokenProtector(secrets), settings, secrets, TimeProvider.System, NullLogger<UnimusSetup>.Instance);
@@ -49,15 +51,17 @@ public sealed class SharedConfigLookupsHttpTests
             var session = Fakes.Session();
             session.Connection.Returns(new LibreNmsConnection(nms, FixtureServer.Token));
             transports = new(transport, settings, session);
+            integrations = new(logs, Configs, settings);
             set = new CompactNetworkLookups(Fakes.Client(), settings, session, new FakeTimeProvider(Now), deviceTransport: transports.Open,
-                integrations: new(logs, Configs, settings)).Open(Evidence.AddRange);
+                integrations: integrations).Open(Evidence.AddRange);
         }
         internal AppSettings Settings { get; }
         internal UnimusSetup Configs { get; }
         internal List<IntelligenceEvidence> Evidence { get; } = [];
         internal IReadOnlyList<IntelligenceLookup> Tools => set.Lookups;
         internal IntelligenceLookup Tool(string name) => Tools.Single(l => l.Name == name);
-        public void Dispose() { set.Dispose(); transports.Dispose(); transport.Dispose(); }
+        internal void SaveSettings() => settingsStore.Changed += Raise.Event<EventHandler<AppSettings>>(settingsStore, Settings);
+        public void Dispose() { set.Dispose(); integrations.Dispose(); transports.Dispose(); transport.Dispose(); }
     }
 
     [Theory]
@@ -155,14 +159,25 @@ public sealed class SharedConfigLookupsHttpTests
         Assert.DoesNotContain("synthetic-secret", text);
         Assert.Empty(mobile.Evidence);
     }
-    [Fact]
-    public async Task A_privacy_change_during_reading_discards_the_config_and_evidence()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task A_privacy_change_during_reading_discards_the_config_and_evidence(bool restoreOriginal)
     {
         using var nms = NmsServer();
         Mobile? mobile = null;
         using var configs = Server(p =>
         {
-            if (p == "/api/v2/backups/diff") mobile!.Settings.IntelligenceConfigText = AppSettings.IntelligenceConfigTextOff;
+            if (p == "/api/v2/backups/diff")
+            {
+                mobile!.Settings.IntelligenceConfigText = AppSettings.IntelligenceConfigTextOff;
+                mobile.SaveSettings();
+                if (restoreOriginal)
+                {
+                    mobile.Settings.IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull;
+                    mobile.SaveSettings();
+                }
+            }
             return null;
         });
         using var owned = mobile = new Mobile(nms.Root, configs.Root, AppSettings.IntelligenceConfigTextFull);

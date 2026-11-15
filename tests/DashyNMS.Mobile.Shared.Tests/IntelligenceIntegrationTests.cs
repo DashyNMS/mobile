@@ -60,6 +60,36 @@ public sealed class IntelligenceIntegrationTests
         Assert.Equal(2, b.Requests.Length);
     }
 
+    [Theory]
+    [InlineData("config")]
+    [InlineData("field")]
+    [InlineData("addresses")]
+    public void Saved_settings_transitions_retire_the_attempt_even_after_restoring_the_original_value(string setting)
+    {
+        var saved = new AppSettings { IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull };
+        var settings = Fakes.Settings(saved);
+        var secrets = Fakes.Secrets();
+        var logs = new GraylogSetup(Substitute.For<IGraylogApi>(), new SecureGraylogPasswordProtector(secrets), settings, secrets, NullLogger<GraylogSetup>.Instance);
+        var configs = new UnimusSetup(Substitute.For<IUnimusApi>(), new SecureUnimusTokenProtector(secrets), settings, secrets, TimeProvider.System, NullLogger<UnimusSetup>.Instance);
+        using var factory = new IntelligenceIntegrations(logs, configs, settings);
+        using var first = factory.Capture();
+        var originalField = saved.Graylog.QueryField;
+        var originalAddresses = saved.Graylog.MatchAnyAddress;
+        if (setting == "config") saved.IntelligenceConfigText = AppSettings.IntelligenceConfigTextOff;
+        if (setting == "field") saved.Graylog.QueryField = "changed_source";
+        if (setting == "addresses") saved.Graylog.MatchAnyAddress = !originalAddresses;
+        settings.Changed += Raise.Event<EventHandler<AppSettings>>(settings, saved);
+        saved.IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull;
+        saved.Graylog.QueryField = originalField;
+        saved.Graylog.MatchAnyAddress = originalAddresses;
+        settings.Changed += Raise.Event<EventHandler<AppSettings>>(settings, saved);
+        Assert.ThrowsAny<OperationCanceledException>(() => first.Current());
+        using var next = factory.Capture();
+        next.Current();
+        factory.Dispose();
+        Assert.ThrowsAny<OperationCanceledException>(() => next.Current());
+    }
+
     [Fact]
     public async Task Read_only_clients_refuse_reconfiguration_actions_and_reads_after_disposal()
     {
