@@ -64,7 +64,7 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
     public IReadOnlyList<IntelligenceInlineReference> References => _references;
 
     private IReadOnlyList<IntelligenceImage> _images = [];
-    /// <summary>Validated images returned with the answer; never fetched by the app.</summary>
+    /// <summary>Validated images returned by reviewed lookups or the model route.</summary>
     public IReadOnlyList<IntelligenceImage> Images { get => _images; internal set => SetProperty(ref _images, IntelligenceAnswerImages.Accept(value)); }
 
     /// <summary>
@@ -220,6 +220,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         public int Attempt;
         public int Lookups;
         public int LookupFailures;
+        public bool HasLookupImages;
         public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -383,7 +384,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 // search's private transport rather than leaving it to the next switch.
                 await _lookups.PrepareAsync(token).ConfigureAwait(false);
                 RequireCurrent(run);
-                using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)));
+                using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)),
+                    images => Post(run, attemptId, () =>
+                    {
+                        var accepted = IntelligenceAnswerImages.Accept(images);
+                        if (accepted.Count == 0) return;
+                        turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(accepted));
+                        run.HasLookupImages = true;
+                    }));
                 // This question's tools and lookup limit, from what was asked and what the context holds (#637).
                 var costs = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var lookup in lookupSet.Lookups) costs[lookup.Name] = await ToolTokensAsync(lookup, token);
@@ -473,7 +481,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     {
                         RequireCurrent(run);
                         turn.Answer = markdown;
-                        turn.Images = answer.Images;
+                        turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(answer.Images));
                         turn.State = IntelligenceTurnState.Completed;
                         turn.Message = run.LookupFailures == 0 ? "Completed" : "Completed, but some lookups failed.";
                     });
@@ -486,6 +494,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         if (run.Stop.IsCancellationRequested) return;
                         if (ex.PartialAnswer is not null) turn.Answer = ex.PartialAnswer;
                         turn.HistoryOmitted = true;
+                        turn.Images = [];
+                        run.HasLookupImages = false;
                     });
                     attemptStop.Cancel();
                     prompt = "Question:\n" + question;
@@ -539,6 +549,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 foreach (var progress in turn.Lookups.Where(p => p.State == IntelligenceLookupState.Running))
                     progress.State = IntelligenceLookupState.Stopped;
+                if (run.HasLookupImages && turn.Images.Count > 0 && !turn.Answer.Contains(GraphImageNotice, StringComparison.Ordinal))
+                    turn.Answer = turn.Answer.TrimEnd() + "\n\n" + GraphImageNotice;
                 turn.AnsweredAt ??= DateTimeOffset.UtcNow;
                 Interlocked.CompareExchange(ref _active, null, run);
                 Notify();
@@ -548,6 +560,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         }
         return true;
     }
+
+    internal const string GraphImageNotice = "Graph images are attached. The model received metadata only and cannot read these images.";
 
     /// <summary>
     /// Tokens for <paramref name="text"/> where the model can't count (before iOS 26.4), at two and a

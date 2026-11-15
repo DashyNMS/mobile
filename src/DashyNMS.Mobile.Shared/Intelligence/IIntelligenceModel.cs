@@ -84,9 +84,9 @@ public interface IIntelligenceSession : IDisposable
 public sealed record IntelligenceAnswer(string Text, string? Usage)
 {
     /// <summary>
-    /// Images a lookup returned with the answer, such as a LibreNMS graph. Apple's
-    /// on-device model has no graph lookup, so only a later model route (#577) or a
-    /// recorded answer supplies these; the app never fetches an image from the network.
+    /// Images supplied by a model route. Reviewed lookup attachments reach the turn
+    /// separately, so a text-only native tool bridge cannot lose graph pixels. The
+    /// current bridge supplies metadata to the model and attachments to the person.
     /// </summary>
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
 

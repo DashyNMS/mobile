@@ -87,3 +87,7 @@ check LogSearch a9032220aa18c3234d920f0503eba6de0348d6ba \
 # Unimus backups, diffs and recent-change envelopes.
 check ConfigLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md routes.json
+
+# Graph metadata, PNG/SVG envelopes and fixed MCP projections.
+check Graphs a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md routes.json expected-mcp.json

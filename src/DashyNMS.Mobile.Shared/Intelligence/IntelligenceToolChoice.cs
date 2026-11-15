@@ -55,6 +55,7 @@ public static partial class IntelligenceToolChoice
     private static readonly IReadOnlyDictionary<string, string[]> Cues = new Dictionary<string, string[]>(StringComparer.Ordinal)
     {
         ["network_overview"] = ["network", "overview", "how is", "how's", "status", "summary", "summarise", "summarize", "everything", "overall", "how many", "dashboard", "doing", "brief"],
+        ["graph"] = ["graph", "chart", "plot", "show me", "traffic today"],
         ["config_backup"] = ["config", "backup", "configuration"],
         ["config_diff"] = ["config diff", "compare config", "config changed", "device's config", "device config"],
         ["recent_config_changes"] = ["config changes", "changed config", "configs", "configuration changes"],

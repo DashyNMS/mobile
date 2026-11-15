@@ -1,0 +1,108 @@
+{
+  "device": {
+    "status": "ok",
+    "summary": "Traffic graph for the device over the last day, shown as an image.",
+    "data": {
+      "device": {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "location": "Paddock",
+        "status": "up"
+      },
+      "graph": {
+        "type": "device_bits",
+        "preset": "day",
+        "description": "Traffic"
+      },
+      "available_types": [
+        {
+          "name": "device_bits",
+          "description": "Traffic"
+        },
+        {
+          "name": "device_processor",
+          "description": "CPU"
+        },
+        {
+          "name": "device_temperature",
+          "description": "Temperature"
+        }
+      ]
+    }
+  },
+  "cpu": {
+    "status": "ok",
+    "summary": "CPU graph for the device over the last day, shown as an image.",
+    "data": {
+      "device": {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "location": "Paddock",
+        "status": "up"
+      },
+      "graph": {
+        "type": "device_processor",
+        "preset": "day",
+        "description": "CPU"
+      }
+    }
+  },
+  "port": {
+    "status": "ok",
+    "summary": "Errors graph for one port over the last day, shown as an image.",
+    "data": {
+      "device": {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "location": "Paddock",
+        "status": "up"
+      },
+      "graph": {
+        "type": "port_errors",
+        "preset": "day",
+        "description": "Errors"
+      },
+      "port": {
+        "port_id": 107,
+        "if_name": "1/1/7",
+        "alias": "Camera 7"
+      },
+      "other_types": [
+        "bits",
+        "upkts",
+        "nupkts",
+        "errors"
+      ]
+    }
+  },
+  "sensor": {
+    "status": "ok",
+    "summary": "Graph of one temperature sensor over the last day, shown as an image.",
+    "data": {
+      "device": {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "location": "Paddock",
+        "status": "up"
+      },
+      "graph": {
+        "type": "device_temperature",
+        "preset": "day"
+      },
+      "sensor": {
+        "sensor_id": 1,
+        "description": "Chassis",
+        "class": "temperature",
+        "current": 48
+      }
+    }
+  }
+}

@@ -43,7 +43,7 @@ is listed here with its reason. Anything else is a gap and needs an issue.
 | Results name devices in the person's device-name style, with Core's markers already written | Left to itself, the on-device model drops parts of names and writes "device 708" (#570). Desktop's model writes markers from the JSON itself. |
 | No Full report detail level on the device | Too long for the on-device answer budget. |
 | No web search | It's ChatGPT's hosted tool, and arrives with #577. |
-| Graph images may not reach the model | It depends on whether Apple's models accept images (#649). The person still sees the graph. |
+| Graph image input depends on the native model route | The current Swift bridge supplies text-only tool replies. Lookup attachments reach the answer and saved chat separately. Newer Foundation Models image input is being evaluated in #649. |
 | Report this answer, and the Private Cloud Compute notice | Store rules for the phone (#574, #575). |
 
 Where the phone is more accurate than MCP, it keeps its value and the fix goes
@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | Up to 23: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, and configured `search_logs`, `config_backup`, `config_diff` and `recent_config_changes` | #236 |
+| 24 network tools | Up to 24: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, `graph`, and configured `search_logs`, `config_backup`, `config_diff` and `recent_config_changes` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -69,7 +69,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Ask Intelligence from devices, alerts, sensors, ports and more | Not yet | #232 |
 | Export as Markdown or PDF | Not yet | #233 |
 | Twelve starter questions, four at a time, and "Checking alerts" activity | Three fixed sets of three, and tool titles | #640 |
-| Graph images in answers | Rendered, but no tool returns one | #649 |
+| Graph images in answers | Shared graph lookup attaches images to the answer and saved chat | #649 |
 | Web search | Not on Apple Intelligence | #577 |
 | Dashy, desktop's companion | Undecided | #236 |
 
@@ -217,7 +217,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `search_logs` | Graylog messages | Shared, offered after a configured readiness probe | #646 |
 | `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Shared, with captured config-text policy | #647 |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
-| `graph` | Graph images | Not yet | #649 |
+| `graph` | Graph images | Shared lookup, restricted image transport and typed answer attachments | #649 |
 
 No write, acknowledgement, rediscovery or remote MCP service is proposed.
 
@@ -497,6 +497,43 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How graph is built
+
+`HostGraphLookup` owns aliases, device/port/sensor selection, listings, spans,
+image decoding and Core's image limit. Mobile offers every catalogue argument.
+A dedicated profile allows device, sensor, port and graph-listing reads plus
+sensor fallback. Its raw transport permits only GET image envelopes for device,
+port and sensor paths, the fixed 800×250 query Shared builds, and the SVG
+permission probe. Port names are canonical escaped path components; traversal,
+extra query parameters, bodies, writes and raw text reads are refused.
+
+Incomplete listings lead the reply, including a successful image with partial
+inventory and an unknown negative result. Metadata retains type, local custom
+window/preset, selected port/sensor and alternative graph types as whole rows.
+Only shown device rows supply evidence. Pixels remain unredacted, as in MCP.
+
+Lookup images reach the answer through a typed callback, independently of the
+native model's text tool bridge. Core's type/size limits and the eight-image
+answer cap apply. Model text completion preserves lookup attachments. Context
+retry discards the abandoned attempt's images, and the existing attempt and
+connection guards reject late callbacks. The saved-chat path already serialises
+these validated attachments. The answer explicitly states that the current
+model route received metadata only and cannot read the images.
+
+Apple's [Foundation Models update](https://developer.apple.com/videos/play/wwdc2026/241/)
+describes newer on-device image input and Private Cloud Compute. The current
+bridge's `Tool.call` returns String on every supported OS. Capability-aware image
+input needs further work in #649; PCC itself remains #575.
+
+Copied Graphs fixtures include fixed MCP projections and PNG/SVG envelopes.
+HTTP cases compare device/CPU/port/sensor metadata, pixels and request sets,
+including partial listings, denial, oversized images, custom spans, legend,
+cancellation, deadline and a connection switch. Route tests cover canonical
+names and refused paths. An end-to-end conversation test verifies that the
+text-only model gets no base64 while the answer and reopened saved-chat snapshot
+keep the graph and metadata-only notice. Full field accounting and iPhone
+acceptance remain pending while this PR is draft.
 
 ### How Unimus config tools are built
 

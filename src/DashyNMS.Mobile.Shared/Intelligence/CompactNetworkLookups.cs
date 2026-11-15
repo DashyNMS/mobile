@@ -9,6 +9,7 @@ using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Rankings;
 using DashyNMS.Agent.Events;
 using DashyNMS.Agent.Graylog;
+using DashyNMS.Agent.Graphs;
 using DashyNMS.Agent.Unimus;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
@@ -44,6 +45,9 @@ public interface IIntelligenceLookups
     /// it however the attempt ends, so a chat never leaves a connection behind.
     /// </summary>
     IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => new(Create(evidence));
+
+    /// <summary>Typed image attachments are delivered to the answer, independently of the model's text bridge.</summary>
+    IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images) => Open(evidence);
 }
 
 /// <summary>
@@ -124,7 +128,7 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed", "search_logs", "config_backup", "config_diff", "recent_config_changes",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed", "search_logs", "config_backup", "config_diff", "recent_config_changes", "graph",
     };
 
     /// <summary>Reviewed capabilities offered only after their integration is ready.</summary>
@@ -139,6 +143,7 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["graph"] = ["device", "type", "port", "sensor", "range", "since", "until", "legend"],
         ["config_backup"] = ["device", "backup_id", "offset", "limit"],
         ["config_diff"] = ["device", "from_backup", "to_backup"],
         ["recent_config_changes"] = ["hours", "since", "until", "group", "location", "offset", "limit"],
@@ -190,6 +195,7 @@ public sealed partial class CompactNetworkLookups(
     internal sealed record Reply(string Text, IReadOnlyList<IntelligenceEvidence> References)
     {
         public static Reply Say(string text) => new(text, []);
+        public IReadOnlyList<IntelligenceImage> Images { get; init; } = [];
     }
 
     public Task PrepareAsync(CancellationToken cancellationToken = default)
@@ -205,7 +211,9 @@ public sealed partial class CompactNetworkLookups(
     public IReadOnlyList<IntelligenceLookup> Create(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Open(evidence).Lookups;
 
     /// <summary>Captures the connection so replies and their evidence cannot cross between networks.</summary>
-    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence)
+    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Open(evidence, static _ => { });
+
+    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images)
     {
         // By session generation, not the connection's reference: trusting a certificate or
         // changing the timeout gives the session a new connection object for the same server,
@@ -277,10 +285,15 @@ public sealed partial class CompactNetworkLookups(
         var configsBound = scope is not { } capturedConfigs || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedConfigs, deviceTransport, configs: true);
         var configLookups = configsBound is null ? null : HostConfigLookups.Create(configsBound, integrationClients.Unimus, time, integrationClients.Options);
+        var graphsBound = scope is not { } capturedGraphs || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedGraphs, deviceTransport, graphs: true);
+        var graphLookup = graphsBound is null ? null : HostGraphLookup.Create(graphsBound, graphsBound.GraphTransport, time);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            graphLookup?.Dispose();
+            graphsBound?.Dispose();
             configLookups?.Dispose();
             configsBound?.Dispose();
             logSearch?.Dispose();
@@ -366,6 +379,7 @@ public sealed partial class CompactNetworkLookups(
                                 }
                         evidence(reply.References);
                     }
+                    if (reply.Images.Count > 0) images(reply.Images);
                     return reply.Text;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
@@ -725,6 +739,15 @@ public sealed partial class CompactNetworkLookups(
                 // Totals are over every reading, so rows that don't fit are counted as omitted.
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
+            }),
+            Lookup("graph", "device", async (arguments, at, ct) =>
+            {
+                if (graphLookup is null) return Reply.Say(Failed);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var outcome = await WhileCurrent(() => graphLookup.ReadAsync(new(id, arguments.Text("type"), arguments.Text("port"), arguments.Text("sensor"),
+                    arguments.Text("range"), arguments.Text("since"), arguments.Text("until"), arguments.Flag("legend", true)), ct)).ConfigureAwait(false);
+                return outcome.Result is { } found ? GraphRows(found, at, time, BriefName) : GraphFailure(outcome.Error);
             }),
             Lookup("config_backup", "device", async (arguments, at, ct) =>
             {
