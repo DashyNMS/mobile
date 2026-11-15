@@ -42,11 +42,17 @@ def native_pdf():
     run("dotnet", "build", "tests/ChatPdf.Native", "-c", "Debug", "-p:EnableCodeSigning=false")
     app = next((ROOT / "tests/ChatPdf.Native/bin/Debug/net10.0-ios/iossimulator-arm64").glob("*.app"))
     runtimes = json.loads(run("xcrun", "simctl", "list", "runtimes", "--json", capture=True))["runtimes"]
-    runtime = sorted((r for r in runtimes if r.get("isAvailable") and r["name"].startswith("iOS ")),
-                     key=lambda r: tuple(int(n) for n in r["version"].split(".")))[-1]["identifier"]
-    types = json.loads(run("xcrun", "simctl", "list", "devicetypes", "--json", capture=True))["devicetypes"]
-    phone = next(t["identifier"] for t in reversed(types) if t["name"].startswith("iPhone"))
-    device = run("xcrun", "simctl", "create", "DashyNMS PDF regression", phone, runtime, capture=True)
+    available = {r["identifier"]: r for r in runtimes if r.get("isAvailable") and r["name"].startswith("iOS ")}
+    devices = json.loads(run("xcrun", "simctl", "list", "devices", "available", "--json", capture=True))["devices"]
+    # CoreSimulator's catalogue order is not newest-first, and device-specific runtimes
+    # can reject even a recent phone. Reuse a pairing CoreSimulator already validated.
+    candidates = [(runtime, phone) for runtime, phones in devices.items() if runtime in available
+                  for phone in phones if phone.get("isAvailable") and phone["name"].startswith("iPhone")
+                  and phone["state"] == "Shutdown"]
+    assert candidates, "No available shutdown iPhone simulator with an installed iOS runtime"
+    runtime, phone = max(candidates, key=lambda pair: tuple(int(n) for n in available[pair[0]]["version"].split(".")))
+    print(f"PDF simulator: {phone['name']} with {available[runtime]['name']}", flush=True)
+    device = run("xcrun", "simctl", "clone", phone["udid"], "DashyNMS PDF regression", capture=True)
     try:
         run("xcrun", "simctl", "boot", device)
         run("xcrun", "simctl", "bootstatus", device, "-b")
