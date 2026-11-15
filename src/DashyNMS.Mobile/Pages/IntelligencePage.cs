@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 /// setup layout's keyboard and glass clearance, with the composer overlaid on the transcript.
 /// Streaming labels are coalesced to ten updates a second rather than relaid out per token.
 /// </summary>
-public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
+public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
 {
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly IntelligenceChatListViewModel _chats;
@@ -25,6 +25,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     private readonly IntelligenceAnswerActions _actions;
     private readonly IntelligenceAnswerReporter _reporter;
     private readonly SetupPageLayout _placement;
+    private readonly IntelligenceSpotlight _spotlightSource;
+    private readonly VerticalStackLayout _spotlightControls = new() { Spacing = 4 };
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
     private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 20, 0, 16) };
@@ -64,9 +66,10 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
-        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats)
+        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats, IntelligenceSpotlight spotlight)
     {
         _conversation = conversation;
+        _spotlightSource = spotlight;
         _chats = chats;
         _chatRevision = conversation.ChatRevision;
         _preferences = preferences;
@@ -136,8 +139,9 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _detail.MaximumWidthRequest = 150;
         _detail.FontSize = 14;
         _detail.Margin = new Thickness(0, 0, 18, 0);
-        var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
-        composer.Add(_question, 0, 0);
+        var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
+        composer.Add(_spotlightControls, 0, 0);
+        composer.Add(_question, 0, 1);
         var choices = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
         choices.Add(DetailChip(), 0, 0);
         var askHost = new Grid { SafeAreaEdges = SafeAreaEdges.None, VerticalOptions = LayoutOptions.Center };
@@ -146,7 +150,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _askIcon.Stroke = _ask.TextColor ?? Colors.White;
         _ask.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Button.TextColor)) _askIcon.Stroke = _ask.TextColor ?? Colors.White; };
         choices.Add(askHost, 1, 0);
-        composer.Add(choices, 0, 1);
+        composer.Add(choices, 0, 2);
         _composer.Content = composer;
         _composer.Margin = new Thickness(0, 8, 0, 0);
         var body = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
@@ -388,6 +392,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     private void UpdateControls()
     {
+        RefreshSpotlight();
         _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _askIcon.Data = IconData(_conversation.IsRunning ? StopIcon : SendIcon);
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
@@ -668,6 +673,18 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
                         SemanticScreenReader.Default.Announce("That item can't be opened from this chat.");
                 }
                 catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
+            };
+            _answer.AddSpotlightRequested += async (_, reference) => await _page.SpotlightReferenceAsync(_turn, reference, false);
+            _answer.OnlySpotlightRequested += async (_, reference) => await _page.SpotlightReferenceAsync(_turn, reference, true);
+            _answer.ReferenceMenuRequested += async (_, reference) =>
+            {
+                if (!_page._conversation.OwnsTurn(_turn)) return;
+                var revision = _page._conversation.ChatRevision;
+                var choice = await _page.DisplayActionSheetAsync(reference.Name, "Cancel", null, "Open", "Add to Spotlight", "Spotlight only this");
+                if (revision != _page._conversation.ChatRevision || !_page._conversation.OwnsTurn(_turn)) return;
+                if (choice == "Open") await _page._actions.OpenAsync(_turn, reference);
+                else if (choice == "Add to Spotlight" || choice == "Spotlight only this")
+                    await _page.SpotlightReferenceAsync(_turn, reference, choice == "Spotlight only this");
             };
             _answer.LinkRequested += async (_, link) =>
             {

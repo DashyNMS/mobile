@@ -58,7 +58,7 @@ public static class IntelligenceInstructions
         {
             // The scope may be a LibreNMS group or location name: cleaned as lookup labels are, so it
             // can't add a line, a heading or a marker to the instructions.
-            blocks.Add((core ? Core("spotlight") : Phone("spotlight")).Replace("{scope}", CompactNetworkLookups.Clean(spotlight), StringComparison.Ordinal));
+            blocks.Add((core ? Core("spotlight") : Phone("spotlight")).Replace("{scope}", CompactNetworkLookups.CleanText(spotlight), StringComparison.Ordinal));
         }
 
         if (core)

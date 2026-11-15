@@ -144,7 +144,7 @@ public sealed class IntelligenceLookupProgress(string name) : ObservableObject
 /// context; native streaming and lookup callbacks are posted back to that context.
 /// Each question uses a fresh native session with bounded explicit history.
 /// </summary>
-public sealed class IntelligenceConversationViewModel : ObservableObject, IDisposable
+public sealed partial class IntelligenceConversationViewModel : ObservableObject, IDisposable
 {
     private readonly IIntelligenceModel _model;
     private readonly IntelligencePreferences _preferences;
@@ -269,6 +269,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             ChatRevision++;
             RefreshStarters();
             Turns.Clear();
+            ClearSpotlight();
             Draft = "";
             _selectedDetail = null;
             OnPropertyChanged(nameof(SelectedDetail));
@@ -357,7 +358,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             // left once the instructions, the answer, two full results and the cheapest tool are counted.
             var context = _model.ContextSize ?? 4096;
             var output = OutputTokens(chosenDetail);
-            var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, null, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
+            var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, SpotlightInstructions, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
             var textResultTokens = await ResultTokensAsync(run.Stop.Token);
             var resultTokens = textResultTokens;
             var toolReserve = await CheapestToolAsync(run.Stop.Token);
@@ -411,7 +412,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 while (true)
                 {
                     var promptCost = await TokensAsync(prompt, token);
-                    choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
+                    choice = IntelligenceToolChoice.Choose(question, earlier, SpotlightInstructions, lookupSet.Lookups,
                         new IntelligenceBudget(context, baseTokens, promptCost, output, resultTokens, costs));
                     if (_model.SupportsLookupImages && resultTokens == textResultTokens && choice.Tools.Any(t => t.Name == "graph"))
                     {
@@ -420,7 +421,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         resultTokens = textResultTokens + IntelligenceLookupResult.ImageTokenBudget;
                         continue;
                     }
-                    instructions = IntelligenceInstructions.Build(turn.Detail, null, choice.MaxLookups, context, choice.NotOffered);
+                    instructions = IntelligenceInstructions.Build(turn.Detail, SpotlightInstructions, choice.MaxLookups, context, choice.NotOffered);
                     var built = await TokensAsync(instructions, token);
                     room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
                     var missing = IntelligenceToolChoice.MinimumLookups * resultTokens - room;
@@ -448,7 +449,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 var maxLookups = Math.Min(choice.MaxLookups, Math.Max(IntelligenceToolChoice.MinimumLookups, room / Math.Max(1, resultTokens)));
                 if (maxLookups != choice.MaxLookups)
-                    instructions = IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered);
+                    instructions = IntelligenceInstructions.Build(turn.Detail, SpotlightInstructions, maxLookups, context, choice.NotOffered);
                 var tools = choice.Tools.Select(lookup =>
                 {
                     async Task<IntelligenceLookupResult> Read(string query, CancellationToken callerToken)
@@ -722,8 +723,14 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     /// revision. Refused while an answer runs or a connection change is clearing
     /// the transcript, so a reopened chat can't land under another connection.
     /// </summary>
-    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail) =>
-        Replace(turns, draft, detail is null ? null : NormaliseDetail(detail));
+    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, IReadOnlyList<SavedChatSpotlight>? spotlight = null)
+    {
+        if (!Replace(turns, draft, detail is null ? null : NormaliseDetail(detail))) return false;
+        _spotlight = (spotlight ?? []).Where(s => s.Object is { IsValid: true })
+            .DistinctBy(s => s.Object).Take(MaxSpotlight).ToArray();
+        OnPropertyChanged(nameof(Spotlight));
+        return true;
+    }
 
     private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail)
     {
@@ -731,6 +738,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         // The revision moves before the turns change, so anything bound to the
         // previous transcript sees a different chat, never an emptied one.
         ChatRevision++;
+        ClearSpotlight();
         RefreshStarters();
         Turns.Clear();
         foreach (var turn in turns) Turns.Add(turn);

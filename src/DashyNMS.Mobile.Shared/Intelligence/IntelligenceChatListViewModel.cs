@@ -739,12 +739,12 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         _writer.Failed -= WriteFailed;
     }
 
-    private bool HasContent() => _conversation.Turns.Count > 0 || !string.IsNullOrWhiteSpace(_conversation.Draft);
+    private bool HasContent() => _conversation.Turns.Count > 0 || !string.IsNullOrWhiteSpace(_conversation.Draft) || _conversation.Spotlight.Count > 0;
 
     private bool Show(IntelligenceChatItem item)
     {
         var turns = IntelligenceSavedChats.Turns(item.Data);
-        if (!Replace(() => _conversation.Restore(turns, item.Data.Draft ?? "", item.Data.ReplyStyle))) return false;
+        if (!Replace(() => _conversation.Restore(turns, item.Data.Draft ?? "", item.Data.ReplyStyle, item.Data.Spotlight))) return false;
         Bind(item);
         _unsavedRevision = null;
         if (Status == _unsavedText) Status = "";
@@ -868,11 +868,12 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         var messages = IntelligenceSavedChats.Messages(_conversation.Turns);
         var activity = Activity();
         var unchanged = !created && activity == _activity && chat.Draft == _conversation.Draft
-            && chat.ReplyStyle == _conversation.SelectedDetailOverride && SameMessages(chat.Messages, messages);
+            && chat.ReplyStyle == _conversation.SelectedDetailOverride && chat.Spotlight.SequenceEqual(_conversation.Spotlight) && SameMessages(chat.Messages, messages);
         if (!force && !item.NeedsRetry && unchanged) return null;
         // A retry of unchanged text leaves the save that first carried it as the one to confirm.
         content = !unchanged;
 
+        chat.Spotlight = _conversation.Spotlight.ToList();
         chat.Draft = _conversation.Draft;
         chat.ReplyStyle = _conversation.SelectedDetailOverride;
         chat.Model ??= IntelligenceSavedChats.OnDeviceModel;
@@ -917,8 +918,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
         Draft = chat.Draft,
         History = (JsonArray)(chat.History ?? new JsonArray()).DeepClone(),
         Messages = (chat.Messages ?? []).ToList(),
-        // Kept as the file had them (desktop's Spotlight and looked-at context);
-        // the phone has no Spotlight in chats yet (#231).
+        // Snapshot typed Spotlight identities along with the visible chat.
         Spotlight = (chat.Spotlight ?? []).ToList(),
         LookedAt = (chat.LookedAt ?? []).ToList(),
     };
@@ -981,7 +981,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     {
         switch (e.PropertyName)
         {
-            case nameof(IntelligenceConversationViewModel.Draft) or nameof(IntelligenceConversationViewModel.SelectedDetail):
+            case nameof(IntelligenceConversationViewModel.Spotlight) or nameof(IntelligenceConversationViewModel.Draft) or nameof(IntelligenceConversationViewModel.SelectedDetail):
                 _contentVersion++;
                 Schedule(restart: true);
                 break;

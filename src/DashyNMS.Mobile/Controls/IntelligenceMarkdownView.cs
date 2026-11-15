@@ -23,6 +23,9 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
 
     /// <summary>A verified object was chosen; the host checks ownership again before opening it.</summary>
     public event EventHandler<IntelligenceInlineReference>? ReferenceRequested;
+    public event EventHandler<IntelligenceInlineReference>? ReferenceMenuRequested;
+    public event EventHandler<IntelligenceInlineReference>? AddSpotlightRequested;
+    public event EventHandler<IntelligenceInlineReference>? OnlySpotlightRequested;
 
     /// <summary>A link that passed Core's web-link policy was chosen; the host opens it outside the app.</summary>
     public event EventHandler<Uri>? LinkRequested;
@@ -108,8 +111,12 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
             .OfType<IntelligenceInlineReference>()
             .Where(reference => reference.Object is { IsValid: true })
             .DistinctBy(reference => reference.Key)
-            .Select(reference => new AccessibilityActions(label, IntelligenceStatusTone.Describe(reference),
-                () => { ReferenceRequested?.Invoke(this, reference); return true; }))
+            .SelectMany(reference => new[]
+            {
+                new AccessibilityActions(label, IntelligenceStatusTone.Describe(reference), () => { ReferenceRequested?.Invoke(this, reference); return true; }),
+                new AccessibilityActions(label, "Add " + reference.Name + " to Spotlight", () => { AddSpotlightRequested?.Invoke(this, reference); return true; }),
+                new AccessibilityActions(label, "Spotlight only " + reference.Name, () => { OnlySpotlightRequested?.Invoke(this, reference); return true; }),
+            })
             .ToArray();
         if (actions.Length == 0) return;
         label.HandlerChanged += (_, _) => { foreach (var action in actions) action.Refresh(true); };
@@ -136,7 +143,7 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
             if (ToneColour(reference.Tone) is { } colour)
                 result.SetAppThemeColor(Microsoft.Maui.Controls.Span.TextColorProperty, colour.Light, colour.Dark);
             if (reference.Object is { IsValid: true })
-                result.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(() => ReferenceRequested?.Invoke(this, reference)) });
+                result.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(() => ReferenceMenuRequested?.Invoke(this, reference)) });
         }
         return result;
     }

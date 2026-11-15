@@ -1033,3 +1033,25 @@ shows up here. Full report is desktop's alone and isn't mapped.
 Device checks (a request to change the network declined, an ambiguous name
 answered with a question, a status answer with coloured bullets) are recorded
 here once run on an eligible iPhone.
+
+## Batch 6 Spotlight (#231)
+
+Mobile pins Shared `2.0.0-ci.43744058288.1` from MCP #154, commit
+`8f32942c194132fa7152f1e0f8e8448be7a3ac8e`. The protected-main publish run
+43744058288 passed its package, binary compatibility and Core compatibility
+checks and verified the published feed bytes. The package SHA-256 is
+`1bccd1ecd09899a52e66ce26caa9bf8c52f883dcdaaf61a21e6085402b6dc530`;
+its GitHub-hosted provenance attestation was verified before pinning.
+
+Spotlight holds up to 32 Core object references with the encrypted chat. A
+searchable picker offers devices, groups and locations. Reply objects offer
+Open, Add to Spotlight and Spotlight only this, including VoiceOver actions.
+Each change checks the captured connection, chat revision and source evidence,
+revalidates the exact identity through Shared's HostObjectResolver, then checks
+ownership again. Duplicates, missing objects and failures keep the old scope.
+Changes are locked while answering. Scope IDs, parent IDs and names feed both
+the measured instruction budget and tool selection; a long scope can require a
+shorter question or fewer targets. The model passes scope to tools that accept
+it, as on desktop; Spotlight does not claim to impose an API access restriction.
+Device acceptance for the picker, native actions and composer at large text,
+with VoiceOver, in both themes and with the keyboard remains pending.
