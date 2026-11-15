@@ -1106,3 +1106,11 @@ Tool selection recognises the capacity and fan-problem starters explicitly.
 Lookup rows use desktop's action wording and the collapsed summary reads
 "Looked at …", including how many lookups could not be read. Running, failed,
 stopped and interrupted states retain their existing explicit status text.
+
+### Detail indicator (#656)
+
+The native picker supplies the only dropdown indicator. The overlaid chevron,
+150pt width cap and trailing indicator margin are removed. Brief, Balanced and
+Detailed continue to use the existing selected-index/detail mapping and native
+accessibility. The chip is at least 48pt high and allows native text scaling.
+Native appearance at maximum Dynamic Type and VoiceOver remains unverified.

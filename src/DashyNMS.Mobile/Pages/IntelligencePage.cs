@@ -141,10 +141,9 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         composerStroke.SetAppThemeColor(SolidColorBrush.ColorProperty, ThemeColour("StrokeLight"), ThemeColour("StrokeDark"));
         _composer.Stroke = composerStroke;
         _detail.BackgroundColor = Colors.Transparent;
-        _detail.MinimumHeightRequest = 44;
-        _detail.MaximumWidthRequest = 150;
+        _detail.MinimumHeightRequest = 48;
         _detail.FontSize = 14;
-        _detail.Margin = new Thickness(0, 0, 18, 0);
+        _detail.Margin = 0;
         var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
         composer.Add(_spotlightControls, 0, 0);
         composer.Add(_question, 0, 1);
@@ -570,21 +569,15 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     }
 
     /// <summary>
-    /// The answer detail as a compact outlined chip with a chevron, so it reads as
+    /// The answer detail as a compact outlined chip with the native indicator, so it reads as
     /// a choice beside Send rather than loose text. The native picker stays the
     /// tap target and keeps its accessible name.
     /// </summary>
     private Border DetailChip()
     {
-        var chevron = Glyph(ChevronDown, 16);
-        chevron.HorizontalOptions = LayoutOptions.End;
-        chevron.Stroke = ThemedBrush("TextSecondaryLight", "TextSecondaryDark");
-        var content = new Grid { SafeAreaEdges = SafeAreaEdges.None };
-        content.Children.Add(_detail);
-        content.Children.Add(chevron);
         var chip = new Border
         {
-            Content = content, Padding = new Thickness(12, 0, 8, 0), StrokeThickness = 1, MinimumHeightRequest = 44,
+            Content = _detail, Padding = new Thickness(12, 0, 8, 0), StrokeThickness = 1, MinimumHeightRequest = 48,
             StrokeShape = new RoundRectangle { CornerRadius = 22 }, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center,
             BackgroundColor = Colors.Transparent,
         };
