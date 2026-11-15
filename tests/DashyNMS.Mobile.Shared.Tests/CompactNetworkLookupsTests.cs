@@ -41,13 +41,20 @@ public sealed class CompactNetworkLookupsTests
             .Select(i => new Sensor { SensorId = i, DeviceId = 1, Description = new string('x', 500), Current = 20, SensorClass = "temperature" }).ToList());
         var lookups = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create();
 
-        Assert.Equal(5, lookups.Count);
-        foreach (var lookup in lookups)
+        Assert.Equal(20, lookups.Count);
+        foreach (var lookup in lookups.Where(l => l.Name is not ("alert_details" or "alert_rules" or "port_status" or "device_neighbours" or "trace_endpoint" or "device_details" or "top_interfaces" or "top_errors" or "top_devices" or "health_overview" or "device_events" or "network_events" or "what_changed" or "graph")))
         {
-            var query = lookup.Name == "find_device" ? "switch" : lookup.Name == "network_overview" ? "" : "1";
+            // Alert detail and rule budgets use their complete HTTP fixtures separately.
+            var query = lookup.Name == "find_device" ? "switch" : lookup.Name is "network_overview" or "list_groups_and_locations" ? "" : "1";
             var text = await lookup.Run(query, default);
             Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
             Assert.NotEqual(CompactNetworkLookups.Failed, text);
+            if (lookup.Name == "list_groups_and_locations")
+            {
+                Assert.Contains("Groups: 0; locations: 0", text);
+                Assert.DoesNotContain("[[", text);
+                continue;
+            }
             Assert.Contains(lookup.Name == "device_sensors" ? "[[sensor:1]]" : lookup.Name is "active_alerts" or "network_overview" ? "[[alert:1]]" : "[[device:1]]", text);
         }
     }
@@ -370,7 +377,7 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Device_health_reports_a_missing_device_and_a_refusal_in_fixed_words()
+    public async Task Device_health_uses_only_listed_fallbacks_and_keeps_fresh_failures_explicit()
     {
         var client = Fakes.Client([Fakes.Device(12, "a.example.net"), Fakes.Device(13, "b.example.net"), Fakes.Device(14, "c.example.net")]);
         client.Devices.GetAsync("12", Arg.Any<CancellationToken>()).Returns((Device?)null);
@@ -381,11 +388,15 @@ public sealed class CompactNetworkLookupsTests
         var lookup = new CompactNetworkLookups(client, Fakes.Settings(), Session(), deviceTransport: Fakes.DeviceTransport(client)).Create(evidence.AddRange)
             .Single(l => l.Name == "device_health");
 
-        Assert.Equal("Device not found.", await lookup.Run("12", default));
-        Assert.Equal(CompactNetworkLookups.Refused, await lookup.Run("13", default));
-        // A different device under the id asked for is never reported as that device.
-        Assert.Equal("Device not found.", await lookup.Run("14", default));
-        Assert.Empty(evidence);
+        foreach (var id in new[] { 12, 13, 14 })
+        {
+            var text = await lookup.Run(id.ToString(System.Globalization.CultureInfo.InvariantCulture), default);
+            Assert.Contains($"[[device:{id}]]", text);
+            Assert.Contains("Unavailable: device", text);
+            Assert.DoesNotContain("other.example.net", text);
+            Assert.DoesNotContain("synthetic-secret", text);
+        }
+        Assert.DoesNotContain(evidence, e => e.Reference.Key == "device:15");
     }
 
     [Fact]
@@ -429,7 +440,7 @@ public sealed class CompactNetworkLookupsTests
     {
         var lookups = new CompactNetworkLookups(Fakes.Client(), Fakes.Settings(), Session()).Create();
 
-        Assert.Equal(CompactNetworkLookups.ReviewedTools.Order(StringComparer.Ordinal), lookups.Select(l => l.Name).Order(StringComparer.Ordinal));
+        Assert.Equal(CompactNetworkLookups.ReviewedTools.Where(n => !CompactNetworkLookups.ConfiguredTools.Contains(n)).Order(StringComparer.Ordinal), lookups.Select(l => l.Name).Order(StringComparer.Ordinal));
         Assert.All(lookups, lookup =>
         {
             Assert.Contains(lookup.Name, DesktopNMS.Core.Intelligence.IntelligenceToolAllowlist.Names);
@@ -710,7 +721,7 @@ public sealed class CompactNetworkLookupsTests
     }
 
     [Fact]
-    public async Task Verbose_alerts_add_the_note_and_device_health_says_what_it_leaves_to_later()
+    public async Task Verbose_alerts_add_the_note_and_device_health_has_resource_sections()
     {
         var alert = Fakes.Alert(7, 1, "critical");
         alert.Note = "Engineer on site";
@@ -728,7 +739,7 @@ public sealed class CompactNetworkLookupsTests
         Assert.Contains("; note: Engineer on site", verbose);
         Assert.Contains("uptime: 1 day 1 hour; last polled ", health);
         Assert.Matches(@"last polled \d+ \w+ \d{4} \d{2}:\d{2}, \d+ minutes? ago\.", health);
-        Assert.Contains(CompactNetworkLookups.NotYetInHealth, health);
+        Assert.Contains("Maintenance: no; CPU maximum: no reading; memory maximum: no reading.", health);
     }
 
     [Fact]

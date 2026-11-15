@@ -266,7 +266,7 @@ public sealed partial class SharedDeviceSearchTests
 
         Assert.Empty(vm.Turns);
         Assert.Equal("The connection changed. The previous chat was cleared.", vm.Notice);
-        Assert.Single(nms.Requests);
+        Assert.Equal(new[] { ("/api/v0/devices", "test-token"), ("/api/v0/devices/1/maintenance", "test-token") }, nms.Requests);
     }
 
     /// <summary>

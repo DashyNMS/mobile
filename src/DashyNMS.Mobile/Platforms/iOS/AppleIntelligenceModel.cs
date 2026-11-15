@@ -21,6 +21,8 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 		_ => IntelligenceAvailability.Unavailable,
 	};
 
+	public bool SupportsLookupImages => DnmIntelligenceModel.SupportsLookupImages;
+
 	public int? ContextSize
 	{
 		get
@@ -80,7 +82,11 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				{
 					try
 					{
-						reply.Finish(await lookup.Run(arguments ?? string.Empty, token));
+						var result = await lookup.ReadAsync(arguments ?? string.Empty, token);
+						token.ThrowIfCancellationRequested();
+						var images = IntelligenceAnswerImages.Accept(result.Images).Take(1).Select(i => NSData.FromArray(i.Data)).ToArray();
+						try { reply.FinishWithImages(result.Text, images, IntelligenceLookupResult.ImageTokenBudget, result.MetadataOnlyText, result.ImageId); }
+						finally { foreach (var image in images) image.Dispose(); }
 					}
 					catch (Exception)
 					{
@@ -88,6 +94,8 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 					}
 				});
 			});
+
+		public IReadOnlyList<string> LookupImageIdsOmitted => _session.LookupImageIdsOmitted;
 
 		public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
 		{
@@ -100,7 +108,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				(answer, usage, error) =>
 				{
 					if (error is null)
-						finished.TrySetResult(new IntelligenceAnswer(answer ?? string.Empty, usage));
+						finished.TrySetResult(new IntelligenceAnswer(answer ?? string.Empty, usage) { LookupImageIdsProvided = _session.LookupImageIdsProvided });
 					else if (cancellationToken.IsCancellationRequested)
 						finished.TrySetCanceled(cancellationToken);
 					else

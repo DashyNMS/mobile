@@ -195,7 +195,7 @@ public sealed partial class SharedDeviceSearchTests
 
         // A late call on the disposed set fails without sending anything.
         Assert.Equal(CompactNetworkLookups.Failed, await lookup.Run("sw", default));
-        Assert.Single(nms.Requests);
+        Assert.Equal(ExpectedSearchRequests("sw"), nms.Requests);
     }
 
     [Fact]

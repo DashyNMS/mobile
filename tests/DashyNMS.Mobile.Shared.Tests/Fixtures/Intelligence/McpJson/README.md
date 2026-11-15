@@ -12,7 +12,7 @@ and address is the fixtures' invented ones.
 | `active_alerts.json` | `active_alerts`, no arguments | `OpenAlerts`, the 26.10 server |
 | `active_alerts-verbose.json` | the same with `verbose: true` | the same |
 | `network_overview.json` | `network_overview` | `NetworkOverview` |
-| `device_health.json` | `device_health` `device: "1"` | `DeviceSummary` |
+| `device_health.json` | `device_health` `device: "1"` | `DeviceHealth`, using upstream device-field bytes |
 | `device_sensors.json` | `device_sensors` `device: "1"` | `DeviceSensors`, the fleet server |
 
 `IntelligenceFactsTests` runs mobile's lookup over the same fixture with the
@@ -21,3 +21,14 @@ lists under "Facts left out" in docs/INTELLIGENCE.md (#636). `age_minutes` was
 measured when recorded, so it is compared as a written length, not a value.
 
 Record again when MCP's output for these tools changes.
+
+The health recording retains failed-source metadata and the corresponding fallback
+counts. Unknown maintenance is omitted after the upstream Batch 5 correction.
+Mobile reports failed sections as unavailable, and the facts table documents why
+it does not present their zero fallback values as known counts. Complete health
+values are independently checked over HTTP in SharedDeviceHealthHttpTests.
+
+`list_groups_and_locations.json` is an independently written expected MCP
+projection of the pinned Batch 5 `GroupsAndLocations` envelopes. It was checked
+against the shared operation and MCP adapter source; it is not a runtime recording.
+The HTTP test independently checks its group and location facts in CI.

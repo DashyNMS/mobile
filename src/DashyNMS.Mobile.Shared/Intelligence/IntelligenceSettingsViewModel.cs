@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Unimus;
 using DashyNMS.Mobile.ViewModels;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Intelligence;
 
 namespace DashyNMS.Mobile.Intelligence;
@@ -14,7 +16,7 @@ namespace DashyNMS.Mobile.Intelligence;
 /// </remarks>
 public sealed partial class IntelligenceSettingsViewModel(
     IIntelligenceModel model, IntelligencePreferences preferences, IDialogService dialogs, ILauncherService launcher,
-    ISavedChatsDeletion? savedChats = null) : ViewModelBase
+    ISavedChatsDeletion? savedChats = null, UnimusSetup? unimus = null) : ViewModelBase
 {
     internal const string DeleteChatsTitle = "Delete saved chats?";
     internal const string DeleteChatsAction = "Delete saved chats";
@@ -29,7 +31,7 @@ public sealed partial class IntelligenceSettingsViewModel(
     internal const string TryAgainChoice = "Try again";
     internal const string NotNowChoice = "Not now";
 
-    internal const string Notice = "Answers are worked out on this iPhone or iPad. Your question and what Intelligence looks up in LibreNMS are processed on this device. Nothing is sent to DashyNMS or a third-party AI service. LibreNMS is contacted to read your network data. Answers can be wrong; check the source before acting.";
+    internal const string Notice = "Answers are worked out on this iPhone or iPad. Your question and the network data Intelligence reads are processed on this device. Nothing is sent to DashyNMS or a third-party AI service. LibreNMS and your configured Graylog and Unimus services are contacted to read network data. Answers can be wrong; check the source before acting.";
     public bool IsVisible => model.Availability != IntelligenceAvailability.Unsupported;
     public bool IsAvailable => model.Availability == IntelligenceAvailability.Available;
     public bool CanUseIntelligence => IsAvailable && preferences.Enabled;
@@ -63,6 +65,24 @@ public sealed partial class IntelligenceSettingsViewModel(
     {
         get => preferences.SingleChatMode;
         set => Save(() => preferences.SetSingleChatMode(value));
+    }
+
+    /// <summary>The privacy choice is useful only where config tools can be offered.</summary>
+    public bool HasConfigTextChoice => unimus?.IsConfigured == true;
+    public IReadOnlyList<string> ConfigTextLabels { get; } = ["Summary", "Full redacted text", "Off"];
+    private static readonly string[] ConfigTextValues = [AppSettings.IntelligenceConfigTextSummary, AppSettings.IntelligenceConfigTextFull, AppSettings.IntelligenceConfigTextOff];
+    public int ConfigTextIndex
+    {
+        get => Array.IndexOf(ConfigTextValues, preferences.ConfigText);
+        set { if (value >= 0 && value < ConfigTextValues.Length) Save(() => preferences.SetConfigText(ConfigTextValues[value])); }
+    }
+
+    /// <summary>Load existing secure setup before deciding whether to show its privacy choice.</summary>
+    public async Task PrepareAsync()
+    {
+        try { if (unimus is not null) await unimus.EnsureConfiguredAsync(); }
+        catch { ErrorMessage = "Unimus setup couldn't be read. Reopen this page to try again."; }
+        Refresh();
     }
 
     /// <summary>Delete saved chats is offered: chats can be kept on this phone, and none is being deleted now.</summary>
@@ -135,7 +155,7 @@ public sealed partial class IntelligenceSettingsViewModel(
     /// <summary>Availability can change while the person is in the system Settings app.</summary>
     public void Refresh()
     {
-        foreach (var name in new[] { nameof(IsVisible), nameof(IsAvailable), nameof(CanUseIntelligence), nameof(Enabled), nameof(ToggleText), nameof(CanOpenSettings), nameof(AvailabilityText), nameof(HasAvailabilityProblem), nameof(DetailIndex), nameof(ColourStatusIndicators), nameof(SingleChatMode) })
+        foreach (var name in new[] { nameof(IsVisible), nameof(IsAvailable), nameof(CanUseIntelligence), nameof(Enabled), nameof(ToggleText), nameof(CanOpenSettings), nameof(AvailabilityText), nameof(HasAvailabilityProblem), nameof(DetailIndex), nameof(ColourStatusIndicators), nameof(SingleChatMode), nameof(HasConfigTextChoice), nameof(ConfigTextIndex) })
             OnPropertyChanged(name);
         ToggleCommand.NotifyCanExecuteChanged();
     }

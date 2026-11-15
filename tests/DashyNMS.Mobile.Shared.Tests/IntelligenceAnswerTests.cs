@@ -402,12 +402,13 @@ public sealed class IntelligenceAnswerTests
         var actions = new IntelligenceAnswerActions(conversation, navigation, Substitute.For<ILauncherService>());
 
         // A question about one device's hardware, so its tools include device_health (#637).
-        await conversation.AskAsync("What hardware is the edge router?");
-        await conversation.AskAsync("And where is it now?");
+        Assert.True(await conversation.AskAsync("What hardware is the edge router?"));
+        Assert.True(await conversation.AskAsync("And where is it now?"));
 
         Assert.Equal(2, conversation.Turns.Count);
         foreach (var turn in conversation.Turns)
         {
+            Assert.True(turn.State == IntelligenceTurnState.Completed, $"{turn.Question}: {turn.Message}");
             var chip = Assert.Single(IntelligenceMarkdown.LinkedObjects(IntelligenceMarkdown.Parse(turn.Answer, turn.References)));
             // The chip shows the cleaned label; the route carries LibreNMS's name unchanged.
             Assert.Equal(CompactNetworkLookups.Clean(original), chip.Name);

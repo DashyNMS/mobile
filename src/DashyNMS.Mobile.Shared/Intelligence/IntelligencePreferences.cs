@@ -14,6 +14,12 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
         ? IntelligenceDetail.Detailed : IntelligenceDetail.Normalize(settings.Current.IntelligenceReplyStyle);
     public bool ColourStatusIndicators => settings.Current.IntelligenceColourStatusIndicators;
     public bool SingleChatMode => settings.Current.IntelligenceSingleChatMode;
+    public string ConfigText => settings.Current.IntelligenceConfigText switch
+    {
+        AppSettings.IntelligenceConfigTextFull => AppSettings.IntelligenceConfigTextFull,
+        AppSettings.IntelligenceConfigTextOff => AppSettings.IntelligenceConfigTextOff,
+        _ => AppSettings.IntelligenceConfigTextSummary,
+    };
     public event EventHandler? Changed;
 
     /// <summary>Records the on-device notice separately from desktop's third-party consent.</summary>
@@ -40,6 +46,14 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
     public void SetColourStatusIndicators(bool value) => Save(s => s.IntelligenceColourStatusIndicators = value);
     public void SetSingleChatMode(bool value) => Save(s => s.IntelligenceSingleChatMode = value);
 
+    /// <summary>Uses Core's privacy key; a failed write leaves the previous choice in effect.</summary>
+    public void SetConfigText(string value)
+    {
+        if (value is not (AppSettings.IntelligenceConfigTextFull or AppSettings.IntelligenceConfigTextSummary or AppSettings.IntelligenceConfigTextOff))
+            throw new ArgumentOutOfRangeException(nameof(value));
+        Save(s => s.IntelligenceConfigText = value);
+    }
+
     /// <summary>Restores just these settings if persistence fails, so the page does not claim a saved change.</summary>
     private void Save(Action<AppSettings> change, bool notify = true)
     {
@@ -48,6 +62,7 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
         var detail = s.IntelligenceReplyStyle;
         var colour = s.IntelligenceColourStatusIndicators;
         var single = s.IntelligenceSingleChatMode;
+        var configText = s.IntelligenceConfigText;
         try
         {
             change(s);
@@ -62,6 +77,7 @@ public sealed class IntelligencePreferences(ISettingsStore settings, IAppPrefere
             s.IntelligenceReplyStyle = detail;
             s.IntelligenceColourStatusIndicators = colour;
             s.IntelligenceSingleChatMode = single;
+            s.IntelligenceConfigText = configText;
             throw;
         }
         if (notify) Changed?.Invoke(this, EventArgs.Empty);

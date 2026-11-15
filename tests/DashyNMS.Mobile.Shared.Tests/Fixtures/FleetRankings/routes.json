@@ -1,0 +1,201 @@
+{
+  "devices": {
+    "status": "ok",
+    "devices": [
+      {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "sysName": "core-sw1",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "os": "arubaos-cx",
+        "hardware": "6300M",
+        "location": "Paddock",
+        "status": 1,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 864000,
+        "last_polled": "2026-10-17 09:55:00"
+      },
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "sysName": "edge-sw3",
+        "display": "edge-sw3.example.net",
+        "ip": "192.0.2.3",
+        "os": "procurve",
+        "hardware": "2930F",
+        "location": "Pit lane",
+        "status": 0,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 0,
+        "last_polled": "2026-10-17 09:00:00"
+      }
+    ]
+  },
+  "ports": {
+    "status": "ok",
+    "ports": [
+      {
+        "port_id": 101,
+        "device_id": 1,
+        "ifName": "1/1/1",
+        "ifAlias": "Uplink to edge-sw3",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up",
+        "ifSpeed": 10000000000,
+        "ifInOctets_rate": 125000000,
+        "ifOutOctets_rate": 25000000,
+        "ifInErrors_rate": 0,
+        "ifOutErrors_rate": 0
+      },
+      {
+        "port_id": 107,
+        "device_id": 1,
+        "ifName": "1/1/7",
+        "ifAlias": "Camera 7",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "down",
+        "ifSpeed": 1000000000
+      },
+      {
+        "port_id": 108,
+        "device_id": 1,
+        "ifName": "1/1/8",
+        "ifAlias": "Camera 8",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up",
+        "ifSpeed": 1000000000,
+        "ifInOctets_rate": 1250000,
+        "ifOutOctets_rate": 250000,
+        "ifInErrors_rate": 2.5,
+        "ifOutErrors_rate": 0
+      },
+      {
+        "port_id": 249,
+        "device_id": 2,
+        "ifName": "49",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up",
+        "ifSpeed": 10000000000,
+        "ifInOctets_rate": 25000000,
+        "ifOutOctets_rate": 100000000,
+        "ifInErrors_rate": 0.5,
+        "ifOutErrors_rate": 1
+      }
+    ]
+  },
+  "devicegroups": {
+    "status": "ok",
+    "groups": [
+      {
+        "id": 1,
+        "name": "Core switches",
+        "desc": "Distribution and core",
+        "type": "static"
+      },
+      {
+        "id": 2,
+        "name": "Edge switches",
+        "type": "dynamic"
+      },
+      {
+        "id": 3,
+        "name": "Access",
+        "type": "dynamic"
+      }
+    ]
+  },
+  "devicegroups/1": {
+    "status": "ok",
+    "devices": [
+      {
+        "device_id": 1
+      }
+    ]
+  },
+  "devicegroups/2": {
+    "status": "ok",
+    "devices": [
+      {
+        "device_id": 2
+      }
+    ]
+  },
+  "resources/sensors": {
+    "status": "ok",
+    "sensors": [
+      {
+        "sensor_id": 1,
+        "device_id": 1,
+        "sensor_class": "temperature",
+        "sensor_descr": "Chassis",
+        "sensor_current": 48,
+        "sensor_limit": 70
+      },
+      {
+        "sensor_id": 2,
+        "device_id": 1,
+        "sensor_class": "temperature",
+        "sensor_descr": "Module 2",
+        "sensor_current": 72,
+        "sensor_limit": 70,
+        "sensor_limit_warn": 65
+      },
+      {
+        "sensor_id": 3,
+        "device_id": 1,
+        "sensor_class": "fanspeed",
+        "sensor_descr": "Fan 2",
+        "sensor_current": 0,
+        "sensor_limit_low": 500
+      },
+      {
+        "sensor_id": 4,
+        "device_id": 1,
+        "sensor_class": "dbm",
+        "sensor_descr": "1/1/49 Rx Power",
+        "sensor_current": -15.5
+      },
+      {
+        "sensor_id": 5,
+        "device_id": 1,
+        "sensor_class": "dbm",
+        "sensor_descr": "1/1/50 Rx Power",
+        "sensor_current": -40
+      },
+      {
+        "sensor_id": 6,
+        "device_id": 1,
+        "sensor_class": "power",
+        "sensor_descr": "PoE Power Total",
+        "sensor_index": "1",
+        "sensor_current": 370
+      },
+      {
+        "sensor_id": 7,
+        "device_id": 1,
+        "sensor_class": "power",
+        "sensor_descr": "PoE Power Used",
+        "sensor_index": "1",
+        "sensor_current": 120.5
+      },
+      {
+        "sensor_id": 8,
+        "device_id": 2,
+        "sensor_class": "temperature",
+        "sensor_descr": "Chassis",
+        "sensor_current": 31,
+        "sensor_limit": 70
+      },
+      {
+        "sensor_id": 9,
+        "device_id": 2,
+        "sensor_class": "voltage",
+        "sensor_descr": "PSU 1",
+        "sensor_current": 12.1
+      }
+    ]
+  }
+}

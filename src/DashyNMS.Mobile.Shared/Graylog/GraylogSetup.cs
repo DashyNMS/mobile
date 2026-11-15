@@ -25,7 +25,9 @@ public sealed class GraylogSetup
     private readonly ILogger<GraylogSetup> _logger;
     private bool _tried;
 
-    internal int Generation { get; private set; }
+    private readonly object _gate = new();
+    private int _generation;
+    internal int Generation { get { lock (_gate) return _generation; } }
 
     public GraylogSetup(
         IGraylogApi graylog,
@@ -41,8 +43,13 @@ public sealed class GraylogSetup
         _logger = logger;
     }
 
-    /// <summary>True once Graylog is switched on and has everything it needs to connect - not necessarily reachable.</summary>
-    public bool IsConfigured => _graylog.IsConfigured;
+    /// <summary>The last completely configured immutable connection, for isolated read-only consumers.</summary>
+    internal sealed record ConnectionSnapshot(GraylogConnection? Connection, int Generation);
+    private ConnectionSnapshot _captured = new(null, 0);
+    internal ConnectionSnapshot Captured { get { lock (_gate) return _captured; } }
+
+    /// <summary>Whether setup has configured the integration; reachability is checked by reads.</summary>
+    public bool IsConfigured { get { lock (_gate) return _graylog.IsConfigured; } }
 
     /// <summary>
     /// Configures Graylog from settings the first time it's needed. After
@@ -51,20 +58,22 @@ public sealed class GraylogSetup
     /// </summary>
     public async Task<bool> EnsureConfiguredAsync()
     {
-        if (_graylog.IsConfigured || _tried)
+        lock (_gate)
         {
-            return _graylog.IsConfigured;
+            if (_graylog.IsConfigured || _tried) return _graylog.IsConfigured;
         }
 
         await _secrets.EnsureLoadedAsync(ServiceCollectionExtensions.SecretKeys).ConfigureAwait(false);
 
-        if (!_graylog.IsConfigured && !_tried)
+        lock (_gate)
         {
-            _tried = true;
-            Configure(_settings.Current.Graylog, _passwords.Load());
+            if (!_graylog.IsConfigured && !_tried)
+            {
+                _tried = true;
+                Configure(_settings.Current.Graylog, _passwords.Load());
+            }
+            return _graylog.IsConfigured;
         }
-
-        return _graylog.IsConfigured;
     }
 
     /// <summary>
@@ -74,29 +83,37 @@ public sealed class GraylogSetup
     /// <param name="newPassword">What was typed in the password box; blank keeps the saved one.</param>
     public void Apply(string? newPassword)
     {
-        if (!string.IsNullOrEmpty(newPassword))
+        lock (_gate)
         {
-            _passwords.Save(newPassword);
-        }
+            if (!string.IsNullOrEmpty(newPassword))
+            {
+                _passwords.Save(newPassword);
+            }
 
-        _tried = true;
-        Configure(_settings.Current.Graylog, string.IsNullOrEmpty(newPassword) ? _passwords.Load() : newPassword);
+            _tried = true;
+            Configure(_settings.Current.Graylog, string.IsNullOrEmpty(newPassword) ? _passwords.Load() : newPassword);
+        }
     }
 
     /// <summary>Settings' "Forget password": nothing to connect with any more.</summary>
     public void ForgetPassword()
     {
-        Generation++;
-        _passwords.Clear();
-        _graylog.Clear();
+        lock (_gate)
+        {
+            _generation++;
+            _passwords.Clear();
+            _graylog.Clear();
+            _captured = new(null, _generation);
+        }
     }
 
     private void Configure(GraylogSettings settings, string? password)
     {
-        Generation++;
+        _generation++;
         if (!settings.Enabled || string.IsNullOrWhiteSpace(settings.Server))
         {
             _graylog.Clear();
+            _captured = new(null, _generation);
             return;
         }
 
@@ -105,9 +122,11 @@ public sealed class GraylogSetup
         {
             _logger.LogWarning("Graylog is switched on but can't be connected to: {Error}", error);
             _graylog.Clear();
+            _captured = new(null, _generation);
             return;
         }
 
         _graylog.Configure(connection);
+        _captured = new(connection, _generation);
     }
 }

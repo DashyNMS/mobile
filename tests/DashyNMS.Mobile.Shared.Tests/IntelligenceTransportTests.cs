@@ -25,7 +25,13 @@ public sealed class IntelligenceTransportTests
         Assert.Contains(expected, text);
         Assert.InRange(text.Length, 1, CompactNetworkLookups.MaxCharacters);
         if (name == "device_sensors") Assert.Contains("Inlet [[sensor:9]]: temperature 20.5 °C; OK", text);
-        if (name == "device_health") Assert.Contains("Example switch", text);
+        if (name == "device_health")
+        {
+            Assert.Contains("Example switch", text);
+            Assert.Contains("Maintenance: no; CPU maximum: no reading; memory maximum: no reading.", text);
+            foreach (var path in new[] { "devices/1/maintenance", "devices/1/ports", "devices/1/health/processor", "devices/1/health/mempool", "devices/1/health/storage" })
+                Assert.Contains(transport.Requests, r => r.Path.Split('?')[0] == path);
+        }
         Assert.Contains(transport.Requests, r => r.Path.Split('?')[0] == endpoint);
         Assert.All(transport.Requests, r => Assert.Equal(HttpMethod.Get, r.Method));
     }
@@ -81,6 +87,9 @@ public sealed class IntelligenceTransportTests
                 "devices" or "devices/1" => """{"devices":[{"device_id":1,"hostname":"switch.example.net","ip":"192.0.2.1","status":1,"os":"example-os","hardware":"Example switch"}]}""",
                 "faults" when faults => """{"alerts":[{"id":7,"device_id":1,"hostname":"switch.example.net","name":"Example rule","severity":"critical","state":1,"open":1}]}""",
                 "alerts" when !faults => """{"alerts":[{"id":7,"device_id":1,"hostname":"switch.example.net","name":"Example rule","severity":"critical","state":1,"open":1}]}""",
+                "devices/1/maintenance" => """{"is_under_maintenance":false}""",
+                "devices/1/ports" => """{"ports":[]}""",
+                "devices/1/health/processor" or "devices/1/health/mempool" or "devices/1/health/storage" => """{"graphs":[]}""",
                 "resources/sensors" => """{"sensors":[{"sensor_id":9,"device_id":1,"sensor_descr":"Inlet","sensor_class":"temperature","sensor_current":"20.5"}]}""",
                 _ => throw new InvalidOperationException("Unexpected resource path"),
             };

@@ -1,0 +1,26 @@
+{
+  "port": {
+    "deviceId": 1,
+    "query": "1/1/1",
+    "portId": 101,
+    "speedMbps": 10000,
+    "inMbps": 100
+  },
+  "neighbours": {
+    "deviceId": 1,
+    "count": 2,
+    "knownRemote": 2
+  },
+  "reverse": {
+    "deviceId": 2,
+    "count": 1,
+    "seenFrom": "neighbour"
+  },
+  "trace": {
+    "address": "aa:bb:cc:00:00:05",
+    "edgeDevice": 1,
+    "edgePort": 107,
+    "macsOnPort": 1,
+    "ambiguous": false
+  }
+}

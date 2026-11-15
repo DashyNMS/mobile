@@ -1,0 +1,217 @@
+{
+  "devices": {
+    "status": "ok",
+    "devices": [
+      {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "sysName": "core-sw1",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "os": "arubaos-cx",
+        "hardware": "6300M",
+        "location": "Paddock",
+        "status": 1,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 864000,
+        "last_polled": "2026-10-17 09:55:00"
+      },
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "sysName": "edge-sw3",
+        "display": "edge-sw3.example.net",
+        "ip": "10.0.0.3",
+        "os": "procurve",
+        "hardware": "2930F",
+        "location": "Pit lane",
+        "status": 0,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 0,
+        "last_polled": "2026-10-17 09:00:00"
+      }
+    ]
+  },
+  "devices/1/ports": {
+    "status": "ok",
+    "ports": [
+      {
+        "port_id": 101,
+        "device_id": 1,
+        "ifName": "1/1/1",
+        "ifDescr": "1/1/1",
+        "ifAlias": "Uplink to edge-sw3",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up",
+        "ifSpeed": 10000000000,
+        "ifDuplex": "fullDuplex",
+        "ifMtu": 9198,
+        "ifVlan": 1,
+        "vlans": [
+          {
+            "vlan": 1,
+            "untagged": true
+          },
+          {
+            "vlan": 120,
+            "untagged": false
+          }
+        ],
+        "ifInOctets_rate": 12500000,
+        "ifOutOctets_rate": 2500000,
+        "ifInErrors_rate": 0,
+        "ifOutErrors_rate": 0
+      },
+      {
+        "port_id": 107,
+        "device_id": 1,
+        "ifName": "1/1/7",
+        "ifDescr": "1/1/7",
+        "ifAlias": "Camera 7",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "down",
+        "ifSpeed": 1000000000,
+        "vlans": [
+          {
+            "vlan": 120,
+            "untagged": true
+          }
+        ]
+      },
+      {
+        "port_id": 108,
+        "device_id": 1,
+        "ifName": "1/1/8",
+        "ifDescr": "1/1/8",
+        "ifAlias": "Camera 8",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up",
+        "ifSpeed": 1000000000,
+        "ifInErrors_rate": 2.5,
+        "ifOutErrors_rate": 0,
+        "ifInErrors_delta": 750
+      },
+      {
+        "port_id": 109,
+        "device_id": 1,
+        "ifName": "1/1/9",
+        "ifDescr": "1/1/9",
+        "ifAlias": "Spare",
+        "ifAdminStatus": "down",
+        "ifOperStatus": "down"
+      }
+    ]
+  },
+  "devices/1/links": {
+    "status": "ok",
+    "links": [
+      {
+        "id": 1,
+        "local_device_id": 1,
+        "local_port_id": 101,
+        "remote_hostname": "edge-sw3",
+        "remote_port": "49",
+        "remote_platform": "Aruba 2930F",
+        "protocol": "lldp",
+        "remote_device_id": 2
+      }
+    ]
+  },
+  "resources/links": {
+    "status": "ok",
+    "links": [
+      {
+        "id": 1,
+        "local_device_id": 1,
+        "local_port_id": 101,
+        "remote_hostname": "edge-sw3",
+        "remote_port": "49",
+        "remote_platform": "Aruba 2930F",
+        "protocol": "lldp",
+        "remote_device_id": 2
+      },
+      {
+        "id": 2,
+        "local_device_id": 1,
+        "local_port_id": 108,
+        "remote_hostname": "cam-08",
+        "remote_port": "eth0",
+        "remote_platform": "IP camera",
+        "protocol": "lldp",
+        "remote_device_id": 0
+      }
+    ]
+  },
+  "devices/2/ports": {
+    "status": "ok",
+    "ports": [
+      {
+        "port_id": 249,
+        "device_id": 2,
+        "ifName": "49",
+        "ifAdminStatus": "up",
+        "ifOperStatus": "up"
+      }
+    ]
+  },
+  "resources/vlans": {
+    "status": "ok",
+    "vlans": [
+      {
+        "vlan_id": 10,
+        "device_id": 1,
+        "vlan_vlan": 1,
+        "vlan_name": "default"
+      },
+      {
+        "vlan_id": 11,
+        "device_id": 1,
+        "vlan_vlan": 120,
+        "vlan_name": "cameras"
+      },
+      {
+        "vlan_id": 20,
+        "device_id": 2,
+        "vlan_vlan": 1,
+        "vlan_name": "default"
+      }
+    ]
+  },
+  "resources/fdb/aabbcc000005": {
+    "status": "ok",
+    "ports_fdb": [
+      {
+        "ports_fdb_id": 1,
+        "port_id": 107,
+        "device_id": 1,
+        "mac_address": "aabbcc000005",
+        "updated_at": "2026-10-17 09:50:00"
+      }
+    ]
+  },
+  "devices/1/fdb": {
+    "status": "ok",
+    "ports_fdb": [
+      {
+        "ports_fdb_id": 1,
+        "port_id": 107,
+        "device_id": 1,
+        "mac_address": "aabbcc000005",
+        "updated_at": "2026-10-17 09:50:00"
+      }
+    ]
+  },
+  "resources/ip/arp/aa:bb:cc:00:00:05": {
+    "status": "ok",
+    "arp": [
+      {
+        "port_id": 107,
+        "device_id": 1,
+        "mac_address": "aabbcc000005",
+        "ipv4_address": "192.0.2.50"
+      }
+    ]
+  }
+}

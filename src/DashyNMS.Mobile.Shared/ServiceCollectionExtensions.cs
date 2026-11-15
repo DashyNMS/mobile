@@ -131,11 +131,13 @@ public static class ServiceCollectionExtensions
         // the chat captured (#596). The host keeps it in step with the session: timeout,
         // trusted certificates, backup address, timing and the certificate prompt.
         services.AddSingleton<Intelligence.IntelligenceDeviceTransports>();
+        services.AddSingleton<Intelligence.IntelligenceIntegrations>();
         services.AddTransient<Intelligence.IIntelligenceLookups>(sp => new Intelligence.CompactNetworkLookups(
             sp.GetRequiredService<ILibreNmsClient>(), sp.GetRequiredService<ISettingsStore>(), sp.GetRequiredService<ISessionService>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<Intelligence.IntelligenceDeviceTransports>().Open,
-            sp.GetRequiredService<SensorDefinitions>().ReadOnlyStore));
+            sp.GetRequiredService<SensorDefinitions>().ReadOnlyStore,
+            sp.GetRequiredService<Intelligence.IntelligenceIntegrations>()));
         services.AddSingleton<Intelligence.IntelligencePreferences>();
         services.AddTransient<Intelligence.IntelligenceSettingsViewModel>();
         services.AddSingleton<Intelligence.IntelligenceConversationViewModel>();

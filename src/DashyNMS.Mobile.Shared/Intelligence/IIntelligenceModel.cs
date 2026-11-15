@@ -43,6 +43,24 @@ public sealed record IntelligenceLookup(string Name, string Purpose, Func<string
 
     /// <summary>The other tools this tool's description names, from the catalogue, for the question's tool choice (#637).</summary>
     public IReadOnlyList<string> NamedTools { get; init; } = [];
+
+    /// <summary>Optional typed path for native tool outputs that can carry images.</summary>
+    public Func<string, CancellationToken, Task<IntelligenceLookupResult>>? RunWithImages { get; init; }
+    public async Task<IntelligenceLookupResult> ReadAsync(string arguments, CancellationToken cancellationToken)
+        => RunWithImages is { } read ? await read(arguments, cancellationToken).ConfigureAwait(false)
+            : new(await Run(arguments, cancellationToken).ConfigureAwait(false));
+}
+
+/// <summary>One correlated tool result: pixels stay typed and are never encoded into model text.</summary>
+public sealed record IntelligenceLookupResult(string Text)
+{
+    /// <summary>Reserved per image-capable lookup and checked by the native token counter.</summary>
+    public const int ImageTokenBudget = 1536;
+    /// <summary>Same displayed facts and rows, with a bounded notice for native image rejection.</summary>
+    public string? MetadataOnlyText { get; init; }
+    /// <summary>Attempt-local identity assigned by the conversation for native delivery reporting.</summary>
+    public string? ImageId { get; init; }
+    public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
 }
 
 /// <summary>
@@ -57,6 +75,9 @@ public interface IIntelligenceModel
     /// <summary>The model's whole context in tokens, or null where it won't say.</summary>
     int? ContextSize { get; }
 
+    /// <summary>False unless the active native route can supply typed lookup images to its model.</summary>
+    bool SupportsLookupImages => false;
+
     /// <summary>How many tokens <paramref name="text"/> costs as instructions, or null where the model can't count.</summary>
     Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default);
 
@@ -67,6 +88,9 @@ public interface IIntelligenceModel
 /// <summary>One conversation with the model: one question at a time.</summary>
 public interface IIntelligenceSession : IDisposable
 {
+    /// <summary>Images confirmed as metadata-only, including before a partial failure.</summary>
+    IReadOnlyList<string> LookupImageIdsOmitted => [];
+
     /// <summary>
     /// Asks, reporting the answer so far (all of it, not the newest words)
     /// through <paramref name="onText"/> as it's written, and returns the
@@ -84,11 +108,14 @@ public interface IIntelligenceSession : IDisposable
 public sealed record IntelligenceAnswer(string Text, string? Usage)
 {
     /// <summary>
-    /// Images a lookup returned with the answer, such as a LibreNMS graph. Apple's
-    /// on-device model has no graph lookup, so only a later model route (#577) or a
-    /// recorded answer supplies these; the app never fetches an image from the network.
+    /// Images supplied by a model route. Reviewed lookup attachments reach the turn
+    /// separately, so a text-only native tool bridge cannot lose graph pixels.
+    /// Image-capable routes also supply each lookup's correlated typed pixels.
     /// </summary>
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
+
+    /// <summary>Attempt-local identities of lookup images actually supplied by the native route.</summary>
+    public IReadOnlyList<string> LookupImageIdsProvided { get; init; } = [];
 
     /// <summary>
     /// The model's finished output items in the shape Core's own conversation reads

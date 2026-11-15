@@ -60,11 +60,36 @@ public sealed class IntelligenceToolChoiceTests
     }
 
     [Theory]
+    [InlineData("What changed on core-sw1 since yesterday?", "what_changed")]
+    [InlineData("Show device events and outages", "device_events")]
+    [InlineData("Show the network event log", "network_events")]
+    [InlineData("Show the busiest interfaces by bandwidth", "top_interfaces")]
+    [InlineData("Show the top errors", "top_errors")]
+    [InlineData("Which devices carry most traffic?", "top_devices")]
+    [InlineData("Which devices are carrying most traffic?", "top_devices")]
+    [InlineData("Which devices are down?", "find_device")]
+    [InlineData("Give a health overview of overheating sensors", "health_overview")]
+    [InlineData("What is in its inventory?", "device_details")]
+    [InlineData("Which VLANs are on this switch?", "device_details")]
+    [InlineData("What is the port duplex and VLAN?", "port_status")]
+    [InlineData("Show LLDP neighbours", "device_neighbours")]
+    [InlineData("Trace where this MAC is plugged in", "trace_endpoint")]
+    [InlineData("Why did this alert fire?", "alert_details")]
+    [InlineData("Which rules are noisiest?", "alert_rules")]
+    [InlineData("Which groups and locations are available?", "list_groups_and_locations")]
     [InlineData("Which sensors are too hot?", "device_sensors")]
     [InlineData("Are the fans on 198.51.100.4 OK?", "device_sensors")]
     [InlineData("Find the switches at the lab site", "find_device")]
     public void A_question_gets_the_tool_its_words_point_to(string question, string tool)
         => Assert.Equal(tool, Names(Choose(question))[0]);
+
+    [Fact]
+    public void A_location_follow_up_does_not_become_an_endpoint_trace_without_trace_language()
+    {
+        var choice = Choose("And where is it now?", 4096, null, "What hardware is the edge router?");
+        Assert.Equal("find_device", Names(choice)[0]);
+        Assert.DoesNotContain("trace_endpoint", Names(choice));
+    }
 
     [Fact]
     public void A_question_that_names_nothing_starts_with_the_overview_and_alerts()
@@ -99,9 +124,10 @@ public sealed class IntelligenceToolChoiceTests
     {
         var choice = Choose("How is the network doing?", 8192);
 
-        // network_overview names find_device and active_alerts; the top_ tools aren't on the phone yet.
+        // The overview now brings its implemented ranking tools along with search and alerts.
         Assert.Equal(["network_overview", "find_device", "active_alerts"], Names(choice).Take(3));
-        Assert.Contains("top_interfaces", choice.NotOffered);
+        Assert.Contains("top_interfaces", Names(choice));
+        Assert.DoesNotContain("top_interfaces", choice.NotOffered);
         Assert.DoesNotContain("find_device", choice.NotOffered);
     }
 

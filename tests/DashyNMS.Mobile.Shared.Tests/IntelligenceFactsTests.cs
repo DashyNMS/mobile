@@ -32,6 +32,7 @@ public sealed partial class IntelligenceFactsTests
         { "active_alerts", "active_alerts", "{}" },
         { "active_alerts-verbose", "active_alerts", """{"verbose":true}""" },
         { "network_overview", "network_overview", "{}" },
+        { "list_groups_and_locations", "list_groups_and_locations", "{}" },
         { "device_health", "device_health", """{"device":"1"}""" },
         { "device_sensors", "device_sensors", """{"device":"1"}""" },
     };
@@ -93,6 +94,32 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[graph", StringComparison.Ordinal)) return GraphFactBlock(text, marker);
+        if (marker.StartsWith("[[config", StringComparison.Ordinal)) return ConfigFactBlock(text, marker);
+        if (marker.StartsWith("[[bucket:", StringComparison.Ordinal))
+        {
+            var instant = new DateTime(long.Parse(marker[9..^2], CultureInfo.InvariantCulture), DateTimeKind.Utc);
+            return lines.FirstOrDefault(l => l.StartsWith("From " + IntelligenceTime.At(instant, new FakeTimeProvider()) + ":", StringComparison.Ordinal));
+        }
+        if (marker.StartsWith("[[logtop:", StringComparison.Ordinal))
+        {
+            var parts = marker[9..^2].Split(':', 2);
+            return lines.FirstOrDefault(l => l.StartsWith("Top " + parts[0] + " " + CompactNetworkLookups.Clean(parts[1]) + ":", StringComparison.Ordinal));
+        }
+        if (marker.StartsWith("[[entry:", StringComparison.Ordinal))
+        {
+            var parts = marker[8..^2].Split(':', 2);
+            var instant = new DateTime(long.Parse(parts[1], CultureInfo.InvariantCulture), DateTimeKind.Utc);
+            var at = IntelligenceTime.At(instant, new FakeTimeProvider());
+            var entryRows = lines.Where(l => l.Contains(at, StringComparison.Ordinal) && l.Contains("; source " + parts[0] + ";", StringComparison.Ordinal)).ToArray();
+            return entryRows.Length == 0 ? null : string.Join("\n", entryRows);
+        }
+        if (marker.StartsWith("[[rule:", StringComparison.Ordinal))
+        {
+            var id = marker[7..^2];
+            var ruleRows = lines.Where(l => l.StartsWith("Rule " + id + ":", StringComparison.Ordinal) || l.StartsWith("Rule " + id + " ", StringComparison.Ordinal)).ToArray();
+            return ruleRows.Length == 0 ? null : string.Join("\n", ruleRows);
+        }
         var start = Array.FindIndex(lines, l => l.Contains(marker, StringComparison.Ordinal));
         if (start < 0) return null;
         var kind = marker[..(marker.IndexOf(':') + 1)];
@@ -109,7 +136,8 @@ public sealed partial class IntelligenceFactsTests
         var recorded = Cases().Select(c => ((string)c[1], (string)c[0]))
             .GroupBy(c => c.Item1)
             .ToDictionary(g => g.Key, g => g.SelectMany(c => Fields(JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "Intelligence", "McpJson", c.Item2 + ".json"))).RootElement).Keys).ToHashSet());
-        // device_health's later facts are absent from the fixture's empty or failed parts; #634 brings them.
+        // Arrays and resource readings can be absent in this failure fixture. Complete health
+        // values have independent assertions in SharedDeviceHealthHttpTests.
         string[] notInFixture = ["open_alerts", "open_faults", "cpu_max_percent", "memory_max_percent", "fullest_storage", "problem_ports", "problem_ports_omitted"];
         foreach (var (tool, fields) in Table("Facts left out").Where(r => r.Tool != "every tool"))
         {
@@ -149,7 +177,8 @@ public sealed partial class IntelligenceFactsTests
 
     private static async Task<string> Run(string tool, string arguments)
     {
-        var routes = Routes(tool);
+        var routeTool = tool == "active_alerts" && arguments.Contains("since", StringComparison.Ordinal) ? "active_alerts-history" : tool;
+        var routes = Routes(routeTool);
         using var server = new FixtureServer(path => routes.GetValueOrDefault(path) ?? routes.GetValueOrDefault(path.Split('?')[0]));
         using var shared = new LibreNmsTransport(NullLogger<LibreNmsTransport>.Instance);
         var settings = Fakes.Settings(new AppSettings { TimeoutSeconds = 5 });
@@ -190,8 +219,41 @@ public sealed partial class IntelligenceFactsTests
                 foreach (var name in new[] { "devices", "faults", "ports", "system" })
                     routes[name] = new(200, File.ReadAllText(Path.Combine(Fixtures, "NetworkOverview", name + ".json")));
                 break;
+            case "list_groups_and_locations":
+                routes["devices"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "devices.json")));
+                routes["devicegroups"] = new(200, File.ReadAllText(Path.Combine(Fixtures, "GroupsAndLocations", "groups.json")));
+                break;
+            case "device_events":
+            case "network_events":
+            case "active_alerts-history":
+            case "what_changed":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "EventHistory", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
+            case "top_interfaces":
+            case "top_errors":
+            case "top_devices":
+            case "health_overview":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "FleetRankings", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
+            case "device_details":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "DeviceDetails", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
+            case "port_status":
+            case "device_neighbours":
+            case "trace_endpoint":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "PortLookups", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
+            case "alert_details":
+            case "alert_rules":
+                using (var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(Fixtures, "AlertRules", "routes.json"))))
+                    foreach (var route in json.RootElement.EnumerateObject()) routes[route.Name] = new(200, route.Value.GetRawText());
+                break;
             case "device_health":
-                Files("DeviceSummary", Load("DeviceSummary", "cases.json").GetProperty("routes"));
+                Files("DeviceHealth", Load("DeviceHealth", "cases.json").GetProperty("routes"));
                 break;
             case "device_sensors":
                 return SharedDeviceSensorsHttpTests.Routes("fleet");
@@ -210,14 +272,27 @@ public sealed partial class IntelligenceFactsTests
     private static Dictionary<string, List<(JsonElement Value, string? Scope)>> Fields(JsonElement root)
     {
         var fields = new Dictionary<string, List<(JsonElement, string?)>>(StringComparer.Ordinal);
+        var graphResult = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
+            && (data.TryGetProperty("graph", out _) || data.TryGetProperty("available_types", out _));
         void Walk(JsonElement element, string path, string? scope)
         {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = (graphResult ? GraphRecordMarker(path, element) : null) ?? ConfigRecordMarker(path, element) ?? LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
-                        Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
+                    {
+                        // Config text is one MCP scalar but mobile retains whole numbered/diff lines.
+                        if (path.Length == 0 && property.Name is ("config" or "config_diff") && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            var content = property.Value.GetString()!;
+                            var offset = property.Name == "config" ? element.GetProperty("lines").GetProperty("offset").GetInt32() + 1 : 0;
+                            if (content.Length > 0)
+                                foreach (var (line, index) in content.Split('\n').Select((line, index) => (line, index)))
+                                    Walk(JsonSerializer.SerializeToElement(line), property.Name, $"[[configline:{property.Name}:{offset + index}]]");
+                        }
+                        else Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
+                    }
                     break;
                 case JsonValueKind.Array:
                     foreach (var item in element.EnumerateArray()) Walk(item, path, scope);
@@ -235,6 +310,21 @@ public sealed partial class IntelligenceFactsTests
             Walk(property.Value, property.Name == "data" ? "" : property.Name, null);
         return fields;
     }
+
+    private static string? LogRecordMarker(string path, JsonElement record)
+    {
+        if (path == "lines") return HistoryEntryMarker(record);
+        if (path == "over_time" && record.TryGetProperty("from", out var from))
+            return "[[bucket:" + DateTime.Parse(from.GetString()!, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal).Ticks.ToString(CultureInfo.InvariantCulture) + "]]";
+        var kind = path switch { "top.sources" => "source", "top.levels" => "level", "top.facilities" => "facility", "top.applications" => "application", _ => null };
+        return kind is not null && record.TryGetProperty("value", out var value) ? "[[logtop:" + kind + ":" + value.GetString() + "]]" : null;
+    }
+
+    private static string? HistoryEntryMarker(JsonElement record)
+        => record.TryGetProperty("time", out var time) && record.TryGetProperty("source", out var source)
+            ? "[[entry:" + source.GetString() + ":" + DateTime.Parse(time.GetString()!, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal).Ticks.ToString(CultureInfo.InvariantCulture) + "]]" : null;
 
     private static string? Marker(JsonElement record, string idField, string kind)
         => record.TryGetProperty(idField, out var id) && id.ValueKind == JsonValueKind.Number ? $"[[{kind}:{id.GetInt64().ToString(CultureInfo.InvariantCulture)}]]" : null;
@@ -255,6 +345,56 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
+        if (GraphFactShown(path, value, text) is { } graphShown) return graphShown;
+        if (ConfigFactShown(path, value, text) is { } configShown) return configShown;
+        if (path.EndsWith("device.status", StringComparison.Ordinal) && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
+        if (name == "window_complete") return text.Contains(value.GetBoolean() ? "; complete." : "; incomplete;", StringComparison.Ordinal)
+            || !value.GetBoolean() && text.Contains("; coverage unknown;", StringComparison.Ordinal);
+        // Counts in these rows must match the labelled value, not a day or a number in a source name.
+        if (path == "over_time.count") return text.EndsWith(": " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + " messages.", StringComparison.Ordinal);
+        if (path.StartsWith("top.", StringComparison.Ordinal) && name == "count")
+            return text.EndsWith(": " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + ".", StringComparison.Ordinal);
+        if (path == "count" && text.StartsWith("Graylog matches ", StringComparison.Ordinal))
+            return text.StartsWith("Graylog matches " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + ".", StringComparison.Ordinal);
+        if (path == "lines_are") return text.Contains("Oldest samples; newest exceed Graylog paging. Narrow the window for newer messages.", StringComparison.Ordinal);
+        if (path.StartsWith("search.", StringComparison.Ordinal) && name is ("since" or "until") || path == "over_time.from")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
+        if (path.StartsWith("window.", StringComparison.Ordinal) && name is ("since" or "until" or "covered_since")
+            || name is ("time" or "raised_at" or "recovered_at"))
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
+        if (name == "still_open") return text.Contains("still open " + (value.GetBoolean() ? "yes" : "no"), StringComparison.Ordinal);
+        if (name == "recovery_time_unknown") return value.GetBoolean() && text.Contains("recovery time unknown", StringComparison.Ordinal);
+        if (name == "configured")
+        {
+            var service = path.StartsWith("unimus.", StringComparison.Ordinal) ? "Unimus" : "Graylog";
+            return text.Contains(service + " ", StringComparison.Ordinal) && (value.GetBoolean() != text.Contains(service + " not configured", StringComparison.Ordinal));
+        }
+        if (name is "found" or "ambiguous") return text.Contains(name + (value.GetBoolean() ? " yes" : " no"), StringComparison.OrdinalIgnoreCase);
+        if (name == "untagged") return text.Contains(value.GetBoolean() ? ": untagged" : ": tagged", StringComparison.Ordinal);
+        if (name is "replaceable" or "admin_down")
+            return text.Contains((name == "replaceable" ? "replaceable " : "admin down ") + (value.GetBoolean() ? "yes" : "no"), StringComparison.Ordinal);
+        if (path == "availability.percent")
+            return text.Contains(value.GetDouble().ToString("0.###", CultureInfo.InvariantCulture) + "%", StringComparison.Ordinal);
+        if (name is "last_seen" or "updated_at")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
+        if (name == "enabled") return text.Contains(value.GetBoolean() ? "; enabled;" : "; disabled;", StringComparison.Ordinal);
+        if (name == "rule_condition_known") return text.Contains(value.GetBoolean() ? "rule condition known" : "rule condition unknown", StringComparison.Ordinal);
+        if (name == "open_minutes") return text.Contains(IntelligenceTime.Length(TimeSpan.FromMinutes(value.GetInt64())), StringComparison.Ordinal);
+        if (name is "recorded_at" or "recent")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
         if (name is "status" or "device_status")
             return States(value.GetString() ?? "").Any(state => Regex.IsMatch(text, $@"\b{state}\b"));
         // Measured when MCP's JSON was recorded, so not comparable by value; its source, the alert's
@@ -283,7 +423,8 @@ public sealed partial class IntelligenceFactsTests
             // A fault's start is its time alone; an alert's is its length, with verbose its time and length.
             return path.EndsWith("faults.since", StringComparison.Ordinal)
                 ? text.Contains("since " + opened, StringComparison.Ordinal)
-                : text.Contains("open " + length, StringComparison.Ordinal) || text.Contains($"opened {opened}, {length} ago", StringComparison.Ordinal);
+                : path == "alert.since" && text.Contains("Changed " + opened, StringComparison.Ordinal)
+                    || text.Contains("open " + length, StringComparison.Ordinal) || text.Contains($"opened {opened}, {length} ago", StringComparison.Ordinal);
         }
 
         var written = value.ValueKind switch
@@ -294,9 +435,21 @@ public sealed partial class IntelligenceFactsTests
             _ => "false",
         };
         // A number must stand on its own, so a 2 isn't found inside 2026 or 198.51.100.2.
+        // A trailing sentence stop is allowed; a dot followed by a digit is part of a decimal/IP.
         return value.ValueKind == JsonValueKind.Number
-            ? Regex.IsMatch(text, $@"(?<![\d.]){Regex.Escape(written)}(?![\d.])")
+            ? Regex.IsMatch(text, $@"(?<![\d.]){Regex.Escape(written)}(?!\d|\.\d)")
             : text.Contains(written, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("Matching devices: 10.", true)]
+    [InlineData("Matching devices: 110.", false)]
+    [InlineData("Reading: 10.5", false)]
+    [InlineData("IP 198.51.100.10", false)]
+    public void Numeric_facts_accept_sentence_stops_without_matching_parts_of_other_numbers(string text, bool expected)
+    {
+        using var value = JsonDocument.Parse("10");
+        Assert.Equal(expected, Shown("page.total", value.RootElement, text));
     }
 
     /// <summary>An age written as a length: "open 3 hours" without verbose, "opened …, 24 days 16 hours ago" with it.</summary>

@@ -1,0 +1,67 @@
+{
+  "/api/v2/devices": {
+    "data": [
+      {
+        "id": 40,
+        "address": "192.0.2.1",
+        "description": "core-sw1",
+        "vendor": "Synthetic vendor",
+        "model": "Example 48"
+      }
+    ],
+    "paginator": {
+      "totalCount": 1,
+      "totalPages": 1,
+      "page": 0
+    }
+  },
+  "/api/v2/devices/40/backups": {
+    "data": [
+      {
+        "id": 901,
+        "validSince": 1792224000,
+        "validUntil": 1792231200,
+        "type": "TEXT"
+      },
+      {
+        "id": 900,
+        "validSince": 1792123200,
+        "validUntil": 1792224000,
+        "type": "TEXT"
+      }
+    ],
+    "paginator": {
+      "totalCount": 2,
+      "totalPages": 1,
+      "page": 0
+    }
+  },
+  "/api/v2/devices/40/backups/latest": {
+    "data": {
+      "id": 901,
+      "validSince": 1792224000,
+      "validUntil": 1792231200,
+      "type": "TEXT",
+      "bytes": "aG9zdG5hbWUgY29yZS1zdzEuZXhhbXBsZS5uZXQKc25tcC1zZXJ2ZXIgY29tbXVuaXR5IFN5bnRoZXRpY0NvbW11bml0eSBSTwotLS0tLUJFR0lOIFBSSVZBVEUgS0VZLS0tLS0Kc3ludGhldGljLWtleS1tYXRlcmlhbAotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCnZsYW4gMTIw"
+    }
+  },
+  "/api/v2/backups/diff": {
+    "data": {
+      "lineGroups": [
+        {
+          "type": "CHANGED",
+          "originalLines": [
+            {
+              "text": "snmp-server community SyntheticOld RO"
+            }
+          ],
+          "revisedLines": [
+            {
+              "text": "snmp-server community SyntheticNew RO"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

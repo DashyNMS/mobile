@@ -86,3 +86,12 @@ claimed from it:
   these against other inputs.
 - Faults (alerts) and other tools. `find_device` reads no alerts; the separate
   OpenAlerts fixture covers the shared alert lookup (#601).
+
+## Batch 5 maintenance
+
+The fixture pin is now `a9032220aa18c3234d920f0503eba6de0348d6ba`.
+Successful cases in `cases.json` and `scopes.json` list every returned row's
+maintenance read. The top-level device-list-only requests remain the failure path.
+`maintenance.json` covers active, inactive, refused and missing checks. Mobile
+and the shared host now make the same reads. Independent tests limit checks to
+the 20 returned rows, keep failed checks unknown and discard replies on retirement.

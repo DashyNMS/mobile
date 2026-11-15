@@ -26,6 +26,9 @@ interface DnmLookupReply
     // - (void)finish:(NSString * _Nullable)text;
     [Export("finish:")]
     void Finish([NullAllowed] string text);
+
+    [Export("finish:images:imageTokenBudget:metadataOnlyText:imageId:")]
+    void FinishWithImages([NullAllowed] string text, NSData[] images, nint imageTokenBudget, [NullAllowed] string metadataOnlyText, [NullAllowed] string imageId);
 }
 
 // @interface DNMLookup : NSObject
@@ -47,6 +50,10 @@ interface DnmIntelligenceModel
     [Static]
     [Export("availability")]
     DnmAvailability Availability { get; }
+
+    [Static]
+    [Export("supportsLookupImages")]
+    bool SupportsLookupImages { get; }
 
     // @property (class, readonly) NSInteger contextSize;
     [Static]
@@ -71,6 +78,12 @@ interface DnmIntelligenceSession
     // - (void)prewarm;
     [Export("prewarm")]
     void Prewarm();
+
+    [Export("lookupImageIdsProvided")]
+    string[] LookupImageIdsProvided { get; }
+
+    [Export("lookupImageIdsOmitted")]
+    string[] LookupImageIdsOmitted { get; }
 
     // - (void)ask:(NSString *)question onText:(void (^)(NSString *))onText completion:(void (^)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))completion;
     [Export("ask:onText:completion:")]

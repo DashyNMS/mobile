@@ -43,7 +43,7 @@ is listed here with its reason. Anything else is a gap and needs an issue.
 | Results name devices in the person's device-name style, with Core's markers already written | Left to itself, the on-device model drops parts of names and writes "device 708" (#570). Desktop's model writes markers from the JSON itself. |
 | No Full report detail level on the device | Too long for the on-device answer budget. |
 | No web search | It's ChatGPT's hosted tool, and arrives with #577. |
-| Graph images may not reach the model | It depends on whether Apple's models accept images (#649). The person still sees the graph. |
+| Graph image input depends on the native model route and context | iOS 27 models advertising vision receive typed image tool output within a 1,536-token image reserve. iOS 26, failed decoding and images over the reserve use the same metadata rows with a truthful notice. The person and saved chat retain the graph. |
 | Report this answer, and the Private Cloud Compute notice | Store rules for the phone (#574, #575). |
 
 Where the phone is more accurate than MCP, it keeps its value and the fix goes
@@ -54,13 +54,13 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | 5: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, and `device_health` (its device and uptime part) | #236, #634 |
+| 24 network tools | Up to 24: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, `graph`, and configured `search_logs`, `config_backup`, `config_diff` and `recent_config_changes` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
 | Core's instructions, about 1,300 words | Short forms of Core's base, detail and Spotlight blocks, each rule mapped or excluded with its reason; Core's own text on Private Cloud Compute | Allowed difference (#638) |
-| Sensor readings judged by limits and defaults, not the person's thresholds | The same | #639, DashyNMS/mcp#132 |
-| Device search without maintenance | The same | #620 |
+| Sensor readings judged by the host's saved thresholds and sensor-limit override | The same Core evaluation as the Health page, captured per question | #639 |
+| Device search with maintenance on returned rows | Shared operation and evidence | #620 |
 | Brief, Balanced, Detailed and Full report | Brief, Balanced and Detailed | Allowed difference |
 | Saved chats to rename, pin and delete, grouped by date | Done | #229 |
 | Single-chat mode | Done | #230 |
@@ -69,7 +69,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Ask Intelligence from devices, alerts, sensors, ports and more | Not yet | #232 |
 | Export as Markdown or PDF | Not yet | #233 |
 | Twelve starter questions, four at a time, and "Checking alerts" activity | Three fixed sets of three, and tool titles | #640 |
-| Graph images in answers | Rendered, but no tool returns one | #649 |
+| Graph images in answers | Shared graph lookup attaches images to the answer and saved chat | #649 |
 | Web search | Not on Apple Intelligence | #577 |
 | Dashy, desktop's companion | Undecided | #236 |
 
@@ -204,20 +204,20 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 
 | Tool | Capability | Phone | Issue |
 | --- | --- | --- | --- |
-| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC and scope filters | #620, #635, #636 |
+| `find_device` | Ranked name/IP search, MAC via ARP, status and scope filters, paging | Shared, with MAC, scope filters and maintenance | #620, #635, #636 |
 | `network_overview` | Device counts, grouped alert and fault totals, ports, system version, partial failures | Shared | |
-| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, open alerts by device only | #636, #645 |
-| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Device and uptime only | #634 |
+| `active_alerts` | Current alerts grouped by device and rule, separate fault totals, filters, a time window, paging | Shared, current groups or historical occurrences with paging | #636, #645 |
+| `device_health` | State, uptime, maintenance, alerts, CPU/memory/storage, problem ports | Shared, complete operation with bounded rows | #634 |
 | `device_sensors` | Threshold-assessed readings, problems first | Shared, by device only | #636, #639 |
-| `list_groups_and_locations` | Group and location catalogue | Not yet | #642 |
-| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Not yet | #641 |
-| `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Not yet | #643 |
-| `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Not yet | #644 |
-| `device_events`, `network_events`, `what_changed` | Event and change history | Not yet | #645 |
-| `search_logs` | Graylog messages | Not yet; Graylog is already on the phone | #646 |
-| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
-| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Not yet | #648 |
-| `graph` | Graph images | Not yet | #649 |
+| `list_groups_and_locations` | Group and location catalogue | Shared, with exact filter names in evidence | #642 |
+| `alert_details`, `alert_rules` | Fault and rule detail, history, rule search | Shared, bounded detail rows and source-qualified alert evidence | #641 |
+| `port_status`, `device_neighbours`, `trace_endpoint` | One port's state, links, tracing through stored ARP/FDB | Shared, bounded rows and device evidence | #643 |
+| `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
+| `device_events`, `network_events`, `what_changed` | Event and change history | Shared timelines and optional-service change context | #645 |
+| `search_logs` | Graylog messages | Shared, offered after a configured readiness probe | #646 |
+| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Shared, with captured config-text policy | #647 |
+| `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
+| `graph` | Graph images | Shared lookup, restricted image transport and typed answer attachments | #649 |
 
 No write, acknowledgement, rediscovery or remote MCP service is proposed.
 
@@ -244,12 +244,13 @@ model copies them rather than converting UTC or seconds.
 | `active_alerts` | `devices.alerts.rule_id`, `devices.alerts.source` | They travel in the chip's typed object, so a chip opens the right rule, fault or legacy alert, without spending the model's context. |
 | `active_alerts` | `devices.alerts.faults.fault_id`, `devices.alerts.faults.entity_type`, `devices.alerts.faults.entity_id` | Faults are named with their states. Only a group's representative is offered as an id, so the model is never given an id it can't link. |
 | `active_alerts` | `devices.hostname`, `devices.display` | Rows name the device in the person's naming style with its marker, which opens the device. `find_device` gives its other names. |
-| `active_alerts` | `page.offset`, `page.limit`, `page.returned` | The phone asks for 20 groups and counts the rest from the totals in the heading. |
+| `active_alerts` | `page.limit` | The recorded MCP fixture asks for 10 groups; the phone defaults to 20. Its requested limit is shown explicitly. |
 | `network_overview` | `alert_groups.key.rule_id`, `alert_groups.rule_id`, `alert_groups.representative.source` | They travel in the chip's typed object. |
 | `network_overview` | `alert_groups.faults.key.id`, `alert_groups.faults.key.source`, `alert_groups.faults.entity_type`, `alert_groups.faults.entity_id` | Faults are named with their states; only the representative is offered as an id. |
 | `network_overview` | `alert_groups.faults.since`, `alert_groups.last_changed` | Budget. Each group says how long it has been open; `active_alerts` with `verbose` gives when each alert and fault started. |
 | `network_overview` | `alert_groups.hostname`, `alert_groups.device.hostname`, `alert_groups.device.ip`, `alert_groups.device.location` | Rows name the device in the person's naming style with its marker and state. `find_device` gives the rest. |
-| `device_health` | `under_maintenance`, `open_alerts`, `open_faults`, `cpu_max_percent`, `memory_max_percent`, `fullest_storage`, `ports_total`, `ports_down_while_enabled`, `problem_ports`, `problem_ports_omitted`, `unavailable.source`, `unavailable.reason`, `unavailable.message` | Not on the phone yet: #634 brings them. The reply says so. |
+| `device_health` | `ports_total`, `ports_down_while_enabled` when their source failed | MCP carries zero fallback values alongside unavailable metadata. The phone reports the section unavailable instead of presenting a known zero. Successful counts are shown and tested independently. |
+| `device_health` | `unavailable.reason`, `unavailable.message` | Fixed unavailable source names lead the reply. Transport wording is excluded; the model cannot treat it as device data. |
 | `device_sensors` | `readings.rank` | MCP's sort key. Rows are already problems first. |
 | `device_sensors` | `device.hostname`, `device.ip`, `device.location`, `device.status` | Budget. The heading names the device in the person's naming style with its marker, whose chip carries its state; `device_health` gives the rest. |
 
@@ -265,8 +266,19 @@ catalogue parameter of an offered tool that is neither offered
 | Tool | Parameters | Why |
 | --- | --- | --- |
 | `find_device` | `offset`, `limit` | The phone fetches 20 rows and counts the rest in the heading. A further page wouldn't fit the reply. |
-| `active_alerts` | `offset`, `limit` | The same, for 20 groups. |
-| `active_alerts` | `hours`, `since`, `until` | The time window comes with #645. |
+
+## Batch 5 package provenance
+
+The reviewed network operations are published as `DashyNMS.Agent.Shared`
+`2.0.0-ci.43670427340.1` by DashyNMS/mcp's Shared package workflow, run
+43670427340, from protected `main` commit
+`3e9367b415e99fe3c50f2d21c8834b54bb09539a`, after PRs #135 and #148. The package SHA-256 is
+`8bc57bca89670f7006d8288439e93cd2809d232703def9ef1e59a430843292f7`.
+Publication verified the feed's bytes, and the provenance attestation verifies
+against that source commit and workflow. Mobile's verification script pins the
+same version, hash and commit. The Core pin remains `2.0.0-ci.64`, covered by
+upstream's package compatibility job. Mobile Release CI separately checks trim
+and AOT compatibility.
 
 ## Built tools
 
@@ -276,11 +288,10 @@ What each shared tool on the phone does beyond the pattern above.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43536733548.1`, from DashyNMS/mcp's
-`shared-package.yml` run 43536733548 at commit
-`ce4ec6219c1212e2584524ed7ac3643720ab5635` (DashyNMS/mcp#134: the tool catalogue and
-device resolution, DashyNMS/mcp#130 and #131), SHA-256
-`59f948a9daecbb799b1ec37fb69aad5d2f23e13a7a2ca832c2261fdbbd96bef5`. It was
+**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43670427340.1`, from DashyNMS/mcp's
+`shared-package.yml` run 43670427340 at commit
+`3e9367b415e99fe3c50f2d21c8834b54bb09539a` (DashyNMS/mcp#148), SHA-256
+`8bc57bca89670f7006d8288439e93cd2809d232703def9ef1e59a430843292f7`. It was
 `DashyNMS.Agent.Search` until DashyNMS/mcp#122 renamed it and restarted its
 versions at 2.0.0. It is MIT licensed and targets net10.0. Its minimum Core is
 `2.0.0-ci.64`, the same build as mobile's direct pin.
@@ -314,9 +325,20 @@ generation they came from. Chats and lookups are bound by `SessionScope`
 object, which Core replaces whenever a certificate is trusted or the timeout
 changes. Without a transport factory, `find_device` fails closed.
 
+**Maintenance.** The shared search checks each returned row sequentially, at most
+the phone's 20-row page; it does not check the entire match set. The typed shared
+state supplies the row and evidence state. Active maintenance takes precedence;
+a failed check keeps the device-list state, labels maintenance unknown and never
+claims it is off. The evidence source distinguishes a completed check from an
+unavailable one. Maintenance is read again on the next lookup even while the
+device list remains cached. Cancellation, the deadline and retirement cover the
+extra reads. The pinned request-count fixtures and HTTP active/inactive/refused/
+missing cases check both hosts, with separate page-bound and late-result tests.
+
 **Allowlist and lifetime.** Device search permits `IDevicesApi.ListAsync`,
 `IArpApi.FindByMacAsync`, `IDeviceGroupsApi.ListAsync` and
-`IDeviceGroupsApi.GetMemberDeviceIdsAsync`. Location filtering reads the device
+`IDeviceGroupsApi.GetMemberDeviceIdsAsync` and `IDevicesApi.IsUnderMaintenanceAsync`
+for positive IDs on the returned page. Location filtering reads the device
 list, without a locations endpoint. A device argument resolves over the same
 profile's `IDevicesApi.ListAsync` (see [Device arguments](#device-arguments-635)).
 `device_health` permits `IDevicesApi.GetAsync` by a positive numeric id, never by
@@ -426,11 +448,12 @@ unchanged; this section covers only what differs.
 `ConnectionBoundClient` and transport, as the overview has its own, and asks for one device id.
 Judging each reading, the problem-first order, the device-by-device fallback and
 redaction come from upstream. MCP's `device_sensors` runs the same operation. The
-assessment is MCP's: the sensor's own LibreNMS limits, Core's default thresholds for dBm,
-signal, temperature and fan speed where it has none, and an installed state definition's
-severity. Desktop doesn't give MCP the person's own thresholds, so chat doesn't use
-them on either platform: a reading can differ between chat and the Health page when
-someone has changed Settings › Thresholds. Fixing that is an upstream change for both (DashyNMS/mcp#132, #639).
+assessment uses the same Core evaluator as the Health page. Each model attempt
+captures the person's saved dBm, signal, temperature and fan thresholds and the
+sensor-limit override in `AgentOptions`. A later question opens a fresh set and
+reads changed settings without restarting the chat. Sensor definitions still
+supply state-sensor severity. Sensor-reported limits remain visible; when saved
+thresholds override them, the text labels those limits as overridden.
 Mobile maps the result to:
 
 - a heading with every count, unknown kept apart from OK:
@@ -475,56 +498,406 @@ fallback reads concurrently, so its requests are compared as a set. The type cas
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
 
+### How graph is built
+
+`HostGraphLookup` owns aliases, device/port/sensor selection, listings, spans,
+image decoding and Core's image limit. Mobile offers every catalogue argument.
+A dedicated profile allows device, sensor, port and graph-listing reads plus
+sensor fallback. Its raw transport permits only GET image envelopes for device,
+port and sensor paths, the fixed 800×250 query Shared builds, and the SVG
+permission probe. Port names are canonical escaped path components; traversal,
+extra query parameters, bodies, writes and raw text reads are refused.
+
+Incomplete listings lead the reply, including a successful image with partial
+inventory and an unknown negative result. Metadata retains type, local custom
+window/preset, selected port/sensor and alternative graph types as whole rows.
+Only shown device rows supply evidence. Pixels remain unredacted, as in MCP.
+
+Lookup images reach the answer through a typed callback, independently of the
+native model's text tool bridge. Core's type/size limits and the eight-image
+answer cap apply. Model text completion preserves lookup attachments. Context
+retry discards the abandoned attempt's images, and the existing attempt and
+connection guards reject late callbacks. The saved-chat path already serialises
+these validated attachments. The ninth graph is refused before transport, so a
+lookup cannot promise an image hidden by the answer cap.
+
+On iOS 27, the bridge checks the active model's `.vision` capability and returns
+Foundation Models Prompt tool output containing the correlated image. C# passes
+NSData alongside text, never base64 in the text or an ambient shared image buffer.
+The conversation reserves 1,536 extra tokens per result when graph is offered
+on an image-capable route. Native counts the image as an Attachment before
+submitting it. Invalid decoding, encoded data over Core's 2 MiB limit, decoded
+dimensions over 2048×1024, token-count failure or cost above that reserve uses
+the metadata-only text. That fallback keeps exactly the same rows and evidence,
+and stays within 900 characters. Native reports submission by an attempt-local
+image ID. The conversation maps each ID to the displayed attachment, so mixed
+success identifies the exact Graph image number that remained metadata-only.
+The notice is part of the saved transcript. iOS 26 keeps the fallback.
+
+Apple documents [multimodal prompts](https://developer.apple.com/documentation/foundationmodels/analyzing-images-with-multimodal-prompting),
+[PromptRepresentable tool output](https://developer.apple.com/documentation/foundationmodels/tool)
+and [vision capability checks](https://developer.apple.com/documentation/foundationmodels/languagemodelcapabilities).
+Its image guide also covers Private Cloud Compute; no PCC route is enabled here,
+and its consent and configuration-text notice remain #575.
+
+Copied Graphs fixtures include fixed MCP projections and PNG/SVG envelopes.
+HTTP cases compare device/CPU/port/sensor metadata, pixels and request sets,
+including partial listings, denial, oversized images, custom spans, legend,
+cancellation, deadline and a connection switch. Route tests cover canonical
+names and refused paths. An end-to-end conversation test verifies that the
+text-only model gets no base64 while the answer and reopened saved-chat snapshot
+keep the graph and metadata-only notice. Capability-enabled cases exercise typed
+pixel delivery, rejected-image notices and the 8,192-token budget; both tool-call
+paths retain the same lookup limit. Mixed-delivery regressions reject either of
+two images and check the numbered notice after saved-chat restoration. Field accounting compares device, CPU,
+port and sensor Data with the fixed MCP projections, plus current typed results
+for custom windows, partial/negative listings and the type-list cap. Types and
+selected entities are checked in their own rows. No Data field is deliberately
+excluded. Native compilation and Release checks run in GitHub Actions. Real
+model/image-token measurements and iPhone acceptance remain unverified while
+this PR is draft.
+
+### How Unimus config tools are built
+
+`config_backup`, `config_diff` and `recent_config_changes` use
+`HostConfigLookups` with separate captured Unimus clients and all catalogue
+arguments. They are offered only when Unimus is configured. The saved
+`IntelligenceConfigText` choice is captured with each attempt: Off refuses before
+any LibreNMS or Unimus read, Summary returns metadata/counts, and Full permits
+shared redacted text. A privacy or integration change discards in-flight results
+and evidence. No backup trigger, reconfiguration or connection test is exposed.
+
+The dedicated LibreNMS profile allows only the device list and group catalogue/
+membership needed by shared config matching and scopes. Shared owns matching,
+backup selection, revision lookup, paging, diff rendering, windows and fleet
+filtering. Mobile formats local times, config lines, backup IDs and cursors,
+whole-row omissions and verified device evidence. Unreadable-device counts lead
+recent-change replies, so failures cannot look like a complete empty result.
+Backup warnings remain from Shared, with their dates localised. Server error
+bodies never enter replies.
+
+The copied upstream ConfigLookups fixture uses synthetic bearer authentication
+and real Core HTTP clients. CI compares request sets and known backup/diff/change
+facts with the shared host; further cases cover Full/Summary/Off, line paging,
+redaction, unavailable tools, scoped partial failures, cancellation, privacy
+changes, token retirement and the read-only profile. Field accounting compares
+all populated MCP Data fields for backup Full/Summary and a one-line page,
+diff Full/Summary and its source cap, plus recent changes, first backups and
+unreadable devices. Each revision is checked by backup ID; config text is checked
+line by line, and a missing whole row needs an omission count. The source cap's
+omitted-line count is stated separately from the phone's budget omissions.
+Unreadable-source messages use the host's fixed safe category. No Data field is
+deliberately excluded. iPhone acceptance remains pending while this PR is draft.
+
+Settings → Intelligence has an automatic-save Configuration text picker when
+Unimus is configured. It writes Core's existing Summary/Full/Off key and restores
+the previous value if persistence fails. Changing it stops an active model attempt,
+including one that has already received lookup text, while keeping earlier chat
+text visible. The page prepares existing secure setup before deciding visibility.
+CI covers persistence/reload, rollback, visibility and interruption. The caption
+refers to the current on-device model. The separate Private Cloud Compute work
+in #575 must explain that Full config text goes to Apple before it is enabled.
+
+### How search_logs is built
+
+The tool is offered only after Graylog setup and a successful per-attempt streams
+read. The probe uses a separate captured client, the saved credentials/TLS
+choices, caller cancellation and a 15-second deadline. A failed or refused probe
+leaves the tool out; it sends no question or device data. WhatChanged remains
+available for its independent partial-source result. The operation itself uses
+`HostLogSearch` with captured options and clients, never environment settings.
+
+All catalogue arguments are offered. A dedicated LibreNMS profile allows only
+the device list and positive-device interface addresses for configured address
+matching. Other reads and actions are refused. Failed interface coverage stops
+the search rather than silently narrowing it. Shared logic owns query/stream/
+level resolution, relative count buckets, past windows, sampling and redaction.
+
+Replies retain criteria, exact count/window, top-value sample provenance,
+newest/oldest caveats, cleaned lines and count buckets as whole rows within 900
+characters. Sample sources never create device links; only a shared device filter
+can supply one. Upstream-unreturned messages and omitted rows are counted, using
+64-bit counts. Integration state is checked before and after the read.
+
+Copied Graylog fixtures run through real Core clients with synthetic Basic auth.
+HTTP tests compare current/past counts, samples and query sets against the shared
+host, accounting separately for the readiness probe. Further checks cover absent/
+refused setup, denied searches, marker-shaped log text, redaction, missing address
+coverage, caller cancellation, the profile and large omission counts. Field
+accounting compares every populated MCP Data leaf for current and past windows,
+oldest-page fallback, empty results, a verified device filter and populated log
+attributes. Log lines, top-value records and buckets are checked in their own
+rows; missing whole rows need an omission count. No Data field is deliberately
+excluded. iPhone acceptance remains pending while this PR is draft.
+
+### Captured integration clients
+
+Before opening a model attempt, the conversation awaits the phone's existing
+Graylog/Unimus setup and secure-storage preparation, with caller cancellation.
+Setup publishes immutable connection snapshots only after configuration. Each
+attempt creates separate Core clients from those snapshots, including the saved
+TLS and credential choices; operations cannot reconfigure them, test a connection
+or trigger a backup. These clients use no request logger and close with the
+attempt. Setup generations reject further reads after an integration is changed
+or forgotten. Every saved-settings change also retires the attempt, including
+changes that later restore the original value. The main LibreNMS generation
+still governs the whole lookup set.
+
+The captured options include server timestamps, Graylog query field/address
+matching, the saved Unimus discovery domain and the phone's config-text choice
+(Summary by default). Core applies its usual domain candidates for backups,
+diffs, scoped changes and WhatChanged. The history
+factory now receives these clients; its LibreNMS-only tools do not call them.
+WhatChanged uses them; the remaining integration tool adapters follow. CI tests use two synthetic
+HTTP services to check addresses, credentials, capture against settings changes,
+retirement and refused configuration/write methods.
+
+### How what_changed is built
+
+The adapter calls the shared `ReadChangesAsync` with captured read-only optional
+clients. The heading states whether config changed, is unknown without a
+baseline, is disabled by the saved choice, is unavailable or has no matching
+device. Graylog is independently unconfigured, counted, unavailable or skipped
+for a past window. Failed interface-address coverage prevents a narrowed log
+search. Config Summary shows counts without text; Full shows shared-redacted
+diff rows; Off makes no Unimus request. Internal MCP environment-variable wording
+is replaced with the phone's saved preference wording.
+
+Source failures and window coverage precede detail rows. Config version and
+backup times, change counts, timeline events, optional log samples and diff rows
+then share the whole-row budget. Omitted rows and upstream caps are counted;
+only a shown verified device gets a chip. The adapter checks integration state
+before and after the shared read. Integration changes, forgotten credentials or
+changed config-text/query preferences reject late results and evidence.
+
+HTTP tests cover configured services, text modes and redaction, a missing config
+baseline, disabled config reads, missing address coverage and a privacy change
+during an in-flight read. Unconfigured services retain the LibreNMS timeline.
+The history deadline/retirement test also covers this adapter. Current MCP
+field accounting covers its unconfigured-service projection and shared timeline;
+configured-service facts have independent HTTP assertions. iPhone acceptance
+remains pending while this PR is draft.
+
+### How event and alert history is built
+
+Device/fleet events and historical active_alerts use `HostEventLookups` with a
+dedicated captured LibreNMS client. It allows device and group lists/membership,
+rule names, open alerts, positive-device outages, and device/global event and
+alert logs at the shared 200/1,000/2,000 depths. Other reads, maintenance, actions
+and writes are refused. These three operations do not use Graylog or Unimus;
+WhatChanged uses a separate profile that additionally permits per-device IPs
+for configured Graylog address coverage.
+
+All catalogue history parameters are offered. active_alerts uses historical
+occurrences when hours/since/until is supplied and current groups otherwise;
+both modes now accept offset/limit. Historical rows have no live alert ID, so
+they link only the verified device. Rows retain raised/recovered times, unknown
+recovery/open state, severities, fault counts, event source/kind/text/user and
+outage duration. Window bounds, completeness/unknown coverage, source notices
+and page metadata lead the reply. Omitted whole rows and unfetched page rows
+are counted, and only shown rows create evidence.
+
+Copied event-history fixtures compare independent outage, port-event and raised/
+recovered facts with the shared host and its request set. Failure tests preserve
+unknown coverage and severity/open state; a busy log reaches the shared cap
+without becoming complete. Deadline, caller cancellation and retirement are
+covered during pending history reads. Field accounting compares populated MCP
+Data leaves on fixed explicit windows, one-row event/alert pages and the shared
+WhatChanged timeline. Time/source pairs identify timeline rows without inventing
+entity IDs; omitted rows pass only when counted. iPhone acceptance remains pending.
+
+#### History facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `device_events` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | Budget. History names the device with IP, location and state; device_health supplies inventory and last poll. |
+| `what_changed` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | The same budget choice for change context. |
+
+
+### How fleet rankings and health_overview are built
+
+`HostFleetRankings` owns traffic/error direction, ranking, scoped filters and
+counts. Its dedicated client allows only the device list, fleet port-status
+snapshot and group catalogue/membership. `HostHealthOverview` has a separate
+profile for device/scope lists, sensors and the restricted sensor fallback
+transport. Other reads, maintenance, single-device reads and writes are refused.
+
+All catalogue parameters are offered. Rankings keep the shared order, candidate
+and checked-port totals, directions, rates, problem counts and traffic double-
+counting notice. Health overview captures saved thresholds and the override
+choice per attempt using the same options as device_sensors. The shared operation
+owns type/problem filtering, the bounded scope fallback, denied-device count and
+paging. An unscoped denied sensor fleet read is refused; denied devices in a
+permitted fallback lead the reply and are excluded from sensor counts.
+
+Whole rows outside 900 characters and candidates outside the requested page are
+counted as omitted. Only displayed rows supply device and sensor chips. Health
+paging metadata precedes readings, and type counts are separate rows. HTTP tests
+compare the pinned MCP fixture and independent rank/count facts with the shared
+host, including request sets, groups, directions, limit, denied reads, scoped
+fallback, captured thresholds and fresh choices on the next question. Deadline,
+cancellation and retirement checks cover both profiles. IntelligenceFleetFactsTests
+compares the populated fields in MCP's direct Data projections with one-row
+traffic/error/problem pages and a health page, including type totals and next
+offset. Device acceptance remains pending while this PR is draft.
+
+#### Fleet facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `health_overview` | `readings.reading.rank` | Sorting metadata. The displayed readings already follow the shared order. |
+
+
+### How device_details is built
+
+`HostDeviceDetails` owns the default/selected sections, paging, sorting, sensor
+fallbacks and partial failures. The adapter offers every catalogue parameter:
+`device`, `sections`, `offset` and `limit`. Its compact default page is 20 rows.
+Ask for one or a few sections when their detail matters; the shared default
+section selection still applies if none are supplied.
+
+A dedicated captured client allows device inventory, wireless and availability,
+per-device ports, IPs, ARP and FDB, fleet VLANs and sensors, and per-device BGP,
+OSPF, OSPFv3 and VRFs. Sensor health fallback uses the existing restricted sensor
+transport. IDs must be positive; alert reads, memberships, single-device reads,
+maintenance, unrelated APIs, raw sends and writes are refused before transport.
+
+Source failures lead the reply; section totals distinguish known empty sections
+from unreadable ones. Every section is formatted from its typed result. The
+900-character budget retains whole rows, counts both unfetched page rows and
+rows that do not fit, and offers only the displayed device chip. Pages retain
+their offset, limit and next offset. The common deadline and retirement logic
+covers the operation. Copied upstream HTTP fixtures test every section, request
+sets, inventory/VLAN/PoE/routing/availability/address facts, failed VLAN reads,
+page counts, invalid arguments and the client restrictions. Typed-boundary facts
+also cover true, false and missing replaceability/BGP admin-down flags; explicit
+false is rendered as no, while a missing value remains unknown. Device-detail field
+accounting compares every populated MCP Data leaf in each section fixture and
+an inventory page with the phone's text. Additional HTTP cases cover populated
+wireless data and page metadata before budget omissions. iPhone acceptance
+remains pending while this PR is draft.
+
+### How port, neighbour and trace tools are built
+
+`HostPortLookups` owns all port resolution, topology ordering, reverse-neighbour
+observations and endpoint classification. Port and neighbour device arguments
+use the common shared device resolver first. Their dedicated client permits the
+device list, per-device ports and links, fleet links and VLANs, a MAC-specific ARP
+read and per-device FDB reads. The extra transport permits only canonical IPv4
+ARP collection paths and 12-digit lowercase MAC FDB collection paths, with the
+right model type and collection key. Query strings, path escapes, raw sends,
+maintenance, other resources and writes are refused before transport.
+
+Port rows include state, speed, duplex, MTU, VLANs, traffic, errors and neighbour
+observations. Neighbour rows retain reported/reverse direction and protocol.
+Known positive device IDs supply chips; an unmonitored neighbour stays text.
+The app has no port marker, so port IDs are plain facts beside a device chip.
+
+Trace replies explicitly describe stored observations, preserve ambiguity,
+source failures, candidate ports and bounded omissions, and never claim address
+ownership. The shared caps on switches, MACs and observations apply before the
+900-character whole-row budget. Device evidence comes only from displayed rows.
+The host owns caches, and the common deadline and retirement checks cover all
+three tools. HTTP tests compare the pinned upstream envelopes and independent
+port, neighbour and edge facts with the package operation, including request
+sets, reverse links, optional failures and invalid input. Current MCP projections
+serialise these operations' Data directly; IntelligenceTopologyFactsTests compares
+every populated leaf on the fixture with the displayed text or the explicit table
+below. iPhone example-question acceptance remains pending while this PR is draft.
+
+#### Topology facts left out
+
+| Tool | Left out | Why |
+| --- | --- | --- |
+| `port_status` | `device.sys_name`, `device.os`, `device.hardware`, `device.last_polled` | Budget. The device row gives its names, IP, location and state; device_health supplies inventory and last poll. |
+
+
+### How alert_details and alert_rules are built
+
+Both adapters use `HostAlertRules` in a dedicated captured client. It permits
+only the device, rule, template, group and location lists, system version, open
+alerts, a positive alert/fault ID in all states, open siblings for a positive
+rule ID, and alert history. History is bounded by the shared operation: 200 for
+one device, or 200/1,000/2,000 globally. Other queries, event logs, single device
+reads, memberships, maintenance and writes are refused before transport.
+
+All rule catalogue arguments are offered unchanged, including sorts, paging,
+severity, enabled/disabled choice and verbose notes. Rule and target IDs are
+plain facts; the app has no rule route and cleaned target names are not exact
+navigation filters. Alert details link the source-qualified alert or fault and
+its device only when the shared result supplies that device. A follow-up carries
+the source previously observed in this lookup set; a different source or an
+ambiguous identity is refused. Unknown or failed history stays unknown.
+
+Source notices precede detail rows. Rule conditions, procedures, notes, trigger
+fields, history, counts, scope targets and compatibility advice use bounded
+labels and whole rows within 900 characters. Omitted rows and pages are counted
+and create no evidence. The shared summary retains incomplete-history notices.
+The copied AlertRules fixtures are checked byte for byte in CI. HTTP tests check
+shared detail facts, legacy/fault navigation, source mismatch, optional failures,
+rule filters, sorts and paging, required failures and refused APIs. `IntelligenceAlertFactsTests` checks every non-null leaf of MCP's current
+projection on the shared fixtures, including the disabled rule's removed-column
+advice. This projection is constructed from the shared typed results and the
+reviewed `RuleTools` shape, rather than a frozen recording or MCP runtime on the
+phone. Independent HTTP assertions still cover the known trigger/history facts.
+On-device follow-up acceptance remains pending while this PR is draft.
+
+### How list_groups_and_locations is built
+
+`HostGroupsAndLocations` owns the device and group catalogue reads, location
+aggregation, ordering, redaction and partial failures. Its dedicated captured
+client permits only those two lists. Membership, maintenance, other resources
+and writes are refused before transport. Devices are required; an unavailable
+group list is labelled in the heading while location results remain usable.
+
+Rows show group names, types and descriptions and location device/down counts.
+Only positive supplied IDs receive markers. Exact server filter names stay in
+evidence, separate from cleaned model text; no location ID is invented from a
+name or aggregate count. Whole rows outside the 900-character budget are counted
+as omitted and create no evidence. The common cancellation, deadline and session
+retirement checks apply to pending catalogue reads too.
+
+HTTP tests compare the same pinned device/group envelopes with the shared host
+operation and assert independent counts, failure handling, exact filter names,
+redaction and evidence. Further tests cover bounded output, refused client APIs,
+late results, cancellation and the deadline. Model selection is covered for a
+group/location question; on-device acceptance remains pending.
+
 ### How device_health is built
 
-The device summary migration (#602), built on DashyNMS/mcp's `DeviceSummaries`
-(DashyNMS/mcp#128), is the device and uptime part of `device_health`; #634 brings
-the rest. Everything under find_device's host ownership, lifetime, cancellation
-and CI applies unchanged; this section covers only what differs.
+The complete `HostDeviceHealth` operation replaces the narrow summary adapter
+under #634. The tool keeps the catalogue's name, description and `device`
+argument, resolved by the existing shared resolver. There is no phone-only
+`device_summary` tool or descriptor.
 
-**Contract.** Until #635 this was `device_summary`, a name Core's
-`IntelligenceToolAllowlist` doesn't have. It now carries `device_health`'s
-catalogue name, description and `device` parameter, and its text says what it
-doesn't cover yet (listed under [Facts left out](#facts-left-out)). MCP's
-`device_health` builds that part on the same shared read and shaping, so the two
-can't drift. `CompactNetworkLookups.ReviewedTools` holds every lookup name, and a
-test holds each to the allowlist and the catalogue, so a new name can't reach the
-model without a reviewed tool.
+Each attempt owns a health-profile `ConnectionBoundClient` and operation beside
+the resolver. Its reviewed reads are the device list, one device by positive
+numeric ID, that device's maintenance, processors, memory, storage and ports,
+and the open-alert query with Core's source probe. Other reads, all writes and
+session controls are refused before transport. Disposal and connection changes
+retire it. The common caller cancellation, 15-second deadline, late-result and
+evidence checks remain around the operation.
 
-**Adapter.** Each lookup set creates one `HostDeviceSummary` beside the search and
-open alerts, over the same `ConnectionBoundClient` and transport, and asks for one
-device id. Upstream reads `devices/{id}` and returns the redacted summary with its
-reported `State`, uptime (null when LibreNMS reports none or zero) and a
-`DeviceLocation`: the id, the trimmed and redacted name, and the exact LibreNMS
-name. `devices/{id}` can send the location as the whole JSON record; upstream
-reads the name, and the id when `location_id` is missing, out of it. Mobile
-maps the result to:
+The reply puts unavailable source names before data rows, then the device's OS,
+hardware, names, IP, location and last poll, uptime, maintenance, resource maxima,
+open group/fault counts, port counts, fullest storage, grouped alerts and problem
+ports. A failed source never becomes zero or an empty healthy section. Missing
+or mismatched fresh devices use only the listed device and identify the fresh
+read as unavailable. Location evidence keeps the exact filter name; alert evidence
+retains its fault or legacy-alert source; port evidence includes its owning device.
+Only rows shown create evidence. Whole rows outside 900 characters, including
+upstream-capped problem ports, are counted as omitted.
 
-- a heading: the device in the person's naming style with `[[device:ID]]`, its
-  reported state and IP;
-- one row: OS, hardware, location with `[[location:ID]]`, and uptime in seconds or
-  `unknown`;
-- evidence: the device with its state at lookup time, and the location chip,
-  whose label is the cleaned name and whose Devices filter is LibreNMS's exact
-  name. The exact name never goes into model text.
-
-**Failures.** No fallback, unlike `device_health`, which answers from its device
-list when the read fails: a device the server doesn't return, or returns under
-another id, is "Device not found."; `Refused` maps to the refusal line, and
-everything else to the failure line.
-
-**Profile.** The catalogue's `device`, resolved as in
-[Device arguments](#device-arguments-635).
-
-**Fixtures.** `tests/.../Fixtures/DeviceSummary` is a byte-for-byte copy of
-DashyNMS/mcp's. It covers a location sent as a record, a display name repeating the
-hostname, zero uptime, a missing flag (Unknown), ignored and disabled devices, a
-secret in the hardware text, a padded location name, a location id only in the
-record, a listed device `devices/{id}` doesn't return, and transport failures on
-`devices/1`. `scripts/check-shared-fixtures.sh` covers it. Over loopback HTTP,
-mobile `device_health` and `HostDeviceSummary` must give the same values and
-failures, with the same `devices/{id}` reads after mobile's device-list read, and upstream holds `device_health`'s
-device and uptime to the same fixture.
+`Fixtures/DeviceHealth` retains the upstream device-field bytes from MCP's
+`DeviceSummary` fixture at the pinned Batch 5 commit. The old mobile summary
+fixture path and adapter tests are removed. Independent HTTP tests add all health
+sources, check the values against the package result and displayed text, and fail
+each source separately. The shared device-field cases cover ignored and unknown
+states, location records, redaction, missing fresh devices and uptime. Profile
+tests reject other reads and writes; the existing lookup tests cover switching,
+retirement, caller cancellation and the deadline. On-device model selection for
+OS, summary and hardware questions remains a device acceptance check; CI alone
+cannot establish it.
 
 ### How network_overview is built (#600)
 
@@ -624,8 +997,10 @@ is two at 4,096 tokens; above that it's the room left divided by one result, at
 least two and at most desktop's 48. The prompt's own share is what's left after
 the instructions, the answer, two results and the cheapest tool. Once the tools
 are chosen and the instructions name the limit and the tools left out, the total
-is counted again; if the first tool or that closing line takes it past 80%,
-earlier turns give way and the choice is made again, as on a context limit. A
+is counted again. If the final instructions cost more, tool selection repeats
+with that cost before dropping history or rejecting the question. Fewer related
+tools can leave room for two results even when the first selection did not.
+Earlier turns give way if that still does not fit, as on a context limit. A
 retry after a context limit starts its lookup count again.
 
 Tools an offered description names that the question doesn't get, and tools not

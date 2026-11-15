@@ -1,0 +1,281 @@
+{
+  "devices": {
+    "status": "ok",
+    "devices": [
+      {
+        "device_id": 1,
+        "hostname": "core-sw1.example.net",
+        "sysName": "core-sw1",
+        "display": "Core switch 1",
+        "ip": "192.0.2.1",
+        "os": "arubaos-cx",
+        "hardware": "6300M",
+        "location": "Paddock",
+        "status": 1,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 864000,
+        "last_polled": "2026-10-17 09:55:00"
+      },
+      {
+        "device_id": 2,
+        "hostname": "edge-sw3.example.net",
+        "sysName": "edge-sw3",
+        "display": "edge-sw3.example.net",
+        "ip": "192.0.2.3",
+        "os": "procurve",
+        "hardware": "2930F",
+        "location": "Pit lane",
+        "status": 0,
+        "disabled": 0,
+        "ignore": 0,
+        "uptime": 0,
+        "last_polled": "2026-10-17 09:00:00"
+      }
+    ]
+  },
+  "alerts": {
+    "status": "ok",
+    "alerts": [
+      {
+        "id": 10,
+        "device_id": 1,
+        "rule_id": 3,
+        "state": 1,
+        "timestamp": "2026-10-17 09:40:00",
+        "hostname": "core-sw1.example.net",
+        "severity": "critical",
+        "name": "Port down"
+      },
+      {
+        "id": 12,
+        "device_id": 1,
+        "rule_id": 5,
+        "state": 2,
+        "timestamp": "2026-10-17 07:00:00",
+        "hostname": "core-sw1.example.net",
+        "severity": "warning",
+        "name": "High CPU",
+        "note": "Looking into it"
+      },
+      {
+        "id": 11,
+        "device_id": 2,
+        "rule_id": 4,
+        "state": 1,
+        "timestamp": "2026-10-17 09:00:00",
+        "hostname": "edge-sw3.example.net",
+        "severity": "critical",
+        "name": "Device down"
+      }
+    ]
+  },
+  "rules": {
+    "status": "ok",
+    "rules": [
+      {
+        "id": 3,
+        "name": "Port down",
+        "severity": "critical",
+        "rule": "ports.ifOperStatus = \"down\" AND ports.ifAdminStatus = \"up\"",
+        "builder": "{\"condition\":\"AND\",\"rules\":[{\"id\":\"ports.ifOperStatus\",\"field\":\"ports.ifOperStatus\",\"operator\":\"equal\",\"value\":\"down\"},{\"id\":\"ports.ifAdminStatus\",\"field\":\"ports.ifAdminStatus\",\"operator\":\"equal\",\"value\":\"up\"}],\"valid\":true}",
+        "devices": [],
+        "groups": [
+          1
+        ],
+        "locations": [],
+        "disabled": 0,
+        "proc": "https://wiki.example.net/port-down",
+        "notes": "Check the patching first."
+      },
+      {
+        "id": 4,
+        "name": "Device down",
+        "severity": "warning",
+        "rule": "macros.device_down = 1",
+        "devices": [
+          2
+        ],
+        "groups": [],
+        "locations": [],
+        "disabled": 0
+      },
+      {
+        "id": 5,
+        "name": "High CPU",
+        "severity": "warning",
+        "rule": "processors.processor_usage >= 90",
+        "devices": [],
+        "groups": [],
+        "locations": [
+          1
+        ],
+        "disabled": 0
+      },
+      {
+        "id": 6,
+        "name": "Old test rule",
+        "severity": "critical",
+        "rule": "devices.status = 0",
+        "devices": [],
+        "groups": [],
+        "locations": [],
+        "disabled": 1
+      }
+    ]
+  },
+  "logs/eventlog": {
+    "status": "ok",
+    "logs": [
+      {
+        "event_id": 12,
+        "device_id": 2,
+        "datetime": "2026-10-17 09:50:00",
+        "message": "Device status changed to Down",
+        "type": "system",
+        "severity": 5
+      },
+      {
+        "event_id": 2,
+        "device_id": 1,
+        "datetime": "2026-10-17 09:30:00",
+        "message": "Interface 1/1/7 went down",
+        "type": "interface",
+        "severity": 4
+      },
+      {
+        "event_id": 11,
+        "device_id": 2,
+        "datetime": "2026-10-17 06:00:00",
+        "message": "Device rebooted",
+        "type": "reboot",
+        "severity": 3
+      },
+      {
+        "event_id": 1,
+        "device_id": 1,
+        "datetime": "2026-10-10 12:00:00",
+        "message": "Device rebooted",
+        "type": "reboot",
+        "severity": 3
+      }
+    ]
+  },
+  "logs/eventlog/1": {
+    "status": "ok",
+    "logs": [
+      {
+        "event_id": 2,
+        "device_id": 1,
+        "datetime": "2026-10-17 09:30:00",
+        "message": "Interface 1/1/7 went down",
+        "type": "interface",
+        "severity": 4
+      },
+      {
+        "event_id": 1,
+        "device_id": 1,
+        "datetime": "2026-10-10 12:00:00",
+        "message": "Device rebooted",
+        "type": "reboot",
+        "severity": 3
+      }
+    ]
+  },
+  "logs/alertlog/1": {
+    "status": "ok",
+    "logs": [
+      {
+        "id": 1,
+        "rule_id": 3,
+        "device_id": 1,
+        "state": 1,
+        "time_logged": "2026-10-17 09:40:00",
+        "details": {
+          "contacts": {},
+          "rule": [
+            {
+              "device_id": 1,
+              "hostname": "core-sw1.example.net",
+              "port_id": 107,
+              "ifName": "1/1/7",
+              "ifAlias": "Camera 7",
+              "ifOperStatus": "down",
+              "ifAdminStatus": "up"
+            }
+          ]
+        }
+      },
+      {
+        "id": -1,
+        "rule_id": 3,
+        "device_id": 1,
+        "state": 0,
+        "time_logged": "2026-10-08 10:00:00"
+      },
+      {
+        "id": -2,
+        "rule_id": 3,
+        "device_id": 1,
+        "state": 1,
+        "time_logged": "2026-10-08 09:00:00"
+      },
+      {
+        "id": -3,
+        "rule_id": 3,
+        "device_id": 1,
+        "state": 1,
+        "time_logged": "2026-09-07 09:00:00"
+      }
+    ]
+  },
+  "devices/1/outages": {
+    "status": "ok",
+    "outages": [
+      {
+        "going_down": 1792227600,
+        "up_again": 1792228200
+      }
+    ]
+  },
+  "logs/alertlog": {
+    "status": "ok",
+    "logs": [
+      {
+        "id": 5,
+        "rule_id": 3,
+        "device_id": 1,
+        "state": 1,
+        "time_logged": "2026-10-17 09:40:00"
+      },
+      {
+        "id": 4,
+        "rule_id": 4,
+        "device_id": 2,
+        "state": 0,
+        "time_logged": "2026-10-17 03:30:00"
+      },
+      {
+        "id": 3,
+        "rule_id": 4,
+        "device_id": 2,
+        "state": 1,
+        "time_logged": "2026-10-17 02:00:00"
+      },
+      {
+        "id": 2,
+        "rule_id": 4,
+        "device_id": 2,
+        "state": 0,
+        "time_logged": "2026-10-10 05:00:00"
+      },
+      {
+        "id": 1,
+        "rule_id": 4,
+        "device_id": 2,
+        "state": 1,
+        "time_logged": "2026-10-10 04:00:00"
+      }
+    ]
+  }
+}

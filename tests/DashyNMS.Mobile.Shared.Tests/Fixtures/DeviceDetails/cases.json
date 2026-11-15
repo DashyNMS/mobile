@@ -1,0 +1,15 @@
+{
+  "deviceId": 1,
+  "inventoryRows": 2,
+  "firstSerial": "SG00TEST01",
+  "vlanNumbers": [
+    1,
+    120
+  ],
+  "fdbMac": "aa:bb:cc:dd:01:07",
+  "poeTotalWatts": 370,
+  "poeUsedWatts": 120.5,
+  "firstBgpState": "idle",
+  "weekAvailability": 99.941,
+  "firstAddress": "192.0.2.1/24"
+}

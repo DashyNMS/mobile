@@ -64,7 +64,7 @@ public sealed class IntelligenceTurn(string question, string detail) : Observabl
     public IReadOnlyList<IntelligenceInlineReference> References => _references;
 
     private IReadOnlyList<IntelligenceImage> _images = [];
-    /// <summary>Validated images returned with the answer; never fetched by the app.</summary>
+    /// <summary>Validated images returned by reviewed lookups or the model route.</summary>
     public IReadOnlyList<IntelligenceImage> Images { get => _images; internal set => SetProperty(ref _images, IntelligenceAnswerImages.Accept(value)); }
 
     /// <summary>
@@ -220,6 +220,12 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         public int Attempt;
         public int Lookups;
         public int LookupFailures;
+        public bool HasLookupImages;
+        public IReadOnlyList<string> LookupImageIdsProvided = [];
+        public IReadOnlyList<string> LookupImageIdsOmitted = [];
+        // Byte-array reference identity follows the actual attachment, even when two
+        // graph responses contain identical pixels or finish in a different order.
+        public Dictionary<byte[], string> LookupImageIds { get; } = new();
         public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -228,6 +234,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     {
         _model = model;
         _preferences = preferences;
+        _configText = preferences.ConfigText;
         _lookups = lookups;
         _session = session;
         _dispatch = dispatch;
@@ -235,9 +242,15 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         session.StateChanged += ConnectionChanged;
     }
 
+    private string _configText;
+
     private void PreferencesChanged(object? sender, EventArgs e)
     {
-        if (!_preferences.Enabled) Interrupt();
+        // A running model may already hold config text from a completed lookup.
+        // Retire that attempt as well as rejecting any in-flight integration result.
+        var configChanged = _configText != _preferences.ConfigText;
+        _configText = _preferences.ConfigText;
+        if (!_preferences.Enabled || configChanged) Interrupt();
         Notify();
     }
 
@@ -345,7 +358,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             var context = _model.ContextSize ?? 4096;
             var output = OutputTokens(chosenDetail);
             var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, null, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
-            var resultTokens = await ResultTokensAsync(run.Stop.Token);
+            var textResultTokens = await ResultTokensAsync(run.Stop.Token);
+            var resultTokens = textResultTokens;
             var toolReserve = await CheapestToolAsync(run.Stop.Token);
             var promptTokens = (int)(context * IntelligenceBudget.Usable) - instructionTokens - output
                 - IntelligenceToolChoice.MinimumLookups * resultTokens - toolReserve;
@@ -374,7 +388,16 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 // Owned by this attempt: however it ends (an answer, the context retry, a
                 // failure, Stop or a switch) the set is disposed with it, closing the device
                 // search's private transport rather than leaving it to the next switch.
-                using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)));
+                await _lookups.PrepareAsync(token).ConfigureAwait(false);
+                RequireCurrent(run);
+                using var lookupSet = _lookups.Open(evidence => Post(run, attemptId, () => turn.AddEvidence(evidence)),
+                    images => Post(run, attemptId, () =>
+                    {
+                        var accepted = IntelligenceAnswerImages.Accept(images);
+                        if (accepted.Count == 0) return;
+                        turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(accepted));
+                        run.HasLookupImages = true;
+                    }), _model.SupportsLookupImages);
                 // This question's tools and lookup limit, from what was asked and what the context holds (#637).
                 var costs = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var lookup in lookupSet.Lookups) costs[lookup.Name] = await ToolTokensAsync(lookup, token);
@@ -390,20 +413,26 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     var promptCost = await TokensAsync(prompt, token);
                     choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
                         new IntelligenceBudget(context, baseTokens, promptCost, output, resultTokens, costs));
+                    if (_model.SupportsLookupImages && resultTokens == textResultTokens && choice.Tools.Any(t => t.Name == "graph"))
+                    {
+                        // Native counts the image before returning it and falls back to metadata
+                        // if it exceeds this reserve. Text-only questions keep their existing budget.
+                        resultTokens = textResultTokens + IntelligenceLookupResult.ImageTokenBudget;
+                        continue;
+                    }
                     instructions = IntelligenceInstructions.Build(turn.Detail, null, choice.MaxLookups, context, choice.NotOffered);
                     var built = await TokensAsync(instructions, token);
                     room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
                     var missing = IntelligenceToolChoice.MinimumLookups * resultTokens - room;
-                    if (missing <= 0)
+                    // Final instructions can name unavailable tools and cost more than
+                    // the base estimate. Reselect against that cost before dropping history
+                    // or rejecting a short question; fewer tools may still leave two results.
+                    if (built > baseTokens && (missing > 0 || room / Math.Max(1, resultTokens) < choice.MaxLookups))
                     {
-                        // The limit stated must be one the room holds.
-                        if (built > baseTokens && room / Math.Max(1, resultTokens) < choice.MaxLookups)
-                        {
-                            baseTokens = built;
-                            continue;
-                        }
-                        break;
+                        baseTokens = built;
+                        continue;
                     }
+                    if (missing <= 0) break;
                     if (!hasHistory) break;
                     prompt = Prompt(question, Math.Max(0, prompt.Length - Characters(missing)), out omitted, out hasHistory);
                     turn.HistoryOmitted = true;
@@ -420,9 +449,9 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 var maxLookups = Math.Min(choice.MaxLookups, Math.Max(IntelligenceToolChoice.MinimumLookups, room / Math.Max(1, resultTokens)));
                 if (maxLookups != choice.MaxLookups)
                     instructions = IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered);
-                var tools = choice.Tools.Select(lookup => lookup with
+                var tools = choice.Tools.Select(lookup =>
                 {
-                    Run = async (query, callerToken) =>
+                    async Task<IntelligenceLookupResult> Read(string query, CancellationToken callerToken)
                     {
                         using var call = CancellationTokenSource.CreateLinkedTokenSource(token, callerToken);
                         RequireCurrent(run);
@@ -430,17 +459,28 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         if (Interlocked.Increment(ref run.Lookups) > maxLookups)
                         {
                             Interlocked.Increment(ref run.LookupFailures);
-                            return "The lookup limit was reached. Say if needed data is missing.";
+                            return new("The lookup limit was reached. Say if needed data is missing.");
                         }
                         var progress = new IntelligenceLookupProgress(lookup.Name);
                         Post(run, attemptId, () => turn.Lookups.Add(progress));
                         try
                         {
-                            var result = await lookup.Run(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
+                            var result = await lookup.ReadAsync(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
                             RequireCurrent(run);
-                            var failed = CompactNetworkLookups.IsFailure(result);
+                            if (IntelligenceAnswerImages.Accept(result.Images).FirstOrDefault() is { } image)
+                            {
+                                var imageId = Guid.NewGuid().ToString("N");
+                                await OnUiAsync(() =>
+                                {
+                                    RequireCurrent(run);
+                                    call.Token.ThrowIfCancellationRequested();
+                                    run.LookupImageIds[image.Data] = imageId;
+                                });
+                                result = result with { ImageId = imageId };
+                            }
+                            var failed = CompactNetworkLookups.IsFailure(result.Text);
                             if (failed) Interlocked.Increment(ref run.LookupFailures);
-                            Post(run, attemptId, () => { progress.Result = result; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
+                            Post(run, attemptId, () => { progress.Result = result.Text; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
                             return result;
                         }
                         catch (OperationCanceledException) when (call.Token.IsCancellationRequested) { throw; }
@@ -448,9 +488,10 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         {
                             Interlocked.Increment(ref run.LookupFailures);
                             Post(run, attemptId, () => progress.State = IntelligenceLookupState.Failed);
-                            return CompactNetworkLookups.Failed;
+                            return new(CompactNetworkLookups.Failed);
                         }
-                    },
+                    }
+                    return lookup with { Run = async (query, ct) => (await Read(query, ct).ConfigureAwait(false)).Text, RunWithImages = Read };
                 }).ToArray();
                 using var modelSession = _model.StartSession(instructions, tools);
                 try
@@ -465,7 +506,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     {
                         RequireCurrent(run);
                         turn.Answer = markdown;
-                        turn.Images = answer.Images;
+                        run.LookupImageIdsProvided = answer.LookupImageIdsProvided;
+                        turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(answer.Images));
                         turn.State = IntelligenceTurnState.Completed;
                         turn.Message = run.LookupFailures == 0 ? "Completed" : "Completed, but some lookups failed.";
                     });
@@ -473,17 +515,35 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 catch (IntelligenceException ex) when (ex.Kind == IntelligenceFailureKind.ContextLimit && hasHistory && attempt == 1)
                 {
+                    // Retire callbacks before cancellation can complete an in-flight
+                    // lookup. Queued posts must fail their attempt check before we
+                    // clear the abandoned attempt's attachments and tracking.
+                    Volatile.Write(ref run.Attempt, 0);
+                    attemptStop.Cancel();
                     await OnUiAsync(() =>
                     {
                         if (run.Stop.IsCancellationRequested) return;
                         if (ex.PartialAnswer is not null) turn.Answer = ex.PartialAnswer;
                         turn.HistoryOmitted = true;
+                        turn.Images = [];
+                        run.HasLookupImages = false;
+                        run.LookupImageIdsProvided = [];
+                        run.LookupImageIdsOmitted = [];
+                        run.LookupImageIds.Clear();
                     });
-                    attemptStop.Cancel();
                     prompt = "Question:\n" + question;
                     hasHistory = false;
                 }
-                finally { attemptStop.Cancel(); }
+                finally
+                {
+                    var omittedImages = modelSession.LookupImageIdsOmitted;
+                    await OnUiAsync(() =>
+                    {
+                        if (Volatile.Read(ref run.Attempt) == attemptId)
+                            run.LookupImageIdsOmitted = omittedImages;
+                    });
+                    attemptStop.Cancel();
+                }
             }
         }
         catch (OperationCanceledException)
@@ -531,6 +591,21 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 foreach (var progress in turn.Lookups.Where(p => p.State == IntelligenceLookupState.Running))
                     progress.State = IntelligenceLookupState.Stopped;
+                if (run.HasLookupImages && turn.Images.Count > 0 && (!_model.SupportsLookupImages || turn.State == IntelligenceTurnState.Completed || run.LookupImageIdsOmitted.Count > 0))
+                {
+                    var tracked = turn.Images.Select((image, index) => (image, index))
+                        .Where(item => run.LookupImageIds.ContainsKey(item.image.Data)).ToList();
+                    var missing = tracked.Where(item => !_model.SupportsLookupImages
+                        || (turn.State == IntelligenceTurnState.Completed
+                            ? !run.LookupImageIdsProvided.Contains(run.LookupImageIds[item.image.Data], StringComparer.Ordinal)
+                            : run.LookupImageIdsOmitted.Contains(run.LookupImageIds[item.image.Data], StringComparer.Ordinal))).ToList();
+                    var notice = missing.Count == tracked.Count ? GraphImageNotice : missing.Count == 0 ? null
+                        : string.Join(", ", missing.Select(item => "Graph image " + (item.index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                            + (missing.Count == 1 ? " was" : " were") + " attached for you, but the model received metadata only and cannot read "
+                            + (missing.Count == 1 ? "that image." : "those images.");
+                    if (notice is not null && !turn.Answer.Contains(notice, StringComparison.Ordinal))
+                        turn.Answer = turn.Answer.TrimEnd() + "\n\n" + notice;
+                }
                 turn.AnsweredAt ??= DateTimeOffset.UtcNow;
                 Interlocked.CompareExchange(ref _active, null, run);
                 Notify();
@@ -540,6 +615,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         }
         return true;
     }
+
+    internal const string GraphImageNotice = "Graph images are attached. The model received metadata only and cannot read these images.";
 
     /// <summary>
     /// Tokens for <paramref name="text"/> where the model can't count (before iOS 26.4), at two and a
