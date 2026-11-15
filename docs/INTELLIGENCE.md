@@ -65,10 +65,10 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Saved chats to rename, pin and delete, grouped by date | Done | #229 |
 | Single-chat mode | Done | #230 |
 | Copy, Retry, Edit question and Stop | Done | #227, #573 |
-| Spotlight on devices, a group, a location or an object | Not yet | #231 |
-| Ask Intelligence from devices, alerts, sensors, ports and more | Not yet | #232 |
-| Export as Markdown or PDF | Not yet | #233 |
-| Twelve starter questions, four at a time, and "Checking alerts" activity | Three fixed sets of three, and tool titles | #640 |
+| Spotlight on devices, a group, a location or an object | Saved typed identities, current-connection revalidation and locked scope while answering | #231 |
+| Ask Intelligence from devices, alerts, sensors, ports and more | Shared object mapping, row actions and guarded new chats | #232 |
+| Export as Markdown or PDF | Visible-content sharing, bundled Markdown graphs and native PDF graph appendix | #233 |
+| Twelve starter questions, four at a time, and "Checking alerts" activity | Desktop rotation, eligibility and activity wording | #640 |
 | Graph images in answers | Shared graph lookup attaches images to the answer and saved chat | #649 |
 | Web search | Not on Apple Intelligence | #577 |
 | Dashy, desktop's companion | Undecided | #236 |
@@ -1033,3 +1033,111 @@ shows up here. Full report is desktop's alone and isn't mapped.
 Device checks (a request to change the network declined, an ambiguous name
 answered with a question, a status answer with coloured bullets) are recorded
 here once run on an eligible iPhone.
+
+## Batch 6 Spotlight (#231)
+
+Mobile pins Shared `2.0.0-ci.43744058288.1` from MCP #154, commit
+`8f32942c194132fa7152f1e0f8e8448be7a3ac8e`. The protected-main publish run
+43744058288 passed its package, binary compatibility and Core compatibility
+checks and verified the published feed bytes. The package SHA-256 is
+`1bccd1ecd09899a52e66ce26caa9bf8c52f883dcdaaf61a21e6085402b6dc530`;
+its GitHub-hosted provenance attestation was verified before pinning.
+
+Spotlight holds up to 32 Core object references with the encrypted chat. A
+searchable picker offers devices, groups and locations. Reply objects offer
+Open, Add to Spotlight and Spotlight only this, including VoiceOver actions.
+Each change checks the captured connection, chat revision and source evidence,
+revalidates the exact identity through Shared's HostObjectResolver, then checks
+ownership again. Duplicates, missing objects and failures keep the old scope.
+Changes are locked while answering. Only typed scope IDs, parent IDs and optional rule IDs feed both
+the measured instruction budget and tool selection; a long scope can require a
+shorter question or fewer targets. The model passes scope to tools that accept
+it, as on desktop; Spotlight does not claim to impose an API access restriction.
+Device acceptance for the picker, native actions and composer at large text,
+with VoiceOver, in both themes and with the keyboard remains pending.
+
+### Ask Intelligence (#232)
+
+Rows use `IntelligenceObjectTargets` for typed identity, shared by swipe,
+long-press and accessibility actions. Section rows retain sensor/port or
+scope identity explicitly; rankings keep ports and map pins carry a verified
+LibreNMS location ID separately from their map-local index. Without that ID a
+map location is not offered as an object. Log and Graylog rows use their
+resolved device, and neighbour links use the local device.
+
+The entry captures the row's connection generation. `AskIntelligenceService`
+revalidates the exact object before starting a new chat. Saved mode uses the
+existing save-before-leaving flow. Single-chat mode retains preceding chats
+and drafts in memory only; Switch to previous chat cycles back without writing
+them, and a connection change clears them. Delete saved chats marks the current
+and retained transcripts memory-only, preventing a later switch from recreating
+deleted history while keeping drafts available until a new chat. Turning the setting off retains access in memory, with each retained private transcript permanently excluded from autosave. Transcript replacement suppresses captures until turns, draft, detail, Spotlight and privacy all belong to the incoming chat; collection observers cannot save a mixture during a retained-chat switch. Actions are unavailable while
+Intelligence is off, the model is unavailable or an answer is running.
+The Android accessibility adapter adds named native TalkBack actions alongside
+iOS VoiceOver actions. Native swipe, screen-reader and entry-path acceptance
+remain pending; CI cannot establish native gesture behaviour.
+
+### Conversation export (#233)
+
+The chat header offers Export conversation as Markdown or PDF, including the
+single-chat conversation. A snapshot contains the title, visible questions,
+readable answers, incomplete-answer notes and validated graph images. It
+excludes the unsent draft, raw lookup records, hidden reasoning and diagnostics.
+The Markdown formatter and file naming were adapted from desktop's
+`IntelligenceChatExport.cs`; headings and incomplete-answer notes keep its
+format. With graphs, the share is a ZIP containing the Markdown and its sibling
+images folder, so relative graph links survive the share sheet. Without graphs
+it is a plain `.md` file.
+
+PDF uses iOS's native paginated print renderer over escaped, locally generated
+HTML, with headings, tables, code, safe source links and a native-drawn graph appendix labelled by answer.
+There is no new rendering dependency, script or externally loaded image. Both
+formats recheck chat/connection ownership before sharing and clear the export
+cache after the share completes. Golden tests compare desktop's Markdown
+format and the PDF print-layout input; native PDF rendering, pagination,
+selectable text, source-link annotations and graph inclusion still require
+installed-device acceptance. A print-input golden is not a rendered-PDF test.
+
+### Starter questions and activity (#640)
+
+The twelve-question catalogue and four-at-a-time rotation are desktop's, with device
+and alert questions filtered by the current connection's cached device/open
+alert context. A question is also filtered until its required tools are offered.
+New/restored chats rotate; ordinary activation only updates changed context.
+Tool selection recognises the capacity and fan-problem starters explicitly.
+Lookup rows use desktop's action wording and the collapsed summary reads
+"Looked at …", including how many lookups could not be read. Running, failed,
+stopped and interrupted states retain their existing explicit status text.
+
+### Detail indicator (#656)
+
+The native picker supplies the only dropdown indicator. The overlaid chevron,
+150pt width cap and trailing indicator margin are removed. Brief, Balanced and
+Detailed continue to use the existing selected-index/detail mapping and native
+accessibility. The chip is at least 48pt high and allows native text scaling.
+Native appearance at maximum Dynamic Type and VoiceOver remains unverified.
+
+The CI-only `iOS rendered PDF golden` job now also compiles the production
+renderer into a simulator harness and prints the same recorded chat with a
+pinned, hash-verified desktop renderer. Both actual PDFs must preserve ninety
+paragraphs over multiple pages, selectable table/code text, a clickable source
+link, an embedded image and visible graph pixels against a checked-in golden.
+It retains PDFs and page rasters as evidence. Runs 43758300189 and 43758304873
+passed at `7da8e19`. The desktop PDF has six pages and the native PDF seven;
+both preserve all ninety paragraphs, one embedded graph and the clickable
+source link. The native raster contains 14,940 red graph pixels. This establishes
+the recorded PDF regression, not installed-device chat UI acceptance.
+
+The first native artifact exposed two PDF-specific differences: ligatures use
+Unicode presentation forms in extracted text, so the semantic golden applies
+NFKC normalisation; UIKit's HTML formatter omitted data-URI images, so the
+production renderer now draws decoded graphs directly in an appendix labelled
+by answer and graph number. The image-object and coloured-pixel assertions stay
+required and passed in the native simulator golden.
+
+CodeRabbit corrections keep Spotlight display names in UI/saved data only,
+never in the system instruction block. The model resolves typed IDs through
+normal read-only lookups. The uptime-ranking starter remains in the desktop
+catalogue but is not offered on the phone: none of its reviewed operations
+ranks the whole fleet by uptime. Open-alert starter eligibility also follows
+successful generation-bound background monitor polls.

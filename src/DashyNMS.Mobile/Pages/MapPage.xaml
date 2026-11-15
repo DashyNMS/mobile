@@ -51,6 +51,7 @@
                 <CollectionView x:Name="DeviceList" Grid.Row="2" ItemsSource="{Binding Devices}" SelectionMode="None">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeviceItem">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                             <Grid Padding="0,8" MinimumHeightRequest="44" RowDefinitions="Auto,Auto,Auto"
                                   AutomationProperties.IsInAccessibleTree="True" SemanticProperties.Hint="Open device details">
                                 <SemanticProperties.Description><Binding Path="Description" /></SemanticProperties.Description>
@@ -61,7 +62,8 @@
                                 <Label Grid.Row="1" Text="{Binding Details}" IsVisible="{Binding HasDetails}" Style="{StaticResource Caption}" LineBreakMode="WordWrap" AutomationProperties.IsInAccessibleTree="False" />
                                 <Label Grid.Row="2" Text="{Binding StateText}" LineBreakMode="WordWrap" TextColor="{Binding State, Converter={StaticResource StatusText}}" AutomationProperties.IsInAccessibleTree="False" />
                             </Grid>
-                        </DataTemplate>
+                        </SwipeView>
+                    </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </Grid>

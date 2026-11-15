@@ -295,6 +295,7 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
                 var device = names.TryGetValue(s.DeviceId, out var name) ? name : $"Device {s.DeviceId}";
                 return new HealthSensor(s.SensorClass!, device, new SectionRow(reading.Name)
                 {
+                    IntelligenceObject = new("sensor", s.SensorId, s.DeviceId),
                     Value = reading.Value,
                     Status = reading.Status,
                     Subtitle = device,

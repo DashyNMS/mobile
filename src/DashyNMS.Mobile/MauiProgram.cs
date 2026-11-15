@@ -117,12 +117,17 @@ public static class MauiProgram
 			sp.GetRequiredService<IBackupExclusion>(),
 			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatStorage>>()));
 
+		builder.Services.AddSingleton<Intelligence.AskIntelligenceService>();
+		builder.Services.AddSingleton<Intelligence.IIntelligencePdfPrinter, Adapters.IntelligencePdfPrinter>();
+		builder.Services.AddSingleton<Intelligence.IntelligenceExportService>();
 		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
 			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
 			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),
 			sp.GetRequiredService<Intelligence.IIntelligenceLookups>(),
 			sp.GetRequiredService<DesktopNMS.Services.ISessionService>(),
-			action => MainThread.BeginInvokeOnMainThread(action)));
+			action => MainThread.BeginInvokeOnMainThread(action),
+            () => (sp.GetRequiredService<CorePolling>().CachedDeviceNames.Count > 0,
+                sp.GetRequiredService<CorePolling>().HasCachedOpenAlerts)));
 
 		// Saved chats (#229): the list and autosave over that storage, posting
 		// timer and writer callbacks back to the main thread.

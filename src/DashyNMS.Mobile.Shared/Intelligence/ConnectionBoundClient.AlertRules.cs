@@ -14,7 +14,7 @@ internal sealed partial class ConnectionBoundClient
                 && query.States is { } all && all.Order().SequenceEqual(AlertQuery.All.States!.Order());
             var siblings = query is { RuleId: > 0, Id: null, Severity: null, OrderBy: "timestamp desc" }
                 && query.States is { } open && open.Order().SequenceEqual(AlertQuery.Open.States!.Order());
-            if (!ReferenceEquals(query, AlertQuery.Open) && !single && !siblings) throw new RefusedException(nameof(ListAsync));
+            if (owner.objectProfile && !single || !ReferenceEquals(query, AlertQuery.Open) && !single && !siblings) throw new RefusedException(nameof(ListAsync));
             return owner.Apis().Alerts.ListAsync(query, cancellationToken);
         }
         public Task<AlertSource> GetSourceAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetSourceAsync));

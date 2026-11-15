@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj" />
+    <PackageReference Include="SkiaSharp" Version="3.119.1" />
+    <Compile Include="../ChatPdf/RecordedChat.cs" Link="RecordedChat.cs" />
+    <Compile Include="obj/desktop-reference/*.cs" />
+    <None Include="../../src/DashyNMS.Mobile/Resources/Fonts/IBMPlex*.ttf" Link="Fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

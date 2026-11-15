@@ -132,7 +132,7 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
             g.Name,
             g.Name,
             string.Join(" · ", new[] { g.Description, TypeText(g.Type) }.Where(t => !string.IsNullOrWhiteSpace(t))),
-            byGroup.GetValueOrDefault(g.Name) ?? []));
+            byGroup.GetValueOrDefault(g.Name) ?? [], new("group", g.Id)));
 
         // Devices in no group, as the Devices list's "Not in a group" filter.
         if (byGroup.TryGetValue(DevicesViewModel.NoGroupKey, out var ungrouped))
@@ -156,7 +156,7 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
             name,
             name,
             known.TryGetValue(name, out var location) ? Coordinates(location) : null,
-            byName.GetValueOrDefault(name) ?? [])));
+            byName.GetValueOrDefault(name) ?? [], location is null ? null : new("location", location.Id))));
     }
 
     private void ApplyFilter()
@@ -184,13 +184,14 @@ public sealed partial class GroupsLocationsViewModel : ViewModelBase, IRefreshab
         }
     }
 
-    private static PlaceRow Place(string key, string title, string? subtitle, IReadOnlyCollection<Device> members)
+    private static PlaceRow Place(string key, string title, string? subtitle, IReadOnlyCollection<Device> members, DesktopNMS.Core.Intelligence.IntelligenceObjectReference? identity = null)
     {
         var down = members.Count(d => d.ReportedState == DeviceState.Down);
         var unknown = members.Count(d => d.ReportedState == DeviceState.Unknown);
         var disabled = members.Count(d => d.ReportedState is DeviceState.Disabled or DeviceState.Ignored);
         return new PlaceRow(key, down, new SectionRow(title)
         {
+            IntelligenceObject = identity,
             Subtitle = string.IsNullOrWhiteSpace(subtitle) ? null : subtitle,
             Value = $"{members.Count} {(members.Count == 1 ? "device" : "devices")}",
             Detail = string.Join(" · ", new[]

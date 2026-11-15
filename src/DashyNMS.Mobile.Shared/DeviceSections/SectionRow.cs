@@ -20,6 +20,7 @@ public enum RowStatus
 /// </summary>
 public sealed record SectionRow(string Title)
 {
+    public DesktopNMS.Core.Intelligence.IntelligenceObjectReference? IntelligenceObject { get; init; }
     /// <summary>Routing facts wrap in both the section and its overview highlights.</summary>
     public bool RoutingLayout => RoutingKind is not null;
     /// <summary>Identifies protocol context without inferring it from server-provided text.</summary>

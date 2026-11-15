@@ -121,7 +121,9 @@ public sealed partial class MapViewModel : ViewModelBase, IRefreshable
             var maintenance = members.Count(d => d.ReportedState == DeviceState.Maintenance);
             var off = members.Count(d => d.ReportedState is DeviceState.Disabled or DeviceState.Ignored);
             var up = members.Count(d => d.ReportedState == DeviceState.Up);
-            return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off), (IReadOnlyList<DeviceItem>)items);
+            var ids = locationsTask.Result.Where(l => l.Name == name).Select(l => l.Id).Distinct().ToArray();
+            return (new MapPinData(index, name, pin.Latitude, pin.Longitude, members.Count, state, up, down, maintenance, off)
+                { IntelligenceObject = ids is [> 0] ? new("location", ids[0]) : null }, (IReadOnlyList<DeviceItem>)items);
         }).ToList();
 
         OnPropertyChanged(nameof(Locations));

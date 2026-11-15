@@ -1,0 +1,8 @@
+{
+  "minimum_pages": 3,
+  "minimum_images": 1,
+  "required_text": ["Recorded export", "Show all recorded network evidence.", "Recorded findings", "Ethernet1", "Up", "show interface Ethernet1", "Reference", "This answer was interrupted before it finished."],
+  "records": 90,
+  "link": "https://example.net/source",
+  "minimum_red_graph_pixels": 100
+}

@@ -241,7 +241,7 @@ A card scans a list and does not audit one port. Show one card per row, and two 
   composer and tab bar rather than meeting a hard edge. The
   empty-chat heading uses themed secondary text to keep contrast on the wash.
 - The rounded composer contains a 48 to 140pt growing field, the native
-  detail picker inside a 44pt outlined chip with a decorative chevron, and one
+  detail picker inside a 48pt outlined chip with its one native dropdown indicator, and one
   48pt circular primary Send/Stop button with explicit accessible names. Its
   arrow and square are drawn paths over the native button, which keeps its
   semantics and disabled colours; the path follows the button's text colour. Native text scrolling must keep the caret

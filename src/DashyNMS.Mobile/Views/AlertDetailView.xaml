@@ -7,6 +7,7 @@
     xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    controls:AskIntelligence.Enabled="True"
     x:DataType="vm:AlertDetailViewModel">
 
     <ContentView.Resources>
@@ -103,6 +104,7 @@
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding .}" controls:RowLines.Between="True">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="sections:SectionRow">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                                     <VerticalStackLayout Spacing="6" Padding="0,6,0,0">
                                                         <!-- A line between every pair of rows, whatever their kind, none above the first (#120). -->
                                                         <controls:RowDivider Margin="0,0,0,4" />
@@ -144,7 +146,8 @@
                                                         <Label Text="{Binding Detail}" IsVisible="{Binding HasDetail}" FontFamily="Mono" FontSize="11.5"
                                                                LineBreakMode="WordWrap" Style="{StaticResource Faint}" />
                                                     </VerticalStackLayout>
-                                                </DataTemplate>
+                                                </SwipeView>
+                    </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </VerticalStackLayout>
 

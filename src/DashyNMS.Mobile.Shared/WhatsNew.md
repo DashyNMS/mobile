@@ -1,6 +1,8 @@
 # 2.0.0
 
 ## New
+- **Chat Spotlight.** Keep Intelligence on chosen devices or objects, and start a new chat from a device, alert, sensor or port. {intelligence}
+- **Conversation export.** Share a chat as Markdown or PDF, with graph images and clear notes on unfinished answers. {intelligence}
 - **Offline.** With no signal or the VPN down, the app opens to what it last saw, marked "Offline: last updated 07:42", and catches up as soon as the server answers. {dashboard}
 - **Sign in from desktop.** Scan the QR code DashyNMS shows on your computer with the camera. The app asks first, then signs in as that computer does. {settings}
 - **Alert groups.** On LibreNMS 26.10, faults are grouped by device and rule, with each fault's details and history. {alerts}
@@ -11,6 +13,7 @@
 - **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
 
 ## Improved
+- **Intelligence.** Four starter questions at a time and clearer lookup activity, matching desktop. {intelligence}
 - **Network overview.** Intelligence counts alert groups and faults separately, includes port totals and the LibreNMS version, and keeps available data when a source cannot be read. {alerts}
 - **Logs.** Entries sit under a heading for each day, with the time at the right. {logs}
 - **Edit dashboard.** Cards follow the dashboard's columns on wider displays, with more room for titles and Move earlier/later in the card menu. Tick several cards to add them together, add one after another, or duplicate a card with its set-up. Suggested picks out cards that fit your set-up. {dashboard}

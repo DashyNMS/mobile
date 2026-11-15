@@ -144,7 +144,7 @@ public sealed class IntelligenceLookupProgress(string name) : ObservableObject
 /// context; native streaming and lookup callbacks are posted back to that context.
 /// Each question uses a fresh native session with bounded explicit history.
 /// </summary>
-public sealed class IntelligenceConversationViewModel : ObservableObject, IDisposable
+public sealed partial class IntelligenceConversationViewModel : ObservableObject, IDisposable
 {
     private readonly IIntelligenceModel _model;
     private readonly IntelligencePreferences _preferences;
@@ -184,19 +184,22 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     public bool CanAsk => !_disposed && !IsRunning && _preferences.Enabled
         && _model.Availability == IntelligenceAvailability.Available && _session.Connection is not null
         && IsTranscriptCurrent;
-    internal static readonly string[][] StarterSets =
-    [
-        ["How is the network doing?", "Which open alerts need attention?", "Which devices are down?"],
-        ["Summarise the active alerts.", "How many devices are up and down?", "Which alerts are unacknowledged?"],
-        ["Give me a brief network overview.", "Which devices need attention?", "What are the most severe active alerts?"],
-    ];
-    private int _starterSet = Random.Shared.Next(StarterSets.Length);
-    public IReadOnlyList<string> StarterQuestions => Array.AsReadOnly(StarterSets[_starterSet]);
+    private readonly IntelligenceStarterQuestions _starterRotation = new(Random.Shared.Next(12));
+    private Func<(bool Devices, bool Alerts)> _starterContext = () => (true, true);
+    private (bool Devices, bool Alerts) _lastStarterContext;
+    private IReadOnlyList<string> _starterQuestions = [];
+    public IReadOnlyList<string> StarterQuestions => _starterQuestions;
 
     private void RefreshStarters()
     {
-        _starterSet = (_starterSet + 1) % StarterSets.Length;
+        _lastStarterContext = _starterContext();
+        _starterQuestions = _starterRotation.Next(_lastStarterContext.Devices, _lastStarterContext.Alerts,
+            CompactNetworkLookups.ReviewedTools.ToHashSet(StringComparer.Ordinal));
         OnPropertyChanged(nameof(StarterQuestions));
+    }
+    public void RefreshStarterContext()
+    {
+        if (_lastStarterContext != _starterContext()) RefreshStarters();
     }
 
     /// <summary>A stale suggestion must never replace a draft or submit into another chat.</summary>
@@ -230,7 +233,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     }
 
     public IntelligenceConversationViewModel(IIntelligenceModel model, IntelligencePreferences preferences,
-        IIntelligenceLookups lookups, ISessionService session, Action<Action>? dispatch = null)
+        IIntelligenceLookups lookups, ISessionService session, Action<Action>? dispatch = null, Func<(bool Devices, bool Alerts)>? starterContext = null)
     {
         _model = model;
         _preferences = preferences;
@@ -238,6 +241,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         _lookups = lookups;
         _session = session;
         _dispatch = dispatch;
+        _starterContext = starterContext ?? (() => (true, true));
+        RefreshStarters();
         preferences.Changed += PreferencesChanged;
         session.StateChanged += ConnectionChanged;
     }
@@ -248,6 +253,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     {
         // A running model may already hold config text from a completed lookup.
         // Retire that attempt as well as rejecting any in-flight integration result.
+        if (_preferences.SingleChatMode) _memoryOnlyChat = true;
         var configChanged = _configText != _preferences.ConfigText;
         _configText = _preferences.ConfigText;
         if (!_preferences.Enabled || configChanged) Interrupt();
@@ -269,6 +275,9 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             ChatRevision++;
             RefreshStarters();
             Turns.Clear();
+            _retainedObjectChats.Clear();
+            _memoryOnlyChat = _preferences.SingleChatMode;
+            ClearSpotlight();
             Draft = "";
             _selectedDetail = null;
             OnPropertyChanged(nameof(SelectedDetail));
@@ -357,7 +366,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             // left once the instructions, the answer, two full results and the cheapest tool are counted.
             var context = _model.ContextSize ?? 4096;
             var output = OutputTokens(chosenDetail);
-            var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, null, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
+            var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, SpotlightInstructions, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
             var textResultTokens = await ResultTokensAsync(run.Stop.Token);
             var resultTokens = textResultTokens;
             var toolReserve = await CheapestToolAsync(run.Stop.Token);
@@ -411,7 +420,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 while (true)
                 {
                     var promptCost = await TokensAsync(prompt, token);
-                    choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
+                    choice = IntelligenceToolChoice.Choose(question, earlier, SpotlightInstructions, lookupSet.Lookups,
                         new IntelligenceBudget(context, baseTokens, promptCost, output, resultTokens, costs));
                     if (_model.SupportsLookupImages && resultTokens == textResultTokens && choice.Tools.Any(t => t.Name == "graph"))
                     {
@@ -420,7 +429,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         resultTokens = textResultTokens + IntelligenceLookupResult.ImageTokenBudget;
                         continue;
                     }
-                    instructions = IntelligenceInstructions.Build(turn.Detail, null, choice.MaxLookups, context, choice.NotOffered);
+                    instructions = IntelligenceInstructions.Build(turn.Detail, SpotlightInstructions, choice.MaxLookups, context, choice.NotOffered);
                     var built = await TokensAsync(instructions, token);
                     room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
                     var missing = IntelligenceToolChoice.MinimumLookups * resultTokens - room;
@@ -448,7 +457,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 var maxLookups = Math.Min(choice.MaxLookups, Math.Max(IntelligenceToolChoice.MinimumLookups, room / Math.Max(1, resultTokens)));
                 if (maxLookups != choice.MaxLookups)
-                    instructions = IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered);
+                    instructions = IntelligenceInstructions.Build(turn.Detail, SpotlightInstructions, maxLookups, context, choice.NotOffered);
                 var tools = choice.Tools.Select(lookup =>
                 {
                     async Task<IntelligenceLookupResult> Read(string query, CancellationToken callerToken)
@@ -722,22 +731,39 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     /// revision. Refused while an answer runs or a connection change is clearing
     /// the transcript, so a reopened chat can't land under another connection.
     /// </summary>
-    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail) =>
-        Replace(turns, draft, detail is null ? null : NormaliseDetail(detail));
+    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, IReadOnlyList<SavedChatSpotlight>? spotlight = null, bool memoryOnly = false)
+        => Replace(turns, draft, detail is null ? null : NormaliseDetail(detail), memoryOnly, spotlight);
 
-    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail)
+    /// <summary>Observers must not persist a mixture of the old and incoming transcripts.</summary>
+    public bool IsReplacingTranscript { get; private set; }
+
+    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, bool memoryOnly = false,
+        IReadOnlyList<SavedChatSpotlight>? spotlight = null)
     {
-        if (IsRunning || !IsTranscriptCurrent) return false;
-        // The revision moves before the turns change, so anything bound to the
-        // previous transcript sees a different chat, never an emptied one.
-        ChatRevision++;
-        RefreshStarters();
-        Turns.Clear();
-        foreach (var turn in turns) Turns.Add(turn);
-        Notice = "";
-        Draft = draft;
-        _selectedDetail = detail;
+        if (IsRunning || !IsTranscriptCurrent || IsReplacingTranscript) return false;
+        IsReplacingTranscript = true;
+        try
+        {
+            // Move the revision before changing turns, but suppress capture until
+            // privacy, turns, draft, detail and Spotlight all belong to that revision.
+            _memoryOnlyChat = memoryOnly || _preferences.SingleChatMode;
+            ChatRevision++;
+            ClearSpotlight();
+            RefreshStarters();
+            Turns.Clear();
+            foreach (var turn in turns) Turns.Add(turn);
+            Notice = "";
+            Draft = draft;
+            _selectedDetail = detail;
+            _spotlight = (spotlight ?? []).Where(s => s.Object is { IsValid: true })
+                .DistinctBy(s => s.Object).Take(MaxSpotlight).ToArray();
+        }
+        finally
+        {
+            IsReplacingTranscript = false;
+        }
         OnPropertyChanged(nameof(SelectedDetail));
+        OnPropertyChanged(nameof(Spotlight));
         OnPropertyChanged(nameof(ChatRevision));
         Notify();
         return true;

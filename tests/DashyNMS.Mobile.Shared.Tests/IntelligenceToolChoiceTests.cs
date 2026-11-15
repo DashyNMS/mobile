@@ -25,19 +25,26 @@ public sealed class IntelligenceToolChoiceTests
     public static TheoryData<string, string> StarterQuestions() => new()
     {
         { "How is the network doing?", "network_overview" },
-        { "Which open alerts need attention?", "active_alerts" },
-        { "Which devices are down?", "find_device" },
-        { "Summarise the active alerts.", "active_alerts" },
-        { "How many devices are up and down?", "network_overview" },
-        { "Which alerts are unacknowledged?", "active_alerts" },
-        { "Give me a brief network overview.", "network_overview" },
-        { "Which devices need attention?", "find_device" },
-        { "What are the most severe active alerts?", "active_alerts" },
+        { "What changed in the last 24 hours?", "what_changed" },
+        { "Which devices need attention first?", "find_device" },
+        { "What's alerting right now?", "active_alerts" },
+        { "Which ports are counting the most errors?", "top_errors" },
+        { "Which interfaces are busiest?", "top_interfaces" },
+        { "Which devices have been up the longest?", "find_device" },
+        { "Which alerts affect the most devices?", "active_alerts" },
+        { "Are any links close to capacity?", "top_interfaces" },
+        { "Are there any temperature or fan problems?", "health_overview" },
+        { "Which devices are currently unreachable?", "find_device" },
+        { "Summarise the highest-priority open alerts.", "active_alerts" },
     };
 
     [Fact]
     public void Every_starter_question_is_covered_here()
-        => Assert.Equal(IntelligenceConversationViewModel.StarterSets.SelectMany(s => s).Order(), StarterQuestions().Select(r => (string)r[0]).Order());
+    {
+        var rotation = new IntelligenceStarterQuestions();
+        var all = Enumerable.Range(0, 3).SelectMany(_ => rotation.Next(true, true)).ToArray();
+        Assert.Equal(all.Order(), StarterQuestions().Select(r => (string)r[0]).Order());
+    }
 
     [Theory]
     [MemberData(nameof(StarterQuestions))]

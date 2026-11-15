@@ -17,6 +17,9 @@ public sealed record MapPinData(
     [property: JsonPropertyName("maintenance")] int Maintenance = 0,
     [property: JsonPropertyName("off")] int Off = 0)
 {
+    [JsonIgnore]
+    public DesktopNMS.Core.Intelligence.IntelligenceObjectReference? IntelligenceObject { get; init; }
+
     /// <summary>Unreported states occupy their own grey share of the ring.</summary>
     [JsonPropertyName("unknown")]
     public int Unknown => Math.Max(0, Count - Up - Down - Maintenance - Off);

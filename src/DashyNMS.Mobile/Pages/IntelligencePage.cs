@@ -14,7 +14,7 @@ namespace DashyNMS.Mobile.Pages;
 /// setup layout's keyboard and glass clearance, with the composer overlaid on the transcript.
 /// Streaming labels are coalesced to ten updates a second rather than relaid out per token.
 /// </summary>
-public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
+public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivateChatSurface
 {
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly IntelligenceChatListViewModel _chats;
@@ -25,6 +25,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     private readonly IntelligenceAnswerActions _actions;
     private readonly IntelligenceAnswerReporter _reporter;
     private readonly SetupPageLayout _placement;
+    private readonly IntelligenceSpotlight _spotlightSource;
+    private readonly IntelligenceExportService _exporter;
+    private readonly IconButton _export = new() { Icon = Icons.Export, Kind = IconButtonKind.Plain };
+    private bool _exporting;
+    private readonly VerticalStackLayout _spotlightControls = new() { Spacing = 4 };
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
     private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 20, 0, 16) };
@@ -64,9 +69,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
-        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats)
+        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats, IntelligenceSpotlight spotlight, IntelligenceExportService exporter)
     {
         _conversation = conversation;
+        _spotlightSource = spotlight;
+        _exporter = exporter;
         _chats = chats;
         _chatRevision = conversation.ChatRevision;
         _preferences = preferences;
@@ -95,7 +102,10 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         SemanticProperties.SetDescription(_list, "Saved chats");
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
         _list.Command = new Command(OpenChats);
-        _header.Actions = new HorizontalStackLayout { Children = { _list, _new } };
+        _export.Command = new Command(async () => await ExportAsync());
+        SemanticProperties.SetDescription(_export, "Export conversation");
+        foreach (var action in new[] { _list, _new, _export }) action.MinimumHeightRequest = action.MinimumWidthRequest = 48;
+        _header.Actions = new HorizontalStackLayout { Children = { _list, _new, _export } };
 #if IOS
         ((HorizontalStackLayout)_header.Actions).Children.Add(_headerGlass);
         // Rotating, folding or resizing the window can move the actions between
@@ -132,12 +142,12 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         composerStroke.SetAppThemeColor(SolidColorBrush.ColorProperty, ThemeColour("StrokeLight"), ThemeColour("StrokeDark"));
         _composer.Stroke = composerStroke;
         _detail.BackgroundColor = Colors.Transparent;
-        _detail.MinimumHeightRequest = 44;
-        _detail.MaximumWidthRequest = 150;
+        _detail.MinimumHeightRequest = 48;
         _detail.FontSize = 14;
-        _detail.Margin = new Thickness(0, 0, 18, 0);
-        var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
-        composer.Add(_question, 0, 0);
+        _detail.Margin = 0;
+        var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
+        composer.Add(_spotlightControls, 0, 0);
+        composer.Add(_question, 0, 1);
         var choices = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
         choices.Add(DetailChip(), 0, 0);
         var askHost = new Grid { SafeAreaEdges = SafeAreaEdges.None, VerticalOptions = LayoutOptions.Center };
@@ -146,7 +156,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _askIcon.Stroke = _ask.TextColor ?? Colors.White;
         _ask.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Button.TextColor)) _askIcon.Stroke = _ask.TextColor ?? Colors.White; };
         choices.Add(askHost, 1, 0);
-        composer.Add(choices, 0, 1);
+        composer.Add(choices, 0, 2);
         _composer.Content = composer;
         _composer.Margin = new Thickness(0, 8, 0, 0);
         var body = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
@@ -171,7 +181,8 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         _fade.Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [fadeTop, fadeBottom] };
         body.Add(_fade, 0, 1);
         // Keep the arrow slot measured when hidden, so following does not change the footer.
-        var jumpSlot = new Grid { HeightRequest = 44, SafeAreaEdges = SafeAreaEdges.None };
+        _jump.MinimumHeightRequest = _jump.MinimumWidthRequest = 48;
+        var jumpSlot = new Grid { HeightRequest = 48, SafeAreaEdges = SafeAreaEdges.None };
         jumpSlot.Children.Add(_jump);
         _overlay.Children.Add(jumpSlot);
         _overlay.Children.Add(_composer);
@@ -236,9 +247,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     {
         if (!_showing) return;
         // Replacement publishes this only after draft and detail are installed.
+        if (e.PropertyName == nameof(IntelligenceConversationViewModel.StarterQuestions)) { _starterRevision = -1; RefreshStarters(); }
         if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) { SynchroniseComposer(); RefreshStarters(); }
         UpdateControls();
-        if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
+        if (e.PropertyName is nameof(_conversation.IsRunning) or nameof(_conversation.ChatRevision)
+            or nameof(_conversation.IsTranscriptCurrent)) ShowActions();
     }
 
     private void OnChatsChanged(object? sender, PropertyChangedEventArgs e)
@@ -270,6 +283,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     private void RefreshStarters()
     {
+        _conversation.RefreshStarterContext();
         if (_starterRevision == _conversation.ChatRevision) return;
         _starterRevision = _conversation.ChatRevision;
         _starters.Children.Clear();
@@ -280,7 +294,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         foreach (var starter in _conversation.StarterQuestions)
         {
             var revision = _conversation.ChatRevision;
-            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 44, CornerRadius = 22, BorderWidth = 1 };
+            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
             button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
             button.Clicked += async (_, _) =>
             {
@@ -388,12 +402,14 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
 
     private void UpdateControls()
     {
-        _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
+        RefreshSpotlight();
+        _spotlightControls.IsVisible = _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _askIcon.Data = IconData(_conversation.IsRunning ? StopIcon : SendIcon);
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
+        _export.IsEnabled = !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0;
         _starters.IsEnabled = _conversation.CanAsk;
         _starters.IsVisible = _conversation.Turns.Count == 0 && string.IsNullOrWhiteSpace(_question.Text);
         var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
@@ -510,10 +526,11 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         GlassAction[] chatActions =
         [
             new("list.bullet", "Saved chats", OpenChats),
+            new("square.and.arrow.up", "Export conversation", () => _ = ExportAsync(), IsEnabled: !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0),
             new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending),
         ];
         var inHeader = _place == ChatActionPlace.HeaderGlass;
-        _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
+        _export.IsVisible = _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
         _headerGlass.Actions = inHeader ? chatActions : [];
         _headerGlass.IsVisible = inHeader;
         if (TabBarButtons.IsAvailable)
@@ -555,21 +572,15 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
     }
 
     /// <summary>
-    /// The answer detail as a compact outlined chip with a chevron, so it reads as
+    /// The answer detail as a compact outlined chip with the native indicator, so it reads as
     /// a choice beside Send rather than loose text. The native picker stays the
     /// tap target and keeps its accessible name.
     /// </summary>
     private Border DetailChip()
     {
-        var chevron = Glyph(ChevronDown, 16);
-        chevron.HorizontalOptions = LayoutOptions.End;
-        chevron.Stroke = ThemedBrush("TextSecondaryLight", "TextSecondaryDark");
-        var content = new Grid { SafeAreaEdges = SafeAreaEdges.None };
-        content.Children.Add(_detail);
-        content.Children.Add(chevron);
         var chip = new Border
         {
-            Content = content, Padding = new Thickness(12, 0, 8, 0), StrokeThickness = 1, MinimumHeightRequest = 44,
+            Content = _detail, Padding = new Thickness(12, 0, 8, 0), StrokeThickness = 1, MinimumHeightRequest = 48,
             StrokeShape = new RoundRectangle { CornerRadius = 22 }, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center,
             BackgroundColor = Colors.Transparent,
         };
@@ -669,6 +680,22 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
                 }
                 catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
             };
+            _answer.AddSpotlightRequested += async (_, reference) => await _page.SpotlightReferenceAsync(_turn, reference, false);
+            _answer.OnlySpotlightRequested += async (_, reference) => await _page.SpotlightReferenceAsync(_turn, reference, true);
+            _answer.ReferenceMenuRequested += async (_, reference) =>
+            {
+                if (!_page._conversation.OwnsTurn(_turn)) return;
+                var revision = _page._conversation.ChatRevision;
+                var choice = await _page.DisplayActionSheetAsync(reference.Name, "Cancel", null, "Open", "Add to Spotlight", "Spotlight only this");
+                if (revision != _page._conversation.ChatRevision || !_page._conversation.OwnsTurn(_turn)) return;
+                if (choice == "Open")
+                {
+                    try { await _page._actions.OpenAsync(_turn, reference); }
+                    catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
+                }
+                else if (choice == "Add to Spotlight" || choice == "Spotlight only this")
+                    await _page.SpotlightReferenceAsync(_turn, reference, choice == "Spotlight only this");
+            };
             _answer.LinkRequested += async (_, link) =>
             {
                 try
@@ -686,7 +713,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             _stateLine.Children.Add(_state);
             content.Children.Add(_stateLine);
             var actions = new HorizontalStackLayout { Spacing = 8, HorizontalOptions = LayoutOptions.End };
-            _retry.MinimumHeightRequest = 44;
+            _retry.MinimumHeightRequest = 48;
             actions.Children.Add(_elapsed);
             actions.Children.Add(_retry);
             actions.Children.Add(_copy);
@@ -791,9 +818,9 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             var stopped = _turn.Lookups.Any(lookup => lookup.State == IntelligenceLookupState.Stopped);
             _activity.IsVisible = count > 0;
             var outcome = working ? "Looking up…" : failed ? "Warning" : stopped ? "Stopped" : "Done";
-            _activity.Text = $"{count} {(count == 1 ? "lookup" : "lookups")} · {outcome}";
+            _activity.Text = IntelligenceActivity.Describe(_turn);
             _activity.Icon = _activityExpanded ? ChevronUp : ChevronDown;
-            SemanticProperties.SetDescription(_activity, $"{(_activityExpanded ? "Hide" : "Show")} lookup details. {count} {(count == 1 ? "lookup" : "lookups")}. {outcome}");
+            SemanticProperties.SetDescription(_activity, $"{(_activityExpanded ? "Hide" : "Show")} lookup details. {count} {(count == 1 ? "lookup" : "lookups")}. {_activity.Text}");
             _steps.IsVisible = count > 0 && _activityExpanded;
             if (_steps.IsVisible) RenderSteps();
             // The activity summary already conveys success. Keep exceptional outcomes explicit.
@@ -889,7 +916,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
                 var button = new ImageButton
                 {
                     Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit,
-                    HeightRequest = 180, MinimumWidthRequest = 44, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
+                    HeightRequest = 180, MinimumWidthRequest = 48, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
                     BackgroundColor = Colors.Transparent, CornerRadius = 8,
                 };
                 SemanticProperties.SetDescription(button, label + ". Enlarge");
@@ -904,7 +931,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
         }
 
         /// <summary>The tool's title from the shared catalogue, as MCP clients show it (#635).</summary>
-        private static string LookupName(string name) => DashyNMS.Agent.Catalogue.ToolCatalogue.Find(name)?.Title ?? "Network lookup";
+        private static string LookupName(string name) => IntelligenceActivity.Step(name);
         public void Dispose()
         {
             _turn.PropertyChanged -= OnChanged;
@@ -941,7 +968,7 @@ public sealed class IntelligencePage : ContentPage, IActivePage, IPrivateChatSur
             SemanticProperties.SetDescription(_picture, label);
             var close = new Button
             {
-                Text = "Close", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
+                Text = "Close", MinimumHeightRequest = 48, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
                 Margin = new Thickness(16, 8), Style = ResourceStyle("SecondaryButton"),
             };
             SemanticProperties.SetDescription(close, "Close " + label);

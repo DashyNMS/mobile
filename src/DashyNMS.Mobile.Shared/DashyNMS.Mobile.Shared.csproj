@@ -22,11 +22,11 @@
     <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
     <!-- Typed read-only network operations and the catalogue, shared with MCP.
          Mobile adds reviewed adapters for these operations in epic #236's order.
-         Exact CI version from DashyNMS/mcp#148, published by
-         run 43670427340 (commit 3e9367b);
+         Exact CI version from DashyNMS/mcp#154, published by
+         run 43744058288 (commit 8f32942);
          CI checks its SHA-256 and provenance attestation. GeneratePathProperty exposes
          its LICENSE below. -->
-    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.43670427340.1" GeneratePathProperty="true" />
+    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.43744058288.1" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
