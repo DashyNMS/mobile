@@ -49,7 +49,7 @@ public static class IntelligencePdfRenderer
                     throw new InvalidDataException("The graph image has no drawable size.");
                 context.BeginPage();
                 using var heading = new Foundation.NSString($"Answer {graph.Answer} · Graph {graph.Number}");
-                heading.DrawString(new CoreGraphics.CGPoint(54, 54), new UIKit.UIStringAttributes
+                UIKit.NSStringDrawing.DrawString(heading, new CoreGraphics.CGPoint(54, 54), new UIKit.UIStringAttributes
                     { Font = UIKit.UIFont.SystemFontOfSize(12), ForegroundColor = UIKit.UIColor.Black });
                 var scale = Math.Min(printable.Width / image.Size.Width, (printable.Height - 36) / image.Size.Height);
                 image.Draw(new CoreGraphics.CGRect(54, 90, image.Size.Width * scale, image.Size.Height * scale));
