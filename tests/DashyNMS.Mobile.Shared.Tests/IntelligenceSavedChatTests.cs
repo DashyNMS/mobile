@@ -846,6 +846,43 @@ public sealed class IntelligenceSavedChatTests : IDisposable
     }
 
     [Fact]
+    public async Task A_wipe_keeps_retained_chats_available_without_recreating_deleted_history()
+    {
+        var app = Start();
+        await app.Chats.LoadAsync();
+        _preferences.SetSingleChatMode(true);
+        app.Conversation.Draft = "Private retained draft";
+        Assert.True(app.Conversation.NewObjectChatRetainingDraft());
+        _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
+        Assert.True(app.Conversation.NewChat());
+        Assert.True(await app.Conversation.AskAsync("Public retained question"));
+        app.Conversation.Draft = "Public retained draft";
+        await app.Chats.SaveNowAsync();
+        await app.SettleAsync();
+        Assert.NotEmpty(ChatFiles());
+        Assert.True(app.Conversation.SwitchPreviousObjectChat());
+
+        Assert.Equal(ChatWipeResult.Removed, await app.Chats.DeleteSavedChatsAsync());
+        for (var i = 0; i < 4; i++)
+        {
+            Assert.True(app.Conversation.SwitchPreviousObjectChat());
+            Assert.True(app.Conversation.IsMemoryOnlyChat);
+            Assert.Equal(i % 2 == 0 ? "Public retained draft" : "Private retained draft", app.Conversation.Draft);
+            _time.Advance(IntelligenceChatListViewModel.SaveDelay * 2);
+            await app.Chats.SaveNowAsync();
+            await app.SettleAsync();
+            Assert.Empty(ChatFiles());
+        }
+
+        Assert.True(app.Conversation.NewChat());
+        Assert.True(await app.Conversation.AskAsync("New question after wiping"));
+        await app.SettleAsync();
+        var saved = Assert.Single((await ReadAsync(ServerA)).Chats);
+        Assert.DoesNotContain(saved.Messages, message => message.Text.Contains("retained", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Single_chat_mode_keeps_saved_chats_until_delete_saved_chats_removes_them_all()
     {
         var app = Start();

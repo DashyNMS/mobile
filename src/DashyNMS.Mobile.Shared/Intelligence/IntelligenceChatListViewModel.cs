@@ -640,6 +640,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     {
         // Block reentrant loads before Regroup or any other notification.
         _deletingAll = true;
+        _conversation.KeepDeletedChatsInMemoryOnly();
         _writer.Invalidate();
         Interlocked.Increment(ref _scopeGeneration);
         CancelTimer();

@@ -1069,7 +1069,9 @@ The entry captures the row's connection generation. `AskIntelligenceService`
 revalidates the exact object before starting a new chat. Saved mode uses the
 existing save-before-leaving flow. Single-chat mode retains preceding chats
 and drafts in memory only; Switch to previous chat cycles back without writing
-them, and a connection change clears them. Turning the setting off retains access in memory, with each retained private transcript permanently excluded from autosave. Transcript replacement suppresses captures until turns, draft, detail, Spotlight and privacy all belong to the incoming chat; collection observers cannot save a mixture during a retained-chat switch. Actions are unavailable while
+them, and a connection change clears them. Delete saved chats marks the current
+and retained transcripts memory-only, preventing a later switch from recreating
+deleted history while keeping drafts available until a new chat. Turning the setting off retains access in memory, with each retained private transcript permanently excluded from autosave. Transcript replacement suppresses captures until turns, draft, detail, Spotlight and privacy all belong to the incoming chat; collection observers cannot save a mixture during a retained-chat switch. Actions are unavailable while
 Intelligence is off, the model is unavailable or an answer is running.
 The Android accessibility adapter adds named native TalkBack actions alongside
 iOS VoiceOver actions. Native swipe, screen-reader and entry-path acceptance

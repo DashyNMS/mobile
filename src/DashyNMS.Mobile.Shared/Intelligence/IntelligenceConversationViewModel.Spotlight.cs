@@ -22,6 +22,14 @@ public sealed partial class IntelligenceConversationViewModel
     public bool HasPreviousObjectChat => _retainedObjectChats.Count > 0;
     private RetainedChat CaptureObjectChat() => new(Turns.ToArray(), Draft, SelectedDetailOverride, Spotlight.ToArray(), IsMemoryOnlyChat);
 
+    /// <summary>A storage wipe must remain effective when an in-memory chat is revisited.</summary>
+    internal void KeepDeletedChatsInMemoryOnly()
+    {
+        _memoryOnlyChat = true;
+        for (var i = 0; i < _retainedObjectChats.Count; i++)
+            _retainedObjectChats[i] = _retainedObjectChats[i] with { MemoryOnly = true };
+    }
+
     /// <summary>Single-chat mode keeps the prior draft only in memory, so Ask never discards it.</summary>
     internal bool NewObjectChatRetainingDraft()
     {
