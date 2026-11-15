@@ -50,7 +50,10 @@ def native_pdf():
                   for phone in phones if phone.get("isAvailable") and phone["name"].startswith("iPhone")
                   and phone["state"] == "Shutdown"]
     assert candidates, "No available shutdown iPhone simulator with an installed iOS runtime"
-    runtime, phone = max(candidates, key=lambda pair: tuple(int(n) for n in available[pair[0]]["version"].split(".")))
+    sdk_version = tuple(int(n) for n in run("xcrun", "--sdk", "iphonesimulator", "--show-sdk-version", capture=True).split(".")[:2])
+    matching_sdk = [pair for pair in candidates if tuple(int(n) for n in available[pair[0]]["version"].split(".")[:2]) == sdk_version]
+    assert matching_sdk, f"No available iPhone simulator matching the pinned Xcode SDK {sdk_version}"
+    runtime, phone = matching_sdk[0]
     print(f"PDF simulator: {phone['name']} with {available[runtime]['name']}", flush=True)
     device = run("xcrun", "simctl", "clone", phone["udid"], "DashyNMS PDF regression", capture=True)
     try:
@@ -67,6 +70,17 @@ def native_pdf():
         shutil.copyfile(result, OUTPUT / "native-result.txt")
         assert result.read_text() == "OK", result.read_text()
         shutil.copyfile(container / "Documents/native.pdf", OUTPUT / "native.pdf")
+    except Exception:
+        # Keep only this synthetic harness's startup diagnostics, before deleting its simulator.
+        predicate = 'process == "ChatPdf.Native" OR eventMessage CONTAINS "net.example.dashynms.pdfregression"'
+        with (OUTPUT / "native-launch.log").open("w") as log:
+            subprocess.run(["xcrun", "simctl", "spawn", device, "log", "show", "--last", "10m",
+                            "--style", "compact", "--predicate", predicate], stdout=log, stderr=subprocess.STDOUT,
+                           timeout=45, check=False)
+        reports = Path.home() / "Library/Logs/DiagnosticReports"
+        for report in reports.glob("ChatPdf.Native*.ips"):
+            shutil.copyfile(report, OUTPUT / report.name)
+        raise
     finally:
         subprocess.run(["xcrun", "simctl", "shutdown", device], check=False)
         subprocess.run(["xcrun", "simctl", "delete", device], check=False)
