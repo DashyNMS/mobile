@@ -42,7 +42,10 @@ public sealed class IntelligenceStarterQuestions(int startingIndex = 0)
 
     public IReadOnlyList<string> Next(bool hasDevices, bool hasOpenAlerts, IReadOnlySet<string>? offered = null)
     {
-        var available = Catalogue.Where(question => offered is null || ToolsFor(question.Text).All(offered.Contains)).Where(question => question.Context switch
+        // Keep desktop's complete catalogue for parity comparisons, but the phone has
+        // no reviewed fleet uptime ordering operation, so it cannot offer this starter.
+        var available = Catalogue.Where(question => offered is null || question.Text != "Which devices have been up the longest?")
+            .Where(question => offered is null || ToolsFor(question.Text).All(offered.Contains)).Where(question => question.Context switch
         {
             Context.Devices => hasDevices,
             Context.Alerts => hasOpenAlerts,

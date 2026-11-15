@@ -26,6 +26,16 @@ public sealed class IntelligenceStarterActivityTests
         Assert.Contains("What changed in the last 24 hours?", full);
     }
     [Fact]
+    public void The_phone_does_not_offer_a_fleet_uptime_question_without_a_ranking_operation()
+    {
+        var rotation = new IntelligenceStarterQuestions();
+        var questions = Enumerable.Range(0, 12).SelectMany(_ => rotation.Next(true, true,
+            CompactNetworkLookups.ReviewedTools.ToHashSet())).ToArray();
+        Assert.DoesNotContain("Which devices have been up the longest?", questions);
+        Assert.Contains("Which devices are currently unreachable?", questions);
+    }
+
+    [Fact]
     public void Activity_matches_desktop_and_counts_unreadable_lookups()
     {
         var turn = new IntelligenceTurn("Question", "brief");

@@ -95,6 +95,13 @@ public sealed class CorePolling : IDisposable, IAppActivity
         _devices = new DeviceMonitor(_client, session, _settings, _cache, _alerts, this, _logs.CreateLogger<DeviceMonitor>());
         _sensors = new SensorMonitor(_client, session, _settings, _cache, _alerts, this, _logs.CreateLogger<SensorMonitor>());
         _sensors.Polled += (_, result) => { if (session.IsConnected) _lastSensors = result; };
+        var alertGeneration = Volatile.Read(ref _generation);
+        _alerts.Polled += (_, result) =>
+        {
+            if (!result.Succeeded || alertGeneration != Volatile.Read(ref _generation)) return;
+            _cachedHasOpenAlerts = result.Alerts.Any(a => a.State is AlertState.Active or AlertState.Acknowledged);
+            Volatile.Write(ref _alertContextGeneration, alertGeneration);
+        };
     }
 
     public async Task<IReadOnlyList<Device>?> CachedDevicesAsync(CancellationToken token = default)
