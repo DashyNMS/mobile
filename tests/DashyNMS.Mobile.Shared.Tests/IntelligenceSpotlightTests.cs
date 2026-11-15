@@ -47,6 +47,26 @@ public sealed class IntelligenceSpotlightTests
         => Task.FromResult(new ObjectResolutionOutcome(new(identity, "Example"), null));
 
     [Fact]
+    public void Private_drafts_survive_disabling_single_chat_without_becoming_persistable()
+    {
+        using var vm = Create();
+        _preferences.SetSingleChatMode(true);
+        vm.Draft = "First private draft";
+        Assert.True(vm.NewObjectChatRetainingDraft());
+        vm.Draft = "Second private draft";
+        _preferences.SetSingleChatMode(false);
+        Assert.True(vm.HasPreviousObjectChat);
+        Assert.True(vm.SwitchPreviousObjectChat());
+        Assert.Equal("First private draft", vm.Draft);
+        Assert.True(vm.IsMemoryOnlyChat);
+        Assert.True(vm.SwitchPreviousObjectChat());
+        Assert.Equal("Second private draft", vm.Draft);
+        Assert.True(vm.IsMemoryOnlyChat);
+        Assert.True(vm.NewChat());
+        Assert.False(vm.IsMemoryOnlyChat);
+    }
+
+    [Fact]
     public async Task Duplicate_and_deleted_objects_keep_existing_scope()
     {
         using var vm = Create();

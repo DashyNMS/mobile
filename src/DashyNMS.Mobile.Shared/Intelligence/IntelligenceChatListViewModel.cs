@@ -302,7 +302,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     /// Whether leaving the chat on screen keeps it: it is empty, or its latest
     /// text is confirmed on disk. A save waiting, superseded or failed doesn't count.
     /// </summary>
-    public bool KeepsCurrentChat => CanPersist && _unsavedRevision != _conversation.ChatRevision
+    public bool KeepsCurrentChat => !_conversation.IsMemoryOnlyChat && CanPersist && _unsavedRevision != _conversation.ChatRevision
         && (!HasContent() || Active is { } item && IsWritten(item));
 
     /// <summary>
@@ -480,7 +480,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     {
         SaveActive();
         if (!HasContent()) return LeaveState.Kept;
-        if (!CanPersist || _conversation.ChatRevision == _unsavedRevision || Active is not { } item) return LeaveState.NotSaved;
+        if (_conversation.IsMemoryOnlyChat || !CanPersist || _conversation.ChatRevision == _unsavedRevision || Active is not { } item) return LeaveState.NotSaved;
 
         var deadline = _time.GetUtcNow() + LeaveWait;
         while (!IsWritten(item) && item.LastSave is { } last && last.Number >= item.RequiredSave)
@@ -843,7 +843,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private SavedIntelligenceChat? Capture(bool force, out bool content)
     {
         content = false;
-        if (_changing || !CanPersist || _conversation.ChatRevision == _unsavedRevision || !_conversation.IsTranscriptCurrent
+        if (_changing || _conversation.IsMemoryOnlyChat || !CanPersist || _conversation.ChatRevision == _unsavedRevision || !_conversation.IsTranscriptCurrent
             || _session.Connection is not { } connection || IntelligenceSavedChats.Scope(connection) != _loadedScope)
         {
             return null;

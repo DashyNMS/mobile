@@ -15,10 +15,12 @@ public sealed partial class IntelligenceConversationViewModel
         $"{s.Object!.Kind} {s.Object.Id}" + (s.Object.DeviceId is { } device ? $" on device {device}" : "")
         + (s.Object.RuleId is { } rule ? $", rule {rule}" : "") + ": " + CompactNetworkLookups.Clean(s.Name)));
 
-    private sealed record RetainedChat(IReadOnlyList<IntelligenceTurn> Turns, string Draft, string? Detail, IReadOnlyList<SavedChatSpotlight> Spotlight);
+    private sealed record RetainedChat(IReadOnlyList<IntelligenceTurn> Turns, string Draft, string? Detail, IReadOnlyList<SavedChatSpotlight> Spotlight, bool MemoryOnly);
+    private bool _memoryOnlyChat;
+    public bool IsMemoryOnlyChat => _memoryOnlyChat || _preferences.SingleChatMode;
     private readonly List<RetainedChat> _retainedObjectChats = [];
     public bool HasPreviousObjectChat => _retainedObjectChats.Count > 0;
-    private RetainedChat CaptureObjectChat() => new(Turns.ToArray(), Draft, SelectedDetailOverride, Spotlight.ToArray());
+    private RetainedChat CaptureObjectChat() => new(Turns.ToArray(), Draft, SelectedDetailOverride, Spotlight.ToArray(), IsMemoryOnlyChat);
 
     /// <summary>Single-chat mode keeps the prior draft only in memory, so Ask never discards it.</summary>
     internal bool NewObjectChatRetainingDraft()
@@ -32,10 +34,10 @@ public sealed partial class IntelligenceConversationViewModel
     }
     public bool SwitchPreviousObjectChat()
     {
-        if (!CanAsk || !_preferences.SingleChatMode || _retainedObjectChats.Count == 0) return false;
+        if (!CanAsk || _retainedObjectChats.Count == 0) return false;
         var previous = _retainedObjectChats[^1];
         var current = CaptureObjectChat();
-        if (!Restore(previous.Turns, previous.Draft, previous.Detail, previous.Spotlight)) return false;
+        if (!Restore(previous.Turns, previous.Draft, previous.Detail, previous.Spotlight, previous.MemoryOnly)) return false;
         _retainedObjectChats.RemoveAt(_retainedObjectChats.Count - 1);
         _retainedObjectChats.Insert(0, current);
         OnPropertyChanged(nameof(HasPreviousObjectChat));

@@ -253,11 +253,7 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     {
         // A running model may already hold config text from a completed lookup.
         // Retire that attempt as well as rejecting any in-flight integration result.
-        if (!_preferences.SingleChatMode && _retainedObjectChats.Count > 0)
-        {
-            _retainedObjectChats.Clear();
-            OnPropertyChanged(nameof(HasPreviousObjectChat));
-        }
+        if (_preferences.SingleChatMode) _memoryOnlyChat = true;
         var configChanged = _configText != _preferences.ConfigText;
         _configText = _preferences.ConfigText;
         if (!_preferences.Enabled || configChanged) Interrupt();
@@ -734,20 +730,21 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     /// revision. Refused while an answer runs or a connection change is clearing
     /// the transcript, so a reopened chat can't land under another connection.
     /// </summary>
-    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, IReadOnlyList<SavedChatSpotlight>? spotlight = null)
+    public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, IReadOnlyList<SavedChatSpotlight>? spotlight = null, bool memoryOnly = false)
     {
-        if (!Replace(turns, draft, detail is null ? null : NormaliseDetail(detail))) return false;
+        if (!Replace(turns, draft, detail is null ? null : NormaliseDetail(detail), memoryOnly)) return false;
         _spotlight = (spotlight ?? []).Where(s => s.Object is { IsValid: true })
             .DistinctBy(s => s.Object).Take(MaxSpotlight).ToArray();
         OnPropertyChanged(nameof(Spotlight));
         return true;
     }
 
-    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail)
+    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, bool memoryOnly = false)
     {
         if (IsRunning || !IsTranscriptCurrent) return false;
         // The revision moves before the turns change, so anything bound to the
         // previous transcript sees a different chat, never an emptied one.
+        _memoryOnlyChat = memoryOnly || _preferences.SingleChatMode;
         ChatRevision++;
         ClearSpotlight();
         RefreshStarters();
