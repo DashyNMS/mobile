@@ -109,7 +109,8 @@ def verify_rendered_goldens():
         for expected in golden["required_text"]:
             assert "".join(unicodedata.normalize("NFKC", expected).split()) in normalized, f"{name}: missing visible content: {expected}"
         for i in range(golden["records"]):
-            assert f"Record{i:03}:" in normalized, f"{name}: paragraph {i} lost across pages"
+            body = f"Record{i:03}: Synthetic network evidence retained in the exported conversation. Every paragraph must survive pagination and remain selectable."
+            assert "".join(unicodedata.normalize("NFKC", body).split()) in normalized, f"{name}: paragraph {i} lost across pages"
         images = sum(len(page.get_images()) for page in doc)
         assert images >= golden["minimum_images"], f"{name}: graph missing from PDF"
         links = [link.get("uri", "") for page in doc for link in page.get_links()]

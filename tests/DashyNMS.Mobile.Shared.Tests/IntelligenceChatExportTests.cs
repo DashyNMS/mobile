@@ -21,6 +21,17 @@ public sealed class IntelligenceChatExportTests
     }
 
     [Fact]
+    public void A_stopped_code_fence_cannot_capture_the_next_question()
+    {
+        var chat = new ExportedChat("Chat", DateTimeOffset.UnixEpoch,
+            [new(false, null, "```text\nPartial code", [], "Stopped"),
+             new(true, null, "Next question", [], null), new(false, null, "Next answer", [], null)]);
+        var markdown = IntelligenceChatMarkdown.Write(chat, (_, _, _) => "");
+        Assert.Contains("Partial code\n```\n\n---\n\n## You\n\nNext question", markdown);
+        Assert.Contains("## Dashy\n\nNext answer", markdown);
+    }
+
+    [Fact]
     public void Snapshot_excludes_raw_lookups_and_names_verified_markers()
     {
         var turn = new IntelligenceTurn("# plain question", "brief") { Answer = "## Answer\n\nExample [[device:12]]", State = IntelligenceTurnState.Stopped };

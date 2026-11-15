@@ -184,7 +184,7 @@ public static partial class IntelligenceChatMarkdown
                 lines[i] = new string('#', Math.Min(6, heading.Groups[1].Length + 2)) + heading.Groups[2].Value;
         }
 
-        return string.Join('\n', lines);
+        return string.Join('\n', lines) + (inCode ? "\n```" : "");
     }
 
     /// <summary>A question is plain text, so anything Markdown would read as formatting is escaped.</summary>
