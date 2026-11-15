@@ -35,7 +35,7 @@
             <!-- Each count opens its tab filtered to it (#32, #34, #64). -->
             <pages:DashboardCardTemplateSelector.AlertsGauge>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="10">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Style="{StaticResource CardTitle}" Text="Alerts" />
@@ -92,7 +92,7 @@
 
             <pages:DashboardCardTemplateSelector.DeviceStatus>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="10">
                             <Label Style="{StaticResource CardTitle}" Text="Devices" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
@@ -144,7 +144,7 @@
 
             <pages:DashboardCardTemplateSelector.Alerts>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <!-- Desktop's Alerts widget's title chips (#140): critical, warning,
                                  and whether acknowledged ones count. See all is at the foot. -->
@@ -191,6 +191,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:AlertItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -205,7 +206,8 @@
                                             <!-- The device, the alert, then how long ago at the right (#69). -->
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="See all alerts" HorizontalOptions="Start"
@@ -218,7 +220,7 @@
 
             <pages:DashboardCardTemplateSelector.PinnedDevices>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="Pinned" />
                             <Label Style="{StaticResource Caption}" Text="Pin a device from Devices or its Device View to see it here."
@@ -226,6 +228,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedDevices}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:DeviceItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -239,7 +242,8 @@
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding StateText}" VerticalOptions="Center" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -258,6 +262,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:RecentDeviceRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -271,7 +276,8 @@
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ViewedText}" VerticalOptions="Center" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -281,7 +287,7 @@
 
             <pages:DashboardCardTemplateSelector.Sensors>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <!-- Chosen in Customise (Set up), or from this hint - not a button on the card. -->
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" Margin="0,0,0,4" />
@@ -295,6 +301,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sensors}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -310,7 +317,8 @@
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="BodySemibold"
                                                    TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -320,7 +328,7 @@
 
             <pages:DashboardCardTemplateSelector.Graph>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="8">
                             <!-- Its range in the title, as desktop's graph widget (#140); the graph itself in Edit dashboard's Set up. -->
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -350,7 +358,7 @@
 
             <pages:DashboardCardTemplateSelector.Wireless>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Style="{StaticResource CardTitle}" Text="Wireless" />
@@ -365,6 +373,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.WirelessControllers}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -378,7 +387,8 @@
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -392,7 +402,7 @@
                  headings are desktop's controls (#140); the title is in Set up. -->
             <pages:DashboardCardTemplateSelector.Top>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" VerticalOptions="Center" />
@@ -436,6 +446,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="dash:TopRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,80,80" RowDefinitions="Auto,Auto" ColumnSpacing="8" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -463,7 +474,8 @@
                                                 </ProgressBar.Triggers>
                                             </ProgressBar>
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Label Style="{StaticResource Faint}" Text="{Binding TopFootnote}" IsVisible="{Binding HasTopFootnote}" Margin="0,4,0,0" />
@@ -477,7 +489,7 @@
                  its device (desktop#304); See all opens Logs or Graylog on the card's filter. -->
             <pages:DashboardCardTemplateSelector.EventLog>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
                             <!-- What the card is kept to (#270): its Spotlight, tapped to change. -->
@@ -498,6 +510,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding EventRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="logs:LogEntryItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -511,7 +524,8 @@
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"
@@ -523,7 +537,7 @@
 
             <pages:DashboardCardTemplateSelector.Graylog>
                 <DataTemplate x:DataType="vm:DashboardCard">
-                    <Border Style="{StaticResource DashCard}">
+                    <Border controls:AskIntelligence.Enabled="True" Style="{StaticResource DashCard}">
                         <VerticalStackLayout Spacing="4">
                             <Label Style="{StaticResource CardTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
                             <!-- What the card is kept to (#270): its Spotlight, tapped to change. -->
@@ -546,6 +560,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding GraylogRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="graylog:GraylogMessageItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -559,7 +574,8 @@
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortTimeText}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"

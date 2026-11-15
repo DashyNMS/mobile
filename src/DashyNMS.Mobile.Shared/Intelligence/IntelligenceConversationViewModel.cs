@@ -269,6 +269,7 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
             ChatRevision++;
             RefreshStarters();
             Turns.Clear();
+            _retainedObjectChats.Clear();
             ClearSpotlight();
             Draft = "";
             _selectedDetail = null;

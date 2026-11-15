@@ -117,6 +117,7 @@ public static class MauiProgram
 			sp.GetRequiredService<IBackupExclusion>(),
 			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatStorage>>()));
 
+		builder.Services.AddSingleton<Intelligence.AskIntelligenceService>();
 		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
 			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
 			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),

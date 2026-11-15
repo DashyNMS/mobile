@@ -12,6 +12,7 @@
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
     xmlns:pages="clr-namespace:DashyNMS.Mobile.Pages"
+    controls:AskIntelligence.Enabled="True"
     x:DataType="vm:DeviceDetailViewModel">
 
     <!-- The card grid's templates: ping and active alerts draw from the
@@ -62,6 +63,7 @@
                                                      controls:RowLines.Between="True">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:AlertItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                             <VerticalStackLayout Spacing="6">
                                             <controls:RowDivider />
                                             <Grid ColumnDefinitions="10,*" ColumnSpacing="10">
@@ -77,7 +79,8 @@
                                                 </VerticalStackLayout>
                                             </Grid>
                                             </VerticalStackLayout>
-                                        </DataTemplate>
+                                        </SwipeView>
+</DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
                             </VerticalStackLayout>
@@ -118,6 +121,7 @@
                                                  IsVisible="{Binding HasHighlights}" Spacing="6" controls:RowLines.Between="True">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                                         <VerticalStackLayout Spacing="3">
                                             <controls:RowDivider Margin="0,0,0,3" />
                                             <VerticalStackLayout IsVisible="{Binding InventoryLayout}" Spacing="3"
@@ -237,7 +241,8 @@
                                             <ProgressBar Progress="{Binding Bar}" IsVisible="{Binding HasBar}" HeightRequest="4"
                                                          ProgressColor="{Binding Status, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
                                         </VerticalStackLayout>
-                                    </DataTemplate>
+                                    </SwipeView>
+</DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </Grid>

@@ -1055,3 +1055,22 @@ shorter question or fewer targets. The model passes scope to tools that accept
 it, as on desktop; Spotlight does not claim to impose an API access restriction.
 Device acceptance for the picker, native actions and composer at large text,
 with VoiceOver, in both themes and with the keyboard remains pending.
+
+### Ask Intelligence (#232)
+
+Rows use `IntelligenceObjectTargets` for typed identity, shared by swipe,
+long-press and accessibility actions. Section rows retain sensor/port or
+scope identity explicitly; rankings keep ports and map pins carry a verified
+LibreNMS location ID separately from their map-local index. Without that ID a
+map location is not offered as an object. Log and Graylog rows use their
+resolved device, and neighbour links use the local device.
+
+The entry captures the row's connection generation. `AskIntelligenceService`
+revalidates the exact object before starting a new chat. Saved mode uses the
+existing save-before-leaving flow. Single-chat mode retains preceding chats
+and drafts in memory only; Switch to previous chat cycles back without writing
+them, and a connection change clears them. Actions are unavailable while
+Intelligence is off, the model is unavailable or an answer is running.
+The Android accessibility adapter adds named native TalkBack actions alongside
+iOS VoiceOver actions. Native swipe, screen-reader and entry-path acceptance
+remain pending; CI cannot establish native gesture behaviour.

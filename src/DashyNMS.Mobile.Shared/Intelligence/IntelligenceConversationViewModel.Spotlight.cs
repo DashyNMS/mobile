@@ -15,6 +15,33 @@ public sealed partial class IntelligenceConversationViewModel
         $"{s.Object!.Kind} {s.Object.Id}" + (s.Object.DeviceId is { } device ? $" on device {device}" : "")
         + (s.Object.RuleId is { } rule ? $", rule {rule}" : "") + ": " + CompactNetworkLookups.Clean(s.Name)));
 
+    private sealed record RetainedChat(IReadOnlyList<IntelligenceTurn> Turns, string Draft, string? Detail, IReadOnlyList<SavedChatSpotlight> Spotlight);
+    private readonly List<RetainedChat> _retainedObjectChats = [];
+    public bool HasPreviousObjectChat => _retainedObjectChats.Count > 0;
+    private RetainedChat CaptureObjectChat() => new(Turns.ToArray(), Draft, SelectedDetailOverride, Spotlight.ToArray());
+
+    /// <summary>Single-chat mode keeps the prior draft only in memory, so Ask never discards it.</summary>
+    internal bool NewObjectChatRetainingDraft()
+    {
+        if (!CanAsk) return false;
+        var previous = CaptureObjectChat();
+        if (!NewChat()) return false;
+        _retainedObjectChats.Add(previous);
+        OnPropertyChanged(nameof(HasPreviousObjectChat));
+        return true;
+    }
+    public bool SwitchPreviousObjectChat()
+    {
+        if (!CanAsk || _retainedObjectChats.Count == 0) return false;
+        var previous = _retainedObjectChats[^1];
+        var current = CaptureObjectChat();
+        if (!Restore(previous.Turns, previous.Draft, previous.Detail, previous.Spotlight)) return false;
+        _retainedObjectChats.RemoveAt(_retainedObjectChats.Count - 1);
+        _retainedObjectChats.Insert(0, current);
+        OnPropertyChanged(nameof(HasPreviousObjectChat));
+        return true;
+    }
+
     private void ClearSpotlight()
     {
         _spotlight = [];

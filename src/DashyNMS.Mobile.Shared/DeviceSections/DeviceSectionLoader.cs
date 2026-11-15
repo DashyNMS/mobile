@@ -171,6 +171,7 @@ public sealed class DeviceSectionLoader
             && sensor.LimitHighWarn is null && sensor.LimitHigh is null;
         return new SectionRow(reading.Name)
         {
+            IntelligenceObject = new("sensor", sensor.SensorId, sensor.DeviceId),
             SensorLayout = true,
             SensorKind = SensorClassName(sensor.SensorClass),
             SensorStatusText = !sensor.HasReading ? "Reading unavailable"
@@ -365,6 +366,7 @@ public sealed class DeviceSectionLoader
                 string.IsNullOrWhiteSpace(port.IfName) || port.IfName == port.DisplayName ? null : port.IfName,
                 string.IsNullOrWhiteSpace(port.IfAlias) ? null : port.IfAlias,
             }.Where(s => s is not null)),
+            IntelligenceObject = new("port", port.PortId, port.DeviceId),
             Port = PortFacts.From(port, status.Rank, status.Name, deviceReportsMemberships),
             PortStatusText = state + (port.IsUp ? status.HasErrors ? ", Warning" : status.ErrorsKnown ? ", OK" : trafficKnown ? ", Error readings unavailable" : ", Readings unavailable" : string.Empty),
             // Tap for its graphs - as desktop's port graphs panel.

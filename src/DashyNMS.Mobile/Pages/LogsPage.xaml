@@ -138,6 +138,7 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="logs:LogEntryItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                             <VerticalStackLayout>
                                 <Label Style="{StaticResource SectionHeader}" Text="{Binding DayHeader}" IsVisible="{Binding HasDayHeader}" Margin="14,14,14,2" SemanticProperties.HeadingLevel="Level2" />
                                 <Grid>
@@ -173,7 +174,8 @@
                                     </Button>
                                 </Grid>
                             </VerticalStackLayout>
-                        </DataTemplate>
+                        </SwipeView>
+</DataTemplate>
                     </CollectionView.ItemTemplate>
                     <!-- Further back, as the card's last row. -->
                     <CollectionView.Footer>

@@ -97,6 +97,7 @@
                 </CollectionView.GroupHeaderTemplate>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
+<SwipeView controls:AskIntelligence.Enabled="True">
                         <Border Style="{StaticResource Card}" BindingContextChanged="OnRowBindingContextChanged">
                             <Border.Triggers>
                                 <!-- PortReadout owns its padding and 4pt status edge;
@@ -244,7 +245,8 @@
                                                         </FormattedString>
                                                     </Label.FormattedText>
                                                 </Label>
-                                            </DataTemplate>
+                                            </SwipeView>
+</DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
                                     <Label Style="{StaticResource Caption}" Text="{Binding Detail}" IsVisible="{Binding HasDetail}"

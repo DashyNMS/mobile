@@ -141,6 +141,7 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="graylog:GraylogMessageItem">
+<SwipeView controls:AskIntelligence.Enabled="True">
                             <Grid>
                                 <BoxView Style="{StaticResource RowLine}" Margin="0" />
                                 <VerticalStackLayout Padding="14,10" Spacing="4" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
@@ -173,7 +174,8 @@
                                     </VisualStateManager.VisualStateGroups>
                                 </Button>
                             </Grid>
-                        </DataTemplate>
+                        </SwipeView>
+</DataTemplate>
                     </CollectionView.ItemTemplate>
                     <!-- The next page, as the card's last row. -->
                     <CollectionView.Footer>

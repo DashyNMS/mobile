@@ -9,7 +9,7 @@ public sealed partial class IntelligencePage
     private string? _spotlightStamp;
     private void RefreshSpotlight()
     {
-        var stamp = _conversation.ChatRevision + ":" + _conversation.CanAsk + ":" + _conversation.SpotlightInstructions;
+        var stamp = _conversation.ChatRevision + ":" + _conversation.CanAsk + ":" + _conversation.HasPreviousObjectChat + ":" + _conversation.SpotlightInstructions;
         if (stamp == _spotlightStamp) return;
         _spotlightStamp = stamp;
         _spotlightControls.Children.Clear();
@@ -30,6 +30,12 @@ public sealed partial class IntelligencePage
             Orientation = ScrollOrientation.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
             SafeAreaEdges = SafeAreaEdges.None, Content = choices,
         });
+        if (_conversation.HasPreviousObjectChat)
+        {
+            var previous = new Button { Text = "Switch to previous chat", MinimumHeightRequest = 48, IsEnabled = _conversation.CanAsk };
+            previous.Clicked += (_, _) => _conversation.SwitchPreviousObjectChat();
+            _spotlightControls.Children.Add(previous);
+        }
         if (_conversation.IsRunning) _spotlightControls.Children.Add(new Label { Text = "Spotlight is locked while an answer runs.", Style = ResourceStyle("Caption") });
     }
 

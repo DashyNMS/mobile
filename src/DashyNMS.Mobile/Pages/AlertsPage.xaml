@@ -140,7 +140,7 @@
                     </CollectionView.Footer>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:AlertItem">
-                            <SwipeView Threshold="96" SafeAreaEdges="None">
+                            <SwipeView controls:AskIntelligence.Enabled="True" Threshold="96" SafeAreaEdges="None">
                                 <!-- Swipe left to show Acknowledge (or Unacknowledge), then tap it: revealing rather
                                      than acting, so a stray sideways scroll can't acknowledge anything. -->
                                 <!-- The labels name the action's scope beside the glyphs, also read by VoiceOver. -->

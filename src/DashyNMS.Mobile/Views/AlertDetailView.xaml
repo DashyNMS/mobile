@@ -7,6 +7,7 @@
     xmlns:views="clr-namespace:DashyNMS.Mobile.Views"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:sections="clr-namespace:DashyNMS.Mobile.DeviceSections;assembly=DashyNMS.Mobile.Shared"
+    controls:AskIntelligence.Enabled="True"
     x:DataType="vm:AlertDetailViewModel">
 
     <ContentView.Resources>

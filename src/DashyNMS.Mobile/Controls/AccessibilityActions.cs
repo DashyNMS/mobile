@@ -33,8 +33,45 @@ public sealed class AccessibilityActions(View view, string name, Func<bool> perf
         if (View.Handler?.PlatformView is not UIKit.UIView root) return;
         _action ??= new UIKit.UIAccessibilityCustomAction(Name, new Func<UIKit.UIAccessibilityCustomAction, bool>(_ => Perform()));
         Apply(root, _action, enabled);
+#elif ANDROID
+        if (View.Handler?.PlatformView is Android.Views.View native)
+        {
+            if (!enabled && !AndroidActions.TryGetValue(native, out _)) return;
+            var actions = AndroidActions.GetValue(native, v =>
+            {
+                var manager = new AndroidActionDelegate();
+                v.SetAccessibilityDelegate(manager);
+                return manager;
+            });
+            actions.Set(this, enabled);
+        }
 #endif
     }
+
+#if ANDROID
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Android.Views.View, AndroidActionDelegate> AndroidActions = new();
+    private sealed class AndroidActionDelegate : Android.Views.View.AccessibilityDelegate
+    {
+        private readonly Dictionary<AccessibilityActions, int> _actions = new();
+        public void Set(AccessibilityActions action, bool enabled)
+        {
+            if (enabled && !_actions.ContainsKey(action)) _actions[action] = Android.Views.View.GenerateViewId();
+            else if (!enabled) _actions.Remove(action);
+        }
+        public override void OnInitializeAccessibilityNodeInfo(Android.Views.View? host, Android.Views.Accessibility.AccessibilityNodeInfo? info)
+        {
+            base.OnInitializeAccessibilityNodeInfo(host, info);
+            if (info is null) return;
+            foreach (var action in _actions)
+                info.AddAction(new Android.Views.Accessibility.AccessibilityNodeInfo.AccessibilityAction(action.Value, new Java.Lang.String(action.Key.Name)));
+        }
+        public override bool PerformAccessibilityAction(Android.Views.View? host, int action, Android.OS.Bundle? args)
+        {
+            var found = _actions.FirstOrDefault(a => a.Value == action).Key;
+            return found is not null ? found.Perform() : base.PerformAccessibilityAction(host, action, args);
+        }
+    }
+#endif
 
 #if IOS
     private static void Apply(UIKit.UIView native, UIKit.UIAccessibilityCustomAction action, bool enabled)
