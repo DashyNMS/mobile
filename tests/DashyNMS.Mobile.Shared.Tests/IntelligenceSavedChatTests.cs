@@ -111,6 +111,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         app.Conversation.Draft = "private-sentinel retained draft";
         Assert.True(app.Conversation.NewObjectChatRetainingDraft());
         _preferences.SetSingleChatMode(false);
+        await app.Chats.LoadAsync();
         Assert.True(app.Conversation.NewChat());
         Assert.True(await app.Conversation.AskAsync("Public question"));
         app.Conversation.Draft = "Public draft";
