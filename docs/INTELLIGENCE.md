@@ -270,10 +270,10 @@ catalogue parameter of an offered tool that is neither offered
 ## Batch 5 package provenance
 
 The reviewed network operations are published as `DashyNMS.Agent.Shared`
-`2.0.0-ci.43619927507.1` by DashyNMS/mcp's Shared package workflow, run
-43619927507, from protected `main` commit
-`a9032220aa18c3234d920f0503eba6de0348d6ba`, after PR #135. The package SHA-256 is
-`74d0675b045c73f85a95788544fd88784e3896679230dedf3aaf8089e5fcb3c1`.
+`2.0.0-ci.43670427340.1` by DashyNMS/mcp's Shared package workflow, run
+43670427340, from protected `main` commit
+`3e9367b415e99fe3c50f2d21c8834b54bb09539a`, after PRs #135 and #148. The package SHA-256 is
+`8bc57bca89670f7006d8288439e93cd2809d232703def9ef1e59a430843292f7`.
 Publication verified the feed's bytes, and the provenance attestation verifies
 against that source commit and workflow. Mobile's verification script pins the
 same version, hash and commit. The Core pin remains `2.0.0-ci.64`, covered by
@@ -288,10 +288,10 @@ What each shared tool on the phone does beyond the pattern above.
 
 `find_device` is the first migration and the pattern for the rest.
 
-**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43619927507.1`, from DashyNMS/mcp's
-`shared-package.yml` run 43619927507 at commit
-`a9032220aa18c3234d920f0503eba6de0348d6ba` (DashyNMS/mcp#135), SHA-256
-`74d0675b045c73f85a95788544fd88784e3896679230dedf3aaf8089e5fcb3c1`. It was
+**Package.** `DashyNMS.Agent.Shared` `2.0.0-ci.43670427340.1`, from DashyNMS/mcp's
+`shared-package.yml` run 43670427340 at commit
+`3e9367b415e99fe3c50f2d21c8834b54bb09539a` (DashyNMS/mcp#148), SHA-256
+`8bc57bca89670f7006d8288439e93cd2809d232703def9ef1e59a430843292f7`. It was
 `DashyNMS.Agent.Search` until DashyNMS/mcp#122 renamed it and restarted its
 versions at 2.0.0. It is MIT licensed and targets net10.0. Its minimum Core is
 `2.0.0-ci.64`, the same build as mobile's direct pin.
@@ -639,10 +639,14 @@ attempt creates separate Core clients from those snapshots, including the saved
 TLS and credential choices; operations cannot reconfigure them, test a connection
 or trigger a backup. These clients use no request logger and close with the
 attempt. Setup generations reject further reads after an integration is changed
-or forgotten. The main LibreNMS generation still governs the whole lookup set.
+or forgotten. Every saved-settings change also retires the attempt, including
+changes that later restore the original value. The main LibreNMS generation
+still governs the whole lookup set.
 
 The captured options include server timestamps, Graylog query field/address
-matching and the phone's config-text choice (Summary by default). The history
+matching, the saved Unimus discovery domain and the phone's config-text choice
+(Summary by default). Core applies its usual domain candidates for backups,
+diffs, scoped changes and WhatChanged. The history
 factory now receives these clients; its LibreNMS-only tools do not call them.
 WhatChanged uses them; the remaining integration tool adapters follow. CI tests use two synthetic
 HTTP services to check addresses, credentials, capture against settings changes,

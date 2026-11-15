@@ -40,9 +40,9 @@ public sealed class SharedConfigLookupsHttpTests
         private readonly IntelligenceLookupSet set;
         private readonly IntelligenceIntegrations integrations;
         private readonly ISettingsStore settingsStore;
-        internal Mobile(Uri nms, Uri? configs, string mode = AppSettings.IntelligenceConfigTextSummary)
+        internal Mobile(Uri nms, Uri? configs, string mode = AppSettings.IntelligenceConfigTextSummary, string? domain = null)
         {
-            Settings = new() { Unimus = new() { Enabled = configs is not null, Url = configs?.ToString() }, IntelligenceConfigText = mode };
+            Settings = new() { Unimus = new() { Enabled = configs is not null, Url = configs?.ToString(), MyDomain = domain }, IntelligenceConfigText = mode };
             var settings = settingsStore = Fakes.Settings(Settings);
             var secrets = Fakes.Secrets();
             var logs = new GraylogSetup(Substitute.For<IGraylogApi>(), new SecureGraylogPasswordProtector(secrets), settings, secrets, NullLogger<GraylogSetup>.Instance);
@@ -62,6 +62,38 @@ public sealed class SharedConfigLookupsHttpTests
         internal IntelligenceLookup Tool(string name) => Tools.Single(l => l.Name == name);
         internal void SaveSettings() => settingsStore.Changed += Raise.Event<EventHandler<AppSettings>>(settingsStore, Settings);
         public void Dispose() { set.Dispose(); integrations.Dispose(); transports.Dispose(); transport.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData("config_backup", null)]
+    [InlineData("config_backup", "example.net")]
+    [InlineData("config_diff", null)]
+    [InlineData("config_diff", "example.net")]
+    [InlineData("recent_config_changes", null)]
+    [InlineData("recent_config_changes", "example.net")]
+    public async Task Saved_discovery_domain_matches_short_names_for_config_tools(string tool, string? domain)
+    {
+        using var nms = new FixtureServer(path => path switch
+        {
+            "devices" => new(200, """{"devices":[{"device_id":1,"hostname":"core-sw1","display":"Core switch","ip":"192.0.2.1","status":1,"disabled":0,"location":"Lab"}]}"""),
+            "locations" => new(200, """{"locations":[{"id":1,"location":"Lab"}]}"""),
+            _ => null,
+        });
+        using var configs = Server(path => path == "/api/v2/devices"
+            ? new(200, """{"data":[{"id":40,"address":"core-sw1.example.net","description":"Backed-up switch"}],"paginator":{"totalPages":1}}""") : null);
+        using var mobile = new Mobile(nms.Root, configs.Root, domain: domain);
+        var text = await mobile.Tool(tool).Run(tool == "recent_config_changes" ? """{"location":"Lab"}""" : "1", default);
+        if (domain is not null)
+        {
+            Assert.Contains(tool == "config_backup" ? "Backup 901" : tool == "config_diff" ? "Config diff:" : "Unimus devices checked 1", text);
+            Assert.Single(mobile.Evidence);
+        }
+        else
+        {
+            Assert.Contains(tool == "recent_config_changes" ? "Unimus devices checked 0" : "No matching text backup", text);
+            Assert.Empty(mobile.Evidence);
+        }
+        Assert.Equal(domain is not null, configs.Requests.Any(p => p.StartsWith("/api/v2/devices/40/backups", StringComparison.Ordinal)));
     }
 
     [Theory]

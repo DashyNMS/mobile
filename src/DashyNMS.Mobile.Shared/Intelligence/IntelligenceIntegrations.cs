@@ -66,12 +66,14 @@ public sealed class IntelligenceIntegrations : IDisposable
         var textMode = current.IntelligenceConfigText;
         var queryField = current.Graylog.QueryField;
         var anyAddress = current.Graylog.MatchAnyAddress;
+        var domain = current.Unimus.MyDomain;
         return new(logs.Connection, configs.Connection, current,
             () => Volatile.Read(ref disposed) == 0 && Volatile.Read(ref settingsRevision) == revision
                 && graylog.Generation == logs.Generation && unimus.Revision == configs.Generation
                 && settings.Current.IntelligenceConfigText == textMode
                 && settings.Current.Graylog.QueryField == queryField
-                && settings.Current.Graylog.MatchAnyAddress == anyAddress,
+                && settings.Current.Graylog.MatchAnyAddress == anyAddress
+                && settings.Current.Unimus.MyDomain == domain,
             graylogReachable: logs.Connection is not null && ReferenceEquals(Volatile.Read(ref reachableGraylog), logs.Connection));
     }
 }
@@ -98,6 +100,7 @@ internal sealed class IntelligenceIntegrationClients : IDisposable
             ServerTimestampsAreUtc = settings.ServerTimestampsAreUtc,
             GraylogQueryField = settings.Graylog.QueryField,
             GraylogMatchAnyAddress = settings.Graylog.MatchAnyAddress,
+            UnimusMyDomain = settings.Unimus.MyDomain,
             ConfigText = settings.IntelligenceConfigText switch
             {
                 AppSettings.IntelligenceConfigTextFull => ConfigText.Full,

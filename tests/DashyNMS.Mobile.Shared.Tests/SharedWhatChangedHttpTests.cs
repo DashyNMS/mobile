@@ -48,12 +48,12 @@ public sealed class SharedWhatChangedHttpTests
         private readonly LibreNmsTransport transport = new(NullLogger<LibreNmsTransport>.Instance);
         private readonly IntelligenceDeviceTransports transports;
         private readonly IntelligenceLookupSet set;
-        internal Harness(Uri nms, Uri? logs = null, Uri? configs = null, string mode = AppSettings.IntelligenceConfigTextSummary, bool allAddresses = false)
+        internal Harness(Uri nms, Uri? logs = null, Uri? configs = null, string mode = AppSettings.IntelligenceConfigTextSummary, bool allAddresses = false, string? domain = null)
         {
             Settings = new()
             {
                 Graylog = new() { Enabled = logs is not null, Server = logs?.ToString(), Username = "reader", MatchAnyAddress = allAddresses },
-                Unimus = new() { Enabled = configs is not null, Url = configs?.ToString() }, IntelligenceConfigText = mode,
+                Unimus = new() { Enabled = configs is not null, Url = configs?.ToString(), MyDomain = domain }, IntelligenceConfigText = mode,
             };
             var settings = Fakes.Settings(Settings);
             var secrets = Fakes.Secrets();
@@ -72,6 +72,22 @@ public sealed class SharedWhatChangedHttpTests
         internal IntelligenceLookup Changes { get; }
         public void Dispose() { set.Dispose(); transports.Dispose(); transport.Dispose(); }
     }
+    [Theory]
+    [InlineData(null)]
+    [InlineData("example.net")]
+    public async Task What_changed_uses_the_saved_discovery_domain(string? domain)
+    {
+        var routes = NmsRoutes(emptyHistory: true);
+        routes["devices"] = new(200, """{"devices":[{"device_id":1,"hostname":"core-sw1","display":"Core switch","ip":"192.0.2.1","status":1,"disabled":0,"location":"Lab"}]}""");
+        using var nms = new FixtureServer(p => routes.GetValueOrDefault(p));
+        using var configs = ConfigServer(p => p == "/api/v2/devices"
+            ? new(200, """{"data":[{"id":42,"address":"core-sw1.example.net","description":"Backed-up switch"}]}""") : UnimusAnswer(p));
+        using var mobile = new Harness(nms.Root, configs: configs.Root, domain: domain);
+        var text = await mobile.Changes.Run("1", default);
+        Assert.Contains(domain is not null ? "Unimus config changed." : "Unimus device not found.", text);
+        Assert.Equal(domain is not null, configs.Requests.Contains("/api/v2/backups/diff"));
+    }
+
     [Fact]
     public async Task Unconfigured_services_are_explicit_and_do_not_hide_the_shared_timeline()
     {

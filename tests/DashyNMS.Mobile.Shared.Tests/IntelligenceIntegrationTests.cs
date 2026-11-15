@@ -27,7 +27,7 @@ public sealed class IntelligenceIntegrationTests
         var saved = new AppSettings
         {
             Graylog = new() { Enabled = true, Server = a.Root.ToString(), Username = "reader", QueryField = "source" },
-            Unimus = new() { Enabled = true, Url = a.Root.ToString() },
+            Unimus = new() { Enabled = true, Url = a.Root.ToString(), MyDomain = "example.net" },
             IntelligenceConfigText = AppSettings.IntelligenceConfigTextSummary,
         };
         var settings = Fakes.Settings(saved);
@@ -42,15 +42,18 @@ public sealed class IntelligenceIntegrationTests
         Assert.Empty(await first.Unimus.ListAllDevicesAsync());
         Assert.Empty(b.Requests);
         saved.Graylog.Server = b.Root.ToString(); saved.Unimus.Url = b.Root.ToString();
+        saved.Unimus.MyDomain = "changed.example.net";
         saved.Graylog.QueryField = "host"; saved.Graylog.MatchAnyAddress = true;
         saved.IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull;
         logs.Apply("synthetic-b"); configs.Apply("synthetic-b");
+        Assert.Equal("example.net", first.Options.UnimusMyDomain);
         Assert.Equal(ConfigText.Summary, first.Options.ConfigText);
         Assert.Equal("source", first.Options.GraylogQueryField);
         Assert.False(first.Options.GraylogMatchAnyAddress);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.Graylog.GetStreamsAsync());
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first.Unimus.ListAllDevicesAsync());
         using var next = factory.Capture();
+        Assert.Equal("changed.example.net", next.Options.UnimusMyDomain);
         Assert.Empty(await next.Graylog.GetStreamsAsync());
         Assert.Empty(await next.Unimus.ListAllDevicesAsync());
         Assert.Equal(new[] { "/api/streams", "/api/streams", "/api/v2/devices" }, a.Requests);
@@ -64,6 +67,7 @@ public sealed class IntelligenceIntegrationTests
     [InlineData("config")]
     [InlineData("field")]
     [InlineData("addresses")]
+    [InlineData("domain")]
     public void Saved_settings_transitions_retire_the_attempt_even_after_restoring_the_original_value(string setting)
     {
         var saved = new AppSettings { IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull };
@@ -75,10 +79,12 @@ public sealed class IntelligenceIntegrationTests
         using var first = factory.Capture();
         var originalField = saved.Graylog.QueryField;
         var originalAddresses = saved.Graylog.MatchAnyAddress;
+        if (setting == "domain") saved.Unimus.MyDomain = "example.net";
         if (setting == "config") saved.IntelligenceConfigText = AppSettings.IntelligenceConfigTextOff;
         if (setting == "field") saved.Graylog.QueryField = "changed_source";
         if (setting == "addresses") saved.Graylog.MatchAnyAddress = !originalAddresses;
         settings.Changed += Raise.Event<EventHandler<AppSettings>>(settings, saved);
+        saved.Unimus.MyDomain = null;
         saved.IntelligenceConfigText = AppSettings.IntelligenceConfigTextFull;
         saved.Graylog.QueryField = originalField;
         saved.Graylog.MatchAnyAddress = originalAddresses;
