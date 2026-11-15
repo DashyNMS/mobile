@@ -523,8 +523,12 @@ Copied Graylog fixtures run through real Core clients with synthetic Basic auth.
 HTTP tests compare current/past counts, samples and query sets against the shared
 host, accounting separately for the readiness probe. Further checks cover absent/
 refused setup, denied searches, marker-shaped log text, redaction, missing address
-coverage, caller cancellation, the profile and large omission counts. Full field
-accounting and iPhone acceptance remain pending while this PR is draft.
+coverage, caller cancellation, the profile and large omission counts. Field
+accounting compares every populated MCP Data leaf for current and past windows,
+oldest-page fallback, empty results, a verified device filter and populated log
+attributes. Log lines, top-value records and buckets are checked in their own
+rows; missing whole rows need an omission count. No Data field is deliberately
+excluded. iPhone acceptance remains pending while this PR is draft.
 
 ### Captured integration clients
 

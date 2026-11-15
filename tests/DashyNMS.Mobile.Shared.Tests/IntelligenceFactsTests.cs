@@ -94,6 +94,16 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[bucket:", StringComparison.Ordinal))
+        {
+            var instant = new DateTime(long.Parse(marker[9..^2], CultureInfo.InvariantCulture), DateTimeKind.Utc);
+            return lines.FirstOrDefault(l => l.StartsWith("From " + IntelligenceTime.At(instant, new FakeTimeProvider()) + ":", StringComparison.Ordinal));
+        }
+        if (marker.StartsWith("[[logtop:", StringComparison.Ordinal))
+        {
+            var parts = marker[9..^2].Split(':', 2);
+            return lines.FirstOrDefault(l => l.StartsWith("Top " + parts[0] + " " + CompactNetworkLookups.Clean(parts[1]) + ":", StringComparison.Ordinal));
+        }
         if (marker.StartsWith("[[entry:", StringComparison.Ordinal))
         {
             var parts = marker[8..^2].Split(':', 2);
@@ -265,7 +275,7 @@ public sealed partial class IntelligenceFactsTests
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
                         Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
                     break;
@@ -284,6 +294,16 @@ public sealed partial class IntelligenceFactsTests
         foreach (var property in root.EnumerateObject())
             Walk(property.Value, property.Name == "data" ? "" : property.Name, null);
         return fields;
+    }
+
+    private static string? LogRecordMarker(string path, JsonElement record)
+    {
+        if (path == "lines") return HistoryEntryMarker(record);
+        if (path == "over_time" && record.TryGetProperty("from", out var from))
+            return "[[bucket:" + DateTime.Parse(from.GetString()!, CultureInfo.InvariantCulture,
+                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal).Ticks.ToString(CultureInfo.InvariantCulture) + "]]";
+        var kind = path switch { "top.sources" => "source", "top.levels" => "level", "top.facilities" => "facility", "top.applications" => "application", _ => null };
+        return kind is not null && record.TryGetProperty("value", out var value) ? "[[logtop:" + kind + ":" + value.GetString() + "]]" : null;
     }
 
     private static string? HistoryEntryMarker(JsonElement record)
@@ -314,6 +334,12 @@ public sealed partial class IntelligenceFactsTests
         if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name == "window_complete") return text.Contains(value.GetBoolean() ? "; complete." : "; incomplete;", StringComparison.Ordinal)
             || !value.GetBoolean() && text.Contains("; coverage unknown;", StringComparison.Ordinal);
+        if (path == "lines_are") return text.Contains("Oldest samples; newest exceed Graylog paging. Narrow the window for newer messages.", StringComparison.Ordinal);
+        if (path.StartsWith("search.", StringComparison.Ordinal) && name is ("since" or "until") || path == "over_time.from")
+        {
+            var date = DateTime.Parse(value.GetString()!, CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal);
+            return text.Contains(IntelligenceTime.At(date, new FakeTimeProvider()), StringComparison.Ordinal);
+        }
         if (path.StartsWith("window.", StringComparison.Ordinal) && name is ("since" or "until" or "covered_since")
             || name is ("time" or "raised_at" or "recovered_at"))
         {
