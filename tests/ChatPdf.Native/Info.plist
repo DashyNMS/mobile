@@ -8,4 +8,13 @@
 <key>LSRequiresIPhoneOS</key><true/>
 <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
 <key>UILaunchScreen</key><dict/>
+<key>UIApplicationSceneManifest</key><dict>
+  <key>UIApplicationSupportsMultipleScenes</key><false/>
+  <key>UISceneConfigurations</key><dict>
+    <key>UIWindowSceneSessionRoleApplication</key><array><dict>
+      <key>UISceneConfigurationName</key><string>PDF regression</string>
+      <key>UISceneDelegateClassName</key><string>PdfSceneDelegate</string>
+    </dict></array>
+  </dict>
+</dict>
 </dict></plist>

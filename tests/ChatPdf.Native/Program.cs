@@ -10,22 +10,34 @@ internal static class Program
 [Register("AppDelegate")]
 public sealed class AppDelegate : UIApplicationDelegate
 {
+    public override bool FinishedLaunching(UIApplication application, NSDictionary launchOptions) => true;
+
+    [Export("application:configurationForConnectingSceneSession:options:")]
+    public UISceneConfiguration ConfigureScene(UIApplication application, UISceneSession session, UISceneConnectionOptions options)
+        => new("PDF regression", session.Role) { DelegateType = typeof(PdfSceneDelegate) };
+}
+
+[Register("PdfSceneDelegate")]
+public sealed class PdfSceneDelegate : UIWindowSceneDelegate
+{
     public override UIWindow? Window { get; set; }
-    public override bool FinishedLaunching(UIApplication application, NSDictionary launchOptions)
+    public override void WillConnect(UIScene scene, UISceneSession session, UISceneConnectionOptions options)
     {
-        Window = new UIWindow(UIScreen.MainScreen.Bounds) { RootViewController = new UIViewController() };
+        if (scene is not UIWindowScene windowScene) return;
+        Window = new UIWindow(windowScene) { RootViewController = new UIViewController() };
         Window.MakeKeyAndVisible();
         BeginInvokeOnMainThread(() =>
         {
             var folder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+            var result = "OK";
             try
             {
                 var chat = RecordedChat.Create(File.ReadAllBytes(Path.Combine(NSBundle.MainBundle.BundlePath, "recorded-graph.png")));
                 File.WriteAllBytes(Path.Combine(folder, "native.pdf"), IntelligencePdfRenderer.Render(chat));
-                File.WriteAllText(Path.Combine(folder, "result.txt"), "OK");
             }
-            catch (Exception error) { File.WriteAllText(Path.Combine(folder, "result.txt"), error.ToString()); }
+            catch (Exception error) { result = error.ToString(); }
+            File.WriteAllText(Path.Combine(folder, "result.partial"), result);
+            File.Move(Path.Combine(folder, "result.partial"), Path.Combine(folder, "result.txt"), overwrite: true);
         });
-        return true;
     }
 }
