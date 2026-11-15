@@ -11,7 +11,7 @@ public sealed class AskIntelligenceService(IntelligenceConversationViewModel con
     private bool _busy;
     public bool IsAvailable => !_busy && conversation.CanAsk;
     public bool IsCurrent(SessionScope scope) => scope.IsCurrent(session);
-    public SessionScope? CaptureScope() => IsAvailable ? SessionScope.Capture(session) : null;
+    public SessionScope? CaptureScope() => SessionScope.Capture(session);
 
     public async Task<bool> StartAsync(SessionScope scope, IntelligenceObjectReference identity, CancellationToken token = default)
     {
