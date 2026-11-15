@@ -532,8 +532,12 @@ including partial listings, denial, oversized images, custom spans, legend,
 cancellation, deadline and a connection switch. Route tests cover canonical
 names and refused paths. An end-to-end conversation test verifies that the
 text-only model gets no base64 while the answer and reopened saved-chat snapshot
-keep the graph and metadata-only notice. Full field accounting and iPhone
-acceptance remain pending while this PR is draft.
+keep the graph and metadata-only notice. Field accounting compares device, CPU,
+port and sensor Data with the fixed MCP projections, plus current typed results
+for custom windows, partial/negative listings and the type-list cap. Types and
+selected entities are checked in their own rows. No Data field is deliberately
+excluded. Native image input and iPhone acceptance remain pending while this PR
+is draft.
 
 ### How Unimus config tools are built
 

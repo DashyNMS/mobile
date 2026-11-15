@@ -94,6 +94,7 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[graph", StringComparison.Ordinal)) return GraphFactBlock(text, marker);
         if (marker.StartsWith("[[config", StringComparison.Ordinal)) return ConfigFactBlock(text, marker);
         if (marker.StartsWith("[[bucket:", StringComparison.Ordinal))
         {
@@ -271,12 +272,14 @@ public sealed partial class IntelligenceFactsTests
     private static Dictionary<string, List<(JsonElement Value, string? Scope)>> Fields(JsonElement root)
     {
         var fields = new Dictionary<string, List<(JsonElement, string?)>>(StringComparer.Ordinal);
+        var graphResult = root.TryGetProperty("data", out var data) && data.ValueKind == JsonValueKind.Object
+            && (data.TryGetProperty("graph", out _) || data.TryGetProperty("available_types", out _));
         void Walk(JsonElement element, string path, string? scope)
         {
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = ConfigRecordMarker(path, element) ?? LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = (graphResult ? GraphRecordMarker(path, element) : null) ?? ConfigRecordMarker(path, element) ?? LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
                     {
                         // Config text is one MCP scalar but mobile retains whole numbered/diff lines.
@@ -342,6 +345,7 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
+        if (GraphFactShown(path, value, text) is { } graphShown) return graphShown;
         if (ConfigFactShown(path, value, text) is { } configShown) return configShown;
         if (path.EndsWith("device.status", StringComparison.Ordinal) && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
