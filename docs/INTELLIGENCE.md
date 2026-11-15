@@ -1074,3 +1074,24 @@ Intelligence is off, the model is unavailable or an answer is running.
 The Android accessibility adapter adds named native TalkBack actions alongside
 iOS VoiceOver actions. Native swipe, screen-reader and entry-path acceptance
 remain pending; CI cannot establish native gesture behaviour.
+
+### Conversation export (#233)
+
+The chat header offers Export conversation as Markdown or PDF, including the
+single-chat conversation. A snapshot contains the title, visible questions,
+readable answers, incomplete-answer notes and validated graph images. It
+excludes the unsent draft, raw lookup records, hidden reasoning and diagnostics.
+The Markdown formatter and file naming were adapted from desktop's MIT-licensed
+`IntelligenceChatExport.cs`; headings and incomplete-answer notes keep its
+format. With graphs, the share is a ZIP containing the Markdown and its sibling
+images folder, so relative graph links survive the share sheet. Without graphs
+it is a plain `.md` file.
+
+PDF uses iOS's native paginated print renderer over escaped, locally generated
+HTML, with headings, tables, code, safe source links and inline graph data.
+There is no new rendering dependency, script or externally loaded image. Both
+formats recheck chat/connection ownership before sharing and clear the export
+cache after the share completes. Golden tests compare desktop's Markdown
+format and the PDF print-layout input; native PDF rendering, pagination,
+selectable text, source-link annotations and graph inclusion still require
+installed-device acceptance. A print-input golden is not a rendered-PDF test.

@@ -26,6 +26,9 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private readonly IntelligenceAnswerReporter _reporter;
     private readonly SetupPageLayout _placement;
     private readonly IntelligenceSpotlight _spotlightSource;
+    private readonly IntelligenceExportService _exporter;
+    private readonly IconButton _export = new() { Icon = Icons.Export, Kind = IconButtonKind.Plain };
+    private bool _exporting;
     private readonly VerticalStackLayout _spotlightControls = new() { Spacing = 4 };
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
@@ -66,10 +69,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
 
     public IntelligencePage(IntelligenceConversationViewModel conversation, IntelligencePreferences preferences,
         IIntelligenceModel model, INavigationService navigation, IDialogService dialogs, IntelligenceAnswerActions actions,
-        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats, IntelligenceSpotlight spotlight)
+        IntelligenceAnswerReporter reporter, IntelligenceChatListViewModel chats, IntelligenceSpotlight spotlight, IntelligenceExportService exporter)
     {
         _conversation = conversation;
         _spotlightSource = spotlight;
+        _exporter = exporter;
         _chats = chats;
         _chatRevision = conversation.ChatRevision;
         _preferences = preferences;
@@ -98,7 +102,9 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         SemanticProperties.SetDescription(_list, "Saved chats");
         _new.Command = new Command(RequestNewChat, () => !_conversation.IsRunning && !_newChatPending);
         _list.Command = new Command(OpenChats);
-        _header.Actions = new HorizontalStackLayout { Children = { _list, _new } };
+        _export.Command = new Command(async () => await ExportAsync());
+        SemanticProperties.SetDescription(_export, "Export conversation");
+        _header.Actions = new HorizontalStackLayout { Children = { _list, _new, _export } };
 #if IOS
         ((HorizontalStackLayout)_header.Actions).Children.Add(_headerGlass);
         // Rotating, folding or resizing the window can move the actions between
@@ -399,6 +405,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));
         _question.IsEnabled = !_conversation.IsRunning;
         _detail.IsEnabled = !_conversation.IsRunning;
+        _export.IsEnabled = !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0;
         _starters.IsEnabled = _conversation.CanAsk;
         _starters.IsVisible = _conversation.Turns.Count == 0 && string.IsNullOrWhiteSpace(_question.Text);
         var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
@@ -515,10 +522,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         GlassAction[] chatActions =
         [
             new("list.bullet", "Saved chats", OpenChats),
+            new("square.and.arrow.up", "Export conversation", () => _ = ExportAsync(), IsEnabled: !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0),
             new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending),
         ];
         var inHeader = _place == ChatActionPlace.HeaderGlass;
-        _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
+        _export.IsVisible = _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
         _headerGlass.Actions = inHeader ? chatActions : [];
         _headerGlass.IsVisible = inHeader;
         if (TabBarButtons.IsAvailable)

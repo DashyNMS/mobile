@@ -118,6 +118,8 @@ public static class MauiProgram
 			sp.GetRequiredService<ILogger<Intelligence.IntelligenceChatStorage>>()));
 
 		builder.Services.AddSingleton<Intelligence.AskIntelligenceService>();
+		builder.Services.AddSingleton<Intelligence.IIntelligencePdfPrinter, Adapters.IntelligencePdfPrinter>();
+		builder.Services.AddSingleton<Intelligence.IntelligenceExportService>();
 		builder.Services.AddSingleton(sp => new Intelligence.IntelligenceConversationViewModel(
 			sp.GetRequiredService<Intelligence.IIntelligenceModel>(),
 			sp.GetRequiredService<Intelligence.IntelligencePreferences>(),
