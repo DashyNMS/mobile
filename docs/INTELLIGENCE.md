@@ -65,10 +65,10 @@ MCP doesn't yet (DashyNMS/mcp#121).
 | Saved chats to rename, pin and delete, grouped by date | Done | #229 |
 | Single-chat mode | Done | #230 |
 | Copy, Retry, Edit question and Stop | Done | #227, #573 |
-| Spotlight on devices, a group, a location or an object | Not yet | #231 |
-| Ask Intelligence from devices, alerts, sensors, ports and more | Not yet | #232 |
-| Export as Markdown or PDF | Not yet | #233 |
-| Twelve starter questions, four at a time, and "Checking alerts" activity | Three fixed sets of three, and tool titles | #640 |
+| Spotlight on devices, a group, a location or an object | Saved typed identities, current-connection revalidation and locked scope while answering | #231 |
+| Ask Intelligence from devices, alerts, sensors, ports and more | Shared object mapping, row actions and guarded new chats | #232 |
+| Export as Markdown or PDF | Visible-content sharing, bundled Markdown graphs and native PDF graph appendix | #233 |
+| Twelve starter questions, four at a time, and "Checking alerts" activity | Desktop rotation, eligibility and activity wording | #640 |
 | Graph images in answers | Shared graph lookup attaches images to the answer and saved chat | #649 |
 | Web search | Not on Apple Intelligence | #577 |
 | Dashy, desktop's companion | Undecided | #236 |
@@ -1120,12 +1120,15 @@ renderer into a simulator harness and prints the same recorded chat with a
 pinned, hash-verified desktop renderer. Both actual PDFs must preserve ninety
 paragraphs over multiple pages, selectable table/code text, a clickable source
 link, an embedded image and visible graph pixels against a checked-in golden.
-It retains PDFs and page rasters as evidence. This native regression is pending
-its first successful CI run; it does not establish installed-device UI acceptance.
+It retains PDFs and page rasters as evidence. Runs 43758300189 and 43758304873
+passed at `7da8e19`. The desktop PDF has six pages and the native PDF seven;
+both preserve all ninety paragraphs, one embedded graph and the clickable
+source link. The native raster contains 14,940 red graph pixels. This establishes
+the recorded PDF regression, not installed-device chat UI acceptance.
 
 The first native artifact exposed two PDF-specific differences: ligatures use
 Unicode presentation forms in extracted text, so the semantic golden applies
 NFKC normalisation; UIKit's HTML formatter omitted data-URI images, so the
 production renderer now draws decoded graphs directly in an appendix labelled
 by answer and graph number. The image-object and coloured-pixel assertions stay
-required. This correction awaits its CI run.
+required and passed in the native simulator golden.
