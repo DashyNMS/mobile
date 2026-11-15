@@ -35,8 +35,8 @@ public sealed partial class CompactNetworkLookups
         if (logs.Skipped is not null) rows.Add(new("Past Graylog windows need search_logs with since and until."));
         rows.AddRange(data.Librenms.Entries.Select(e => new Row(TimelineText(e, at, time))));
         if (config.ConfigDiff is { } diff)
-            rows.AddRange(diff.Split('\n').Where(line => line.Length > 0).Select(line => new Row("Config diff " + Clean(line))));
-        rows.AddRange((logs.LogLines ?? []).Select(l => new Row($"Log {ChangeLogTime(l.Time, time)}; source {Clean(l.Source)}; level {Clean(l.Level)}; {Clean(l.Text)}")));
+            rows.AddRange(diff.Split('\n').Where(line => line.Length > 0).Select(line => new Row("Config diff " + CleanText(line))));
+        rows.AddRange((logs.LogLines ?? []).Select(l => new Row($"Log {ChangeLogTime(l.Time, time)}; source {Clean(l.Source)}; level {Clean(l.Level)}; {CleanText(l.Text)}")));
         return Rows(heading, rows, alsoOmitted: (data.Librenms.Omitted ?? 0) + (config.ConfigDiffLinesOmitted ?? 0));
     }
     private static string ChangeLogTime(string? value, TimeProvider time)

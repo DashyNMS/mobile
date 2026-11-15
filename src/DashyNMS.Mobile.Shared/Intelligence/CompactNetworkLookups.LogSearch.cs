@@ -19,7 +19,7 @@ public sealed partial class CompactNetworkLookups
         if (data.WhyNone is { } why) rows.Add(new("No-match context: " + Clean(why)));
         if (data.TopFrom is { } source) rows.Add(new("Top values from " + Clean(source) + "."));
         rows.AddRange((data.Lines ?? []).Select(l => new Row("Log " + (l.Time is { } instant ? IntelligenceTime.AtAndAgo(instant, at, time) : "time unknown")
-            + $"; source {Clean(l.Source)}; level {Clean(l.Level)}; facility {Clean(l.Facility)}; application {Clean(l.Application)}; {Clean(l.Text)}")));
+            + $"; source {Clean(l.Source)}; level {Clean(l.Level)}; facility {Clean(l.Facility)}; application {Clean(l.Application)}; {CleanText(l.Text)}")));
         if (data.Top is { } top)
             foreach (var (label, values) in new[] { ("source", top.Sources), ("level", top.Levels), ("facility", top.Facilities), ("application", top.Applications) })
                 rows.AddRange((values ?? []).Select(v => new Row($"Top {label} {Clean(v.Value)}: {Id(v.Count)}.")));

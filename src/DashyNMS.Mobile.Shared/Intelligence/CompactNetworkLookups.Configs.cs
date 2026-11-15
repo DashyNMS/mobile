@@ -47,7 +47,7 @@ public sealed partial class CompactNetworkLookups
             + (page.NextOffset is { } next ? $" Next offset {Id(next)}." : "") + $" Backups total {Id(data.BackupsTotal)}.";
         var rows = new List<Row> { FleetDevice(data.Device, name, "Config backup", at), UnimusDeviceRow(data.UnimusDevice) };
         if (data.Config is { Length: > 0 } config)
-            rows.AddRange(config.Split('\n').Select((line, index) => new Row($"Config line {Id(page.Offset + index + 1)}: " + (line.Length == 0 ? "(blank)" : Clean(line)))));
+            rows.AddRange(config.Split('\n').Select((line, index) => new Row($"Config line {Id(page.Offset + index + 1)}: " + (line.Length == 0 ? "(blank)" : CleanText(line)))));
         rows.AddRange(data.Backups.Select(b => new Row(BackupVersionText(b, time))));
         return Rows(heading, rows, alsoOmitted: Math.Max(0, data.BackupsTotal - data.Backups.Count)
             + (data.Config is null ? 0 : Math.Max(0, page.Total - page.Offset - page.Returned)));
@@ -61,7 +61,7 @@ public sealed partial class CompactNetworkLookups
             + " From " + BackupVersionText(data.From, time) + ". To " + BackupVersionText(data.To, time) + ".";
         var rows = new List<Row> { FleetDevice(data.Device, name, "Config comparison", at) };
         if (data.ConfigDiff is { Length: > 0 } diff)
-            rows.AddRange(diff.Split('\n').Select(line => new Row("Config diff " + Clean(line))));
+            rows.AddRange(diff.Split('\n').Select(line => new Row("Config diff " + CleanText(line))));
         return Rows(heading, rows, alsoOmitted: data.ConfigDiffLinesOmitted ?? 0);
     }
     private static Reply ConfigChangesRows(RecentConfigChangesResult found, DateTimeOffset at, TimeProvider time, Func<DeviceBrief, string> name)

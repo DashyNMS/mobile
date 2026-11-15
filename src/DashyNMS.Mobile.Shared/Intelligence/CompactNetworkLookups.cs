@@ -1129,12 +1129,19 @@ public sealed partial class CompactNetworkLookups(
     /// <summary>Bounds network labels and prevents control characters from creating extra rows or markers.</summary>
     internal static string Clean(string? value)
     {
+        var clean = CleanText(value);
+        return clean.Length <= 80 ? clean : clean[..79] + "…";
+    }
+
+    /// <summary>Sanitizes complete text rows; Rows applies the omission budget.</summary>
+    internal static string CleanText(string? value)
+    {
         if (string.IsNullOrWhiteSpace(value)) return "unknown";
         // A label must never close or open an inline marker of its own.
         var clean = new string(value.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
         while (clean.Contains("[[", StringComparison.Ordinal) || clean.Contains("]]", StringComparison.Ordinal))
             clean = clean.Replace("[[", "[ [", StringComparison.Ordinal).Replace("]]", "] ]", StringComparison.Ordinal);
         clean = clean.Trim();
-        return clean.Length <= 80 ? clean : clean[..79] + "…";
+        return clean;
     }
 }
