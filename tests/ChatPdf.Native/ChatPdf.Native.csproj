@@ -6,7 +6,10 @@
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
     <ApplicationId>net.example.dashynms.pdfregression</ApplicationId>
     <ApplicationTitle>PDF regression</ApplicationTitle>
-    <EnableCodeSigning>false</EnableCodeSigning>
+    <EnableCodeSigning>true</EnableCodeSigning>
+    <CodesignKey>-</CodesignKey>
+    <CodesignRequireProvisioningProfile>false</CodesignRequireProvisioningProfile>
+    <UseInterpreter>true</UseInterpreter>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj" />

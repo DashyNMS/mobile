@@ -39,11 +39,10 @@ def desktop_reference():
 
 
 def native_pdf():
-    run("dotnet", "build", "tests/ChatPdf.Native", "-c", "Debug", "-p:EnableCodeSigning=false")
+    run("dotnet", "build", "tests/ChatPdf.Native", "-c", "Debug")
     app = next((ROOT / "tests/ChatPdf.Native/bin/Debug/net10.0-ios/iossimulator-arm64").glob("*.app"))
-    # The unsigned build needs no distribution identity, but arm64 simulators still
-    # validate executable pages. Sign this synthetic bundle ad hoc before installing.
-    run("codesign", "--force", "--deep", "--sign", "-", str(app))
+    # Let the .NET SDK sign the executable and runtime dependencies in build order.
+    # This is simulator-only ad-hoc signing, with no distribution credentials.
     run("codesign", "--verify", "--deep", "--strict", str(app))
     runtimes = json.loads(run("xcrun", "simctl", "list", "runtimes", "--json", capture=True))["runtimes"]
     available = {r["identifier"]: r for r in runtimes if r.get("isAvailable") and r["name"].startswith("iOS ")}
@@ -64,6 +63,11 @@ def native_pdf():
         run("xcrun", "simctl", "boot", device)
         run("xcrun", "simctl", "bootstatus", device, "-b")
         run("xcrun", "simctl", "install", device, str(app))
+        installed = run("xcrun", "simctl", "get_app_container", device, "net.example.dashynms.pdfregression", "app", capture=True)
+        run("codesign", "--verify", "--deep", "--strict", installed)
+        with (OUTPUT / "native-signature.log").open("w") as log:
+            subprocess.run(["codesign", "--display", "--verbose=4", "--entitlements", ":-", installed],
+                           stdout=log, stderr=subprocess.STDOUT, check=True)
         run("xcrun", "simctl", "launch", device, "net.example.dashynms.pdfregression")
         container = Path(run("xcrun", "simctl", "get_app_container", device, "net.example.dashynms.pdfregression", "data", capture=True))
         result = container / "Documents/result.txt"
