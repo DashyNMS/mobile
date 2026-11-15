@@ -3,7 +3,7 @@ using DashyNMS.Mobile.Intelligence;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
-using DesktopNMS.Core.Intelligence;
+using IntelligenceImage = DesktopNMS.Core.Intelligence.IntelligenceImage;
 using DesktopNMS.Services;
 
 namespace DashyNMS.Mobile.Tests;
