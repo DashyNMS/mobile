@@ -85,5 +85,5 @@ public sealed partial class CompactNetworkLookups
     }
 
     private static string Count(long? value) => value is { } count ? count.ToString(System.Globalization.CultureInfo.InvariantCulture) : "unknown";
-    private static string Number(double? value) => value is { } number ? number.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) : "unknown";
+    internal static string Number(double? value) => value is { } number ? number.ToString("R", System.Globalization.CultureInfo.InvariantCulture) : "unknown";
 }
