@@ -41,6 +41,10 @@ def desktop_reference():
 def native_pdf():
     run("dotnet", "build", "tests/ChatPdf.Native", "-c", "Debug", "-p:EnableCodeSigning=false")
     app = next((ROOT / "tests/ChatPdf.Native/bin/Debug/net10.0-ios/iossimulator-arm64").glob("*.app"))
+    # The unsigned build needs no distribution identity, but arm64 simulators still
+    # validate executable pages. Sign this synthetic bundle ad hoc before installing.
+    run("codesign", "--force", "--deep", "--sign", "-", str(app))
+    run("codesign", "--verify", "--deep", "--strict", str(app))
     runtimes = json.loads(run("xcrun", "simctl", "list", "runtimes", "--json", capture=True))["runtimes"]
     available = {r["identifier"]: r for r in runtimes if r.get("isAvailable") and r["name"].startswith("iOS ")}
     devices = json.loads(run("xcrun", "simctl", "list", "devices", "available", "--json", capture=True))["devices"]

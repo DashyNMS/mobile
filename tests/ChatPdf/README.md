@@ -3,7 +3,7 @@
 GitHub Actions runs `scripts/check-chat-pdf.py` on its Xcode runner. It builds a
 small native simulator application containing the **same renderer source used
 by the shipping app**, and prints a recorded conversation with a table, code,
-source link, graph and ninety paragraphs. Nothing is built or run locally.
+source link, graph and ninety paragraphs. Nothing is built or run locally. The synthetic simulator bundle is ad-hoc signed and verified after its unsigned build; it uses no distribution credentials.
 
 A reference harness prints the same model with desktop's PDF writer and Markdown
 parser, fetched at commit `88600f8c084953103cb1df59ccff9b0e800fbd2c` with both
