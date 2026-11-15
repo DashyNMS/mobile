@@ -83,3 +83,7 @@ check EventHistory a9032220aa18c3234d920f0503eba6de0348d6ba \
 # Graylog relative-query messages and expected window counts.
 check LogSearch a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md messages.json
+
+# Unimus backups, diffs and recent-change envelopes.
+check ConfigLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
+  README.md routes.json

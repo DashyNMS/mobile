@@ -62,6 +62,7 @@ internal sealed class IntelligenceIntegrationClients : IDisposable
     {
         this.stillCurrent = stillCurrent ?? (() => true);
         GraylogReachable = graylogReachable;
+        UnimusConfigured = unimusConnection is not null;
         if (graylogConnection is not null) graylog.Configure(graylogConnection);
         if (unimusConnection is not null) unimus.Configure(unimusConnection);
         Graylog = new ReadOnlyGraylog(this);
@@ -80,6 +81,7 @@ internal sealed class IntelligenceIntegrationClients : IDisposable
         };
     }
     internal bool GraylogReachable { get; }
+    internal bool UnimusConfigured { get; }
     internal IGraylogApi Graylog { get; }
     internal IUnimusApi Unimus { get; }
     internal AgentOptions Options { get; }

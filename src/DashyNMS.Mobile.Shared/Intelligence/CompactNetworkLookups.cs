@@ -9,6 +9,7 @@ using DashyNMS.Agent.Ports;
 using DashyNMS.Agent.Rankings;
 using DashyNMS.Agent.Events;
 using DashyNMS.Agent.Graylog;
+using DashyNMS.Agent.Unimus;
 using DashyNMS.Agent.Summaries;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -123,11 +124,11 @@ public sealed partial class CompactNetworkLookups(
     /// </summary>
     internal static readonly IReadOnlySet<string> ReviewedTools = new HashSet<string>(StringComparer.Ordinal)
     {
-        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed", "search_logs",
+        "network_overview", "find_device", "device_health", "active_alerts", "device_sensors", "list_groups_and_locations", "alert_details", "alert_rules", "port_status", "device_neighbours", "trace_endpoint", "device_details", "top_interfaces", "top_errors", "top_devices", "health_overview", "device_events", "network_events", "what_changed", "search_logs", "config_backup", "config_diff", "recent_config_changes",
     };
 
     /// <summary>Reviewed capabilities offered only after their integration is ready.</summary>
-    internal static readonly IReadOnlySet<string> ConfiguredTools = new HashSet<string>(StringComparer.Ordinal) { "search_logs" };
+    internal static readonly IReadOnlySet<string> ConfiguredTools = new HashSet<string>(StringComparer.Ordinal) { "search_logs", "config_backup", "config_diff", "recent_config_changes" };
 
     /// <summary>
     /// The catalogue parameters each tool offers on the phone. The rest are left out of the model's
@@ -138,6 +139,9 @@ public sealed partial class CompactNetworkLookups(
     {
         ["network_overview"] = [],
         ["list_groups_and_locations"] = [],
+        ["config_backup"] = ["device", "backup_id", "offset", "limit"],
+        ["config_diff"] = ["device", "from_backup", "to_backup"],
+        ["recent_config_changes"] = ["hours", "since", "until", "group", "location", "offset", "limit"],
         ["search_logs"] = ["text", "device", "since", "until", "hours", "level", "stream", "limit"],
         ["what_changed"] = ["device", "hours", "since", "until"],
         ["device_events"] = ["device", "hours", "since", "until", "offset", "limit"],
@@ -270,10 +274,15 @@ public sealed partial class CompactNetworkLookups(
         var logsBound = scope is not { } capturedLogs || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedLogs, deviceTransport, logSearch: true);
         var logSearch = logsBound is null ? null : HostLogSearch.Create(logsBound, integrationClients.Graylog, time, integrationClients.Options);
+        var configsBound = scope is not { } capturedConfigs || deviceTransport is null ? null
+            : new ConnectionBoundClient(capturedConfigs, deviceTransport, configs: true);
+        var configLookups = configsBound is null ? null : HostConfigLookups.Create(configsBound, integrationClients.Unimus, time, integrationClients.Options);
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
         {
+            configLookups?.Dispose();
+            configsBound?.Dispose();
             logSearch?.Dispose();
             logsBound?.Dispose();
             changes?.Dispose();
@@ -717,6 +726,40 @@ public sealed partial class CompactNetworkLookups(
                 return Rows(SensorHeading($"{deviceName} [[device:{Id(d.DeviceId)}]]", found.Totals, found.Types),
                     found.Readings.Select(r => SensorRow(r, d.DeviceId, deviceName, at)), [device]);
             }),
+            Lookup("config_backup", "device", async (arguments, at, ct) =>
+            {
+                if (configLookups is null) return Reply.Say(Failed);
+                integrationClients.Current();
+                if (integrationClients.Options.ConfigText == DashyNMS.Agent.ConfigText.Off) return Reply.Say(ConfigOff);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var outcome = await WhileCurrent(() => configLookups.ReadBackupAsync(new(id, arguments.Number("backup_id"),
+                    arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 200), ct)).ConfigureAwait(false);
+                integrationClients.Current();
+                return outcome.Result is { } found ? ConfigBackupRows(found, at, time, BriefName) : ConfigFailure(outcome.Error);
+            }),
+            Lookup("config_diff", "device", async (arguments, at, ct) =>
+            {
+                if (configLookups is null) return Reply.Say(Failed);
+                integrationClients.Current();
+                if (integrationClients.Options.ConfigText == DashyNMS.Agent.ConfigText.Off) return Reply.Say(ConfigOff);
+                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                if (resolved.Id is not { } id) return resolved.Reply!;
+                var outcome = await WhileCurrent(() => configLookups.ReadDiffAsync(new(id, arguments.Number("from_backup"), arguments.Number("to_backup")), ct)).ConfigureAwait(false);
+                integrationClients.Current();
+                return outcome.Result is { } found ? ConfigDiffRows(found, at, time, BriefName) : ConfigFailure(outcome.Error);
+            }),
+            Lookup("recent_config_changes", null, async (arguments, at, ct) =>
+            {
+                if (configLookups is null) return Reply.Say(Failed);
+                integrationClients.Current();
+                if (integrationClients.Options.ConfigText == DashyNMS.Agent.ConfigText.Off) return Reply.Say(ConfigOff);
+                var request = new RecentConfigChangesRequest(arguments.Number("hours"), arguments.Text("since"), arguments.Text("until"),
+                    arguments.Text("group"), arguments.Text("location"), arguments.Number("offset") ?? 0, arguments.Number("limit") ?? 20);
+                var outcome = await WhileCurrent(() => configLookups.ReadChangesAsync(request, ct)).ConfigureAwait(false);
+                integrationClients.Current();
+                return outcome.Result is { } found ? ConfigChangesRows(found, at, time, BriefName) : ConfigFailure(outcome.Error);
+            }),
             Lookup("search_logs", "text", async (arguments, at, ct) =>
             {
                 if (logSearch is null) return Reply.Say(Failed);
@@ -876,7 +919,12 @@ public sealed partial class CompactNetworkLookups(
                 return ScopeRows(found, at);
             }),
         ];
-        var available = lookups.Where(l => l.Name != "search_logs" || integrationClients.GraylogReachable).ToList();
+        var available = lookups.Where(l => l.Name switch
+        {
+            "search_logs" => integrationClients.GraylogReachable,
+            "config_backup" or "config_diff" or "recent_config_changes" => integrationClients.UnimusConfigured,
+            _ => true,
+        }).ToList();
         return new IntelligenceLookupSet(available, RetireShared);
     }
 

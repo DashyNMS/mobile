@@ -54,7 +54,7 @@ MCP doesn't yet (DashyNMS/mcp#121).
 
 | Desktop | Phone now | Issue |
 | --- | --- | --- |
-| 24 network tools | Up to 20: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, and configured `search_logs` | #236 |
+| 24 network tools | Up to 23: `network_overview`, `find_device`, `active_alerts`, `device_sensors`, `device_health`, `list_groups_and_locations`, `alert_details`, `alert_rules`, `port_status`, `device_neighbours`, `trace_endpoint`, `device_details`, `top_interfaces`, `top_errors`, `top_devices`, `health_overview`, `device_events`, `network_events`, `what_changed`, and configured `search_logs`, `config_backup`, `config_diff` and `recent_config_changes` | #236 |
 | Tool names, arguments and descriptions from MCP | Done: the shared catalogue's text and typed arguments, devices by name, address or ID; paging and time windows left out | #635 |
 | Results with times, notes and every field | Compact text without times, alert notes or several fields | #636 |
 | Every tool on every question, 48 lookups in 16 rounds | The tools each question's words, Spotlight and earlier questions point to, and their named tools, while they fit; two lookups at 4,096 tokens, more as the context grows, up to 48 | Allowed difference (#637) |
@@ -215,7 +215,7 @@ To refresh, count the `McpServerTool(Name = ...)` attributes under
 | `top_interfaces`, `top_errors`, `top_devices`, `health_overview` | Ranked metrics and scoped sensor assessment | Shared, with captured host thresholds | #644 |
 | `device_events`, `network_events`, `what_changed` | Event and change history | Shared timelines and optional-service change context | #645 |
 | `search_logs` | Graylog messages | Shared, offered after a configured readiness probe | #646 |
-| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Not yet; Unimus is already on the phone | #647 |
+| `config_backup`, `config_diff`, `recent_config_changes` | Unimus configuration | Shared, with captured config-text policy | #647 |
 | `device_details` | Inventory, VLANs, FDB, ARP, PoE, wireless, routing, addresses | Shared section selection and paging | #648 |
 | `graph` | Graph images | Not yet | #649 |
 
@@ -497,6 +497,32 @@ readings, order, states, values, totals and request logs as MCP, and fail alike.
 fallback reads concurrently, so its requests are compared as a set. The type case runs
 through the package alone. Installed state definitions need a catalogue on disk and
 are covered in Core, not here.
+
+### How Unimus config tools are built
+
+`config_backup`, `config_diff` and `recent_config_changes` use
+`HostConfigLookups` with separate captured Unimus clients and all catalogue
+arguments. They are offered only when Unimus is configured. The saved
+`IntelligenceConfigText` choice is captured with each attempt: Off refuses before
+any LibreNMS or Unimus read, Summary returns metadata/counts, and Full permits
+shared redacted text. A privacy or integration change discards in-flight results
+and evidence. No backup trigger, reconfiguration or connection test is exposed.
+
+The dedicated LibreNMS profile allows only the device list and group catalogue/
+membership needed by shared config matching and scopes. Shared owns matching,
+backup selection, revision lookup, paging, diff rendering, windows and fleet
+filtering. Mobile formats local times, config lines, backup IDs and cursors,
+whole-row omissions and verified device evidence. Unreadable-device counts lead
+recent-change replies, so failures cannot look like a complete empty result.
+Backup warnings remain from Shared, with their dates localised. Server error
+bodies never enter replies.
+
+The copied upstream ConfigLookups fixture uses synthetic bearer authentication
+and real Core HTTP clients. CI compares request sets and known backup/diff/change
+facts with the shared host; further cases cover Full/Summary/Off, line paging,
+redaction, unavailable tools, scoped partial failures, cancellation, privacy
+changes, token retirement and the read-only profile. Field accounting, the
+Settings control and iPhone acceptance remain pending while this PR is draft.
 
 ### How search_logs is built
 
