@@ -765,7 +765,9 @@ rows that do not fit, and offers only the displayed device chip. Pages retain
 their offset, limit and next offset. The common deadline and retirement logic
 covers the operation. Copied upstream HTTP fixtures test every section, request
 sets, inventory/VLAN/PoE/routing/availability/address facts, failed VLAN reads,
-page counts, invalid arguments and the client restrictions. Device-detail field
+page counts, invalid arguments and the client restrictions. Typed-boundary facts
+also cover true, false and missing replaceability/BGP admin-down flags; explicit
+false is rendered as no, while a missing value remains unknown. Device-detail field
 accounting compares every populated MCP Data leaf in each section fixture and
 an inventory page with the phone's text. Additional HTTP cases cover populated
 wireless data and page metadata before budget omissions. iPhone acceptance

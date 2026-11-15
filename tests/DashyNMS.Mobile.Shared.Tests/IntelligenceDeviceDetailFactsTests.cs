@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using DashyNMS.Agent.Devices;
+using DashyNMS.Agent.Summaries;
+using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Api;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
@@ -9,6 +11,32 @@ namespace DashyNMS.Mobile.Tests;
 
 public sealed partial class IntelligenceFactsTests
 {
+    [Theory]
+    [InlineData("inventory", true, "yes")]
+    [InlineData("inventory", false, "no")]
+    [InlineData("inventory", null, "unknown")]
+    [InlineData("routing", true, "yes")]
+    [InlineData("routing", false, "no")]
+    [InlineData("routing", null, "unknown")]
+    public void Nullable_detail_facts_preserve_known_negatives_and_missing_values(string section, bool? flag, string expected)
+    {
+        // The current Shared HTTP projection omits negative flags. Exercise the
+        // complete typed contract independently, including an explicit false.
+        var data = new DeviceDetailsData
+        {
+            Device = new DeviceBrief(1, "core-sw1.example.net", "Core switch", "192.0.2.1", "Lab", "up"),
+            Inventory = section == "inventory" ? [new InventoryDetail("chassis", "Chassis", null, null, null, null, null, null, null, flag)] : null,
+            Routing = section == "routing" ? new RoutingDetails([new BgpDetail("192.0.2.9", 64512, null, null, "idle", flag, null, null)], [], []) : null,
+        };
+        var found = new DeviceDetailsResult("Details", data, [section], new Dictionary<string, int> { [section] = 1 });
+        var text = CompactNetworkLookups.DeviceDetailRows(found, Now, new FakeTimeProvider(Now), true, "Core switch").Text;
+        Assert.Contains((section == "inventory" ? "replaceable " : "admin down ") + expected, text);
+        var fields = Fields(JsonSerializer.SerializeToElement(new { data }, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower }));
+        var path = section == "inventory" ? "inventory.replaceable" : "routing.bgp_sessions.admin_down";
+        if (flag is not null) Assert.All(fields[path], fact => Assert.True(ShownFor(path, [fact.Value], fact.Scope, text)));
+        else Assert.DoesNotContain(path, fields.Keys);
+    }
+
     [Theory]
     [InlineData("inventory", 20)]
     [InlineData("inventory", 1)]

@@ -4,7 +4,7 @@ namespace DashyNMS.Mobile.Intelligence;
 
 public sealed partial class CompactNetworkLookups
 {
-    private static Reply DeviceDetailRows(DeviceDetailsResult found, DateTimeOffset at, TimeProvider time, bool timestampsAreUtc, string name)
+    internal static Reply DeviceDetailRows(DeviceDetailsResult found, DateTimeOffset at, TimeProvider time, bool timestampsAreUtc, string name)
     {
         var data = found.Data;
         var device = data.Device;
@@ -17,7 +17,7 @@ public sealed partial class CompactNetworkLookups
             rows.AddRange(pages.Select(p => new Row($"{Clean(p.Key)} page: offset {Id(p.Value.Offset)}; limit {Id(p.Value.Limit)}; returned {Id(p.Value.Returned)}; total {Id(p.Value.Total)}"
                 + (p.Value.NextOffset is { } next ? $"; next offset {Id(next)}" : "") + ".")));
         if (data.Inventory is { } inventory)
-            rows.AddRange(inventory.Select(i => new Row($"Inventory {Clean(i.Name)}; class {Clean(i.Class)}; description {Clean(i.Description)}; model {Clean(i.Model)}; serial {Clean(i.Serial)}; manufacturer {Clean(i.Manufacturer)}; hardware rev {Clean(i.HardwareRev)}; firmware rev {Clean(i.FirmwareRev)}; software rev {Clean(i.SoftwareRev)}; replaceable {(i.Replaceable == true ? "yes" : "unknown")}.")));
+            rows.AddRange(inventory.Select(i => new Row($"Inventory {Clean(i.Name)}; class {Clean(i.Class)}; description {Clean(i.Description)}; model {Clean(i.Model)}; serial {Clean(i.Serial)}; manufacturer {Clean(i.Manufacturer)}; hardware rev {Clean(i.HardwareRev)}; firmware rev {Clean(i.FirmwareRev)}; software rev {Clean(i.SoftwareRev)}; replaceable {YesNo(i.Replaceable)}.")));
         if (data.Vlans is { } vlans)
             rows.AddRange(vlans.Select(v => new Row($"VLAN {Id(v.Vlan)} {Clean(v.Name)}; untagged ports {Names(v.UntaggedPorts)}; tagged ports {Names(v.TaggedPorts)}.")));
         if (data.Fdb is { } fdb)
@@ -35,7 +35,7 @@ public sealed partial class CompactNetworkLookups
             rows.AddRange(wireless.Select(w => new Row($"Wireless {Clean(w.Type)} {Clean(w.Description)}; value {Number(w.Value)}; state {Clean(w.State)}.")));
         if (data.Routing is { } routing)
         {
-            rows.AddRange(routing.BgpSessions.Select(b => new Row($"BGP {Clean(b.Peer)}; remote AS {b.RemoteAs.ToString(System.Globalization.CultureInfo.InvariantCulture)} {Clean(b.RemoteAsName)}; description {Clean(b.Description)}; state {Clean(b.State)}; admin down {(b.AdminDown == true ? "yes" : "unknown")}; established seconds {Count(b.EstablishedSeconds)}; last error {Clean(b.LastError)}.")));
+            rows.AddRange(routing.BgpSessions.Select(b => new Row($"BGP {Clean(b.Peer)}; remote AS {b.RemoteAs.ToString(System.Globalization.CultureInfo.InvariantCulture)} {Clean(b.RemoteAsName)}; description {Clean(b.Description)}; state {Clean(b.State)}; admin down {YesNo(b.AdminDown)}; established seconds {Count(b.EstablishedSeconds)}; last error {Clean(b.LastError)}.")));
             rows.AddRange(routing.OspfNeighbours.Select(o => new Row($"OSPF {Clean(o.Address)}; router ID {Clean(o.RouterId)}; state {Clean(o.State)}; port {Clean(o.Port)}.")));
             rows.AddRange(routing.Vrfs.Select(v => new Row($"VRF {Clean(v.Name)}; route distinguisher {Clean(v.RouteDistinguisher)}; description {Clean(v.Description)}.")));
         }
@@ -48,6 +48,8 @@ public sealed partial class CompactNetworkLookups
         var unfetched = pages?.Values.Sum(p => Math.Max(0, p.Total - p.Offset - p.Returned)) ?? 0;
         return Rows(heading, rows, alsoOmitted: unfetched);
     }
+
+    private static string YesNo(bool? value) => value switch { true => "yes", false => "no", _ => "unknown" };
 
     private static string Names(IReadOnlyList<string?> names) => names.Count == 0 ? "none" : string.Join(", ", names.Select(Clean));
 }
