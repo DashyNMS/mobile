@@ -276,6 +276,7 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
             RefreshStarters();
             Turns.Clear();
             _retainedObjectChats.Clear();
+            _memoryOnlyChat = _preferences.SingleChatMode;
             ClearSpotlight();
             Draft = "";
             _selectedDetail = null;

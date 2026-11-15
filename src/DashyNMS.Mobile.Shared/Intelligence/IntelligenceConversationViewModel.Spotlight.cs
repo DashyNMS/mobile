@@ -13,7 +13,7 @@ public sealed partial class IntelligenceConversationViewModel
     public IReadOnlyList<SavedChatSpotlight> Spotlight => _spotlight;
     public string SpotlightInstructions => string.Join("; ", _spotlight.Select(s =>
         $"{s.Object!.Kind} {s.Object.Id}" + (s.Object.DeviceId is { } device ? $" on device {device}" : "")
-        + (s.Object.RuleId is { } rule ? $", rule {rule}" : "") + ": " + CompactNetworkLookups.Clean(s.Name)));
+        + (s.Object.RuleId is { } rule ? $", rule {rule}" : "")));
 
     private sealed record RetainedChat(IReadOnlyList<IntelligenceTurn> Turns, string Draft, string? Detail, IReadOnlyList<SavedChatSpotlight> Spotlight, bool MemoryOnly);
     private bool _memoryOnlyChat;

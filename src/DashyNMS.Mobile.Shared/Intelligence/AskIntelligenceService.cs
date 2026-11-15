@@ -23,7 +23,7 @@ public sealed class AskIntelligenceService(IntelligenceConversationViewModel con
             var resolved = await spotlight.ResolveAsync(scope, identity, token);
             if (resolved.Result is not { } found || !scope.IsCurrent(session) || token.IsCancellationRequested
                 || revision != conversation.ChatRevision || !conversation.CanAsk) return false;
-            var created = preferences.SingleChatMode
+            var created = preferences.SingleChatMode || conversation.IsMemoryOnlyChat
                 ? conversation.NewObjectChatRetainingDraft()
                 : await chats.NewChatAsync();
             if (!created || !scope.IsCurrent(session) || !conversation.CanAsk) return false;
