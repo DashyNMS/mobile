@@ -85,7 +85,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 						var result = await lookup.ReadAsync(arguments ?? string.Empty, token);
 						token.ThrowIfCancellationRequested();
 						var images = IntelligenceAnswerImages.Accept(result.Images).Take(1).Select(i => NSData.FromArray(i.Data)).ToArray();
-						try { reply.FinishWithImages(result.Text, images, IntelligenceLookupResult.ImageTokenBudget, result.MetadataOnlyText); }
+						try { reply.FinishWithImages(result.Text, images, IntelligenceLookupResult.ImageTokenBudget, result.MetadataOnlyText, result.ImageId); }
 						finally { foreach (var image in images) image.Dispose(); }
 					}
 					catch (Exception)
@@ -106,7 +106,7 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				(answer, usage, error) =>
 				{
 					if (error is null)
-						finished.TrySetResult(new IntelligenceAnswer(answer ?? string.Empty, usage) { LookupImagesProvided = _session.LookupImagesProvided });
+						finished.TrySetResult(new IntelligenceAnswer(answer ?? string.Empty, usage) { LookupImageIdsProvided = _session.LookupImageIdsProvided });
 					else if (cancellationToken.IsCancellationRequested)
 						finished.TrySetCanceled(cancellationToken);
 					else

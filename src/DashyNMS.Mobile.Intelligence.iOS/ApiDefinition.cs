@@ -27,8 +27,8 @@ interface DnmLookupReply
     [Export("finish:")]
     void Finish([NullAllowed] string text);
 
-    [Export("finish:images:imageTokenBudget:metadataOnlyText:")]
-    void FinishWithImages([NullAllowed] string text, NSData[] images, nint imageTokenBudget, [NullAllowed] string metadataOnlyText);
+    [Export("finish:images:imageTokenBudget:metadataOnlyText:imageId:")]
+    void FinishWithImages([NullAllowed] string text, NSData[] images, nint imageTokenBudget, [NullAllowed] string metadataOnlyText, [NullAllowed] string imageId);
 }
 
 // @interface DNMLookup : NSObject
@@ -79,8 +79,8 @@ interface DnmIntelligenceSession
     [Export("prewarm")]
     void Prewarm();
 
-    [Export("lookupImagesProvided")]
-    bool LookupImagesProvided { get; }
+    [Export("lookupImageIdsProvided")]
+    string[] LookupImageIdsProvided { get; }
 
     // - (void)ask:(NSString *)question onText:(void (^)(NSString *))onText completion:(void (^)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))completion;
     [Export("ask:onText:completion:")]

@@ -160,12 +160,13 @@ public sealed class SharedGraphLookupHttpTests
         Assert.Empty(mobile.Images);
         Assert.Empty(mobile.Evidence);
     }
-    private sealed class TextBridgeModel(bool supportsImages = false, bool imagesProvided = false) : IIntelligenceModel
+    private sealed class TextBridgeModel(bool supportsImages = false, bool imagesProvided = false, int? rejectedImage = null) : IIntelligenceModel
     {
         public IntelligenceAvailability Availability => IntelligenceAvailability.Available;
         public int? ContextSize => 8192;
         public bool SupportsLookupImages => supportsImages;
         private bool ReportsImages => imagesProvided;
+        private int? RejectedImage => rejectedImage;
         public IReadOnlyList<IntelligenceImage> Received { get; private set; } = [];
         public string? Result { get; private set; }
         public Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult<int?>(null);
@@ -175,16 +176,25 @@ public sealed class SharedGraphLookupHttpTests
             public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
             {
                 var graph = tools.Single(t => t.Name == "graph");
+                var provided = new List<string>();
                 if (owner.SupportsLookupImages)
                 {
-                    var result = await graph.ReadAsync("1", cancellationToken);
-                    Assert.NotNull(result.MetadataOnlyText);
-                    Assert.InRange(result.MetadataOnlyText.Length, 1, CompactNetworkLookups.MaxCharacters);
-                    owner.Result = owner.ReportsImages ? result.Text : result.MetadataOnlyText;
-                    owner.Received = result.Images;
+                    var images = new List<IntelligenceImage>();
+                    for (var i = 0; i < (owner.RejectedImage is null ? 1 : 2); i++)
+                    {
+                        var result = await graph.ReadAsync(i == 0 ? "1" : """{"device":"1","type":"cpu"}""", cancellationToken);
+                        Assert.NotNull(result.MetadataOnlyText);
+                        Assert.NotNull(result.ImageId);
+                        Assert.InRange(result.MetadataOnlyText.Length, 1, CompactNetworkLookups.MaxCharacters);
+                        var accepted = owner.ReportsImages && i != owner.RejectedImage;
+                        owner.Result = accepted ? result.Text : result.MetadataOnlyText;
+                        if (accepted) provided.Add(result.ImageId);
+                        images.AddRange(result.Images);
+                    }
+                    owner.Received = images;
                 }
                 else owner.Result = await graph.Run("1", cancellationToken);
-                return new("The requested graph is attached.", null) { LookupImagesProvided = owner.SupportsLookupImages && owner.ReportsImages };
+                return new("The requested graph is attached.", null) { LookupImageIdsProvided = provided };
             }
             public void Dispose() { }
         }
@@ -219,6 +229,30 @@ public sealed class SharedGraphLookupHttpTests
         var restored = Assert.Single(IntelligenceSavedChats.Turns(new SavedIntelligenceChat { Messages = IntelligenceSavedChats.Messages(chat.Turns) }));
         Assert.Equal(turn.Images[0].Data, Assert.Single(restored.Images).Data);
         Assert.Equal(turn.Answer, restored.Answer);
+    }
+
+    [Theory]
+    [InlineData(0, "Graph image 1 was")]
+    [InlineData(1, "Graph image 2 was")]
+    public async Task Mixed_delivery_identifies_the_rejected_graph_even_when_another_image_reaches_the_model(int rejected, string notice)
+    {
+        using var server = Server();
+        using var mobile = new Mobile(server.Root);
+        var store = Substitute.For<ICheckedSettingsStore>();
+        store.Current.Returns(new AppSettings());
+        var saved = new InMemoryPreferences();
+        saved.Set(IntelligencePreferences.NoticeKey, "accepted");
+        var model = new TextBridgeModel(true, true, rejected);
+        using var chat = new IntelligenceConversationViewModel(model, new IntelligencePreferences(store, saved), mobile.Provider, mobile.Session);
+        Assert.True(await chat.AskAsync("Show me this device's traffic today"));
+        var turn = Assert.Single(chat.Turns);
+        Assert.Equal(IntelligenceTurnState.Completed, turn.State);
+        Assert.Equal(2, turn.Images.Count);
+        Assert.Contains(notice + " attached for you, but the model received metadata only and cannot read that image.", turn.Answer);
+        Assert.DoesNotContain(IntelligenceConversationViewModel.GraphImageNotice, turn.Answer);
+        var restored = Assert.Single(IntelligenceSavedChats.Turns(new SavedIntelligenceChat { Messages = IntelligenceSavedChats.Messages(chat.Turns) }));
+        Assert.Equal(turn.Answer, restored.Answer);
+        Assert.Equal(2, restored.Images.Count);
     }
 
     [Fact]

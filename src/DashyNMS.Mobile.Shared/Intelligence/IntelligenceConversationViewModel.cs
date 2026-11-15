@@ -221,7 +221,10 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         public int Lookups;
         public int LookupFailures;
         public bool HasLookupImages;
-        public bool LookupImagesProvided;
+        public IReadOnlyList<string> LookupImageIdsProvided = [];
+        // Byte-array reference identity follows the actual attachment, even when two
+        // graph responses contain identical pixels or finish in a different order.
+        public Dictionary<byte[], string> LookupImageIds { get; } = new();
         public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -463,6 +466,17 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         {
                             var result = await lookup.ReadAsync(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
                             RequireCurrent(run);
+                            if (IntelligenceAnswerImages.Accept(result.Images).FirstOrDefault() is { } image)
+                            {
+                                var imageId = Guid.NewGuid().ToString("N");
+                                await OnUiAsync(() =>
+                                {
+                                    RequireCurrent(run);
+                                    call.Token.ThrowIfCancellationRequested();
+                                    run.LookupImageIds[image.Data] = imageId;
+                                });
+                                result = result with { ImageId = imageId };
+                            }
                             var failed = CompactNetworkLookups.IsFailure(result.Text);
                             if (failed) Interlocked.Increment(ref run.LookupFailures);
                             Post(run, attemptId, () => { progress.Result = result.Text; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
@@ -491,7 +505,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     {
                         RequireCurrent(run);
                         turn.Answer = markdown;
-                        run.LookupImagesProvided = answer.LookupImagesProvided;
+                        run.LookupImageIdsProvided = answer.LookupImageIdsProvided;
                         turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(answer.Images));
                         turn.State = IntelligenceTurnState.Completed;
                         turn.Message = run.LookupFailures == 0 ? "Completed" : "Completed, but some lookups failed.";
@@ -507,7 +521,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         turn.HistoryOmitted = true;
                         turn.Images = [];
                         run.HasLookupImages = false;
-                        run.LookupImagesProvided = false;
+                        run.LookupImageIdsProvided = [];
+                        run.LookupImageIds.Clear();
                     });
                     attemptStop.Cancel();
                     prompt = "Question:\n" + question;
@@ -561,9 +576,18 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 foreach (var progress in turn.Lookups.Where(p => p.State == IntelligenceLookupState.Running))
                     progress.State = IntelligenceLookupState.Stopped;
-                if (run.HasLookupImages && turn.Images.Count > 0 && (!_model.SupportsLookupImages || turn.State == IntelligenceTurnState.Completed && !run.LookupImagesProvided)
-                    && !turn.Answer.Contains(GraphImageNotice, StringComparison.Ordinal))
-                    turn.Answer = turn.Answer.TrimEnd() + "\n\n" + GraphImageNotice;
+                if (run.HasLookupImages && turn.Images.Count > 0 && (!_model.SupportsLookupImages || turn.State == IntelligenceTurnState.Completed))
+                {
+                    var tracked = turn.Images.Select((image, index) => (image, index))
+                        .Where(item => run.LookupImageIds.ContainsKey(item.image.Data)).ToList();
+                    var missing = tracked.Where(item => !_model.SupportsLookupImages || !run.LookupImageIdsProvided.Contains(run.LookupImageIds[item.image.Data], StringComparer.Ordinal)).ToList();
+                    var notice = missing.Count == tracked.Count ? GraphImageNotice : missing.Count == 0 ? null
+                        : string.Join(", ", missing.Select(item => "Graph image " + (item.index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)))
+                            + (missing.Count == 1 ? " was" : " were") + " attached for you, but the model received metadata only and cannot read "
+                            + (missing.Count == 1 ? "that image." : "those images.");
+                    if (notice is not null && !turn.Answer.Contains(notice, StringComparison.Ordinal))
+                        turn.Answer = turn.Answer.TrimEnd() + "\n\n" + notice;
+                }
                 turn.AnsweredAt ??= DateTimeOffset.UtcNow;
                 Interlocked.CompareExchange(ref _active, null, run);
                 Notify();

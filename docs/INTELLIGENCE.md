@@ -529,8 +529,10 @@ on an image-capable route. Native counts the image as an Attachment before
 submitting it. Invalid decoding, encoded data over Core's 2 MiB limit, decoded
 dimensions over 2048×1024, token-count failure or cost above that reserve uses
 the metadata-only text. That fallback keeps exactly the same rows and evidence,
-and stays within 900 characters. Native confirms actual image submission before
-the completed answer omits its metadata-only notice. iOS 26 keeps the fallback.
+and stays within 900 characters. Native reports submission by an attempt-local
+image ID. The conversation maps each ID to the displayed attachment, so mixed
+success identifies the exact Graph image number that remained metadata-only.
+The notice is part of the saved transcript. iOS 26 keeps the fallback.
 
 Apple documents [multimodal prompts](https://developer.apple.com/documentation/foundationmodels/analyzing-images-with-multimodal-prompting),
 [PromptRepresentable tool output](https://developer.apple.com/documentation/foundationmodels/tool)
@@ -546,7 +548,8 @@ names and refused paths. An end-to-end conversation test verifies that the
 text-only model gets no base64 while the answer and reopened saved-chat snapshot
 keep the graph and metadata-only notice. Capability-enabled cases exercise typed
 pixel delivery, rejected-image notices and the 8,192-token budget; both tool-call
-paths retain the same lookup limit. Field accounting compares device, CPU,
+paths retain the same lookup limit. Mixed-delivery regressions reject either of
+two images and check the numbered notice after saved-chat restoration. Field accounting compares device, CPU,
 port and sensor Data with the fixed MCP projections, plus current typed results
 for custom windows, partial/negative listings and the type-list cap. Types and
 selected entities are checked in their own rows. No Data field is deliberately

@@ -28,14 +28,15 @@ struct LookupResult: Sendable {
     let images: [Data]
     let imageTokenBudget: Int
     let metadataOnlyText: String?
+    let imageId: String?
 }
 
 /// A session records actual image submission, rather than assuming capability means delivery.
 final class ImageUsage: @unchecked Sendable {
     private let lock = NSLock()
-    private var provided = false
-    func markProvided() { lock.lock(); provided = true; lock.unlock() }
-    var wasProvided: Bool { lock.lock(); defer { lock.unlock() }; return provided }
+    private var provided = Set<String>()
+    func markProvided(_ imageId: String) { lock.lock(); provided.insert(imageId); lock.unlock() }
+    var providedIds: [String] { lock.lock(); defer { lock.unlock() }; return provided.sorted() }
 }
 
 /// Where C# puts a lookup's result. An object rather than a block inside a
@@ -52,17 +53,17 @@ public final class LookupReply: NSObject, @unchecked Sendable {
     /// The lookup's text, or nil when it failed. Only the first call counts.
     @objc(finish:)
     public func finish(_ text: String?) {
-        finish(text, images: [], imageTokenBudget: 0, metadataOnlyText: nil)
+        finish(text, images: [], imageTokenBudget: 0, metadataOnlyText: nil, imageId: nil)
     }
 
     /// Objective-C data arrays preserve the call's text/pixel association across concurrent tools.
-    @objc(finish:images:imageTokenBudget:metadataOnlyText:)
-    public func finish(_ text: String?, images: [Data], imageTokenBudget: Int, metadataOnlyText: String?) {
+    @objc(finish:images:imageTokenBudget:metadataOnlyText:imageId:)
+    public func finish(_ text: String?, images: [Data], imageTokenBudget: Int, metadataOnlyText: String?, imageId: String?) {
         lock.lock()
         let waiting = continuation
         continuation = nil
         lock.unlock()
-        waiting?.resume(returning: LookupResult(text: text ?? "The lookup failed.", images: images, imageTokenBudget: imageTokenBudget, metadataOnlyText: metadataOnlyText))
+        waiting?.resume(returning: LookupResult(text: text ?? "The lookup failed.", images: images, imageTokenBudget: imageTokenBudget, metadataOnlyText: metadataOnlyText, imageId: imageId))
     }
 }
 
@@ -118,18 +119,18 @@ struct LookupTool: Tool {
         let result = await lookup.run(arguments.jsonString)
         try Task.checkCancellation()
         if #available(iOS 27.0, *), IntelligenceModel.supportsLookupImages,
-           let image = Self.graphImage(result.images.first), result.imageTokenBudget > 0 {
+           let image = Self.graphImage(result.images.first), let imageId = result.imageId, result.imageTokenBudget > 0 {
             // C# reserves this cost per result when graph is offered. Count the actual
             // image before putting it in the transcript; never guess from PNG byte size.
             let cost = try? await SystemLanguageModel.default.tokenCount(for: Instructions {
-                Attachment(image).label("network-graph")
+                Attachment(image).label(imageId)
             })
             try Task.checkCancellation()
             if let cost, cost <= result.imageTokenBudget {
-                imageUsage.markProvided()
+                imageUsage.markProvided(imageId)
                 return Prompt {
                     result.text
-                    Attachment(image).label("network-graph")
+                    Attachment(image).label(imageId)
                 }
             }
         }
@@ -255,8 +256,8 @@ public final class IntelligenceSession: NSObject {
     private var task: Task<Void, Never>?
     private let imageUsage = ImageUsage()
 
-    @objc(lookupImagesProvided)
-    public var lookupImagesProvided: Bool { imageUsage.wasProvided }
+    @objc(lookupImageIdsProvided)
+    public var lookupImageIdsProvided: [String] { imageUsage.providedIds }
 
     @objc(initWithInstructions:lookups:)
     public init(instructions: String, lookups: [Lookup]) {

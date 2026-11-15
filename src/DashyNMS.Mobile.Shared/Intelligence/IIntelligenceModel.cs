@@ -58,6 +58,8 @@ public sealed record IntelligenceLookupResult(string Text)
     public const int ImageTokenBudget = 1536;
     /// <summary>Same displayed facts and rows, with a bounded notice for native image rejection.</summary>
     public string? MetadataOnlyText { get; init; }
+    /// <summary>Attempt-local identity assigned by the conversation for native delivery reporting.</summary>
+    public string? ImageId { get; init; }
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
 }
 
@@ -109,8 +111,8 @@ public sealed record IntelligenceAnswer(string Text, string? Usage)
     /// </summary>
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
 
-    /// <summary>The native route confirmed that it supplied at least one lookup image in this attempt.</summary>
-    public bool LookupImagesProvided { get; init; }
+    /// <summary>Attempt-local identities of lookup images actually supplied by the native route.</summary>
+    public IReadOnlyList<string> LookupImageIdsProvided { get; init; } = [];
 
     /// <summary>
     /// The model's finished output items in the shape Core's own conversation reads
