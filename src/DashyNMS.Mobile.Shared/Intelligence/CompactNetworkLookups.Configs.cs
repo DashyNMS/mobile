@@ -57,6 +57,7 @@ public sealed partial class CompactNetworkLookups
         var data = found.Data;
         var heading = (data.ConfigText is null ? "" : "Config text left out by the saved Summary choice. ")
             + $"Config diff: changed lines {Id(data.ChangedLines)}; removed {Id(data.LinesRemoved)}; added {Id(data.LinesAdded)}."
+            + (data.ConfigDiffLinesOmitted is { } omitted ? $" Source cap omitted {Id(omitted)} diff lines." : "")
             + " From " + BackupVersionText(data.From, time) + ". To " + BackupVersionText(data.To, time) + ".";
         var rows = new List<Row> { FleetDevice(data.Device, name, "Config comparison", at) };
         if (data.ConfigDiff is { Length: > 0 } diff)

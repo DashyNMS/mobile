@@ -521,8 +521,14 @@ The copied upstream ConfigLookups fixture uses synthetic bearer authentication
 and real Core HTTP clients. CI compares request sets and known backup/diff/change
 facts with the shared host; further cases cover Full/Summary/Off, line paging,
 redaction, unavailable tools, scoped partial failures, cancellation, privacy
-changes, token retirement and the read-only profile. Field accounting and
-iPhone acceptance remain pending while this PR is draft.
+changes, token retirement and the read-only profile. Field accounting compares
+all populated MCP Data fields for backup Full/Summary and a one-line page,
+diff Full/Summary and its source cap, plus recent changes, first backups and
+unreadable devices. Each revision is checked by backup ID; config text is checked
+line by line, and a missing whole row needs an omission count. The source cap's
+omitted-line count is stated separately from the phone's budget omissions.
+Unreadable-source messages use the host's fixed safe category. No Data field is
+deliberately excluded. iPhone acceptance remains pending while this PR is draft.
 
 Settings → Intelligence has an automatic-save Configuration text picker when
 Unimus is configured. It writes Core's existing Summary/Full/Off key and restores

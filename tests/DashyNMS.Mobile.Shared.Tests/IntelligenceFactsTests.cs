@@ -94,6 +94,7 @@ public sealed partial class IntelligenceFactsTests
     private static string? Block(string text, string marker)
     {
         var lines = text.Split('\n');
+        if (marker.StartsWith("[[config", StringComparison.Ordinal)) return ConfigFactBlock(text, marker);
         if (marker.StartsWith("[[bucket:", StringComparison.Ordinal))
         {
             var instant = new DateTime(long.Parse(marker[9..^2], CultureInfo.InvariantCulture), DateTimeKind.Utc);
@@ -275,9 +276,20 @@ public sealed partial class IntelligenceFactsTests
             switch (element.ValueKind)
             {
                 case JsonValueKind.Object:
-                    var own = LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
+                    var own = ConfigRecordMarker(path, element) ?? LogRecordMarker(path, element) ?? (path is "entries" or "librenms.entries" ? HistoryEntryMarker(element) : null) ?? (path == "rules" ? Marker(element, "rule_id", "rule") : null) ?? Marker(element, "sensor_id", "sensor") ?? Marker(element, "alert_id", "alert") ?? Marker(element, "device_id", "device");
                     foreach (var property in element.EnumerateObject())
-                        Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
+                    {
+                        // Config text is one MCP scalar but mobile retains whole numbered/diff lines.
+                        if (path.Length == 0 && property.Name is ("config" or "config_diff") && property.Value.ValueKind == JsonValueKind.String)
+                        {
+                            var content = property.Value.GetString()!;
+                            var offset = property.Name == "config" ? element.GetProperty("lines").GetProperty("offset").GetInt32() + 1 : 0;
+                            if (content.Length > 0)
+                                foreach (var (line, index) in content.Split('\n').Select((line, index) => (line, index)))
+                                    Walk(JsonSerializer.SerializeToElement(line), property.Name, $"[[configline:{property.Name}:{offset + index}]]");
+                        }
+                        else Walk(property.Value, path.Length == 0 ? property.Name : path + "." + property.Name, own ?? scope);
+                    }
                     break;
                 case JsonValueKind.Array:
                     foreach (var item in element.EnumerateArray()) Walk(item, path, scope);
@@ -330,6 +342,7 @@ public sealed partial class IntelligenceFactsTests
     private static bool Shown(string path, JsonElement value, string text)
     {
         var name = path[(path.LastIndexOf('.') + 1)..];
+        if (ConfigFactShown(path, value, text) is { } configShown) return configShown;
         if (path.EndsWith("device.status", StringComparison.Ordinal) && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name == "window_complete") return text.Contains(value.GetBoolean() ? "; complete." : "; incomplete;", StringComparison.Ordinal)
