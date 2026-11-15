@@ -1095,3 +1095,14 @@ cache after the share completes. Golden tests compare desktop's Markdown
 format and the PDF print-layout input; native PDF rendering, pagination,
 selectable text, source-link annotations and graph inclusion still require
 installed-device acceptance. A print-input golden is not a rendered-PDF test.
+
+### Starter questions and activity (#640)
+
+The twelve questions and four-at-a-time rotation are desktop's, with device
+and alert questions filtered by the current connection's cached device/open
+alert context. A question is also filtered until its required tools are offered.
+New/restored chats rotate; ordinary activation only updates changed context.
+Tool selection recognises the capacity and fan-problem starters explicitly.
+Lookup rows use desktop's action wording and the collapsed summary reads
+"Looked at …", including how many lookups could not be read. Running, failed,
+stopped and interrupted states retain their existing explicit status text.

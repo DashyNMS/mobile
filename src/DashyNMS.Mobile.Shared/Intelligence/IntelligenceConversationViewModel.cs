@@ -184,19 +184,22 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     public bool CanAsk => !_disposed && !IsRunning && _preferences.Enabled
         && _model.Availability == IntelligenceAvailability.Available && _session.Connection is not null
         && IsTranscriptCurrent;
-    internal static readonly string[][] StarterSets =
-    [
-        ["How is the network doing?", "Which open alerts need attention?", "Which devices are down?"],
-        ["Summarise the active alerts.", "How many devices are up and down?", "Which alerts are unacknowledged?"],
-        ["Give me a brief network overview.", "Which devices need attention?", "What are the most severe active alerts?"],
-    ];
-    private int _starterSet = Random.Shared.Next(StarterSets.Length);
-    public IReadOnlyList<string> StarterQuestions => Array.AsReadOnly(StarterSets[_starterSet]);
+    private readonly IntelligenceStarterQuestions _starterRotation = new(Random.Shared.Next(12));
+    private Func<(bool Devices, bool Alerts)> _starterContext = () => (true, true);
+    private (bool Devices, bool Alerts) _lastStarterContext;
+    private IReadOnlyList<string> _starterQuestions = [];
+    public IReadOnlyList<string> StarterQuestions => _starterQuestions;
 
     private void RefreshStarters()
     {
-        _starterSet = (_starterSet + 1) % StarterSets.Length;
+        _lastStarterContext = _starterContext();
+        _starterQuestions = _starterRotation.Next(_lastStarterContext.Devices, _lastStarterContext.Alerts,
+            CompactNetworkLookups.ReviewedTools.ToHashSet(StringComparer.Ordinal));
         OnPropertyChanged(nameof(StarterQuestions));
+    }
+    public void RefreshStarterContext()
+    {
+        if (_lastStarterContext != _starterContext()) RefreshStarters();
     }
 
     /// <summary>A stale suggestion must never replace a draft or submit into another chat.</summary>
@@ -230,7 +233,7 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     }
 
     public IntelligenceConversationViewModel(IIntelligenceModel model, IntelligencePreferences preferences,
-        IIntelligenceLookups lookups, ISessionService session, Action<Action>? dispatch = null)
+        IIntelligenceLookups lookups, ISessionService session, Action<Action>? dispatch = null, Func<(bool Devices, bool Alerts)>? starterContext = null)
     {
         _model = model;
         _preferences = preferences;
@@ -238,6 +241,8 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
         _lookups = lookups;
         _session = session;
         _dispatch = dispatch;
+        _starterContext = starterContext ?? (() => (true, true));
+        RefreshStarters();
         preferences.Changed += PreferencesChanged;
         session.StateChanged += ConnectionChanged;
     }

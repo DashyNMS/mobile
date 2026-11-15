@@ -22,6 +22,9 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private DeviceMonitor? _devices;
     private SensorMonitor? _sensors;
     private AlertMonitor? _alerts;
+    private bool _cachedHasOpenAlerts;
+    private long _alertContextGeneration = -1;
+    public bool HasCachedOpenAlerts => !_reset && _alertContextGeneration == Volatile.Read(ref _generation) && _cachedHasOpenAlerts;
     private DeviceCache? _cache;
     private volatile bool _background;
     private volatile bool _reset;
@@ -122,9 +125,15 @@ public sealed class CorePolling : IDisposable, IAppActivity
         {
             EnsureMonitors();
             var monitor = _alerts!;
+            var contextGeneration = Volatile.Read(ref _generation);
             var result = await Next<AlertPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
                 () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token).ConfigureAwait(false);
             if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
+            if (contextGeneration == Volatile.Read(ref _generation))
+            {
+                _cachedHasOpenAlerts = result.Alerts.Any(a => a.State is AlertState.Active or AlertState.Acknowledged);
+                _alertContextGeneration = contextGeneration;
+            }
             return result.Alerts;
         }
         finally { _gate.Release(); }

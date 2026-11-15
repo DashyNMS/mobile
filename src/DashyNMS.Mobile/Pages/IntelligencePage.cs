@@ -246,6 +246,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     {
         if (!_showing) return;
         // Replacement publishes this only after draft and detail are installed.
+        if (e.PropertyName == nameof(IntelligenceConversationViewModel.StarterQuestions)) { _starterRevision = -1; RefreshStarters(); }
         if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) { SynchroniseComposer(); RefreshStarters(); }
         UpdateControls();
         if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
@@ -280,6 +281,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
 
     private void RefreshStarters()
     {
+        _conversation.RefreshStarterContext();
         if (_starterRevision == _conversation.ChatRevision) return;
         _starterRevision = _conversation.ChatRevision;
         _starters.Children.Clear();
@@ -290,7 +292,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         foreach (var starter in _conversation.StarterQuestions)
         {
             var revision = _conversation.ChatRevision;
-            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 44, CornerRadius = 22, BorderWidth = 1 };
+            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
             button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
             button.Clicked += async (_, _) =>
             {
@@ -816,9 +818,9 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             var stopped = _turn.Lookups.Any(lookup => lookup.State == IntelligenceLookupState.Stopped);
             _activity.IsVisible = count > 0;
             var outcome = working ? "Looking up…" : failed ? "Warning" : stopped ? "Stopped" : "Done";
-            _activity.Text = $"{count} {(count == 1 ? "lookup" : "lookups")} · {outcome}";
+            _activity.Text = IntelligenceActivity.Describe(_turn);
             _activity.Icon = _activityExpanded ? ChevronUp : ChevronDown;
-            SemanticProperties.SetDescription(_activity, $"{(_activityExpanded ? "Hide" : "Show")} lookup details. {count} {(count == 1 ? "lookup" : "lookups")}. {outcome}");
+            SemanticProperties.SetDescription(_activity, $"{(_activityExpanded ? "Hide" : "Show")} lookup details. {count} {(count == 1 ? "lookup" : "lookups")}. {_activity.Text}");
             _steps.IsVisible = count > 0 && _activityExpanded;
             if (_steps.IsVisible) RenderSteps();
             // The activity summary already conveys success. Keep exceptional outcomes explicit.
@@ -929,7 +931,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         }
 
         /// <summary>The tool's title from the shared catalogue, as MCP clients show it (#635).</summary>
-        private static string LookupName(string name) => DashyNMS.Agent.Catalogue.ToolCatalogue.Find(name)?.Title ?? "Network lookup";
+        private static string LookupName(string name) => IntelligenceActivity.Step(name);
         public void Dispose()
         {
             _turn.PropertyChanged -= OnChanged;
