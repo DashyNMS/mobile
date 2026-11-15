@@ -341,6 +341,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
             ColumnDefinitions = [new(GridLength.Star)], RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
             Padding = new Thickness(16, 10), MinimumHeightRequest = 56,
         };
+        private readonly Button _open = new() { BackgroundColor = Colors.Transparent, BorderWidth = 0, Padding = 0, MinimumHeightRequest = 56 };
         private readonly SwipeItem _pin = new();
         private readonly SwipeView _swipe;
         private readonly AccessibilityActions _pinAction;
@@ -355,8 +356,12 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
             _when.Style = ResourceStyle("Caption");
             _row.Add(_title, 0, 0);
             _row.Add(_when, 0, 1);
-            _row.GestureRecognizers.Add(new TapGestureRecognizer { Command = new Command(async () => { if (_item is { } item) await _page.OpenAsync(item); }) });
-            LongPress.SetCommand(_row, new Command(async () => { if (_item is { } item) await _page.ShowMenuAsync(item); }));
+            AutomationProperties.SetIsInAccessibleTree(_title, false);
+            AutomationProperties.SetIsInAccessibleTree(_when, false);
+            _open.Clicked += async (_, _) => { if (_item is { } item) await _page.OpenAsync(item); };
+            _row.Add(_open, 0, 0);
+            Grid.SetRowSpan(_open, 2);
+            LongPress.SetCommand(_open, new Command(async () => { if (_item is { } item) await _page.ShowMenuAsync(item); }));
 
             _pin.BackgroundColor = ThemeColour("ButtonPrimary");
             _pin.Invoked += (_, _) => { if (_item is { } item) _page.TogglePin(item); };
@@ -383,11 +388,11 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
             content.Add(separator, 0, 1);
             Content = content;
 
-            _pinAction = new AccessibilityActions(_row, "Pin", () => Act(item => _page.TogglePin(item)));
-            _unpinAction = new AccessibilityActions(_row, "Unpin", () => Act(item => _page.TogglePin(item)));
-            _renameAction = new AccessibilityActions(_row, "Rename", () => Act(item => _ = _page.RenameAsync(item)));
-            _deleteAction = new AccessibilityActions(_row, "Delete", () => Act(item => _ = _page.DeleteAsync(item)));
-            _row.HandlerChanged += (_, _) => RefreshActions();
+            _pinAction = new AccessibilityActions(_open, "Pin", () => Act(item => _page.TogglePin(item)));
+            _unpinAction = new AccessibilityActions(_open, "Unpin", () => Act(item => _page.TogglePin(item)));
+            _renameAction = new AccessibilityActions(_open, "Rename", () => Act(item => _ = _page.RenameAsync(item)));
+            _deleteAction = new AccessibilityActions(_open, "Delete", () => Act(item => _ = _page.DeleteAsync(item)));
+            _open.HandlerChanged += (_, _) => RefreshActions();
             _row.SizeChanged += (_, _) => RefreshActions();
         }
 
@@ -430,8 +435,8 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
             _title.Text = item.Title;
             _when.Text = (item.IsPinned ? "Pinned · " : "") + (item.IsOpen ? "Open now · " : "") + item.When;
             _pin.Text = item.PinText;
-            SemanticProperties.SetDescription(_row, item.Description);
-            SemanticProperties.SetHint(_row, "Opens this chat. Actions: " + item.PinText + ", Rename, Delete");
+            SemanticProperties.SetDescription(_open, "Open chat: " + item.Description);
+            SemanticProperties.SetHint(_open, "Opens this chat. Actions: " + item.PinText + ", Rename, Delete");
             if (item.IsOpen) _row.SetAppThemeColor(BackgroundColorProperty, ThemeColour("PrimaryTint"), ThemeColour("PrimaryTint"));
             else _row.SetAppThemeColor(BackgroundColorProperty, ThemeColour("BackgroundLight"), ThemeColour("BackgroundDark"));
             RefreshActions();

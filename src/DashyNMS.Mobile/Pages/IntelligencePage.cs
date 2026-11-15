@@ -104,6 +104,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _list.Command = new Command(OpenChats);
         _export.Command = new Command(async () => await ExportAsync());
         SemanticProperties.SetDescription(_export, "Export conversation");
+        foreach (var action in new[] { _list, _new, _export }) action.MinimumHeightRequest = action.MinimumWidthRequest = 48;
         _header.Actions = new HorizontalStackLayout { Children = { _list, _new, _export } };
 #if IOS
         ((HorizontalStackLayout)_header.Actions).Children.Add(_headerGlass);
@@ -180,7 +181,8 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _fade.Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [fadeTop, fadeBottom] };
         body.Add(_fade, 0, 1);
         // Keep the arrow slot measured when hidden, so following does not change the footer.
-        var jumpSlot = new Grid { HeightRequest = 44, SafeAreaEdges = SafeAreaEdges.None };
+        _jump.MinimumHeightRequest = _jump.MinimumWidthRequest = 48;
+        var jumpSlot = new Grid { HeightRequest = 48, SafeAreaEdges = SafeAreaEdges.None };
         jumpSlot.Children.Add(_jump);
         _overlay.Children.Add(jumpSlot);
         _overlay.Children.Add(_composer);
@@ -706,7 +708,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             _stateLine.Children.Add(_state);
             content.Children.Add(_stateLine);
             var actions = new HorizontalStackLayout { Spacing = 8, HorizontalOptions = LayoutOptions.End };
-            _retry.MinimumHeightRequest = 44;
+            _retry.MinimumHeightRequest = 48;
             actions.Children.Add(_elapsed);
             actions.Children.Add(_retry);
             actions.Children.Add(_copy);
@@ -909,7 +911,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
                 var button = new ImageButton
                 {
                     Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit,
-                    HeightRequest = 180, MinimumWidthRequest = 44, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
+                    HeightRequest = 180, MinimumWidthRequest = 48, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
                     BackgroundColor = Colors.Transparent, CornerRadius = 8,
                 };
                 SemanticProperties.SetDescription(button, label + ". Enlarge");
@@ -961,7 +963,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             SemanticProperties.SetDescription(_picture, label);
             var close = new Button
             {
-                Text = "Close", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
+                Text = "Close", MinimumHeightRequest = 48, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.End,
                 Margin = new Thickness(16, 8), Style = ResourceStyle("SecondaryButton"),
             };
             SemanticProperties.SetDescription(close, "Close " + label);

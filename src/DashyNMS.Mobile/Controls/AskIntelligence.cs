@@ -25,6 +25,8 @@ public static class AskIntelligence
         private readonly SwipeItem swipe = new() { Text = "Ask Intelligence" };
         private readonly AccessibilityActions action;
         private bool watching;
+        private Button? entry;
+        private string? originalHint;
         public State(View view)
         {
             this.view = view;
@@ -42,6 +44,19 @@ public static class AskIntelligence
             service = services.GetRequiredService<AskIntelligenceService>();
             conversation = services.GetRequiredService<IntelligenceConversationViewModel>();
             if (!watching) { conversation.PropertyChanged += Changed; watching = true; }
+            if (view is SwipeView host && entry is null && host.Content is { } content)
+            {
+                entry = new Button { Text = "Ask", MinimumHeightRequest = 48, MinimumWidthRequest = 48,
+                    Padding = new Thickness(8, 0), VerticalOptions = LayoutOptions.Center,
+                    Style = (Style)Application.Current!.Resources["LinkButton"] };
+                SemanticProperties.SetDescription(entry, "Ask Intelligence");
+                entry.Clicked += async (_, _) => await AskAsync();
+                host.Content = null;
+                var rowHost = new Grid { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], SafeAreaEdges = SafeAreaEdges.None };
+                rowHost.Add(content, 0, 0); rowHost.Add(entry, 1, 0);
+                host.Content = rowHost;
+            }
+            originalHint ??= SemanticProperties.GetHint(view) ?? "";
             Capture();
             if (row is INotifyPropertyChanged notify) { notify.PropertyChanged -= Changed; notify.PropertyChanged += Changed; }
             // Keep existing hold-to-select behaviour; its row still offers the swipe and rotor action.
@@ -66,6 +81,9 @@ public static class AskIntelligence
         {
             var enabled = CanAsk();
             action.Refresh(enabled);
+            if (entry is not null) entry.IsVisible = enabled;
+            if (originalHint is not null)
+                SemanticProperties.SetHint(view, originalHint + (enabled ? (view is SwipeView ? " Swipe for Ask Intelligence, or use Ask." : " Touch and hold to Ask Intelligence.") : ""));
             if (view is SwipeView host)
             {
                 if (enabled && !host.RightItems.Contains(swipe)) host.RightItems.Add(swipe);

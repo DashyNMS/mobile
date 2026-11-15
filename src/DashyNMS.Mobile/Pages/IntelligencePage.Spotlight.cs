@@ -102,7 +102,10 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
                 {
                     var added = await select(choice, _lifetime.Token);
                     if (!_lifetime.IsCancellationRequested)
+                    {
                         status.Text = added ? "Added to Spotlight." : conversation.Notice;
+                        SemanticScreenReader.Default.Announce(status.Text);
+                    }
                 }
                 finally { button.IsEnabled = true; }
             };
