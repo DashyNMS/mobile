@@ -78,6 +78,7 @@ public sealed partial class WhatsNewViewModel : ObservableObject
         "devices" => "tab_devices.png",
         "health" or "sensor" => "tab_health.png",
         "logs" => "tab_logs.png",
+        "intelligence" => "tab_intelligence.png",
         "graylog" => "tab_graylog.png",
         "map" => "tab_map.png",
         "networkmap" => "tab_networkmap.png",
