@@ -843,7 +843,7 @@ public sealed class IntelligenceChatListViewModel : ObservableObject, IDisposabl
     private SavedIntelligenceChat? Capture(bool force, out bool content)
     {
         content = false;
-        if (_changing || _conversation.IsMemoryOnlyChat || !CanPersist || _conversation.ChatRevision == _unsavedRevision || !_conversation.IsTranscriptCurrent
+        if (_changing || _conversation.IsReplacingTranscript || _conversation.IsMemoryOnlyChat || !CanPersist || _conversation.ChatRevision == _unsavedRevision || !_conversation.IsTranscriptCurrent
             || _session.Connection is not { } connection || IntelligenceSavedChats.Scope(connection) != _loadedScope)
         {
             return null;

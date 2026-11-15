@@ -102,6 +102,34 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         Directory.Exists(_root) ? Directory.GetFiles(_root, pattern, SearchOption.AllDirectories) : [];
 
     [Fact]
+    public async Task Switching_back_to_a_public_retained_chat_never_queues_the_private_draft()
+    {
+        var app = Start();
+        var store = Faulty(app);
+        await app.Chats.LoadAsync();
+        _preferences.SetSingleChatMode(true);
+        app.Conversation.Draft = "private-sentinel retained draft";
+        Assert.True(app.Conversation.NewObjectChatRetainingDraft());
+        _preferences.SetSingleChatMode(false);
+        Assert.True(app.Conversation.NewChat());
+        Assert.True(await app.Conversation.AskAsync("Public question"));
+        app.Conversation.Draft = "Public draft";
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await app.SettleAsync();
+
+        Assert.True(app.Conversation.SwitchPreviousObjectChat());
+        Assert.Equal("private-sentinel retained draft", app.Conversation.Draft);
+        Assert.True(app.Conversation.SwitchPreviousObjectChat());
+        Assert.Equal("Public draft", app.Conversation.Draft);
+        _time.Advance(IntelligenceChatListViewModel.SaveDelay);
+        await app.SettleAsync();
+
+        Assert.NotEmpty(store.SavedDrafts);
+        Assert.DoesNotContain(store.SavedDrafts, draft => draft.Contains("private-sentinel", StringComparison.Ordinal));
+        Assert.All((await ReadAsync(ServerA)).Chats, chat => Assert.DoesNotContain("private-sentinel", chat.Draft ?? ""));
+    }
+
+    [Fact]
     public async Task A_chat_reopens_after_a_restart_with_its_draft_detail_model_evidence_filters_and_images()
     {
         _model.Scripts.Enqueue(async (_, tools, text, token) =>
@@ -1597,6 +1625,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         private volatile bool _failDeletes;
 
         public IIntelligenceChatStore Inner { get; set; } = null!;
+        public System.Collections.Concurrent.ConcurrentQueue<string> SavedDrafts { get; } = new();
         public bool FailSaves { get => _failSaves; set => _failSaves = value; }
         public bool FailDeletes { get => _failDeletes; set => _failDeletes = value; }
 
@@ -1620,6 +1649,7 @@ public sealed class IntelligenceSavedChatTests : IDisposable
         public void Save(string scope, SavedIntelligenceChat chat, bool makeActive = true)
         {
             Interlocked.Increment(ref _writes);
+            SavedDrafts.Enqueue(chat.Draft ?? "");
             Wait();
             if (FailSaves) throw new IOException("Synthetic save failure.");
             Inner.Save(scope, chat, makeActive);

@@ -732,29 +732,38 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     /// the transcript, so a reopened chat can't land under another connection.
     /// </summary>
     public bool Restore(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, IReadOnlyList<SavedChatSpotlight>? spotlight = null, bool memoryOnly = false)
-    {
-        if (!Replace(turns, draft, detail is null ? null : NormaliseDetail(detail), memoryOnly)) return false;
-        _spotlight = (spotlight ?? []).Where(s => s.Object is { IsValid: true })
-            .DistinctBy(s => s.Object).Take(MaxSpotlight).ToArray();
-        OnPropertyChanged(nameof(Spotlight));
-        return true;
-    }
+        => Replace(turns, draft, detail is null ? null : NormaliseDetail(detail), memoryOnly, spotlight);
 
-    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, bool memoryOnly = false)
+    /// <summary>Observers must not persist a mixture of the old and incoming transcripts.</summary>
+    public bool IsReplacingTranscript { get; private set; }
+
+    private bool Replace(IReadOnlyList<IntelligenceTurn> turns, string draft, string? detail, bool memoryOnly = false,
+        IReadOnlyList<SavedChatSpotlight>? spotlight = null)
     {
-        if (IsRunning || !IsTranscriptCurrent) return false;
-        // The revision moves before the turns change, so anything bound to the
-        // previous transcript sees a different chat, never an emptied one.
-        _memoryOnlyChat = memoryOnly || _preferences.SingleChatMode;
-        ChatRevision++;
-        ClearSpotlight();
-        RefreshStarters();
-        Turns.Clear();
-        foreach (var turn in turns) Turns.Add(turn);
-        Notice = "";
-        Draft = draft;
-        _selectedDetail = detail;
+        if (IsRunning || !IsTranscriptCurrent || IsReplacingTranscript) return false;
+        IsReplacingTranscript = true;
+        try
+        {
+            // Move the revision before changing turns, but suppress capture until
+            // privacy, turns, draft, detail and Spotlight all belong to that revision.
+            _memoryOnlyChat = memoryOnly || _preferences.SingleChatMode;
+            ChatRevision++;
+            ClearSpotlight();
+            RefreshStarters();
+            Turns.Clear();
+            foreach (var turn in turns) Turns.Add(turn);
+            Notice = "";
+            Draft = draft;
+            _selectedDetail = detail;
+            _spotlight = (spotlight ?? []).Where(s => s.Object is { IsValid: true })
+                .DistinctBy(s => s.Object).Take(MaxSpotlight).ToArray();
+        }
+        finally
+        {
+            IsReplacingTranscript = false;
+        }
         OnPropertyChanged(nameof(SelectedDetail));
+        OnPropertyChanged(nameof(Spotlight));
         OnPropertyChanged(nameof(ChatRevision));
         Notify();
         return true;
