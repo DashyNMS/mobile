@@ -5,7 +5,7 @@ namespace DashyNMS.Mobile.Adapters;
 /// <summary>Uses the platform's paginated print renderer; no browser or network content is loaded.</summary>
 public sealed class IntelligencePdfPrinter : IIntelligencePdfPrinter
 {
-    public Task<byte[]> PrintAsync(ExportedChat chat) => MainThread.InvokeOnMainThreadAsync(() =>
+    public Task<byte[]> PrintAsync(ExportedChat chat) => MainThread.InvokeOnMainThreadAsync<byte[]>(() =>
     {
 #if IOS
         var bounds = new CoreGraphics.CGRect(0, 0, 595.28, 841.89);
