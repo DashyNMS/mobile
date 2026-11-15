@@ -551,16 +551,18 @@ public sealed class IntelligenceConversationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Failed_lookups_and_lookup_limits_are_honest(bool failing)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task Failed_lookups_and_lookup_limits_are_honest(bool failing, bool typed)
     {
         _lookups.Fail = failing;
         _model.Scripts.Enqueue(async (_, tools, _, token) =>
         {
             for (var i = 0; i < 3; i++)
             {
-                var result = await tools[0].Run("", token);
+                var result = typed ? (await tools[0].ReadAsync("", token)).Text : await tools[0].Run("", token);
                 Assert.DoesNotContain("private", result);
             }
             return new IntelligenceAnswer("Some data is missing.", null);

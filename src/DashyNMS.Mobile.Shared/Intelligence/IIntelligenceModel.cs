@@ -43,6 +43,22 @@ public sealed record IntelligenceLookup(string Name, string Purpose, Func<string
 
     /// <summary>The other tools this tool's description names, from the catalogue, for the question's tool choice (#637).</summary>
     public IReadOnlyList<string> NamedTools { get; init; } = [];
+
+    /// <summary>Optional typed path for native tool outputs that can carry images.</summary>
+    public Func<string, CancellationToken, Task<IntelligenceLookupResult>>? RunWithImages { get; init; }
+    public async Task<IntelligenceLookupResult> ReadAsync(string arguments, CancellationToken cancellationToken)
+        => RunWithImages is { } read ? await read(arguments, cancellationToken).ConfigureAwait(false)
+            : new(await Run(arguments, cancellationToken).ConfigureAwait(false));
+}
+
+/// <summary>One correlated tool result: pixels stay typed and are never encoded into model text.</summary>
+public sealed record IntelligenceLookupResult(string Text)
+{
+    /// <summary>Reserved per image-capable lookup and checked by the native token counter.</summary>
+    public const int ImageTokenBudget = 1536;
+    /// <summary>Same displayed facts and rows, with a bounded notice for native image rejection.</summary>
+    public string? MetadataOnlyText { get; init; }
+    public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
 }
 
 /// <summary>
@@ -56,6 +72,9 @@ public interface IIntelligenceModel
 
     /// <summary>The model's whole context in tokens, or null where it won't say.</summary>
     int? ContextSize { get; }
+
+    /// <summary>False unless the active native route can supply typed lookup images to its model.</summary>
+    bool SupportsLookupImages => false;
 
     /// <summary>How many tokens <paramref name="text"/> costs as instructions, or null where the model can't count.</summary>
     Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default);
@@ -85,10 +104,13 @@ public sealed record IntelligenceAnswer(string Text, string? Usage)
 {
     /// <summary>
     /// Images supplied by a model route. Reviewed lookup attachments reach the turn
-    /// separately, so a text-only native tool bridge cannot lose graph pixels. The
-    /// current bridge supplies metadata to the model and attachments to the person.
+    /// separately, so a text-only native tool bridge cannot lose graph pixels.
+    /// Image-capable routes also supply each lookup's correlated typed pixels.
     /// </summary>
     public IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage> Images { get; init; } = [];
+
+    /// <summary>The native route confirmed that it supplied at least one lookup image in this attempt.</summary>
+    public bool LookupImagesProvided { get; init; }
 
     /// <summary>
     /// The model's finished output items in the shape Core's own conversation reads

@@ -221,6 +221,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         public int Lookups;
         public int LookupFailures;
         public bool HasLookupImages;
+        public bool LookupImagesProvided;
         public TaskCompletionSource Finished { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
@@ -353,7 +354,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
             var context = _model.ContextSize ?? 4096;
             var output = OutputTokens(chosenDetail);
             var instructionTokens = await TokensAsync(IntelligenceInstructions.Build(chosenDetail, null, IntelligenceToolChoice.MinimumLookups, context), run.Stop.Token);
-            var resultTokens = await ResultTokensAsync(run.Stop.Token);
+            var textResultTokens = await ResultTokensAsync(run.Stop.Token);
+            var resultTokens = textResultTokens;
             var toolReserve = await CheapestToolAsync(run.Stop.Token);
             var promptTokens = (int)(context * IntelligenceBudget.Usable) - instructionTokens - output
                 - IntelligenceToolChoice.MinimumLookups * resultTokens - toolReserve;
@@ -391,7 +393,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         if (accepted.Count == 0) return;
                         turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(accepted));
                         run.HasLookupImages = true;
-                    }));
+                    }), _model.SupportsLookupImages);
                 // This question's tools and lookup limit, from what was asked and what the context holds (#637).
                 var costs = new Dictionary<string, int>(StringComparer.Ordinal);
                 foreach (var lookup in lookupSet.Lookups) costs[lookup.Name] = await ToolTokensAsync(lookup, token);
@@ -407,6 +409,13 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     var promptCost = await TokensAsync(prompt, token);
                     choice = IntelligenceToolChoice.Choose(question, earlier, null, lookupSet.Lookups,
                         new IntelligenceBudget(context, baseTokens, promptCost, output, resultTokens, costs));
+                    if (_model.SupportsLookupImages && resultTokens == textResultTokens && choice.Tools.Any(t => t.Name == "graph"))
+                    {
+                        // Native counts the image before returning it and falls back to metadata
+                        // if it exceeds this reserve. Text-only questions keep their existing budget.
+                        resultTokens = textResultTokens + IntelligenceLookupResult.ImageTokenBudget;
+                        continue;
+                    }
                     instructions = IntelligenceInstructions.Build(turn.Detail, null, choice.MaxLookups, context, choice.NotOffered);
                     var built = await TokensAsync(instructions, token);
                     room = (int)(context * IntelligenceBudget.Usable) - built - promptCost - output - choice.Tools.Sum(t => costs[t.Name]);
@@ -436,9 +445,9 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 var maxLookups = Math.Min(choice.MaxLookups, Math.Max(IntelligenceToolChoice.MinimumLookups, room / Math.Max(1, resultTokens)));
                 if (maxLookups != choice.MaxLookups)
                     instructions = IntelligenceInstructions.Build(turn.Detail, null, maxLookups, context, choice.NotOffered);
-                var tools = choice.Tools.Select(lookup => lookup with
+                var tools = choice.Tools.Select(lookup =>
                 {
-                    Run = async (query, callerToken) =>
+                    async Task<IntelligenceLookupResult> Read(string query, CancellationToken callerToken)
                     {
                         using var call = CancellationTokenSource.CreateLinkedTokenSource(token, callerToken);
                         RequireCurrent(run);
@@ -446,17 +455,17 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         if (Interlocked.Increment(ref run.Lookups) > maxLookups)
                         {
                             Interlocked.Increment(ref run.LookupFailures);
-                            return "The lookup limit was reached. Say if needed data is missing.";
+                            return new("The lookup limit was reached. Say if needed data is missing.");
                         }
                         var progress = new IntelligenceLookupProgress(lookup.Name);
                         Post(run, attemptId, () => turn.Lookups.Add(progress));
                         try
                         {
-                            var result = await lookup.Run(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
+                            var result = await lookup.ReadAsync(query, call.Token).WaitAsync(call.Token).ConfigureAwait(false);
                             RequireCurrent(run);
-                            var failed = CompactNetworkLookups.IsFailure(result);
+                            var failed = CompactNetworkLookups.IsFailure(result.Text);
                             if (failed) Interlocked.Increment(ref run.LookupFailures);
-                            Post(run, attemptId, () => { progress.Result = result; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
+                            Post(run, attemptId, () => { progress.Result = result.Text; progress.State = failed ? IntelligenceLookupState.Failed : IntelligenceLookupState.Completed; });
                             return result;
                         }
                         catch (OperationCanceledException) when (call.Token.IsCancellationRequested) { throw; }
@@ -464,9 +473,10 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         {
                             Interlocked.Increment(ref run.LookupFailures);
                             Post(run, attemptId, () => progress.State = IntelligenceLookupState.Failed);
-                            return CompactNetworkLookups.Failed;
+                            return new(CompactNetworkLookups.Failed);
                         }
-                    },
+                    }
+                    return lookup with { Run = async (query, ct) => (await Read(query, ct).ConfigureAwait(false)).Text, RunWithImages = Read };
                 }).ToArray();
                 using var modelSession = _model.StartSession(instructions, tools);
                 try
@@ -481,6 +491,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                     {
                         RequireCurrent(run);
                         turn.Answer = markdown;
+                        run.LookupImagesProvided = answer.LookupImagesProvided;
                         turn.Images = IntelligenceAnswerImages.Accept(turn.Images.Concat(answer.Images));
                         turn.State = IntelligenceTurnState.Completed;
                         turn.Message = run.LookupFailures == 0 ? "Completed" : "Completed, but some lookups failed.";
@@ -496,6 +507,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                         turn.HistoryOmitted = true;
                         turn.Images = [];
                         run.HasLookupImages = false;
+                        run.LookupImagesProvided = false;
                     });
                     attemptStop.Cancel();
                     prompt = "Question:\n" + question;
@@ -549,7 +561,8 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
                 }
                 foreach (var progress in turn.Lookups.Where(p => p.State == IntelligenceLookupState.Running))
                     progress.State = IntelligenceLookupState.Stopped;
-                if (run.HasLookupImages && turn.Images.Count > 0 && !turn.Answer.Contains(GraphImageNotice, StringComparison.Ordinal))
+                if (run.HasLookupImages && turn.Images.Count > 0 && (!_model.SupportsLookupImages || turn.State == IntelligenceTurnState.Completed && !run.LookupImagesProvided)
+                    && !turn.Answer.Contains(GraphImageNotice, StringComparison.Ordinal))
                     turn.Answer = turn.Answer.TrimEnd() + "\n\n" + GraphImageNotice;
                 turn.AnsweredAt ??= DateTimeOffset.UtcNow;
                 Interlocked.CompareExchange(ref _active, null, run);

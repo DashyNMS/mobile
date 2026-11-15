@@ -8,6 +8,8 @@
 
 import Foundation
 import FoundationModels
+import ImageIO
+import CoreGraphics
 
 /// Whether the on-device model can answer; mirrors IntelligenceAvailability in Mobile.Shared.
 @objc(DNMAvailability)
@@ -20,25 +22,47 @@ public enum ModelAvailability: Int {
     case unavailable = 5
 }
 
+/// One correlated reply. Pixels never enter the text bridge as base64.
+struct LookupResult: Sendable {
+    let text: String
+    let images: [Data]
+    let imageTokenBudget: Int
+    let metadataOnlyText: String?
+}
+
+/// A session records actual image submission, rather than assuming capability means delivery.
+final class ImageUsage: @unchecked Sendable {
+    private let lock = NSLock()
+    private var provided = false
+    func markProvided() { lock.lock(); provided = true; lock.unlock() }
+    var wasProvided: Bool { lock.lock(); defer { lock.unlock() }; return provided }
+}
+
 /// Where C# puts a lookup's result. An object rather than a block inside a
 /// block, which keeps the .NET binding to plain types.
 @objc(DNMLookupReply)
 public final class LookupReply: NSObject, @unchecked Sendable {
     private let lock = NSLock()
-    private var continuation: CheckedContinuation<String, Never>?
+    private var continuation: CheckedContinuation<LookupResult, Never>?
 
-    init(_ continuation: CheckedContinuation<String, Never>) {
+    init(_ continuation: CheckedContinuation<LookupResult, Never>) {
         self.continuation = continuation
     }
 
     /// The lookup's text, or nil when it failed. Only the first call counts.
     @objc(finish:)
     public func finish(_ text: String?) {
+        finish(text, images: [], imageTokenBudget: 0, metadataOnlyText: nil)
+    }
+
+    /// Objective-C data arrays preserve the call's text/pixel association across concurrent tools.
+    @objc(finish:images:imageTokenBudget:metadataOnlyText:)
+    public func finish(_ text: String?, images: [Data], imageTokenBudget: Int, metadataOnlyText: String?) {
         lock.lock()
         let waiting = continuation
         continuation = nil
         lock.unlock()
-        waiting?.resume(returning: text ?? "The lookup failed.")
+        waiting?.resume(returning: LookupResult(text: text ?? "The lookup failed.", images: images, imageTokenBudget: imageTokenBudget, metadataOnlyText: metadataOnlyText))
     }
 }
 
@@ -61,7 +85,7 @@ public final class Lookup: NSObject, @unchecked Sendable {
         super.init()
     }
 
-    func run(_ arguments: String) async -> String {
+    func run(_ arguments: String) async -> LookupResult {
         await withCheckedContinuation { continuation in
             handler(arguments, LookupReply(continuation))
         }
@@ -75,6 +99,7 @@ public final class Lookup: NSObject, @unchecked Sendable {
 @available(iOS 26.0, *)
 struct LookupTool: Tool {
     let lookup: Lookup
+    let imageUsage: ImageUsage
 
     var name: String { lookup.name }
     var description: String { lookup.purpose }
@@ -89,8 +114,40 @@ struct LookupTool: Tool {
 
     /// The model's arguments go to C# as one JSON object, which checks them
     /// against the catalogue before any request.
-    func call(arguments: GeneratedContent) async throws -> String {
-        await lookup.run(arguments.jsonString)
+    func call(arguments: GeneratedContent) async throws -> Prompt {
+        let result = await lookup.run(arguments.jsonString)
+        try Task.checkCancellation()
+        if #available(iOS 27.0, *), IntelligenceModel.supportsLookupImages,
+           let image = Self.graphImage(result.images.first), result.imageTokenBudget > 0 {
+            // C# reserves this cost per result when graph is offered. Count the actual
+            // image before putting it in the transcript; never guess from PNG byte size.
+            let cost = try? await SystemLanguageModel.default.tokenCount(for: Instructions {
+                Attachment(image).label("network-graph")
+            })
+            try Task.checkCancellation()
+            if let cost, cost <= result.imageTokenBudget {
+                imageUsage.markProvided()
+                return Prompt {
+                    result.text
+                    Attachment(image).label("network-graph")
+                }
+            }
+        }
+        let text = result.images.isEmpty ? result.text
+            : result.metadataOnlyText ?? "The graph is attached for the person. You received metadata only and cannot read its image."
+        return Prompt { text }
+    }
+
+    /// Bound encoded and decoded sizes before ImageIO allocates graph pixels.
+    private static func graphImage(_ data: Data?) -> CGImage? {
+        guard let data, !data.isEmpty, data.count <= 2 * 1024 * 1024,
+              let source = CGImageSourceCreateWithData(data as CFData, [kCGImageSourceShouldCache: false] as CFDictionary),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? NSNumber,
+              let height = properties[kCGImagePropertyPixelHeight] as? NSNumber,
+              width.intValue > 0, width.intValue <= 2048,
+              height.intValue > 0, height.intValue <= 1024 else { return nil }
+        return CGImageSourceCreateImageAtIndex(source, 0, [kCGImageSourceShouldCache: false] as CFDictionary)
     }
 
     /// One property per catalogue parameter: its type, its description, and
@@ -159,6 +216,13 @@ public final class IntelligenceModel: NSObject {
         }
     }
 
+    /// Older systems keep the text-only route; the active model decides on iOS 27.
+    @objc(supportsLookupImages)
+    public static var supportsLookupImages: Bool {
+        guard #available(iOS 27.0, *) else { return false }
+        return SystemLanguageModel.default.capabilities.contains(.vision)
+    }
+
     /// The whole context in tokens, or -1 where the model won't say.
     @objc(contextSize)
     public static var contextSize: Int {
@@ -189,6 +253,10 @@ public final class IntelligenceSession: NSObject {
     // LanguageModelSession, kept untyped because this class also exists before iOS 26.
     private var session: Any?
     private var task: Task<Void, Never>?
+    private let imageUsage = ImageUsage()
+
+    @objc(lookupImagesProvided)
+    public var lookupImagesProvided: Bool { imageUsage.wasProvided }
 
     @objc(initWithInstructions:lookups:)
     public init(instructions: String, lookups: [Lookup]) {
@@ -207,7 +275,7 @@ public final class IntelligenceSession: NSObject {
         let text = instructions
         let created = LanguageModelSession(
             model: SystemLanguageModel.default,
-            tools: lookups.map { LookupTool(lookup: $0) },
+            tools: lookups.map { LookupTool(lookup: $0, imageUsage: imageUsage) },
             instructions: { text })
         session = created
         return created

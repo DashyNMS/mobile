@@ -160,10 +160,13 @@ public sealed class SharedGraphLookupHttpTests
         Assert.Empty(mobile.Images);
         Assert.Empty(mobile.Evidence);
     }
-    private sealed class TextBridgeModel : IIntelligenceModel
+    private sealed class TextBridgeModel(bool supportsImages = false, bool imagesProvided = false) : IIntelligenceModel
     {
         public IntelligenceAvailability Availability => IntelligenceAvailability.Available;
         public int? ContextSize => 8192;
+        public bool SupportsLookupImages => supportsImages;
+        private bool ReportsImages => imagesProvided;
+        public IReadOnlyList<IntelligenceImage> Received { get; private set; } = [];
         public string? Result { get; private set; }
         public Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default) => Task.FromResult<int?>(null);
         public IIntelligenceSession StartSession(string instructions, IReadOnlyList<IntelligenceLookup> lookups) => new ModelSession(this, lookups);
@@ -171,14 +174,26 @@ public sealed class SharedGraphLookupHttpTests
         {
             public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
             {
-                owner.Result = await tools.Single(t => t.Name == "graph").Run("1", cancellationToken);
-                return new("The requested graph is attached.", null);
+                var graph = tools.Single(t => t.Name == "graph");
+                if (owner.SupportsLookupImages)
+                {
+                    var result = await graph.ReadAsync("1", cancellationToken);
+                    Assert.NotNull(result.MetadataOnlyText);
+                    Assert.InRange(result.MetadataOnlyText.Length, 1, CompactNetworkLookups.MaxCharacters);
+                    owner.Result = owner.ReportsImages ? result.Text : result.MetadataOnlyText;
+                    owner.Received = result.Images;
+                }
+                else owner.Result = await graph.Run("1", cancellationToken);
+                return new("The requested graph is attached.", null) { LookupImagesProvided = owner.SupportsLookupImages && owner.ReportsImages };
             }
             public void Dispose() { }
         }
     }
-    [Fact]
-    public async Task A_text_only_model_keeps_lookup_pixels_in_the_answer_and_saved_chat_with_a_truthful_notice()
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Model_capability_and_confirmed_delivery_control_pixels_and_the_saved_chat_notice(bool supportsImages, bool provided)
     {
         using var server = Server();
         using var mobile = new Mobile(server.Root);
@@ -187,18 +202,37 @@ public sealed class SharedGraphLookupHttpTests
         var saved = new InMemoryPreferences();
         saved.Set(IntelligencePreferences.NoticeKey, "accepted");
         var preferences = new IntelligencePreferences(store, saved);
-        var model = new TextBridgeModel();
+        var model = new TextBridgeModel(supportsImages, provided);
         using var chat = new IntelligenceConversationViewModel(model, preferences, mobile.Provider, mobile.Session);
         Assert.True(await chat.AskAsync("Show me this device's traffic today"));
         var turn = Assert.Single(chat.Turns);
         Assert.Equal(IntelligenceTurnState.Completed, turn.State);
         Assert.Single(turn.Images);
-        Assert.Contains(IntelligenceConversationViewModel.GraphImageNotice, turn.Answer);
-        Assert.Contains("model receives metadata only", model.Result);
+        Assert.Equal(!supportsImages || !provided, turn.Answer.Contains(IntelligenceConversationViewModel.GraphImageNotice, StringComparison.Ordinal));
+        if (supportsImages)
+        {
+            Assert.Equal(turn.Images[0].Data, Assert.Single(model.Received).Data);
+            Assert.Contains(provided ? "Image input is offered" : "model receives metadata only", model.Result);
+        }
+        else Assert.Contains("model receives metadata only", model.Result);
         Assert.DoesNotContain("iVBOR", model.Result);
         var restored = Assert.Single(IntelligenceSavedChats.Turns(new SavedIntelligenceChat { Messages = IntelligenceSavedChats.Messages(chat.Turns) }));
         Assert.Equal(turn.Images[0].Data, Assert.Single(restored.Images).Data);
-        Assert.Contains(IntelligenceConversationViewModel.GraphImageNotice, restored.Answer);
+        Assert.Equal(turn.Answer, restored.Answer);
+    }
+
+    [Fact]
+    public async Task The_attachment_limit_refuses_an_extra_graph_before_transport()
+    {
+        var requests = 0;
+        using var server = Server(imageRequested: () => Interlocked.Increment(ref requests));
+        using var mobile = new Mobile(server.Root);
+        for (var i = 0; i < IntelligenceAnswerImages.MaxImages; i++) await mobile.Graph.Run("1", default);
+        var before = requests;
+        Assert.Equal(IntelligenceAnswerImages.MaxImages, mobile.Images.Count);
+        Assert.StartsWith("The graph attachment limit", await mobile.Graph.Run("1", default));
+        Assert.Equal(before, requests);
+        Assert.Equal(IntelligenceAnswerImages.MaxImages, mobile.Images.Count);
     }
 
     private const string ImageQuery = "?from=-1day&width=800&height=250&graph_type=png&output=base64&bg=FFFFFF&bbg=FFFFFF";

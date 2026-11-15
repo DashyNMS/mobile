@@ -43,7 +43,7 @@ is listed here with its reason. Anything else is a gap and needs an issue.
 | Results name devices in the person's device-name style, with Core's markers already written | Left to itself, the on-device model drops parts of names and writes "device 708" (#570). Desktop's model writes markers from the JSON itself. |
 | No Full report detail level on the device | Too long for the on-device answer budget. |
 | No web search | It's ChatGPT's hosted tool, and arrives with #577. |
-| Graph image input depends on the native model route | The current Swift bridge supplies text-only tool replies. Lookup attachments reach the answer and saved chat separately. Newer Foundation Models image input is being evaluated in #649. |
+| Graph image input depends on the native model route and context | iOS 27 models advertising vision receive typed image tool output within a 1,536-token image reserve. iOS 26, failed decoding and images over the reserve use the same metadata rows with a truthful notice. The person and saved chat retain the graph. |
 | Report this answer, and the Private Cloud Compute notice | Store rules for the phone (#574, #575). |
 
 Where the phone is more accurate than MCP, it keeps its value and the fix goes
@@ -518,13 +518,25 @@ native model's text tool bridge. Core's type/size limits and the eight-image
 answer cap apply. Model text completion preserves lookup attachments. Context
 retry discards the abandoned attempt's images, and the existing attempt and
 connection guards reject late callbacks. The saved-chat path already serialises
-these validated attachments. The answer explicitly states that the current
-model route received metadata only and cannot read the images.
+these validated attachments. The ninth graph is refused before transport, so a
+lookup cannot promise an image hidden by the answer cap.
 
-Apple's [Foundation Models update](https://developer.apple.com/videos/play/wwdc2026/241/)
-describes newer on-device image input and Private Cloud Compute. The current
-bridge's `Tool.call` returns String on every supported OS. Capability-aware image
-input needs further work in #649; PCC itself remains #575.
+On iOS 27, the bridge checks the active model's `.vision` capability and returns
+Foundation Models Prompt tool output containing the correlated image. C# passes
+NSData alongside text, never base64 in the text or an ambient shared image buffer.
+The conversation reserves 1,536 extra tokens per result when graph is offered
+on an image-capable route. Native counts the image as an Attachment before
+submitting it. Invalid decoding, encoded data over Core's 2 MiB limit, decoded
+dimensions over 2048×1024, token-count failure or cost above that reserve uses
+the metadata-only text. That fallback keeps exactly the same rows and evidence,
+and stays within 900 characters. Native confirms actual image submission before
+the completed answer omits its metadata-only notice. iOS 26 keeps the fallback.
+
+Apple documents [multimodal prompts](https://developer.apple.com/documentation/foundationmodels/analyzing-images-with-multimodal-prompting),
+[PromptRepresentable tool output](https://developer.apple.com/documentation/foundationmodels/tool)
+and [vision capability checks](https://developer.apple.com/documentation/foundationmodels/languagemodelcapabilities).
+Its image guide also covers Private Cloud Compute; no PCC route is enabled here,
+and its consent and configuration-text notice remain #575.
 
 Copied Graphs fixtures include fixed MCP projections and PNG/SVG envelopes.
 HTTP cases compare device/CPU/port/sensor metadata, pixels and request sets,
@@ -532,12 +544,15 @@ including partial listings, denial, oversized images, custom spans, legend,
 cancellation, deadline and a connection switch. Route tests cover canonical
 names and refused paths. An end-to-end conversation test verifies that the
 text-only model gets no base64 while the answer and reopened saved-chat snapshot
-keep the graph and metadata-only notice. Field accounting compares device, CPU,
+keep the graph and metadata-only notice. Capability-enabled cases exercise typed
+pixel delivery, rejected-image notices and the 8,192-token budget; both tool-call
+paths retain the same lookup limit. Field accounting compares device, CPU,
 port and sensor Data with the fixed MCP projections, plus current typed results
 for custom windows, partial/negative listings and the type-list cap. Types and
 selected entities are checked in their own rows. No Data field is deliberately
-excluded. Native image input and iPhone acceptance remain pending while this PR
-is draft.
+excluded. Native compilation and Release checks run in GitHub Actions. Real
+model/image-token measurements and iPhone acceptance remain unverified while
+this PR is draft.
 
 ### How Unimus config tools are built
 

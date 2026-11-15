@@ -48,6 +48,9 @@ public interface IIntelligenceLookups
 
     /// <summary>Typed image attachments are delivered to the answer, independently of the model's text bridge.</summary>
     IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images) => Open(evidence);
+
+    /// <summary>The model route declares whether its tool outputs support typed images.</summary>
+    IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images, bool modelCanReadImages) => Open(evidence, images);
 }
 
 /// <summary>
@@ -196,6 +199,7 @@ public sealed partial class CompactNetworkLookups(
     {
         public static Reply Say(string text) => new(text, []);
         public IReadOnlyList<IntelligenceImage> Images { get; init; } = [];
+        public string? MetadataOnlyText { get; init; }
     }
 
     public Task PrepareAsync(CancellationToken cancellationToken = default)
@@ -214,6 +218,9 @@ public sealed partial class CompactNetworkLookups(
     public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence) => Open(evidence, static _ => { });
 
     public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images)
+        => Open(evidence, images, false);
+
+    public IntelligenceLookupSet Open(Action<IReadOnlyList<IntelligenceEvidence>> evidence, Action<IReadOnlyList<IntelligenceImage>> images, bool modelCanReadImages)
     {
         // By session generation, not the connection's reference: trusting a certificate or
         // changing the timeout gives the session a new connection object for the same server,
@@ -288,6 +295,7 @@ public sealed partial class CompactNetworkLookups(
         var graphsBound = scope is not { } capturedGraphs || deviceTransport is null ? null
             : new ConnectionBoundClient(capturedGraphs, deviceTransport, graphs: true);
         var graphLookup = graphsBound is null ? null : HostGraphLookup.Create(graphsBound, graphsBound.GraphTransport, time);
+        var graphAttachments = 0;
         var alertSources = new Dictionary<int, AlertSource?>();
         var alertSourceGate = new Lock();
         void RetireShared()
@@ -352,14 +360,14 @@ public sealed partial class CompactNetworkLookups(
         IntelligenceLookup Lookup(string name, string? primary, Func<IntelligenceToolArguments, DateTimeOffset, CancellationToken, Task<Reply>> run)
         {
             var (tool, parameters) = Definition(name);
-            return new(tool.Name, tool.Description, async (input, cancellationToken) =>
+            async Task<IntelligenceLookupResult> Read(string input, CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (scope is null && session.Connection is null)
-                    return "Sign in to LibreNMS to use network lookups.";
-                if (!IsCurrent()) return Retire();
+                    return new("Sign in to LibreNMS to use network lookups.");
+                if (!IsCurrent()) return new(Retire());
                 if (IntelligenceToolArguments.Parse(input, parameters, primary, out var refusal) is not { } arguments)
-                    return refusal!;
+                    return new(refusal!);
                 using var deadline = new CancellationTokenSource(Timeout, time);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, deadline.Token);
                 try
@@ -367,7 +375,7 @@ public sealed partial class CompactNetworkLookups(
                     // WaitAsync also bounds transports which do not honour cancellation.
                     var reply = await run(arguments, time.GetUtcNow(), timeout.Token).WaitAsync(timeout.Token).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
-                    if (!IsCurrent()) return Retire();
+                    if (!IsCurrent()) return new(Retire());
                     if (reply.References.Count > 0)
                     {
                         lock (alertSourceGate)
@@ -380,12 +388,13 @@ public sealed partial class CompactNetworkLookups(
                         evidence(reply.References);
                     }
                     if (reply.Images.Count > 0) images(reply.Images);
-                    return reply.Text;
+                    return new(reply.Text) { Images = reply.Images, MetadataOnlyText = reply.MetadataOnlyText };
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-                catch (Exception) { return IsCurrent() ? Failed : Retire(); }
-            })
-            { Parameters = parameters, NamedTools = tool.NamedTools };
+                catch (Exception) { return new(IsCurrent() ? Failed : Retire()); }
+            }
+            return new(tool.Name, tool.Description, async (input, ct) => (await Read(input, ct).ConfigureAwait(false)).Text)
+            { Parameters = parameters, NamedTools = tool.NamedTools, RunWithImages = Read };
         }
 
         // The device a model names, resolved as MCP's tools resolve it (DashyNMS/mcp#131): an id,
@@ -743,11 +752,22 @@ public sealed partial class CompactNetworkLookups(
             Lookup("graph", "device", async (arguments, at, ct) =>
             {
                 if (graphLookup is null) return Reply.Say(Failed);
-                var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
-                if (resolved.Id is not { } id) return resolved.Reply!;
-                var outcome = await WhileCurrent(() => graphLookup.ReadAsync(new(id, arguments.Text("type"), arguments.Text("port"), arguments.Text("sensor"),
-                    arguments.Text("range"), arguments.Text("since"), arguments.Text("until"), arguments.Flag("legend", true)), ct)).ConfigureAwait(false);
-                return outcome.Result is { } found ? GraphRows(found, at, time, BriefName) : GraphFailure(outcome.Error);
+                if (Interlocked.Increment(ref graphAttachments) > IntelligenceAnswerImages.MaxImages)
+                {
+                    Interlocked.Decrement(ref graphAttachments);
+                    return Reply.Say("The graph attachment limit for this answer was reached. Ask another question for more graphs.");
+                }
+                var attached = false;
+                try
+                {
+                    var resolved = await ResolveDevice(arguments.Text("device")!, at, ct).ConfigureAwait(false);
+                    if (resolved.Id is not { } id) return resolved.Reply!;
+                    var outcome = await WhileCurrent(() => graphLookup.ReadAsync(new(id, arguments.Text("type"), arguments.Text("port"), arguments.Text("sensor"),
+                        arguments.Text("range"), arguments.Text("since"), arguments.Text("until"), arguments.Flag("legend", true)), ct)).ConfigureAwait(false);
+                    attached = outcome.Result?.Image is not null;
+                    return outcome.Result is { } found ? GraphRows(found, at, time, BriefName, modelCanReadImages) : GraphFailure(outcome.Error);
+                }
+                finally { if (!attached) Interlocked.Decrement(ref graphAttachments); }
             }),
             Lookup("config_backup", "device", async (arguments, at, ct) =>
             {
