@@ -1,4 +1,4 @@
-// Adapted from desktop IntelligenceStarterQuestions.cs (MIT); adds the offered-tool filter.
+// Adapted from desktop IntelligenceStarterQuestions.cs (copyright Thomas Pickup); adds the offered-tool filter.
 using System;
 using System.Collections.Generic;
 using System.Linq;

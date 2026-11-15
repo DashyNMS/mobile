@@ -1069,7 +1069,7 @@ The entry captures the row's connection generation. `AskIntelligenceService`
 revalidates the exact object before starting a new chat. Saved mode uses the
 existing save-before-leaving flow. Single-chat mode retains preceding chats
 and drafts in memory only; Switch to previous chat cycles back without writing
-them, and a connection change clears them. Actions are unavailable while
+them, and a connection change clears them. Turning the setting off retains access in memory, with each retained private transcript permanently excluded from autosave. Actions are unavailable while
 Intelligence is off, the model is unavailable or an answer is running.
 The Android accessibility adapter adds named native TalkBack actions alongside
 iOS VoiceOver actions. Native swipe, screen-reader and entry-path acceptance
@@ -1081,7 +1081,7 @@ The chat header offers Export conversation as Markdown or PDF, including the
 single-chat conversation. A snapshot contains the title, visible questions,
 readable answers, incomplete-answer notes and validated graph images. It
 excludes the unsent draft, raw lookup records, hidden reasoning and diagnostics.
-The Markdown formatter and file naming were adapted from desktop's MIT-licensed
+The Markdown formatter and file naming were adapted from desktop's
 `IntelligenceChatExport.cs`; headings and incomplete-answer notes keep its
 format. With graphs, the share is a ZIP containing the Markdown and its sibling
 images folder, so relative graph links survive the share sheet. Without graphs

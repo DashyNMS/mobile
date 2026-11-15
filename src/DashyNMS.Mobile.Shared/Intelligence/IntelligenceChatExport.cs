@@ -1,4 +1,4 @@
-// Adapted from DashyNMS desktop IntelligenceChatExport.cs (MIT), preserving its Markdown format.
+// Adapted from DashyNMS desktop IntelligenceChatExport.cs (copyright Thomas Pickup), preserving its Markdown format.
 using System;
 using System.Collections.Generic;
 using System.IO;
