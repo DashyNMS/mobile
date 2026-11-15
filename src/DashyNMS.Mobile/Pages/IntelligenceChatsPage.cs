@@ -22,14 +22,14 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
     private readonly Action _newChat;
     private readonly Label _status = new() { LineBreakMode = LineBreakMode.WordWrap };
     private readonly CollectionView _list = new() { IsGrouped = true, SelectionMode = SelectionMode.None };
-    private readonly Button _new = new() { Text = "New chat", MinimumHeightRequest = 44 };
-    private readonly Button _close = new() { Text = "Back", MinimumHeightRequest = 44, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
+    private readonly Button _new = new() { Text = "New chat", MinimumHeightRequest = 48 };
+    private readonly Button _close = new() { Text = "Back", MinimumHeightRequest = 48, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
 #if IOS
     private readonly HeaderGlassGroup _headerGlass = new();
     private ChatActionPlace? _actionPlace;
     private bool? _canStart;
 #endif
-    private readonly Grid _titleLine = new() { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 12, SafeAreaEdges = SafeAreaEdges.None, MinimumHeightRequest = 44 };
+    private readonly Grid _titleLine = new() { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 12, SafeAreaEdges = SafeAreaEdges.None, MinimumHeightRequest = 48 };
     private readonly VerticalStackLayout _top = new() { Spacing = 8, SafeAreaEdges = SafeAreaEdges.None };
     private readonly BoxView _footer = new() { Color = Colors.Transparent, InputTransparent = true };
     private IDisposable? _edges;

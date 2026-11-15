@@ -51,8 +51,8 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
                 var uri = link.Link!;
                 var button = new Button
                 {
-                    Text = $"{link.Text} ({uri.Host})", Style = Resource<Style>("LinkButton"), MinimumHeightRequest = 44,
-                    HorizontalOptions = LayoutOptions.Start, LineBreakMode = LineBreakMode.TailTruncation, Padding = new Thickness(0, 0, 8, 0),
+                    Text = $"{link.Text} ({uri.Host})", Style = Resource<Style>("LinkButton"), MinimumHeightRequest = 48,
+                    HorizontalOptions = LayoutOptions.Start, LineBreakMode = LineBreakMode.WordWrap, Padding = new Thickness(0, 0, 8, 0),
                 };
                 SemanticProperties.SetDescription(button, $"Open link in browser: {link.Text}, {uri.Host}");
                 button.Clicked += (_, _) => LinkRequested?.Invoke(this, uri);
