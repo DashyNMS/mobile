@@ -101,7 +101,17 @@ def verify_rendered_goldens():
     facts = {}
     for name in ("desktop", "native"):
         doc = pymupdf.open(OUTPUT / f"{name}.pdf")
-        text = " ".join(page.get_text() for page in doc)
+        pages = []
+        for index, page in enumerate(doc):
+            lines = page.get_text().splitlines()
+            if name == "desktop":
+                # Desktop's footer interrupts paragraphs continued on the next
+                # page. Remove only this fixture's exact, numbered footer.
+                footer = f"Recorded export · Page {index + 1}"
+                assert lines and lines[-1].strip() == footer, f"{name}: missing page footer {index + 1}"
+                lines.pop()
+            pages.append(" ".join(lines))
+        text = " ".join(pages)
         # Native shaping may extract typographic ligatures (for example ﬁ) as one
         # character. Compare their equivalent Unicode text, not glyph encoding.
         normalized = "".join(unicodedata.normalize("NFKC", text).split())
