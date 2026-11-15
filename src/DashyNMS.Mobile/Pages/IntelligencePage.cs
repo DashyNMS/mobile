@@ -393,7 +393,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private void UpdateControls()
     {
         RefreshSpotlight();
-        _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
+        _spotlightControls.IsVisible = _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
         _askIcon.Data = IconData(_conversation.IsRunning ? StopIcon : SendIcon);
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));

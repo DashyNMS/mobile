@@ -13,7 +13,7 @@ public sealed partial class IntelligencePage
         if (stamp == _spotlightStamp) return;
         _spotlightStamp = stamp;
         _spotlightControls.Children.Clear();
-        var choices = new FlexLayout { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap };
+        var choices = new HorizontalStackLayout { Spacing = 4 };
         var add = new Button { Text = "Spotlight", MinimumHeightRequest = 48, IsEnabled = _conversation.CanAsk, Style = ResourceStyle("SecondaryButton") };
         SemanticProperties.SetDescription(add, "Choose devices, a group or a location for Spotlight");
         add.Clicked += async (_, _) => await PickSpotlightAsync();
@@ -25,7 +25,11 @@ public sealed partial class IntelligencePage
             remove.Clicked += (_, _) => _conversation.RemoveSpotlight(item);
             choices.Children.Add(remove);
         }
-        _spotlightControls.Children.Add(choices);
+        _spotlightControls.Children.Add(new ScrollView
+        {
+            Orientation = ScrollOrientation.Horizontal, HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+            SafeAreaEdges = SafeAreaEdges.None, Content = choices,
+        });
         if (_conversation.IsRunning) _spotlightControls.Children.Add(new Label { Text = "Spotlight is locked while an answer runs.", Style = ResourceStyle("Caption") });
     }
 
