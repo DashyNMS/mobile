@@ -339,7 +339,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         private readonly Grid _row = new()
         {
             ColumnDefinitions = [new(GridLength.Star)], RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
-            Padding = new Thickness(16, 10), MinimumHeightRequest = 56,
+            MinimumHeightRequest = 56,
         };
         private readonly Button _open = new() { BackgroundColor = Colors.Transparent, BorderWidth = 0, Padding = 0, MinimumHeightRequest = 56 };
         private readonly SwipeItem _pin = new();
@@ -354,6 +354,8 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         {
             _page = page;
             _when.Style = ResourceStyle("Caption");
+            _title.Margin = new Thickness(16, 10, 16, 0);
+            _when.Margin = new Thickness(16, 0, 16, 10);
             _row.Add(_title, 0, 0);
             _row.Add(_when, 0, 1);
             AutomationProperties.SetIsInAccessibleTree(_title, false);

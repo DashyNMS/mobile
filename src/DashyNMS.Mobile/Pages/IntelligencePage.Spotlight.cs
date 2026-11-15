@@ -9,7 +9,7 @@ public sealed partial class IntelligencePage
     private string? _spotlightStamp;
     private void RefreshSpotlight()
     {
-        var stamp = _conversation.ChatRevision + ":" + _conversation.CanAsk + ":" + _conversation.HasPreviousObjectChat + ":" + _conversation.SpotlightInstructions;
+        var stamp = _conversation.ChatRevision + ":" + _conversation.CanAsk + ":" + _conversation.HasPreviousObjectChat + ":" + _conversation.SpotlightInstructions + ":" + string.Join("|", _conversation.Spotlight.Select(s => s.Name));
         if (stamp == _spotlightStamp) return;
         _spotlightStamp = stamp;
         _spotlightControls.Children.Clear();
@@ -72,6 +72,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
     private readonly IntelligenceConversationViewModel _conversation;
     private readonly long _revision;
     private bool _valid = true;
+    private bool _selecting;
     private readonly CancellationTokenSource _lifetime = new();
     private SearchBar? _search;
     private Label? _status;
@@ -96,8 +97,9 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             button.SetBinding(Button.TextProperty, nameof(SpotlightChoice.Name));
             button.Clicked += async (_, _) =>
             {
-                if (!_valid || button.BindingContext is not SpotlightChoice choice) return;
-                button.IsEnabled = false;
+                if (!_valid || _selecting || button.BindingContext is not SpotlightChoice choice) return;
+                _selecting = true;
+                _list.IsEnabled = false;
                 try
                 {
                     var added = await select(choice, _lifetime.Token);
@@ -107,7 +109,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
                         SemanticScreenReader.Default.Announce(status.Text);
                     }
                 }
-                finally { button.IsEnabled = true; }
+                finally { _selecting = false; _list.IsEnabled = _valid; }
             };
             return button;
         });

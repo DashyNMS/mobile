@@ -250,7 +250,8 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         if (e.PropertyName == nameof(IntelligenceConversationViewModel.StarterQuestions)) { _starterRevision = -1; RefreshStarters(); }
         if (e.PropertyName == nameof(IntelligenceConversationViewModel.ChatRevision)) { SynchroniseComposer(); RefreshStarters(); }
         UpdateControls();
-        if (e.PropertyName == nameof(_conversation.IsRunning)) ShowActions();
+        if (e.PropertyName is nameof(_conversation.IsRunning) or nameof(_conversation.ChatRevision)
+            or nameof(_conversation.IsTranscriptCurrent)) ShowActions();
     }
 
     private void OnChatsChanged(object? sender, PropertyChangedEventArgs e)
@@ -687,7 +688,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
                 var revision = _page._conversation.ChatRevision;
                 var choice = await _page.DisplayActionSheetAsync(reference.Name, "Cancel", null, "Open", "Add to Spotlight", "Spotlight only this");
                 if (revision != _page._conversation.ChatRevision || !_page._conversation.OwnsTurn(_turn)) return;
-                if (choice == "Open") await _page._actions.OpenAsync(_turn, reference);
+                if (choice == "Open")
+                {
+                    try { await _page._actions.OpenAsync(_turn, reference); }
+                    catch { await _page._dialogs.AlertAsync("Couldn't open the item", "Try again, or open its source page from More."); }
+                }
                 else if (choice == "Add to Spotlight" || choice == "Spotlight only this")
                     await _page.SpotlightReferenceAsync(_turn, reference, choice == "Spotlight only this");
             };

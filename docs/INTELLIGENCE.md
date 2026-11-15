@@ -1049,7 +1049,7 @@ Open, Add to Spotlight and Spotlight only this, including VoiceOver actions.
 Each change checks the captured connection, chat revision and source evidence,
 revalidates the exact identity through Shared's HostObjectResolver, then checks
 ownership again. Duplicates, missing objects and failures keep the old scope.
-Changes are locked while answering. Scope IDs, parent IDs and names feed both
+Changes are locked while answering. Only typed scope IDs, parent IDs and optional rule IDs feed both
 the measured instruction budget and tool selection; a long scope can require a
 shorter question or fewer targets. The model passes scope to tools that accept
 it, as on desktop; Spotlight does not claim to impose an API access restriction.
@@ -1098,7 +1098,7 @@ installed-device acceptance. A print-input golden is not a rendered-PDF test.
 
 ### Starter questions and activity (#640)
 
-The twelve questions and four-at-a-time rotation are desktop's, with device
+The twelve-question catalogue and four-at-a-time rotation are desktop's, with device
 and alert questions filtered by the current connection's cached device/open
 alert context. A question is also filtered until its required tools are offered.
 New/restored chats rotate; ordinary activation only updates changed context.
@@ -1132,3 +1132,10 @@ NFKC normalisation; UIKit's HTML formatter omitted data-URI images, so the
 production renderer now draws decoded graphs directly in an appendix labelled
 by answer and graph number. The image-object and coloured-pixel assertions stay
 required and passed in the native simulator golden.
+
+CodeRabbit corrections keep Spotlight display names in UI/saved data only,
+never in the system instruction block. The model resolves typed IDs through
+normal read-only lookups. The uptime-ranking starter remains in the desktop
+catalogue but is not offered on the phone: none of its reviewed operations
+ranks the whole fleet by uptime. Open-alert starter eligibility also follows
+successful generation-bound background monitor polls.
