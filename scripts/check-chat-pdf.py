@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import time
+import unicodedata
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "artifacts/chat-pdf"
@@ -101,10 +102,12 @@ def verify_rendered_goldens():
     for name in ("desktop", "native"):
         doc = pymupdf.open(OUTPUT / f"{name}.pdf")
         text = " ".join(page.get_text() for page in doc)
-        normalized = "".join(text.split())
+        # Native shaping may extract typographic ligatures (for example ﬁ) as one
+        # character. Compare their equivalent Unicode text, not glyph encoding.
+        normalized = "".join(unicodedata.normalize("NFKC", text).split())
         assert len(doc) >= golden["minimum_pages"], f"{name}: pagination missing"
         for expected in golden["required_text"]:
-            assert "".join(expected.split()) in normalized, f"{name}: missing visible content: {expected}"
+            assert "".join(unicodedata.normalize("NFKC", expected).split()) in normalized, f"{name}: missing visible content: {expected}"
         for i in range(golden["records"]):
             assert f"Record{i:03}:" in normalized, f"{name}: paragraph {i} lost across pages"
         images = sum(len(page.get_images()) for page in doc)

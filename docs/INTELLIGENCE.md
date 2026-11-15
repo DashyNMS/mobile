@@ -1088,7 +1088,7 @@ images folder, so relative graph links survive the share sheet. Without graphs
 it is a plain `.md` file.
 
 PDF uses iOS's native paginated print renderer over escaped, locally generated
-HTML, with headings, tables, code, safe source links and inline graph data.
+HTML, with headings, tables, code, safe source links and a native-drawn graph appendix labelled by answer.
 There is no new rendering dependency, script or externally loaded image. Both
 formats recheck chat/connection ownership before sharing and clear the export
 cache after the share completes. Golden tests compare desktop's Markdown
@@ -1122,3 +1122,10 @@ paragraphs over multiple pages, selectable table/code text, a clickable source
 link, an embedded image and visible graph pixels against a checked-in golden.
 It retains PDFs and page rasters as evidence. This native regression is pending
 its first successful CI run; it does not establish installed-device UI acceptance.
+
+The first native artifact exposed two PDF-specific differences: ligatures use
+Unicode presentation forms in extracted text, so the semantic golden applies
+NFKC normalisation; UIKit's HTML formatter omitted data-URI images, so the
+production renderer now draws decoded graphs directly in an appendix labelled
+by answer and graph number. The image-object and coloured-pixel assertions stay
+required. This correction awaits its CI run.
