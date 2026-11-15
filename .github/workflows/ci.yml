@@ -272,3 +272,35 @@ jobs:
           if otool -l "$BRIDGE" | grep -A 3 "cmd LC_LOAD_DYLIB" | grep -q FoundationModels; then
             echo "FoundationModels is strongly linked"; exit 1
           fi
+
+  ios-pdf:
+    name: iOS rendered PDF golden
+    runs-on: xcode-27
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      GH_TOKEN: ${{ github.token }}
+      TZ: UTC
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Install the pinned iOS workload
+        run: dotnet workload install maui-ios --version 10.0.402.1
+      - name: Restore and verify the shared package
+        run: |
+          dotnet restore src/DashyNMS.Mobile.Shared
+          scripts/verify-shared-package.sh
+      - name: Compare real iOS and pinned desktop PDFs
+        run: |
+          python3 -m venv "$RUNNER_TEMP/chat-pdf-python"
+          "$RUNNER_TEMP/chat-pdf-python/bin/pip" install -r tests/ChatPdf/requirements.txt
+          "$RUNNER_TEMP/chat-pdf-python/bin/python" scripts/check-chat-pdf.py
+      - name: Retain PDF and raster comparison evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: chat-pdf-${{ github.run_id }}
+          path: artifacts/chat-pdf/
+          if-no-files-found: warn

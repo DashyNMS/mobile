@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RuntimeIdentifier>iossimulator-arm64</RuntimeIdentifier>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <ApplicationId>net.example.dashynms.pdfregression</ApplicationId>
+    <ApplicationTitle>PDF regression</ApplicationTitle>
+    <EnableCodeSigning>false</EnableCodeSigning>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj" />
+    <Compile Include="../ChatPdf/RecordedChat.cs" Link="RecordedChat.cs" />
+    <Compile Include="../../src/DashyNMS.Mobile/Platforms/iOS/IntelligencePdfRenderer.cs" Link="IntelligencePdfRenderer.cs" />
+    <BundleResource Include="../ChatPdf/recorded-graph.png" LogicalName="recorded-graph.png" />
+  </ItemGroup>
+</Project>

@@ -1114,3 +1114,11 @@ The native picker supplies the only dropdown indicator. The overlaid chevron,
 Detailed continue to use the existing selected-index/detail mapping and native
 accessibility. The chip is at least 48pt high and allows native text scaling.
 Native appearance at maximum Dynamic Type and VoiceOver remains unverified.
+
+The CI-only `iOS rendered PDF golden` job now also compiles the production
+renderer into a simulator harness and prints the same recorded chat with a
+pinned, hash-verified desktop renderer. Both actual PDFs must preserve ninety
+paragraphs over multiple pages, selectable table/code text, a clickable source
+link, an embedded image and visible graph pixels against a checked-in golden.
+It retains PDFs and page rasters as evidence. This native regression is pending
+its first successful CI run; it does not establish installed-device UI acceptance.
