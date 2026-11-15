@@ -253,6 +253,11 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     {
         // A running model may already hold config text from a completed lookup.
         // Retire that attempt as well as rejecting any in-flight integration result.
+        if (!_preferences.SingleChatMode && _retainedObjectChats.Count > 0)
+        {
+            _retainedObjectChats.Clear();
+            OnPropertyChanged(nameof(HasPreviousObjectChat));
+        }
         var configChanged = _configText != _preferences.ConfigText;
         _configText = _preferences.ConfigText;
         if (!_preferences.Enabled || configChanged) Interrupt();

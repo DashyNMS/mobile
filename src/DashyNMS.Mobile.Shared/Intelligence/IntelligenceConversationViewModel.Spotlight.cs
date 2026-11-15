@@ -32,7 +32,7 @@ public sealed partial class IntelligenceConversationViewModel
     }
     public bool SwitchPreviousObjectChat()
     {
-        if (!CanAsk || _retainedObjectChats.Count == 0) return false;
+        if (!CanAsk || !_preferences.SingleChatMode || _retainedObjectChats.Count == 0) return false;
         var previous = _retainedObjectChats[^1];
         var current = CaptureObjectChat();
         if (!Restore(previous.Turns, previous.Draft, previous.Detail, previous.Spotlight)) return false;
