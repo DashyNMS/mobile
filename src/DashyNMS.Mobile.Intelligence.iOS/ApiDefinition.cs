@@ -82,6 +82,9 @@ interface DnmIntelligenceSession
     [Export("lookupImageIdsProvided")]
     string[] LookupImageIdsProvided { get; }
 
+    [Export("lookupImageIdsOmitted")]
+    string[] LookupImageIdsOmitted { get; }
+
     // - (void)ask:(NSString *)question onText:(void (^)(NSString *))onText completion:(void (^)(NSString * _Nullable, NSString * _Nullable, NSError * _Nullable))completion;
     [Export("ask:onText:completion:")]
     void Ask(string question, DnmTextHandler onText, DnmAnswerHandler completion);

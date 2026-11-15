@@ -95,6 +95,8 @@ public sealed class AppleIntelligenceModel : IIntelligenceModel
 				});
 			});
 
+		public IReadOnlyList<string> LookupImageIdsOmitted => _session.LookupImageIdsOmitted;
+
 		public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
 		{
 			var finished = new TaskCompletionSource<IntelligenceAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);

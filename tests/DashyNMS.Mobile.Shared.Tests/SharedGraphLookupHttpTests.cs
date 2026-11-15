@@ -165,6 +165,7 @@ public sealed class SharedGraphLookupHttpTests
         public IntelligenceAvailability Availability => IntelligenceAvailability.Available;
         public int? ContextSize => 8192;
         public bool SupportsLookupImages => supportsImages;
+        public bool FailAfterLookup { get; init; }
         private bool ReportsImages => imagesProvided;
         private int? RejectedImage => rejectedImage;
         public IReadOnlyList<IntelligenceImage> Received { get; private set; } = [];
@@ -173,6 +174,8 @@ public sealed class SharedGraphLookupHttpTests
         public IIntelligenceSession StartSession(string instructions, IReadOnlyList<IntelligenceLookup> lookups) => new ModelSession(this, lookups);
         private sealed class ModelSession(TextBridgeModel owner, IReadOnlyList<IntelligenceLookup> tools) : IIntelligenceSession
         {
+            private readonly List<string> omitted = [];
+            public IReadOnlyList<string> LookupImageIdsOmitted => omitted.ToArray();
             public async Task<IntelligenceAnswer> AskAsync(string question, Action<string> onText, CancellationToken cancellationToken = default)
             {
                 var graph = tools.Single(t => t.Name == "graph");
@@ -189,11 +192,13 @@ public sealed class SharedGraphLookupHttpTests
                         var accepted = owner.ReportsImages && i != owner.RejectedImage;
                         owner.Result = accepted ? result.Text : result.MetadataOnlyText;
                         if (accepted) provided.Add(result.ImageId);
+                        else omitted.Add(result.ImageId);
                         images.AddRange(result.Images);
                     }
                     owner.Received = images;
                 }
                 else owner.Result = await graph.Run("1", cancellationToken);
+                if (owner.FailAfterLookup) throw new DashyNMS.Mobile.Intelligence.IntelligenceException("synthetic failure", "Partial answer");
                 return new("The requested graph is attached.", null) { LookupImageIdsProvided = provided };
             }
             public void Dispose() { }
@@ -228,6 +233,28 @@ public sealed class SharedGraphLookupHttpTests
         Assert.DoesNotContain("iVBOR", model.Result);
         var restored = Assert.Single(IntelligenceSavedChats.Turns(new SavedIntelligenceChat { Messages = IntelligenceSavedChats.Messages(chat.Turns) }));
         Assert.Equal(turn.Images[0].Data, Assert.Single(restored.Images).Data);
+        Assert.Equal(turn.Answer, restored.Answer);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Partial_answers_report_only_confirmed_metadata_only_images(bool delivered)
+    {
+        using var server = Server();
+        using var mobile = new Mobile(server.Root);
+        var store = Substitute.For<ICheckedSettingsStore>();
+        store.Current.Returns(new AppSettings());
+        var saved = new InMemoryPreferences();
+        saved.Set(IntelligencePreferences.NoticeKey, "accepted");
+        var model = new TextBridgeModel(true, delivered) { FailAfterLookup = true };
+        using var chat = new IntelligenceConversationViewModel(model, new IntelligencePreferences(store, saved), mobile.Provider, mobile.Session);
+        await chat.AskAsync("Show me this device's traffic today");
+        var turn = Assert.Single(chat.Turns);
+        Assert.Equal(IntelligenceTurnState.Failed, turn.State);
+        Assert.Single(turn.Images);
+        Assert.Equal(!delivered, turn.Answer.Contains(IntelligenceConversationViewModel.GraphImageNotice, StringComparison.Ordinal));
+        var restored = Assert.Single(IntelligenceSavedChats.Turns(new SavedIntelligenceChat { Messages = IntelligenceSavedChats.Messages(chat.Turns) }));
         Assert.Equal(turn.Answer, restored.Answer);
     }
 

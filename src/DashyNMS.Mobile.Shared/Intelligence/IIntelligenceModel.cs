@@ -88,6 +88,9 @@ public interface IIntelligenceModel
 /// <summary>One conversation with the model: one question at a time.</summary>
 public interface IIntelligenceSession : IDisposable
 {
+    /// <summary>Images confirmed as metadata-only, including before a partial failure.</summary>
+    IReadOnlyList<string> LookupImageIdsOmitted => [];
+
     /// <summary>
     /// Asks, reporting the answer so far (all of it, not the newest words)
     /// through <paramref name="onText"/> as it's written, and returns the

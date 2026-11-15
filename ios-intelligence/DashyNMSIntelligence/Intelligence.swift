@@ -35,6 +35,9 @@ struct LookupResult: Sendable {
 final class ImageUsage: @unchecked Sendable {
     private let lock = NSLock()
     private var provided = Set<String>()
+    private var omitted = Set<String>()
+    func markOmitted(_ imageId: String) { lock.lock(); omitted.insert(imageId); lock.unlock() }
+    var omittedIds: [String] { lock.lock(); defer { lock.unlock() }; return omitted.sorted() }
     func markProvided(_ imageId: String) { lock.lock(); provided.insert(imageId); lock.unlock() }
     var providedIds: [String] { lock.lock(); defer { lock.unlock() }; return provided.sorted() }
 }
@@ -134,6 +137,7 @@ struct LookupTool: Tool {
                 }
             }
         }
+        if !result.images.isEmpty, let imageId = result.imageId { imageUsage.markOmitted(imageId) }
         let text = result.images.isEmpty ? result.text
             : result.metadataOnlyText ?? "The graph is attached for the person. You received metadata only and cannot read its image."
         return Prompt { text }
@@ -258,6 +262,9 @@ public final class IntelligenceSession: NSObject {
 
     @objc(lookupImageIdsProvided)
     public var lookupImageIdsProvided: [String] { imageUsage.providedIds }
+
+    @objc(lookupImageIdsOmitted)
+    public var lookupImageIdsOmitted: [String] { imageUsage.omittedIds }
 
     @objc(initWithInstructions:lookups:)
     public init(instructions: String, lookups: [Lookup]) {
