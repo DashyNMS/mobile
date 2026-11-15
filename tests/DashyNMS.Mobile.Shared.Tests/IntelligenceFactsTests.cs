@@ -334,6 +334,12 @@ public sealed partial class IntelligenceFactsTests
         if (name == "device_status" && text.Contains("state " + value.GetString(), StringComparison.OrdinalIgnoreCase)) return true;
         if (name == "window_complete") return text.Contains(value.GetBoolean() ? "; complete." : "; incomplete;", StringComparison.Ordinal)
             || !value.GetBoolean() && text.Contains("; coverage unknown;", StringComparison.Ordinal);
+        // Counts in these rows must match the labelled value, not a day or a number in a source name.
+        if (path == "over_time.count") return text.EndsWith(": " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + " messages.", StringComparison.Ordinal);
+        if (path.StartsWith("top.", StringComparison.Ordinal) && name == "count")
+            return text.EndsWith(": " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + ".", StringComparison.Ordinal);
+        if (path == "count" && text.StartsWith("Graylog matches ", StringComparison.Ordinal))
+            return text.StartsWith("Graylog matches " + value.GetInt64().ToString(CultureInfo.InvariantCulture) + ".", StringComparison.Ordinal);
         if (path == "lines_are") return text.Contains("Oldest samples; newest exceed Graylog paging. Narrow the window for newer messages.", StringComparison.Ordinal);
         if (path.StartsWith("search.", StringComparison.Ordinal) && name is ("since" or "until") || path == "over_time.from")
         {
