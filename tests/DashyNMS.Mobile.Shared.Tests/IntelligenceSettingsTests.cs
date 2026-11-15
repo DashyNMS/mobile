@@ -179,6 +179,63 @@ public sealed class IntelligenceSettingsTests
     }
 
     [Fact]
+    public void Config_text_uses_Cores_key_and_failed_saves_restore_the_previous_choice()
+    {
+        var notifications = 0;
+        _policy.Changed += (_, _) => notifications++;
+        Assert.Equal(0, _vm.ConfigTextIndex);
+        _vm.ConfigTextIndex = 1;
+        Assert.Equal(AppSettings.IntelligenceConfigTextFull, _values.IntelligenceConfigText);
+        Assert.Equal(1, notifications);
+        _settings.TrySave().Returns(false);
+        _vm.ConfigTextIndex = 2;
+        Assert.Equal(AppSettings.IntelligenceConfigTextFull, _values.IntelligenceConfigText);
+        Assert.Equal(1, _vm.ConfigTextIndex);
+        Assert.Equal(1, notifications);
+        Assert.Equal("The Intelligence setting couldn't be saved. Try again.", _vm.ErrorMessage);
+        _settings.TrySave().Returns(true);
+        _vm.ConfigTextIndex = 2;
+        Assert.Equal(AppSettings.IntelligenceConfigTextOff, _values.IntelligenceConfigText);
+        Assert.Equal(2, notifications);
+        Assert.Throws<ArgumentOutOfRangeException>(() => _policy.SetConfigText("invalid"));
+    }
+
+    [Fact]
+    public async Task Config_text_choice_is_only_visible_after_Unimus_is_configured()
+    {
+        var api = Substitute.For<DesktopNMS.Core.Api.IUnimusApi>();
+        var secrets = Fakes.Secrets();
+        var setup = new DashyNMS.Mobile.Unimus.UnimusSetup(api, new DashyNMS.Mobile.Security.SecureUnimusTokenProtector(secrets),
+            _settings, secrets, TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<DashyNMS.Mobile.Unimus.UnimusSetup>.Instance);
+        var vm = new IntelligenceSettingsViewModel(_model, _policy, _dialogs, _launcher, unimus: setup);
+        Assert.False(vm.HasConfigTextChoice);
+        Assert.False(_vm.HasConfigTextChoice);
+        api.IsConfigured.Returns(true);
+        await vm.PrepareAsync();
+        Assert.True(vm.HasConfigTextChoice);
+        api.IsConfigured.Returns(false);
+        vm.Refresh();
+        Assert.False(vm.HasConfigTextChoice);
+    }
+
+    [Fact]
+    public void Saved_config_text_choice_survives_a_real_settings_reload()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "mobile-config-text-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var path = Path.Combine(folder, "settings.json");
+            var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<SettingsStore>.Instance;
+            var store = new SettingsStore(logger, path);
+            var policy = new IntelligencePreferences(store, _preferences);
+            policy.SetConfigText(AppSettings.IntelligenceConfigTextOff);
+            Assert.Equal(AppSettings.IntelligenceConfigTextOff, new IntelligencePreferences(new SettingsStore(logger, path), _preferences).ConfigText);
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    [Fact]
     public async Task A_failed_save_keeps_the_mobile_gate_off_and_does_not_expose_exception_text()
     {
         _dialogs.ConfirmAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns(true);

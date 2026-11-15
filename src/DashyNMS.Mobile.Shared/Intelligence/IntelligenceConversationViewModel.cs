@@ -228,6 +228,7 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
     {
         _model = model;
         _preferences = preferences;
+        _configText = preferences.ConfigText;
         _lookups = lookups;
         _session = session;
         _dispatch = dispatch;
@@ -235,9 +236,15 @@ public sealed class IntelligenceConversationViewModel : ObservableObject, IDispo
         session.StateChanged += ConnectionChanged;
     }
 
+    private string _configText;
+
     private void PreferencesChanged(object? sender, EventArgs e)
     {
-        if (!_preferences.Enabled) Interrupt();
+        // A running model may already hold config text from a completed lookup.
+        // Retire that attempt as well as rejecting any in-flight integration result.
+        var configChanged = _configText != _preferences.ConfigText;
+        _configText = _preferences.ConfigText;
+        if (!_preferences.Enabled || configChanged) Interrupt();
         Notify();
     }
 

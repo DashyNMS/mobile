@@ -701,6 +701,25 @@ public sealed class IntelligenceConversationTests
         held.SetResult(new IntelligenceAnswer("Late", null));
     }
 
+    [Theory]
+    [InlineData(AppSettings.IntelligenceConfigTextSummary)]
+    [InlineData(AppSettings.IntelligenceConfigTextOff)]
+    public async Task Changing_config_privacy_interrupts_a_model_that_already_has_lookup_text(string mode)
+    {
+        _preferences.SetConfigText(AppSettings.IntelligenceConfigTextFull);
+        var held = new TaskCompletionSource<IntelligenceAnswer>();
+        _model.Scripts.Enqueue((_, _, text, _) => { text("Partial config answer"); return held.Task; });
+        using var vm = Open();
+        var asking = vm.AskAsync("What changed?");
+        _preferences.SetConfigText(mode);
+        await asking.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(IntelligenceTurnState.Interrupted, vm.Turns[0].State);
+        Assert.Equal("Partial config answer", vm.Turns[0].Answer);
+        Assert.True(vm.CanAsk);
+        Assert.Equal(1, _lookups.Closed);
+        held.SetResult(new IntelligenceAnswer("Late config answer", null));
+    }
+
     [Fact]
     public async Task Native_callbacks_and_terminal_updates_use_the_supplied_UI_dispatcher()
     {

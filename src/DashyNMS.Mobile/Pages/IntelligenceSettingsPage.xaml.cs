@@ -18,12 +18,13 @@ public partial class IntelligenceSettingsPage : ContentPage, IActivePage
         _layout = new SetupPageLayout(this, Setup, Header, FormScroll);
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         _viewModel.PropertyChanged -= OnChanged;
         _viewModel.PropertyChanged += OnChanged;
         _viewModel.Refresh();
+        await _viewModel.PrepareAsync();
     }
 
     protected override void OnDisappearing()

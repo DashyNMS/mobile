@@ -521,8 +521,17 @@ The copied upstream ConfigLookups fixture uses synthetic bearer authentication
 and real Core HTTP clients. CI compares request sets and known backup/diff/change
 facts with the shared host; further cases cover Full/Summary/Off, line paging,
 redaction, unavailable tools, scoped partial failures, cancellation, privacy
-changes, token retirement and the read-only profile. Field accounting, the
-Settings control and iPhone acceptance remain pending while this PR is draft.
+changes, token retirement and the read-only profile. Field accounting and
+iPhone acceptance remain pending while this PR is draft.
+
+Settings → Intelligence has an automatic-save Configuration text picker when
+Unimus is configured. It writes Core's existing Summary/Full/Off key and restores
+the previous value if persistence fails. Changing it stops an active model attempt,
+including one that has already received lookup text, while keeping earlier chat
+text visible. The page prepares existing secure setup before deciding visibility.
+CI covers persistence/reload, rollback, visibility and interruption. The caption
+refers to the current on-device model. The separate Private Cloud Compute work
+in #575 must explain that Full config text goes to Apple before it is enabled.
 
 ### How search_logs is built
 

@@ -61,6 +61,15 @@
                                 </Grid>
                             </VerticalStackLayout>
                         </Border>
+                        <Border Style="{StaticResource Card}" IsVisible="{Binding HasConfigTextChoice}">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Unimus in Intelligence" FontFamily="BodySemibold" />
+                                <controls:SetupSection Label="Configuration text">
+                                    <Picker Title="Configuration text" ItemsSource="{Binding ConfigTextLabels}" SelectedIndex="{Binding ConfigTextIndex}" SemanticProperties.Description="Configuration text available to Intelligence" MinimumHeightRequest="44" />
+                                </controls:SetupSection>
+                                <Label Style="{StaticResource Caption}" Text="Summary shares backup dates and change counts. Full also shares redacted configuration text with the on-device model. Off stops config lookups. Changes save straight away and stop the current answer; earlier chat text stays." />
+                            </VerticalStackLayout>
+                        </Border>
                         <Border Style="{StaticResource Card}" IsVisible="{Binding HasSavedChats}">
                             <VerticalStackLayout Spacing="8">
                                 <Label Text="Saved chats" FontFamily="BodySemibold" />
