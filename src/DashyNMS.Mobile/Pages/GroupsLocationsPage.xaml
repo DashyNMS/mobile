@@ -68,7 +68,7 @@
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="sections:SectionRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                         <Border Style="{StaticResource Card}" SemanticProperties.Description="{Binding ContentDescription}" SemanticProperties.Hint="Opens Devices filtered to this group or location">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer
@@ -88,7 +88,7 @@
                             </Grid>
                         </Border>
                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>

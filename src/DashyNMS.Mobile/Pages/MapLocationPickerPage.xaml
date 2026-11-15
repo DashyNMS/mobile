@@ -30,7 +30,7 @@
                     </CollectionView.Header>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="map:MapLocationChoice">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                             <Border Style="{StaticResource Card}" Margin="0,0,0,6" MinimumHeightRequest="44"
                                     AutomationProperties.IsInAccessibleTree="True"
                                     SemanticProperties.Description="{Binding Description}"
@@ -47,7 +47,7 @@
                                 </VerticalStackLayout>
                         </Border>
                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                 </CollectionView.ItemTemplate>
                 <CollectionView.Footer>
                     <BoxView HeightRequest="12" Color="Transparent" />

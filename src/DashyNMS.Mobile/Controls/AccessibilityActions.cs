@@ -65,9 +65,9 @@ public sealed class AccessibilityActions(View view, string name, Func<bool> perf
             foreach (var action in _actions)
                 info.AddAction(new Android.Views.Accessibility.AccessibilityNodeInfo.AccessibilityAction(action.Value, new Java.Lang.String(action.Key.Name)));
         }
-        public override bool PerformAccessibilityAction(Android.Views.View? host, int action, Android.OS.Bundle? args)
+        public override bool PerformAccessibilityAction(Android.Views.View host, Android.Views.Accessibility.Action action, Android.OS.Bundle? args)
         {
-            var found = _actions.FirstOrDefault(a => a.Value == action).Key;
+            var found = _actions.FirstOrDefault(a => a.Value == (int)action).Key;
             return found is not null ? found.Perform() : base.PerformAccessibilityAction(host, action, args);
         }
     }

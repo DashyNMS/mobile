@@ -191,7 +191,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.TopAlerts}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:AlertItem">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -207,7 +207,7 @@
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="See all alerts" HorizontalOptions="Start"
@@ -228,7 +228,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.PinnedDevices}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:DeviceItem">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -243,7 +243,7 @@
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding StateText}" VerticalOptions="Center" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -262,7 +262,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.RecentlyViewed}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:RecentDeviceRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -277,7 +277,7 @@
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ViewedText}" VerticalOptions="Center" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -301,7 +301,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Sensors}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -318,7 +318,7 @@
                                                    TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -373,7 +373,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Dashboard.WirelessControllers}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="sections:SectionRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -388,7 +388,7 @@
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -446,7 +446,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="dash:TopRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,80,80" RowDefinitions="Auto,Auto" ColumnSpacing="8" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -475,7 +475,7 @@
                                             </ProgressBar>
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Label Style="{StaticResource Faint}" Text="{Binding TopFootnote}" IsVisible="{Binding HasTopFootnote}" Margin="0,4,0,0" />
@@ -510,7 +510,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding EventRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="logs:LogEntryItem">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -525,7 +525,7 @@
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"
@@ -560,7 +560,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding GraylogRows}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="graylog:GraylogMessageItem">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                         <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
@@ -575,7 +575,7 @@
                                             <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortTimeText}" VerticalOptions="Start" Margin="0,3,0,0" />
                                         </Grid>
                                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Button Style="{StaticResource LinkButton}" Text="{Binding SeeAllLogsText}" HorizontalOptions="Start"

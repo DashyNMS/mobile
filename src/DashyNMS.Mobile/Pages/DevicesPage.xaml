@@ -146,7 +146,7 @@
                 </CollectionView.Footer>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:DeviceItem">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
                                   controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                   controls:LongPress.CommandParameter="{Binding .}"
@@ -196,7 +196,7 @@
                                 <BoxView Grid.ColumnSpan="4" Style="{StaticResource RowLine}" />
                             </Grid>
                     </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
         </RefreshView>

@@ -103,7 +103,7 @@
                         </CollectionView.EmptyView>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="sections:SectionRow">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                                 <Grid Style="{StaticResource ListRow}" Padding="14,11" ColumnDefinitions="10,*" ColumnSpacing="12"
                                       SemanticProperties.Description="{Binding HealthDescription}"
                                       SemanticProperties.Hint="Opens this device’s Sensors">
@@ -124,7 +124,7 @@
                                     <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" InputTransparent="True" />
                                 </Grid>
                             </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                 </RefreshView>

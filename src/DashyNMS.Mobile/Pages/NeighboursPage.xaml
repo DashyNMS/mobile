@@ -107,7 +107,7 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="topo:NeighbourLink">
-<SwipeView controls:AskIntelligence.Enabled="True">
+                        <SwipeView controls:AskIntelligence.Enabled="True">
                             <!-- A status dot, the neighbour, the two ports, then what it is - or why it's down - and the protocol. -->
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto" RowDefinitions="*,Auto" ColumnSpacing="12">
                                 <Grid.GestureRecognizers>
@@ -135,7 +135,7 @@
                                 <BoxView Grid.ColumnSpan="3" Style="{StaticResource RowLine}" />
                             </Grid>
                         </SwipeView>
-</DataTemplate>
+                    </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </RefreshView>
