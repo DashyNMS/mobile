@@ -257,10 +257,50 @@ omitted flags and uptime unknown. It also corrects single-fault action
 results so untouched siblings do not appear as failures. It reads and writes the
 sign-in link desktop shows as a QR code (#171). Mobile's versioned
 notification baseline must accompany these APIs before a build ships.
-Update the package version in
-`src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj` to take a Core fix.
 Mobile's app version stays independent of Core and desktop; the next mobile
 release remains 2.0.0.
+
+### Moving the Core and Shared pins
+
+Both DashyNMS packages are exact development builds from GitHub Packages:
+`DashyNMS.Core` (`2.0.0-ci.N` from DashyNMS/core's main) and
+`DashyNMS.Agent.Shared` (`2.0.0-ci.<run>.<attempt>` from DashyNMS/mcp's main).
+The shared and test projects commit `packages.lock.json`. The explicit restore
+step of every CI, Play and TestFlight job runs in locked mode (#609), before
+anything builds. A package replaced on the feed, or any change to the resolved
+graph that wasn't committed, fails that step. The app head's own restore during
+`dotnet build` or `publish` isn't locked, but by then the locked step has
+already checked the same packages. A local build with a runtime identifier may
+rewrite a lock file in your working tree; don't commit that change. The Shared package is also checked after restore
+against its pinned SHA-256 and provenance attestation
+(`scripts/verify-shared-package.sh`).
+
+To move them, in one PR:
+
+1. **Core.** Set the version in `src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj`.
+   Use the build the Shared package was compatibility-tested against: its
+   minimum Core, and the `core-compatibility` entry in DashyNMS/mcp's
+   `shared-package.yml`. Read Core's changes in the range for consumer actions.
+   Its README says what each consumer must do.
+2. **Shared.** Take the version, package SHA-256 and DashyNMS/mcp commit from the
+   protected-main publish run of `shared-package.yml`. Confirm the attestation
+   before pinning:
+   `gh attestation verify <nupkg> --repo DashyNMS/mcp --signer-workflow DashyNMS/mcp/.github/workflows/shared-package.yml --signer-digest <commit> --source-ref refs/heads/main --source-digest <commit> --deny-self-hosted-runners`.
+   Set the version in the csproj and all three pins in
+   `scripts/verify-shared-package.sh`, and record them in docs/INTELLIGENCE.md.
+3. **Shared fixtures.** Copy any fixture DashyNMS/mcp changed at that commit
+   and move its commit in `scripts/check-shared-fixtures.sh`. Refresh
+   `Fixtures/Intelligence/McpJson` when MCP's output for those tools changed.
+4. **Lock files.** Regenerate them with a token that has `read:packages`:
+   `dotnet restore tests/DashyNMS.Mobile.Shared.Tests --force-evaluate`. This
+   updates both lock files, because the test project restores the shared one.
+   Review the diff: only the packages you moved, and their dependencies,
+   should change. Commit both files. Without a local SDK, CI can generate
+   them: restore without `--locked-mode` in a temporary step that uploads
+   both files as an artifact, then commit what it produced and drop that step.
+5. Dependabot has no credentials for the DashyNMS feed, so it can't update the
+   lock files. Its NuGet PRs fail the locked restore until the lock files are
+   regenerated as in step 4 on that branch.
 
 CorePolling connects the mobile pages to Core's AlertMonitor, DeviceMonitor,
 SensorMonitor, DeviceCache and AlertRuleCache. Worker events complete awaited
