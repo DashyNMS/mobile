@@ -309,6 +309,39 @@ public sealed class AlertRulesTests
         Assert.Contains("26.10", vm.CompatibilityWarning);
     }
 
+    /// <summary>
+    /// LibreNMS 26.11's removals come from Core too (#665), so a rule that will break on
+    /// upgrade is flagged with Core's advice - the FDB VLAN one warns that the values differ.
+    /// </summary>
+    [Theory]
+    [InlineData("SELECT * FROM ports_fdb WHERE ports_fdb.vlan_id = 12", "VLAN number")]
+    [InlineData("SELECT * FROM devices WHERE devices.community = 'example'", "polling methods")]
+    [InlineData("SELECT * FROM proxmox WHERE proxmox.vmid > 0", "vminfo")]
+    public async Task Removed_26_11_columns_are_flagged_with_core_advice(string query, string advice)
+    {
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, Query = query });
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.True(vm.HasCompatibilityWarning);
+        Assert.Contains("26.11", vm.CompatibilityWarning);
+        Assert.Contains(advice, vm.CompatibilityWarning);
+    }
+
+    /// <summary>Columns that only look like removed ones, and quoted values, aren't flagged.</summary>
+    [Theory]
+    [InlineData("SELECT * FROM vlans WHERE vlans.vlan_id = 12")]
+    [InlineData("SELECT * FROM ports_fdb WHERE ports_fdb.vlan = 12")]
+    [InlineData("SELECT * FROM devices WHERE devices.os = 'ports_fdb.vlan_id'")]
+    public async Task Look_alike_columns_and_quoted_values_are_not_flagged(string query)
+    {
+        _client.Rules.GetAsync(20, Arg.Any<CancellationToken>()).Returns(new AlertRule { Id = 20, Query = query });
+        var vm = new AlertRuleViewModel(_client, Fakes.Settings(), new RecordingNavigation()) { RuleId = 20 };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.Extras;
+        Assert.False(vm.HasCompatibilityWarning);
+    }
+
     [Fact]
     public async Task Rules_alerting_come_first_then_by_severity_with_disabled_ones_last()
     {

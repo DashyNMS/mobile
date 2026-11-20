@@ -272,8 +272,9 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         AcknowledgementText = rule.Extra?.Acknowledgement != false ? "On" : "Off";
         PerEntityText = rule.NotifyPerEntity switch { true => "On", false => "Off", null => "Not reported by this server" };
         MaxEntitiesText = rule.MaxEntities?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "Inherited (server default)";
-        // Warn about 26.10 compatibility even before an upgrade, so a read-only
-        // account can ask its administrator to repair the rule in time.
+        // Warn about every removal Core knows (LibreNMS 26.10 and 26.11) even before
+        // an upgrade, so a read-only account can ask its administrator to repair the
+        // rule in time. Core decides which SQL columns count (#665).
         CompatibilityWarning = string.Join("\n", AlertRuleCompatibility.FindRemovedColumns(rule)
             .Concat(AlertRuleCompatibility.FindRemovedColumns(null, rule.Rule))
             .DistinctBy(field => field.Field).Select(field => field.Advice)) is { Length: > 0 } warning ? warning : null;
