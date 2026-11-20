@@ -269,8 +269,9 @@ The shared and test projects commit `packages.lock.json`. The explicit restore
 step of every CI, Play and TestFlight job runs in locked mode (#609), before
 anything builds. A package replaced on the feed, or any change to the resolved
 graph that wasn't committed, fails that step. The app head's own restore during
-`dotnet build` or `publish` isn't locked, but by then the locked step has
-already checked the same packages. A local build with a runtime identifier may
+`dotnet build` or `publish` isn't locked. The locked step covers only the
+shared and test projects, so the app head's own packages (MAUI, the AndroidX
+libraries and their dependencies) aren't in a lock file. A local build with a runtime identifier may
 rewrite a lock file in your working tree; don't commit that change. The Shared package is also checked after restore
 against its pinned SHA-256 and provenance attestation
 (`scripts/verify-shared-package.sh`).
