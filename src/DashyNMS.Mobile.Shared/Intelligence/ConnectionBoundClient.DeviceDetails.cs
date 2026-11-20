@@ -18,6 +18,8 @@ internal sealed partial class ConnectionBoundClient
             => owner.ReadDetailsAsync(deviceId, apis => apis.Ports.ListIpAddressesAsync(deviceId, cancellationToken));
         public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
+        public Task<Port?> GetAsync(int portId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<IReadOnlyList<Port>> FindByLearnedMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByLearnedMacAsync));
     }
     private sealed class DetailArpOnly(ConnectionBoundClient owner) : IArpApi
     {
@@ -25,6 +27,8 @@ internal sealed partial class ConnectionBoundClient
             => owner.ReadDetailsAsync(deviceId, apis => apis.Arp.ListForDeviceAsync(deviceId, cancellationToken));
         public Task<IReadOnlyList<ArpEntry>> FindByMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByMacAsync));
         public Task<IReadOnlyList<ArpEntry>> ListAllAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllAsync));
+        public Task<IReadOnlyList<ArpEntry>> FindByAddressAsync(System.Net.IPAddress address, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByAddressAsync));
+        public Task<IReadOnlyList<ArpEntry>> FindInNetworkAsync(System.Net.IPAddress network, int prefixLength, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindInNetworkAsync));
     }
     private sealed class DetailRoutingOnly(ConnectionBoundClient owner) : IRoutingApi
     {

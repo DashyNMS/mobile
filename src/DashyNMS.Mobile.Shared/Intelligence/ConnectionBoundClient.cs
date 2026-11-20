@@ -349,6 +349,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
         public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListIpAddressesAsync));
+        public Task<Port?> GetAsync(int portId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<IReadOnlyList<Port>> FindByLearnedMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByLearnedMacAsync));
     }
 
     private sealed class DeviceHealthOnly(ConnectionBoundClient owner) : IDeviceHealthApi
@@ -376,6 +378,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
         public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
         public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListIpAddressesAsync));
+        public Task<Port?> GetAsync(int portId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<IReadOnlyList<Port>> FindByLearnedMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByLearnedMacAsync));
     }
 
     private sealed class SystemOnly(ConnectionBoundClient owner) : ISystemApi
@@ -393,6 +397,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
             => owner.Apis().Arp.FindByMacAsync(mac, cancellationToken);
         public Task<IReadOnlyList<ArpEntry>> ListAllAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllAsync));
         public Task<IReadOnlyList<ArpEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
+        public Task<IReadOnlyList<ArpEntry>> FindByAddressAsync(System.Net.IPAddress address, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByAddressAsync));
+        public Task<IReadOnlyList<ArpEntry>> FindInNetworkAsync(System.Net.IPAddress network, int prefixLength, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindInNetworkAsync));
     }
     public IVlansApi Vlans => portProfile || detailProfile ? new TopologyVlansOnly(this) : throw new RefusedException(nameof(Vlans));
     public IDeviceGroupsApi DeviceGroups => (scopeProfile || alertRuleProfile || objectProfile) ? new CatalogueGroupsOnly(this)
@@ -426,6 +432,8 @@ internal sealed partial class ConnectionBoundClient : ILibreNmsClient, IDisposab
     public ILocationsApi Locations => alertRuleProfile || objectProfile ? new LocationsOnly(this) : throw new RefusedException(nameof(Locations));
     public IRoutingApi Routing => detailProfile ? new DetailRoutingOnly(this) : throw new RefusedException(nameof(Routing));
     public IPollerGroupsApi PollerGroups => throw new RefusedException(nameof(PollerGroups));
+    /// <summary>Network Search's address-block reads (core#91); no Intelligence lookup uses them.</summary>
+    public IIpNetworksApi Networks => throw new RefusedException(nameof(Networks));
     public ILogsApi Logs => historyProfile ? new HistoryLogsOnly(this) : alertRuleProfile ? new AlertLogsOnly(this) : throw new RefusedException(nameof(Logs));
     public ISystemApi System => overview || alertRuleProfile ? new SystemOnly(this) : throw new RefusedException(nameof(System));
     public IGraphsApi Graphs => graphProfile ? new GraphListingsOnly(this) : throw new RefusedException(nameof(Graphs));

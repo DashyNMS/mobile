@@ -20,6 +20,8 @@ internal sealed partial class ConnectionBoundClient
         public Task<IReadOnlyList<Port>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListForDeviceAsync));
         public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
+        public Task<Port?> GetAsync(int portId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<IReadOnlyList<Port>> FindByLearnedMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByLearnedMacAsync));
     }
     private sealed class HistoryLogsOnly(ConnectionBoundClient owner) : ILogsApi
     {
