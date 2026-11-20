@@ -361,7 +361,7 @@ refusal line and everything else to its failure line. An empty result is not a
 failure. Nothing is logged.
 
 **Profile (#608, #635).** `find_device` offers the catalogue's `query` (name, IP
-or MAC), `status` (up, down or disabled), `group` and `location`. At least one
+or MAC), `status` (up, down, disabled, ignored or unknown), `group` and `location`. At least one
 must be supplied. Filters can be combined or used without text. Arguments are
 checked as in [Tool definitions](#tool-definitions-635). The shared operation resolves exact names first,
 then unambiguous partial names. Filter names are passed untouched, separate

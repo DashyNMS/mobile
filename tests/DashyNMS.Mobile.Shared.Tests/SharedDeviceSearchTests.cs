@@ -254,7 +254,7 @@ public sealed partial class SharedDeviceSearchTests
     [Theory]
     [InlineData("{oops", "The lookup wasn't run: arguments must be a JSON object.")]
     [InlineData("{\"status\":42}", "The lookup wasn't run: status must be text.")]
-    [InlineData("{\"status\":\"sideways\"}", "The lookup wasn't run: status must be one of up, down, disabled.")]
+    [InlineData("{\"status\":\"sideways\"}", "The lookup wasn't run: status must be one of up, down, disabled, ignored, unknown.")]
     [InlineData("{\"unknown\":\"sw\"}", "The lookup wasn't run: an argument isn't one this lookup takes. It takes query, status, group, location, verbose.")]
     [InlineData("{\"query\":\"sw\",\"query\":\"other\"}", "The lookup wasn't run: an argument was given twice.")]
     [InlineData("{}", CompactNetworkLookups.InvalidSearch)]

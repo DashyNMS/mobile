@@ -76,7 +76,7 @@ public static partial class IntelligenceToolChoice
         ["active_alerts"] = ["alert", "alarm", "critical", "warning", "fault", "firing", "acknowledg", "unacknowledg", "attention", "severe", "severity", "problem", "issue", "wrong"],
         ["list_groups_and_locations"] = ["group", "location", "site", "which groups", "which locations"],
         // "which device" also matches "which devices"; count that generic intent once.
-        ["find_device"] = ["find", "search", "which device", "where", "list", "mac", "address", "location", "site", "group", "down", "disabled", "offline"],
+        ["find_device"] = ["find", "search", "which device", "where", "list", "mac", "address", "location", "site", "group", "down", "disabled", "ignored", "offline"],
         ["device_health"] = ["health", "uptime", "os", "running", "hardware", "model", "reboot", "version", "firmware"],
         ["device_sensors"] = ["sensor", "temperature", "temp", "hot", "fan", "optic", "dbm", "power", "voltage", "psu", "humidity", "signal", "current"],
     };
