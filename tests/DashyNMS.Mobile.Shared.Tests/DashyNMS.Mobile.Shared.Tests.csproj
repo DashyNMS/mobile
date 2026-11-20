@@ -5,6 +5,10 @@
     <RootNamespace>DashyNMS.Mobile.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Restore records every resolved package and its content hash in packages.lock.json,
+         and CI restores in locked mode, so a pinned package replaced on the feed (or any
+         unreviewed graph change) fails restore instead of building (#609). -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
 
   <ItemGroup>
