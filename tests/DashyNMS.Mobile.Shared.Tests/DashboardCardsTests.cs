@@ -796,6 +796,27 @@ public sealed class DashboardCardsTests
         Assert.Equal("core-sw", sensors[0].Subtitle);
     }
 
+    /// <summary>A custom reading with nothing to judge it against stays uncoloured on the card (#532).</summary>
+    [Fact]
+    public async Task The_sensors_card_keeps_unassessed_readings_uncoloured()
+    {
+        var card = DashboardLayout.Add(_appSettings, DashboardLayout.Sensors);
+        card.Sensors.Add(new PinnedSensor { SensorId = 30, DeviceId = 1 });
+        card.Sensors.Add(new PinnedSensor { SensorId = 31, DeviceId = 1 });
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor { SensorId = 30, DeviceId = 1, SensorClass = "synthetic_flow", Description = "Flow", Current = 12.34, Unit = "widgets" },
+            new Sensor { SensorId = 31, DeviceId = 1, SensorClass = "synthetic_flow", Description = "Flow warn", Current = 15, LimitHighWarn = 10 },
+        ]);
+        var vm = NewViewModel();
+
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        var sensors = vm.Cards.Single(c => c.Type == DashboardLayout.Sensors).Sensors;
+        Assert.Equal([RowStatus.None, RowStatus.Warning], sensors.Select(s => s.Status));
+        Assert.Equal("12.3 widgets", sensors[0].Value);
+    }
+
     [Fact]
     public async Task A_slow_sensor_list_doesnt_hold_up_the_rest_of_the_dashboard()
     {
