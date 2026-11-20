@@ -29,11 +29,13 @@ jobs:
       - name: Test geographic map camera bridge
         run: node --test tests/map/camera.test.mjs
 
-      # Restore, then verify the shared package (#596, #601) is the exact file
+      # Restore in locked mode (#609): packages.lock.json pins every package's content
+      # hash, so a replaced package or an unreviewed graph change fails here. Then
+      # verify the shared package (#596, #601) is the exact file
       # DashyNMS/mcp's workflow built and attested from the pinned commit on main,
       # and that NuGet extracted it intact, before any test loads it.
       - name: Restore shared code
-        run: dotnet restore tests/DashyNMS.Mobile.Shared.Tests
+        run: dotnet restore tests/DashyNMS.Mobile.Shared.Tests --locked-mode
 
       - name: Verify the shared package
         env:
@@ -75,7 +77,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dotnet restore src/DashyNMS.Mobile.Shared
+          dotnet restore src/DashyNMS.Mobile.Shared --locked-mode
           scripts/verify-shared-package.sh
 
       - name: Build
@@ -157,7 +159,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dotnet restore src/DashyNMS.Mobile.Shared
+          dotnet restore src/DashyNMS.Mobile.Shared --locked-mode
           scripts/verify-shared-package.sh
 
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
@@ -228,7 +230,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          dotnet restore src/DashyNMS.Mobile.Shared
+          dotnet restore src/DashyNMS.Mobile.Shared --locked-mode
           scripts/verify-shared-package.sh
 
       # No widget (its signing needs TestFlight's profile) and no signing identity:
@@ -290,7 +292,7 @@ jobs:
         run: dotnet workload install maui-ios --version 10.0.402.1
       - name: Restore and verify the shared package
         run: |
-          dotnet restore src/DashyNMS.Mobile.Shared
+          dotnet restore src/DashyNMS.Mobile.Shared --locked-mode
           scripts/verify-shared-package.sh
       - name: Compare real iOS and pinned desktop PDFs
         run: |
