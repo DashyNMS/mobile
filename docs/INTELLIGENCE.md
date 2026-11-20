@@ -1034,6 +1034,20 @@ Device checks (a request to change the network declined, an ambiguous name
 answered with a question, a status answer with coloured bullets) are recorded
 here once run on an eligible iPhone.
 
+## Batch 3 shared data (core#90)
+
+Mobile pins Shared `2.0.0-ci.44719120361.1` from DashyNMS/mcp#162, commit
+`bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce`, and Core `2.0.0-ci.76`, the Core it
+was built and compatibility-tested against. The protected-main publish run
+44719120361 passed its package, binary compatibility and Core compatibility
+checks and verified the published feed bytes. The package SHA-256 is
+`eeb47740dc19ea6cc3c42bccb6a6a6781a9e98154389c2ea725aa9e1adc57c67`; its
+GitHub-hosted provenance attestation was verified against that commit and
+workflow before pinning. It brings LibreNMS 26.11 VLAN numbers in device details
+and endpoint tracing (DashyNMS/mcp#156) and device status words that follow the
+reported state, with unknown and ignored devices counted apart in the overview
+and per location (DashyNMS/mcp#121).
+
 ## Batch 6 Spotlight (#231)
 
 Mobile pins Shared `2.0.0-ci.43744058288.1` from MCP #154, commit

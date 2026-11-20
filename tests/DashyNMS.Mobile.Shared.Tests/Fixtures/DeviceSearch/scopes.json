@@ -88,13 +88,35 @@
     {
       "status": "down",
       "ids": [
-        8,
+        8
+      ],
+      "total": 1,
+      "requests": [
+        "devices",
+        "devices/8/maintenance"
+      ]
+    },
+    {
+      "status": "ignored",
+      "ids": [
+        9
+      ],
+      "total": 1,
+      "requests": [
+        "devices",
+        "devices/9/maintenance"
+      ]
+    },
+    {
+      "status": "unknown",
+      "ids": [
+        10,
         11
       ],
       "total": 2,
       "requests": [
         "devices",
-        "devices/8/maintenance",
+        "devices/10/maintenance",
         "devices/11/maintenance"
       ]
     },

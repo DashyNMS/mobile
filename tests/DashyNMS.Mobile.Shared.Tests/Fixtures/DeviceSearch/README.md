@@ -1,12 +1,10 @@
-# Device search fixture shared with MCP
+# Device search fixture shared with mobile
 
 A synthetic LibreNMS `/api/v0/devices` response (`devices.json`) and what
-`find_device` must make of it (`cases.json`), for the shared device search
-behind Intelligence's `find_device` (#596). Both files are byte-identical copies
-of DashyNMS/mcp's `tests/DashyNMS.Agent.Tests/Fixtures/DeviceSearch`, where the
-MCP `find_device` tool and `HostDeviceSearch` run against them.
-`scripts/check-shared-fixtures.sh` fails CI if these differ from the DashyNMS/mcp
-commit it pins. Change them upstream first, then copy them here and move the pin.
+`find_device` must make of it (`cases.json`). DashyNMS/mobile keeps
+byte-identical copies in `tests/DashyNMS.Mobile.Shared.Tests/Fixtures/DeviceSearch`
+and runs its Intelligence `find_device` against them; its CI fails if its copies
+differ from these at the commit it pins. Change both together.
 
 Every name and address is invented: `example.net` and the documentation ranges
 192.0.2.0/24 and 198.51.100.0/24. Never put real network data here.
@@ -18,80 +16,81 @@ Every name and address is invented: `example.net` and the documentation ranges
   (exact, then starts with, then contains, over hostname, sysName, display name
   and IP; ties by hostname, case-insensitive).
 - `states`: the shared status word for chosen devices (MCP's `status`) and the
-  state LibreNMS actually reported (the summary's typed `State`, which mobile
-  shows). Device 9 is ignored and device 10's response leaves out `disabled`:
-  both are `up` in the status word, but `Ignored` and `Unknown` in mobile.
-  Device 11 reports no flags at all: `down`, but `Unknown`.
+  state LibreNMS actually reported (the summary's typed `State`, as Core's display
+  name). Both come from the reported state (MCP #121): device 9 is ignored
+  (`ignored`, `Ignored`), device 10's response leaves out `disabled` and device 11
+  reports no flags at all (both `unknown`, `Unknown`). Neither is called up or
+  down, so the `down` status scope finds device 8 alone.
 - `failures`: the HTTP status of a failed device list and the
   `DeviceSearchFailure` the host search maps it to. The category is the host's
   contract: the MCP tool returns its own sentence per status instead, so the
   shared part is that both fail without data after reading only `requests`.
-  Mobile says "refused" for `Refused` and its usual failure line for the rest.
 
-Devices 1 to 3 repeat the ranking case in DashyNMS/mcp's `DeviceSearchTests`.
-The rest add sysName prefixes, devices added by IP, duplicate display names,
-disabled, down, ignored, partly reported and unreported devices, a
-secret-shaped display name and marker-shaped text. Every device has a location for the scope cases; location
-doesn't affect text ranking.
+Devices 1 to 3 repeat the ranking case in `DeviceSearchTests`. The rest add
+sysName prefixes, devices added by IP, duplicate display names, disabled, down,
+ignored, partly reported and unreported devices, a secret-shaped display name and
+marker-shaped text.
+Every device has a location (`Core site`, `Lab` or `Lab annexe`) for the
+scope cases; location doesn't affect text ranking.
 
-The other files are also copies of DashyNMS/mcp's:
+`groups.json` (`/api/v0/devicegroups`) and `group-1.json`
+(`/api/v0/devicegroups/1`) answer the group scope. Group 3 is empty: LibreNMS
+answers it with a 404, which Core reads as no members.
 
-- `groups.json` and `group-1.json`: the device groups and one group's members.
-  Group 3 is empty, and LibreNMS answers it with a 404.
-- `scopes.json`: routes and cases for group, location and status scopes, an
-  empty group, ambiguous and missing names and an invalid status, each with the
-  requests it may read.
-- `transport.json`: failed device lists served over HTTP: 401, 403, 404, 500,
-  502 and 503 with error envelopes or HTML, a 200 login page, a 200 error
-  envelope, a 200 whose `devices` isn't a list, a request that's never answered
-  (5-second timeout) and an address with nothing listening. Request counts
-  include Core's retries (502 and 503 are tried four times).
+`scopes.json` holds the routes a scoped search may read and its cases:
 
-`SharedDeviceSearchTests` serves `devices.json` through Core's real device API
-over a fake transport to both the package's own executor and mobile's
-`find_device`. It checks each case, status word, request and failure category
-against `cases.json`.
+- group, location and status scopes with the ids, total and requests each one
+  gives;
+- an empty group;
+- an ambiguous and a missing group name, an ambiguous location and an invalid
+  status. `HostDeviceSearch` fails each as `InvalidRequest`; the MCP tool's
+  reply is checked only for an error with no data. Both read only the listed
+  requests, and an invalid status reads nothing.
 
-`SharedDeviceSearchHttpTests` serves the files over loopback HTTP, so Core's
-transport does the parsing, retrying and timing out itself. It covers:
+`transport.json` holds failed device lists served over HTTP: 401, 403, 404,
+500, 502 and 503 with LibreNMS error envelopes or an HTML page, a 200 that is a
+login page, a 200 error envelope, a 200 whose `devices` isn't a list, a request
+that is never answered (`hang`, at the 5-second minimum timeout) and an address
+with nothing listening. `requests` counts what reaches the server, including
+Core's retries: 502 and 503 are tried four times, and nothing reaches the
+unreachable address. Bodies carry secret-shaped text that no adapter may repeat.
+Each case's `code` is the `DeviceSearchFailure` the host search must give. The
+MCP tool words failures its own way and reports no category, so its reply is
+checked only for an error with no data and no secret-shaped text.
 
-- **Text cases and transport failures:** mobile's `find_device`, through the
-  app's per-chat transports, and the package's `HostDeviceSearch`, over Core's
-  real client, return the same ids and totals, and each server must log the
-  same requests. Only `HostDeviceSearch` is held to the exact failure category.
-  Mobile says "refused" for `Refused` and its usual failure line for the rest,
-  with no evidence and no server text.
-- **Scope cases:** these go through both mobile and the package's executor on
-  mobile's Core pin, including invalid and ambiguous names and the empty group.
-  Plain text naming a group or location remains an ordinary text search.
-- Additional synthetic ARP replies in `SharedDeviceSearchHttpTests` cover all
-  supported MAC forms, empty observations and denied ARP/group reads. Those
-  replies are separate from the byte-identical upstream fixture bundle.
+`SharedSearchFixtureTests` runs every case and status word through both the MCP
+`find_device` tool and `HostDeviceSearch` over a fake transport, and every
+`failures` entry through both. `SharedSearchHttpFixtureTests` serves the same
+files over loopback HTTP to the MCP server's own services (`AddDashyNmsAgent`,
+Core's real client and transport, `find_device` as the SDK activates it) and to
+`HostDeviceSearch`. It runs the text cases, every scope case and every transport
+failure, and checks each server's request log.
 
-DashyNMS/mcp's `SharedSearchHttpFixtureTests` serves the same files to the MCP
-server's own services and `find_device` tool. There too the category is checked
-on `HostDeviceSearch` only; the MCP reply is checked for an error with no data
-and nothing secret-shaped.
+DashyNMS/mobile serves the same files over HTTP to its Intelligence
+`find_device` through its own per-chat transports. Mobile's `find_device` takes
+only search text, so mobile runs the scope cases through the package's
+executor over its own Core client and checks that `find_device` never reads a
+group. That shows the package and mobile's Core pin agree on scopes. It doesn't
+show that mobile offers them.
 
 ## What this fixture does not prove
 
 These are not compared across adapters here, and parity on them should not be
 claimed from it:
 
-- MAC parity with MCP's own HTTP adapter. Mobile and the package agree on the
-  additional synthetic ARP cases, but MCP does not consume those cases.
-- Paging past the first page and the verbose record.
-- Admin-only refusals, TLS and certificates, backup-address failover,
-  cancellation and a retired connection. Mobile's own tests cover its side of
-  these against other inputs.
-- Faults (alerts) and other tools. `find_device` reads no alerts; the separate
-  OpenAlerts fixture covers the shared alert lookup (#601).
+- MAC search over ARP, paging past the first page and the verbose record.
+- A group and a location together, and the `locations` endpoint.
+- Admin-only refusals, TLS and certificate failures, backup-address failover,
+  cancellation and a retired connection. `HostDeviceSearchTests` covers the
+  host side of these; the MCP side has its own tests against different inputs.
+- Faults (alerts) and other tools: `find_device` reads no alerts, so this
+  fixture says nothing about fault identities, severity or grouping.
 
-## Batch 5 maintenance
-
-The fixture pin is now `a9032220aa18c3234d920f0503eba6de0348d6ba`.
-Successful cases in `cases.json` and `scopes.json` list every returned row's
-maintenance read. The top-level device-list-only requests remain the failure path.
-`maintenance.json` covers active, inactive, refused and missing checks. Mobile
-and the shared host now make the same reads. Independent tests limit checks to
-the 20 returned rows, keep failed checks unknown and discard replies on retirement.
+Maintenance adds one `devices/{id}/maintenance` read for each returned row,
+never for matches outside the page. Each basic case now lists its complete
+`requests`; top-level `requests` remains the device-list-only failure path.
+`scopes.json` includes each successful page's maintenance requests.
+`maintenance.json` covers active, inactive, refused and missing maintenance
+reads over HTTP. Active maintenance changes the typed state and MCP status to
+maintenance. A failed check leaves the reported state and omits the nullable
+maintenance flag, so it never asserts that maintenance is off.
