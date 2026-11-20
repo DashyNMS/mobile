@@ -584,13 +584,16 @@ public sealed class DeviceSectionLoader
         var vlansTask = LoadVlanMappingAsync();
         await Task.WhenAll(fdbTask, portsTask, vlansTask);
 
-        // Internal VLAN row IDs are not tags. Conflicting mappings stay unknown,
-        // independent of server ordering; repeated identical mappings are safe.
-        var vlans = vlansTask.Result
+        // Core resolves the 802.1Q number (#665): LibreNMS 26.11 sends it directly
+        // in "vlan", older servers send the VLAN table's internal row id in
+        // "vlan_id", which is never a tag. Only this device's rows are offered, and
+        // an internal id the table maps to two numbers is left out so it stays
+        // unknown whatever order the server lists them in.
+        var resolver = new DesktopNMS.Core.Devices.FdbVlanResolver(vlansTask.Result
             .Where(v => v.DeviceId == deviceId && v.VlanId > 0)
             .GroupBy(v => v.VlanId)
-            .Where(g => g.Select(v => v.VlanNumber).Distinct().Count() == 1 && g.First().VlanNumber > 0)
-            .ToDictionary(g => g.Key, g => g.First().VlanNumber);
+            .Where(g => g.Select(v => v.VlanNumber).Distinct().Count() == 1)
+            .Select(g => g.First()));
 
         var ports = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);
         var rows = fdbTask.Result
@@ -600,8 +603,11 @@ public sealed class DeviceSectionLoader
             {
                 FdbLayout = true,
                 Subtitle = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
-                Value = e.VlanId is not > 0 ? null : vlans.TryGetValue(e.VlanId.Value, out var tag) ? $"VLAN {tag}"
-                    : vlanLookupDenied ? "VLAN unavailable: permission denied" : null,
+                Value = resolver.NumberOf(e) is { } tag ? $"VLAN {tag}"
+                    // Only an older server's internal id needs the table; a refused
+                    // table read is why that VLAN is missing, never a missing number.
+                    : vlanLookupDenied && e.VlanNumber is null && e.VlanId is > 0 ? "VLAN unavailable: permission denied"
+                    : null,
             });
 
         return Groups(("MAC addresses", rows));

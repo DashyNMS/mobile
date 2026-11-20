@@ -920,6 +920,70 @@ public sealed class DeviceSectionLoaderTests
         Assert.Equal("VLAN 300", card.Highlights[0].FdbVlanText);
     }
 
+    /// <summary>
+    /// LibreNMS 26.11 sends the FDB entry's 802.1Q number directly (#665). It is shown as
+    /// sent, even when the fleet VLAN table is refused, and never looked up as an internal
+    /// id; an out-of-range number stays unknown rather than becoming a tag.
+    /// </summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Fdb_shows_direct_vlan_numbers_from_newer_servers(bool tableDenied)
+    {
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000001", VlanNumber = 300 },
+            // A direct number wins over an internal id that maps elsewhere.
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000002", VlanNumber = 20, VlanId = 50 },
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000003", VlanNumber = 0 },
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000004", VlanNumber = 4095 },
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000005" },
+        });
+        if (tableDenied)
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<IReadOnlyList<Vlan>>(
+                new LibreNmsApiException("VLAN access denied", System.Net.HttpStatusCode.Forbidden)));
+        else
+            _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(
+                new[] { new Vlan { DeviceId = DeviceId, VlanId = 50, VlanNumber = 999 } });
+
+        var rows = Assert.Single(await Load(DeviceSection.Fdb));
+
+        Assert.Equal(["VLAN 300", "VLAN 20", "VLAN not reported", "VLAN not reported", "VLAN not reported"],
+            rows.OrderBy(r => r.Title).Select(r => r.FdbVlanText));
+        Assert.All(rows, row => Assert.DoesNotContain("permission denied", row.FdbDescription));
+    }
+
+    /// <summary>
+    /// The same MAC table from an older server (internal ids) and from 26.11 (direct
+    /// numbers) shows the same VLANs, where the internal ids differ from the numbers.
+    /// </summary>
+    [Fact]
+    public async Task Legacy_ids_and_direct_numbers_give_the_same_vlans()
+    {
+        var table = new[]
+        {
+            new Vlan { DeviceId = DeviceId, VlanId = 7, VlanNumber = 100 },
+            new Vlan { DeviceId = DeviceId, VlanId = 8, VlanNumber = 200 },
+        };
+        _client.Vlans.ListAsync(Arg.Any<CancellationToken>()).Returns(table);
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000001", VlanId = 7 },
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000002", VlanId = 8 },
+        });
+        var legacy = Assert.Single(await Load(DeviceSection.Fdb)).OrderBy(r => r.Title).Select(r => r.FdbVlanText).ToList();
+
+        _client.Fdb.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(new[]
+        {
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000001", VlanNumber = 100 },
+            new FdbEntry { DeviceId = DeviceId, PortId = 99, MacAddress = "020000000002", VlanNumber = 200 },
+        });
+        var direct = Assert.Single(await Load(DeviceSection.Fdb)).OrderBy(r => r.Title).Select(r => r.FdbVlanText).ToList();
+
+        Assert.Equal(["VLAN 100", "VLAN 200"], legacy);
+        Assert.Equal(legacy, direct);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData(0)]
