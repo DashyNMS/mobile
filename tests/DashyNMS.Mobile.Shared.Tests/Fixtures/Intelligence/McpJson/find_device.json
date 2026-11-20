@@ -59,7 +59,7 @@
         "display": "Lab switch",
         "ip": "198.51.100.9",
         "location": "Lab",
-        "status": "up"
+        "status": "ignored"
       },
       {
         "device_id": 10,
@@ -67,14 +67,14 @@
         "display": "Lab switch",
         "ip": "198.51.100.10",
         "location": "Lab",
-        "status": "up"
+        "status": "unknown"
       },
       {
         "device_id": 11,
         "hostname": "unreported-sw.example.net",
         "ip": "198.51.100.11",
         "location": "Lab annexe",
-        "status": "down"
+        "status": "unknown"
       }
     ],
     "page": {

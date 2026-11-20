@@ -634,7 +634,8 @@ public sealed partial class CompactNetworkLookups(
                 if (outcome.Result is not { } found)
                     return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
                 var d = found.Devices;
-                var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored. " +
+                // Each device is counted once, by the state LibreNMS reported (mcp#121).
+                var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored, {Id(d.Unknown)} with no reported state. " +
                     (found.Alerts is { } a ? AlertHeading(a) + " " : "Alerts unavailable. ") +
                     (found.Ports is { } p ? $"Ports: {Id(p.Total)} total, {Id(p.DownWhileEnabled)} down while enabled, {Id(p.CountingErrors)} counting errors. " : "Ports unavailable. ") +
                     (found.LibreNmsVersion is { } v ? $"LibreNMS: {Clean(v)}." : "Version unavailable.");
