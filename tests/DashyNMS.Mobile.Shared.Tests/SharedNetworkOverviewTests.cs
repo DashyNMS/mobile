@@ -37,7 +37,8 @@ public sealed class SharedNetworkOverviewTests
         using var set = new CompactNetworkLookups(Fakes.Client(), settings, session, deviceTransport: transports.Open).Open(evidence.AddRange);
         var text = await set.Lookups.Single(l => l.Name == "network_overview").Run("", default);
         Assert.Contains("4 total, 3 up, 1 down", text);
-        Assert.Equal(new OverviewDeviceCounts(4, 3, 1, 0, 0), result.Devices);
+        Assert.Equal(new OverviewDeviceCounts(4, 3, 1, 0, 0, 0), result.Devices);
+        Assert.Contains("0 ignored, 0 with no reported state", text);
         Assert.Contains("Open alerts: 1 (3 faults)", text);
         Assert.Equal(1, result.Alerts!.AlertGroups);
         Assert.Equal(3, result.Alerts.Faults);

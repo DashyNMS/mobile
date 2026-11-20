@@ -163,12 +163,7 @@ public sealed class DeviceSectionLoader
     internal static SectionRow SensorRow(Sensor sensor, AppSettings settings)
     {
         var reading = ReadSensor(sensor, settings);
-        // A definition supplies state health independently of numeric limits.
-        // An unassessed numeric reading must not acquire an OK colour either.
-        var unassessed = sensor.StateDefinition is null
-            && SensorCategoryRegistry.Resolve(sensor.SensorClass) is null
-            && sensor.LimitLow is null && sensor.LimitLowWarn is null
-            && sensor.LimitHighWarn is null && sensor.LimitHigh is null;
+        var unassessed = !reading.Assessed;
         return new SectionRow(reading.Name)
         {
             IntelligenceObject = new("sensor", sensor.SensorId, sensor.DeviceId),
@@ -185,7 +180,7 @@ public sealed class DeviceSectionLoader
                 _ => "Unknown",
             },
             Value = reading.Value,
-            Status = unassessed ? RowStatus.None : reading.Status,
+            Status = reading.Status,
             Subtitle = reading.Limits,
         };
     }
@@ -194,8 +189,12 @@ public sealed class DeviceSectionLoader
     /// A sensor's reading, coloured as desktop does: its category's thresholds
     /// from Settings (dBm, signal, temperature, fan speed - which also honour
     /// the sensor's own LibreNMS limits), or for anything else the sensor's
-    /// own limits. Shared by Device View's Sensors section and the Health page,
-    /// so the two can't disagree.
+    /// own limits. Shared by Device View's Sensors section, the Health page, the
+    /// Dashboard's sensor cards, the sensor picker and widget snapshots, so they
+    /// can't disagree. A reading with no state definition, no registered class
+    /// and no finite limits of its own has nothing to be judged against: it is
+    /// unassessed (<see cref="SensorReading.Assessed"/> false) and neutral, never
+    /// OK, because an absence of limits says nothing about health (#532).
     /// </summary>
     internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings)
     {
@@ -208,9 +207,12 @@ public sealed class DeviceSectionLoader
 
         var current = sensor.Current!.Value;
         var registered = SensorCategoryRegistry.Resolve(sensor.SensorClass);
+        // Core's JSON reader already drops non-finite limits; a sensor built in code
+        // could still carry one, and NaN compares false, which would read as OK.
+        var (low, lowWarn, highWarn, high) = (Finite(sensor.LimitLow), Finite(sensor.LimitLowWarn), Finite(sensor.LimitHighWarn), Finite(sensor.LimitHigh));
         var severity = registered is not null
             ? registered.Thresholds(settings, sensor).Evaluate(current)
-            : AgainstOwnLimits(current, sensor.LimitLow, sensor.LimitLowWarn, sensor.LimitHighWarn, sensor.LimitHigh);
+            : AgainstOwnLimits(current, low, lowWarn, highWarn, high);
 
         var unit = registered?.UnitSuffix ?? (string.IsNullOrWhiteSpace(sensor.Unit) ? UnitFor(sensor.SensorClass) : " " + sensor.Unit.Trim());
         var name = string.IsNullOrWhiteSpace(sensor.Description) ? $"Sensor {sensor.SensorId}" : sensor.Description!;
@@ -227,8 +229,15 @@ public sealed class DeviceSectionLoader
                 : new SensorReading(name, raw, ToStatus(state.Severity), null);
         }
 
-        return new SensorReading(name, raw, ToStatus(severity), Limits(sensor.LimitLow, sensor.LimitHigh, unit));
+        if (registered is null && low is null && lowWarn is null && highWarn is null && high is null)
+        {
+            return new SensorReading(name, raw, RowStatus.None, null) { Assessed = false };
+        }
+
+        return new SensorReading(name, raw, ToStatus(severity), Limits(low, high, unit));
     }
+
+    private static double? Finite(double? value) => value is { } v && double.IsFinite(v) ? v : null;
 
     private static string SensorClassName(string? sensorClass) =>
         SensorCategoryRegistry.Resolve(sensorClass)?.DisplayName
@@ -584,13 +593,16 @@ public sealed class DeviceSectionLoader
         var vlansTask = LoadVlanMappingAsync();
         await Task.WhenAll(fdbTask, portsTask, vlansTask);
 
-        // Internal VLAN row IDs are not tags. Conflicting mappings stay unknown,
-        // independent of server ordering; repeated identical mappings are safe.
-        var vlans = vlansTask.Result
+        // Core resolves the 802.1Q number (#665): LibreNMS 26.11 sends it directly
+        // in "vlan", older servers send the VLAN table's internal row id in
+        // "vlan_id", which is never a tag. Only this device's rows are offered, and
+        // an internal id the table maps to two numbers is left out so it stays
+        // unknown whatever order the server lists them in.
+        var resolver = new DesktopNMS.Core.Devices.FdbVlanResolver(vlansTask.Result
             .Where(v => v.DeviceId == deviceId && v.VlanId > 0)
             .GroupBy(v => v.VlanId)
-            .Where(g => g.Select(v => v.VlanNumber).Distinct().Count() == 1 && g.First().VlanNumber > 0)
-            .ToDictionary(g => g.Key, g => g.First().VlanNumber);
+            .Where(g => g.Select(v => v.VlanNumber).Distinct().Count() == 1)
+            .Select(g => g.First()));
 
         var ports = portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName);
         var rows = fdbTask.Result
@@ -600,8 +612,11 @@ public sealed class DeviceSectionLoader
             {
                 FdbLayout = true,
                 Subtitle = ports.GetValueOrDefault(e.PortId) ?? $"port {e.PortId}",
-                Value = e.VlanId is not > 0 ? null : vlans.TryGetValue(e.VlanId.Value, out var tag) ? $"VLAN {tag}"
-                    : vlanLookupDenied ? "VLAN unavailable: permission denied" : null,
+                Value = resolver.NumberOf(e) is { } tag ? $"VLAN {tag}"
+                    // Only an older server's internal id needs the table; a refused
+                    // table read is why that VLAN is missing, never a missing number.
+                    : vlanLookupDenied && e.VlanNumber is null && e.VlanId is > 0 ? "VLAN unavailable: permission denied"
+                    : null,
             });
 
         return Groups(("MAC addresses", rows));
@@ -849,4 +864,11 @@ public sealed class DeviceSectionLoader
 }
 
 /// <summary>A sensor's name, reading and colour - see <see cref="DeviceSectionLoader.ReadSensor"/>.</summary>
-internal sealed record SensorReading(string Name, string Value, RowStatus Status, string? Limits);
+internal sealed record SensorReading(string Name, string Value, RowStatus Status, string? Limits)
+{
+    /// <summary>
+    /// False when nothing could judge the reading - no state definition, registered
+    /// class or limits - so it is shown neutrally as "No limits" rather than OK (#532).
+    /// </summary>
+    public bool Assessed { get; init; } = true;
+}

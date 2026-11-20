@@ -105,7 +105,7 @@ public sealed partial class CompactNetworkLookups(
     internal const string Failed = "The lookup failed. LibreNMS could not be reached.";
     internal const string Changed = "The connection changed. Start a new chat.";
     internal const string Refused = "The lookup failed. LibreNMS refused this account access to the data.";
-    internal const string InvalidSearch = "Supply a name, IP or MAC, or a status (up, down, disabled), group or location. Use an unambiguous group or location name.";
+    internal const string InvalidSearch = "Supply a name, IP or MAC, or a status (up, down, disabled, ignored, unknown), group or location. Use an unambiguous group or location name.";
 
     /// <summary>
     /// Rows asked of the shared search. Ten or so fit in <see cref="MaxCharacters"/>;
@@ -459,9 +459,8 @@ public sealed partial class CompactNetworkLookups(
             Display = d.Display ?? d.Hostname, Ip = d.Ip }, d.Hostname, d.DeviceId);
 
         // A shared search row in the person's naming style.
-        // The state is the summary's typed State (Core's ReportedState), not its status word:
-        // the word has only up, down and disabled, says "down" when LibreNMS left a flag out,
-        // and doesn't tell ignored devices apart.
+        // The state is the summary's typed State (Core's ReportedState). Since mcp#121 the status
+        // word says the same, but the typed value is what the phone's tones and evidence key on.
         // Then MCP's other facts (#636): its location, the hostname and display name wherever they
         // differ from the name shown, and with verbose its sysName, OS, hardware and last poll.
         Row SearchRow(DeviceSummary d, DateTimeOffset at, bool verbose = false, bool maintenanceChecked = false)
@@ -634,7 +633,8 @@ public sealed partial class CompactNetworkLookups(
                 if (outcome.Result is not { } found)
                     return Reply.Say(outcome.Error?.Code == DashyNMS.Agent.HostFailure.Refused ? Refused : Failed);
                 var d = found.Devices;
-                var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored. " +
+                // Each device is counted once, by the state LibreNMS reported (mcp#121).
+                var heading = $"Visible devices: {Id(d.Total)} total, {Id(d.Up)} up, {Id(d.Down)} down, {Id(d.Disabled)} disabled, {Id(d.Ignored)} ignored, {Id(d.Unknown)} with no reported state. " +
                     (found.Alerts is { } a ? AlertHeading(a) + " " : "Alerts unavailable. ") +
                     (found.Ports is { } p ? $"Ports: {Id(p.Total)} total, {Id(p.DownWhileEnabled)} down while enabled, {Id(p.CountingErrors)} counting errors. " : "Ports unavailable. ") +
                     (found.LibreNmsVersion is { } v ? $"LibreNMS: {Clean(v)}." : "Version unavailable.");

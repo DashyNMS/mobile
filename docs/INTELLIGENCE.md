@@ -361,7 +361,7 @@ refusal line and everything else to its failure line. An empty result is not a
 failure. Nothing is logged.
 
 **Profile (#608, #635).** `find_device` offers the catalogue's `query` (name, IP
-or MAC), `status` (up, down or disabled), `group` and `location`. At least one
+or MAC), `status` (up, down, disabled, ignored or unknown), `group` and `location`. At least one
 must be supplied. Filters can be combined or used without text. Arguments are
 checked as in [Tool definitions](#tool-definitions-635). The shared operation resolves exact names first,
 then unambiguous partial names. Filter names are passed untouched, separate
@@ -1033,6 +1033,20 @@ shows up here. Full report is desktop's alone and isn't mapped.
 Device checks (a request to change the network declined, an ambiguous name
 answered with a question, a status answer with coloured bullets) are recorded
 here once run on an eligible iPhone.
+
+## Batch 3 shared data (core#90)
+
+Mobile pins Shared `2.0.0-ci.44719120361.1` from DashyNMS/mcp#162, commit
+`bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce`, and Core `2.0.0-ci.76`, the Core it
+was built and compatibility-tested against. The protected-main publish run
+44719120361 passed its package, binary compatibility and Core compatibility
+checks and verified the published feed bytes. The package SHA-256 is
+`eeb47740dc19ea6cc3c42bccb6a6a6781a9e98154389c2ea725aa9e1adc57c67`; its
+GitHub-hosted provenance attestation was verified against that commit and
+workflow before pinning. It brings LibreNMS 26.11 VLAN numbers in device details
+and endpoint tracing (DashyNMS/mcp#156) and device status words that follow the
+reported state, with unknown and ignored devices counted apart in the overview
+and per location (DashyNMS/mcp#121).
 
 ## Batch 6 Spotlight (#231)
 

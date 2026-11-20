@@ -32,3 +32,10 @@ values are independently checked over HTTP in SharedDeviceHealthHttpTests.
 projection of the pinned Batch 5 `GroupsAndLocations` envelopes. It was checked
 against the shared operation and MCP adapter source; it is not a runtime recording.
 The HTTP test independently checks its group and location facts in CI.
+
+DashyNMS/mcp#121 (`bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce`) changed the status
+words and counts: devices 9, 10 and 11 in `find_device*.json` read `ignored`,
+`unknown` and `unknown`; `network_overview.json` gains `devices.unknown`; and
+each location in `list_groups_and_locations.json` gains `ignored` and `unknown`,
+with `down` counting only devices reported down. These were edited to match that
+commit's tool output rather than recorded again.

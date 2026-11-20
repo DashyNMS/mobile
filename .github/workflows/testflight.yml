@@ -160,7 +160,7 @@ jobs:
           DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          dotnet restore src/DashyNMS.Mobile.Shared
+          dotnet restore src/DashyNMS.Mobile.Shared --locked-mode
           scripts/verify-shared-package.sh
 
       # MobilePlatform=ios (see the csproj) so restore doesn't also want the

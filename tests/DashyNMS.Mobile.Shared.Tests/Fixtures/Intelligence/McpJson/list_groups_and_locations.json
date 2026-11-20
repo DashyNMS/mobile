@@ -26,17 +26,23 @@
       {
         "name": "Core site",
         "devices": 4,
-        "down": 0
+        "down": 0,
+        "ignored": 0,
+        "unknown": 0
       },
       {
         "name": "Lab",
         "devices": 3,
-        "down": 0
+        "down": 0,
+        "ignored": 1,
+        "unknown": 1
       },
       {
         "name": "Lab annexe",
         "devices": 4,
-        "down": 2
+        "down": 1,
+        "ignored": 0,
+        "unknown": 1
       }
     ]
   }

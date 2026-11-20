@@ -330,15 +330,16 @@ public sealed partial class IntelligenceFactsTests
         => record.TryGetProperty(idField, out var id) && id.ValueKind == JsonValueKind.Number ? $"[[{kind}:{id.GetInt64().ToString(CultureInfo.InvariantCulture)}]]" : null;
 
     /// <summary>
-    /// The device states the phone may write for MCP's status word. The phone writes Core's reported
-    /// state, which is more accurate where MCP's word isn't (DashyNMS/mcp#121): MCP says up for an
-    /// ignored device, and down when LibreNMS left a flag out, which the phone calls Unknown.
+    /// The device state the phone writes for MCP's status word. Both come from Core's reported
+    /// state since DashyNMS/mcp#121, so each word has exactly one state.
     /// </summary>
     private static string[] States(string status) => status switch
     {
-        "up" => ["Up", "Ignored", "Unknown"],
-        "down" => ["Down", "Ignored", "Unknown"],
+        "up" => ["Up"],
+        "down" => ["Down"],
         "disabled" => ["Disabled"],
+        "ignored" => ["Ignored"],
+        "maintenance" => ["Maintenance"],
         _ => ["Unknown"],
     };
 

@@ -42,6 +42,8 @@ internal sealed partial class ConnectionBoundClient
         public Task<IReadOnlyList<Port>> ListAllStatusAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllStatusAsync));
         public Task<IReadOnlyList<Port>> ListAllNamesAsync(CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListAllNamesAsync));
         public Task<IReadOnlyList<DeviceIpAddress>> ListIpAddressesAsync(int deviceId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(ListIpAddressesAsync));
+        public Task<Port?> GetAsync(int portId, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(GetAsync));
+        public Task<IReadOnlyList<Port>> FindByLearnedMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByLearnedMacAsync));
     }
     private sealed class TopologyLinksOnly(ConnectionBoundClient owner) : ILinksApi
     {
@@ -53,6 +55,8 @@ internal sealed partial class ConnectionBoundClient
     {
         public Task<IReadOnlyList<FdbEntry>> ListForDeviceAsync(int deviceId, CancellationToken cancellationToken = default)
         { PositiveTopologyId(deviceId); return owner.Apis().Fdb.ListForDeviceAsync(deviceId, cancellationToken); }
+        public Task<IReadOnlyList<FdbEntry>> FindByMacAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindByMacAsync));
+        public Task<string?> FindVendorAsync(string mac, CancellationToken cancellationToken = default) => throw new RefusedException(nameof(FindVendorAsync));
     }
     private sealed class TopologyVlansOnly(ConnectionBoundClient owner) : IVlansApi
     {

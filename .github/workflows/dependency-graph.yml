@@ -39,7 +39,7 @@ jobs:
       - name: Restore
         run: |
           dotnet restore src/DashyNMS.Mobile
-          dotnet restore tests/DashyNMS.Mobile.Shared.Tests
+          dotnet restore tests/DashyNMS.Mobile.Shared.Tests --locked-mode
 
       - name: Submit to the dependency graph
         uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0

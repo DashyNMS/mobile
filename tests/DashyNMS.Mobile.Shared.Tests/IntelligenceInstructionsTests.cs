@@ -137,11 +137,12 @@ public sealed class IntelligenceInstructionsTests
     [Fact]
     public void A_large_context_gets_Cores_own_text()
     {
-        var instructions = IntelligenceInstructions.Build("detailed", "core-sw1", 12, IntelligenceInstructions.CoreTextContext);
+        // Spotlight reaches the model as checked IDs, never names (core#89), as the chat builds it.
+        var instructions = IntelligenceInstructions.Build("detailed", "device 12", 12, IntelligenceInstructions.CoreTextContext);
 
         Assert.StartsWith("You are DashyNMS Intelligence. Answer network questions with read-only LibreNMS, Graylog and Unimus tools.", instructions, StringComparison.Ordinal);
         Assert.Contains(IntelligenceInstructions.Core(IntelligenceDetail.Detailed), instructions, StringComparison.Ordinal);
-        Assert.Contains("The user has narrowed this conversation to core-sw1.", instructions, StringComparison.Ordinal);
+        Assert.Contains("The user narrowed this conversation to device 12, checked IDs.", instructions, StringComparison.Ordinal);
         Assert.Contains(IntelligenceInstructions.Core("web-search-off"), instructions, StringComparison.Ordinal);
         Assert.Contains("up to 12 lookups in 12 rounds", instructions, StringComparison.Ordinal);
         Assert.DoesNotContain("{", instructions, StringComparison.Ordinal);

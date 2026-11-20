@@ -31,8 +31,9 @@ check() {
   echo "$name fixture matches DashyNMS/mcp@$commit."
 }
 
-# Batch 5 search includes bounded maintenance reads.
-check DeviceSearch a9032220aa18c3234d920f0503eba6de0348d6ba \
+# Batch 5 search includes bounded maintenance reads; DashyNMS/mcp#121 made the status
+# words and the down scope follow the reported state.
+check DeviceSearch bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce \
   devices.json cases.json groups.json group-1.json scopes.json transport.json maintenance.json
 
 # DashyNMS/mcp#124's squash merge on main.
@@ -44,7 +45,7 @@ check NetworkOverview 7a84405254c57a2be7e35e1f7a296f163a5a7ed0 \
   devices.json faults.json ports.json system.json
 
 # Complete health retains the shared device-field fixtures; mobile adds full-source HTTP cases.
-UPSTREAM_FIXTURE=DeviceSummary check DeviceHealth a9032220aa18c3234d920f0503eba6de0348d6ba \
+UPSTREAM_FIXTURE=DeviceSummary check DeviceHealth bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce \
   devices.json device-1.json device-2.json device-3.json device-4.json device-5.json \
   device-6.json cases.json transport.json
 
@@ -65,7 +66,7 @@ check AlertRules a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md cases.json routes.json
 
 # Port, neighbour and endpoint trace HTTP inputs.
-check PortLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
+check PortLookups bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce \
   README.md cases.json routes.json
 
 # Device detail sections, paging and partial failures.
@@ -85,7 +86,7 @@ check LogSearch a9032220aa18c3234d920f0503eba6de0348d6ba \
   README.md messages.json
 
 # Unimus backups, diffs and recent-change envelopes.
-check ConfigLookups a9032220aa18c3234d920f0503eba6de0348d6ba \
+check ConfigLookups bcdbd8f9300ec3fccfe66d76cc553a9d6f528bce \
   README.md routes.json
 
 # Graph metadata, PNG/SVG envelopes and fixed MCP projections.

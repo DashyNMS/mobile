@@ -1,0 +1,55 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0": {
+      "CommunityToolkit.Mvvm": {
+        "type": "Direct",
+        "requested": "[8.4.2, )",
+        "resolved": "8.4.2",
+        "contentHash": "WadCzGEc2U+3e20avRLng4qNtt4zoOGWrdUISqJWrHe3/FSnrYjuM5Sb4yQb09LhkBXrrI4Zt3dLKgRMbItsrg=="
+      },
+      "DashyNMS.Agent.Shared": {
+        "type": "Direct",
+        "requested": "[2.0.0-ci.44719120361.1, )",
+        "resolved": "2.0.0-ci.44719120361.1",
+        "contentHash": "HsuqzNI3aHU7BBlWqR4Iql1qBq0w0GNJGjIleDgjq8iXTab6x2sgdN3Zy9HYQiLVVx0jBdjOZOk2NPhUTbwyfQ==",
+        "dependencies": {
+          "DashyNMS.Core": "2.0.0-ci.76"
+        }
+      },
+      "DashyNMS.Core": {
+        "type": "Direct",
+        "requested": "[2.0.0-ci.76, )",
+        "resolved": "2.0.0-ci.76",
+        "contentHash": "LCbIYWayfiOsQyGqpme+Tq3cxl08imaJEE4iy8eXv8VBa7PWc8F/PFs7OYwBfxtB7s6GR3opJKkxRosoEnuklA==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.0"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection": {
+        "type": "Direct",
+        "requested": "[10.0.14, )",
+        "resolved": "10.0.14",
+        "contentHash": "2LzcuVjemeXR+WdY9wGIr8iGb7fYsDAit+IScxXX2XJnX0b++mWcE/WO6fEGIqhdMfSQM2ZS5JGMHYZix7YXZg==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.14"
+        }
+      },
+      "Microsoft.Extensions.Logging.Abstractions": {
+        "type": "Direct",
+        "requested": "[10.0.0, )",
+        "resolved": "10.0.0",
+        "contentHash": "FU/IfjDfwaMuKr414SSQNTIti/69bHEMb+QKrskRb26oVqpx3lNFXMjs/RC9ZUuhBhcwDM2BwOgoMw+PZ+beqQ==",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.0"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.0.14",
+        "contentHash": "QtpQzuSZVyTPCuHW058yCs9Nj0394uUkNyFHS813nOmK9UgUdBdaprJ5PPsBgsQIpxADTsTkbaMMonykem6qdw=="
+      }
+    }
+  }
+}

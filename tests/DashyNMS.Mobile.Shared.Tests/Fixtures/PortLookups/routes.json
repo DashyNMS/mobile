@@ -187,6 +187,7 @@
         "port_id": 107,
         "device_id": 1,
         "mac_address": "aabbcc000005",
+        "vlan_id": 11,
         "updated_at": "2026-10-17 09:50:00"
       }
     ]

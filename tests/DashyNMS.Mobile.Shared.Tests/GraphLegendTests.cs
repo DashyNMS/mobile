@@ -75,6 +75,11 @@ public sealed class GraphLegendTests
     [InlineData(125d, null, null, null, "1 kb/s (incomplete)", "–")]
     [InlineData(0d, 0d, 0d, 0d, "0 b/s", "0 b/s")]
     [InlineData(125d, 250d, 125d, 0d, "2 kb/s", "2 kb/s")]
+    // A negative counter rate is unavailable, never a healthy zero (core#80).
+    [InlineData(125d, 0d, -5d, 0d, "1 kb/s (incomplete)", "0 b/s")]
+    [InlineData(-125d, 0d, null, 0d, "–", "0 b/s")]
+    // A sum too large to represent can't be shown as a rate.
+    [InlineData(double.MaxValue, 0d, double.MaxValue, 0d, "–", "0 b/s")]
     public async Task Device_traffic_legend_preserves_availability_and_bit_units(
         double? firstIn, double? firstOut, double? secondIn, double? secondOut,
         string expectedIn, string expectedOut)

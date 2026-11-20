@@ -49,7 +49,8 @@ public sealed class SharedGroupsAndLocationsHttpTests
         Assert.Equal(3, result.Data.Groups!.Count);
         Assert.Equal(3, result.Data.Locations.Count);
         Assert.Contains("Groups: 3; locations: 3.", text);
-        Assert.Contains("Location Lab annexe: 4 devices; 2 down.", text);
+        // Device 11 reports no flags: unknown, not down (mcp#121).
+        Assert.Contains("Location Lab annexe: 4 devices; 1 down; 0 ignored; 1 with no reported state.", text);
         Assert.Contains("Group Core routers [[group:2]]; type static; Synthetic group", text);
         Assert.Equal(new[] { "devicegroups", "devices" }, mobileServer.Requests.Order());
         Assert.Equal(hostServer.Requests.Order(), mobileServer.Requests.Order());
@@ -59,7 +60,7 @@ public sealed class SharedGroupsAndLocationsHttpTests
     public async Task Exact_names_stay_in_evidence_and_locations_without_ids_never_get_invented_markers()
     {
         var routes = Routes();
-        routes["devices"] = new(200, """{"devices":[{"device_id":1,"location":"  Site A  ","location_id":3,"status":0,"disabled":0},{"device_id":2,"location":"Other","status":1,"disabled":0}]}""");
+        routes["devices"] = new(200, """{"devices":[{"device_id":1,"location":"  Site A  ","location_id":3,"status":0,"disabled":0,"ignore":0},{"device_id":2,"location":"Other","status":1,"disabled":0,"ignore":0}]}""");
         routes["devicegroups"] = new(200, """{"groups":[{"id":7,"name":"password=synthetic-secret","type":"static"}]}""");
         using var server = new FixtureServer(p => routes.GetValueOrDefault(p));
         using var mobile = new Mobile(server.Root);
@@ -70,7 +71,7 @@ public sealed class SharedGroupsAndLocationsHttpTests
         var location = Assert.Single(mobile.Evidence, e => e.Reference.Key == "location:3");
         Assert.Equal("  Site A  ", location.Filter);
         Assert.Equal("Site A", location.Reference.Name);
-        Assert.Contains("Location Site A [[location:3]]: 1 devices; 1 down.", text);
+        Assert.Contains("Location Site A [[location:3]]: 1 devices; 1 down; 0 ignored; 0 with no reported state.", text);
         Assert.Single(mobile.Evidence, e => e.Reference.Object?.Kind == "location");
     }
     [Theory]

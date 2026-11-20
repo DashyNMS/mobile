@@ -37,7 +37,8 @@ public sealed partial class CompactNetworkLookups
                 evidence.Add(new(new("location:" + Id(id), name, $"{Id(location.Down)} down", location.Down > 0 ? "down" : "unknown", at, "Device location")
                     { Object = new("location", id) }, location.FilterName));
             }
-            rows.Add(new($"Location {name}{marker}: {Id(location.Devices)} devices; {Id(location.Down)} down.", evidence));
+            // Ignored devices and those with no reported state are neither up nor down (mcp#121).
+            rows.Add(new($"Location {name}{marker}: {Id(location.Devices)} devices; {Id(location.Down)} down; {Id(location.Ignored)} ignored; {Id(location.Unknown)} with no reported state.", evidence));
         }
         return Rows(heading, rows);
     }

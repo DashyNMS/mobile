@@ -153,17 +153,17 @@
     },
     {
       "id": 9,
-      "shared": "up",
+      "shared": "ignored",
       "reported": "Ignored"
     },
     {
       "id": 10,
-      "shared": "up",
+      "shared": "unknown",
       "reported": "Unknown"
     },
     {
       "id": 11,
-      "shared": "down",
+      "shared": "unknown",
       "reported": "Unknown"
     }
   ],
