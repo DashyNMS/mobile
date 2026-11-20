@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.64" />
+    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.76" />
     <!-- Typed read-only network operations and the catalogue, shared with MCP.
          Mobile adds reviewed adapters for these operations in epic #236's order.
          Exact CI version from DashyNMS/mcp#154, published by
