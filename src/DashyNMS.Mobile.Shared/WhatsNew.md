@@ -23,6 +23,10 @@
 - **About.** Lists the app, Core and sensor definition versions. Share diagnostics carries them for a bug report. {settings}
 
 ## Fixed
+- **MAC addresses on LibreNMS 26.11.** A device's MAC table shows each address's VLAN number again, for newer servers and older ones. {devices}
+- **Sensors with no limits.** A custom sensor with no limits shows its reading without a colour on the dashboard, in the sensor picker and on the widget, rather than green for OK. {dashboard}
+- **Device states in Intelligence.** A device LibreNMS didn't report a state for, or one it ignores, is no longer called up or down, and network counts list them separately. {intelligence}
+- **Alert rules on LibreNMS 26.11.** Rules that test a field 26.11 removed carry a warning saying what to use instead. {alerts}
 - **Edit dashboard.** Set up opens Spotlight for log cards. The introduction stays clear of the heading fade, and Add a card scrolls above Undo. {dashboard}
 - **Devices with no ports.** Show the devices that see them, rather than an error. {neighbours}
 - **Missing readings.** A sensor with no reading shows a dash and no colour. {health}
