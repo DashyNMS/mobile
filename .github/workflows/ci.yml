@@ -301,7 +301,7 @@ jobs:
           "$RUNNER_TEMP/chat-pdf-python/bin/python" scripts/check-chat-pdf.py
       - name: Retain PDF and raster comparison evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chat-pdf-${{ github.run_id }}
           path: artifacts/chat-pdf/
