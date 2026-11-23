@@ -19,9 +19,9 @@
       },
       "DashyNMS.Core": {
         "type": "Direct",
-        "requested": "[2.0.0-ci.76, )",
-        "resolved": "2.0.0-ci.76",
-        "contentHash": "LCbIYWayfiOsQyGqpme+Tq3cxl08imaJEE4iy8eXv8VBa7PWc8F/PFs7OYwBfxtB7s6GR3opJKkxRosoEnuklA==",
+        "requested": "[2.0.0-ci.80, )",
+        "resolved": "2.0.0-ci.80",
+        "contentHash": "C7V+OmirKnOFyVGe+jZ0AX3ASSLxxTIK77q+sd2HplvWTP5HIVfQe2DWatdRR6CGrO1PkRuK/s7XDGDmj4JtqA==",
         "dependencies": {
           "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
           "Microsoft.Extensions.Logging.Abstractions": "9.0.0"
