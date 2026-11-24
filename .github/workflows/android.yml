@@ -12,13 +12,13 @@ on:
         description: What to call the files, such as 2.0.0-edge.12
         type: string
         required: true
-      store_build:
-        description: Version code
-        type: string
-        required: true
       track:
         type: string
         default: internal
+    outputs:
+      build:
+        description: The build number it was uploaded with
+        value: ${{ jobs.android.outputs.build }}
     secrets:
       ANDROID_UPLOAD_KEYSTORE_BASE64:
         required: false
@@ -43,13 +43,14 @@ permissions:
 jobs:
   android:
     name: Build and upload
+    outputs:
+      build: ${{ steps.number.outputs.build }}
     # The upload keystore and service account key live in this environment's
     # secrets, which only main can use - as iOS-Build (#5).
     environment: Android-Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      BUILD_NUMBER: ${{ inputs.store_build }}
       UPLOAD: ${{ vars.PLAY_UPLOADS == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -70,6 +71,16 @@ jobs:
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
         run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+
+      # Taken here rather than when the run starts, so re-running a failed upload
+      # takes a new number, above any uploaded since. The builds share a queue, so
+      # no other upload comes between this and its own.
+      - name: Choose the build number
+        id: number
+        run: |
+          BUILD_NUMBER=$(python3 -B -c "import sys; sys.path.insert(0, 'scripts'); import build_version; print(build_version.store_build())")
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Read the version
         run: echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"

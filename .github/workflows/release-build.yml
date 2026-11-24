@@ -52,7 +52,6 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       tag: ${{ steps.version.outputs.tag }}
       commit: ${{ steps.version.outputs.commit }}
-      store_build: ${{ steps.version.outputs.store_build }}
       changed: ${{ steps.version.outputs.changed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,7 +88,6 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     with:
       version: ${{ needs.version.outputs.version }}
-      store_build: ${{ needs.version.outputs.store_build }}
       track: production
 
   ios:
@@ -107,7 +105,6 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     with:
       version: ${{ needs.version.outputs.version }}
-      store_build: ${{ needs.version.outputs.store_build }}
 
   publish:
     name: Publish

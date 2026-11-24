@@ -10,10 +10,10 @@ on:
         description: What to call the files, such as 2.0.0-edge.12
         type: string
         required: true
-      store_build:
-        description: Build number
-        type: string
-        required: true
+    outputs:
+      build:
+        description: The build number it was uploaded with
+        value: ${{ jobs.ios.outputs.build }}
     secrets:
       IOS_DIST_CERT_P12_BASE64:
         required: false
@@ -42,6 +42,8 @@ permissions:
 jobs:
   ios:
     name: Build and upload
+    outputs:
+      build: ${{ steps.number.outputs.build }}
     # The signing certificate and App Store Connect key live in this
     # environment's secrets, which only main can use - so a workflow edited on
     # another branch can't read them (#5). See docs/DEVELOPMENT.md, "Builds and
@@ -51,7 +53,6 @@ jobs:
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
-      BUILD_NUMBER: ${{ inputs.store_build }}
       # The home-screen widget ships only once its profile is in secrets
       # (docs/DEVELOPMENT.md, "Builds and releases"); until then builds are
       # the app alone, exactly as before.
@@ -122,6 +123,16 @@ jobs:
           cp "$RUNNER_TEMP/widget.mobileprovision" "$PROFILES/$UUID.mobileprovision"
           echo "WIDGET_PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
           echo "TEAM_ID=$TEAM" >> "$GITHUB_ENV"
+
+      # Taken here rather than when the run starts, so re-running a failed upload
+      # takes a new number, above any uploaded since. The builds share a queue, so
+      # no other upload comes between this and its own.
+      - name: Choose the build number
+        id: number
+        run: |
+          BUILD_NUMBER=$(python3 -B -c "import sys; sys.path.insert(0, 'scripts'); import build_version; print(build_version.store_build())")
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
 
       - name: Read the version
         run: echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
