@@ -7,12 +7,12 @@
 # built and attested from the pinned commit on main, that the files NuGet extracted
 # (which builds and tests actually use) are the ones inside that file, and that the
 # package carries nothing MSBuild would run (build/, buildTransitive/, analyzers/,
-# tools/). Pins live here only; move them with the PackageReference.
+# tools/). Pins live here only; move them with the version.
 #
 # Needs: gh (authenticated, attestations: read), unzip, and sha256sum or shasum.
 set -euo pipefail
 
-# Pins: the version in DashyNMS.Mobile.Shared.csproj, the SHA-256 the publish run
+# Pins: the version in Directory.Build.props, the SHA-256 the publish run
 # attested, the DashyNMS/mcp commit it was built from, and the workflow that built it
 # (run 44719120361).
 SHARED_VERSION="2.0.0-ci.44719120361.1"
@@ -30,9 +30,8 @@ sha256() {
 size() { wc -c < "$1" | tr -d ' '; }
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-CSPROJ="$ROOT/src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj"
-grep -q "Include=\"DashyNMS.Agent.Shared\" Version=\"$SHARED_VERSION\"" "$CSPROJ" \
-  || fail "DashyNMS.Mobile.Shared.csproj doesn't reference $SHARED_VERSION; move the pins with it"
+grep -qF "<DashyNMSSharedVersion>$SHARED_VERSION</DashyNMSSharedVersion>" "$ROOT/Directory.Build.props" \
+  || fail "Directory.Build.props doesn't pin $SHARED_VERSION; move the pins with it"
 
 PACKAGES="${NUGET_PACKAGES:-$HOME/.nuget/packages}"
 DIR="$PACKAGES/dashynms.agent.shared/$SHARED_VERSION"

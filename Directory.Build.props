@@ -6,8 +6,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Product>DashyNMS</Product>
     <Company>DashyNMS</Company>
+    <Authors>Thomas Pickup</Authors>
+    <Copyright>Copyright (c) 2026 Thomas Pickup</Copyright>
+    <!-- The version being built towards, and the one the stores show for every
+         build of it. Edge and nightly builds are 2.0.0-edge.N and 2.0.0-nightly.N. -->
     <Version>2.0.0</Version>
     <NeutralLanguage>en-GB</NeutralLanguage>
+    <!-- Both from GitHub Packages (see nuget.config), moved together as
+         docs/DEVELOPMENT.md, "Moving the Core and Shared pins", says.
+         Shared is from DashyNMS/mcp#162 (core#90 Batch 3), published by
+         run 44719120361 (commit bcdbd8f). -->
+    <DashyNMSCoreVersion>2.0.0-ci.76</DashyNMSCoreVersion>
+    <DashyNMSSharedVersion>2.0.0-ci.44719120361.1</DashyNMSSharedVersion>
   </PropertyGroup>
 
 </Project>

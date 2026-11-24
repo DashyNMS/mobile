@@ -1,4 +1,4 @@
-name: Dependency graph
+name: Dependency submission
 
 # Sends every NuGet package - direct and transitive - to GitHub's dependency
 # graph, so Dependabot alerts cover them. GitHub's own automatic submission
@@ -19,7 +19,7 @@ env:
 
 jobs:
   submit:
-    name: Submit NuGet dependencies
+    name: Submit dependencies
     runs-on: ubuntu-latest
     permissions:
       contents: write # the dependency submission API
@@ -42,6 +42,6 @@ jobs:
           dotnet restore tests/DashyNMS.Mobile.Shared.Tests --locked-mode
 
       - name: Submit to the dependency graph
-        uses: advanced-security/component-detection-dependency-submission-action@a02aeda7a175ad4dd38a13c4d3ff2df9da8f2cf0 # v0.2.0
+        uses: advanced-security/component-detection-dependency-submission-action@9887d3a4295305f4e7b03a1cfdb2099d44cadf52 # v0.2.1
         with:
           detectorsCategories: NuGet

@@ -1,32 +1,37 @@
-name: Play internal testing
+name: Android
 
-# Builds a signed Android App Bundle and uploads it to Google Play's internal
-# testing track - Android's TestFlight (#24). Run it by hand from the Actions
-# tab (or `gh workflow run play-internal.yml`).
+# Builds the signed app and uploads it to Google Play (#24). Called by the edge
+# and nightly builds, for the internal testing track, and by the release build,
+# which leaves a draft on the production track for someone to submit. Uploads
+# wait until the PLAY_UPLOADS repository variable is true, once the Play
+# account can take them; until then it only builds.
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      build_number:
-        description: "Version code (blank: run number + offset). Must be higher than any build already in Play Console."
-        required: false
+      version:
+        description: What to call the files, such as 2.0.0-edge.12
         type: string
-      upload:
-        description: "Upload to Play. Off just keeps the signed bundle as an artifact - for the first upload, which Play only takes by hand."
+        required: true
+      store_build:
+        description: Version code
+        type: string
+        required: true
+      track:
+        type: string
+        default: internal
+    secrets:
+      ANDROID_UPLOAD_KEYSTORE_BASE64:
         required: false
-        type: boolean
-        default: true
-      status:
-        description: "Release status. 'draft' while the app has never been released on any track; 'completed' after."
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD:
         required: false
-        type: choice
-        options:
-          - completed
-          - draft
-        default: completed
-
-concurrency:
-  group: play-internal
-  cancel-in-progress: false
+      ANDROID_UPLOAD_KEY_PASSWORD:
+        required: false
+      ANDROID_UPLOAD_KEY_ALIAS:
+        required: false
+      PLAY_SERVICE_ACCOUNT_JSON:
+        required: false
+      SENTRY_AUTH_TOKEN:
+        required: false
 
 # Read-only token: the upload uses the Play service account, not GitHub (#7).
 permissions:
@@ -36,14 +41,16 @@ permissions:
   attestations: read
 
 jobs:
-  play:
+  android:
     name: Build and upload
     # The upload keystore and service account key live in this environment's
-    # secrets, which only main and release/* can use and a maintainer has to
-    # approve - as iOS-Build (#5).
+    # secrets, which only main can use - as iOS-Build (#5).
     environment: Android-Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      BUILD_NUMBER: ${{ inputs.store_build }}
+      UPLOAD: ${{ vars.PLAY_UPLOADS == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -64,22 +71,8 @@ jobs:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
         run: echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
 
-      # Play rejects a version code it has seen before for this app, so it's
-      # this run's number plus an offset: 0, or the ANDROID_VERSION_CODE_OFFSET
-      # repository variable. A number typed in when starting the run wins.
-      - name: Choose version code
-        env:
-          OFFSET: ${{ vars.ANDROID_VERSION_CODE_OFFSET || '0' }}
-          REQUESTED: ${{ inputs.build_number }}
-        run: |
-          BUILD_NUMBER="${REQUESTED:-$((GITHUB_RUN_NUMBER + OFFSET))}"
-          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "::error::Version code must be a whole number, not '$BUILD_NUMBER'"
-            exit 1
-          fi
-          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Version code: $BUILD_NUMBER"
-          echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
+      - name: Read the version
+        run: echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
 
       # The shared package (#596, #601) is verified after restore and before the
       # publish compiles and ships it; see scripts/verify-shared-package.sh.
@@ -94,7 +87,7 @@ jobs:
       # MobilePlatform=android so restore doesn't also want the iOS workload.
       # The passwords are read from the environment (env:), so they never
       # appear on the command line or in the log.
-      - name: Build AAB
+      - name: Build the bundle and APK
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD || secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
@@ -106,36 +99,52 @@ jobs:
           -p:MobilePlatform=android
           -f net10.0-android
           -c Release
-          -p:AndroidPackageFormat=aab
           -p:AndroidKeyStore=true
           -p:AndroidSigningKeyStore="$RUNNER_TEMP/upload.jks"
           -p:AndroidSigningKeyAlias="$KEY_ALIAS"
           -p:AndroidSigningStorePass=env:KEYSTORE_PASSWORD
           -p:AndroidSigningKeyPass=env:KEY_PASSWORD
-          -p:ApplicationVersion=$BUILD_NUMBER
-          -o "$RUNNER_TEMP/aab"
+          -p:ApplicationVersion="$BUILD_NUMBER"
+          -o "$RUNNER_TEMP/out"
 
-      - name: Find the bundle
+      - name: Collect the bundle and APK
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          AAB=$(ls "$RUNNER_TEMP"/aab/*-Signed.aab | head -1)
-          echo "AAB=$AAB" >> "$GITHUB_ENV"
-          echo "Bundle: $AAB"
+          mkdir -p artifacts/android
+          cp "$RUNNER_TEMP"/out/*-Signed.aab "artifacts/android/DashyNMS-$VERSION-android.aab"
+          cp "$RUNNER_TEMP"/out/*-Signed.apk "artifacts/android/DashyNMS-$VERSION-android.apk"
+          ls -l artifacts/android
 
-      - name: Upload to Play internal testing
-        if: inputs.upload
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-bundle
+          path: artifacts/android/*.aab
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-apk
+          path: artifacts/android/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload to Play
+        if: env.UPLOAD == 'true'
         uses: r0adkll/upload-google-play@e738b9dd8f2476ea806d921b64aacd24f34515a5 # v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: net.pckp.DashyNMS
-          releaseFiles: ${{ env.AAB }}
-          track: internal
-          status: ${{ inputs.status }}
+          releaseFiles: artifacts/android/*.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.track == 'internal' && 'completed' || 'draft' }}
 
       # The release the app reports its errors under (#217), "2.0.0+<build>",
       # recorded once the build is uploaded so testers' reports match it.
       # Bookkeeping only: a Sentry hiccup doesn't fail an upload that worked.
       - name: Record the release in Sentry
-        if: inputs.upload && vars.SENTRY_DSN != ''
+        if: env.UPLOAD == 'true' && vars.SENTRY_DSN != ''
         continue-on-error: true
         uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3
         env:
@@ -146,13 +155,6 @@ jobs:
           release: ${{ env.APP_VERSION }}+${{ env.BUILD_NUMBER }}
           set_commits: auto
           ignore_missing: true
-
-      - name: Keep the bundle
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: dashynms-android-${{ env.BUILD_NUMBER }}
-          path: ${{ env.AAB }}
-          retention-days: 14
 
       - name: Clean up signing material
         if: always()

@@ -1,8 +1,16 @@
-name: Build and test
+name: CI
 
+# Every pull request. Edge, nightly and release builds call it too, so nothing
+# is published from a commit that hasn't passed; they make the device builds
+# themselves, so those two jobs are for pull requests. "CI result" is the
+# required check.
 on:
-  push:
   pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 # Read-only token: CI only checks out and builds (#7).
 permissions:
@@ -25,6 +33,9 @@ jobs:
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
+
+      - name: Test the build scripts
+        run: python3 -B -m unittest discover -s scripts/tests -v
 
       - name: Test geographic map camera bridge
         run: node --test tests/map/camera.test.mjs
@@ -55,6 +66,7 @@ jobs:
 
   android:
     name: Android
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -111,6 +123,7 @@ jobs:
           name: dashynms-android
           path: src/DashyNMS.Mobile/bin/Release/net10.0-android/*-Signed.apk
           if-no-files-found: error
+          retention-days: 7
 
   ios:
     name: iOS (simulator)
@@ -194,12 +207,13 @@ jobs:
           otool -l "$BRIDGE" | grep -A 4 -E "LC_BUILD_VERSION|LC_VERSION_MIN" | grep -E "minos|version" || true
 
   # The shipping configuration TestFlight publishes (Release, ios-arm64: Mono AOT
-  # and the SDK's default trimming), built unsigned on every push so the shared
+  # and the SDK's default trimming), built unsigned on every pull request so the
   # shared package (#596, #601) and anything else reflection-sensitive is proved
   # through the device toolchain, not only the simulator's interpreter build.
   # It can't run here: installed-device checks are separate.
   ios-release:
     name: iOS Release (device, unsigned)
+    if: github.event_name == 'pull_request'
     runs-on: xcode-27
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
@@ -301,8 +315,20 @@ jobs:
           "$RUNNER_TEMP/chat-pdf-python/bin/python" scripts/check-chat-pdf.py
       - name: Retain PDF and raster comparison evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: chat-pdf-${{ github.run_id }}
           path: artifacts/chat-pdf/
           if-no-files-found: warn
+          retention-days: 14
+
+  result:
+    name: CI result
+    if: always()
+    needs: [test, android, ios, ios-release, ios-pdf]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job
+        env:
+          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: test "$FAILED" = false

@@ -1,16 +1,13 @@
 name: CodeQL
 
 # Security analysis of every language in the repo: the workflows themselves,
-# the C# (shared code, the MAUI head), and
-# the iOS widget's Swift. Runs on pull requests so a finding shows on the PR
-# before it merges, and weekly so new queries catch old code. Release branches
-# (release/1.1.0 and on) are where the next version is built, so they are
-# scanned as they go, not only when they merge into main.
+# the C# (shared code, the MAUI head), the scripts' Python and the iOS widget's
+# Swift. Runs on pull requests so a finding shows on the PR
+# before it merges, and weekly so new queries catch old code.
 on:
   push:
-    branches: [main, "release/**"]
+    branches: [main]
   pull_request:
-    branches: [main, "release/**"]
   schedule:
     # 03:47 UTC every Monday - off-peak, and apart from desktop's run.
     - cron: "47 3 * * 1"
@@ -18,6 +15,11 @@ on:
 permissions:
   contents: read
   packages: read
+
+# A newer commit replaces the last one's wait for a Mac.
+concurrency:
+  group: codeql-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   analyze:
@@ -32,6 +34,9 @@ jobs:
       matrix:
         include:
           - language: actions
+            build-mode: none
+            runner: ubuntu-latest
+          - language: python
             build-mode: none
             runner: ubuntu-latest
           # Analysed from source rather than built: building the MAUI head
@@ -67,7 +72,7 @@ jobs:
         run: xcodegen generate
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -89,6 +94,6 @@ jobs:
             SYMROOT="$PWD/build" CODE_SIGNING_ALLOWED=NO build
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: "/language:${{ matrix.language }}"

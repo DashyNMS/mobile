@@ -23,14 +23,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DashyNMS.Core" Version="2.0.0-ci.76" />
+    <PackageReference Include="DashyNMS.Core" Version="$(DashyNMSCoreVersion)" />
     <!-- Typed read-only network operations and the catalogue, shared with MCP.
          Mobile adds reviewed adapters for these operations in epic #236's order.
-         Exact CI version from DashyNMS/mcp#162 (core#90 Batch 3), published by
-         run 44719120361 (commit bcdbd8f);
-         CI checks its SHA-256 and provenance attestation. GeneratePathProperty exposes
-         its LICENSE below. -->
-    <PackageReference Include="DashyNMS.Agent.Shared" Version="2.0.0-ci.44719120361.1" GeneratePathProperty="true" />
+         Both are pinned in Directory.Build.props. CI checks this one's SHA-256 and
+         provenance attestation. GeneratePathProperty exposes its LICENSE below. -->
+    <PackageReference Include="DashyNMS.Agent.Shared" Version="$(DashyNMSSharedVersion)" GeneratePathProperty="true" />
   </ItemGroup>
 
   <ItemGroup>
