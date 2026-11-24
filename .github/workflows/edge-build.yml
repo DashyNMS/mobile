@@ -13,6 +13,14 @@ permissions:
   packages: read
   attestations: read
 
+# The stores refuse a build number that isn't above the last one uploaded, whichever
+# build made it. One queue for edge, nightly and release builds means a number is
+# taken and uploaded before the next is taken.
+concurrency:
+  group: store-builds
+  cancel-in-progress: false
+  queue: max
+
 jobs:
   version:
     name: Version

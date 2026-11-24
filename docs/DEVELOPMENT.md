@@ -643,7 +643,8 @@ Every DashyNMS repository builds the same way.
 The builds share `ios.yml` and `android.yml`. Stores only take numeric
 versions, so all of them show `2.0.0` and the build number tells them apart:
 the minutes since 2026 began, which keeps rising whichever workflow made the
-build. A nightly's release says which TestFlight build it is. Google Play
+build. The three builds share one queue, because a store refuses a number that
+isn't above the last one uploaded. A nightly's release says which TestFlight build it is. Google Play
 uploads start when the `PLAY_UPLOADS` repository variable is `true`, once the
 account can take them (#24). The APKs are signed with the upload key, so they
 update each other but not an app installed from Play.
@@ -742,8 +743,8 @@ reaches testers.
 
 - The distribution certificate expires after a year, and the profiles with
   it: renew them and update the signing secrets.
-- A build number a store has already seen is rejected. Two builds started in
-  the same minute would share one: run the second again by hand.
+- A build number that isn't above the last one uploaded is rejected, so don't
+  upload a build made outside these workflows.
 - `ITSAppUsesNonExemptEncryption` is `false` (standard HTTPS only), which
   skips the export-compliance question on each build. Revisit it if the app
   ever adds its own cryptography.
