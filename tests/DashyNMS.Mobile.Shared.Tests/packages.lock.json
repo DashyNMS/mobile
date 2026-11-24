@@ -59,19 +59,19 @@
       },
       "DashyNMS.Agent.Shared": {
         "type": "Transitive",
-        "resolved": "2.0.0-ci.44719120361.1",
-        "contentHash": "HsuqzNI3aHU7BBlWqR4Iql1qBq0w0GNJGjIleDgjq8iXTab6x2sgdN3Zy9HYQiLVVx0jBdjOZOk2NPhUTbwyfQ==",
+        "resolved": "2.0.0-nightly.2",
+        "contentHash": "UcWFwRu6U75meIPKEM1cm2jcabsAFZci3wZHkkYbUQXpljotsIojnOPfYFcsJmOwvDXp23snyh4KqjfT1s9PJg==",
         "dependencies": {
-          "DashyNMS.Core": "2.0.0-ci.76"
+          "DashyNMS.Core": "2.0.0-nightly.1"
         }
       },
       "DashyNMS.Core": {
         "type": "Transitive",
-        "resolved": "2.0.0-ci.76",
-        "contentHash": "LCbIYWayfiOsQyGqpme+Tq3cxl08imaJEE4iy8eXv8VBa7PWc8F/PFs7OYwBfxtB7s6GR3opJKkxRosoEnuklA==",
+        "resolved": "2.0.0-nightly.1",
+        "contentHash": "8k6o2shTaJLtqwlEkq0o+69LxKlWD+qTt1BJxajvSsvXYIRKsigWWH2KgJu0dOXfWH/n6HVQRUGkgV//nr2NFw==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.0",
-          "Microsoft.Extensions.Logging.Abstractions": "9.0.0"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.23",
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.23"
         }
       },
       "Microsoft.CodeCoverage": {
@@ -162,8 +162,8 @@
         "type": "Project",
         "dependencies": {
           "CommunityToolkit.Mvvm": "[8.4.2, )",
-          "DashyNMS.Agent.Shared": "[2.0.0-ci.44719120361.1, )",
-          "DashyNMS.Core": "[2.0.0-ci.76, )",
+          "DashyNMS.Agent.Shared": "[2.0.0-nightly.2, )",
+          "DashyNMS.Core": "[2.0.0-nightly.1, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.14, )",
           "Microsoft.Extensions.Logging.Abstractions": "[10.0.0, )"
         }

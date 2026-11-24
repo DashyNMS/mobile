@@ -1155,3 +1155,17 @@ normal read-only lookups. The uptime-ranking starter remains in the desktop
 catalogue but is not offered on the phone: none of its reviewed operations
 ranks the whole fleet by uptime. Open-alert starter eligibility also follows
 successful generation-bound background monitor polls.
+
+## Batch 7 packages (core#90)
+
+Mobile pins Shared `2.0.0-nightly.2` from DashyNMS/mcp, commit
+`8e2d11efed158fc8429a4bc5bcded61e40e7375c`, and Core `2.0.0-nightly.1`, the Core it
+was built and compatibility-tested against. The package SHA-256 is
+`98fe753eb9d798b12787cb267c7e6f49eff363c890b21a742fd4bf3076ef9caa`; its
+GitHub-hosted provenance attestation was verified against that commit and
+`shared-package.yml` before pinning. It spans MCP's Batches 4 to 6. Reading logs
+back from a time (DashyNMS/mcp#70) and reading sensors device by device
+(DashyNMS/mcp#71) need capabilities the phone's connection-bound client doesn't
+offer, so both read as before: the catalogue's descriptions of `device_events`,
+`network_events` and `health_overview` mention more than the phone returns, and it
+reports a source that limits requests as a failed lookup.

@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.png binary
+*.ttf binary
+# Kept as published upstream.
+src/DashyNMS.Mobile/Resources/Raw/leaflet/** -text

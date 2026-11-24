@@ -144,7 +144,7 @@ rather than rewritten.
   Tap an alert or device to open it, anywhere else for the alert list.
   Android's are normal app widgets that show more as they're resized.
   iPhone's are a Swift WidgetKit extension (`ios-widget/`), which uses an
-  App Group, set up for TestFlight builds (see [Releasing](#releasing)).
+  App Group, set up for TestFlight builds (see [Builds and releases](#builds-and-releases)).
 - **More** (the last tab): every page, under Monitor, Network, Logs and App
   headings. Pin up to three to the tab bar beside Dashboard and More, which
   always stay. Devices, Alerts and Health are pinned until you choose; a page
@@ -262,11 +262,12 @@ release remains 2.0.0.
 
 ### Moving the Core and Shared pins
 
-Both DashyNMS packages are exact development builds from GitHub Packages:
-`DashyNMS.Core` (`2.0.0-ci.N` from DashyNMS/core's main) and
-`DashyNMS.Agent.Shared` (`2.0.0-ci.<run>.<attempt>` from DashyNMS/mcp's main).
+Both DashyNMS packages are exact nightly or edge builds from GitHub Packages:
+`DashyNMS.Core` from DashyNMS/core's main and `DashyNMS.Agent.Shared` from
+DashyNMS/mcp's, each `2.0.0-nightly.N` or `2.0.0-edge.N` (`2.0.0-ci.…` before those). Both are
+pinned in `Directory.Build.props`.
 The shared and test projects commit `packages.lock.json`. The explicit restore
-step of every CI, Play and TestFlight job runs in locked mode (#609), before
+step of every CI, Android and iOS job runs in locked mode (#609), before
 anything builds. A package replaced on the feed, or any change to the resolved
 graph that wasn't committed, fails that step. The app head's own restore during
 `dotnet build` or `publish` isn't locked. The locked step covers only the
@@ -278,16 +279,16 @@ against its pinned SHA-256 and provenance attestation
 
 To move them, in one PR:
 
-1. **Core.** Set the version in `src/DashyNMS.Mobile.Shared/DashyNMS.Mobile.Shared.csproj`.
+1. **Core.** Set `DashyNMSCoreVersion` in `Directory.Build.props`.
    Use the build the Shared package was compatibility-tested against: its
    minimum Core, and the `core-compatibility` entry in DashyNMS/mcp's
-   `shared-package.yml`. Read Core's changes in the range for consumer actions.
+   `shared-checks.yml`. Read Core's changes in the range for consumer actions.
    Its README says what each consumer must do.
 2. **Shared.** Take the version, package SHA-256 and DashyNMS/mcp commit from the
    protected-main publish run of `shared-package.yml`. Confirm the attestation
    before pinning:
    `gh attestation verify <nupkg> --repo DashyNMS/mcp --signer-workflow DashyNMS/mcp/.github/workflows/shared-package.yml --signer-digest <commit> --source-ref refs/heads/main --source-digest <commit> --deny-self-hosted-runners`.
-   Set the version in the csproj and all three pins in
+   Set `DashyNMSSharedVersion` in `Directory.Build.props` and all three pins in
    `scripts/verify-shared-package.sh`, and record them in docs/INTELLIGENCE.md.
 3. **Shared fixtures.** Copy any fixture DashyNMS/mcp changed at that commit
    and move its commit in `scripts/check-shared-fixtures.sh`. Refresh
@@ -299,9 +300,10 @@ To move them, in one PR:
    should change. Commit both files. Without a local SDK, CI can generate
    them: restore without `--locked-mode` in a temporary step that uploads
    both files as an artifact, then commit what it produced and drop that step.
-5. Dependabot has no credentials for the DashyNMS feed, so it can't update the
-   lock files. Its NuGet PRs fail the locked restore until the lock files are
-   regenerated as in step 4 on that branch.
+5. Dependabot leaves both packages alone. It needs the `DASHYNMS_PACKAGES_TOKEN`
+   Dependabot secret to update the lock files for other packages; without it,
+   its NuGet PRs fail the locked restore until the lock files are regenerated
+   as in step 4 on that branch.
 
 CorePolling connects the mobile pages to Core's AlertMonitor, DeviceMonitor,
 SensorMonitor, DeviceCache and AlertRuleCache. Worker events complete awaited
@@ -597,9 +599,9 @@ Inventory expansion and Neighbours' graph.
 CI (`.github/workflows/ci.yml`) runs the mobile test suite, builds an Android APK
 (uploaded as an artifact) and builds for the iOS simulator.
 
-To ship an iOS build, see [Releasing](#releasing) below. The manually
-triggered **TestFlight** workflow signs the app and uploads it to App Store
-Connect, with no Mac needed.
+To ship an iOS build, see [Builds and releases](#builds-and-releases) below. The edge, nightly
+and release builds sign the app and upload it to App Store Connect, with no
+Mac needed.
 
 ## Commits, pull requests and issues
 
@@ -615,6 +617,7 @@ type(scope): what changes, as the user would notice it
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
 - **Issue titles:** the same form, worded as the result the fixing PR will deliver, so the PR can reuse the title. An epic ends with `(epic)`. Labels carry the rest.
+- **Release notes:** a change users would notice adds its line to `docs/releases/<version>.md` and `WhatsNew.md` in the same PR. See [Release notes](#release-notes).
 - **Attribution:** commits, PRs and release notes carry no AI attribution or `Co-Authored-By` lines.
 
 Examples:
@@ -622,41 +625,82 @@ Examples:
 ```
 fix(alerts): acknowledging no longer jumps back to the top
 feat(widgets): an alert count widget for the lock screen
-build(ios): build number from the run number + 100
+build(ios): build numbers keep rising across workflows
 docs: release steps for TestFlight
 ```
-## Releasing
+## Builds and releases
 
-The one-time Apple setup (App IDs, the App Group, certificates and profiles)
-is done; the old step-by-step guide for it is in git history as
-`docs/RELEASING-IOS.md` if it's ever needed again.
+Every DashyNMS repository builds the same way.
 
-**Branches:** `main` is what's in the App Store (or with Apple). Each
-version is built on its own branch, `release/<version>` (for example
-`release/1.1.0`), made from `main`:
+| Workflow | When | Version | Where it goes |
+| --- | --- | --- | --- |
+| **CI** (`ci.yml`) | every pull request, and first in each build below | none | nowhere |
+| **Edge build** (`edge-build.yml`) | every commit to `main` | `2.0.0-edge.<build>` | TestFlight, Play internal testing, and the APK on a prerelease |
+| **Nightly build** (`nightly-build.yml`) | 00:00 UTC (GitHub may start it late) if `main` changed since the last nightly, or by hand | `2.0.0-nightly.<build>` | the same two, and the APK on a prerelease |
+| **Release build** (`release-build.yml`) | a tag `v2.0.0` is pushed | `2.0.0` | TestFlight, and a draft on Play's production track |
+| **CodeQL** and **Dependency submission** | as their names say | none | nowhere |
 
-- Work for the version is committed straight to its release branch, each
-  commit naming the issues it deals with (CI and CodeQL run on every push).
-- When it's ready, one PR takes the release branch into `main`; tag
-  `v<version>` there, and start the next release branch from the new `main`.
-  Keep the old release branch - it has the batch-by-batch history.
-- A fix for what's live goes to `main` (bumping the patch version, `1.0.1`),
-  then `main` is merged into the release branch so the fix carries on.
+The builds share `ios.yml` and `android.yml`. Stores only take numeric
+versions, so all of them show `2.0.0` and the build number tells them apart:
+the minutes since 2026 began, which keeps rising whichever workflow made the
+build. The three builds share one queue, because a store refuses a number that
+isn't above the last one uploaded. A nightly's release says which TestFlight build it is. Google Play
+uploads start when the `PLAY_UPLOADS` repository variable is `true`, once the
+account can take them (#24). The APKs are signed with the upload key, so they
+update each other but not an app installed from Play.
 
 **Each release:**
 
-1. Bump `<Version>` in `Directory.Build.props` on the new release branch
-   (the display version, for example `1.1.0`). Build numbers are set
-   automatically, so repeat uploads of one version are fine. Update
-   `src/DashyNMS.Mobile.Shared/WhatsNew.md` to match: its `# 2.0.0` heading
-   must be the new version, or What's new won't show. Keep it short, with a
-   `{icon}` from the tab glyphs on each line.
-2. Actions → **TestFlight** → *Run workflow* on the release branch (or
-   `main` for a fix), and approve the run. Leave *Build number* blank unless
-   you need a particular one.
+1. Check that `docs/releases/<version>.md` reads well, that `WhatsNew.md` says
+   the same, and that Core and Shared are pinned to releases: the build stops
+   otherwise.
+2. Tag `main`'s newest commit and push only the tag:
+
+   ```bash
+   git tag v2.0.0 origin/main && git push origin v2.0.0
+   ```
+
+   It has to match `<Version>` in `Directory.Build.props`. Don't create the
+   release on GitHub first, because everyone watching would be told about an
+   empty one: the build creates it once both stores have the build.
 3. The build appears in App Store Connect → **TestFlight** once Apple has
    processed it (typically 5-30 minutes). Test it, then choose it on the
-   version page and submit.
+   version page and submit. Do the same with the draft in the Play Console.
+4. Raise `<Version>`.
+
+If it fails there's no release:
+
+- **Nothing on `main` has to change:** run **Release build** by hand with the
+  tag. The stores get another build number.
+- **It needs a fix:** the tag has to be on `main`'s newest commit, so merge the
+  fix, then move the tag: `git push --delete origin v2.0.0`, `git fetch origin`,
+  `git tag -f v2.0.0 origin/main` and `git push origin v2.0.0`.
+
+### Release notes
+
+Every DashyNMS repository writes its release notes the same way. **`docs/releases/<version>.md` is the one set of notes for the version in `Directory.Build.props`.** It covers everything since the last release and grows as changes merge. Nothing else is written by hand: not a GitHub release's text, and not a file for each nightly.
+
+**In the pull request that makes the change:**
+
+- If a user of this repository would notice it, add or update its line in that file. A `feat`, `fix` or `perf` nearly always needs one. `ci`, `test`, `docs`, `chore`, `refactor` and dependency updates don't, unless someone would notice.
+- Put it under `## Breaking`, `## New`, `## Changed` or `## Fixed`, in that order, as a list item: `- **What it's about:** what's different now, in plain words (#NN).` Other headings fail CI.
+- Add the same line to `src/DashyNMS.Mobile.Shared/WhatsNew.md`, with a `{icon}` from the tab glyphs, under New, Improved or Fixed. It grows with the version too, and keeps the version's `# 2.0.0` heading, or What's new won't show.
+- Say what's true of the release as a whole. If a later change alters or undoes something that hasn't been released, edit its line rather than adding another. A fix to something that has never been released has no line.
+- Breaking changes say what the reader has to do.
+- Never edit a released version's file. Never put download tables, filenames or build numbers in it: they differ for each build.
+
+**What the builds do with it:**
+
+| Build | Notes |
+| --- | --- |
+| CI | fails if the file is missing, empty or has other headings |
+| Edge | a tag and prerelease with links to the file and to the changes since the last edge build |
+| Nightly | a tag and prerelease with a copy of the file, and a link to the changes since the last build |
+| Release | the last step creates the release with the file as its notes |
+| What's new | the app embeds `WhatsNew.md`, the same list with an icon on each line |
+
+**Raising `<Version>`:** the same pull request adds `docs/releases/<new version>.md` with its first line, because CI won't pass without it.
+
 
 **App Review notes.** From 2.0.0, keep this in the version's App Review
 Information notes, because guidelines 1.2 and 4.7.1 ask where generated
@@ -671,9 +715,10 @@ content can be reported:
 > then opens a draft email to dashynms@pckp.net, the address on the support
 > page. Nothing is sent until the person sends that email.
 
-**The workflow's secrets** live in the `iOS-Build` environment (only `main`
-and `release/*` can use them, and a maintainer approves each run), not in
-repository secrets:
+**The workflow's secrets** live in the `iOS-Build` and `Android-Build`
+environments, which only `main` can use, not in repository secrets. There's no
+approval: whatever reaches `main` is signed and uploaded. Android's are the upload
+keystore, its passwords and alias, and `PLAY_SERVICE_ACCOUNT_JSON`. iOS's are:
 
 | Secret | What it is |
 | --- | --- |
@@ -698,9 +743,8 @@ reaches testers.
 
 - The distribution certificate expires after a year, and the profiles with
   it: renew them and update the signing secrets.
-- A build number App Store Connect has already seen is rejected. The
-  workflow uses its run number + 100; if that collides, raise the
-  `IOS_BUILD_NUMBER_OFFSET` repository variable or type a number in.
+- A build number that isn't above the last one uploaded is rejected, so don't
+  upload a build made outside these workflows.
 - `ITSAppUsesNonExemptEncryption` is `false` (standard HTTPS only), which
   skips the export-compliance question on each build. Revisit it if the app
   ever adds its own cryptography.
@@ -1457,7 +1501,7 @@ privacy policy. `mailto` is declared in `LSApplicationQueriesSchemes` and the
 Android `queries` element so availability can be checked. Without an email app
 the preview says so and offers Copy report, which copies the same recipient,
 subject and body. A composer failure says it couldn't open, without native
-details. The App Review notes under Releasing say where reporting is.
+details. The App Review notes under Builds and releases say where reporting is.
 
 Shared tests cover the exact body and draft, exclusion of evidence and other
 turns, redaction, cancelling the reason sheet, connection and new-chat changes

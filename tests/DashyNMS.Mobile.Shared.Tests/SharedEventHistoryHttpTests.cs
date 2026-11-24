@@ -130,7 +130,8 @@ public sealed class SharedEventHistoryHttpTests
     {
         var routes = Routes();
         using var fixture = JsonDocument.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "EventHistory", "incomplete.json")));
-        var count = fixture.RootElement.GetProperty("events").GetInt32();
+        // The depth a host that can't continue back from a time reads to.
+        const int count = DashyNMS.Agent.Devices.DeviceTimeline.MaxDepth;
         var stamp = fixture.RootElement.GetProperty("timestamp").GetString();
         routes["logs/eventlog/1"] = new(200, JsonSerializer.Serialize(new
         {
