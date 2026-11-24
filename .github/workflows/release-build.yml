@@ -1,13 +1,13 @@
 name: Release build
 
-# Publishing a GitHub release (tag v<version>, on main's newest commit) builds
-# it. The release goes back to being a draft while that happens, and is
-# published again when both stores have it. Submitting it is done in App Store
-# Connect and the Play Console. If a build fails it stays a draft: fix it, then
-# run this by hand with the tag.
+# Pushing a tag v<version> on main's newest commit builds that release. The last
+# step creates the GitHub release, with its notes from docs/releases, so nobody
+# sees one before both stores have the build. Submitting it is done in App Store
+# Connect and the Play Console. If it fails there's no release: see "Builds and
+# releases" in docs/DEVELOPMENT.md.
 on:
-  release:
-    types: [published]
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
   workflow_dispatch:
     inputs:
       tag:
@@ -20,27 +20,27 @@ permissions:
   packages: read
   attestations: read
 
+# One at a time, in order, so an older release is never marked the latest again.
 concurrency:
-  group: release-build-${{ inputs.tag || github.event.release.tag_name }}
+  group: release-build
   cancel-in-progress: false
+  queue: max
 
 jobs:
-  hold:
-    name: Hold the release
-    if: github.event_name == 'release' && !github.event.release.prerelease && github.repository == 'DashyNMS/mobile'
+  # Builds run from main, the only branch that may sign and publish.
+  start:
+    name: Build it from main
+    if: github.event_name == 'push' && github.repository == 'DashyNMS/mobile'
     runs-on: ubuntu-latest
     permissions:
       actions: write
-      contents: write
     steps:
-      - name: Make it a draft and build it from main
+      - name: Run this workflow on main
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          gh release edit "$TAG" --draft
-          gh workflow run release-build.yml --ref main -f tag="$TAG"
+          TAG: ${{ github.ref_name }}
+        run: gh workflow run release-build.yml --ref main -f tag="$TAG"
 
   version:
     name: Version
@@ -61,7 +61,13 @@ jobs:
         id: version
         env:
           TAG: ${{ inputs.tag }}
-        run: python3 scripts/build_version.py release --tag "$TAG"
+        run: python3 scripts/build_version.py release --tag "$TAG" --notes artifacts/notes.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: artifacts/notes.md
+          if-no-files-found: error
+          retention-days: 14
 
   ci:
     name: CI
@@ -108,9 +114,32 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+      # If someone made the release on GitHub along with the tag, finish that one.
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
           TAG: ${{ needs.version.outputs.tag }}
-        run: gh release edit "$TAG" --draft=false --latest
+          COMMIT: ${{ needs.version.outputs.commit }}
+        run: |
+          # A re-run keeps its old builds, and the tag may have moved to a fix since.
+          tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$TAG" --jq .sha)
+          if [ "$tagged" != "$COMMIT" ]; then
+            echo "::error::$TAG is now $tagged, and these builds are of $COMMIT. Run the release build again by hand."
+            exit 1
+          fi
+          # An old publish can be re-run after a newer release, so it's only the
+          # latest if nothing released outranks it.
+          # On its own line, so failing to list them stops here.
+          published=$(gh release list --exclude-drafts --exclude-pre-releases --limit 200 --json tagName --jq '.[].tagName')
+          newest=$(printf '%s\n%s\n' "$published" "$TAG" | sort -V | tail -n 1)
+          latest=$([ "$newest" = "$TAG" ] && echo true || echo false)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$VERSION" --notes-file notes.md --draft=false --prerelease=false --latest="$latest"
+          else
+            gh release create "$TAG" --verify-tag --title "$VERSION" --notes-file notes.md --latest="$latest"
+          fi

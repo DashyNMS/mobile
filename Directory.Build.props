@@ -14,10 +14,10 @@
     <NeutralLanguage>en-GB</NeutralLanguage>
     <!-- Both from GitHub Packages (see nuget.config), moved together as
          docs/DEVELOPMENT.md, "Moving the Core and Shared pins", says.
-         Shared is from DashyNMS/mcp#162 (core#90 Batch 3), published by
-         run 44719120361 (commit bcdbd8f). -->
-    <DashyNMSCoreVersion>2.0.0-ci.76</DashyNMSCoreVersion>
-    <DashyNMSSharedVersion>2.0.0-ci.44719120361.1</DashyNMSSharedVersion>
+         Shared is DashyNMS/mcp's 2.0.0-nightly.2 (commit 8e2d11e), and Core the one it
+         was compatibility-tested against. -->
+    <DashyNMSCoreVersion>2.0.0-nightly.1</DashyNMSCoreVersion>
+    <DashyNMSSharedVersion>2.0.0-nightly.2</DashyNMSSharedVersion>
   </PropertyGroup>
 
 </Project>

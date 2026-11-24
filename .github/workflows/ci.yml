@@ -37,6 +37,9 @@ jobs:
       - name: Test the build scripts
         run: python3 -B -m unittest discover -s scripts/tests -v
 
+      - name: Check this version's release notes
+        run: python3 scripts/build_version.py check
+
       - name: Test geographic map camera bridge
         run: node --test tests/map/camera.test.mjs
 
@@ -328,7 +331,13 @@ jobs:
     needs: [test, android, ios, ios-release, ios-pdf]
     runs-on: ubuntu-latest
     steps:
+      # Only success counts: a job no runner ever took is neither a failure nor
+      # cancelled here. A pull request runs every job; a build that calls this
+      # may skip the ones it does itself.
       - name: Require every job
         env:
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: test "$FAILED" = false
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$RESULTS"
+          jq -e --arg event "$GITHUB_EVENT_NAME" \
+            'all(.[]; .result == "success" or (.result == "skipped" and $event != "pull_request"))' <<<"$RESULTS" >/dev/null

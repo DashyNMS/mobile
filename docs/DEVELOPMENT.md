@@ -262,9 +262,9 @@ release remains 2.0.0.
 
 ### Moving the Core and Shared pins
 
-Both DashyNMS packages are exact edge builds from GitHub Packages:
+Both DashyNMS packages are exact nightly or edge builds from GitHub Packages:
 `DashyNMS.Core` from DashyNMS/core's main and `DashyNMS.Agent.Shared` from
-DashyNMS/mcp's, each `2.0.0-edge.N` (`2.0.0-ci.…` before those). Both are
+DashyNMS/mcp's, each `2.0.0-nightly.N` or `2.0.0-edge.N` (`2.0.0-ci.…` before those). Both are
 pinned in `Directory.Build.props`.
 The shared and test projects commit `packages.lock.json`. The explicit restore
 step of every CI, Android and iOS job runs in locked mode (#609), before
@@ -617,6 +617,7 @@ type(scope): what changes, as the user would notice it
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
 - **Issue titles:** the same form, worded as the result the fixing PR will deliver, so the PR can reuse the title. An epic ends with `(epic)`. Labels carry the rest.
+- **Release notes:** a change users would notice adds its line to `docs/releases/<version>.md` and `WhatsNew.md` in the same PR. See [Release notes](#release-notes).
 - **Attribution:** commits, PRs and release notes carry no AI attribution or `Co-Authored-By` lines.
 
 Examples:
@@ -634,9 +635,9 @@ Every DashyNMS repository builds the same way.
 | Workflow | When | Version | Where it goes |
 | --- | --- | --- | --- |
 | **CI** (`ci.yml`) | every pull request, and first in each build below | none | nowhere |
-| **Edge build** (`edge-build.yml`) | every commit to `main` | `2.0.0-edge.<build>` | TestFlight, Play internal testing, and the APK on the rolling `v0.0.0-edge` prerelease |
-| **Nightly build** (`nightly-build.yml`) | 00:00 UTC if `main` changed since the last nightly, or by hand | `2.0.0-nightly.<build>` | the same two, and the APK on a prerelease with notes from the commits |
-| **Release build** (`release-build.yml`) | a GitHub release is published | `2.0.0` | TestFlight, and a draft on Play's production track |
+| **Edge build** (`edge-build.yml`) | every commit to `main` | `2.0.0-edge.<build>` | TestFlight, Play internal testing, and the APK on a prerelease |
+| **Nightly build** (`nightly-build.yml`) | 00:00 UTC (GitHub may start it late) if `main` changed since the last nightly, or by hand | `2.0.0-nightly.<build>` | the same two, and the APK on a prerelease |
+| **Release build** (`release-build.yml`) | a tag `v2.0.0` is pushed | `2.0.0` | TestFlight, and a draft on Play's production track |
 | **CodeQL** and **Dependency submission** | as their names say | none | nowhere |
 
 The builds share `ios.yml` and `android.yml`. Stores only take numeric
@@ -649,18 +650,56 @@ update each other but not an app installed from Play.
 
 **Each release:**
 
-1. `<Version>` in `Directory.Build.props` is the version, and
-   `src/DashyNMS.Mobile.Shared/WhatsNew.md` has its `# 2.0.0` heading, or
-   What's new won't show. Keep it short, with a `{icon}` from the tab glyphs
-   on each line.
-2. Publish a GitHub release on `main`'s newest commit, tagged `v2.0.0`. It goes
-   back to being a draft while it builds, and is published again when both
-   stores have the build. If something fails it stays a draft: run **Release
-   build** by hand with the tag.
+1. Check that `docs/releases/<version>.md` reads well, that `WhatsNew.md` says
+   the same, and that Core and Shared are pinned to releases: the build stops
+   otherwise.
+2. Tag `main`'s newest commit and push only the tag:
+
+   ```bash
+   git tag v2.0.0 origin/main && git push origin v2.0.0
+   ```
+
+   It has to match `<Version>` in `Directory.Build.props`. Don't create the
+   release on GitHub first, because everyone watching would be told about an
+   empty one: the build creates it once both stores have the build.
 3. The build appears in App Store Connect → **TestFlight** once Apple has
    processed it (typically 5-30 minutes). Test it, then choose it on the
    version page and submit. Do the same with the draft in the Play Console.
 4. Raise `<Version>`.
+
+If it fails there's no release:
+
+- **Nothing on `main` has to change:** run **Release build** by hand with the
+  tag. The stores get another build number.
+- **It needs a fix:** the tag has to be on `main`'s newest commit, so merge the
+  fix, then move the tag: `git push --delete origin v2.0.0`, `git fetch origin`,
+  `git tag -f v2.0.0 origin/main` and `git push origin v2.0.0`.
+
+### Release notes
+
+Every DashyNMS repository writes its release notes the same way. **`docs/releases/<version>.md` is the one set of notes for the version in `Directory.Build.props`.** It covers everything since the last release and grows as changes merge. Nothing else is written by hand: not a GitHub release's text, and not a file for each nightly.
+
+**In the pull request that makes the change:**
+
+- If a user of this repository would notice it, add or update its line in that file. A `feat`, `fix` or `perf` nearly always needs one. `ci`, `test`, `docs`, `chore`, `refactor` and dependency updates don't, unless someone would notice.
+- Put it under `## Breaking`, `## New`, `## Changed` or `## Fixed`, in that order, as a list item: `- **What it's about:** what's different now, in plain words (#NN).` Other headings fail CI.
+- Add the same line to `src/DashyNMS.Mobile.Shared/WhatsNew.md`, with a `{icon}` from the tab glyphs, under New, Improved or Fixed. It grows with the version too, and keeps the version's `# 2.0.0` heading, or What's new won't show.
+- Say what's true of the release as a whole. If a later change alters or undoes something that hasn't been released, edit its line rather than adding another. A fix to something that has never been released has no line.
+- Breaking changes say what the reader has to do.
+- Never edit a released version's file. Never put download tables, filenames or build numbers in it: they differ for each build.
+
+**What the builds do with it:**
+
+| Build | Notes |
+| --- | --- |
+| CI | fails if the file is missing, empty or has other headings |
+| Edge | a tag and prerelease with links to the file and to the changes since the last edge build |
+| Nightly | a tag and prerelease with a copy of the file, and a link to the changes since the last build |
+| Release | the last step creates the release with the file as its notes |
+| What's new | the app embeds `WhatsNew.md`, the same list with an icon on each line |
+
+**Raising `<Version>`:** the same pull request adds `docs/releases/<new version>.md` with its first line, because CI won't pass without it.
+
 
 **App Review notes.** From 2.0.0, keep this in the version's App Review
 Information notes, because guidelines 1.2 and 4.7.1 ask where generated

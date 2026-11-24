@@ -8,6 +8,7 @@
 - Building the head needs the `maui-android` / `maui-ios` workloads plus the Android SDK or Xcode; CI covers both.
 - Match desktop's style: British spelling in user-facing text, XML doc comments explaining *why*, sealed classes.
 - PR titles, commits and issue titles: `type(scope): what changes, in plain words`. One issue per PR, squash-merged, `Closes #NN` in the description, issue titles worded as the result the fix delivers. Full standard and scopes: docs/DEVELOPMENT.md, "Commits, pull requests and issues".
+- Release notes: a change users would notice adds or updates its line in `docs/releases/<version>.md` (the `<Version>` in `Directory.Build.props`) and in `src/DashyNMS.Mobile.Shared/WhatsNew.md`, in the same PR. Never write a GitHub release's notes by hand. Read docs/DEVELOPMENT.md, "Release notes", first.
 - Commits, PRs and release notes carry no AI attribution or Co-Authored-By lines.
 - Never put real device names, hostnames, addresses or other identifiable network data in issues, PRs, commits, screenshots or test fixtures.
 

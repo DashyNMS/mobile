@@ -1048,6 +1048,18 @@ and endpoint tracing (DashyNMS/mcp#156) and device status words that follow the
 reported state, with unknown and ignored devices counted apart in the overview
 and per location (DashyNMS/mcp#121).
 
+## Batch 7 packages (core#90)
+
+Mobile pins Shared `2.0.0-nightly.2` from DashyNMS/mcp, commit
+`8e2d11efed158fc8429a4bc5bcded61e40e7375c`, and Core `2.0.0-nightly.1`, the Core it
+was built and compatibility-tested against. The package SHA-256 is
+`98fe753eb9d798b12787cb267c7e6f49eff363c890b21a742fd4bf3076ef9caa`; its
+GitHub-hosted provenance attestation was verified against that commit and
+`shared-package.yml` before pinning. It spans MCP's Batches 4 to 6. Reading logs
+back from a time (DashyNMS/mcp#70) and reading sensors device by device
+(DashyNMS/mcp#71) need capabilities the phone's connection-bound client doesn't
+offer, so both read as before. A source that limits requests is now named.
+
 ## Batch 6 Spotlight (#231)
 
 Mobile pins Shared `2.0.0-ci.43744058288.1` from MCP #154, commit
