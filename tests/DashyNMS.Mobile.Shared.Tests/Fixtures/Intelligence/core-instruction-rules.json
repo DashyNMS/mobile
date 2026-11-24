@@ -112,8 +112,8 @@
     },
     {
       "block": "base",
-      "core": "Put markers in prose and lists, outside code. A marker already shows the name and status, so the words beside it add something new and the answer needs no separate status section. Use only IDs from this conversation's tool results, and plain text where there is none.",
-      "excluded": "Budget. Lookup rows already carry each marker beside its name, and the renderer ignores markers in code, so the placement rule adds little on the device."
+      "core": "Put markers in prose and lists, outside code. A marker already shows the name and status, so the words beside it add something new and the answer needs no separate status section. Use only IDs from this conversation's tool results, else the name; never a bare ID like \"Device 442\".",
+      "excluded": "Budget. Lookup rows already carry each marker beside its name, and the renderer ignores markers in code, so the placement rule adds little on the device. The phone's base block already has its own rule against writing a device's number."
     },
     {
       "block": "base",

@@ -181,7 +181,7 @@ jobs:
       # MobilePlatform=ios (see the csproj): on macOS the project also targets
       # Android, and restore would otherwise want that workload too.
       # A simulator build needs no signing identity; device builds and
-      # App Store packaging are the TestFlight workflow's.
+      # App Store packaging are ios.yml's.
       - name: Build
         run: >
           dotnet build src/DashyNMS.Mobile -p:MobilePlatform=ios -c Debug -p:RuntimeIdentifier=iossimulator-arm64

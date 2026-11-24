@@ -625,7 +625,7 @@ Examples:
 ```
 fix(alerts): acknowledging no longer jumps back to the top
 feat(widgets): an alert count widget for the lock screen
-build(ios): build number from the run number + 100
+build(ios): build numbers keep rising across workflows
 docs: release steps for TestFlight
 ```
 ## Builds and releases
@@ -716,7 +716,8 @@ content can be reported:
 
 **The workflow's secrets** live in the `iOS-Build` and `Android-Build`
 environments, which only `main` can use, not in repository secrets. There's no
-approval: whatever reaches `main` is signed and uploaded. iOS's are:
+approval: whatever reaches `main` is signed and uploaded. Android's are the upload
+keystore, its passwords and alias, and `PLAY_SERVICE_ACCOUNT_JSON`. iOS's are:
 
 | Secret | What it is |
 | --- | --- |

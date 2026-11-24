@@ -1,6 +1,8 @@
 using System.Text.Json;
 using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Intelligence;
+// Core has one too, public since core#98.
+using IntelligenceInstructions = DashyNMS.Mobile.Intelligence.IntelligenceInstructions;
 
 namespace DashyNMS.Mobile.Tests;
 
