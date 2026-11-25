@@ -245,7 +245,7 @@ public partial class MapPage : ContentPage, IActivePage
         if (_viewModel.CanChooseLocation)
             pageActions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
         pageActions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
-        if (place == PageActionPlace.Header)
+        if (place == PageActionPlace.HeaderGlass)
         {
             Header.SetHeaderGlass(pageActions);
         }

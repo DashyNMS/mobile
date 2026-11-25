@@ -607,7 +607,7 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 			actions.Add(GlassActions.Pin(state.Pinned, () => detail!.TogglePinCommand.Execute(null)));
 		}
 
-		if (place == PageActionPlace.Header)
+		if (place == PageActionPlace.HeaderGlass)
 		{
 			Header.SetHeaderGlass(actions);
 			TabBarButtons.Show(this, OpenSearch, "Search devices", []);

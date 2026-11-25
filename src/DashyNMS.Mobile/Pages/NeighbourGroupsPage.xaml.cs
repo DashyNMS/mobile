@@ -62,7 +62,7 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
             bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
         var add = new GlassAction("plus", "Add a neighbourhood", () => _viewModel.AddCommand.Execute(null));
-        if (place == PageActionPlace.Header)
+        if (place == PageActionPlace.HeaderGlass)
         {
             Header.SetHeaderGlass([add]);
         }

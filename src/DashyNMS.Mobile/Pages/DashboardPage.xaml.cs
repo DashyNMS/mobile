@@ -99,7 +99,7 @@ public partial class DashboardPage : ContentPage, IActivePage
 		var place = PageActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
 		if (_actionPlace == place) return;
 		_actionPlace = place;
-		if (place == PageActionPlace.Header)
+		if (place == PageActionPlace.HeaderGlass)
 		{
 			_headerGlass.Actions = actions;
 			_headerGlass.IsVisible = true;

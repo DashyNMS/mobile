@@ -240,7 +240,7 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
 			new("arrow.clockwise", "Refresh alerts", _refresh),
 		];
-		if (place == PageActionPlace.Header)
+		if (place == PageActionPlace.HeaderGlass)
 		{
 			Header.SetHeaderGlass(actions);
 			TabBarButtons.Show(this, OpenSearch, "Search alerts", []);

@@ -67,7 +67,7 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
             bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
         var refresh = new GlassAction("arrow.clockwise", "Refresh sensors", _refresh);
-        if (place == PageActionPlace.Header)
+        if (place == PageActionPlace.HeaderGlass)
         {
             Header.SetHeaderGlass([refresh]);
         }

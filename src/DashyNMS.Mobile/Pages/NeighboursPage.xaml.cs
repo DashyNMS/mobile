@@ -87,7 +87,7 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
             bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
         var groups = new GlassAction("square.grid.2x2", "Neighbourhoods", () => _viewModel.EditGroupsCommand.Execute(null));
-        if (place == PageActionPlace.Header)
+        if (place == PageActionPlace.HeaderGlass)
         {
             Header.SetHeaderGlass([groups]);
         }
