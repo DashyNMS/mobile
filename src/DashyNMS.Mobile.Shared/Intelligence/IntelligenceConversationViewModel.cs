@@ -272,6 +272,10 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
             // connection must never inherit the previous connection's network data.
             // The revision moves first: a saved chat bound to the old one (#229)
             // must never see the cleared transcript as an edit to save.
+            var hadContent = Turns.Count > 0
+                || !string.IsNullOrWhiteSpace(Draft)
+                || _retainedObjectChats.Count > 0
+                || _spotlight.Count > 0;
             ChatRevision++;
             RefreshStarters();
             Turns.Clear();
@@ -283,7 +287,8 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedDetail));
             _chatGeneration = generation;
             OnPropertyChanged(nameof(ChatRevision));
-            Notice = _session.Connection is null ? "Signed out. The previous chat was cleared."
+            Notice = !hadContent ? ""
+                : _session.Connection is null ? "Signed out. The previous chat was cleared."
                 : "The connection changed. The previous chat was cleared.";
         });
         Notify();

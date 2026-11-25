@@ -97,6 +97,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         };
         _notice.Style = ResourceStyle("Caption");
         _notice.HorizontalOptions = LayoutOptions.Center;
+        _notice.Margin = new Thickness(0, 0, 0, 12);
         SemanticProperties.SetDescription(_new, "New chat");
         SemanticProperties.SetDescription(_jump, "Jump to latest");
         SemanticProperties.SetDescription(_list, "Saved chats");
@@ -443,7 +444,9 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _scrolling = true;
         try
         {
-            await _scroll.ScrollToAsync(0, Math.Max(0, _scroll.ContentSize.Height - _scroll.Height), false);
+            // Keep starter questions resting at the top with their 20pt lead when there are no turns.
+            var targetY = _conversation.Turns.Count == 0 ? 0 : Math.Max(0, _scroll.ContentSize.Height - _scroll.Height);
+            await _scroll.ScrollToAsync(0, targetY, false);
             _jump.IsVisible = false;
         }
         finally { _scrolling = false; }
