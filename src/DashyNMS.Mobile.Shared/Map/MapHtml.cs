@@ -168,6 +168,7 @@ public static class MapHtml
             (function () {
               var data = {{data}};
               var map = L.map('map', { worldCopyJump: true });
+              if (map.attributionControl) map.attributionControl.setPosition('bottomleft');
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
               window.setMapClearance = function (top, right, bottom, left) {
                 var previous = clearance;
@@ -187,6 +188,7 @@ public static class MapHtml
                   });
                 }
                 fitWithoutClearance = false;
+                return 'ok';
               };
               var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
               var target = null, hasClearance = false, fitWithoutClearance = false, userMoved = false, moving = 0;
@@ -194,6 +196,7 @@ public static class MapHtml
                 var container = map.getContainer();
                 var controls = container.querySelector('.leaflet-control-container');
                 controls.style.position = 'absolute';
+                controls.style.zIndex = '1000';
                 controls.style.top = clearance.top + 'px'; controls.style.right = clearance.right + 'px';
                 controls.style.bottom = clearance.bottom + 'px'; controls.style.left = clearance.left + 'px';
                 controls.style.pointerEvents = 'none';

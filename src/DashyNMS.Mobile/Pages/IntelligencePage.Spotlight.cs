@@ -34,32 +34,31 @@ public sealed partial class IntelligencePage
 
     private void RefreshSpotlight()
     {
+        _spotlightButton.IsEnabled = _conversation.CanAsk;
         var stamp = _conversation.ChatRevision + ":" + _conversation.CanAsk + ":" + _conversation.HasPreviousObjectChat + ":" + _conversation.SpotlightInstructions + ":" + string.Join("|", _conversation.Spotlight.Select(s => s.Name));
         if (stamp == _spotlightStamp) return;
         _spotlightStamp = stamp;
         _spotlightControls.Children.Clear();
-        var choices = new HorizontalStackLayout { Spacing = 8 };
-        choices.Children.Add(ComposerChip(
-            "✦ Spotlight ▾",
-            "Choose devices, a group or a location for Spotlight",
-            _conversation.CanAsk,
-            () => _ = PickSpotlightAsync()));
-        foreach (var item in _conversation.Spotlight)
+        if (_conversation.Spotlight.Count > 0)
         {
-            var captured = item;
-            choices.Children.Add(ComposerChip(
-                captured.Name + " ×",
-                "Remove " + captured.Name + " from Spotlight",
-                _conversation.CanAsk,
-                () => _conversation.RemoveSpotlight(captured)));
+            var choices = new HorizontalStackLayout { Spacing = 8 };
+            foreach (var item in _conversation.Spotlight)
+            {
+                var captured = item;
+                choices.Children.Add(ComposerChip(
+                    captured.Name + " ×",
+                    "Remove " + captured.Name + " from Spotlight",
+                    _conversation.CanAsk,
+                    () => _conversation.RemoveSpotlight(captured)));
+            }
+            _spotlightControls.Children.Add(new ScrollView
+            {
+                Orientation = ScrollOrientation.Horizontal,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+                SafeAreaEdges = SafeAreaEdges.None,
+                Content = choices,
+            });
         }
-        _spotlightControls.Children.Add(new ScrollView
-        {
-            Orientation = ScrollOrientation.Horizontal,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
-            SafeAreaEdges = SafeAreaEdges.None,
-            Content = choices,
-        });
         if (_conversation.HasPreviousObjectChat)
         {
             _spotlightControls.Children.Add(ComposerChip(
@@ -69,6 +68,7 @@ public sealed partial class IntelligencePage
                 () => _conversation.SwitchPreviousObjectChat()));
         }
         if (_conversation.IsRunning) _spotlightControls.Children.Add(new Label { Text = "Spotlight is locked while an answer runs.", Style = ResourceStyle("Caption") });
+        _spotlightControls.IsVisible = _conversation.IsTranscriptCurrent && _spotlightControls.Children.Count > 0;
     }
 
     private async Task PickSpotlightAsync()
@@ -84,8 +84,23 @@ public sealed partial class IntelligencePage
             var choices = await _spotlightSource.ChoicesAsync(key);
             if (revision != _conversation.ChatRevision || _conversation.CurrentScope != scope) return;
             var dismissOnPick = key is "group" or "location";
+            var heading = key switch
+            {
+                "device" => "Choose devices to spotlight",
+                "group" => "Choose a group to spotlight",
+                "location" => "Choose a location to spotlight",
+                _ => kind!,
+            };
+            var noun = key switch
+            {
+                "device" => "devices",
+                "group" => "groups",
+                "location" => "locations",
+                _ => kind!.ToLowerInvariant(),
+            };
             var picker = new IntelligenceSpotlightPickerPage(
-                kind!,
+                heading,
+                noun,
                 dismissOnPick,
                 choices,
                 _conversation,
@@ -124,6 +139,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
 
     public IntelligenceSpotlightPickerPage(
         string heading,
+        string noun,
         bool dismissOnPick,
         IReadOnlyList<SpotlightChoice> choices,
         IntelligenceConversationViewModel conversation,
@@ -169,16 +185,18 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
 
         _searchEntry = new Entry
         {
-            Placeholder = "Search " + heading.ToLowerInvariant(),
+            Placeholder = "Search " + noun,
             ReturnType = ReturnType.Search,
         };
-        var searchField = new SearchField { Content = _searchEntry };
+        var searchField = new SearchField { Input = _searchEntry };
+
+        string CountText(int shown) => shown == choices.Count
+            ? $"{choices.Count} {noun}"
+            : $"Showing {shown} of {choices.Count} {noun}";
 
         _status = new Label
         {
-            Text = dismissOnPick
-                ? "Tap a choice to apply it and return to the chat."
-                : "Selections apply straight away. Use Done to return to the chat.",
+            Text = CountText(choices.Count),
             Style = ResourceStyle("Caption"),
             LineBreakMode = LineBreakMode.WordWrap,
         };
@@ -190,10 +208,11 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
                 ? []
                 : choices.Where(c => c.Name.Contains(e.NewTextValue ?? "", StringComparison.CurrentCultureIgnoreCase)).ToArray();
             _list.ItemsSource = visibleChoices;
+            if (_valid) _status.Text = CountText(visibleChoices.Count);
         };
 
         _list.ItemsSource = visibleChoices;
-        _list.Header = new BoxView { Color = Colors.Transparent, HeightRequest = 12, InputTransparent = true };
+        _list.Header = new BoxView { Color = Colors.Transparent, HeightRequest = 4, InputTransparent = true };
         _list.Footer = new BoxView { Color = Colors.Transparent, HeightRequest = 24, InputTransparent = true };
         _list.EmptyView = new Label
         {
@@ -224,49 +243,98 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
         var row = new Grid
         {
             RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
-            ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)],
-            MinimumHeightRequest = 48,
+            MinimumHeightRequest = 56,
         };
 
         var line = new BoxView { Style = ResourceStyle("Divider") };
-        Grid.SetColumnSpan(line, 2);
         row.Add(line, 0, 0);
 
         var button = new Button
         {
+            Text = "",
             BackgroundColor = Colors.Transparent,
-            MinimumHeightRequest = 48,
-            Padding = new Thickness(14, 10),
+            MinimumHeightRequest = 56,
+            Padding = 0,
             CornerRadius = 0,
             BorderWidth = 0,
-            FontFamily = "BodyRegular",
-            FontSize = 15,
-            LineBreakMode = LineBreakMode.WordWrap,
             HorizontalOptions = LayoutOptions.Fill,
-            ContentLayout = new Button.ButtonContentLayout(Button.ButtonContentLayout.ImagePosition.Left, 0),
+            VerticalOptions = LayoutOptions.Fill,
         };
-        button.SetAppThemeColor(Button.TextColorProperty, ThemeColour("TextLight"), ThemeColour("TextDark"));
         VisualStateManager.SetVisualStateGroups(button, PickerRowStates());
 
         var tick = new Label
         {
             Text = "✓",
             FontFamily = "BodySemibold",
-            FontSize = 16,
+            FontSize = 14,
+            TextColor = Colors.White,
+            HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
-            Margin = new Thickness(0, 0, 14, 0),
             InputTransparent = true,
             IsVisible = false,
         };
-        tick.SetAppThemeColor(Label.TextColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
         AutomationProperties.SetIsInAccessibleTree(tick, false);
+
+        var checkbox = new Border
+        {
+            WidthRequest = 26,
+            HeightRequest = 26,
+            StrokeThickness = 1.5,
+            StrokeShape = new RoundRectangle { CornerRadius = 7 },
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Start,
+            InputTransparent = true,
+            Content = tick,
+        };
+        AutomationProperties.SetIsInAccessibleTree(checkbox, false);
+
+        var name = new Label
+        {
+            FontFamily = "BodyMedium",
+            FontSize = 15,
+            LineBreakMode = LineBreakMode.WordWrap,
+            HorizontalTextAlignment = TextAlignment.Start,
+            VerticalOptions = LayoutOptions.Center,
+            InputTransparent = true,
+        };
+        name.SetAppThemeColor(Label.TextColorProperty, ThemeColour("TextLight"), ThemeColour("TextDark"));
+        AutomationProperties.SetIsInAccessibleTree(name, false);
+
+        var content = new Grid
+        {
+            ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)],
+            ColumnSpacing = 12,
+            Padding = new Thickness(14, 12),
+            MinimumHeightRequest = 56,
+            InputTransparent = true,
+        };
+        content.Add(checkbox, 0, 0);
+        content.Add(name, 1, 0);
+
+        void ApplyChecked(bool picked)
+        {
+            tick.IsVisible = picked;
+            if (picked)
+            {
+                var primary = ThemeColour("Primary");
+                checkbox.BackgroundColor = primary;
+                checkbox.Stroke = new SolidColorBrush(primary);
+            }
+            else
+            {
+                checkbox.BackgroundColor = Colors.Transparent;
+                var stroke = new SolidColorBrush();
+                stroke.SetAppThemeColor(SolidColorBrush.ColorProperty, ThemeColour("ComposerChipStrokeLight"), ThemeColour("ComposerChipStrokeDark"));
+                checkbox.Stroke = stroke;
+            }
+        }
 
         row.BindingContextChanged += (_, _) =>
         {
             if (row.BindingContext is not SpotlightChoice choice) return;
             var picked = _selectedNames.Contains(choice.Name);
-            button.Text = choice.Name;
-            tick.IsVisible = picked;
+            name.Text = choice.Name;
+            ApplyChecked(picked);
             SemanticProperties.SetDescription(button, picked ? $"{choice.Name}, selected" : choice.Name);
             var current = visibleChoices();
             line.IsVisible = current.Count == 0 || !ReferenceEquals(current[0], choice);
@@ -286,7 +354,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
                     _selectedNames.Add(choice.Name);
                     if (ReferenceEquals(row.BindingContext, choice))
                     {
-                        tick.IsVisible = true;
+                        ApplyChecked(true);
                         SemanticProperties.SetDescription(button, $"{choice.Name}, selected");
                     }
                     if (_dismissOnPick)
@@ -310,7 +378,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
         };
 
         row.Add(button, 0, 1);
-        row.Add(tick, 1, 1);
+        row.Add(content, 0, 1);
         return row;
     }
 

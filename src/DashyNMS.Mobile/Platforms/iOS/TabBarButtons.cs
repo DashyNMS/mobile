@@ -419,18 +419,33 @@ internal static class TabBarButtons
                 }
                 else
                 {
-                    search = new CGRect(bar.Right + Gap, bar.GetMidY() - size / 2, size, size);
-                    if (search.Right > room)
+                    var leftRoom = host.SafeAreaInsets.Left;
+                    var actionsWidth = size * count;
+                    var bottomY = bar.GetMidY() - size / 2;
+                    if (count > 0 && bar.Right + Gap + actionsWidth + Gap + size <= room)
                     {
-                        search = new CGRect(bar.Right - size, row, size, size);
-                        actions = new CGRect(search.Left - Gap - (size * count), row, size * count, size);
+                        actions = new CGRect(bar.Right + Gap, bottomY, actionsWidth, size);
+                        search = new CGRect(actions.Right + Gap, bottomY, size, size);
+                    }
+                    else if (bar.Right + Gap + size <= room)
+                    {
+                        search = new CGRect(bar.Right + Gap, bottomY, size, size);
+                        if (count > 0 && bar.Left - Gap - actionsWidth >= leftRoom)
+                        {
+                            actions = new CGRect(bar.Left - Gap - actionsWidth, bottomY, actionsWidth, size);
+                        }
+                        else
+                        {
+                            actions = new CGRect(bar.Right - actionsWidth, row, actionsWidth, size);
+                        }
                     }
                     else
                     {
-                        actions = new CGRect(bar.Right - (size * count), row, size * count, size);
+                        search = new CGRect(bar.Right - size, row, size, size);
+                        actions = new CGRect(search.Left - Gap - actionsWidth, row, actionsWidth, size);
                     }
 
-                    host.AboveBottomBar = count > 0 || search.Top < bar.Top;
+                    host.AboveBottomBar = (count > 0 && actions.Top < bar.Top) || search.Top < bar.Top;
                 }
 
                 host.RowHeight = size;

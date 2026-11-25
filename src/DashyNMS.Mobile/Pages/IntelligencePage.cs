@@ -29,10 +29,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private readonly IntelligenceExportService _exporter;
     private readonly IconButton _export = new() { Icon = Icons.Export, Kind = IconButtonKind.Plain };
     private bool _exporting;
-    private readonly VerticalStackLayout _spotlightControls = new() { Spacing = 4 };
+    private readonly VerticalStackLayout _spotlightControls = new() { Spacing = 4, IsVisible = false };
+    private readonly Button _spotlightButton;
     private readonly PageHeader _header = new() { Title = "Intelligence" };
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
-    private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 20, 0, 16) };
+    private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 12, 0, 16) };
     private readonly VerticalStackLayout _starters = new() { Spacing = 8 };
     private readonly Label _notice = new();
     private readonly IconButton _jump = new() { Icon = "M12 4V20 M5 13 12 20 19 13", Kind = IconButtonKind.Filled, HorizontalOptions = LayoutOptions.End, IsVisible = false };
@@ -97,7 +98,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         };
         _notice.Style = ResourceStyle("Caption");
         _notice.HorizontalOptions = LayoutOptions.Center;
-        _notice.Margin = new Thickness(0, 0, 0, 12);
+        _notice.Margin = new Thickness(0, 0, 0, 4);
         SemanticProperties.SetDescription(_new, "New chat");
         SemanticProperties.SetDescription(_jump, "Jump to latest");
         SemanticProperties.SetDescription(_list, "Saved chats");
@@ -146,11 +147,26 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _detail.MinimumHeightRequest = 48;
         _detail.FontSize = 14;
         _detail.Margin = 0;
+        _spotlightButton = ComposerChip(
+            "✦ Spotlight ▾",
+            "Choose devices, a group or a location for Spotlight",
+            _conversation.CanAsk,
+            () => _ = PickSpotlightAsync());
         var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
         composer.Add(_spotlightControls, 0, 0);
         composer.Add(_question, 0, 1);
         var choices = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
-        choices.Add(DetailChip(), 0, 0);
+        var chipRow = new HorizontalStackLayout { Spacing = 8, VerticalOptions = LayoutOptions.Center };
+        chipRow.Children.Add(_spotlightButton);
+        chipRow.Children.Add(DetailChip());
+        choices.Add(new ScrollView
+        {
+            Orientation = ScrollOrientation.Horizontal,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+            SafeAreaEdges = SafeAreaEdges.None,
+            VerticalOptions = LayoutOptions.Center,
+            Content = chipRow,
+        }, 0, 0);
         var askHost = new Grid { SafeAreaEdges = SafeAreaEdges.None, VerticalOptions = LayoutOptions.Center };
         askHost.Children.Add(_ask);
         askHost.Children.Add(_askIcon);
@@ -283,15 +299,12 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         if (_starterRevision == _conversation.ChatRevision) return;
         _starterRevision = _conversation.ChatRevision;
         _starters.Children.Clear();
-        var heading = new Label { Text = "What would you like to know?", Style = ResourceStyle("SectionHeader") };
-        // This heading sits on the accent wash rather than a neutral surface.
-        heading.SetAppThemeColor(Label.TextColorProperty, ThemeColour("TextSecondaryLight"), ThemeColour("TextSecondaryDark"));
-        _starters.Children.Add(heading);
         foreach (var starter in _conversation.StarterQuestions)
         {
             var revision = _conversation.ChatRevision;
-            var button = new ChatActionButton { Text = starter, MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
+            var button = new ChatActionButton { Text = "✦  " + starter, MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
             button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
+            SemanticProperties.SetDescription(button, starter);
             button.Clicked += async (_, _) =>
             {
                 if (!_showing || !ActivePage.IsCurrent(this) || !string.IsNullOrWhiteSpace(_question.Text)) return;
@@ -365,7 +378,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         if (_scroll.Height > 0) reserve = Math.Min(reserve, Math.Max(0, _scroll.Height - 64));
         // From a little above the composer (not the Jump to latest slot) to the screen's base.
         _fade.SetCoveredHeight(Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance));
-        var padding = new Thickness(0, 20, 0, reserve);
+        var padding = new Thickness(0, 12, 0, reserve);
         if (_transcript.Padding == padding) return;
         _transcript.Padding = padding;
         if (_following) _scrollPending = true;
@@ -398,7 +411,8 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private void UpdateControls()
     {
         RefreshSpotlight();
-        _spotlightControls.IsVisible = _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
+        _spotlightButton.IsVisible = _transcript.IsVisible = _question.IsVisible = _detail.IsVisible = _conversation.IsTranscriptCurrent;
+        _spotlightControls.IsVisible = _conversation.IsTranscriptCurrent && _spotlightControls.Children.Count > 0;
         _askIcon.Data = IconData(_conversation.IsRunning ? StopIcon : SendIcon);
         SemanticProperties.SetDescription(_ask, _conversation.IsRunning ? "Stop answer" : "Send question");
         _ask.IsEnabled = _conversation.IsRunning || (_conversation.CanAsk && !string.IsNullOrWhiteSpace(_question.Text));
@@ -575,6 +589,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     /// </summary>
     private Border DetailChip()
     {
+#if IOS
+        // iOS Picker already renders its own disclosure chevron; adding a second
+        // glyph produces a double-chevron chip.
+        View content = _detail;
+#else
         var row = new Grid
         {
             ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
@@ -585,9 +604,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         var chevron = Glyph(ChevronDown, 16);
         chevron.SetAppThemeColor(Microsoft.Maui.Controls.Shapes.Path.StrokeProperty, ThemeColour("TextSecondaryLight"), ThemeColour("TextSecondaryDark"));
         row.Add(chevron, 1, 0);
+        View content = row;
+#endif
         var chip = new Border
         {
-            Content = row, Padding = new Thickness(12, 0, 12, 0), StrokeThickness = 1.5, MinimumHeightRequest = 48,
+            Content = content, Padding = new Thickness(12, 0, 12, 0), StrokeThickness = 1.5, MinimumHeightRequest = 48,
             StrokeShape = new RoundRectangle { CornerRadius = 22 }, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center,
             BackgroundColor = Colors.Transparent,
         };

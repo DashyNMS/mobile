@@ -424,34 +424,44 @@
                             <!-- In and Out rank by themselves; tapped again, by both - desktop's headings (#140). -->
                             <Grid ColumnDefinitions="10,*,80,80" ColumnSpacing="8" Margin="0,4,0,0" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
                                 <Label Grid.Column="1" Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" VerticalOptions="Center" />
-                                <Button Grid.Column="2" Text="IN" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
-                                        HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="In"
-                                        TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
-                                        SemanticProperties.Description="Rank by traffic in">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByIn}" Value="True">
-                                            <Setter Property="Text" Value="IN ▾" />
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
-                                <Button Grid.Column="3" Text="OUT" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
-                                        HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="Out"
-                                        TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
-                                        SemanticProperties.Description="Rank by traffic out">
-                                    <Button.Triggers>
-                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByOut}" Value="True">
-                                            <Setter Property="Text" Value="OUT ▾" />
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Button" Binding="{Binding RanksByTotal}" Value="True">
-                                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                                        </DataTrigger>
-                                    </Button.Triggers>
-                                </Button>
+                                <Grid Grid.Column="2" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}">
+                                    <Label Text="IN" FontSize="12" FontFamily="BodySemibold" HorizontalTextAlignment="End" VerticalOptions="Center"
+                                           InputTransparent="True" AutomationProperties.IsInAccessibleTree="False"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding RanksByIn}" Value="True">
+                                                <Setter Property="Text" Value="IN ▾" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding RanksByTotal}" Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Button Text="" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                            HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
+                                            HorizontalOptions="Fill" Command="{Binding RankHeadingCommand}" CommandParameter="In"
+                                            SemanticProperties.Description="Rank by traffic in" />
+                                </Grid>
+                                <Grid Grid.Column="3" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}">
+                                    <Label Text="OUT" FontSize="12" FontFamily="BodySemibold" HorizontalTextAlignment="End" VerticalOptions="Center"
+                                           InputTransparent="True" AutomationProperties.IsInAccessibleTree="False"
+                                           TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding RanksByOut}" Value="True">
+                                                <Setter Property="Text" Value="OUT ▾" />
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                            </DataTrigger>
+                                            <DataTrigger TargetType="Label" Binding="{Binding RanksByTotal}" Value="True">
+                                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Button Text="" BackgroundColor="Transparent" BorderWidth="0" Padding="0"
+                                            HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
+                                            HorizontalOptions="Fill" Command="{Binding RankHeadingCommand}" CommandParameter="Out"
+                                            SemanticProperties.Description="Rank by traffic out" />
+                                </Grid>
                             </Grid>
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopRows}">
                                 <BindableLayout.ItemTemplate>

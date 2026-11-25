@@ -58,6 +58,9 @@ public partial class DeviceDetailView : ContentView
 		{
 			Column.Padding = padding;
 		}
+#if IOS
+		BottomFade.SetCoveredHeight(clear.Bottom);
+#endif
 	}
 
 	/// <summary>

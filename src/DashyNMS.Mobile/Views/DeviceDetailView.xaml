@@ -436,6 +436,7 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+        <controls:FootFade x:Name="BottomFade" ZIndex="1" />
     </Grid>
 
 </ContentView>

@@ -172,7 +172,6 @@ public partial class DashboardPage : ContentPage, IActivePage
 		}
 #endif
 		TopLine.Margin = new Thickness(left, 0, right, 0);
-		CardColumn.Padding = new Thickness(16 + left, 8, 16 + right, 0);
 		var toastMarginBottom = toastFoot ?? obstruction;
 		Toast.Margin = new Thickness(12 + left, 0, 12 + right, toastMarginBottom);
 		var footer = SectionListPlacement.FooterGap + obstruction;
@@ -180,13 +179,14 @@ public partial class DashboardPage : ContentPage, IActivePage
 		{
 			footer = Math.Max(footer, toastMarginBottom + Math.Max(52, Toast.Height) + SectionListPlacement.PanelGap);
 		}
-		if (Foot.HeightRequest != footer)
+		CardColumn.Padding = new Thickness(16 + left, 8, 16 + right, footer);
+		if (Foot.HeightRequest != 0)
 		{
-			Foot.HeightRequest = footer;
+			Foot.HeightRequest = 0;
 		}
 #if IOS
 		var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
-		BottomFade.SetCoveredHeight(!sideBar ? bottom : 0);
+		BottomFade.SetCoveredHeight(!sideBar ? obstruction : 0);
 #endif
 	}
 

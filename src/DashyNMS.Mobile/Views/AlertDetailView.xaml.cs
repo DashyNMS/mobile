@@ -74,6 +74,9 @@ public partial class AlertDetailView : ContentView
 		{
 			Column.Padding = padding;
 		}
+#if IOS
+		BottomFade.SetCoveredHeight(clear.Bottom);
+#endif
 	}
 #if IOS
     private void StopInsets()
