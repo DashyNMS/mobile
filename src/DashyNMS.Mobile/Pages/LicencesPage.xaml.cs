@@ -74,12 +74,26 @@ public partial class LicencesPage : ContentPage, IActivePage
         var edges = CoveredEdges.ForScrolling(this);
         // The header scrolls with the notices. Only hidden header Back needs a fade.
         Fade.IsVisible = Header.BackInGlass;
-        Body.Padding = new Thickness(16 + edges.Left, Header.BackInGlass ? 20 : 0,
-            16 + edges.Right, 24 + edges.Bottom);
-        Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+        var bottom = 24 + edges.Bottom;
 #if IOS
+        var sideBar = false;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
+        {
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            var obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+            bottom = SectionListPlacement.Resolve(obstruction).Footer;
+        }
+        BottomFade.SetCoveredHeight(!sideBar ? edges.Bottom : 0);
         if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
             scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
 #endif
+        Body.Padding = new Thickness(16 + edges.Left, Header.BackInGlass ? 20 : 0,
+            16 + edges.Right, bottom);
+        Fade.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
     }
 }

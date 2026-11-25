@@ -37,7 +37,7 @@
         </Border>
 
         <controls:BusyCard x:Name="Busy" Grid.Row="3" ZIndex="1" IsVisible="False" />
-        <Border Grid.Row="3" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0">
+        <Border Grid.Row="3" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" SafeAreaEdges="None" Margin="0">
             <Grid SafeAreaEdges="None">
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView x:Name="Rows" Margin="0,-1,0,0" ItemsSource="{Binding Backups}" SelectionMode="None">
@@ -97,6 +97,7 @@
         </BoxView>
             </Grid>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="3" />
 
         <Button x:Name="CompareButton" Grid.Row="4" Text="Compare" Command="{Binding CompareSelectedCommand}" Margin="0,0,0,12"
                 IsVisible="{Binding IsComparing}" />

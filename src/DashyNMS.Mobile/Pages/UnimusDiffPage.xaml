@@ -35,7 +35,7 @@
             <Button Text="Retry" Style="{StaticResource SecondaryButton}" Command="{Binding RetryCommand}" MinimumHeightRequest="44" />
         </VerticalStackLayout>
         <controls:BusyCard Grid.Row="4" Text="Comparing…" IsVisible="{Binding IsBusy}" ZIndex="1" />
-        <Border Grid.Row="4" Style="{StaticResource ListCard}" SafeAreaEdges="None" Margin="0" Padding="0"
+        <Border Grid.Row="4" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" SafeAreaEdges="None" Margin="0" Padding="0"
                 BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource CodeDark}}">
             <Grid>
                 <CollectionView x:Name="Rows" ItemsSource="{Binding Lines}" SelectionMode="None">
@@ -89,5 +89,6 @@
                 </BoxView>
             </Grid>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="4" />
     </Grid>
 </ContentPage>
