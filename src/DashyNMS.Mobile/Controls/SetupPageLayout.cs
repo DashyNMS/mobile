@@ -224,8 +224,8 @@ internal sealed class SetupPageLayout
         {
             if (scroller is ScrollView { Content: Layout contentLayout })
             {
-                var p = contentLayout.Padding;
-                var next = new Thickness(p.Left, p.Top, p.Right, placement.Footer);
+                var current = contentLayout.Padding;
+                var next = new Thickness(current.Left, current.Top, current.Right, placement.Footer);
                 if (contentLayout.Padding != next) contentLayout.Padding = next;
             }
             else if (scroller is CollectionView cv)
