@@ -23,7 +23,7 @@ internal sealed class SetupPageLayout
     private readonly List<VisualElement> _focusTargets = [];
 #if IOS
     private readonly List<NSObject> _observers = [];
-    private CGRect? _keyboardScreen;
+    private LiveKeyboardBounds? _keyboard;
 #endif
 
     public SetupPageLayout(ContentPage page, SetupLayout layout, PageHeader header, params View[] scrollers)
@@ -72,17 +72,7 @@ internal sealed class SetupPageLayout
         DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
         TabBarButtons.Moved += OnChanged;
         ShowBack();
-        _observers.Add(UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
-        {
-            _keyboardScreen = args.FrameEnd;
-            Place();
-            _page.Dispatcher.Dispatch(ScrollFocusedField);
-        }));
-        _observers.Add(UIKeyboard.Notifications.ObserveWillHide((_, _) =>
-        {
-            _keyboardScreen = null;
-            Place();
-        }));
+        _keyboard = new LiveKeyboardBounds(Place, () => _page.Dispatcher.Dispatch(ScrollFocusedField));
         _observers.Add(UIApplication.Notifications.ObserveDidBecomeActive((_, _) =>
         {
             ShowBack();
@@ -125,7 +115,8 @@ internal sealed class SetupPageLayout
         DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
         foreach (var observer in _observers) observer.Dispose();
         _observers.Clear();
-        _keyboardScreen = null;
+        _keyboard?.Dispose();
+        _keyboard = null;
 #endif
     }
 
@@ -168,14 +159,7 @@ internal sealed class SetupPageLayout
         {
             OccupiedArea? pill = TabBarButtons.PillIn(view) is { } bar ? Area(bar) : null;
             var glass = TabBarButtons.Occupied(view).Select(Area).ToArray();
-            double? keyboardTop = null;
-            if (_keyboardScreen is { } screen && view.Window is { } window)
-            {
-                var keyboard = view.ConvertRectFromView(window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
-                // Do not lift the entire form above an undocked iPad keyboard.
-                if (keyboard.Width >= view.Bounds.Width * .8 && keyboard.Bottom >= view.Bounds.Height)
-                    keyboardTop = keyboard.Top;
-            }
+            var keyboardTop = _keyboard?.TopIn(view);
             var safeBottom = CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0);
             bottom = SetupActionPlacement.BottomGap(view.Bounds.Height, safeBottom, pill, glass, keyboardTop);
             foot = new SetupFoot(view.Bounds.Width, view.Bounds.Height, safeBottom, pill, glass, keyboardTop);

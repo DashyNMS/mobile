@@ -21,8 +21,7 @@ internal sealed class PushedListLayout
     private IReadOnlyList<GlassAction> _actions = [];
     private Action? _search;
     private string _searchLabel = string.Empty;
-    private readonly List<NSObject> _observers = [];
-    private CoreGraphics.CGRect? _keyboardScreen;
+    private LiveKeyboardBounds? _keyboard;
 #endif
 
     public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
@@ -89,16 +88,7 @@ internal sealed class PushedListLayout
             }
 #if IOS
             TabBarButtons.Moved += OnChanged;
-            _observers.Add(UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
-            {
-                _keyboardScreen = args.FrameEnd;
-                Place();
-            }));
-            _observers.Add(UIKeyboard.Notifications.ObserveWillHide((_, _) =>
-            {
-                _keyboardScreen = null;
-                Place();
-            }));
+            _keyboard = new LiveKeyboardBounds(Place);
 #endif
         }
         _header.Apply(_page);
@@ -128,9 +118,8 @@ internal sealed class PushedListLayout
         TabBarButtons.Moved -= OnChanged;
         TabBarButtons.Hide(_page);
         DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
-        foreach (var observer in _observers) observer.Dispose();
-        _observers.Clear();
-        _keyboardScreen = null;
+        _keyboard?.Dispose();
+        _keyboard = null;
 #endif
     }
 
@@ -160,12 +149,7 @@ internal sealed class PushedListLayout
             OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
             var glass = TabBarButtons.Occupied(view)
                 .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
-            double? keyboardTop = null;
-            if (_keyboardScreen is { } screen && view.Window is { } window)
-            {
-                var keyboard = view.ConvertRectFromView(window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
-                if (keyboard.Width >= view.Bounds.Width * .8 && keyboard.Bottom >= height) keyboardTop = keyboard.Top;
-            }
+            var keyboardTop = _keyboard?.TopIn(view);
             var actionGap = SetupActionPlacement.BottomGap(height,
                 CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
             bottom = actionGap;

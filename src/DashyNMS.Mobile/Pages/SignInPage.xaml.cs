@@ -10,8 +10,7 @@ public partial class SignInPage : ContentPage
 	private readonly SignInViewModel _viewModel;
 	private Window? _resumeWindow;
 #if IOS
-	private readonly List<Foundation.NSObject> _keyboardObservers = [];
-	private CoreGraphics.CGRect? _keyboardScreen;
+	private LiveKeyboardBounds? _keyboard;
 #endif
 
 	public SignInPage(SignInViewModel viewModel)
@@ -48,22 +47,12 @@ public partial class SignInPage : ContentPage
 			window.Resumed += OnResumed;
 		}
 #if IOS
-		if (_keyboardObservers.Count == 0)
+		if (_keyboard is null)
 		{
 			// This logged-out page owns no tab glass. Keep native safe areas and
 			// reserve only keyboard overlap beyond the native bottom inset.
 			DashyNMS.Mobile.Controls.ManualKeyboardScroll.Acquire(this);
-			_keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
-			{
-				_keyboardScreen = args.FrameEnd;
-				PlaceKeyboard();
-				Dispatcher.Dispatch(ScrollFocusedField);
-			}));
-			_keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillHide((_, _) =>
-			{
-				_keyboardScreen = null;
-				FormLayout.Padding = 0;
-			}));
+			_keyboard = new LiveKeyboardBounds(PlaceKeyboard, () => Dispatcher.Dispatch(ScrollFocusedField));
 		}
 		StopScrollInsets();
 #endif
@@ -79,9 +68,8 @@ public partial class SignInPage : ContentPage
 		}
 		_resumeWindow = null;
 #if IOS
-		foreach (var observer in _keyboardObservers) observer.Dispose();
-		_keyboardObservers.Clear();
-		_keyboardScreen = null;
+		_keyboard?.Dispose();
+		_keyboard = null;
 		FormLayout.Padding = 0;
 		DashyNMS.Mobile.Controls.ManualKeyboardScroll.Release(this);
 #endif
@@ -127,11 +115,8 @@ public partial class SignInPage : ContentPage
 
 	private void PlaceKeyboard()
 	{
-		if (_keyboardScreen is not { } screen || FormLayout.Handler?.PlatformView is not UIKit.UIView view
-			|| view.Window is not { } nativeWindow) return;
-		var frame = view.ConvertRectFromView(nativeWindow.ConvertRectFromCoordinateSpace(screen, nativeWindow.Screen.CoordinateSpace), nativeWindow);
-		var overlap = frame.Width >= view.Bounds.Width * .8 && frame.Bottom >= view.Bounds.Height
-			? Math.Max(0, view.Bounds.Height - frame.Top) : 0;
+		if (FormLayout.Handler?.PlatformView is not UIKit.UIView view) return;
+		var overlap = _keyboard?.OverlapIn(view) ?? 0;
 		FormLayout.Padding = new Thickness(0, 0, 0, overlap);
 	}
 
