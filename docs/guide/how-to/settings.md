@@ -5,7 +5,7 @@ Open **More → Settings**. Each row shows its current choice.
 ## Server
 
 - See the address and LibreNMS version, and whether the connection uses HTTPS.
-- Add or change a **Backup address**, another route to the same server.
+- See whether the app is on the backup address, and switch back to the main one. You set a **Backup address** when you sign in; to change it, sign out and sign in again.
 - Turn on **Server stores timestamps in UTC** only if alert times are out by your time zone's offset.
 
 To sign in to a different server, sign out first.
@@ -18,7 +18,7 @@ To sign in to a different server, sign out first.
 
 ## Alert checks and notifications
 
-- **Alert checks** sets how often DashyNMS checks while it's open, from 30 seconds to 15 minutes, and the count on the app icon.
+- **Alert checks** sets how often DashyNMS checks while it's open, from 30 seconds to 15 minutes (1 minute to begin with), and the count on the app icon.
 - **Notifications** decides [which alerts notify you](notifications.md).
 - **Lock screen widgets** decides [what a locked phone shows](widgets.md#hide-details-on-the-lock-screen).
 
@@ -37,5 +37,7 @@ These give state sensors names and colours, such as **Ready** or **Fan failed**.
 
 ## Sign out
 
-- **Sign out** stops notifications and removes the sign-in and saved chats.
-- **Sign out and forget everything** also removes your settings, dashboard and everything else DashyNMS saved on this phone.
+Choose **Sign out**, then one of:
+
+- **Sign out** stops notifications and removes your sign-in, pins, recently viewed devices and saved chats. Your settings, dashboard and server address stay.
+- **Sign out and forget everything** also removes your settings, dashboard, servers, and Graylog and Unimus connections. Only the diagnostics log is kept, for bug reports.

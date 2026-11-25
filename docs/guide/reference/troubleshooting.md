@@ -10,7 +10,7 @@ Start with the section closest to what you see. Keep the error message and the t
 4. If **Sign in with LibreNMS** can't finish, use an [API token](../getting-started.md#sign-in-with-an-api-token).
 5. For a self-signed certificate you trust, turn on **Allow untrusted certificate**.
 
-If the page says **On backup address**, the main address didn't answer.
+If the dashboard says **On backup address**, the main address didn't answer. Once it does, switch back in **Settings**.
 
 ## It says Offline
 

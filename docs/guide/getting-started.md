@@ -13,7 +13,7 @@
 3. Choose **Sign in with LibreNMS**.
 4. Sign in on your server's own page, the way you do in a browser.
 
-DashyNMS then creates an API token for this phone. If your server doesn't offer this, use a token instead.
+DashyNMS then creates an API token for this phone. This needs an `https` address, LibreNMS 26.4 or later and an account with API access. Otherwise, use a token.
 
 ## Sign in with an API token
 
@@ -24,7 +24,7 @@ DashyNMS then creates an API token for this phone. If your server doesn't offer 
 
 If your server uses a self-signed certificate that you trust, turn on **Allow untrusted certificate**. If it doesn't use HTTPS, DashyNMS warns you first: the token and everything the app loads would travel unencrypted.
 
-You can also enter a **Backup address**, another route to the same server. DashyNMS uses it when the main address doesn't answer.
+**Remember token on this device** keeps you signed in. You can also enter a **Backup address**, another route to the same server. DashyNMS uses it when the main address doesn't answer.
 
 ## Sign in from DashyNMS on your computer
 
@@ -32,7 +32,7 @@ You can also enter a **Backup address**, another route to the same server. Dashy
 2. Scan the code with your phone's Camera app.
 3. Open the link in DashyNMS and confirm.
 
-The code contains the computer's API token, so keep it out of photos and shared screens. The phone and the computer then share that token, and revoking it signs both out.
+The code contains the computer's API token, so keep it out of photos and shared screens. The phone and the computer then share that token, and revoking it signs both out. For one you can revoke on its own, make a separate token for the phone.
 
 ## Find your way round
 

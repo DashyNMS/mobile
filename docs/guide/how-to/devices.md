@@ -12,7 +12,11 @@ Devices you opened lately are in a strip above the list.
 
 ## Pin a device
 
-Swipe a device and choose **Pin**, or pin it from its own page. Pinned devices stay at the top of Devices and on the dashboard's **Pinned devices** card.
+Tap the pin at the right of a device's row, or pin it from its own page. Pinned devices stay at the top of Devices and on the dashboard's **Pinned devices** card.
+
+## Work on several devices
+
+Press and hold a device, then tick the others. Use **Pin**, **Unpin**, **Rediscover** or **Maintenance** in the bar.
 
 ## Look into a device
 

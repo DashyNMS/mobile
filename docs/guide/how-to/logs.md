@@ -2,7 +2,7 @@
 
 ## Event log and alert log
 
-1. Open **More → Event and alert logs**, or the logs button on **Alerts**.
+1. Open **More → Event and alert logs**, or **See all** on an **Event log** card.
 2. Switch between **Event log** and **Alert log**.
 3. Search what's loaded, and choose **Load more** or **Look further back** for older entries.
 

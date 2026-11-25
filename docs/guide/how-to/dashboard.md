@@ -4,18 +4,18 @@ The dashboard is a set of cards you choose. A new dashboard offers **Use the sta
 
 ## Add a card
 
-1. On **Dashboard**, open **Customise** to reach **Edit dashboard**.
+1. On **Dashboard**, tap the sliders button (**Edit dashboard**). It's at the top right, or beside the tab bar on iOS 26 and later.
 2. Choose **+ Add a card**.
 3. Search, or browse by category. **Suggested** picks out cards that fit what you've set up.
-4. Tick one card or several, then choose **Add**.
+4. Tick one card or several, then choose the **Add** button, which names what you ticked.
 
 Some cards need setting up. Choose **Set up** on the card to pick its sensors, its device and graph, or what it keeps to.
 
 | Card | What it shows |
 | --- | --- |
-| **Alerts** and **Alerts gauge** | Open alerts by severity |
+| **Alerts** | Critical, warning, OK and acknowledged counts |
 | **Needs attention** | The five alerts most in need of you |
-| **Device status** | How many devices are up, down, in maintenance and disabled |
+| **Devices** | How many devices are up, down, in maintenance and disabled |
 | **Pinned devices** and **Recently viewed** | A quick way back to devices |
 | **Sensors** | Readings you pick, coloured by their limits |
 | **Graph** | One graph of one device or port |
@@ -23,7 +23,7 @@ Some cards need setting up. Choose **Set up** on the card to pick its sensors, i
 | **Wireless** | Access points and clients on each controller |
 | **Event log** and **Graylog** | The newest entries; tap one to open it |
 
-You can add more than one card of some kinds, or duplicate a card with its set-up.
+You can have several **Sensors**, **Graph**, **Top interfaces**, **Top errors**, **Top devices**, **Event log** and **Graylog** cards. Open **More** (⋯) on one and choose **Duplicate** to copy it with its set-up.
 
 ## Change the order
 

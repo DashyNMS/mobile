@@ -15,7 +15,7 @@ Intelligence isn't available on Android, or on older iPhones and iPads.
 ## Turn it on
 
 1. Open **Settings → Intelligence**. If it can't run here, the page says why.
-2. Turn on **Show Intelligence** and read the notice.
+2. Choose **Turn on Intelligence** and read the notice.
 3. Choose **Turn on**, then open **More → Intelligence**. You can pin it to the tab bar.
 
 ## Ask
@@ -30,13 +30,13 @@ Answers can be wrong, and lookups can use data that's a few minutes old. Check L
 
 ## Keep a chat to part of the network
 
-Use Spotlight to keep the chat to some devices, a group, a location or an alert. You can also start a chat with **Ask Intelligence** on a device, alert, sensor or port.
+Use Spotlight to keep the chat to some devices, a group or a location. Choose **Add to Spotlight** on an item in an answer to add that too. You can also start a chat from a device, alert, sensor or port: swipe its row, or press and hold it, and choose **Ask Intelligence**.
 
 ## Choose how much detail you get
 
 Choose **Brief**, **Balanced** or **Detailed** for the next answer, or set **Default detail** in **Settings → Intelligence**.
 
-**Configuration text** decides what Unimus lookups share with the model on this device: **Summary** for dates and change counts, **Full redacted text** for the configuration with secrets removed, or **Off**.
+**Colour status indicators** shows states in colour in answers. **Configuration text** decides what Unimus lookups share with the model on this device: **Summary** for dates and change counts, **Full redacted text** for the configuration with secrets removed, or **Off**.
 
 ## Saved chats
 

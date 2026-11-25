@@ -4,7 +4,8 @@ DashyNMS Mobile needs iOS or iPadOS 15 or later. Some features need a newer syst
 
 | Feature | Needs |
 | --- | --- |
-| Alerts, devices, notifications and home screen widgets | iOS 15 |
+| Alerts, devices and notifications | iOS 15 |
+| Home screen widgets | iOS 16 |
 | Lock screen widgets | iOS 16 and an iPhone |
 | Intelligence | iOS 26 or later, a device that supports Apple Intelligence, and Apple Intelligence turned on |
 
@@ -22,4 +23,4 @@ The App Store updates DashyNMS with your other apps. A TestFlight build updates 
 
 ## Remove
 
-Choose **Sign out and forget everything** in **Settings** before deleting the app. Deleting an app on its own can leave the saved token in the phone's keychain. To cancel the token itself, revoke it in LibreNMS.
+In **Settings**, choose **Sign out**, then **Sign out and forget everything**, before deleting the app. Deleting an app on its own can leave the saved token in the phone's keychain. To cancel the token itself, revoke it in LibreNMS.

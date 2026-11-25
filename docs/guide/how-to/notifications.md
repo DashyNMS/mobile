@@ -11,9 +11,13 @@ If you need to know the moment something breaks, also set up a LibreNMS alert tr
 
 ## Turn notifications on
 
-1. Open **Settings → Notifications** and turn on **Alert notifications**.
-2. Allow notifications when your phone asks. If you said no before, allow them for DashyNMS in the phone's own settings.
-3. Choose **Critical alerts** and **Warnings**, and whether to hear **When an alert recovers** or **When someone acknowledges an alert**.
+DashyNMS asks for permission after your first sign-in. Choose **Allow**. If you said no, allow notifications for DashyNMS in the phone's own settings.
+
+Then open **Settings → Notifications**:
+
+- **Alert notifications** turns them all on or off. They're on to begin with.
+- **Critical alerts**, **Warnings** and **When an alert recovers** are on to begin with.
+- **When someone acknowledges an alert** is off.
 
 Alerts that were already open when you signed in don't notify you. Your own acknowledgements don't either.
 
@@ -29,14 +33,14 @@ Choose **+ Add a rule** to build the list. You can also use **Change** on an ale
 
 ## Set quiet hours
 
-1. Turn on **Quiet hours** and choose when they start and end.
-2. Turn on **Still notify critical alerts** if those should come through.
+1. Turn on **Quiet hours** and choose when they start and end. They run from 22:00 to 07:00 unless you change them.
+2. Leave **Still notify critical alerts** on if those should come through.
 
 ## What a notification shows
 
 Faults from one rule on one device share one notification, which updates as more appear and goes away once the alert clears. Many changes at once become one summary. Tap a notification to open its alert or group.
 
-**Hide details on the lock screen** shows how serious an alert is but not which device. On iPhone, also check **Show Previews** in the phone's notification settings.
+On Android, **Hide details on the lock screen** shows how serious an alert is but not which device. On iPhone, set **Show Previews** to **When Unlocked** or **Never** in the phone's notification settings for DashyNMS.
 
 Sounds are set in the phone's notification settings for DashyNMS.
 

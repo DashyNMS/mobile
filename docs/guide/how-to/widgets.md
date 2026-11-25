@@ -6,14 +6,16 @@ Widgets show what the app's last alert check found, so you can see problems with
 
 1. Press and hold an empty part of your home screen and choose to add a widget. On iPhone it's **Edit → Add Widget**.
 2. Search for **DashyNMS**.
-3. Choose a widget and a size.
+3. Choose a widget.
 
-| Widget | What it shows |
-| --- | --- |
-| **Alerts** | The worst alert, or the critical and warning counts beside the three worst |
-| **Alert pie chart** | Every device once, by its worst alert |
-| **Overview** | Devices up, down and disabled, alert counts and the top alerts |
-| Lock screen (iPhone) | Alert counts, in a circle or a rectangle |
+| Widget | Size on iPhone and iPad | What it shows |
+| --- | --- | --- |
+| **Alerts** | Small or medium | The worst alert, or the critical and warning counts beside the three worst |
+| **Alert pie chart** | Small | Every device once, by its worst alert |
+| **Overview** | Large | Devices up, down and disabled, alert counts and the top alerts |
+| Lock screen (iPhone) | Circle or rectangle | Alert counts |
+
+On Android they're called **DashyNMS alerts**, **DashyNMS alert pie chart** and **DashyNMS overview**.
 
 Tap an alert or device on a widget to open it. Tap anywhere else for the alert list. On Android, a widget shows more as you make it bigger.
 

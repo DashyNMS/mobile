@@ -23,8 +23,8 @@ Open **More → Neighbours** for every link LibreNMS discovered with CDP or LLDP
 
 ## Check sensor readings
 
-Open **Health** for optical power, wireless signal, temperature and fan speed across the network, problems first. Use **Critical**, **Warning** and **OK**, or search. Tap a sensor to open its device's sensors.
+Open **Health** and choose optical power, signal, temperature or fan speed. Readings from across the network are listed, problems first. Use **Critical**, **Warning** and **OK**, or search. Tap a sensor to open its device's sensors.
 
 Colours follow **Settings → Health thresholds** and the limits set in LibreNMS. A sensor with no limits has no colour, and one with no reading shows a dash.
 
-State sensors, such as fans and power supplies, show a name like **Ready** or **Fan failed** when [sensor definitions](settings.md#sensor-definitions) know it.
+State sensors, such as fans and power supplies, are on each device's **Sensors** page. They show a name like **Ready** or **Fan failed** when [sensor definitions](settings.md#sensor-definitions) know it.
