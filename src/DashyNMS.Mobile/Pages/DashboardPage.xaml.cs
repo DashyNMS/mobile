@@ -22,6 +22,7 @@ public partial class DashboardPage : ContentPage, IActivePage
 	private const double GlassGap = 12;
 
 	private readonly DashboardViewModel _viewModel;
+	private readonly InlineGlassFallback _fallback = new();
 
 	public DashboardPage(DashboardViewModel viewModel)
 	{
@@ -37,6 +38,8 @@ public partial class DashboardPage : ContentPage, IActivePage
 
 		// Beside the status bar where there's room, as every page's line (#278).
 		Controls.TopBar.Fit(TopLine);
+		TopLine.SetColumn(_fallback, 2);
+		TopLine.Add(_fallback);
 
 		CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -94,6 +97,9 @@ public partial class DashboardPage : ContentPage, IActivePage
 	/// </summary>
 	private void PlaceControls()
 	{
+#if IOS
+		_fallback.Sync(this);
+#endif
 		var edges = CoveredEdges.Of(this);
 		double left = edges.Left, right = edges.Right, bottom = edges.Bottom;
 		double? toastFoot = null;

@@ -500,7 +500,6 @@ This guide merges ahead of the shared helpers below so new features follow the u
 | `OpenListCard` and opt-in full-height list / `SetupLayout` overlay modes | Keep existing `ListCard`, `TabAlignedListLayout`, `PushedListLayout` and `SetupLayout` `Auto` row |
 | `Shared/Services/PageActionPlacement.cs` | Use `Shared/Intelligence/ChatActionPlacement.cs` |
 | `Controls/ChipStripClearance.cs` and `Platforms/iOS/LiveKeyboardBounds.cs` | Use `CoveredEdges.Beside` and `SetupPageLayout`'s current keyboard handling |
-| `TabBarButtons` zero-target inline fallback and `PageHeader` growing title row | Rely on current `TabBarButtons` collapse and `PageHeader` until those fixes land |
 
 ## 15. Acceptance
 

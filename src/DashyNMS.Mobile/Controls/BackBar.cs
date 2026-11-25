@@ -14,6 +14,12 @@ namespace DashyNMS.Mobile.Controls;
 public sealed class BackBar : Grid
 {
     private readonly IconButton _back = new() { Kind = IconButtonKind.Plain, Icon = Icons.Back, Text = "Back", Padding = new Thickness(0, 0, 8, 0) };
+    private readonly InlineGlassFallback _fallback = new();
+    private WeakReference<ContentPage>? _ownerPage;
+#if IOS
+    private bool _hiddenForGlass;
+    private Action? _fallbackBack;
+#endif
 
     public BackBar()
     {
@@ -23,9 +29,36 @@ public sealed class BackBar : Grid
         TopBar.Fit(this);
         _back.HorizontalOptions = LayoutOptions.Start;
         _back.VerticalOptions = LayoutOptions.Center;
-        _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
+        _back.Command = new Command(OnBackTapped);
         Add(_back);
+        SetColumn((IView)_fallback, 2);
+        Add(_fallback);
+#if IOS
+        Loaded += (_, _) =>
+        {
+            TabBarButtons.Moved -= OnGlassMoved;
+            TabBarButtons.Moved += OnGlassMoved;
+            RefreshFallback();
+        };
+        Unloaded += (_, _) => TabBarButtons.Moved -= OnGlassMoved;
+#endif
     }
+
+    private void OnBackTapped()
+    {
+#if IOS
+        if (_fallbackBack is { } back)
+        {
+            back();
+            return;
+        }
+#endif
+        _ = Shell.Current.GoToAsync("..");
+    }
+
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(RefreshFallback);
+#endif
 
     /// <summary>
     /// Off beside a list on a larger screen (#88): there's no page to go
@@ -40,7 +73,7 @@ public sealed class BackBar : Grid
     /// <summary>The page's glyphs, at the right: pin, export.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _back);
+        get => Children.OfType<View>().FirstOrDefault(v => v != _back && v != _fallback);
         set
         {
             if (Actions is { } old)
@@ -64,10 +97,44 @@ public sealed class BackBar : Grid
     /// </summary>
     public void Apply(ContentPage page)
     {
+        _ownerPage = new WeakReference<ContentPage>(page);
         Shell.SetNavBarIsVisible(page, false);
         _back.Text = PreviousTitle(page);
         SemanticProperties.SetDescription(_back, "Back to " + _back.Text);
+#if IOS
+        RefreshFallback();
+#endif
     }
+
+#if IOS
+    private void RefreshFallback()
+    {
+        if (_ownerPage is null || !_ownerPage.TryGetTarget(out var page))
+        {
+            return;
+        }
+
+        var fallback = TabBarButtons.GetFallback(page);
+        _fallback.Sync(page);
+        _fallbackBack = fallback.Active ? fallback.Back?.Tapped : null;
+        if (fallback.Active && (fallback.Back is not null || fallback.Overflow.Count > 0))
+        {
+            if (!IsVisible) _hiddenForGlass = true;
+            IsVisible = true;
+            _back.IsVisible = fallback.Back is not null;
+            if (fallback.Back is not null)
+            {
+                _back.Text = PreviousTitle(page);
+                SemanticProperties.SetDescription(_back, fallback.Back.Label);
+            }
+        }
+        else if (_hiddenForGlass)
+        {
+            _hiddenForGlass = false;
+            IsVisible = false;
+        }
+    }
+#endif
 
     /// <summary>
     /// The title of the page before <paramref name="page"/> - or its tab's,

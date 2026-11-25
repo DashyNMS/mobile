@@ -46,6 +46,14 @@ internal static class GlassStyle
     }
 }
 
+/// <summary>Guarded callbacks exposed when zero glass targets fit in the tab bar's lane.</summary>
+internal readonly record struct GlassFallbackState(
+    bool Active,
+    GlassAction? Back,
+    Action? Search,
+    string SearchLabel,
+    IReadOnlyList<GlassAction> Overflow);
+
 /// <summary>
 /// The page's search and actions as Liquid Glass buttons by the tab bar, as
 /// iOS 26 apps have them, for the page showing - so they're in the same place
@@ -106,6 +114,26 @@ internal static class TabBarButtons
     /// <summary>Raised when the buttons move, so pages can keep their controls clear of them.</summary>
     public static event EventHandler? Moved;
 
+    /// <summary>Whether the active owner's Back action is currently placed in glass (false when zero targets fit).</summary>
+    public static bool BackPlaced { get; private set; }
+
+    /// <summary>Whether zero glass targets fit for the active owner, so it should show inline header fallback.</summary>
+    public static bool InlineFallbackActive { get; private set; }
+
+    /// <summary>
+    /// Returns the active owner's guarded inline fallback callbacks when zero glass targets fit;
+    /// inactive for non-owners or whenever glass is placed.
+    /// </summary>
+    public static GlassFallbackState GetFallback(object owner)
+    {
+        if (!InlineFallbackActive || _host is null || !ReferenceEquals(owner, _owner))
+        {
+            return default;
+        }
+
+        return _host.CreateFallback(owner);
+    }
+
     /// <summary>
     /// How much more of the foot of the screen the buttons take: the row above
     /// a bottom tab bar, when they sit there; nothing with a vertical one.
@@ -149,6 +177,8 @@ internal static class TabBarButtons
 
         _owner = null;
         _presentationPage = null;
+        BackPlaced = false;
+        InlineFallbackActive = false;
         _host.Set(null, string.Empty, []);
         _host.Hidden = true;
         Moved?.Invoke(null, EventArgs.Empty);
@@ -412,33 +442,40 @@ internal static class TabBarButtons
         var safe = new OccupiedArea(0, host.SafeAreaInsets.Top, host.Bounds.Width, host.Bounds.Height);
         var obstacles = (pillCovered && bar.Width >= bar.Height ? host.Regions : host.Regions.Append(Area(bar))).ToList();
         Layout(host.ExpandedActionCount, host.ExpandedHasSearch);
-        // Once collapsed, require a little spare room before expanding again.
-        var clearance = host.Collapsed ? 8 : 0;
-        var compact = !GlassButtonPlacement.IsClear(Area(search), safe, obstacles, clearance)
-            || !GlassButtonPlacement.IsClear(Area(actions), safe, obstacles, clearance);
-        host.SetCollapsed(compact);
-        if (compact)
+        var lane = GlassButtonPlacement.ResolveLane(
+            Area(search),
+            Area(actions),
+            host.HasBackAction,
+            host.HasOverflowActions,
+            safe,
+            Area(bar),
+            obstacles,
+            host.LaneMode);
+        host.SetLaneMode(lane.Mode);
+        if (lane.Mode == GlassLaneMode.ZeroTargets)
         {
-            Layout(host.ActionCount, false);
-            if (!GlassButtonPlacement.IsClear(Area(actions), safe, obstacles))
-            {
-                if (GlassButtonPlacement.FindByBar(Area(actions), safe, Area(bar), obstacles) is { } found)
-                    actions = Rect(found);
-                else
-                {
-                    // Try smaller full touch targets in the same lane, never the content area.
-                    var minimum = new OccupiedArea(actions.Left, actions.Top,
-                        actions.Left + (host.Vertical ? 44 : 44 * host.ActionCount),
-                        actions.Top + (host.Vertical ? 44 * host.ActionCount : 44));
-                    actions = GlassButtonPlacement.FindByBar(minimum, safe, Area(bar), obstacles) is { } small ? Rect(small) : CGRect.Empty;
-                }
-            }
+            search = CGRect.Empty;
+            actions = CGRect.Empty;
+            host.AboveBottomBar = false;
+        }
+        else if (lane.Mode != GlassLaneMode.Expanded)
+        {
+            search = CGRect.Empty;
+            actions = lane.ActionsFrame is { } found ? Rect(found) : CGRect.Empty;
             // A relocated group may take more height above a bottom tab bar.
-            host.AboveBottomBar = bar.Width >= bar.Height && actions.Top < bar.Top;
+            host.AboveBottomBar = !actions.IsEmpty && bar.Width >= bar.Height && actions.Top < bar.Top;
             if (host.AboveBottomBar) host.RowHeight = Math.Max(host.RowHeight, bar.Top - actions.Top - Gap);
         }
 
         var moved = host.Arrange(search, actions);
+        var backPlaced = host.HasBackAction && lane.Mode != GlassLaneMode.ZeroTargets && host.Actions.Alpha > 0;
+        var fallbackActive = (host.HasBackAction || host.HasOverflowActions) && lane.Mode == GlassLaneMode.ZeroTargets;
+        if (BackPlaced != backPlaced || InlineFallbackActive != fallbackActive)
+        {
+            BackPlaced = backPlaced;
+            InlineFallbackActive = fallbackActive;
+            moved = true;
+        }
         Report(tabBar, host, bar, from, search, actions);
         if (moved)
         {
@@ -609,10 +646,13 @@ internal static class TabBarButtons
         private IReadOnlyList<GlassAction> _actions = [];
         private string _searchLabel = string.Empty;
         private IReadOnlyList<GlassAction> _shown = [];
-        public bool Collapsed { get; private set; }
+        public GlassLaneMode LaneMode { get; private set; } = GlassLaneMode.Expanded;
+        public bool Collapsed => LaneMode != GlassLaneMode.Expanded;
         public IReadOnlyList<OccupiedArea> Regions { get; private set; } = [];
         public bool ExpandedHasSearch => _search is not null;
         public int ExpandedActionCount => _actions.Count;
+        public bool HasBackAction => _actions.Any(a => a.IsBack);
+        public bool HasOverflowActions => _search is not null || _actions.Any(a => !a.IsBack);
 
         public override void UpdateConstraints()
         {
@@ -681,25 +721,83 @@ internal static class TabBarButtons
             SetNeedsUpdateConstraints();
         }
 
-        public void SetCollapsed(bool collapsed)
+        public void SetLaneMode(GlassLaneMode mode)
         {
-            if (Collapsed == collapsed) return;
-            Collapsed = collapsed;
+            if (LaneMode == mode) return;
+            LaneMode = mode;
             RebuildSlots();
+        }
+
+        public GlassFallbackState CreateFallback(object owner)
+        {
+            GlassAction? Guard(GlassAction action) => action with
+            {
+                Tapped = () => { if (ReferenceEquals(owner, _owner) && action.IsEnabled) action.Tapped(); },
+            };
+            var back = _actions.FirstOrDefault(a => a.IsBack);
+            var search = _search is { } s ? () => { if (ReferenceEquals(owner, _owner)) s(); } : (Action?)null;
+            var overflow = _actions.Where(a => !a.IsBack).Select(a => Guard(a)!).ToList();
+            return new GlassFallbackState(true, back is null ? null : Guard(back), search, _searchLabel, overflow);
         }
 
         private void RebuildSlots()
         {
             foreach (var slot in _slots) slot.RemoveFromSuperview();
             _slots.Clear();
+            if (LaneMode == GlassLaneMode.ZeroTargets)
+            {
+                _shown = [];
+                LayoutSlots();
+                return;
+            }
+
+            var back = _actions.Where(a => a.IsBack).ToList();
             var overflow = _actions.Where(a => !a.IsBack).ToList();
             if (_search is { } search) overflow.Insert(0, new GlassAction("magnifyingglass", _searchLabel, search));
-            var shown = Collapsed ? _actions.Where(a => a.IsBack).ToList() : _actions.ToList();
-            if (Collapsed && overflow.Count > 0) shown.Add(new GlassAction("ellipsis", "More actions", () => { }));
+
+            List<GlassAction> shown;
+            IReadOnlyList<GlassAction>? menu = null;
+            if (LaneMode == GlassLaneMode.Expanded)
+            {
+                shown = _actions.ToList();
+            }
+            else if (LaneMode == GlassLaneMode.TwoTargets)
+            {
+                shown = [.. back];
+                if (overflow.Count > 0)
+                {
+                    shown.Add(new GlassAction("ellipsis", "More actions", () => { }));
+                    menu = overflow;
+                }
+            }
+            else // OneTarget
+            {
+                if (back.Count > 0 && overflow.Count > 0)
+                {
+                    // Single target: ellipsis menu with Back first so Back stays reachable.
+                    shown = [new GlassAction("ellipsis", "More actions", () => { })];
+                    menu = [.. back, .. overflow];
+                }
+                else if (back.Count > 0)
+                {
+                    shown = [back[0]];
+                }
+                else if (overflow.Count > 0)
+                {
+                    shown = [new GlassAction("ellipsis", "More actions", () => { })];
+                    menu = overflow;
+                }
+                else
+                {
+                    shown = [];
+                }
+            }
+
             _shown = shown;
             for (var i = 0; i < shown.Count; i++)
             {
-                var slot = new Slot(shown[i], Collapsed && i == shown.Count - 1 && !shown[i].IsBack ? overflow : null);
+                var isMenuSlot = menu is not null && i == shown.Count - 1 && shown[i].Symbol == "ellipsis";
+                var slot = new Slot(shown[i], isMenuSlot ? menu : null);
                 _slots.Add(slot);
                 Actions.ContentView.AddSubview(slot);
             }

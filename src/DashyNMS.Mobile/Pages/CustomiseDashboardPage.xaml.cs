@@ -65,6 +65,10 @@ public partial class CustomiseDashboardPage : ContentPage, IActivePage
     /// <summary>Pad the list's footer so its final action scrolls clear without shortening the viewport.</summary>
     private void PlaceControls()
     {
+#if IOS
+        if (TabBarButtons.IsAvailable)
+            TopBar.IsVisible = TabBarButtons.GetFallback(this).Active;
+#endif
         var edges = CoveredEdges.ForScrolling(this);
         Heading.Margin = TopBar.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
         List.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);

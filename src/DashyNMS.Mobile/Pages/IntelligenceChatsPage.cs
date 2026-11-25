@@ -217,6 +217,12 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         if (!_visible) return;
         ShowActions();
 #if IOS
+        var fallback = TabBarButtons.GetFallback(this);
+        if (TabBarButtons.IsAvailable)
+        {
+            _close.IsVisible = fallback.Active;
+            _new.IsVisible = fallback.Active && _actionPlace != ChatActionPlace.HeaderGlass;
+        }
         if (TabDots.FindTabs() is { } tabs) TabBarButtons.Relayout(tabs);
 #endif
         var clear = CoveredEdges.ForScrolling(this);

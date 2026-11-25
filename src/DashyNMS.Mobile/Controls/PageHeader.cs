@@ -64,6 +64,12 @@ public sealed class PageHeader : Grid
         VerticalOptions = LayoutOptions.Center,
     };
 
+    private readonly InlineGlassFallback _fallback = new();
+    private WeakReference<ContentPage>? _ownerPage;
+#if IOS
+    private Action? _fallbackBack;
+#endif
+
     private EventHandler? _titleTapped;
 
     public PageHeader()
@@ -75,15 +81,42 @@ public sealed class PageHeader : Grid
 
         AutomationProperties.SetIsInAccessibleTree(_topStrut, false);
         Add(_topStrut);
-        _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
+        _back.Command = new Command(OnBackTapped);
         _back.VerticalOptions = LayoutOptions.Center;
         Add(_back);
         Add(_title);
+        SetColumn((IView)_fallback, 1);
+        Add(_fallback);
         SetRow((IView)_note, 2);
         SetColumnSpan((IView)_note, 2);
         Add(_note);
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level1);
+#if IOS
+        Loaded += (_, _) =>
+        {
+            TabBarButtons.Moved -= OnGlassMoved;
+            TabBarButtons.Moved += OnGlassMoved;
+            RefreshFallback();
+        };
+        Unloaded += (_, _) => TabBarButtons.Moved -= OnGlassMoved;
+#endif
     }
+
+    private void OnBackTapped()
+    {
+#if IOS
+        if (_fallbackBack is { } back)
+        {
+            back();
+            return;
+        }
+#endif
+        _ = Shell.Current.GoToAsync("..");
+    }
+
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(RefreshFallback);
+#endif
 
     public string Title
     {
@@ -129,7 +162,7 @@ public sealed class PageHeader : Grid
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note && v != _topStrut);
+        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note && v != _topStrut && v != _fallback);
         set
         {
             if (Actions is { } old)
@@ -153,25 +186,47 @@ public sealed class PageHeader : Grid
     /// </summary>
     public void Apply(ContentPage page)
     {
+        _ownerPage = new WeakReference<ContentPage>(page);
         Shell.SetNavBarIsVisible(page, false);
         IsVisible = true;
+        RefreshFallback();
+    }
 
-        var pushed = IsPushed(page) && !BackInGlass;
-        _back.IsVisible = pushed;
+    private void RefreshFallback()
+    {
+        if (_ownerPage is null || !_ownerPage.TryGetTarget(out var page))
+        {
+            return;
+        }
+
+        var fallbackActive = _fallback.Sync(page);
+#if IOS
+        var fallback = fallbackActive ? TabBarButtons.GetFallback(page) : default;
+        _fallbackBack = fallback.Back?.Tapped;
+        var showInlineBack = (IsPushed(page) && !BackInGlass) || (fallback.Active && fallback.Back is not null);
+#else
+        var showInlineBack = IsPushed(page) && !BackInGlass;
+#endif
+        _back.IsVisible = showInlineBack;
 
         // A tab's own page (or Back in the glass): the title on the top line.
-        // Pushed: "‹ More" there, the title beneath.
-        var row = pushed ? 1 : 0;
+        // Pushed (or zero-target fallback with Back): "‹ More" there, the title beneath.
+        var row = showInlineBack ? 1 : 0;
         SetRow((IView)_title, row);
+        SetRow((IView)_fallback, row);
         if (Actions is { } actions)
         {
             SetRow((IView)actions, row);
         }
 
-        if (pushed)
+        if (showInlineBack)
         {
             _back.Text = BackBar.PreviousTitle(page);
+#if IOS
+            SemanticProperties.SetDescription(_back, fallback.Back?.Label ?? "Back to " + _back.Text);
+#else
             SemanticProperties.SetDescription(_back, "Back to " + _back.Text);
+#endif
         }
     }
 
