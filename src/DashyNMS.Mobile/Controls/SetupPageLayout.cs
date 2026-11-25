@@ -179,7 +179,7 @@ internal sealed class SetupPageLayout
         // The action's Auto row reserves its actual (including large-text) height.
         // With no action this same padding keeps the last result clear of glass.
 #if IOS
-        if (FullHeight || _layout.OverlayPrimaryAction)
+        if (PlaceFoot is null && (FullHeight || _layout.OverlayPrimaryAction))
         {
             ApplyFullHeight(edges, foot);
             return;
@@ -199,23 +199,25 @@ internal sealed class SetupPageLayout
         var obstruction = SetupActionPlacement.BottomGap(hostHeight, foot.SafeBottom, foot.Pill, foot.Glass);
         var keyboardMargin = SectionListPlacement.KeyboardViewportMargin(hostHeight, foot.KeyboardTop);
         var action = _layout.PrimaryAction is { IsVisible: true } primary ? primary : null;
-        var actionHeight = action is not null && action.Height > 0 ? action.Height : action is not null ? 48d : 0d;
+        var overlaidAction = _layout.OverlayPrimaryAction && action is not null;
+        var actionHeight = overlaidAction ? (action!.Height > 0 ? action.Height : 48d) : 0d;
         var placement = SectionListPlacement.Resolve(obstruction, keyboardMargin > 0 ? keyboardMargin : null, actionHeight: actionHeight > 0 ? actionHeight : null);
 
-        var padding = new Thickness(left, 0, right, placement.Viewport);
+        var bottomPad = !overlaidAction && action is not null ? Math.Max(obstruction, placement.Viewport) : placement.Viewport;
+        var padding = new Thickness(left, 0, right, bottomPad);
         if (_layout.Padding != padding) _layout.Padding = padding;
 
-        var sidePill = foot.Pill is { } p && (p.Bottom - p.Top) > (p.Right - p.Left);
-        var bottomChrome = !sidePill && keyboardMargin <= 0 ? Math.Max(0, foot.SafeBottom) : 0;
-        if (action is not null && _layout.OverlayPrimaryAction)
+        var isBottomPill = foot.Pill is { } p && (p.Right - p.Left) >= (p.Bottom - p.Top) && p.Top > hostHeight / 2;
+        var bottomChrome = isBottomPill && keyboardMargin <= 0 ? Math.Max(0, foot.SafeBottom) : 0;
+        if (overlaidAction)
         {
             var actionMargin = new Thickness(0, 0, 0, Math.Max(0, placement.Overlay - placement.Viewport));
-            if (action.Margin != actionMargin) action.Margin = actionMargin;
+            if (action!.Margin != actionMargin) action.Margin = actionMargin;
         }
 
         var fade = _layout.EnsureFootFade();
         fade.Margin = new Thickness(-left, 0, -right, 0);
-        var coveredForFade = action is not null && _layout.OverlayPrimaryAction
+        var coveredForFade = overlaidAction
             ? actionHeight + Math.Max(0, placement.Overlay - placement.Viewport)
             : bottomChrome;
         fade.SetCoveredHeight(coveredForFade);

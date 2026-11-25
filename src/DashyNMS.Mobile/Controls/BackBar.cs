@@ -16,6 +16,7 @@ public sealed class BackBar : Grid
     private readonly IconButton _back = new() { Kind = IconButtonKind.Plain, Icon = Icons.Back, Text = "Back", Padding = new Thickness(0, 0, 8, 0) };
     private readonly InlineGlassFallback _fallback = new();
     private WeakReference<ContentPage>? _ownerPage;
+    private bool _showsBack = true;
 #if IOS
     private bool _hiddenForGlass;
     private Action? _fallbackBack;
@@ -66,8 +67,12 @@ public sealed class BackBar : Grid
     /// </summary>
     public bool ShowsBack
     {
-        get => _back.IsVisible;
-        set => _back.IsVisible = value;
+        get => _showsBack;
+        set
+        {
+            _showsBack = value;
+            _back.IsVisible = value;
+        }
     }
 
     /// <summary>The page's glyphs, at the right: pin, export.</summary>
@@ -128,10 +133,14 @@ public sealed class BackBar : Grid
                 SemanticProperties.SetDescription(_back, fallback.Back.Label);
             }
         }
-        else if (_hiddenForGlass)
+        else
         {
-            _hiddenForGlass = false;
-            IsVisible = false;
+            _back.IsVisible = _showsBack;
+            if (_hiddenForGlass)
+            {
+                _hiddenForGlass = false;
+                IsVisible = false;
+            }
         }
     }
 #endif

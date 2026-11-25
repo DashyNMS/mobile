@@ -23,18 +23,14 @@ internal sealed class LiveKeyboardBounds : IDisposable
         _observers.Add(UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
         {
             if (_disposed) return;
-            _visible = true;
-            _pendingScreenFrame = args.FrameEnd;
-            _pendingWindowSize = CurrentWindowSize();
+            UpdateFromNotification(args.FrameEnd);
             onChanged();
-            onShownOrChanged?.Invoke();
+            if (_visible) onShownOrChanged?.Invoke();
         }));
         _observers.Add(UIKeyboard.Notifications.ObserveDidChangeFrame((_, args) =>
         {
             if (_disposed) return;
-            _visible = true;
-            _pendingScreenFrame = args.FrameEnd;
-            _pendingWindowSize = CurrentWindowSize();
+            UpdateFromNotification(args.FrameEnd);
             onChanged();
         }));
         _observers.Add(UIKeyboard.Notifications.ObserveWillHide((_, _) =>
@@ -53,6 +49,30 @@ internal sealed class LiveKeyboardBounds : IDisposable
         }));
     }
 
+    private void UpdateFromNotification(CGRect screenFrame)
+    {
+        var window = ActiveWindow();
+        if (window is null)
+        {
+            _visible = false;
+            _pendingScreenFrame = null;
+            return;
+        }
+
+        var inWindow = window.ConvertRectFromCoordinateSpace(screenFrame, window.Screen.CoordinateSpace);
+        if (IsDockedSoftKeyboard(inWindow, window.Bounds, window.SafeAreaInsets.Bottom))
+        {
+            _visible = true;
+            _pendingScreenFrame = screenFrame;
+            _pendingWindowSize = window.Bounds.Size;
+        }
+        else
+        {
+            _visible = false;
+            _pendingScreenFrame = null;
+        }
+    }
+
     /// <summary>
     /// Returns the docked keyboard's top Y coordinate in <paramref name="view"/>'s
     /// bounds, or null when no docked keyboard overlaps <paramref name="view"/>.
@@ -66,8 +86,10 @@ internal sealed class LiveKeyboardBounds : IDisposable
 
         // Prefer UIKit's live KeyboardLayoutGuide frame: it tracks folds and rotations
         // in the view's own coordinates without relying on a pre-fold screen rect.
+        // Require height meaningfully above the bottom safe-area inset, since a hidden
+        // or hardware-only keyboard collapses the guide to SafeAreaInsets.Bottom.
         var guide = view.KeyboardLayoutGuide.LayoutFrame;
-        if (!guide.IsEmpty && guide.Height > 0 && IsDockedOver(guide, view.Bounds))
+        if (!guide.IsEmpty && IsDockedSoftKeyboard(guide, view.Bounds, view.SafeAreaInsets.Bottom))
         {
             return (double)guide.Top;
         }
@@ -78,7 +100,7 @@ internal sealed class LiveKeyboardBounds : IDisposable
         {
             var converted = view.ConvertRectFromView(
                 window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
-            if (IsDockedOver(converted, view.Bounds))
+            if (IsDockedSoftKeyboard(converted, view.Bounds, view.SafeAreaInsets.Bottom))
             {
                 return (double)converted.Top;
             }
@@ -94,19 +116,19 @@ internal sealed class LiveKeyboardBounds : IDisposable
     public double OverlapIn(UIView view) =>
         TopIn(view) is { } top ? Math.Max(0, view.Bounds.Height - top) : 0;
 
-    private static bool IsDockedOver(CGRect keyboard, CGRect bounds) =>
+    private static bool IsDockedSoftKeyboard(CGRect keyboard, CGRect bounds, nfloat safeBottom) =>
         keyboard.Width >= bounds.Width * 0.8
         && keyboard.Bottom >= bounds.Height - 1
-        && keyboard.Top < bounds.Height;
+        && keyboard.Top < bounds.Height - safeBottom - 40
+        && keyboard.Height > safeBottom + 40;
 
-    private static CGSize CurrentWindowSize()
+    private static UIWindow? ActiveWindow()
     {
         var scene = UIApplication.SharedApplication.ConnectedScenes
             .OfType<UIWindowScene>()
             .FirstOrDefault(s => s.ActivationState == UISceneActivationState.ForegroundActive)
             ?? UIApplication.SharedApplication.ConnectedScenes.OfType<UIWindowScene>().FirstOrDefault();
-        var window = scene?.Windows.FirstOrDefault(w => w.IsKeyWindow) ?? scene?.Windows.FirstOrDefault();
-        return window?.Bounds.Size ?? CGSize.Empty;
+        return scene?.Windows.FirstOrDefault(w => w.IsKeyWindow) ?? scene?.Windows.FirstOrDefault();
     }
 
     public void Dispose()

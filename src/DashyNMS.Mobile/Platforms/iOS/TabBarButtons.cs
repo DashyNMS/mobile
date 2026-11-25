@@ -157,13 +157,19 @@ internal static class TabBarButtons
         }
 
         _host ??= new Host();
+        var ownerChanged = !ReferenceEquals(_owner, owner);
         _owner = owner;
         _presentationPage = presentationPage is null ? null : new(presentationPage);
+        if (ownerChanged) _host.ResetLaneMode();
         _host.Set(search, searchLabel, actions);
         _host.Hidden = false;
         if (TabDots.FindTabs() is { } tabs)
         {
             Relayout(tabs);
+        }
+        if (InlineFallbackActive)
+        {
+            Moved?.Invoke(null, EventArgs.Empty);
         }
     }
 
@@ -179,6 +185,7 @@ internal static class TabBarButtons
         _presentationPage = null;
         BackPlaced = false;
         InlineFallbackActive = false;
+        _host.ResetLaneMode();
         _host.Set(null, string.Empty, []);
         _host.Hidden = true;
         Moved?.Invoke(null, EventArgs.Empty);
@@ -720,6 +727,8 @@ internal static class TabBarButtons
             RebuildSlots();
             SetNeedsUpdateConstraints();
         }
+
+        public void ResetLaneMode() => LaneMode = GlassLaneMode.Expanded;
 
         public void SetLaneMode(GlassLaneMode mode)
         {

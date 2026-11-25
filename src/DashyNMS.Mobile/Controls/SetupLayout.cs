@@ -93,6 +93,9 @@ public sealed class SetupLayout : Grid
         }
 #endif
         SetRow((IView)_primaryAction, 2);
+        _primaryAction.VerticalOptions = LayoutOptions.Fill;
+        _primaryAction.ZIndex = 0;
+        if (FootFade is not null) FootFade.SetCoveredHeight(0);
         EnsureZOrder();
     }
 

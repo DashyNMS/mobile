@@ -86,12 +86,14 @@ internal sealed class InlineGlassFallback : HorizontalStackLayout
 #if IOS
     private async Task OpenOverflowAsync()
     {
-        if (_page is null || !_page.TryGetTarget(out var page) || _overflowActions.Count == 0)
+        if (_page is null || !_page.TryGetTarget(out var page))
         {
             return;
         }
 
-        var enabled = _overflowActions.Where(a => a.IsEnabled).ToList();
+        // Resolve live so labels and IsEnabled reflect the latest TabBarButtons.Show call.
+        var live = TabBarButtons.GetFallback(page);
+        var enabled = (live.Active ? live.Overflow : _overflowActions).Where(a => a.IsEnabled).ToList();
         if (enabled.Count == 0)
         {
             return;
