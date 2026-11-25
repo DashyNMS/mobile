@@ -153,6 +153,15 @@ public static class Routes
     /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
     public const string Licences = "licences";
 
+    /// <summary>The user guide's contents list and search (#668).</summary>
+    public const string Help = "help";
+
+    /// <summary>One page of the user guide, with <see cref="HelpTopicParameter"/>.</summary>
+    public const string HelpArticle = "helparticle";
+
+    /// <summary>Query attribute: the <c>HelpTopic</c> for <see cref="HelpArticle"/>.</summary>
+    public const string HelpTopicParameter = "helptopic";
+
     /// <summary>Settings › Notifications › Add a rule (#167): a rule on every device for the chosen mode's list.</summary>
     public const string AddNotifyRule = "addnotifyrule";
 

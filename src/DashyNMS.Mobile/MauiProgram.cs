@@ -186,6 +186,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
+		builder.Services.AddTransient<HelpPage>();
+		builder.Services.AddTransient<HelpArticlePage>();
 		builder.Services.AddTransient<IntelligenceSettingsPage>();
         builder.Services.AddTransient<IntelligencePage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();

@@ -289,6 +289,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private Task OpenLicencesAsync() => _navigation.GoToAsync(Routes.Licences);
 
+    /// <summary>The user guide (#668).</summary>
+    [RelayCommand]
+    private Task OpenHelpAsync() => _navigation.GoToAsync(Routes.Help);
+
     /// <summary>About's trademark line - see <see cref="DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks"/>.</summary>
     public string Trademarks => DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks;
 

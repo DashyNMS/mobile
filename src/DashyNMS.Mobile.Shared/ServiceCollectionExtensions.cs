@@ -89,6 +89,12 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<SignInViewModel>();
         services.AddTransient<LicencesViewModel>();
+
+        // The user guide for the running version (#668), built in and refreshed from its own release.
+        services.AddSingleton(_ => Help.BundledHelp.CreateService(typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3)));
+        services.AddSingleton<Help.IHelpRefreshPolicy, Help.HelpRefreshAllowed>();
+        services.AddTransient<Help.HelpViewModel>();
+        services.AddTransient<Help.HelpArticleViewModel>();
         services.AddTransient<NotifyRulePickerViewModel>();
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<DevicesViewModel>();

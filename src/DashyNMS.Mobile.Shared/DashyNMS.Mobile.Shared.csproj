@@ -41,6 +41,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The user guide, read by Help (#668): exactly what's in docs/guide at this version. -->
+    <EmbeddedResource Include="../../docs/guide/**/*.md" LogicalName="DashyNMS.Mobile.Help/docs/guide/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <Target Name="RequireHelpGuide" BeforeTargets="BeforeBuild">
+    <Error Condition="!Exists('../../docs/guide/README.md')" Text="The user guide is missing, so Help would be empty." />
+  </Target>
+
+  <ItemGroup>
     <!-- Intelligence's instruction blocks, laid out as Core's Instructions/*.md (#638). -->
     <EmbeddedResource Include="Intelligence/Instructions/*.md" LogicalName="DashyNMS.Mobile.Intelligence.Instructions.%(Filename).md" />
   </ItemGroup>
