@@ -1,3 +1,7 @@
+using System.Collections;
+using System.Collections.Specialized;
+using System.Runtime.CompilerServices;
+
 namespace DashyNMS.Mobile.Controls;
 
 /// <summary>
@@ -21,6 +25,109 @@ public static class RowLines
     public static bool GetBetween(BindableObject view) => (bool)view.GetValue(BetweenProperty);
 
     public static void SetBetween(BindableObject view, bool value) => view.SetValue(BetweenProperty, value);
+
+    /// <summary>Hides a <see cref="CollectionView"/> row's leading hairline when its item is row 0.</summary>
+    public static readonly BindableProperty HideOnFirstProperty = BindableProperty.CreateAttached(
+        "HideOnFirst", typeof(bool), typeof(RowLines), false, propertyChanged: OnHideOnFirstChanged);
+
+    public static bool GetHideOnFirst(BindableObject view) => (bool)view.GetValue(HideOnFirstProperty);
+
+    public static void SetHideOnFirst(BindableObject view, bool value) => view.SetValue(HideOnFirstProperty, value);
+
+    private static readonly ConditionalWeakTable<VisualElement, FirstRowWatcher> Watchers = new();
+
+    private static void OnHideOnFirstChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (bindable is VisualElement line && newValue is true)
+        {
+            Watchers.GetValue(line, static v => new FirstRowWatcher(v));
+        }
+    }
+
+    private sealed class FirstRowWatcher
+    {
+        private readonly VisualElement _line;
+        private CollectionView? _list;
+        private INotifyCollectionChanged? _source;
+
+        public FirstRowWatcher(VisualElement line)
+        {
+            _line = line;
+            line.Loaded += (_, _) => Attach();
+            line.Unloaded += (_, _) => Detach();
+            line.BindingContextChanged += (_, _) => Refresh();
+            if (line.IsLoaded) Attach();
+        }
+
+        private void Attach()
+        {
+            var list = FindCollectionView(_line);
+            if (!ReferenceEquals(_list, list))
+            {
+                if (_list is not null) _list.PropertyChanged -= OnListPropertyChanged;
+                _list = list;
+                if (_list is not null) _list.PropertyChanged += OnListPropertyChanged;
+            }
+            BindSource();
+            Refresh();
+        }
+
+        private void Detach()
+        {
+            if (_source is not null) _source.CollectionChanged -= OnCollectionChanged;
+            _source = null;
+            if (_list is not null) _list.PropertyChanged -= OnListPropertyChanged;
+            _list = null;
+        }
+
+        private void OnListPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == ItemsView.ItemsSourceProperty.PropertyName)
+            {
+                BindSource();
+                Refresh();
+            }
+        }
+
+        private void BindSource()
+        {
+            var next = _list?.ItemsSource as INotifyCollectionChanged;
+            if (ReferenceEquals(_source, next)) return;
+            if (_source is not null) _source.CollectionChanged -= OnCollectionChanged;
+            _source = next;
+            if (_source is not null) _source.CollectionChanged += OnCollectionChanged;
+        }
+
+        private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => Refresh();
+
+        private void Refresh()
+        {
+            var item = _line.BindingContext;
+            if (item is null || _list?.ItemsSource is null) return;
+            var first = FirstItem(_list.ItemsSource);
+            var isFirst = first is not null && (ReferenceEquals(first, item) || Equals(first, item));
+            _line.IsVisible = !isFirst;
+        }
+
+        private static CollectionView? FindCollectionView(Element element)
+        {
+            var current = element.Parent;
+            for (var depth = 0; depth < 12 && current is not null; depth++)
+            {
+                if (current is CollectionView list) return list;
+                current = current.Parent;
+            }
+            return null;
+        }
+
+        private static object? FirstItem(IEnumerable source)
+        {
+            if (source is IList list) return list.Count > 0 ? list[0] : null;
+            var enumerator = source.GetEnumerator();
+            try { return enumerator.MoveNext() ? enumerator.Current : null; }
+            finally { (enumerator as IDisposable)?.Dispose(); }
+        }
+    }
 
     private static void OnBetweenChanged(BindableObject bindable, object oldValue, object newValue)
     {
