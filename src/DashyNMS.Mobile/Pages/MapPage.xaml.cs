@@ -245,7 +245,22 @@ public partial class MapPage : ContentPage, IActivePage
     private void UpdateMapClearance(Thickness clear, double foot)
     {
         if (!_loaded || Header.Height <= 0) return;
-        var top = Math.Max(0, Header.Height + Status.Height + 20);
+        var top = Math.Max(0, Header.Height + Status.Height + 12);
+#if IOS
+        if (MapView.Handler?.PlatformView is WebKit.WKWebView web && web.Window is not null)
+        {
+            double measuredTop = CoveredEdges.Of(this).Top + Header.Height + Status.Height;
+            if (Header.Handler?.PlatformView is UIKit.UIView headerView && headerView.Window is not null)
+                measuredTop = Math.Max(measuredTop, headerView.ConvertRectToView(headerView.Bounds, web).Bottom);
+            if (Status.IsVisible && Status.Height > 0 && Status.Handler?.PlatformView is UIKit.UIView statusView && statusView.Window is not null)
+                measuredTop = Math.Max(measuredTop, statusView.ConvertRectToView(statusView.Bounds, web).Bottom);
+            top = Math.Max(0, measuredTop + 12);
+        }
+        else
+        {
+            top = Math.Max(0, CoveredEdges.Of(this).Top + Header.Height + Status.Height + 12);
+        }
+#endif
         var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }
             .Select(n => Math.Max(0, n).ToString(CultureInfo.InvariantCulture)));
@@ -268,7 +283,11 @@ public partial class MapPage : ContentPage, IActivePage
     private void PinMapViewport()
     {
         if (MapView.Handler?.PlatformView is not WebKit.WKWebView web) return;
+        // Non-opaque over the themed page background so Dark mode never flashes white while loading.
+        web.Opaque = false;
+        web.BackgroundColor = UIKit.UIColor.Clear;
         var scroll = web.ScrollView;
+        scroll.BackgroundColor = UIKit.UIColor.Clear;
         scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
         scroll.ContentInset = UIKit.UIEdgeInsets.Zero;
         scroll.ScrollIndicatorInsets = UIKit.UIEdgeInsets.Zero;

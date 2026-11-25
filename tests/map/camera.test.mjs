@@ -246,3 +246,23 @@ test('zoom uses live geometry, respects both overlays and hides when targets can
   assert.equal(h.zoom.style.visibility, '');
   assert.deepEqual(h.map.offset, [0, -25], 'resize placement does not move selection');
 });
+
+test('resize refits untouched map on dimension change and preserves user-panned map', () => {
+  const untouched = harness(pins, { x: 466, y: 678 });
+  untouched.window.setMapClearance(120, 92, 24, 12);
+  assert.equal(untouched.fits.length, 1);
+  untouched.container.clientWidth = 951;
+  untouched.container.clientHeight = 669;
+  untouched.fire('resize');
+  assert.equal(untouched.fits.length, 2, 'unfolding an untouched map refits to the new canvas');
+
+  const panned = harness(pins, { x: 466, y: 678 });
+  panned.window.setMapClearance(120, 92, 24, 12);
+  panned.map.panBy([45, -30]);
+  const offset = [...panned.map.offset];
+  panned.container.clientWidth = 951;
+  panned.container.clientHeight = 669;
+  panned.fire('resize');
+  assert.equal(panned.fits.length, 1, 'user-panned map does not refit on resize');
+  assert.deepEqual(panned.map.offset, offset);
+});
