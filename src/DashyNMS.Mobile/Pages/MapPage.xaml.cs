@@ -7,7 +7,7 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.Map"/>, from a pinned tab or More.</summary>
-public partial class MapPage : ContentPage
+public partial class MapPage : ContentPage, IActivePage
 {
 	private readonly MapViewModel _viewModel;
 	private bool _loaded;
@@ -90,6 +90,18 @@ public partial class MapPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+        if (_pendingSelection) ApplySelection();
+		if (!_loaded)
+		{
+			_loaded = true;
+			_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+			_viewModel.RefreshCommand.Execute(null);
+		}
+	}
+
+	public void Activate()
+	{
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
         _visible = true;
@@ -100,13 +112,6 @@ public partial class MapPage : ContentPage
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-        if (_pendingSelection) ApplySelection();
-		if (!_loaded)
-		{
-			_loaded = true;
-			_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
-			_viewModel.RefreshCommand.Execute(null);
-		}
 	}
 
     protected override void OnDisappearing()

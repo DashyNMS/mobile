@@ -6,16 +6,19 @@ using DashyNMS.Mobile.Unimus;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.UnimusSettings"/>, from Settings (#21).</summary>
-public partial class UnimusSettingsPage : ContentPage
+public partial class UnimusSettingsPage : ContentPage, IActivePage
 {
 	private readonly UnimusSettingsViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public UnimusSettingsPage(UnimusSettingsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	/// <summary>Observe errors only while visible so a failed fixed Save can reveal its feedback.</summary>
 	protected override void OnAppearing()

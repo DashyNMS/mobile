@@ -5,16 +5,19 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.PickSensors"/>, with the card it sets up: a Sensors card's sensors and title (#87).</summary>
-public partial class SensorPickerPage : ContentPage, IQueryAttributable
+public partial class SensorPickerPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly SensorPickerViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public SensorPickerPage(SensorPickerViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, List);
+		_placement = new SetupPageLayout(this, Setup, Header, List);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	private void OnSensorCheckedChanged(object? sender, CheckedChangedEventArgs e)
 	{

@@ -78,17 +78,19 @@ public sealed class BackBar : Grid
     internal static string PreviousTitle(Page page)
     {
         var stack = page.Navigation.NavigationStack;
-        var index = -1;
-        for (var i = stack.Count - 1; i >= 0; i--)
+        var index = IndexOf(stack, page);
+        if (index < 0 && Shell.Current?.Navigation.NavigationStack is { Count: > 0 } shellStack)
         {
-            if (ReferenceEquals(stack[i], page))
+            var shellIndex = IndexOf(shellStack, page);
+            if (shellIndex >= 0 || stack.Count == 0)
             {
-                index = i;
-                break;
+                stack = shellStack;
+                index = shellIndex;
             }
         }
 
         var previous = index > 0 ? stack[index - 1] : index < 0 && stack.Count > 0 ? stack[^1] : null;
+        if (ReferenceEquals(previous, page)) previous = null;
         var title = previous?.Title;
         if (string.IsNullOrWhiteSpace(title))
         {
@@ -98,5 +100,15 @@ public sealed class BackBar : Grid
         }
 
         return string.IsNullOrWhiteSpace(title) ? "Back" : title;
+    }
+
+    private static int IndexOf(IReadOnlyList<Page> stack, Page page)
+    {
+        for (var i = stack.Count - 1; i >= 0; i--)
+        {
+            if (ReferenceEquals(stack[i], page)) return i;
+        }
+
+        return -1;
     }
 }

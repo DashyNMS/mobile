@@ -5,16 +5,19 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.AddNotifyRule"/>, from Settings › Notifications (#167).</summary>
-public partial class NotifyRulePickerPage : ContentPage, ISearchHost
+public partial class NotifyRulePickerPage : ContentPage, ISearchHost, IActivePage
 {
 	private readonly NotifyRulePickerViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public NotifyRulePickerPage(NotifyRulePickerViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, List);
+		_placement = new SetupPageLayout(this, Setup, Header, List);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	public void OpenSearch() => Search.Focus();
 

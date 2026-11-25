@@ -159,7 +159,7 @@ internal sealed class SetupPageLayout
 
     private void Place()
     {
-        if (!_showing || _layout.Height <= 0 || Shell.Current?.CurrentPage != _page) return;
+        if (!_showing || _layout.Height <= 0 || !ActivePage.IsCurrent(_page)) return;
         var edges = CoveredEdges.ForScrolling(_page);
         var bottom = SetupActionPlacement.BottomGap(_layout.Height, edges.Bottom, null, []);
         var foot = new SetupFoot(_layout.Width, _layout.Height, edges.Bottom, null, [], null);

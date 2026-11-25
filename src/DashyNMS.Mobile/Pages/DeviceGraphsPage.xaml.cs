@@ -207,7 +207,7 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 	/// <summary>Uses the whole usable width, with series beside the graph when both have room.</summary>
 	private void PlaceControls()
 	{
-		if (!_active || Shell.Current?.CurrentPage != this || Width <= 0) return;
+		if (!_active || !ActivePage.IsCurrent(this) || Width <= 0) return;
 		var clear = CoveredEdges.ForScrolling(this);
 		var left = 16 + clear.Left;
 		var right = 16 + clear.Right;

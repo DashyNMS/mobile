@@ -20,7 +20,7 @@ namespace DashyNMS.Mobile.Pages;
 /// (see <see cref="CoveredEdges"/>); beside a detail pane (#88) only the
 /// edges that reach the list's own column count.
 /// </remarks>
-public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost
+public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost, IActivePage
 {
 	/// <summary>The gap kept between the list and a side tab bar's glass.</summary>
 	private const double GlassGap = 12;
@@ -199,6 +199,16 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+
+		// As it was left, without sliding in again.
+		Bulk.IsVisible = _viewModel.Selection.IsSelecting;
+		PlaceControls();
+		_viewModel.RefreshCommand.Execute(null);
+	}
+
+	public void Activate()
+	{
 		Header.Apply(this);
 #if IOS
 		// Refresh below Export (to its right under a bottom tab bar).
@@ -207,13 +217,10 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
 			new("arrow.clockwise", "Refresh alerts", _refresh),
 		]);
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
-
-		// As it was left, without sliding in again.
-		Bulk.IsVisible = _viewModel.Selection.IsSelecting;
 		PlaceControls();
-		_viewModel.RefreshCommand.Execute(null);
 	}
 
 	protected override void OnDisappearing()

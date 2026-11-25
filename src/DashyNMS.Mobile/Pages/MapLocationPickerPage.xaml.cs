@@ -5,16 +5,19 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Finite, searchable location chooser returning to the actual calling map.</summary>
-public partial class MapLocationPickerPage : ContentPage, IQueryAttributable, ISearchHost
+public partial class MapLocationPickerPage : ContentPage, IQueryAttributable, ISearchHost, IActivePage
 {
     private readonly MapLocationPickerViewModel _viewModel;
+    private readonly SetupPageLayout _placement;
 
     public MapLocationPickerPage(MapLocationPickerViewModel viewModel)
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _ = new SetupPageLayout(this, Setup, Header, DeviceList);
+        _placement = new SetupPageLayout(this, Setup, Header, DeviceList);
     }
+
+    public void Activate() => _placement.Activate();
 
     public void OpenSearch() => SearchEntry.Focus();
 

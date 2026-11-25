@@ -66,7 +66,7 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
     private void PlaceControls()
     {
         // Native safe-area and glass callbacks can already be queued on departure.
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
 
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);

@@ -93,7 +93,7 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
 
     private void PlaceControls()
     {
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
         var clear = CoveredEdges.ForScrolling(this);
         var left = 16 + clear.Left;
         var right = 16 + Math.Max(0, clear.Right - Math.Max(0, Width - Body.Width));

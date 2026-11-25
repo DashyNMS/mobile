@@ -5,16 +5,19 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.PickGraph"/>, with the card it sets up: a Graph card's graph and title (#87).</summary>
-public partial class GraphPickerPage : ContentPage, IQueryAttributable
+public partial class GraphPickerPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly GraphPickerViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public GraphPickerPage(GraphPickerViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, DeviceList, FormScroll);
+		_placement = new SetupPageLayout(this, Setup, Header, DeviceList, FormScroll);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	/// <summary>Loads once it knows which card - before then it would set up a new one.</summary>
 	public void ApplyQueryAttributes(IDictionary<string, object> query)

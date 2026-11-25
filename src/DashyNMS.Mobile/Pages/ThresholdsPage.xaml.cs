@@ -5,16 +5,19 @@ using DashyNMS.Mobile.ViewModels;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.Thresholds"/>, from Settings.</summary>
-public partial class ThresholdsPage : ContentPage
+public partial class ThresholdsPage : ContentPage, IActivePage
 {
 	private readonly ThresholdsViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public ThresholdsPage(ThresholdsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	/// <summary>The iPhone decimal keypad cannot enter negative thresholds.</summary>
 	private void OnNumericHandlerChanged(object? sender, EventArgs e)

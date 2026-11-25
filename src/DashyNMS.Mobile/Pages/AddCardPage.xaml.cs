@@ -9,9 +9,10 @@ namespace DashyNMS.Mobile.Pages;
 /// card (#140) - with <see cref="Routes.PositionParameter"/> from a card's
 /// "Add a card after" (#145).
 /// </summary>
-public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost
+public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost, IActivePage
 {
     private readonly AddCardViewModel _viewModel;
+    private readonly SetupPageLayout _placement;
     private bool _isVisible;
     private Window? _subscribedWindow;
 
@@ -19,8 +20,10 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _ = new SetupPageLayout(this, Setup, Header, List, CategoryScroll);
+        _placement = new SetupPageLayout(this, Setup, Header, List, CategoryScroll);
     }
+
+    public void Activate() => _placement.Activate();
 
 #if IOS
     private Foundation.NSObject? _textSizeObserver;

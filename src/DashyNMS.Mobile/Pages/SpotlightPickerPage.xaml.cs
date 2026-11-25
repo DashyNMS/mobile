@@ -5,17 +5,20 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.SpotlightPicker"/>, from a log card's Spotlight (#270).</summary>
-public partial class SpotlightPickerPage : ContentPage, IQueryAttributable
+public partial class SpotlightPickerPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly SpotlightPickerViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public SpotlightPickerPage(SpotlightPickerViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		// The shared setup layout owns the header, insets, glass Back and fixed Save (#398).
-		_ = new SetupPageLayout(this, Setup, Header, List);
+		_placement = new SetupPageLayout(this, Setup, Header, List);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{

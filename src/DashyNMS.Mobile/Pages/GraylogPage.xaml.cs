@@ -173,7 +173,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 	}
 #endif
 
-	private bool IsActive => _showing && Shell.Current?.CurrentPage == this;
+	private bool IsActive => _showing && ActivePage.IsCurrent(this);
 
 	/// <summary>Detail actions join the existing list owner, never claim child Back or search.</summary>
 	private void UpdateGlass()

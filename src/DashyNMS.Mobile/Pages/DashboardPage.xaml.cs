@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Controls;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Pages;
@@ -15,7 +16,7 @@ namespace DashyNMS.Mobile.Pages;
 /// and later; before that, and on Android, Edit dashboard stays on the top
 /// line (see <see cref="CoveredEdges"/>).
 /// </remarks>
-public partial class DashboardPage : ContentPage
+public partial class DashboardPage : ContentPage, IActivePage
 {
 	/// <summary>The gap kept between the cards and a side tab bar's glass.</summary>
 	private const double GlassGap = 12;
@@ -50,16 +51,7 @@ public partial class DashboardPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-#if IOS
-		// Nothing to search: the actions alone.
-		TabBarButtons.Show(this, null, string.Empty,
-		[
-			new GlassAction("slider.horizontal.3", "Edit dashboard", () => _viewModel.CustomiseCommand.Execute(null)),
-			new GlassAction("arrow.clockwise", "Refresh the dashboard", () => _viewModel.RefreshCommand.Execute(null)),
-		]);
-		TabBarButtons.Moved += OnTabBarButtonsMoved;
-#endif
-		PlaceControls();
+		Activate();
 
 		// Also picks up Edit dashboard's changes, and the phone's theme for the graph.
 		_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
@@ -67,6 +59,21 @@ public partial class DashboardPage : ContentPage
 
 		// A card just added lands at the bottom: brought into view, outlined (#140).
 		Dispatcher.Dispatch(() => _ = ShowHighlightedAsync());
+	}
+
+	public void Activate()
+	{
+#if IOS
+		// Nothing to search: the actions alone.
+		TabBarButtons.Show(this, null, string.Empty,
+		[
+			new GlassAction("slider.horizontal.3", "Edit dashboard", () => _viewModel.CustomiseCommand.Execute(null)),
+			new GlassAction("arrow.clockwise", "Refresh the dashboard", () => _viewModel.RefreshCommand.Execute(null)),
+		]);
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
+		TabBarButtons.Moved += OnTabBarButtonsMoved;
+#endif
+		PlaceControls();
 	}
 
 	protected override void OnDisappearing()

@@ -130,7 +130,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
 	private void PlaceFooter()
 	{
-		if (!_active || Shell.Current?.CurrentPage != this) return;
+		if (!_active || !ActivePage.IsCurrent(this)) return;
 		_listLayout.Place();
 	}
 #endif

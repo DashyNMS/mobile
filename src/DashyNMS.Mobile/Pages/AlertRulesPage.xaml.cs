@@ -98,7 +98,7 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IAc
     private void PlaceControls()
     {
         // Watcher and glass callbacks can already be queued when a child takes ownership.
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
 
         var clear = CoveredEdges.ForScrolling(this);
         var outside = Math.Max(0, Width - Body.Width);

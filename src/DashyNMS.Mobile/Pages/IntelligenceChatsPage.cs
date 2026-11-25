@@ -261,7 +261,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         if (!Navigation.ModalStack.Contains(this)) return;
         await Navigation.PopModalAsync();
         // OverFullScreen keeps the chat attached, so it may not get Appearing.
-        if ((Navigation.ModalStack.LastOrDefault() ?? Shell.Current?.CurrentPage) is IActivePage page)
+        if (ActivePage.Current is IActivePage page)
             page.Activate();
     }
 

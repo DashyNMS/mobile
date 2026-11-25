@@ -5,7 +5,7 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.CustomiseDashboard"/>, from the Dashboard's pencil.</summary>
-public partial class CustomiseDashboardPage : ContentPage
+public partial class CustomiseDashboardPage : ContentPage, IActivePage
 {
 	private readonly CustomiseDashboardViewModel _viewModel;
 
@@ -33,14 +33,20 @@ public partial class CustomiseDashboardPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		TopBar.Apply(this);
+		Activate();
 		_viewModel.Attach();
+	}
+
+	public void Activate()
+	{
+		TopBar.Apply(this);
 #if IOS
         TabBarButtons.Show(this, null, string.Empty,
         [
             new GlassAction("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
                 () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
         ]);
+        TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();

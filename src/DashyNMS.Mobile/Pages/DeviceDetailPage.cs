@@ -17,7 +17,7 @@ namespace DashyNMS.Mobile.Pages;
 /// the top bar goes and the device has the whole screen; before that, and
 /// on Android, they stay on the top bar.
 /// </remarks>
-public sealed class DeviceDetailPage : ContentPage, IQueryAttributable
+public sealed class DeviceDetailPage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly DeviceDetailView _view;
 	private readonly DeviceDetailViewModel _viewModel;
@@ -57,17 +57,23 @@ public sealed class DeviceDetailPage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+
+		// Back from Schedule maintenance, a window starting now shows in the header.
+		_ = _viewModel.ShownAgainAsync();
+	}
+
+	public void Activate()
+	{
 		_view.Bar.Apply(this);
 		_showing = true;
 #if IOS
 		_glassPin = null;
 		UpdateGlass();
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
-
-		// Back from Schedule maintenance, a window starting now shows in the header.
-		_ = _viewModel.ShownAgainAsync();
 	}
 
 	protected override void OnDisappearing()

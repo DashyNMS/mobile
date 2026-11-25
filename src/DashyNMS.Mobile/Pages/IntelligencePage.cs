@@ -298,7 +298,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
             button.Clicked += async (_, _) =>
             {
-                if (!_showing || Shell.Current?.CurrentPage != this || !string.IsNullOrWhiteSpace(_question.Text)) return;
+                if (!_showing || !ActivePage.IsCurrent(this) || !string.IsNullOrWhiteSpace(_question.Text)) return;
                 _following = true;
                 await _conversation.AskStarterAsync(starter, revision);
                 Flush();
@@ -319,7 +319,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     /// <summary>Use the measured, already guttered viewport for one readable column on any display.</summary>
     private void PlaceConversation()
     {
-        if (!_showing || Shell.Current?.CurrentPage != this || _scroll.Width <= 0) return;
+        if (!_showing || !ActivePage.IsCurrent(this) || _scroll.Width <= 0) return;
         var width = Math.Min(860, _scroll.Width);
         _transcript.WidthRequest = width;
         _notice.WidthRequest = width;
@@ -435,7 +435,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
 
     private void Flush()
     {
-        if (!_showing || Shell.Current?.CurrentPage != this) return;
+        if (!_showing || !ActivePage.IsCurrent(this)) return;
         foreach (var card in _cards) { card.Render(); card.Tick(); }
         if (_scrollPending && _following && !_scrolling)
         {

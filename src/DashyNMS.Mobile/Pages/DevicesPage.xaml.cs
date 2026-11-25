@@ -19,7 +19,7 @@ namespace DashyNMS.Mobile.Pages;
 /// <see cref="CoveredEdges"/>); beside a detail pane (#88) only the edges
 /// that reach the list's own column count.
 /// </remarks>
-public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost
+public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost, IActivePage
 {
 	/// <summary>The gap kept between the list and a side tab bar's glass.</summary>
 	private const double GlassGap = 12;
@@ -241,13 +241,7 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
-		_showing = true;
-#if IOS
-		_glass = null;
-		UpdateGlass();
-		TabBarButtons.Moved += OnTabBarButtonsMoved;
-#endif
+		Activate();
 
 		// As they were left, without sliding in again.
 		FilterCard.IsVisible = _viewModel.IsFilterPanelOpen;
@@ -262,6 +256,19 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 		// The device beside the list, back from Schedule maintenance.
 		_ = _detail?.ViewModel.ShownAgainAsync();
+	}
+
+	public void Activate()
+	{
+		Header.Apply(this);
+		_showing = true;
+#if IOS
+		_glass = null;
+		UpdateGlass();
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
+		TabBarButtons.Moved += OnTabBarButtonsMoved;
+#endif
+		PlaceControls();
 	}
 
 	protected override void OnDisappearing()

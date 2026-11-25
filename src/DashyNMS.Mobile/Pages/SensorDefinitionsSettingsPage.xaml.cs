@@ -6,16 +6,19 @@ using DashyNMS.Mobile.ViewModels;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.SensorDefinitionsSettings"/>, from Settings (#209).</summary>
-public partial class SensorDefinitionsSettingsPage : ContentPage
+public partial class SensorDefinitionsSettingsPage : ContentPage, IActivePage
 {
 	private readonly SensorDefinitionsSettingsViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public SensorDefinitionsSettingsPage(SensorDefinitionsSettingsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
 	}
+
+	public void Activate() => _placement.Activate();
 
 	/// <summary>Follow catalogue progress only while this page is visible.</summary>
 	protected override void OnAppearing()

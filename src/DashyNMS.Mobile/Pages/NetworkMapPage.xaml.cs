@@ -1,5 +1,6 @@
 using System.Globalization;
 using DashyNMS.Mobile.Controls;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Topology;
 
 namespace DashyNMS.Mobile.Pages;
@@ -20,7 +21,7 @@ namespace DashyNMS.Mobile.Pages;
 /// would on a display that size; what can be tapped is placed clear of
 /// them here (see <see cref="CoveredEdges"/>).</para>
 /// </remarks>
-public partial class NetworkMapPage : ContentPage
+public partial class NetworkMapPage : ContentPage, IActivePage
 {
 	/// <summary>How far (points) a touch must move before it's a drag rather than a tap.</summary>
 	private const float DragThreshold = 8;
@@ -539,17 +540,7 @@ public partial class NetworkMapPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
-#if IOS
-		TabBarButtons.Show(this, OnGlassSearch, "Find a device",
-		[
-			new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)),
-			new GlassAction("viewfinder", "Fit the whole map", Fit),
-			new GlassAction("arrow.uturn.backward", "Reset layout", () => _viewModel.ResetLayoutCommand.Execute(null)),
-		]);
-		TabBarButtons.Moved += OnTabBarButtonsMoved;
-#endif
-		PlaceControls();
+		Activate();
 
 		// Back from Settings, the jiggle may have been switched; never with Reduce Motion.
 		_viewModel.UpdateJiggle(!ReducedMotion.IsOn);
@@ -558,6 +549,22 @@ public partial class NetworkMapPage : ContentPage
 			_loaded = true;
 			_viewModel.RefreshCommand.Execute(null);
 		}
+	}
+
+	public void Activate()
+	{
+		Header.Apply(this);
+#if IOS
+		TabBarButtons.Show(this, OnGlassSearch, "Find a device",
+		[
+			new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)),
+			new GlassAction("viewfinder", "Fit the whole map", Fit),
+			new GlassAction("arrow.uturn.backward", "Reset layout", () => _viewModel.ResetLayoutCommand.Execute(null)),
+		]);
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
+		TabBarButtons.Moved += OnTabBarButtonsMoved;
+#endif
+		PlaceControls();
 	}
 
 	protected override void OnDisappearing()
