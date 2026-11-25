@@ -30,6 +30,10 @@ Set the warning and critical limits for optical power, signal, temperature and f
 
 These give state sensors names and colours, such as **Ready** or **Fan failed**. They come from a public catalogue on GitHub, checked at most once a day, and keep working offline. Turn them off, or choose **Use my own repository**.
 
+## Help
+
+**Help** is this guide, kept in the app so it works with no signal. The line under the title says which version it describes. Tap the magnifier to search it. Other pages link to the part that explains them, such as **Help with alerts** on **Alerts**.
+
 ## Diagnostics
 
 - **Share diagnostics** makes a log to attach to a bug report. Turn on **Hide names** first to replace names and addresses with placeholders. It never includes your token or passwords.

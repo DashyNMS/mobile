@@ -15,6 +15,7 @@ DashyNMS Mobile talks to your LibreNMS server, and to Graylog and Unimus if you 
 - Requests to your own servers.
 - Map areas you look at, to OpenStreetMap.
 - A request to GitHub for sensor definitions, at most once a day. Nothing about you or your network is in it.
+- A request to GitHub for this guide's public pages, when you open **Help**. It asks for files by name, and nothing about you or your network is in it. Once the app has a copy, it doesn't look again for 30 days. Searching help stays on your phone.
 - Error reports and usage, only if you choose.
 
 ## Error reports and usage

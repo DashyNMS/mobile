@@ -609,7 +609,8 @@ The user guide is in [`docs/guide`](guide/README.md): getting started,
 installation, task-based how-to pages, troubleshooting and reference. Keep
 installation pages in `installation/`, user tasks in `how-to/` and reference
 pages in `reference/`. Use relative Markdown links between pages, images with
-alt text and simple Markdown, because the app will show these pages too (#668).
+alt text and simple Markdown, because the app shows these pages too, under Settings → Help (#668). A page or
+heading that `HelpTopics` opens can't be renamed without changing it there; a test checks.
 Write for people who aren't developers.
 
 **Any change to what the app does must also be made in the user guide, in the
@@ -647,7 +648,7 @@ type(scope): what changes, as the user would notice it
 ```
 
 - **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
-- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `help`, `search`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
 - **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.

@@ -11,6 +11,7 @@
 - **State sensor names.** Fans and power supplies read "Ready" or "Fan failed", from the sensor definitions catalogue. {health}
 - **Auto-refresh.** Logs and Graylog can refresh themselves while they're open. {logs}
 - **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
+- **Help.** The user guide is in Settings, with search, and works with no signal. Alerts, Intelligence, sign-in and Settings link to the page that explains them. {settings}
 
 ## Improved
 - **Intelligence.** Four starter questions at a time and clearer lookup activity, matching desktop. {intelligence}
