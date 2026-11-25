@@ -14,6 +14,9 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 
     /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
     private readonly Action _refresh;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
 	public GroupsLocationsPage(GroupsLocationsViewModel viewModel)
 	{
@@ -48,17 +51,38 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh groups and locations", _refresh));
-        TabBarButtons.Show(this, OpenSearch, "Search groups and locations", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
 	}
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var refresh = new GlassAction("arrow.clockwise", "Refresh groups and locations", _refresh);
+        if (place == PageActionPlace.HeaderGlass)
+        {
+            Header.SetHeaderGlass([refresh]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(refresh);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search groups and locations", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
 
@@ -80,7 +104,25 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
     {
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+#if IOS
+        var sideBar = false;
+        var obstruction = 12 + clear.Bottom;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
+        {
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+        }
+        ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
+#else
         ListFoot.HeightRequest = 12 + clear.Bottom;
+#endif
     }
 
 #if IOS

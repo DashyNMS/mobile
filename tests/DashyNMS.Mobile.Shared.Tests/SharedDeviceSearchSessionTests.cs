@@ -269,6 +269,25 @@ public sealed partial class SharedDeviceSearchTests
         Assert.Equal(new[] { ("/api/v0/devices", "test-token"), ("/api/v0/devices/1/maintenance", "test-token") }, nms.Requests);
     }
 
+    [Fact]
+    public async Task Connection_change_shows_cleared_notice_only_when_chat_had_content_or_draft()
+    {
+        using var nms = new LoopbackLibreNms("notice.example.net");
+        using var app = new App();
+        await app.SignInAsync(nms.Root, "test-token");
+        using var vm = app.Conversation((_, _) => Task.FromResult(new IntelligenceAnswer("ok", null)));
+
+        // Empty conversation: connection change leaves Notice blank.
+        await app.SignInAsync(nms.Root, "test-token-2");
+        Assert.Equal(string.Empty, vm.Notice);
+
+        // Draft present: connection change clears draft and emits Notice.
+        vm.Draft = "Draft question";
+        await app.SignInAsync(nms.Root, "test-token-3");
+        Assert.Equal(string.Empty, vm.Draft);
+        Assert.Equal("The connection changed. The previous chat was cleared.", vm.Notice);
+    }
+
     /// <summary>
     /// Failover is the session's (#611's re-review): when a chat's own transport can't reach the
     /// server, the session moves to its backup, and every chat transport follows it there.

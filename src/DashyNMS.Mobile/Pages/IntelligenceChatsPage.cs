@@ -26,7 +26,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
     private readonly Button _close = new() { Text = "Back", MinimumHeightRequest = 48, MinimumWidthRequest = 88, HorizontalOptions = LayoutOptions.Start };
 #if IOS
     private readonly HeaderGlassGroup _headerGlass = new();
-    private ChatActionPlace? _actionPlace;
+    private PageActionPlace? _actionPlace;
     private bool? _canStart;
 #endif
     private readonly Grid _titleLine = new() { ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 12, SafeAreaEdges = SafeAreaEdges.None, MinimumHeightRequest = 48 };
@@ -196,19 +196,20 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
     {
         if (!_visible) return;
 #if IOS
-        var place = ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
+        var laneWidth = _titleLine.Width > 0 ? Math.Max(0, _titleLine.Width - _titleLine.Padding.HorizontalThickness) : double.PositiveInfinity;
+        var place = PageActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height, laneWidth, 0, HeaderGlassGroup.Size);
         var canStart = !_conversation.IsRunning && _conversation.IsTranscriptCurrent;
         if (_actionPlace == place && _canStart == canStart) return;
         _actionPlace = place;
         _canStart = canStart;
-        _close.IsVisible = _new.IsVisible = place == ChatActionPlace.HeaderIcons;
-        _headerGlass.IsVisible = place == ChatActionPlace.HeaderGlass;
+        _close.IsVisible = _new.IsVisible = place == PageActionPlace.HeaderIcons;
+        _headerGlass.IsVisible = place == PageActionPlace.HeaderGlass;
         GlassAction back = new("chevron.backward", "Back to Intelligence", () => _ = CloseAsync(), IsBack: true);
         GlassAction create = new("square.and.pencil", "New chat", StartNewChat, IsEnabled: canStart);
-        _headerGlass.Actions = place == ChatActionPlace.HeaderGlass ? [create] : [];
+        _headerGlass.Actions = place == PageActionPlace.HeaderGlass ? [create] : [];
         if (TabBarButtons.IsAvailable)
             TabBarButtons.Show(this, null, string.Empty,
-                place == ChatActionPlace.HeaderGlass ? [back] : [back, create], this);
+                place == PageActionPlace.HeaderGlass ? [back] : [back, create], this);
 #endif
     }
 
@@ -217,6 +218,12 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         if (!_visible) return;
         ShowActions();
 #if IOS
+        var fallback = TabBarButtons.GetFallback(this);
+        if (TabBarButtons.IsAvailable)
+        {
+            _close.IsVisible = fallback.Active;
+            _new.IsVisible = fallback.Active && _actionPlace != PageActionPlace.HeaderGlass;
+        }
         if (TabDots.FindTabs() is { } tabs) TabBarButtons.Relayout(tabs);
 #endif
         var clear = CoveredEdges.ForScrolling(this);
@@ -261,7 +268,7 @@ public sealed class IntelligenceChatsPage : ContentPage, IPrivateChatSurface, IA
         if (!Navigation.ModalStack.Contains(this)) return;
         await Navigation.PopModalAsync();
         // OverFullScreen keeps the chat attached, so it may not get Appearing.
-        if ((Navigation.ModalStack.LastOrDefault() ?? Shell.Current?.CurrentPage) is IActivePage page)
+        if (ActivePage.Current is IActivePage page)
             page.Activate();
     }
 

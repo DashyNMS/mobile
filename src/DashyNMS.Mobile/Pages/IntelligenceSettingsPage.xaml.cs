@@ -15,7 +15,8 @@ public partial class IntelligenceSettingsPage : ContentPage, IActivePage
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _layout = new SetupPageLayout(this, Setup, Header, FormScroll);
+        Setup.OverlayPrimaryAction = true;
+        _layout = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
     }
 
     protected override async void OnAppearing()

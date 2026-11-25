@@ -5,7 +5,7 @@ using DashyNMS.Mobile.Controls;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.AlertTemplate"/>: one alert template, read-only (#22).</summary>
-public partial class AlertTemplatePage : ContentPage, IQueryAttributable
+public partial class AlertTemplatePage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly AlertTemplateViewModel _viewModel;
     private IDisposable? _edges;
@@ -38,6 +38,11 @@ public partial class AlertTemplatePage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+	}
+
+	public void Activate()
+	{
 		TopBar.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
         if (!ReferenceEquals(_resumeWindow, Window))

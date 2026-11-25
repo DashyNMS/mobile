@@ -217,22 +217,26 @@
                                             <Setter Property="Grid.ColumnSpan" Value="3" />
                                         </DataTrigger>
                                     </VerticalStackLayout.Triggers>
-                                    <Button Style="{StaticResource LinkButton}" Text="{Binding ExpansionGlyph}" MinimumHeightRequest="44" MinimumWidthRequest="44" IsVisible="{Binding CanExpand}"
-                                            HorizontalOptions="Start" SemanticProperties.Description="{Binding ExpansionLabel}"
-                                            Command="{Binding ToggleInventoryCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
-                                            CommandParameter="{Binding .}" />
-                                    <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation">
-                                        <Label.Triggers>
-                                            <DataTrigger TargetType="Label" Binding="{Binding InventoryLayout}" Value="True">
-                                                <Setter Property="LineBreakMode" Value="WordWrap" />
-                                            </DataTrigger>
-                                        </Label.Triggers>
-                                    </Label>
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Button Style="{StaticResource LinkButton}" Text="{Binding ExpansionGlyph}" MinimumHeightRequest="44" MinimumWidthRequest="44" IsVisible="{Binding CanExpand}"
+                                                Padding="4,0" Margin="-8,0,0,0" VerticalOptions="Center" HorizontalOptions="Start" SemanticProperties.Description="{Binding ExpansionLabel}"
+                                                Command="{Binding ToggleInventoryCommand, Source={RelativeSource AncestorType={x:Type sections:DeviceSectionViewModel}}, x:DataType=sections:DeviceSectionViewModel}"
+                                                CommandParameter="{Binding .}" />
+                                        <Label Grid.Column="1" Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="TailTruncation" VerticalOptions="Center">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding InventoryLayout}" Value="True">
+                                                    <Setter Property="LineBreakMode" Value="WordWrap" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                    </Grid>
                                     <Label Style="{StaticResource Caption}" Text="{Binding Value}" IsVisible="{Binding InventoryClassVisible}" LineBreakMode="WordWrap" />
-                                    <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
-                                           LineBreakMode="WordWrap" />
-                                    <Button Style="{StaticResource LinkButton}" Text="Copy serial" MinimumHeightRequest="44" SemanticProperties.Description="{Binding CopySerialLabel}" IsVisible="{Binding HasSerial}"
-                                            HorizontalOptions="Start" Clicked="OnCopySerial" CommandParameter="{Binding Serial}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}"
+                                               LineBreakMode="WordWrap" VerticalOptions="Center" />
+                                        <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Copy serial" MinimumHeightRequest="44" SemanticProperties.Description="{Binding CopySerialLabel}" IsVisible="{Binding HasSerial}"
+                                                Padding="6,0" VerticalOptions="Center" HorizontalOptions="End" Clicked="OnCopySerial" CommandParameter="{Binding Serial}" />
+                                    </Grid>
                                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Fields}" IsVisible="{Binding HasFields}" Spacing="2">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="sections:SectionField">

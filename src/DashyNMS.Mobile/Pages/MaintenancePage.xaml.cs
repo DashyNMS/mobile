@@ -14,7 +14,8 @@ public partial class MaintenancePage : ContentPage, IQueryAttributable, IActiveP
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_layout = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_layout = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 		Setup.SizeChanged += (_, _) => PlaceControls();
 		Setup.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Padding)) PlaceControls(); };
 	}

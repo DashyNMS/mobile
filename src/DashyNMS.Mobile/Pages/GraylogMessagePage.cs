@@ -99,7 +99,7 @@ public sealed class GraylogMessagePage : ContentPage, IQueryAttributable, IActiv
 #endif
     }
 
-    private bool IsActive => _showing && Shell.Current?.CurrentPage == this;
+    private bool IsActive => _showing && ActivePage.IsCurrent(this);
 
     private void OnCommandChanged(object? sender, EventArgs e) =>
         Dispatcher.Dispatch(() => { if (IsActive) { RestoreGlass(); PlaceControls(); } });

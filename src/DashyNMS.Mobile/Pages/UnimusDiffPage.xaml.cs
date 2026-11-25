@@ -18,7 +18,7 @@ public partial class UnimusDiffPage : ContentPage, IQueryAttributable, IActivePa
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot);
+		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot, footFade: BottomFade) { FullHeight = true };
 #if IOS
         ShareButton.IsVisible = !TabBarButtons.IsAvailable;
 #endif

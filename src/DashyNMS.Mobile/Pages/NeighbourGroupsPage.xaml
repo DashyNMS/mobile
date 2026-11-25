@@ -44,6 +44,7 @@
      <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
     </LinearGradientBrush></BoxView.Background>
    </BoxView>
+   <controls:FootFade x:Name="BottomFade" />
    <controls:BusyCard x:Name="Busy" Text="Loading neighbour counts…" IsVisible="{Binding IsBusy}" VerticalOptions="Center" />
   </Grid>
  </Grid>

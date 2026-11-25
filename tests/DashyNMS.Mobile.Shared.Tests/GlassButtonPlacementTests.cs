@@ -81,4 +81,83 @@ public sealed class GlassButtonPlacementTests
         Assert.Null(GlassButtonPlacement.Find(new(0, 0, 1000, 700), Safe, []));
         Assert.True(GlassButtonPlacement.IsClear(new(0, 0, 0, 0), Safe, []));
     }
+
+    [Fact]
+    public void ResolveLane_returns_expanded_when_full_group_and_search_fit()
+    {
+        var bar = new OccupiedArea(12, 260, 76, 440);
+        var search = new OccupiedArea(12, 184, 76, 248);
+        var actions = new OccupiedArea(12, 36, 76, 164);
+        var safe = new OccupiedArea(0, 24, 678, 466);
+
+        var result = GlassButtonPlacement.ResolveLane(search, actions, hasBack: true, hasOverflow: true, safe, bar, [bar]);
+
+        Assert.Equal(GlassLaneMode.Expanded, result.Mode);
+        Assert.Equal(actions, result.ActionsFrame);
+    }
+
+    [Fact]
+    public void ResolveLane_returns_two_targets_when_two_44pt_buttons_fit_in_short_vertical_lane()
+    {
+        // Duo outer landscape (678x466): left side pill leaving 100pt above it (enough for two 44pt targets = 88pt, not 3x64pt).
+        var safe = new OccupiedArea(0, 24, 678, 466);
+        var bar = new OccupiedArea(12, 136, 76, 440);
+        var wantedSearch = new OccupiedArea(12, 60, 76, 124);
+        var wantedActions = new OccupiedArea(12, -80, 76, 48);
+
+        var result = GlassButtonPlacement.ResolveLane(wantedSearch, wantedActions, hasBack: true, hasOverflow: true, safe, bar, [bar]);
+
+        Assert.Equal(GlassLaneMode.TwoTargets, result.Mode);
+        Assert.NotNull(result.ActionsFrame);
+        Assert.Equal(44, result.ActionsFrame.Value.Right - result.ActionsFrame.Value.Left);
+        Assert.Equal(88, result.ActionsFrame.Value.Bottom - result.ActionsFrame.Value.Top);
+    }
+
+    [Fact]
+    public void ResolveLane_returns_one_target_when_only_one_44pt_button_fits()
+    {
+        // Only 56pt free between safe.Top (24) and bar.Top - 12 (80): fits one 44pt target, not two.
+        var safe = new OccupiedArea(0, 24, 678, 466);
+        var bar = new OccupiedArea(12, 92, 76, 440);
+        var wantedSearch = new OccupiedArea(12, 16, 76, 80);
+        var wantedActions = new OccupiedArea(12, -120, 76, 4);
+
+        var result = GlassButtonPlacement.ResolveLane(wantedSearch, wantedActions, hasBack: true, hasOverflow: true, safe, bar, [bar]);
+
+        Assert.Equal(GlassLaneMode.OneTarget, result.Mode);
+        Assert.NotNull(result.ActionsFrame);
+        Assert.Equal(44, result.ActionsFrame.Value.Bottom - result.ActionsFrame.Value.Top);
+    }
+
+    [Fact]
+    public void ResolveLane_returns_zero_targets_when_no_44pt_button_fits()
+    {
+        // Only 30pt free above bar: even one 44pt target cannot fit.
+        var safe = new OccupiedArea(0, 24, 678, 466);
+        var bar = new OccupiedArea(12, 66, 76, 440);
+        var wantedSearch = new OccupiedArea(12, -10, 76, 54);
+        var wantedActions = new OccupiedArea(12, -150, 76, -22);
+
+        var result = GlassButtonPlacement.ResolveLane(wantedSearch, wantedActions, hasBack: true, hasOverflow: true, safe, bar, [bar]);
+
+        Assert.Equal(GlassLaneMode.ZeroTargets, result.Mode);
+        Assert.Null(result.ActionsFrame);
+    }
+
+    [Fact]
+    public void ResolveLane_applies_8pt_hysteresis_before_stepping_up_and_respects_large_dynamic_type_target()
+    {
+        var safe = new OccupiedArea(0, 24, 678, 466);
+        // 56pt lane above bar (24..80); obstacle at top down to 32 leaves 48pt (fits 44pt with 0 gap, NOT with 8pt hysteresis).
+        var bar = new OccupiedArea(12, 92, 76, 440);
+        OccupiedArea[] obstacles = [new(0, 0, 100, 32), bar];
+        var wanted = new OccupiedArea(12, 32, 76, 160);
+
+        var fromZero = GlassButtonPlacement.ResolveLane(new(0, 0, 0, 0), wanted, hasBack: true, hasOverflow: false, safe, bar, obstacles, previousMode: GlassLaneMode.ZeroTargets);
+        Assert.Equal(GlassLaneMode.ZeroTargets, fromZero.Mode);
+
+        // At maximum Dynamic Type (e.g. 56pt minimum target), 48pt free space also yields ZeroTargets.
+        var largeText = GlassButtonPlacement.ResolveLane(new(0, 0, 0, 0), wanted, hasBack: true, hasOverflow: false, safe, bar, obstacles, previousMode: GlassLaneMode.Expanded, minTarget: 56);
+        Assert.Equal(GlassLaneMode.ZeroTargets, largeText.Mode);
+    }
 }

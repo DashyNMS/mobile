@@ -171,7 +171,7 @@
                 <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Style="{StaticResource Faint}" FontSize="12" Text="Drag it on the map to move it." VerticalOptions="Center" />
                     <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="{Binding ConnectionsText}"
-                            Command="{Binding ToggleSelectionExpandedCommand}" HeightRequest="32" MinimumHeightRequest="32" />
+                            Command="{Binding ToggleSelectionExpandedCommand}" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}" MinimumWidthRequest="{OnPlatform iOS=44, Default=0}" />
                 </Grid>
                 <!-- The connections fill what's left of the card, scrolling. -->
                 <Grid Grid.Row="2" RowDefinitions="Auto,*" RowSpacing="4" IsVisible="{Binding IsSelectionExpanded}">

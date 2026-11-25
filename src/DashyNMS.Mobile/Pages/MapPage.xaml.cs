@@ -7,13 +7,16 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.Map"/>, from a pinned tab or More.</summary>
-public partial class MapPage : ContentPage
+public partial class MapPage : ContentPage, IActivePage
 {
 	private readonly MapViewModel _viewModel;
 	private bool _loaded;
 	private IDisposable? _edges;
     private bool _visible;
     private bool? _chooserShown;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
     private long _transition;
     private bool _placing;
     private bool _pendingSelection;
@@ -33,6 +36,7 @@ public partial class MapPage : ContentPage
             PinMapViewport();
 #endif
             PlaceControls();
+            Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(150), PlaceControls);
             if (_replaySelectionAfterNavigation)
             {
                 _replaySelectionAfterNavigation = false;
@@ -41,15 +45,6 @@ public partial class MapPage : ContentPage
             }
             else SyncSelection();
         };
-        Header.RowDefinitions[0].Height = GridLength.Auto;
-        // Keep the shared top line without stretching the title itself, which
-        // can move to row one when this page is pushed.
-        Header.Add(new BoxView
-        {
-            MinimumHeightRequest = TopBar.Height,
-            Opacity = 0,
-            InputTransparent = true,
-        }, 0, 0);
         Canvas.SizeChanged += (_, _) => PlaceControls();
         _viewModel.RefreshCommand.CanExecuteChanged += (_, _) => Dispatcher.Dispatch(UpdateActions);
         Header.SizeChanged += (_, _) => PlaceControls();
@@ -99,6 +94,18 @@ public partial class MapPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+		Activate();
+        if (_pendingSelection) ApplySelection();
+		if (!_loaded)
+		{
+			_loaded = true;
+			_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+			_viewModel.RefreshCommand.Execute(null);
+		}
+	}
+
+	public void Activate()
+	{
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
         _visible = true;
@@ -109,13 +116,6 @@ public partial class MapPage : ContentPage
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-        if (_pendingSelection) ApplySelection();
-		if (!_loaded)
-		{
-			_loaded = true;
-			_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
-			_viewModel.RefreshCommand.Execute(null);
-		}
 	}
 
     protected override void OnDisappearing()
@@ -233,15 +233,29 @@ public partial class MapPage : ContentPage
     {
         LocationsButton.IsEnabled = _viewModel.CanChooseLocation;
 #if IOS
-        if (!_visible || _chooserShown == _viewModel.CanChooseLocation) return;
+        if (!_visible) return;
+        var pageActionCount = _viewModel.CanChooseLocation ? 2 : 1;
+        var place = Header.ResolveActionPlacement(this, pageActionCount);
+        if (_chooserShown == _viewModel.CanChooseLocation && _actionPlace == place) return;
         _chooserShown = _viewModel.CanChooseLocation;
-        List<GlassAction> actions = [];
+        _actionPlace = place;
+        List<GlassAction> bar = [];
         if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        List<GlassAction> pageActions = [];
         if (_viewModel.CanChooseLocation)
-            actions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
-        actions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
-        TabBarButtons.Show(this, null, string.Empty, actions);
+            pageActions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
+        pageActions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
+        if (place == PageActionPlace.HeaderGlass)
+        {
+            Header.SetHeaderGlass(pageActions);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.AddRange(pageActions);
+        }
+        TabBarButtons.Show(this, null, string.Empty, bar);
 #endif
     }
 
@@ -249,7 +263,28 @@ public partial class MapPage : ContentPage
     private void UpdateMapClearance(Thickness clear, double foot)
     {
         if (!_loaded || Header.Height <= 0) return;
-        var top = Math.Max(0, Header.Height + Status.Height + 20);
+        double top;
+#if IOS
+        if (MapView.Handler?.PlatformView is WebKit.WKWebView web && web.Window is not null)
+        {
+            // MapView lives inside Canvas, which already respects the top safe area;
+            // measure Header and Status directly in web's coordinates without double-counting safe area.
+            double measuredTop = 0;
+            if (Header.Handler?.PlatformView is UIKit.UIView headerView && headerView.Window is not null)
+                measuredTop = Math.Max(measuredTop, headerView.ConvertRectToView(headerView.Bounds, web).Bottom);
+            if (Status.IsVisible && Status.Height > 0 && Status.Handler?.PlatformView is UIKit.UIView statusView && statusView.Window is not null)
+                measuredTop = Math.Max(measuredTop, statusView.ConvertRectToView(statusView.Bounds, web).Bottom);
+            if (measuredTop <= 0)
+                measuredTop = Header.Height + (Status.IsVisible ? Status.Height : 0);
+            top = Math.Max(0, measuredTop + 12);
+        }
+        else
+        {
+            top = Math.Max(0, Header.Height + (Status.IsVisible ? Status.Height : 0) + 12);
+        }
+#else
+        top = Math.Max(0, Header.Height + (Status.IsVisible ? Status.Height : 0) + 12);
+#endif
         var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }
             .Select(n => Math.Max(0, n).ToString(CultureInfo.InvariantCulture)));
@@ -257,12 +292,31 @@ public partial class MapPage : ContentPage
     }
 
     // Serialise bridge updates so empty selection precedes the closing clearance.
-    private void QueueScript(string script) => _mapScript = EvaluateAfterAsync(_mapScript, script);
+    private void QueueScript(string script)
+    {
+        _mapScript = EvaluateAfterAsync(_mapScript, script);
+    }
 
     private async Task EvaluateAfterAsync(Task previous, string script)
     {
-        await previous;
-        try { await MapView.EvaluateJavaScriptAsync(script); }
+        try { await previous.WaitAsync(TimeSpan.FromSeconds(2)); }
+        catch (Exception) { /* Never let a stale script block subsequent map updates. */ }
+        try
+        {
+#if IOS
+            // Call WKWebView directly on iOS so MAUI's EvaluateJavaScriptAsync wrapper
+            // cannot trip over the page's strict nonce-only Content-Security-Policy.
+            if (MapView.Handler?.PlatformView is WebKit.WKWebView web)
+            {
+                var done = new TaskCompletionSource<object?>();
+                MainThread.BeginInvokeOnMainThread(() =>
+                    web.EvaluateJavaScript(new Foundation.NSString(script), (result, _) => done.TrySetResult(result)));
+                await done.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                return;
+            }
+#endif
+            await MapView.EvaluateJavaScriptAsync(script).WaitAsync(TimeSpan.FromSeconds(2));
+        }
         catch (Exception) { /* Navigated reapplies state after document replacement. */ }
     }
 
@@ -272,7 +326,11 @@ public partial class MapPage : ContentPage
     private void PinMapViewport()
     {
         if (MapView.Handler?.PlatformView is not WebKit.WKWebView web) return;
+        // Non-opaque over the themed page background so Dark mode never flashes white while loading.
+        web.Opaque = false;
+        web.BackgroundColor = UIKit.UIColor.Clear;
         var scroll = web.ScrollView;
+        scroll.BackgroundColor = UIKit.UIColor.Clear;
         scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
         scroll.ContentInset = UIKit.UIEdgeInsets.Zero;
         scroll.ScrollIndicatorInsets = UIKit.UIEdgeInsets.Zero;
@@ -317,9 +375,11 @@ public partial class MapPage : ContentPage
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{
 			// A selection sent to the replaced document must be replayed after load.
+            _mapScript = Task.CompletedTask;
             _replaySelectionAfterNavigation = true;
 			// Loaded as the website's address, so tile requests carry a Referer (#164).
 			MapView.Source = _viewModel.MapPage is { } html ? new HtmlWebViewSource { Html = html, BaseUrl = MapHtml.BaseUrl.AbsoluteUri } : null;
+			Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(350), PlaceControls);
 		}
 	}
 

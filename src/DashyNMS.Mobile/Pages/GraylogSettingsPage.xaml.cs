@@ -6,16 +6,20 @@ using DashyNMS.Mobile.Services;
 namespace DashyNMS.Mobile.Pages;
 
 /// <summary>Shown via <see cref="Routes.GraylogSettings"/>, from Settings or an unset-up Graylog page.</summary>
-public partial class GraylogSettingsPage : ContentPage
+public partial class GraylogSettingsPage : ContentPage, IActivePage
 {
 	private readonly GraylogSettingsViewModel _viewModel;
+	private readonly SetupPageLayout _placement;
 
 	public GraylogSettingsPage(GraylogSettingsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, Form);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, Form) { FullHeight = true };
 	}
+
+	public void Activate() => _placement.Activate();
 
 	protected override void OnAppearing()
 	{

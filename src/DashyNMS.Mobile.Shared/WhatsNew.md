@@ -21,6 +21,7 @@
 - **Slow sensor lists.** The last readings stay on screen, with their time, while LibreNMS answers. {health}
 - **Graylog.** Messages from a short host name link to their device. {graylog}
 - **About.** Lists the app, Core and sensor definition versions. Share diagnostics carries them for a bug report. {settings}
+- **iPhone layout.** Lists, device details and settings scroll full height behind the Liquid Glass tab bar and fixed actions, with consistent button placement across portrait, landscape and foldable displays, clearer contrast and VoiceOver labels, and row access to Ask Intelligence via swipe, touch-and-hold and VoiceOver. {dashboard}
 
 ## Fixed
 - **MAC addresses on LibreNMS 26.11.** A device's MAC table shows each address's VLAN number again, for newer servers and older ones. {devices}
@@ -30,3 +31,4 @@
 - **Edit dashboard.** Set up opens Spotlight for log cards. The introduction stays clear of the heading fade, and Add a card scrolls above Undo. {dashboard}
 - **Devices with no ports.** Show the devices that see them, rather than an error. {neighbours}
 - **Missing readings.** A sensor with no reading shows a dash and no colour. {health}
+- **Health totals and maps.** Health preserves dBm casing and lists sensors without limits separately in its summary; the map opens in the active theme with zoom controls clear of the header. {health}

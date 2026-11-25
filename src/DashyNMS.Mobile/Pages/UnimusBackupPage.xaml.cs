@@ -19,7 +19,7 @@ public partial class UnimusBackupPage : ContentPage, IQueryAttributable, ISearch
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot);
+		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot, footFade: BottomFade) { FullHeight = true };
         _search = new ButtonSearch(SearchSlot, SearchBox, SearchEntry, Rows);
         SearchButton.Command = new Command(OpenSearch);
 #if IOS
