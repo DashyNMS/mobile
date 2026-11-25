@@ -18,6 +18,7 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
     private HelpArticleView? _detail;
     private IDisposable? _edges;
     private bool _active;
+    private long _readsAtOpen = -1;
 #if IOS
     private LiveKeyboardBounds? _keyboard;
 #endif
@@ -30,7 +31,7 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         SearchButton.Command = new Command(OpenSearch);
         viewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(HelpViewModel.ResultsText) && _active && viewModel.IsSearching)
+            if (e.PropertyName == nameof(HelpViewModel.Rows) && _active && viewModel.IsSearching)
             {
                 SemanticScreenReader.Default.Announce(viewModel.ResultsText);
             }
@@ -102,10 +103,11 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
             return;
         }
 
-        // A page read on its own since: the pane follows it.
-        if (Handler?.MauiContext?.Services.GetService<HelpHistory>()?.LastRead is { } read && read != _detail?.ViewModel.Topic && _detail is not null)
+        // A page read on its own since this Help opened: the pane follows it.
+        var history = Handler?.MauiContext?.Services.GetService<HelpHistory>();
+        if (history is { LastRead: { } read } && history.Reads > _readsAtOpen && read != _detail?.ViewModel.Topic)
         {
-            if (_detail.ViewModel.Topic is { } current)
+            if (_detail?.ViewModel.Topic is { } current)
             {
                 _earlier.Push(current);
             }
@@ -130,6 +132,11 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        if (_readsAtOpen < 0)
+        {
+            _readsAtOpen = Handler?.MauiContext?.Services.GetService<HelpHistory>()?.Reads ?? 0;
+        }
+
         Activate();
         _viewModel.Appearing();
         _detail?.ViewModel.Appearing();
@@ -204,7 +211,7 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         SearchField.Margin = new Thickness(left, 2, right, 0);
         var (footer, fade) = HelpGlass.Foot(this, clear);
 #if IOS
-        // A docked keyboard covers the foot itself, so the list stops above it instead.
+        // A docked keyboard covers the foot itself, so the list and the page beside it stop above it instead.
         var keyboard = Body.Handler?.PlatformView is UIKit.UIView host
             ? SectionListPlacement.KeyboardViewportMargin(host.Bounds.Height, _keyboard?.TopIn(host)) : 0;
         ListCard.Margin = new Thickness(left, 0, right, keyboard);
@@ -215,7 +222,11 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
 #endif
         if (Split.IsSplit)
         {
+#if IOS
+            _detail?.PlaceContent(new Thickness(0, 0, clear.Right, 0), keyboard > 0 ? SectionListPlacement.FooterGap : footer, keyboard > 0 ? 0 : fade, keyboard);
+#else
             _detail?.PlaceContent(new Thickness(0, 0, clear.Right, 0), footer, fade);
+#endif
         }
     }
 

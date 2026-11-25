@@ -13,6 +13,7 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
 {
     private readonly PageHeader _header = new() { Title = "Help", Margin = new Thickness(16, 0) };
     private readonly HelpArticleView _view;
+    private readonly bool _headerScrolls;
     private IDisposable? _edges;
     private bool _showing;
 
@@ -20,10 +21,21 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
     {
         BindingContext = viewModel;
         Title = "Help";
-        _header.Margin = default;
-        _view = new HelpArticleView(viewModel, showsTitle: false, _header);
-        var root = new Grid { Children = { _view } };
+        // With glass Back, the title scrolls away with the text. Without it, Back is in the
+        // header, which then stays put so Back can always be reached.
+#if IOS
+        var scrolls = HelpGlass.Available;
+#else
+        var scrolls = false;
+#endif
+        _headerScrolls = scrolls;
+        if (scrolls) _header.Margin = default;
+        _view = new HelpArticleView(viewModel, showsTitle: false, scrolls ? _header : null);
+        var root = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
+        if (!scrolls) root.Add(_header, 0, 0);
+        root.Add(_view, 0, 1);
         Content = root;
+        SizeChanged += (_, _) => Place();
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         root.SafeAreaEdges = SafeAreaEdges.None;
@@ -87,6 +99,7 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
     {
         if (!_showing || !ActivePage.IsCurrent(this)) return;
         var clear = CoveredEdges.ForScrolling(this);
+        if (!_headerScrolls) _header.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         var (footer, fade) = HelpGlass.Foot(this, clear);
         _view.PlaceContent(new Thickness(clear.Left, 0, clear.Right, 0), footer, fade);
     }

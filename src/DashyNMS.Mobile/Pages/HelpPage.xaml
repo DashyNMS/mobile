@@ -55,6 +55,8 @@
                             <Label Text="No matches" FontFamily="BodySemibold" HorizontalTextAlignment="Center" IsVisible="{Binding ShowNoResults}" />
                             <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center" IsVisible="{Binding ShowNoResults}"
                                    Text="Try fewer words, or clear the search to see every page." />
+                            <Button Style="{StaticResource LinkButton}" Text="Clear search" MinimumHeightRequest="44" HorizontalOptions="Center"
+                                    IsVisible="{Binding ShowNoResults}" Command="{Binding ClearSearchCommand}" />
                         </VerticalStackLayout>
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>

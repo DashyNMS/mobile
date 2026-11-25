@@ -46,8 +46,6 @@ public sealed partial class HelpViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsSearching))]
-    [NotifyPropertyChangedFor(nameof(ResultsText))]
-    [NotifyPropertyChangedFor(nameof(ShowNoResults))]
     private string _searchText = string.Empty;
 
     public HelpViewModel(HelpGuideService guides, INavigationService navigation, IHelpRefreshPolicy policy)
@@ -69,14 +67,19 @@ public sealed partial class HelpViewModel : ViewModelBase
     public bool ShowNoResults => IsSearching && Rows.Count == 0;
 
     /// <summary>Beneath the title while searching, and announced as it changes.</summary>
-    public string ResultsText => !IsSearching ? string.Empty : Rows.Count switch
-    {
-        0 => $"Nothing in the guide matches “{SearchText.Trim()}”.",
-        1 => $"1 match for “{SearchText.Trim()}”",
-        var count => $"{count} matches for “{SearchText.Trim()}”",
-    };
+    public string ResultsText => !IsSearching ? string.Empty : _capped
+        ? $"The first {MaxResults} matches for “{SearchText.Trim()}”. Add words to narrow it."
+        : Rows.Count switch
+        {
+            0 => $"Nothing in the guide matches “{SearchText.Trim()}”.",
+            1 => $"1 match for “{SearchText.Trim()}”",
+            var count => $"{count} matches for “{SearchText.Trim()}”",
+        };
 
-    /// <summary>Which version the help describes, and when it was last refreshed if it has been.</summary>
+    /// <summary>The search found more than it shows.</summary>
+    private bool _capped;
+
+    /// <summary>Which version the help describes, and when it was last refreshed if it has been, at the foot of the contents.</summary>
     public string ReleaseText
     {
         get
@@ -145,6 +148,7 @@ public sealed partial class HelpViewModel : ViewModelBase
     private void Show()
     {
         var guide = _guides.Current;
+        _capped = false;
         Rows = IsSearching ? Results(guide) : Contents(guide);
         MarkCurrent();
         OnPropertyChanged(nameof(Rows));
@@ -158,7 +162,15 @@ public sealed partial class HelpViewModel : ViewModelBase
         .SelectMany(group => group.Entries.Select((entry, index) => new HelpRow(new HelpTopic(entry.PageId), entry.Title, group: index == 0 ? group.Name : null, hasLine: index > 0)))
         .ToList();
 
-    private List<HelpRow> Results(HelpGuide guide) => guide.Search(SearchText, MaxResults)
+    private List<HelpRow> Results(HelpGuide guide)
+    {
+        // One more than is shown, to tell a full page from a capped one.
+        var found = guide.Search(SearchText, MaxResults + 1);
+        _capped = found.Count > MaxResults;
+        return ResultRows(found.Take(MaxResults));
+    }
+
+    private static List<HelpRow> ResultRows(IEnumerable<HelpSearchResult> found) => found
         .Select((result, index) => new HelpRow(
             new HelpTopic(result.Page.Id, result.Heading?.Anchor),
             result.Page.Title,

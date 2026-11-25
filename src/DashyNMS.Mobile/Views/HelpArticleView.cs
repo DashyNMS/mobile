@@ -48,6 +48,7 @@ public sealed class HelpArticleView : ContentView
             Background = TopFade(),
         };
         AutomationProperties.SetIsInAccessibleTree(_fade, false);
+        _fade.IsVisible = !HasHeader;
         BottomFade = new FootFade();
         Content = new Grid { SafeAreaEdges = SafeAreaEdges.None, Children = { _scroller, _fade, BottomFade } };
 #if IOS
@@ -59,10 +60,16 @@ public sealed class HelpArticleView : ContentView
         viewModel.Shown += OnShown;
 
         // Hidden beside a narrowed list and shown again, a scroll view starts at the top: put it back where it was read to.
-        _scroller.Scrolled += (_, e) => { if (!_restoring && _scroller.Height > 0) _readTo = e.ScrollY; };
+        _scroller.Scrolled += (_, e) =>
+        {
+            if (!_restoring && _scroller.Height > 0) _readTo = e.ScrollY;
+
+            // With a header in the column, the fade only shows once the header has moved under it.
+            if (HasHeader) _fade.IsVisible = e.ScrollY > 0;
+        };
         _scroller.SizeChanged += async (_, _) =>
         {
-            if (_scroller.Height <= 0 || _readTo <= 0 || Math.Abs(_scroller.ScrollY - _readTo) < 1) return;
+            if (_restoring || _scroller.Height <= 0 || _readTo <= 0 || Math.Abs(_scroller.ScrollY - _readTo) < 1) return;
             _restoring = true;
             try { await _scroller.ScrollToAsync(0, _readTo, false); }
             catch (Exception) { }
@@ -75,8 +82,10 @@ public sealed class HelpArticleView : ContentView
     public HelpArticleViewModel ViewModel { get; }
 
     /// <summary>The scrolling body's own distance from the pane's edges, and what its last line clears.</summary>
-    public void PlaceContent(Thickness clear, double footer, double footFade)
+    /// <param name="keyboard">How much of the pane a docked keyboard covers; the text stops above it.</param>
+    public void PlaceContent(Thickness clear, double footer, double footFade, double keyboard = 0)
     {
+        _scroller.Margin = new Thickness(0, 0, 0, keyboard);
         // A header in the column sits on the top line, as on Licences; the fade only matters once it's scrolled away.
         _column.Padding = new Thickness(16 + clear.Left, HasHeader ? 0 : 20, 16 + clear.Right, footer);
         _fade.Margin = new Thickness(clear.Left, 0, clear.Right, 0);

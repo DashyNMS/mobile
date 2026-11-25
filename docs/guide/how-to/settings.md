@@ -32,7 +32,7 @@ These give state sensors names and colours, such as **Ready** or **Fan failed**.
 
 ## Help
 
-**Help** is this guide, kept in the app so it works with no signal. The line under the title says which version it describes. Tap the magnifier to search it. Other pages link to the part that explains them, such as **Help with alerts** on **Alerts**.
+**Help** is this guide, kept in the app so it works with no signal. The line at the foot of the contents says which version it describes. Tap the magnifier to search it. Other pages link to the part that explains them, such as **Help with alerts** on **Alerts**.
 
 ## Diagnostics
 

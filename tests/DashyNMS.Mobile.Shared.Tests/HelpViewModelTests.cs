@@ -162,6 +162,18 @@ public sealed class HelpViewModelTests : IDisposable
     }
 
     [Fact]
+    public void A_search_with_more_matches_than_it_shows_says_so()
+    {
+        using var guides = new HelpGuideService(HelpProduct.Mobile, null, new HelpFileSet(Enumerable.Range(1, 30)
+            .Select(i => new KeyValuePair<string, byte[]>($"docs/guide/page-{i}.md", Encoding.UTF8.GetBytes($"# Page {i}\n\nThe gizmo, again.")))
+            .Append(new KeyValuePair<string, byte[]>("docs/guide/README.md", Encoding.UTF8.GetBytes("# Guide")))));
+        var help = new HelpViewModel(guides, _navigation, new Policy(false)) { SearchText = "gizmo" };
+
+        Assert.Equal(20, help.Rows.Count);
+        Assert.Equal("The first 20 matches for “gizmo”. Add words to narrow it.", help.ResultsText);
+    }
+
+    [Fact]
     public void The_bundled_guide_is_whole()
     {
         var guide = HelpGuide.Load(HelpProduct.Mobile, HelpRelease.ForVersion("2.0.0"), BundledHelp.Files);

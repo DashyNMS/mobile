@@ -68,10 +68,25 @@ public sealed partial class HelpArticleViewModel : ViewModelBase
         _attached = true;
         _guides.Changed += OnGuideChanged;
 
+        // Opened straight from another page, before Help's contents: a copy saved
+        // earlier is read from disk all the same. Nothing is requested.
+        _ = InitialiseAsync();
+
         // It may have changed while this page was under another.
         if (!ReferenceEquals(_guide, _guides.Current))
         {
             Show(isNewText: true);
+        }
+    }
+
+    private async Task InitialiseAsync()
+    {
+        try
+        {
+            await _guides.InitialiseAsync();
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 

@@ -153,8 +153,8 @@ public sealed class HelpBlocksView : VerticalStackLayout
     }
 
     /// <summary>
-    /// Each item is one element to VoiceOver, numbered as it reads. A bullet is
-    /// a drawn dot rather than text, which UIKit would read out on its own.
+    /// Each item is one element to VoiceOver, numbered as it reads; the marker
+    /// itself is hidden from it.
     /// </summary>
     private View List(HelpListBlock list, Queue<HelpHeading> anchors)
     {
@@ -290,7 +290,7 @@ public sealed class HelpBlocksView : VerticalStackLayout
         if (ResolveImage?.Invoke(image.Target) is { } found
             && System.IO.Path.GetExtension(found.Path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".gif")
         {
-            var content = ResolveImage(image.Target)!.Content;
+            var content = found.Content;
             var picture = new Image { Source = ImageSource.FromStream(() => new MemoryStream(content)), Aspect = Aspect.AspectFit };
             SemanticProperties.SetDescription(picture, image.AltText);
             return new Border { Style = Resource<Style>("Card"), Padding = 0, Content = picture };
