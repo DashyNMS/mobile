@@ -23,9 +23,10 @@ on:
 permissions:
   contents: read
 
+# A pull request's check can't take a publish's place in the queue.
 concurrency:
-  group: wiki
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('wiki-check-{0}', github.event.pull_request.number) || 'wiki' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
