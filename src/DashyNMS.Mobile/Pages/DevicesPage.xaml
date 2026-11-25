@@ -6,6 +6,7 @@
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     xmlns:cfg="clr-namespace:DesktopNMS.Core.Configuration;assembly=DesktopNMS.Core"
+    xmlns:models="clr-namespace:DesktopNMS.Core.Models;assembly=DesktopNMS.Core"
     x:DataType="vm:DevicesViewModel"
     SafeAreaEdges="Container"
     Title="Devices">
@@ -175,7 +176,19 @@
                                     </VerticalStackLayout>
                                     <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
                                         <Label Text="{Binding StateText}" HorizontalOptions="End" FontFamily="BodySemibold" FontSize="13"
-                                               TextColor="{Binding State, Converter={StaticResource StatusText}}" />
+                                               TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding State}" Value="{x:Static models:DeviceState.Up}">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding State}" Value="{x:Static models:DeviceState.Down}">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding State}" Value="{x:Static models:DeviceState.Maintenance}">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
                                         <Label Style="{StaticResource Faint}" Text="{Binding UptimeText}" HorizontalOptions="End" />
                                     </VerticalStackLayout>
                                     <!-- The pin (#105): filled when pinned, outlined when not; a tap pins or unpins,

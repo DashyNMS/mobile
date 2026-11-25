@@ -190,9 +190,10 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
         };
         var searchField = new SearchField { Input = _searchEntry };
 
+        var hint = dismissOnPick ? "Tap a choice to apply it." : "Selections apply immediately.";
         string CountText(int shown) => shown == choices.Count
-            ? $"{choices.Count} {noun}"
-            : $"Showing {shown} of {choices.Count} {noun}";
+            ? $"{choices.Count} {noun} · {hint}"
+            : $"Showing {shown} of {choices.Count} {noun} · {hint}";
 
         _status = new Label
         {
@@ -242,12 +243,10 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
     {
         var row = new Grid
         {
-            RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
             MinimumHeightRequest = 56,
         };
 
-        var line = new BoxView { Style = ResourceStyle("Divider") };
-        row.Add(line, 0, 0);
+        var line = new BoxView { Style = ResourceStyle("Divider"), VerticalOptions = LayoutOptions.Start, InputTransparent = true };
 
         var button = new Button
         {
@@ -377,8 +376,9 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             }
         };
 
-        row.Add(button, 0, 1);
-        row.Add(content, 0, 1);
+        row.Add(button);
+        row.Add(content);
+        row.Add(line);
         return row;
     }
 

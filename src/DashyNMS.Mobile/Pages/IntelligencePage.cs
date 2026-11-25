@@ -302,7 +302,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         foreach (var starter in _conversation.StarterQuestions)
         {
             var revision = _conversation.ChatRevision;
-            var button = new ChatActionButton { Text = "✦  " + starter, MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
+            var button = new ChatActionButton { Text = "", MinimumHeightRequest = 48, CornerRadius = 22, BorderWidth = 1 };
             button.SetAppThemeColor(Button.BorderColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
             SemanticProperties.SetDescription(button, starter);
             button.Clicked += async (_, _) =>
@@ -312,7 +312,41 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
                 await _conversation.AskStarterAsync(starter, revision);
                 Flush();
             };
-            _starters.Children.Add(button);
+            var star = new Label
+            {
+                Text = "✦",
+                FontSize = 14,
+                VerticalOptions = LayoutOptions.Center,
+                InputTransparent = true,
+            };
+            star.SetAppThemeColor(Label.TextColorProperty, ThemeColour("PrimaryTextLight"), ThemeColour("PrimaryTextDark"));
+            AutomationProperties.SetIsInAccessibleTree(star, false);
+            var prompt = new Label
+            {
+                Text = starter,
+                FontFamily = "BodyMedium",
+                FontSize = 15,
+                LineBreakMode = LineBreakMode.WordWrap,
+                HorizontalTextAlignment = TextAlignment.Start,
+                VerticalOptions = LayoutOptions.Center,
+                InputTransparent = true,
+            };
+            prompt.SetAppThemeColor(Label.TextColorProperty, ThemeColour("TextLight"), ThemeColour("TextDark"));
+            AutomationProperties.SetIsInAccessibleTree(prompt, false);
+            var labelRow = new Grid
+            {
+                ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)],
+                ColumnSpacing = 10,
+                Padding = new Thickness(16, 12),
+                InputTransparent = true,
+                SafeAreaEdges = SafeAreaEdges.None,
+            };
+            labelRow.Add(star, 0, 0);
+            labelRow.Add(prompt, 1, 0);
+            var host = new Grid { SafeAreaEdges = SafeAreaEdges.None };
+            host.Children.Add(button);
+            host.Children.Add(labelRow);
+            _starters.Children.Add(host);
         }
         _starters.IsVisible = _conversation.Turns.Count == 0;
     }

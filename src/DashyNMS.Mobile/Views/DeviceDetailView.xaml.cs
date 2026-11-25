@@ -59,7 +59,8 @@ public partial class DeviceDetailView : ContentView
 			Column.Padding = padding;
 		}
 #if IOS
-		BottomFade.SetCoveredHeight(clear.Bottom);
+		var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+		BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
 #endif
 	}
 

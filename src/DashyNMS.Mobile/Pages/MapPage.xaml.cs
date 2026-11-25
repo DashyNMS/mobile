@@ -21,7 +21,6 @@ public partial class MapPage : ContentPage, IActivePage
     private bool _placing;
     private bool _pendingSelection;
     private bool _replaySelectionAfterNavigation;
-    private bool _mapReady;
     private Task _mapScript = Task.CompletedTask;
 
 	public MapPage(MapViewModel viewModel)
@@ -33,7 +32,6 @@ public partial class MapPage : ContentPage, IActivePage
 		LocationsButton.Command = _viewModel.ChooseLocationCommand;
         MapView.Navigated += (_, _) =>
         {
-            _mapReady = true;
 #if IOS
             PinMapViewport();
 #endif
@@ -264,7 +262,7 @@ public partial class MapPage : ContentPage, IActivePage
     // Keep controls and the selected camera target inside the uncovered canvas.
     private void UpdateMapClearance(Thickness clear, double foot)
     {
-        if (!_loaded || !_mapReady || Header.Height <= 0) return;
+        if (!_loaded || Header.Height <= 0) return;
         double top;
 #if IOS
         if (MapView.Handler?.PlatformView is WebKit.WKWebView web && web.Window is not null)
@@ -296,7 +294,6 @@ public partial class MapPage : ContentPage, IActivePage
     // Serialise bridge updates so empty selection precedes the closing clearance.
     private void QueueScript(string script)
     {
-        if (!_mapReady) return;
         _mapScript = EvaluateAfterAsync(_mapScript, script);
     }
 
@@ -304,7 +301,22 @@ public partial class MapPage : ContentPage, IActivePage
     {
         try { await previous.WaitAsync(TimeSpan.FromSeconds(2)); }
         catch (Exception) { /* Never let a stale script block subsequent map updates. */ }
-        try { await MapView.EvaluateJavaScriptAsync(script).WaitAsync(TimeSpan.FromSeconds(2)); }
+        try
+        {
+#if IOS
+            // Call WKWebView directly on iOS so MAUI's EvaluateJavaScriptAsync wrapper
+            // cannot trip over the page's strict nonce-only Content-Security-Policy.
+            if (MapView.Handler?.PlatformView is WebKit.WKWebView web)
+            {
+                var done = new TaskCompletionSource<object?>();
+                MainThread.BeginInvokeOnMainThread(() =>
+                    web.EvaluateJavaScript(new Foundation.NSString(script), (result, _) => done.TrySetResult(result)));
+                await done.Task.WaitAsync(TimeSpan.FromSeconds(2));
+                return;
+            }
+#endif
+            await MapView.EvaluateJavaScriptAsync(script).WaitAsync(TimeSpan.FromSeconds(2));
+        }
         catch (Exception) { /* Navigated reapplies state after document replacement. */ }
     }
 
@@ -363,11 +375,11 @@ public partial class MapPage : ContentPage, IActivePage
 		if (e.PropertyName == nameof(MapViewModel.MapPage))
 		{
 			// A selection sent to the replaced document must be replayed after load.
-            _mapReady = false;
             _mapScript = Task.CompletedTask;
             _replaySelectionAfterNavigation = true;
 			// Loaded as the website's address, so tile requests carry a Referer (#164).
 			MapView.Source = _viewModel.MapPage is { } html ? new HtmlWebViewSource { Html = html, BaseUrl = MapHtml.BaseUrl.AbsoluteUri } : null;
+			Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(350), PlaceControls);
 		}
 	}
 

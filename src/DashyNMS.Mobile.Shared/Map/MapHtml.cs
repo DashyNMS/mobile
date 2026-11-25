@@ -209,7 +209,10 @@ public static class MapHtml
                   zoom.style.visibility = '';
                   var height = zoom.offsetHeight;
                   var room = container.clientHeight - clearance.top - clearance.bottom - 20;
-                  zoom.style.visibility = height > 0 && room >= height ? '' : 'hidden';
+                  var showZoom = height > 0 && room >= height;
+                  zoom.style.visibility = showZoom ? '' : 'hidden';
+                  if (showZoom) { if (zoom.removeAttribute) zoom.removeAttribute('aria-hidden'); }
+                  else if (zoom.setAttribute) zoom.setAttribute('aria-hidden', 'true');
                 }
               }
               function programmatic(action) { moving++; try { action(); } finally { moving--; } }
