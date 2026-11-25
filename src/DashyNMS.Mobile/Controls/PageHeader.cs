@@ -55,15 +55,26 @@ public sealed class PageHeader : Grid
         IsVisible = false,
     };
 
+    private readonly BoxView _topStrut = new()
+    {
+        WidthRequest = 0,
+        HeightRequest = TopBar.Height,
+        Opacity = 0,
+        InputTransparent = true,
+        VerticalOptions = LayoutOptions.Center,
+    };
+
     private EventHandler? _titleTapped;
 
     public PageHeader()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
-        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
+        RowDefinitions = [new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
         Padding = new Thickness(0, TopBar.Offset, 0, 4);
         TopBar.Fit(this);
 
+        AutomationProperties.SetIsInAccessibleTree(_topStrut, false);
+        Add(_topStrut);
         _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
         _back.VerticalOptions = LayoutOptions.Center;
         Add(_back);
@@ -118,7 +129,7 @@ public sealed class PageHeader : Grid
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note);
+        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note && v != _topStrut);
         set
         {
             if (Actions is { } old)
