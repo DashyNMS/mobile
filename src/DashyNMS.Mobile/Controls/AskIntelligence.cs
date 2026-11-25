@@ -109,11 +109,11 @@ public static class AskIntelligence
 #if IOS
                 var hintSuffix = view is SwipeView
                     ? (hasOwnLongPress ? " Swipe or touch and hold for Ask Intelligence." : " Swipe for Ask Intelligence.")
-                    : " Touch and hold to Ask Intelligence.";
+                    : (hasOwnLongPress ? " Touch and hold to Ask Intelligence." : "");
 #else
                 var hintSuffix = view is SwipeView
                     ? " Swipe for Ask Intelligence, or use Ask."
-                    : " Touch and hold to Ask Intelligence.";
+                    : (hasOwnLongPress ? " Touch and hold to Ask Intelligence." : "");
 #endif
                 SemanticProperties.SetHint(view, originalHint + (enabled ? hintSuffix : ""));
             }

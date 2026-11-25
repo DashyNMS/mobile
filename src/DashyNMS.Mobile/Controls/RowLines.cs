@@ -103,9 +103,13 @@ public static class RowLines
         private void Refresh()
         {
             var item = _line.BindingContext;
-            if (item is null || _list?.ItemsSource is null) return;
-            var first = FirstItem(_list.ItemsSource);
-            var isFirst = first is not null && (ReferenceEquals(first, item) || Equals(first, item));
+            if (item is null || _list?.ItemsSource is null)
+            {
+                _line.IsVisible = true;
+                return;
+            }
+            var first = FirstItem(_list.ItemsSource, _list.IsGrouped);
+            var isFirst = first is not null && ReferenceEquals(first, item);
             _line.IsVisible = !isFirst;
         }
 
@@ -120,7 +124,13 @@ public static class RowLines
             return null;
         }
 
-        private static object? FirstItem(IEnumerable source)
+        private static object? FirstItem(IEnumerable source, bool isGrouped)
+        {
+            var first = FirstOf(source);
+            return isGrouped && first is IEnumerable group ? FirstOf(group) : first;
+        }
+
+        private static object? FirstOf(IEnumerable source)
         {
             if (source is IList list) return list.Count > 0 ? list[0] : null;
             var enumerator = source.GetEnumerator();

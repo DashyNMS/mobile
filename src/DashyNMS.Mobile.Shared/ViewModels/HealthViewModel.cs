@@ -160,9 +160,9 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
         ? "No sensors match these filters."
         : $"LibreNMS has no {CategoryNoun(SelectedCategory.Label)} sensors.");
 
-    /// <summary>Preserves unit acronyms like "dBm" while lowercasing ordinary words like "Temperature".</summary>
+    /// <summary>Preserves unit acronyms like "dBm" while lowercasing ordinary category labels.</summary>
     private static string CategoryNoun(string label) =>
-        label.Skip(1).Any(char.IsUpper) ? label : label.ToLowerInvariant();
+        string.Equals(label, "dBm", StringComparison.Ordinal) ? "dBm" : label.ToLowerInvariant();
 
     /// <summary>Kept readings from another page are on screen, so a first load needs no "Loading…" over them.</summary>
     public override bool IsLoadingFirstTime => base.IsLoadingFirstTime && _all.Count == 0;
