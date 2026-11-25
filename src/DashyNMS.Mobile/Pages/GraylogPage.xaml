@@ -18,7 +18,7 @@
         </Style>
     </ContentPage.Resources>
     <!-- On an iPad or a Mac, the message you tap shows beside the list (#88). -->
-    <controls:ListDetail x:Name="Split" SafeAreaEdges="None" Placeholder="Choose a message to see it here.">
+    <controls:ListDetail x:Name="Split" SafeAreaEdges="None" AllowSplit="{Binding IsConfigured}" Placeholder="Choose a message to see it here.">
 
     <!-- As the Event and Alert log page (#483, #517): search, a horizontal strip of
          filter choices, a summary and status in fixed rows, then the messages in one card. -->
