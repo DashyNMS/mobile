@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn the user guide in docs/guide into GitHub wiki pages (#257).
+"""Turn the user guide in docs/guide into GitHub wiki pages (DashyNMS/desktop#257).
 
 The guide is written and reviewed in the repository; the wiki is only where
 people read it. Each guide file becomes a page named after its first heading
