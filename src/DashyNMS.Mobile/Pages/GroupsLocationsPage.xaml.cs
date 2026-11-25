@@ -80,7 +80,24 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
     {
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
+#if IOS
+        var sideBar = false;
+        var obstruction = 12 + clear.Bottom;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
+        {
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+        }
+        ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+#else
         ListFoot.HeightRequest = 12 + clear.Bottom;
+#endif
     }
 
 #if IOS

@@ -91,7 +91,7 @@
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Grid.Row="6" ZIndex="1" IsVisible="False" />
-        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="6" Style="{StaticResource ListCard}" Margin="0,0,0,12">
+        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="6" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="0,0,0,12">
             <Grid SafeAreaEdges="None">
                 <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                     <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Sensors}" SelectionMode="None" x:Name="List">
@@ -138,6 +138,7 @@
                 </BoxView>
             </Grid>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="6" />
 
     </Grid>
 

@@ -80,19 +80,26 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
-        var foot = 12 + clear.Bottom;
-        var spacer = 0.0;
 #if IOS
-        if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill
-            && (pill.Height > pill.Width || pill.Top > page.Bounds.Height / 2))
+        var sideBar = false;
+        var obstruction = 12 + clear.Bottom;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
         {
-            foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
-            if (pill.Height <= pill.Width && clear.Bottom > foot)
-                spacer = clear.Bottom - foot + 8;
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
         }
+        ListCard.Margin = Thickness.Zero;
+        ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+#else
+        ListCard.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
+        ListFoot.HeightRequest = 0;
 #endif
-        ListCard.Margin = new Thickness(0, 0, 0, foot);
-        ListFoot.HeightRequest = spacer;
     }
 
 #if IOS
