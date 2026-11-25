@@ -62,6 +62,7 @@ Open the app, enter your server's address and paste the token. That's it.
 
 ## Help and feedback
 
+- New here? The [user guide](docs/guide/README.md) covers signing in, alerts, devices, notifications and Intelligence.
 - Stuck? The [support page](https://dashynms.pckp.net/mobile/support/) answers the common questions: can't reach the server, self-signed certificates, notifications, empty widgets.
 - Found a bug or have an idea? [Open an issue](https://github.com/DashyNMS/mobile/issues).
 
