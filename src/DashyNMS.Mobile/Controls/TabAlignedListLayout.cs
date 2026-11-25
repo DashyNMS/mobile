@@ -1,3 +1,5 @@
+using DashyNMS.Mobile.Services;
+
 namespace DashyNMS.Mobile.Controls;
 
 /// <summary>Matches the Alerts/Devices card's base to the native tab pill, with covered rows scrollable clear.</summary>
@@ -10,9 +12,18 @@ internal sealed class TabAlignedListLayout
     private readonly View _foot;
     private readonly Action<Thickness> _detail;
     private readonly Action<Thickness>? _gutters;
+    private readonly FootFade? _footFade;
 #endif
 
-    public TabAlignedListLayout(ContentPage page, ListDetail split, Layout column, Border card, CollectionView rows, View foot, Action<Thickness> detail, Action<Thickness>? gutters = null)
+    /// <summary>
+    /// Opt-in iOS full-height mode: when true, the list card runs to the screen base
+    /// (<c>OpenListCard</c>) with footer clearance from <see cref="SectionListPlacement.Resolve"/>
+    /// and an optional <see cref="FootFade"/> where bottom chrome covers the foot.
+    /// Default false so existing pages remain unchanged until opted in.
+    /// </summary>
+    public bool FullHeight { get; set; }
+
+    public TabAlignedListLayout(ContentPage page, ListDetail split, Layout column, Border card, CollectionView rows, View foot, Action<Thickness> detail, Action<Thickness>? gutters = null, FootFade? footFade = null)
     {
 #if IOS
         _page = page;
@@ -21,6 +32,7 @@ internal sealed class TabAlignedListLayout
         _foot = foot;
         _detail = detail;
         _gutters = gutters;
+        _footFade = footFade;
         page.SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         CoveredEdges.Watch(page, Place);
         split.SplitChanged += (_, _) => Place();
@@ -45,6 +57,7 @@ internal sealed class TabAlignedListLayout
         var covered = edges.Bottom + TabBarButtons.CoveredBottom;
         double? listFoot = null;
         var sideBar = false;
+        double? fullHeightObstruction = null;
         if (_page.Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill)
         {
             width = page.Bounds.Width;
@@ -56,6 +69,13 @@ internal sealed class TabAlignedListLayout
             }
             if (sideBar || pill.Top > page.Bounds.Height / 2)
                 listFoot = Math.Max(0, page.Bounds.Height - pill.Bottom);
+            if (FullHeight)
+            {
+                var glass = TabBarButtons.Occupied(page)
+                    .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+                fullHeightObstruction = SetupActionPlacement.BottomGap(page.Bounds.Height, edges.Bottom,
+                    new OccupiedArea(pill.Left, pill.Top, pill.Right, pill.Bottom), glass);
+            }
         }
 
         var columnWidth = _column.Width > 0 ? _column.Width : width;
@@ -63,6 +83,17 @@ internal sealed class TabAlignedListLayout
         // Opted-in pages keep the filter clip full-width and distribute these
         // gutters to fixed slots and the scroller's content instead.
         if (_gutters is null) _column.Padding = gutters;
+        if (FullHeight)
+        {
+            if (_card.Margin != Thickness.Zero) _card.Margin = Thickness.Zero;
+            _gutters?.Invoke(gutters);
+            var obstruction = fullHeightObstruction ?? (12 + covered);
+            var placement = SectionListPlacement.Resolve(obstruction);
+            if (_foot.HeightRequest != placement.Footer) _foot.HeightRequest = placement.Footer;
+            _footFade?.SetCoveredHeight(!sideBar ? covered : 0);
+            _detail(new Thickness(0, 0, right, covered));
+            return;
+        }
         var foot = listFoot ?? 12 + covered;
         _card.Margin = new Thickness(0, 0, 0, foot);
         _gutters?.Invoke(gutters);

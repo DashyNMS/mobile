@@ -66,4 +66,45 @@ public sealed class SectionListPlacementTests
         Assert.Equal(0, placement.Overlay);
         Assert.Equal(SectionListPlacement.FooterGap, placement.Footer);
     }
+
+    [Fact]
+    public void KeyboardViewportMargin_converts_overlapping_keyboard_and_ignores_non_overlapping()
+    {
+        Assert.Equal(312, SectionListPlacement.KeyboardViewportMargin(hostHeight: 650, keyboardTop: 350));
+        Assert.Equal(0, SectionListPlacement.KeyboardViewportMargin(hostHeight: 650, keyboardTop: 650));
+        Assert.Equal(0, SectionListPlacement.KeyboardViewportMargin(hostHeight: 650, keyboardTop: 700));
+        Assert.Equal(0, SectionListPlacement.KeyboardViewportMargin(hostHeight: 650, keyboardTop: null));
+    }
+
+    [Theory]
+    [InlineData(182, null, null, null, 0, 206)]
+    [InlineData(20, null, null, null, 0, 44)]
+    [InlineData(46, null, null, null, 0, 70)]
+    [InlineData(182, null, 300d, null, 0, 494)]
+    [InlineData(182, 312d, null, null, 312, 24)]
+    [InlineData(182, 312d, null, 72d, 312, 96)]
+    [InlineData(182, null, null, 48d, 0, 254)]
+    public void Exact_viewport_and_footer_pairs_match_style_guide_spec(
+        double obstruction,
+        double? keyboardMargin,
+        double? panelHeight,
+        double? actionHeight,
+        double expectedViewport,
+        double expectedFooter)
+    {
+        var placement = SectionListPlacement.Resolve(obstruction, keyboardMargin, panelHeight, actionHeight);
+
+        Assert.Equal(expectedViewport, placement.Viewport);
+        Assert.Equal(expectedFooter, placement.Footer);
+    }
+
+    [Fact]
+    public void Exit_animation_retains_overlay_reservation_until_cleared()
+    {
+        var duringExit = SectionListPlacement.Resolve(182, panelHeight: 120);
+        var afterExit = SectionListPlacement.Resolve(182, panelHeight: null);
+
+        Assert.Equal(314, duringExit.Footer);
+        Assert.Equal(206, afterExit.Footer);
+    }
 }

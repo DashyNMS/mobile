@@ -15,8 +15,16 @@ internal sealed class PushedListLayout
     private readonly CollectionView _rows;
     private readonly View _foot;
     private readonly View? _bottomAction;
+    private readonly FootFade? _footFade;
     private IDisposable? _edges;
     private bool _shown;
+
+    /// <summary>
+    /// Opt-in iOS full-height mode: viewport runs to the screen base (stopping 12pt
+    /// above a docked keyboard), overlaying <c>bottomAction</c> above a <see cref="FootFade"/>.
+    /// Default false so existing pages remain unchanged until opted in.
+    /// </summary>
+    public bool FullHeight { get; set; }
 #if IOS
     private IReadOnlyList<GlassAction> _actions = [];
     private Action? _search;
@@ -24,7 +32,7 @@ internal sealed class PushedListLayout
     private LiveKeyboardBounds? _keyboard;
 #endif
 
-    public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null)
+    public PushedListLayout(ContentPage page, PageHeader header, Layout body, CollectionView rows, View foot, View? bottomAction = null, FootFade? footFade = null)
     {
         _page = page;
         _header = header;
@@ -32,6 +40,7 @@ internal sealed class PushedListLayout
         _rows = rows;
         _foot = foot;
         _bottomAction = bottomAction;
+        _footFade = footFade;
         body.Padding = new Thickness(16, 0, 16, 12);
         if (bottomAction is not null) bottomAction.Margin = new Thickness(0, 8, 0, 0);
 #if IOS
@@ -152,6 +161,28 @@ internal sealed class PushedListLayout
             var keyboardTop = _keyboard?.TopIn(view);
             var actionGap = SetupActionPlacement.BottomGap(height,
                 CoveredEdges.Of(_page).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+            if (FullHeight)
+            {
+                var keyboardMargin = SectionListPlacement.KeyboardViewportMargin(height, keyboardTop);
+                var actionHeight = hasAction && _bottomAction!.Height > 0 ? _bottomAction.Height : hasAction ? 48d : 0d;
+                var placement = SectionListPlacement.Resolve(actionGap, keyboardMargin > 0 ? keyboardMargin : null,
+                    actionHeight: actionHeight > 0 ? actionHeight : null);
+                var fullPadding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, placement.Viewport);
+                if (_body.Padding != fullPadding) _body.Padding = fullPadding;
+                if (_foot.HeightRequest != placement.Footer) _foot.HeightRequest = placement.Footer;
+                var overlayMarginBottom = Math.Max(0, placement.Overlay - placement.Viewport);
+                if (_bottomAction is not null)
+                {
+                    var actionMargin = new Thickness(0, 0, 0, overlayMarginBottom);
+                    if (_bottomAction.Margin != actionMargin) _bottomAction.Margin = actionMargin;
+                }
+                var sidePill = nativePill is { } np && np.Height > np.Width;
+                var bottomChrome = !sidePill && keyboardMargin <= 0
+                    ? CoveredEdges.Of(_page).Bottom + TabBarButtons.CoveredBottom
+                    : 0;
+                _footFade?.SetCoveredHeight(hasAction ? actionHeight + overlayMarginBottom : bottomChrome);
+                return;
+            }
             bottom = actionGap;
             if (!hasAction && nativePill is { } measured && (measured.Height > measured.Width || measured.Top > height / 2))
             {

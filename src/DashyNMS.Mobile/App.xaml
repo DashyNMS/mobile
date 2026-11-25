@@ -93,6 +93,11 @@
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}" />
             </Style>
 
+            <!-- A viewport-hosting list card that runs to the screen base with square bottom corners. -->
+            <Style x:Key="OpenListCard" TargetType="Border" BasedOn="{StaticResource ListCard}">
+                <Setter Property="StrokeShape" Value="RoundRectangle 16,16,0,0" />
+            </Style>
+
             <!-- A row in a ListCard. No PointerOver highlight: on iOS the state
                  stuck on after a tap, so rows stayed lit as if several were
                  selected (#88). -->

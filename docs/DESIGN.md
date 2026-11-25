@@ -496,7 +496,6 @@ This guide merges ahead of the shared helpers below so new features follow the u
 
 | Pending helper or style | Until it lands |
 | --- | --- |
-| `OpenListCard` and opt-in full-height list / `SetupLayout` overlay modes | Keep existing `ListCard`, `TabAlignedListLayout`, `PushedListLayout` and `SetupLayout` `Auto` row |
 | `Shared/Services/PageActionPlacement.cs` | Use `Shared/Intelligence/ChatActionPlacement.cs` |
 | `Controls/ChipStripClearance.cs` | Use `CoveredEdges.Beside` |
 

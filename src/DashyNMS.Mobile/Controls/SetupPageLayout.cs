@@ -53,6 +53,17 @@ internal sealed class SetupPageLayout
     /// </summary>
     internal Action<SetupFoot>? PlaceFoot { get; set; }
 
+    /// <summary>
+    /// Opt-in iOS full-height mode for forms and pickers: the body runs to the
+    /// screen base (stopping 12pt above a docked keyboard), any <see cref="SetupLayout.PrimaryAction"/>
+    /// overlays the body above a <see cref="FootFade"/>, and each scroller gets
+    /// internal footer clearance from <see cref="SectionListPlacement.Resolve"/>.
+    /// Default false so existing pages remain unchanged until opted in.
+    /// </summary>
+    internal bool FullHeight { get; set; }
+
+    private readonly Dictionary<CollectionView, BoxView> _collectionFooters = [];
+
     private void OnAppearing(object? sender, EventArgs e)
     {
         if (_showing) return;
@@ -167,10 +178,70 @@ internal sealed class SetupPageLayout
 #endif
         // The action's Auto row reserves its actual (including large-text) height.
         // With no action this same padding keeps the last result clear of glass.
+#if IOS
+        if (FullHeight || _layout.OverlayPrimaryAction)
+        {
+            ApplyFullHeight(edges, foot);
+            return;
+        }
+#endif
         var padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, PlaceFoot is null ? bottom : 0);
         PlaceFoot?.Invoke(foot with { ColumnLeft = padding.Left, ColumnRight = foot.Width - padding.Right });
         if (_layout.Padding != padding) _layout.Padding = padding;
     }
+
+#if IOS
+    private void ApplyFullHeight(Thickness edges, SetupFoot foot)
+    {
+        var left = 16 + edges.Left;
+        var right = 16 + edges.Right;
+        var hostHeight = foot.Height;
+        var obstruction = SetupActionPlacement.BottomGap(hostHeight, foot.SafeBottom, foot.Pill, foot.Glass);
+        var keyboardMargin = SectionListPlacement.KeyboardViewportMargin(hostHeight, foot.KeyboardTop);
+        var action = _layout.PrimaryAction is { IsVisible: true } primary ? primary : null;
+        var actionHeight = action is not null && action.Height > 0 ? action.Height : action is not null ? 48d : 0d;
+        var placement = SectionListPlacement.Resolve(obstruction, keyboardMargin > 0 ? keyboardMargin : null, actionHeight: actionHeight > 0 ? actionHeight : null);
+
+        var padding = new Thickness(left, 0, right, placement.Viewport);
+        if (_layout.Padding != padding) _layout.Padding = padding;
+
+        var sidePill = foot.Pill is { } p && (p.Bottom - p.Top) > (p.Right - p.Left);
+        var bottomChrome = !sidePill && keyboardMargin <= 0 ? Math.Max(0, foot.SafeBottom) : 0;
+        if (action is not null && _layout.OverlayPrimaryAction)
+        {
+            var actionMargin = new Thickness(0, 0, 0, Math.Max(0, placement.Overlay - placement.Viewport));
+            if (action.Margin != actionMargin) action.Margin = actionMargin;
+        }
+
+        var fade = _layout.EnsureFootFade();
+        fade.Margin = new Thickness(-left, 0, -right, 0);
+        var coveredForFade = action is not null && _layout.OverlayPrimaryAction
+            ? actionHeight + Math.Max(0, placement.Overlay - placement.Viewport)
+            : bottomChrome;
+        fade.SetCoveredHeight(coveredForFade);
+
+        foreach (var scroller in _scrollers)
+        {
+            if (scroller is ScrollView { Content: Layout contentLayout })
+            {
+                var p = contentLayout.Padding;
+                var next = new Thickness(p.Left, p.Top, p.Right, placement.Footer);
+                if (contentLayout.Padding != next) contentLayout.Padding = next;
+            }
+            else if (scroller is CollectionView cv)
+            {
+                if (!_collectionFooters.TryGetValue(cv, out var spacer))
+                {
+                    spacer = new BoxView { Color = Colors.Transparent, InputTransparent = true };
+                    AutomationProperties.SetIsInAccessibleTree(spacer, false);
+                    _collectionFooters[cv] = spacer;
+                    if (cv.Footer is null) cv.Footer = spacer;
+                }
+                if (spacer.HeightRequest != placement.Footer) spacer.HeightRequest = placement.Footer;
+            }
+        }
+    }
+#endif
 
     private static void StopInsets(View scroller)
     {
@@ -200,11 +271,35 @@ internal sealed class SetupPageLayout
     {
         if (!_showing || _layout.Handler?.PlatformView is not UIView view || FindFocus(view) is not { } field) return;
         view.LayoutIfNeeded();
+        var overlayHeight = _layout.OverlayPrimaryAction && _layout.PrimaryAction is { IsVisible: true } primary
+            ? (primary.Height > 0 ? primary.Height : 48d) + primary.Margin.Bottom + 12d
+            : 0d;
         for (var parent = field.Superview; parent is not null; parent = parent.Superview)
         {
             if (parent is not UIScrollView scroll) continue;
             var rect = field.ConvertRectToView(field.Bounds, scroll);
-            scroll.ScrollRectToVisible(rect.Inset(-8, -8), true);
+            if (overlayHeight > 0)
+            {
+                var visibleHeight = Math.Max(44d, (double)scroll.Bounds.Height - overlayHeight);
+                var currentTop = (double)scroll.ContentOffset.Y;
+                var visibleBottom = currentTop + visibleHeight;
+                if ((double)rect.Bottom + 8 > visibleBottom)
+                {
+                    var maxOffset = Math.Max(0, (double)scroll.ContentSize.Height - (double)scroll.Bounds.Height);
+                    var targetY = Math.Min(maxOffset, (double)rect.Bottom + 8 - visibleHeight);
+                    scroll.SetContentOffset(new CGPoint(scroll.ContentOffset.X, (nfloat)Math.Max(0, targetY)), true);
+                    break;
+                }
+                if ((double)rect.Top - 8 < currentTop)
+                {
+                    scroll.SetContentOffset(new CGPoint(scroll.ContentOffset.X, (nfloat)Math.Max(0, (double)rect.Top - 8)), true);
+                    break;
+                }
+            }
+            else
+            {
+                scroll.ScrollRectToVisible(rect.Inset(-8, -8), true);
+            }
             break;
         }
     }
