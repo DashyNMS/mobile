@@ -41,7 +41,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private readonly Button _ask = new() { Text = "", MinimumHeightRequest = 48, MinimumWidthRequest = 48, WidthRequest = 48, HeightRequest = 48, CornerRadius = 24, Padding = 0 };
     // Drawn over the native button, which keeps its semantics and disabled colours.
     private readonly Microsoft.Maui.Controls.Shapes.Path _askIcon = Glyph(SendIcon, 24);
-    private readonly BoxView _fade = new() { InputTransparent = true, VerticalOptions = LayoutOptions.End, HeightRequest = 0 };
+    private readonly FootFade _fade = new();
     private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center };
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IconButton _list = new() { Icon = "M9 6H20 M9 12H20 M9 18H20 M4 6H5 M4 12H5 M4 18H5", Kind = IconButtonKind.Plain };
@@ -174,11 +174,6 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         body.Add(_scroll, 0, 1);
         // Messages passing behind the composer and tab bar fade out rather than
         // running into the composer's edge. Decorative; it never takes touches.
-        var fadeTop = new GradientStop { Offset = 0 };
-        fadeTop.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#00F4F6F9"), Color.FromArgb("#0011141A"));
-        var fadeBottom = new GradientStop { Offset = .45f };
-        fadeBottom.SetAppThemeColor(GradientStop.ColorProperty, Color.FromArgb("#EBF4F6F9"), Color.FromArgb("#EB11141A"));
-        _fade.Background = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1), GradientStops = [fadeTop, fadeBottom] };
         body.Add(_fade, 0, 1);
         // Keep the arrow slot measured when hidden, so following does not change the footer.
         _jump.MinimumHeightRequest = _jump.MinimumWidthRequest = 48;
@@ -368,8 +363,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         // viewport; keep the last message's end inside it rather than above it.
         if (_scroll.Height > 0) reserve = Math.Min(reserve, Math.Max(0, _scroll.Height - 64));
         // From a little above the composer (not the Jump to latest slot) to the screen's base.
-        var fade = Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance) + 24;
-        if (_fade.HeightRequest != fade) _fade.HeightRequest = fade;
+        _fade.SetCoveredHeight(Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance));
         var padding = new Thickness(0, 20, 0, reserve);
         if (_transcript.Padding == padding) return;
         _transcript.Padding = padding;

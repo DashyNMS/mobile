@@ -480,7 +480,7 @@ Reuse these helpers instead of duplicating platform, layout or search code. Upda
 | System reserved regions | `Platforms/iOS/ReservedRegions.cs` (`Occupied`) |
 | Page header and top-line fit | `Controls/PageHeader.cs`, `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Controls/BackBar.cs` (`PreviousTitle`) |
 | Forms and foot placement | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs` (`PlaceFoot`), `Controls/SetupSection.cs`, `Shared/Services/SetupActionPlacement.cs` |
-| List and chat placement | `Controls/TabAlignedListLayout.cs`, `Controls/PushedListLayout.cs`, `Controls/ListDetail.cs`, `Controls/RowLines.cs`, `Shared/Services/SectionListPlacement.cs`, `Shared/Intelligence/ChatComposerPlacement.cs` |
+| List and chat placement | `Controls/TabAlignedListLayout.cs`, `Controls/PushedListLayout.cs`, `Controls/ListDetail.cs`, `Controls/RowLines.cs`, `Controls/FootFade.cs`, `Shared/Services/SectionListPlacement.cs`, `Shared/Intelligence/ChatComposerPlacement.cs` |
 | Search and keyboard | `Controls/SearchField.xaml`, `Controls/ButtonSearch.cs`, `Controls/KeyboardDismiss.cs`, `Controls/ManualKeyboardScroll.cs`, `Pages/ISearchHost.cs` |
 | Breakpoints and columns | `Shared/Services/ScreenLayout.cs`, `Controls/CardGrid.cs`, `Shared/Dashboard/DashboardColumns.cs`, `Shared/Dashboard/CatalogueColumns.cs`, `Shared/DeviceSections/PortColumns.cs` |
 | Loading, icons and bulk UI | `Controls/BusyCard.cs`, `Controls/PullToRefresh.cs`, `Controls/IconButton.cs`, `Controls/BulkBar.cs`, `Controls/TickCircle.cs` |
@@ -496,7 +496,6 @@ This guide merges ahead of the shared helpers below so new features follow the u
 
 | Pending helper or style | Until it lands |
 | --- | --- |
-| `Controls/FootFade.cs` | Use the inline fade pattern from `Pages/IntelligencePage.cs` only on pages that already draw it |
 | `OpenListCard` and opt-in full-height list / `SetupLayout` overlay modes | Keep existing `ListCard`, `TabAlignedListLayout`, `PushedListLayout` and `SetupLayout` `Auto` row |
 | `Shared/Services/PageActionPlacement.cs` | Use `Shared/Intelligence/ChatActionPlacement.cs` |
 | `Controls/ChipStripClearance.cs` | Use `CoveredEdges.Beside` |
