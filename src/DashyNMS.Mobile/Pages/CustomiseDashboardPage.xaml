@@ -16,8 +16,8 @@
          space (#145). -->
     <Grid SafeAreaEdges="None" RowDefinitions="Auto,Auto,*">
         <controls:BackBar x:Name="TopBar" Margin="16,0,16,0" />
-        <Grid x:Name="Heading" Grid.Row="1" SafeAreaEdges="None" Margin="16,0" Padding="0,16,0,4">
-            <Label Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" />
+        <Grid x:Name="Heading" Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8" SafeAreaEdges="None" Margin="16,0" Padding="0,16,0,4">
+            <Label Style="{StaticResource PageTitle}" Text="Edit dashboard" SemanticProperties.HeadingLevel="Level1" VerticalOptions="Center" />
         </Grid>
 
         <!-- Not in a ReadableColumn: a CollectionView needs the page's height to scroll. -->

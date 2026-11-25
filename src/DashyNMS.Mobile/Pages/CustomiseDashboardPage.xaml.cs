@@ -8,6 +8,10 @@ namespace DashyNMS.Mobile.Pages;
 public partial class CustomiseDashboardPage : ContentPage, IActivePage
 {
 	private readonly CustomiseDashboardViewModel _viewModel;
+#if IOS
+	private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false };
+	private PageActionPlace? _actionPlace;
+#endif
 
 	public CustomiseDashboardPage(CustomiseDashboardViewModel viewModel)
 	{
@@ -16,6 +20,8 @@ public partial class CustomiseDashboardPage : ContentPage, IActivePage
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
         if (TabBarButtons.IsAvailable) TopBar.IsVisible = false;
+        Heading.SetColumn(_headerGlass, 1);
+        Heading.Add(_headerGlass);
         List.HandlerChanged += (_, _) => StopInsetAdjustment();
         List.Loaded += (_, _) => StopInsetAdjustment();
 #endif
@@ -41,16 +47,38 @@ public partial class CustomiseDashboardPage : ContentPage, IActivePage
 	{
 		TopBar.Apply(this);
 #if IOS
-        TabBarButtons.Show(this, null, string.Empty,
-        [
-            new GlassAction("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
-        ]);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
 	}
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!TabBarButtons.IsAvailable) return;
+        var place = PageActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        if (place == PageActionPlace.HeaderGlass)
+        {
+            _headerGlass.Actions = [new GlassAction("plus", "Add a card", () => _viewModel.AddCardCommand.Execute(null))];
+            _headerGlass.IsVisible = true;
+        }
+        else
+        {
+            _headerGlass.Actions = [];
+            _headerGlass.IsVisible = false;
+        }
+        TabBarButtons.Show(this, null, string.Empty,
+        [
+            new GlassAction("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true),
+        ]);
+    }
+#endif
 
 	protected override void OnDisappearing()
 	{
@@ -66,6 +94,7 @@ public partial class CustomiseDashboardPage : ContentPage, IActivePage
     private void PlaceControls()
     {
 #if IOS
+        SyncActions();
         if (TabBarButtons.IsAvailable)
             TopBar.IsVisible = TabBarButtons.GetFallback(this).Active;
 #endif

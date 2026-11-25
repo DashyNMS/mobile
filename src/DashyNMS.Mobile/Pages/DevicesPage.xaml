@@ -150,9 +150,7 @@
                         <SwipeView controls:AskIntelligence.Enabled="True">
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
                                   controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
-                                  controls:LongPress.CommandParameter="{Binding .}"
-                                  SemanticProperties.Description="{Binding Description}"
-                                  SemanticProperties.Hint="Touch and hold to select several">
+                                  controls:LongPress.CommandParameter="{Binding .}">
                                 <!-- Press and hold starts selecting several, with this one ticked (#85). -->
                                 <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
                                 <Grid.Triggers>
@@ -166,15 +164,20 @@
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
                                     <Ellipse Style="{StaticResource Dot}" Fill="{Binding State, Converter={StaticResource StatusColor}}"
+                                             AutomationProperties.IsInAccessibleTree="False"
                                              IsVisible="{Binding Selection.IsOff, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}" />
                                     <!-- Selecting (#85): a tick circle where the dot was. -->
                                     <controls:TickCircle IsTicked="{Binding IsTicked}"
+                                                         AutomationProperties.IsInAccessibleTree="False"
                                                          IsVisible="{Binding Selection.IsSelecting, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}" />
-                                    <VerticalStackLayout Grid.Column="1">
-                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" />
-                                        <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="TailTruncation" />
+                                    <VerticalStackLayout Grid.Column="1"
+                                                         AutomationProperties.IsInAccessibleTree="True"
+                                                         SemanticProperties.Description="{Binding Description}"
+                                                         SemanticProperties.Hint="Touch and hold to select several">
+                                        <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" LineBreakMode="WordWrap" MaxLines="2" AutomationProperties.IsInAccessibleTree="False" />
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Details}" LineBreakMode="WordWrap" MaxLines="2" AutomationProperties.IsInAccessibleTree="False" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center">
+                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Text="{Binding StateText}" HorizontalOptions="End" FontFamily="BodySemibold" FontSize="13"
                                                TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}">
                                             <Label.Triggers>
