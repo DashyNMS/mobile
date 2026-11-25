@@ -129,7 +129,7 @@
              on down to the tab bar's foot (margin from the page), as Devices'
              does; under a bottom tab bar the rows scroll beneath it, and the
              footer lets the last one scroll clear. -->
-        <Border x:Name="ListCard" Grid.Row="5" Grid.RowSpan="2" Style="{StaticResource ListCard}" Margin="16,0,16,12" SafeAreaEdges="None">
+        <Border x:Name="ListCard" Grid.Row="5" Grid.RowSpan="2" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="16,0,16,12" SafeAreaEdges="None">
             <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
                 <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding DisplayRows}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
@@ -235,6 +235,7 @@
                 </CollectionView>
             </RefreshView>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="5" Grid.RowSpan="2" />
 
         <!-- Selecting (#85): how many, select all, and what to do with them -
              risen over the foot of the list, level with a side tab bar's (see the page). -->

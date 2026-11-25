@@ -82,13 +82,17 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 			}
 		};
 
-		// Done with the keyboard - put away, or the list scrolled: done searching.
+		// Done with the keyboard - put away, or the list dragged by the user: done searching.
 		Search.Unfocused += (_, _) => _viewModel.DismissSearch();
-		List.Scrolled += (_, _) =>
+		List.Scrolled += (_, e) =>
 		{
 			if (Search.IsFocused)
 			{
 				KeyboardDismiss.Close(Search);
+			}
+			else if (_viewModel.IsSearchOpen && Math.Abs(e.VerticalDelta) > 1 && IsUserDragging())
+			{
+				_viewModel.DismissSearch();
 			}
 		};
 
@@ -389,8 +393,10 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		var edges = CoveredEdges.Of(this);
 		double pageWidth = Width, clearLeft = edges.Left, clearRight = edges.Right, covered = edges.Bottom;
 
-		// How far up from the screen's foot the list and the bulk bar end.
-		double? listFoot = null, cardFoot = null;
+		// How far up from the screen's foot the bulk bar ends.
+		double? cardFoot = null;
+		var sideBar = false;
+		double? fullHeightObstruction = null;
 #if IOS
 		// Above a bottom tab bar, the glass buttons float over its right end.
 		covered += TabBarButtons.CoveredBottom;
@@ -398,11 +404,11 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		{
 			pageWidth = page.Bounds.Width;
 			var pageHeight = page.Bounds.Height;
-			if (pill.Height > pill.Width)
+			sideBar = pill.Height > pill.Width;
+			if (sideBar)
 			{
 				// A side tab bar: wherever UIKit's safe area ends, the list stops a
-				// gap short of the pill's column, and its foot and the bulk bar's
-				// are level with the pill's, as one row of glass and list.
+				// gap short of the pill's column, and the bulk bar's foot is level with the pill's.
 				if (pill.Left + (pill.Width / 2) > pageWidth / 2)
 				{
 					clearRight = Math.Max(clearRight, pageWidth - pill.Left + GlassGap - 16);
@@ -412,32 +418,31 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 					clearLeft = Math.Max(clearLeft, pill.Right + GlassGap - 16);
 				}
 
-				listFoot = cardFoot = Math.Max(0, pageHeight - pill.Bottom);
+				cardFoot = Math.Max(0, pageHeight - pill.Bottom);
 			}
-			else if (pill.Top > pageHeight / 2)
-			{
-				// A bottom tab bar (not an iPad's, along the top): the list runs on
-				// beneath it to its foot, the rows scrolling clear of it.
-				listFoot = Math.Max(0, pageHeight - pill.Bottom);
-			}
+
+			var glass = TabBarButtons.Occupied(page)
+				.Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+			fullHeightObstruction = SetupActionPlacement.BottomGap(pageHeight, edges.Bottom,
+				new OccupiedArea(pill.Left, pill.Top, pill.Right, pill.Bottom), glass);
 		}
 #endif
 		// Beside a detail pane, only what reaches into the list's own column.
 		var columnWidth = ListColumn.Width > 0 ? ListColumn.Width : pageWidth;
 		var left = 16 + clearLeft;
 		var right = 16 + Math.Max(0, clearRight - Math.Max(0, pageWidth - columnWidth));
-		var foot = listFoot ?? 12 + covered;
 		var cardBottom = cardFoot ?? 12 + covered;
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		Notices.Padding = new Thickness(left, 0, right, 0);
 #if IOS
 		ChipStripPlacement.Apply(this, ChipStrip, ListColumn, topPadding: 6);
+		ListCard.Margin = new Thickness(left, 0, right, 0);
 #else
 		ChipStrip.Padding = new Thickness(left, 6, right, 0);
+		ListCard.Margin = new Thickness(left, 0, right, 12 + covered);
 #endif
 		CountLine.Margin = new Thickness(left + 4, 6, right, 2);
-		ListCard.Margin = new Thickness(left, 0, right, foot);
 		Bulk.Margin = new Thickness(left, 6, right, cardBottom);
 		var field = new Thickness(left, 4, right, 8);
 		if (SearchField.Margin != field)
@@ -445,15 +450,19 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 			SearchField.Margin = field;
 		}
 
-		// What covers the list's foot - the tab bar and its glass, the bulk
-		// bar - and so how far the last row must scroll to come clear of it.
-		var over = listFoot is not null && cardFoot is null ? covered : 0;
+		// What covers the list's foot - the tab bar and its glass, or the bulk bar.
+#if IOS
+		var obstruction = fullHeightObstruction ?? (12 + covered);
 		if (Bulk.IsVisible && Bulk.Height > 0)
 		{
-			over = Math.Max(over, cardBottom + Bulk.Height);
+			obstruction = Math.Max(obstruction, cardBottom + Bulk.Height);
 		}
 
-		var spacer = over > foot ? over - foot + 8 : 0;
+		var spacer = SectionListPlacement.Resolve(obstruction).Footer;
+		BottomFade.SetCoveredHeight(!sideBar ? covered : 0);
+#else
+		var spacer = Bulk.IsVisible && Bulk.Height > 0 ? Bulk.Height + 8 : 0;
+#endif
 		if (ListFoot.HeightRequest != spacer)
 		{
 			ListFoot.HeightRequest = spacer;
@@ -462,6 +471,15 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		// The alert beside the list runs on to the screen's foot too, its
 		// cards padded clear of a side tab bar's column and a bottom one.
 		_detail?.PlaceContent(new Thickness(0, 0, clearRight, covered));
+	}
+
+	private bool IsUserDragging()
+	{
+#if IOS
+		return List.Handler?.PlatformView is UIKit.UIView view && FindScroll(view) is { } scroll && (scroll.Tracking || scroll.Dragging);
+#else
+		return true;
+#endif
 	}
 
 #if IOS
