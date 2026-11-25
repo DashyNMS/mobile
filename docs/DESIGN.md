@@ -285,7 +285,7 @@ Preserve `TabBarButtons` cold-launch guardrails: place glass only inside a tab b
 | --- | --- | --- |
 | Conversation | `Pages/IntelligencePage.cs` | Growing transcript above an overlaid composer |
 | Dashboard | `Pages/DashboardPage.xaml` | Adaptive multi-column summary cards |
-| Searchable list with optional split detail | `Pages/LogsPage.xaml` (migrating to full-height in rollout) | Server lists with filters and detail panes |
+| Searchable list with optional split detail | `Pages/LogsPage.xaml` | Server lists with filters and detail panes |
 | Section list | `Pages/DeviceSectionPage.xaml` | Card-per-record lists for one device |
 | Catalogue or settings | `Pages/MorePage.xaml`, `Pages/SettingsPage.xaml` | Grouped navigation and preferences |
 | Pushed detail | `Pages/DeviceDetailPage.cs` | Facts and actions for one item |

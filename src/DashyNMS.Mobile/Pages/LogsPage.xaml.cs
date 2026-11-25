@@ -25,7 +25,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is LogEntryView detail) detail.PlaceContent(clear);
-		}, PlaceGutters);
+		}, PlaceGutters, BottomFade) { FullHeight = true };
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading the log…", "Refreshing the log…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
 		SearchSlot.SizeChanged += (_, _) => _listLayout.Place();

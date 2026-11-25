@@ -29,7 +29,7 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is GraylogMessageView detail) detail.PlaceContent(clear);
-		}, PlaceGutters);
+		}, PlaceGutters, BottomFade) { FullHeight = true };
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
 		SearchSlot.SizeChanged += (_, _) => _listLayout.Place();
