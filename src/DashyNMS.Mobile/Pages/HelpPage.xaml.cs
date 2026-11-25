@@ -57,8 +57,12 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
     /// <summary>A page chosen from the list, or linked from the one beside it, opens in the pane.</summary>
     public bool TryShowDetail(string route, IDictionary<string, object>? parameters)
     {
-        if (!Split.IsSplit || route != Routes.HelpArticle
-            || parameters?.TryGetValue(Routes.HelpTopicParameter, out var value) != true || value is not HelpTopic topic)
+        if (route != Routes.HelpArticle || parameters?.TryGetValue(Routes.HelpTopicParameter, out var value) != true || value is not HelpTopic topic)
+        {
+            return false;
+        }
+
+        if (!Split.IsSplit)
         {
             return false;
         }
@@ -93,7 +97,22 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
     /// <summary>The front page to begin with, so the pane never opens empty.</summary>
     private void ShowHomeBeside()
     {
-        if (Split.IsSplit && _detail is null && _viewModel.Home is { } home)
+        if (!Split.IsSplit)
+        {
+            return;
+        }
+
+        // A page read on its own since: the pane follows it.
+        if (Handler?.MauiContext?.Services.GetService<HelpHistory>()?.LastRead is { } read && read != _detail?.ViewModel.Topic && _detail is not null)
+        {
+            if (_detail.ViewModel.Topic is { } current)
+            {
+                _earlier.Push(current);
+            }
+
+            ShowBeside(read);
+        }
+        else if (_detail is null && _viewModel.Home is { } home)
         {
             ShowBeside(home);
         }
@@ -183,7 +202,6 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         var right = 16 + Math.Max(0, clear.Right - Math.Max(0, Width - Body.Width));
         Header.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 2, right, 0);
-        ResultLine.Margin = new Thickness(left + 4, 6, right, 4);
         var (footer, fade) = HelpGlass.Foot(this, clear);
 #if IOS
         // A docked keyboard covers the foot itself, so the list stops above it instead.

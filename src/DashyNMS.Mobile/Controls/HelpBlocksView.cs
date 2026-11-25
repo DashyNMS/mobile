@@ -193,16 +193,28 @@ public sealed class HelpBlocksView : VerticalStackLayout
 
     private static View Marker(string? number, double inset)
     {
+        // Text, so it grows and sits on the first line at any text size; hidden from VoiceOver natively,
+        // since IsInAccessibleTree alone can still leave a UIKit label readable.
+        var label = new Label
+        {
+            Text = number ?? "•",
+            FontSize = BodySize,
+            MinimumWidthRequest = number is null ? 10 : 20,
+            VerticalOptions = LayoutOptions.Start,
+            Margin = new Thickness(0, inset, 0, 0),
+        };
         if (number is null)
         {
-            var dot = new Ellipse { WidthRequest = 5, HeightRequest = 5, VerticalOptions = LayoutOptions.Start, Margin = new Thickness(2, inset + 8, 0, 0) };
-            dot.SetAppThemeColor(Shape.FillProperty, Resource<Color>("TextSecondaryLight"), Resource<Color>("TextSecondaryDark"));
-            AutomationProperties.SetIsInAccessibleTree(dot, false);
-            return dot;
+            label.SetAppThemeColor(Label.TextColorProperty, Resource<Color>("TextSecondaryLight"), Resource<Color>("TextSecondaryDark"));
         }
 
-        var label = new Label { Text = number, FontSize = BodySize, MinimumWidthRequest = 20, VerticalOptions = LayoutOptions.Start, Margin = new Thickness(0, inset, 0, 0) };
         AutomationProperties.SetIsInAccessibleTree(label, false);
+#if IOS
+        label.HandlerChanged += (_, _) =>
+        {
+            if (label.Handler?.PlatformView is UIKit.UIView native) native.IsAccessibilityElement = false;
+        };
+#endif
         return label;
     }
 

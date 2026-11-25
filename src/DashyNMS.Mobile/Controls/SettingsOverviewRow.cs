@@ -100,9 +100,11 @@ public sealed class SettingsOverviewRow : Grid
         if (SummaryTextColor is { } colour) _summary.TextColor = colour;
         else _summary.ClearValue(Label.TextColorProperty);
         _summary.IsVisible = !string.IsNullOrWhiteSpace(Summary);
-        if (IsCurrent) _title.SetAppThemeColor(Label.TextColorProperty, (Color)Application.Current!.Resources["PrimaryTextLight"], (Color)Application.Current.Resources["PrimaryTextDark"]);
-        else _title.ClearValue(Label.TextColorProperty);
-        SemanticProperties.SetDescription(_action, string.Join(". ", new[] { Title, Summary, IsCurrent ? "Showing" : string.Empty }.Where(value => !string.IsNullOrWhiteSpace(value))));
+        // Both states set a theme binding: clearing one doesn't remove it from a recycled row.
+        var resources = Application.Current!.Resources;
+        _title.SetAppThemeColor(Label.TextColorProperty,
+            (Color)resources[IsCurrent ? "PrimaryTextLight" : "TextLight"], (Color)resources[IsCurrent ? "PrimaryTextDark" : "TextDark"]);
+        SemanticProperties.SetDescription(_action, string.Join(". ", new[] { Title, Summary?.TrimEnd('.', ' '), IsCurrent ? "Showing" : string.Empty }.Where(value => !string.IsNullOrWhiteSpace(value))));
         _action.CommandParameter = CommandParameter;
         _action.Command = Command;
     }

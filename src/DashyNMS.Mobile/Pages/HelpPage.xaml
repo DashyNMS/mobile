@@ -13,9 +13,9 @@
     <!-- With room, the page you choose shows beside the contents (#668). -->
     <controls:ListDetail SafeAreaEdges="None" x:Name="Split" Placeholder="Choose a page to read it here.">
 
-    <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,Auto,*">
+    <Grid x:Name="Body" SafeAreaEdges="None" RowDefinitions="Auto,Auto,*">
 
-        <controls:PageHeader x:Name="Header" Title="Help" Note="{Binding ReleaseText}" Margin="16,0">
+        <controls:PageHeader x:Name="Header" Title="Help" Margin="16,0">
             <controls:PageHeader.Actions>
                 <controls:IconButton x:Name="SearchButton" Kind="Plain" Icon="{x:Static controls:Icons.Search}" SemanticProperties.Description="Search help" />
             </controls:PageHeader.Actions>
@@ -27,17 +27,26 @@
             </controls:SearchField>
         </Grid>
 
-        <!-- Which search the list is showing, kept when the field closes. -->
-        <VerticalStackLayout x:Name="ResultLine" Grid.Row="2" Margin="16,6,16,4" Spacing="0" IsVisible="{Binding IsSearching}">
-            <Label x:Name="Results" Style="{StaticResource Caption}" Text="{Binding ResultsText}" LineBreakMode="WordWrap" />
-            <Button Style="{StaticResource LinkButton}" Text="Clear search" MinimumHeightRequest="44" HorizontalOptions="Start" Command="{Binding ClearSearchCommand}" />
-        </VerticalStackLayout>
 
-        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="3" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="16,0">
+        <Border SafeAreaEdges="None" x:Name="ListCard" Grid.Row="2" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="16,0">
             <Grid SafeAreaEdges="None">
                 <CollectionView controls:KeyboardDismiss.OnScroll="False" x:Name="List" ItemsSource="{Binding Rows}" SelectionMode="None">
-                    <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" /></CollectionView.Header>
-                    <CollectionView.Footer><BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" /></CollectionView.Footer>
+                    <!-- Which search the list shows, scrolling with it, so a short window keeps room for results. -->
+                    <CollectionView.Header>
+                        <VerticalStackLayout Padding="14,20,14,0">
+                            <VerticalStackLayout x:Name="ResultLine" Spacing="0" IsVisible="{Binding IsSearching}">
+                                <Label x:Name="Results" Style="{StaticResource Caption}" Text="{Binding ResultsText}" LineBreakMode="WordWrap" />
+                                <Button Style="{StaticResource LinkButton}" Text="Clear search" MinimumHeightRequest="44" HorizontalOptions="Start" Padding="0,0,8,0" Command="{Binding ClearSearchCommand}" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </CollectionView.Header>
+                    <!-- Which release the pages describe, at the foot of the contents as on desktop. -->
+                    <CollectionView.Footer>
+                        <VerticalStackLayout Padding="14,16,14,0">
+                            <Label Style="{StaticResource Faint}" Text="{Binding ReleaseText}" LineBreakMode="WordWrap" />
+                            <BoxView x:Name="ListFoot" HeightRequest="0" Color="Transparent" />
+                        </VerticalStackLayout>
+                    </CollectionView.Footer>
                     <CollectionView.EmptyView>
                         <VerticalStackLayout Spacing="8" Padding="20,32">
                             <Label Text="No help to show" FontFamily="BodySemibold" HorizontalTextAlignment="Center" IsVisible="{Binding IsEmpty}" />
@@ -69,7 +78,7 @@
                 </BoxView>
             </Grid>
         </Border>
-        <controls:FootFade x:Name="BottomFade" Grid.Row="3" />
+        <controls:FootFade x:Name="BottomFade" Grid.Row="2" />
 
     </Grid>
 

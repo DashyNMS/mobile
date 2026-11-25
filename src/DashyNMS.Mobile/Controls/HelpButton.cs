@@ -11,6 +11,9 @@ public sealed class HelpButton : Button
     {
         Style = (Style)Application.Current!.Resources["LinkButton"];
         MinimumHeightRequest = 44;
+
+        // In line with the text above it, not the link style's inset.
+        Padding = new Thickness(0, 0, 8, 0);
         HorizontalOptions = LayoutOptions.Start;
         LineBreakMode = LineBreakMode.WordWrap;
         Clicked += OnClicked;

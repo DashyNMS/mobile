@@ -16,8 +16,12 @@ public sealed class HelpArticleView : ContentView
     private readonly Label _missing;
     private readonly BoxView _fade;
 
+    private double _readTo;
+    private bool _restoring;
+
     /// <param name="showsTitle">Beside the list, where no page header names it.</param>
-    public HelpArticleView(HelpArticleViewModel viewModel, bool showsTitle)
+    /// <param name="header">A pushed page's header, which scrolls away with the text so a long title at a large text size doesn't hold half the screen.</param>
+    public HelpArticleView(HelpArticleViewModel viewModel, bool showsTitle, View? header = null)
     {
         BindingContext = ViewModel = viewModel;
         _title = new Label { FontFamily = "BodySemibold", FontSize = 22, LineBreakMode = LineBreakMode.WordWrap, IsVisible = showsTitle, Margin = new Thickness(0, 0, 0, 12) };
@@ -29,6 +33,12 @@ public sealed class HelpArticleView : ContentView
         _blocks.LinkActivated += (_, target) => viewModel.ActivateCommand.Execute(target);
 
         _column = new VerticalStackLayout { Spacing = 0, Children = { _title, _missing, _blocks } };
+        if (header is not null)
+        {
+            _column.Children.Insert(0, header);
+        }
+
+        HasHeader = header is not null;
         _scroller = new ScrollView { Content = new ReadableColumn { Children = { _column } } };
         _fade = new BoxView
         {
@@ -47,14 +57,28 @@ public sealed class HelpArticleView : ContentView
         _scroller.Loaded += (_, _) => StopInsets();
 #endif
         viewModel.Shown += OnShown;
+
+        // Hidden beside a narrowed list and shown again, a scroll view starts at the top: put it back where it was read to.
+        _scroller.Scrolled += (_, e) => { if (!_restoring && _scroller.Height > 0) _readTo = e.ScrollY; };
+        _scroller.SizeChanged += async (_, _) =>
+        {
+            if (_scroller.Height <= 0 || _readTo <= 0 || Math.Abs(_scroller.ScrollY - _readTo) < 1) return;
+            _restoring = true;
+            try { await _scroller.ScrollToAsync(0, _readTo, false); }
+            catch (Exception) { }
+            finally { _restoring = false; }
+        };
     }
+
+    private bool HasHeader { get; }
 
     public HelpArticleViewModel ViewModel { get; }
 
     /// <summary>The scrolling body's own distance from the pane's edges, and what its last line clears.</summary>
     public void PlaceContent(Thickness clear, double footer, double footFade)
     {
-        _column.Padding = new Thickness(16 + clear.Left, 20, 16 + clear.Right, footer);
+        // A header in the column sits on the top line, as on Licences; the fade only matters once it's scrolled away.
+        _column.Padding = new Thickness(16 + clear.Left, HasHeader ? 0 : 20, 16 + clear.Right, footer);
         _fade.Margin = new Thickness(clear.Left, 0, clear.Right, 0);
         BottomFade.SetCoveredHeight(footFade);
     }
@@ -64,6 +88,7 @@ public sealed class HelpArticleView : ContentView
     private void OnShown(object? sender, HelpArticleShown shown)
     {
         _missing.IsVisible = ViewModel.IsMissing;
+        _readTo = shown.IsNewText ? _readTo : 0;
         if (!shown.IsNewText && _title.Text == shown.Page.Title && _blocks.Children.Count > 0)
         {
             ScrollTo(shown.Anchor, animated: !ReducedMotion.IsOn);

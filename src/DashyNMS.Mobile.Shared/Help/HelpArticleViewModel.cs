@@ -15,6 +15,7 @@ public sealed partial class HelpArticleViewModel : ViewModelBase
     private readonly HelpGuideService _guides;
     private readonly INavigationService _navigation;
     private readonly ILauncherService _launcher;
+    private readonly HelpHistory? _history;
     private SynchronizationContext? _ui;
     private HelpGuide _guide;
     private HelpTopic? _topic;
@@ -25,8 +26,9 @@ public sealed partial class HelpArticleViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(IsMissing))]
     private HelpPage? _page;
 
-    public HelpArticleViewModel(HelpGuideService guides, INavigationService navigation, ILauncherService launcher)
+    public HelpArticleViewModel(HelpGuideService guides, INavigationService navigation, ILauncherService launcher, HelpHistory? history = null)
     {
+        _history = history;
         _guides = guides;
         _navigation = navigation;
         _launcher = launcher;
@@ -47,6 +49,11 @@ public sealed partial class HelpArticleViewModel : ViewModelBase
     public void Open(HelpTopic topic)
     {
         _topic = topic;
+        if (_history is not null)
+        {
+            _history.LastRead = topic;
+        }
+
         Show(isNewText: false);
     }
 

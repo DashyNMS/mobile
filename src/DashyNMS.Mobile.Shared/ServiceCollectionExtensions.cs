@@ -93,6 +93,7 @@ public static class ServiceCollectionExtensions
         // The user guide for the running version (#668), built in and refreshed from its own release.
         services.AddSingleton(_ => Help.BundledHelp.CreateService(typeof(SettingsViewModel).Assembly.GetName().Version?.ToString(3)));
         services.AddSingleton<Help.IHelpRefreshPolicy, Help.HelpRefreshAllowed>();
+        services.AddSingleton<Help.HelpHistory>();
         services.AddTransient<Help.HelpViewModel>();
         services.AddTransient<Help.HelpArticleViewModel>();
         services.AddTransient<NotifyRulePickerViewModel>();

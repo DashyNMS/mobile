@@ -20,10 +20,9 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
     {
         BindingContext = viewModel;
         Title = "Help";
-        _view = new HelpArticleView(viewModel, showsTitle: false);
-        var root = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
-        root.Add(_header, 0, 0);
-        root.Add(_view, 0, 1);
+        _header.Margin = default;
+        _view = new HelpArticleView(viewModel, showsTitle: false, _header);
+        var root = new Grid { Children = { _view } };
         Content = root;
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
@@ -88,9 +87,6 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
     {
         if (!_showing || !ActivePage.IsCurrent(this)) return;
         var clear = CoveredEdges.ForScrolling(this);
-        // Over the readable column, which is centred once the page is wider than it.
-        var gutter = 16 + Math.Max(0, (Width - ScreenLayout.ReadableWidth) / 2);
-        _header.Margin = new Thickness(gutter + clear.Left, 0, 16 + clear.Right, 0);
         var (footer, fade) = HelpGlass.Foot(this, clear);
         _view.PlaceContent(new Thickness(clear.Left, 0, clear.Right, 0), footer, fade);
     }
