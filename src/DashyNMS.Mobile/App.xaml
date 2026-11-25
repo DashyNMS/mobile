@@ -74,13 +74,37 @@
                 <Setter Property="BackgroundColor" Value="Transparent" />
                 <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}" />
                 <Setter Property="BorderWidth" Value="1" />
-                <Setter Property="CornerRadius" Value="18" />
-                <Setter Property="Padding" Value="14,0" />
-                <Setter Property="HeightRequest" Value="36" />
-                <Setter Property="MinimumHeightRequest" Value="36" />
+                <Setter Property="CornerRadius" Value="{OnPlatform iOS=22, Default=18}" />
+                <Setter Property="Padding" Value="{OnPlatform iOS='16,0', Default='14,0'}" />
+                <Setter Property="HeightRequest" Value="{OnPlatform iOS=-1, Default=36}" />
+                <Setter Property="MinimumHeightRequest" Value="{OnPlatform iOS=44, Default=36}" />
+                <Setter Property="MinimumWidthRequest" Value="{OnPlatform iOS=44, Default=0}" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.72" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Focused">
+                                <VisualState.Setters>
+                                    <Setter Property="Scale" Value="0.98" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
             </Style>
 
             <!-- A list whose rows share one card, as the mock-ups group them:
@@ -129,11 +153,35 @@
                 <Setter Property="BackgroundColor" Value="Transparent" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}" />
                 <Setter Property="CornerRadius" Value="10" />
-                <Setter Property="HeightRequest" Value="40" />
-                <Setter Property="MinimumHeightRequest" Value="40" />
+                <Setter Property="HeightRequest" Value="{OnPlatform iOS=-1, Default=40}" />
+                <Setter Property="MinimumHeightRequest" Value="{OnPlatform iOS=44, Default=40}" />
+                <Setter Property="MinimumWidthRequest" Value="{OnPlatform iOS=44, Default=0}" />
                 <Setter Property="Padding" Value="6,0" />
                 <Setter Property="FontSize" Value="13" />
                 <Setter Property="FontFamily" Value="BodySemibold" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.72" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Focused">
+                                <VisualState.Setters>
+                                    <Setter Property="Scale" Value="0.98" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
             </Style>
 
             <!-- A page's own big title, where there's no navigation bar. -->
@@ -218,6 +266,31 @@
                 <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}" />
                 <Setter Property="FontFamily" Value="BodySemibold" />
+                <Setter Property="MinimumHeightRequest" Value="44" />
+                <Setter Property="MinimumWidthRequest" Value="44" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.78" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Focused">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.9" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
             </Style>
 
             <!-- Text-only: See all, Choose, Show all fields. -->
@@ -227,6 +300,31 @@
                 <Setter Property="FontFamily" Value="BodySemibold" />
                 <Setter Property="FontSize" Value="14" />
                 <Setter Property="Padding" Value="8,0" />
+                <Setter Property="MinimumHeightRequest" Value="{OnPlatform iOS=44, Default=0}" />
+                <Setter Property="MinimumWidthRequest" Value="{OnPlatform iOS=44, Default=0}" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.65" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Focused">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.85" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
             </Style>
 
             <!-- Sign out: outlined, in the critical text colour, rather than a red slab. -->
@@ -236,7 +334,32 @@
                 <Setter Property="BorderWidth" Value="1" />
                 <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                 <Setter Property="FontFamily" Value="BodySemibold" />
-                <Setter Property="HeightRequest" Value="48" />
+                <Setter Property="HeightRequest" Value="{OnPlatform iOS=-1, Default=48}" />
+                <Setter Property="MinimumHeightRequest" Value="48" />
+                <Setter Property="MinimumWidthRequest" Value="44" />
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="PointerOver" />
+                            <VisualState x:Name="Pressed">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.78" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Focused">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.9" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="Opacity" Value="0.45" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
             </Style>
 
             <!-- A settings or More row's chevron. -->

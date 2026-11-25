@@ -120,7 +120,7 @@
                     IsVisible="{Binding HasActiveFilters}"
                     BackgroundColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" VerticalOptions="Center" />
+                    Padding="8,0" HeightRequest="{OnPlatform iOS=-1, Default=30}" MinimumHeightRequest="{OnPlatform iOS=44, Default=30}" MinimumWidthRequest="{OnPlatform iOS=44, Default=0}" VerticalOptions="Center" />
         </Grid>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->

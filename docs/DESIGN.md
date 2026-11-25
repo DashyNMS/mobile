@@ -97,7 +97,7 @@ Write headings and labels in sentence case (`SectionHeader` applies uppercase it
 
 ### Spacing and shape
 
-Dimensions below are the iOS target spec (while `App.xaml` migrates from legacy 36pt `Chip`, 40pt `Segment` and fixed 48pt `DangerButton` sizes).
+Dimensions below are the iOS target spec.
 
 | Metric | Points |
 | --- | --- |

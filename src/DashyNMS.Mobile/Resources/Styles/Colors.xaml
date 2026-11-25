@@ -32,14 +32,14 @@
          surfaces, which mirror the dark ones. -->
     <Color x:Key="TextDark">#E8EEF6</Color>
     <Color x:Key="TextSecondaryDark">#A3ADBB</Color>
-    <Color x:Key="TextFaintDark">#7F8A9A</Color>
+    <Color x:Key="TextFaintDark">#8E99A9</Color>
     <Color x:Key="StrokeDark">#232A36</Color>
     <Color x:Key="ChipStrokeDark">#3A4250</Color>
     <!-- Behind code and fields: the mock-ups' block, darker than a card. -->
     <Color x:Key="CodeDark">#0D1015</Color>
     <Color x:Key="TextLight">#11141A</Color>
     <Color x:Key="TextSecondaryLight">#4B5563</Color>
-    <Color x:Key="TextFaintLight">#6B7280</Color>
+    <Color x:Key="TextFaintLight">#5B6472</Color>
     <Color x:Key="StrokeLight">#E3E7ED</Color>
     <Color x:Key="BackgroundLight">#F4F6F9</Color>
     <Color x:Key="BackgroundLightClear">#00F4F6F9</Color>
@@ -56,7 +56,7 @@
     <Color x:Key="WarningTextDark">#F2C14E</Color>
     <Color x:Key="WarningTextLight">#8A5A00</Color>
     <Color x:Key="OkTextDark">#56D364</Color>
-    <Color x:Key="OkTextLight">#1A7F37</Color>
+    <Color x:Key="OkTextLight">#17692E</Color>
     <Color x:Key="MaintenanceTextDark">#79B8FF</Color>
     <Color x:Key="MaintenanceTextLight">#0B5CAD</Color>
     <Color x:Key="InactiveTextDark">#A3ADBB</Color>
