@@ -36,14 +36,22 @@ internal static class ChipStripPlacement
 
         var clear = ChipStripClearance.Resolve(beside.Left, beside.Right, spaceLeft, spaceRight);
         var margin = new Thickness(clear.Left, topMargin, clear.Right, bottomMargin);
-        if (strip.Margin != margin) strip.Margin = margin;
+        if (Changed(strip.Margin, margin)) strip.Margin = margin;
         if (strip is ScrollView scroll)
         {
             var padLeft = clear.Left > 0 ? 0 : gutter;
             var padRight = clear.Right > 0 ? 0 : gutter;
             var padding = new Thickness(padLeft, topPadding, padRight, bottomPadding);
-            if (scroll.Padding != padding) scroll.Padding = padding;
+            if (Changed(scroll.Padding, padding)) scroll.Padding = padding;
         }
 #endif
     }
+
+#if IOS
+    private static bool Changed(Thickness a, Thickness b) =>
+        Math.Abs(a.Left - b.Left) > 0.5
+        || Math.Abs(a.Top - b.Top) > 0.5
+        || Math.Abs(a.Right - b.Right) > 0.5
+        || Math.Abs(a.Bottom - b.Bottom) > 0.5;
+#endif
 }

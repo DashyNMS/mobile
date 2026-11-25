@@ -646,6 +646,7 @@ public partial class NetworkMapPage : ContentPage, IActivePage
 			&& float.TryParse(saved[1], CultureInfo.InvariantCulture, out var x)
 			&& float.TryParse(saved[2], CultureInfo.InvariantCulture, out var y))
 		{
+			_userMoved = true;
 			_drawable.Scale = Math.Clamp(scale, NetworkMapDrawable.MinScale, NetworkMapDrawable.MaxScale);
 			_drawable.Offset = new PointF(x, y);
 		}

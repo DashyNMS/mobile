@@ -42,6 +42,7 @@ public partial class MorePage : ContentPage, IActivePage
         StopInsets();
 #endif
         PlaceControls();
+        Dispatcher.Dispatch(() => { if (_visible) PlaceControls(); });
     }
 
     protected override void OnDisappearing()

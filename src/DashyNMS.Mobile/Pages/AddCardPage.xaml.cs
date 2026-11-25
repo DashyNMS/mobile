@@ -22,7 +22,7 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost,
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
         _placement = new SetupPageLayout(this, Setup, Header, List, CategoryScroll);
-        CategoryScroll.SizeChanged += (_, _) => ChipStripPlacement.Apply(this, CategoryScroll, CategoryScroll.Parent as View, gutter: 0);
+        CategoryScroll.SizeChanged += (_, _) => ChipStripPlacement.Apply(this, CategoryScroll, CategoryScroll.Parent as View, topMargin: 2, bottomMargin: 4, gutter: 0);
     }
 
     public void Activate() => _placement.Activate();

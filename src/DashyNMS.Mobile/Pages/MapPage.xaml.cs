@@ -245,7 +245,7 @@ public partial class MapPage : ContentPage, IActivePage
     private void UpdateMapClearance(Thickness clear, double foot)
     {
         if (!_loaded || Header.Height <= 0) return;
-        var top = Math.Max(0, Header.Height + Status.Height + 12);
+        double top;
 #if IOS
         if (MapView.Handler?.PlatformView is WebKit.WKWebView web && web.Window is not null)
         {
@@ -260,6 +260,8 @@ public partial class MapPage : ContentPage, IActivePage
         {
             top = Math.Max(0, CoveredEdges.Of(this).Top + Header.Height + Status.Height + 12);
         }
+#else
+        top = Math.Max(0, Header.Height + Status.Height + 12);
 #endif
         var bottom = SelectionCard.IsVisible ? Math.Max(0, SelectionCard.Height) + foot + 12 : foot;
         var args = string.Join(",", new[] { top, clear.Right + 12, bottom, clear.Left + 12 }

@@ -287,9 +287,12 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
             OnPropertyChanged(nameof(SelectedDetail));
             _chatGeneration = generation;
             OnPropertyChanged(nameof(ChatRevision));
-            Notice = !hadContent ? ""
-                : _session.Connection is null ? "Signed out. The previous chat was cleared."
-                : "The connection changed. The previous chat was cleared.";
+            if (hadContent)
+            {
+                Notice = _session.Connection is null
+                    ? "Signed out. The previous chat was cleared."
+                    : "The connection changed. The previous chat was cleared.";
+            }
         });
         Notify();
     }

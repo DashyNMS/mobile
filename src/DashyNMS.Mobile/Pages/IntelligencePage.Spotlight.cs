@@ -183,12 +183,16 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             LineBreakMode = LineBreakMode.WordWrap,
         };
 
+        IReadOnlyList<SpotlightChoice> visibleChoices = choices;
         _searchEntry.TextChanged += (_, e) =>
-            _list.ItemsSource = !_valid
+        {
+            visibleChoices = !_valid
                 ? []
                 : choices.Where(c => c.Name.Contains(e.NewTextValue ?? "", StringComparison.CurrentCultureIgnoreCase)).ToArray();
+            _list.ItemsSource = visibleChoices;
+        };
 
-        _list.ItemsSource = choices;
+        _list.ItemsSource = visibleChoices;
         _list.Header = new BoxView { Color = Colors.Transparent, HeightRequest = 12, InputTransparent = true };
         _list.Footer = new BoxView { Color = Colors.Transparent, HeightRequest = 24, InputTransparent = true };
         _list.EmptyView = new Label
@@ -198,7 +202,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             HorizontalTextAlignment = TextAlignment.Center,
             Margin = new Thickness(16, 32),
         };
-        _list.ItemTemplate = new DataTemplate(() => BuildRow(choices, select));
+        _list.ItemTemplate = new DataTemplate(() => BuildRow(() => visibleChoices, select));
 
         var listCard = new Border { Style = ResourceStyle("OpenListCard"), Content = _list };
 
@@ -215,7 +219,7 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
         Content = grid;
     }
 
-    private View BuildRow(IReadOnlyList<SpotlightChoice> choices, Func<SpotlightChoice, CancellationToken, Task<bool>> select)
+    private View BuildRow(Func<IReadOnlyList<SpotlightChoice>> visibleChoices, Func<SpotlightChoice, CancellationToken, Task<bool>> select)
     {
         var row = new Grid
         {
@@ -264,7 +268,8 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
             button.Text = choice.Name;
             tick.IsVisible = picked;
             SemanticProperties.SetDescription(button, picked ? $"{choice.Name}, selected" : choice.Name);
-            line.IsVisible = choices.Count == 0 || !ReferenceEquals(choices[0], choice);
+            var current = visibleChoices();
+            line.IsVisible = current.Count == 0 || !ReferenceEquals(current[0], choice);
         };
 
         button.Clicked += async (_, _) =>
@@ -279,8 +284,11 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
                 if (added)
                 {
                     _selectedNames.Add(choice.Name);
-                    tick.IsVisible = true;
-                    SemanticProperties.SetDescription(button, $"{choice.Name}, selected");
+                    if (ReferenceEquals(row.BindingContext, choice))
+                    {
+                        tick.IsVisible = true;
+                        SemanticProperties.SetDescription(button, $"{choice.Name}, selected");
+                    }
                     if (_dismissOnPick)
                     {
                         await CloseAsync();
@@ -331,10 +339,6 @@ internal sealed class IntelligenceSpotlightPickerPage : ContentPage, IPrivateCha
         if (Navigation.ModalStack.Contains(this))
         {
             await Navigation.PopModalAsync();
-        }
-        if (ActivePage.Current is IActivePage page)
-        {
-            page.Activate();
         }
     }
 

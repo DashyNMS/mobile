@@ -153,6 +153,7 @@ public static class MapHtml
               .immediate .leaflet-marker-icon { transition: none; }
               .leaflet-touch .leaflet-bar, .leaflet-bar { border: 1px solid {{stroke}}; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
               .leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; background: {{surface}}; color: {{text}}; border-bottom-color: {{stroke}}; }
+              .leaflet-touch .leaflet-bar a.leaflet-disabled, .leaflet-bar a.leaflet-disabled { opacity: .45; }
               .leaflet-control-attribution { background: {{attrBg}} !important; color: {{muted}} !important; border-radius: 6px; padding: 2px 6px; }
               .leaflet-control-attribution a { color: {{link}} !important; }
               /* As desktop's pins: a ring split by device state, the count in the hole, bigger for bigger sites. */
