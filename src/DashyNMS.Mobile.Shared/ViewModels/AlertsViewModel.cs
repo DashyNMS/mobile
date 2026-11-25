@@ -40,6 +40,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     private AlertKey? _selectedKey;
     private bool _loading;
+    private bool _loaded;
     private readonly HashSet<AlertGroupKey> _expandedGroups = [];
 
     /// <summary>
@@ -157,7 +158,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// <summary>Group headers and only the expanded children, keeping large lists virtualised.</summary>
     public BulkObservableCollection<AlertItem> DisplayRows { get; } = new();
 
-    public bool IsEmpty => !HasError && Alerts.Count == 0 && !IsBusy;
+    public bool IsEmpty => !HasError && _loaded && Alerts.Count == 0 && !IsBusy;
 
     /// <summary>What the empty list says: nothing open at all, or nothing matching.</summary>
     public string EmptyText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "alerts") : _all.Count == 0 ? "No open alerts visible to this account." : "No alerts match these filters.";
@@ -169,11 +170,17 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     public int OkCount => AllGroups.Count(g => g.Severity is not (AlertSeverity.Critical or AlertSeverity.Warning) && g.State != AlertState.Acknowledged);
     public int AcknowledgedCount => AllGroups.Count(g => g.State == AlertState.Acknowledged);
 
+    public string CriticalChipText => _loaded ? $"Critical {CriticalCount}" : "Critical";
+    public string WarningChipText => _loaded ? $"Warning {WarningCount}" : "Warning";
+    public string OkChipText => _loaded ? $"OK {OkCount}" : "OK";
+    public string AcknowledgedChipText => _loaded ? $"Acknowledged {AcknowledgedCount}" : "Acknowledged";
+
     public string CountText
     {
         get
         {
             if (FailureOutcome is { } failure) return VisibleTotals.Describe(failure, 0, "alerts");
+            if (!_loaded) return string.Empty;
             if (!_all.Any(a => a.Alert.Source == AlertSource.Fault))
                 return (Alerts.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Alerts.Count} of {_all.Count} {Plural(_all.Count)}") + " visible to this account";
             var groups = VisibleGroups();
@@ -369,6 +376,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             .ThenByDescending(a => a.Timestamp)
             .Select(a => AlertItem.For(a, _settings.Current, devicesTask.Result))
             .ToList();
+        _loaded = true;
         ShowPermissions();
         ApplyFilter();
 
@@ -796,6 +804,10 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));
         OnPropertyChanged(nameof(AcknowledgedCount));
+        OnPropertyChanged(nameof(CriticalChipText));
+        OnPropertyChanged(nameof(WarningChipText));
+        OnPropertyChanged(nameof(OkChipText));
+        OnPropertyChanged(nameof(AcknowledgedChipText));
     }
 
     private IReadOnlyList<AlertGroup> VisibleGroups()

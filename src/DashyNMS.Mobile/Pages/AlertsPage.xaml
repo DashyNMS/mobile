@@ -59,7 +59,7 @@
         <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
         <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding CriticalCount, StringFormat='Critical {0}'}"
+                    Text="{Binding CriticalChipText}"
                     Command="{Binding ToggleCriticalCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
@@ -70,7 +70,7 @@
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding WarningCount, StringFormat='Warning {0}'}"
+                    Text="{Binding WarningChipText}"
                     Command="{Binding ToggleWarningCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
@@ -82,7 +82,7 @@
             </Button>
             <!-- LibreNMS's ok severity (#64). -->
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding OkCount, StringFormat='OK {0}'}"
+                    Text="{Binding OkChipText}"
                     Command="{Binding ToggleOkCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
@@ -93,7 +93,7 @@
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding AcknowledgedCount, StringFormat='Acknowledged {0}'}"
+                    Text="{Binding AcknowledgedChipText}"
                     Command="{Binding ToggleAcknowledgedCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowAcknowledged}" Value="True">

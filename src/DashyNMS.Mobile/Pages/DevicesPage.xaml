@@ -55,7 +55,7 @@
              the camera; its padding (from the page) lets the last one scroll clear. -->
         <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
             <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
-                <Button Style="{StaticResource Chip}" Text="{Binding UpCount, StringFormat='Up {0}'}" Command="{Binding ToggleUpCommand}">
+                <Button Style="{StaticResource Chip}" Text="{Binding UpChipText}" Command="{Binding ToggleUpCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
@@ -64,7 +64,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding DownCount, StringFormat='Down {0}'}" Command="{Binding ToggleDownCommand}">
+                <Button Style="{StaticResource Chip}" Text="{Binding DownChipText}" Command="{Binding ToggleDownCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDown}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
@@ -73,7 +73,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding MaintenanceCount, StringFormat='Maintenance {0}'}" Command="{Binding ToggleMaintenanceCommand}">
+                <Button Style="{StaticResource Chip}" Text="{Binding MaintenanceChipText}" Command="{Binding ToggleMaintenanceCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowMaintenance}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource MaintenanceTint}" />
@@ -82,7 +82,7 @@
                         </DataTrigger>
                     </Button.Triggers>
                 </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding DisabledCount, StringFormat='Disabled {0}'}" Command="{Binding ToggleDisabledCommand}">
+                <Button Style="{StaticResource Chip}" Text="{Binding DisabledChipText}" Command="{Binding ToggleDisabledCommand}">
                     <Button.Triggers>
                         <DataTrigger TargetType="Button" Binding="{Binding ShowDisabled}" Value="True">
                             <Setter Property="BackgroundColor" Value="{StaticResource InactiveTint}" />

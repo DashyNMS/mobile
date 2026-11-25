@@ -52,6 +52,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     private List<DeviceItem> _all = [];
 
     private int? _selectedId;
+    private bool _loaded;
     private IReadOnlyDictionary<int, IReadOnlyList<string>> _groups = new Dictionary<int, IReadOnlyList<string>>();
     private IReadOnlySet<int> _maintenanceIds = new HashSet<int>();
     private bool _resetting;
@@ -196,8 +197,17 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 
     public int DisabledCount => _all.Count(d => d.State is DeviceState.Disabled or DeviceState.Ignored);
 
-    /// <summary>"340 devices", or "12 of 340 devices" when filtered.</summary>
+    public string UpChipText => _loaded ? $"Up {UpCount}" : "Up";
+
+    public string DownChipText => _loaded ? $"Down {DownCount}" : "Down";
+
+    public string MaintenanceChipText => _loaded ? $"Maintenance {MaintenanceCount}" : "Maintenance";
+
+    public string DisabledChipText => _loaded ? $"Disabled {DisabledCount}" : "Disabled";
+
+    /// <summary>"340 devices", or "12 of 340 devices" when filtered. Blank until the first load completes.</summary>
     public string CountText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "devices")
+        : !_loaded ? string.Empty
         : (Devices.Count == _all.Count ? $"{_all.Count} {Plural(_all.Count)}" : $"{Devices.Count} of {_all.Count} {Plural(_all.Count)}")
             + " visible to this account" + (_all.Any(d => d.State == DeviceState.Unknown) ? $" · {_all.Count(d => d.State == DeviceState.Unknown)} unknown" : string.Empty);
 
@@ -526,6 +536,7 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
                 IsUnderMaintenance = _maintenanceIds.Contains(d.DeviceId),
             })
             .ToList();
+        _loaded = true;
         MarkSelected();
 
         RebuildFacet(TypeOptions, AllTypes, _all.Select(d => d.Device.Type), TypeLabel, v => SelectedType = v, SelectedType);
@@ -786,6 +797,10 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(DownCount));
         OnPropertyChanged(nameof(MaintenanceCount));
         OnPropertyChanged(nameof(DisabledCount));
+        OnPropertyChanged(nameof(UpChipText));
+        OnPropertyChanged(nameof(DownChipText));
+        OnPropertyChanged(nameof(MaintenanceChipText));
+        OnPropertyChanged(nameof(DisabledChipText));
     }
 
     private IEnumerable<string> GroupsOrNone(int deviceId) =>

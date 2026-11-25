@@ -113,23 +113,44 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
     /// <summary>The selected category's sensors, filtered: a sensor's reading on the right, its device beneath.</summary>
     public BulkObservableCollection<SectionRow> Sensors { get; } = new();
 
+    private bool HasData => _loaded || _all.Count > 0;
+
     public int CriticalCount => InCategory.Count(s => s.Row.Status == RowStatus.Critical);
 
     public int WarningCount => InCategory.Count(s => s.Row.Status == RowStatus.Warning);
 
     public int OkCount => InCategory.Count(s => s.Row.Status == RowStatus.Ok);
 
+    public string CriticalChipText => HasData ? $"Critical {CriticalCount}" : "Critical";
+
+    public string WarningChipText => HasData ? $"Warning {WarningCount}" : "Warning";
+
+    public string OkChipText => HasData ? $"OK {OkCount}" : "OK";
+
     /// <summary>"Updating…" over readings already on screen while a slow sensor list loads (DashyNMS/desktop#373).</summary>
-    public string CountText => IsBusy && _all.Count > 0 ? SensorRefreshStatus.Updating : ReadFailureText ?? (Sensors.Count == InCategory.Count()
-        ? $"{Sensors.Count} {SelectedCategory.Label.ToLowerInvariant()} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
-        : $"{Sensors.Count} of {InCategory.Count()} {SelectedCategory.Label.ToLowerInvariant()} sensors");
+    public string CountText
+    {
+        get
+        {
+            if (IsBusy && _all.Count > 0) return SensorRefreshStatus.Updating;
+            if (ReadFailureText is { } failure) return failure;
+            if (!HasData) return string.Empty;
+            var total = InCategory.Count();
+            var noun = CategoryNoun(SelectedCategory.Label);
+            var summary = Sensors.Count == total
+                ? $"{Sensors.Count} {noun} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
+                : $"{Sensors.Count} of {total} {noun} sensors";
+            var unassessed = InCategory.Count(s => s.Row.Status is not (RowStatus.Critical or RowStatus.Warning or RowStatus.Ok));
+            return unassessed > 0 ? $"{summary} · {unassessed} without limits" : summary;
+        }
+    }
 
     /// <summary>Announces the category count and whether this severity is included.</summary>
-    public string CriticalFilterDescription => $"Critical {CriticalCount}, {(ShowCritical ? "included" : "excluded")}";
+    public string CriticalFilterDescription => HasData ? $"Critical {CriticalCount}, {(ShowCritical ? "included" : "excluded")}" : $"Critical, {(ShowCritical ? "included" : "excluded")}";
     /// <summary>Announces the category count and whether this severity is included.</summary>
-    public string WarningFilterDescription => $"Warning {WarningCount}, {(ShowWarning ? "included" : "excluded")}";
+    public string WarningFilterDescription => HasData ? $"Warning {WarningCount}, {(ShowWarning ? "included" : "excluded")}" : $"Warning, {(ShowWarning ? "included" : "excluded")}";
     /// <summary>Announces the category count and whether this severity is included.</summary>
-    public string OkFilterDescription => $"OK {OkCount}, {(ShowOk ? "included" : "excluded")}";
+    public string OkFilterDescription => HasData ? $"OK {OkCount}, {(ShowOk ? "included" : "excluded")}" : $"OK, {(ShowOk ? "included" : "excluded")}";
 
     public bool HasActiveFilters => !ShowCritical || !ShowWarning || !ShowOk || !string.IsNullOrWhiteSpace(SearchText);
 
@@ -137,7 +158,11 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
 
     public string EmptyText => ReadFailureText ?? (InCategory.Any()
         ? "No sensors match these filters."
-        : $"LibreNMS has no {SelectedCategory.Label.ToLowerInvariant()} sensors.");
+        : $"LibreNMS has no {CategoryNoun(SelectedCategory.Label)} sensors.");
+
+    /// <summary>Preserves unit acronyms like "dBm" while lowercasing ordinary words like "Temperature".</summary>
+    private static string CategoryNoun(string label) =>
+        label.Skip(1).Any(char.IsUpper) ? label : label.ToLowerInvariant();
 
     /// <summary>Kept readings from another page are on screen, so a first load needs no "Loading…" over them.</summary>
     public override bool IsLoadingFirstTime => base.IsLoadingFirstTime && _all.Count == 0;
@@ -343,6 +368,9 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(CriticalCount));
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));
+        OnPropertyChanged(nameof(CriticalChipText));
+        OnPropertyChanged(nameof(WarningChipText));
+        OnPropertyChanged(nameof(OkChipText));
         OnPropertyChanged(nameof(CountText));
         OnPropertyChanged(nameof(HasActiveFilters));
         OnPropertyChanged(nameof(IsEmpty));
