@@ -1,3 +1,5 @@
+using DashyNMS.Mobile.Services;
+
 namespace DashyNMS.Mobile.Controls;
 
 /// <summary>
@@ -67,6 +69,7 @@ public sealed class PageHeader : Grid
     private readonly InlineGlassFallback _fallback = new();
     private WeakReference<ContentPage>? _ownerPage;
 #if IOS
+    private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false, VerticalOptions = LayoutOptions.Center };
     private Action? _fallbackBack;
 #endif
 
@@ -87,6 +90,10 @@ public sealed class PageHeader : Grid
         Add(_title);
         SetColumn((IView)_fallback, 1);
         Add(_fallback);
+#if IOS
+        SetColumn((IView)_headerGlass, 1);
+        Add(_headerGlass);
+#endif
         SetRow((IView)_note, 2);
         SetColumnSpan((IView)_note, 2);
         Add(_note);
@@ -162,7 +169,12 @@ public sealed class PageHeader : Grid
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note && v != _topStrut && v != _fallback);
+        get => Children.OfType<View>().FirstOrDefault(v =>
+            v != _title && v != _back && v != _note && v != _topStrut && v != _fallback
+#if IOS
+            && v != _headerGlass
+#endif
+            );
         set
         {
             if (Actions is { } old)
@@ -214,6 +226,9 @@ public sealed class PageHeader : Grid
         var row = showInlineBack ? 1 : 0;
         SetRow((IView)_title, row);
         SetRow((IView)_fallback, row);
+#if IOS
+        SetRow((IView)_headerGlass, row);
+#endif
         if (Actions is { } actions)
         {
             SetRow((IView)actions, row);
@@ -229,6 +244,36 @@ public sealed class PageHeader : Grid
 #endif
         }
     }
+
+#if IOS
+    /// <summary>
+    /// Decides whether <paramref name="page"/>'s actions belong beside the title in
+    /// <see cref="HeaderGlassGroup"/> or in <see cref="TabBarButtons"/>, accounting
+    /// for measured title and safe-lane width so tight titles fall back cleanly.
+    /// </summary>
+    internal PageActionPlace ResolveActionPlacement(Page page, int actionCount)
+    {
+        var laneWidth = Width > 0 ? Math.Max(0, Width - Padding.HorizontalThickness) : double.PositiveInfinity;
+        var titleWidth = laneWidth < double.PositiveInfinity && !string.IsNullOrEmpty(_title.Text)
+            ? ((IView)_title).Measure(double.PositiveInfinity, double.PositiveInfinity).Width
+            : 0;
+        return PageActionPlacement.Resolve(
+            TabBarButtons.IsAvailable,
+            page.Width,
+            page.Height,
+            laneWidth,
+            titleWidth,
+            actionCount * HeaderGlassGroup.Size);
+    }
+
+    /// <summary>Places or clears title-row Liquid Glass actions on this header.</summary>
+    internal void SetHeaderGlass(IReadOnlyList<GlassAction> actions)
+    {
+        var show = actions.Count > 0;
+        _headerGlass.Actions = show ? actions : [];
+        _headerGlass.IsVisible = show;
+    }
+#endif
 
     /// <summary>
     /// Whether <paramref name="page"/> was pushed: it isn't the page its tab

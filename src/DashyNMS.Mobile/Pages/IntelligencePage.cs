@@ -49,7 +49,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
 #if IOS
     // Saved chats and New chat beside the title on a big portrait screen (#594).
     private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false };
-    private ChatActionPlace _place = ChatActionPlace.TabBarGlass;
+    private PageActionPlace _place = PageActionPlace.TabBarGlass;
 #endif
     private readonly List<TurnCard> _cards = [];
     private long _chatRevision;
@@ -112,7 +112,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         // the header and the tab bar; rebuild the glass only when they move.
         SizeChanged += (_, _) =>
         {
-            if (_showing && ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height) != _place) ShowActions();
+            if (_showing && _header.ResolveActionPlacement(this, 3) != _place) ShowActions();
         };
 #endif
         _scroll.Content = _transcript;
@@ -514,17 +514,17 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
 
     private void ShowActions()
     {
-        if (!_showing || Shell.Current?.CurrentPage != this || Navigation.ModalStack.Count > 0) return;
+        if (!_showing || !ActivePage.IsCurrent(this)) return;
 #if IOS
-        _place = ChatActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
         GlassAction[] chatActions =
         [
             new("list.bullet", "Saved chats", OpenChats),
             new("square.and.arrow.up", "Export conversation", () => _ = ExportAsync(), IsEnabled: !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0),
             new("square.and.pencil", "New chat", RequestNewChat, IsEnabled: !_conversation.IsRunning && !_newChatPending),
         ];
-        var inHeader = _place == ChatActionPlace.HeaderGlass;
-        _export.IsVisible = _new.IsVisible = _list.IsVisible = _place == ChatActionPlace.HeaderIcons;
+        _place = _header.ResolveActionPlacement(this, chatActions.Length);
+        var inHeader = _place == PageActionPlace.HeaderGlass;
+        _export.IsVisible = _new.IsVisible = _list.IsVisible = _place == PageActionPlace.HeaderIcons;
         _headerGlass.Actions = inHeader ? chatActions : [];
         _headerGlass.IsVisible = inHeader;
         if (TabBarButtons.IsAvailable)

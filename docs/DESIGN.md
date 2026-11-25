@@ -168,7 +168,7 @@ Half-open uses the same measured layout as fully open at the same dimensions. Av
 
 | Decision | Rule and owner |
 | --- | --- |
-| Regular width / title-row glass | `ScreenLayout.RegularFrom` (600pt) and taller than wide (`ChatActionPlacement.Resolve`), when title and glass both fit the safe lane |
+| Regular width / title-row glass | `ScreenLayout.RegularFrom` (600pt) and taller than wide (`PageActionPlacement.Resolve`), when title and glass both fit the safe lane |
 | Split list and detail | `ScreenLayout.SplitFrom` (700pt); list pane `ScreenLayout.ListPaneWidth(width)` (340pt, or 400pt at `WideFrom` 1000pt) |
 | Readable prose column | `ScreenLayout.ReadableWidth` (680pt); Intelligence chat caps at 860pt (user bubble `min(560pt, 85%)`) |
 | Dashboard and editor grid | `DashboardColumns.Count` (340pt min track, 12pt gap, max 3 columns) |
@@ -244,7 +244,7 @@ This keeps resting chips 12pt clear on Duo outer portrait, prevents a right-hand
 | Single page commit action | Fixed `PrimaryAction` slot (section 8) |
 | Infrequent or secondary item action | Native context menu or overflow |
 
-`ChatActionPlacement.Resolve` decides between `HeaderGlassGroup` and `TabBarButtons` from the page size. Re-evaluate on every `SizeChanged` and rebuild glass only when placement or command availability (`CanExecuteChanged`) changes. If `HeaderGlassGroup` and a readable title cannot both fit the measured safe lane (for example at maximum Dynamic Type), fall back to `TabBarButtons` (or `ellipsis` overflow). Back and search remain in `TabBarButtons` in all poses.
+`PageActionPlacement.Resolve` decides between `HeaderGlassGroup` and `TabBarButtons` from the page size. Re-evaluate on every `SizeChanged` and rebuild glass only when placement or command availability (`CanExecuteChanged`) changes. If `HeaderGlassGroup` and a readable title cannot both fit the measured safe lane (for example at maximum Dynamic Type), fall back to `TabBarButtons` (or `ellipsis` overflow). Back and search remain in `TabBarButtons` in all poses.
 
 Show two to four page actions (counting Back). Use SF Symbols via `GlassAction` (and `GlassActions.Pin` for pinning). Name every action with a verb and target (for example "Refresh devices"). Hide or disable data-dependent actions when their command cannot run.
 
@@ -476,7 +476,7 @@ Reuse these helpers instead of duplicating platform, layout or search code. Upda
 | --- | --- |
 | Edge and scroll clearance | `Controls/CoveredEdges.cs` (`Of`, `Beside`, `ForScrolling`, `Watch`) |
 | Tab-bar Liquid Glass | `Platforms/iOS/TabBarButtons.cs` (`Show`, `Hide`, `Moved`, `PillIn`, `Occupied`, `CoveredBottom`, `GlassAction`, `GlassActions`, `GlassStyle`) |
-| Title-row Liquid Glass | `Platforms/iOS/HeaderGlassGroup.cs`, `Shared/Intelligence/ChatActionPlacement.cs` |
+| Title-row Liquid Glass | `Platforms/iOS/HeaderGlassGroup.cs`, `Shared/Services/PageActionPlacement.cs` |
 | System reserved regions | `Platforms/iOS/ReservedRegions.cs` (`Occupied`) |
 | Page header and top-line fit | `Controls/PageHeader.cs`, `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Controls/BackBar.cs` (`PreviousTitle`) |
 | Forms and foot placement | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs` (`PlaceFoot`), `Controls/SetupSection.cs`, `Shared/Services/SetupActionPlacement.cs` |
@@ -496,7 +496,6 @@ This guide merges ahead of the shared helpers below so new features follow the u
 
 | Pending helper or style | Until it lands |
 | --- | --- |
-| `Shared/Services/PageActionPlacement.cs` | Use `Shared/Intelligence/ChatActionPlacement.cs` |
 | `Controls/ChipStripClearance.cs` | Use `CoveredEdges.Beside` |
 
 ## 15. Acceptance
