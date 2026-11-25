@@ -15,6 +15,7 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost,
     private readonly SetupPageLayout _placement;
     private bool _isVisible;
     private Window? _subscribedWindow;
+    private double _lastListWidth;
 
     public AddCardPage(AddCardViewModel viewModel)
     {
@@ -52,6 +53,7 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost,
 
     private void UpdateColumns()
     {
+        if (List.Width <= 0) return;
         double scale = 1;
 #if IOS
         using var font = UIKit.UIFont.PreferredBody;
@@ -60,8 +62,43 @@ public partial class AddCardPage : ContentPage, IQueryAttributable, ISearchHost,
         scale = Android.App.Application.Context.Resources?.Configuration?.FontScale ?? 1;
 #endif
         var columns = CatalogueColumns.Count(List.Width, scale);
-        if (CatalogueLayout.Span != columns) CatalogueLayout.Span = columns;
+        var spanChanged = CatalogueLayout.Span != columns;
+        var widthChanged = Math.Abs(List.Width - _lastListWidth) > 1;
+        if (spanChanged) CatalogueLayout.Span = columns;
+        if (!spanChanged && !widthChanged) return;
+        _lastListWidth = List.Width;
+#if IOS
+        Dispatcher.Dispatch(RedrawPreviews);
+#endif
     }
+
+#if IOS
+    private void RedrawPreviews()
+    {
+        if (List.Handler?.PlatformView is not UIKit.UIView root) return;
+        if (FindCollectionView(root) is not { } cv) return;
+        cv.CollectionViewLayout.InvalidateLayout();
+        cv.SetNeedsLayout();
+        cv.LayoutIfNeeded();
+        foreach (var cell in cv.VisibleCells)
+        {
+            InvalidateSubtree(cell);
+        }
+    }
+
+    private static UIKit.UICollectionView? FindCollectionView(UIKit.UIView view) =>
+        view as UIKit.UICollectionView ?? view.Subviews.Select(FindCollectionView).FirstOrDefault(found => found is not null);
+
+    private static void InvalidateSubtree(UIKit.UIView view)
+    {
+        view.SetNeedsLayout();
+        view.SetNeedsDisplay();
+        foreach (var subview in view.Subviews)
+        {
+            InvalidateSubtree(subview);
+        }
+    }
+#endif
 
     private void OnChoiceCheckedChanged(object? sender, CheckedChangedEventArgs e)
     {

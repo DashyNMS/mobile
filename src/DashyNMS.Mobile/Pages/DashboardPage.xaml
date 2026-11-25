@@ -48,41 +48,41 @@
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="critical" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.CriticalAlerts}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.CriticalAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Critical" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Column="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="warning" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.WarningAlerts}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.WarningAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Warning" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Row="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="ok" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.OkAlerts}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.OkAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="OK" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="acknowledged" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.AcknowledgedAlerts}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.AcknowledgedAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Acknowledged" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                             </Grid>
                         </VerticalStackLayout>
@@ -100,41 +100,41 @@
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="up" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesUp}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesUp}"
                                                TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Up" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Column="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="down" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesDown}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesDown}"
                                                TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Down" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Row="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="maintenance" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesMaintenance}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesMaintenance}"
                                                TextColor="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Maintenance" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="disabled" />
                                     </Border.GestureRecognizers>
-                                    <HorizontalStackLayout Spacing="10">
-                                        <Label Style="{StaticResource TileNumber}" Text="{Binding Dashboard.DevicesInactive}"
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                        <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesInactive}"
                                                TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Disabled" VerticalOptions="Center" />
-                                    </HorizontalStackLayout>
+                                    </FlexLayout>
                                 </Border>
                             </Grid>
                         </VerticalStackLayout>
