@@ -40,7 +40,7 @@
                             <Grid ColumnDefinitions="*,Auto">
                                 <Label Style="{StaticResource CardTitle}" Text="Alerts" />
                                 <Label Grid.Column="1" Style="{StaticResource CardNote}"
-                                       Text="{Binding Dashboard.LastUpdated, StringFormat='Checked {0:HH:mm}'}" />
+                                       Text="{Binding Dashboard.CheckedText}" />
                             </Grid>
                             <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
@@ -747,9 +747,12 @@
                                            MinColumnWidth="340" MaxColumns="3" Gap="12" />
 
                         <Label Style="{StaticResource Faint}"
-                               Text="{Binding LastUpdated, StringFormat='Updated {0:HH:mm:ss}. Pull down to refresh.'}"
+                               Text="{Binding UpdatedText}"
+                               IsVisible="{Binding HasLastUpdated}"
                                HorizontalOptions="Center"
                                Margin="0,16,0,0" />
+
+                        <BoxView x:Name="Foot" Color="Transparent" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
 
                     </VerticalStackLayout>
                 </ScrollView>

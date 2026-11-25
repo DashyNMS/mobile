@@ -30,6 +30,8 @@ public partial class DashboardPage : ContentPage, IActivePage
 #if IOS
 		// Keep clear of the status bar only; the other edges are placed in PlaceControls.
 		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
+		Scroller.HandlerChanged += (_, _) => StopInsets();
+		Scroller.Loaded += (_, _) => StopInsets();
 #endif
 		BindingContext = _viewModel = viewModel;
 
@@ -40,6 +42,8 @@ public partial class DashboardPage : ContentPage, IActivePage
 		Controls.TopBar.Fit(TopLine);
 		TopLine.SetColumn(_fallback, 2);
 		TopLine.Add(_fallback);
+		Toast.SizeChanged += (_, _) => PlaceControls();
+		Toast.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceControls(); };
 
 		CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -99,37 +103,65 @@ public partial class DashboardPage : ContentPage, IActivePage
 	{
 #if IOS
 		_fallback.Sync(this);
+		StopInsets();
 #endif
 		var edges = CoveredEdges.Of(this);
 		double left = edges.Left, right = edges.Right, bottom = edges.Bottom;
 		double? toastFoot = null;
+		var obstruction = 12 + bottom;
 #if IOS
 		// Above a bottom tab bar, the glass buttons float over its right end.
 		bottom += TabBarButtons.CoveredBottom;
-		if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill && pill.Height > pill.Width)
+		obstruction = 12 + bottom;
+		if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
 		{
-			// A side tab bar: wherever UIKit's safe area ends, the cards stop a
-			// gap short of the pill's column, and the toast's foot is level with
-			// the pill's, as one row of glass and toast.
-			if (pill.Left + (pill.Width / 2) > page.Bounds.Width / 2)
+			var nativePill = TabBarButtons.PillIn(page);
+			OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+			var glass = TabBarButtons.Occupied(page)
+				.Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+			obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+				edges.Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
+			if (nativePill is { } side && side.Height > side.Width)
 			{
-				right = Math.Max(right, page.Bounds.Width - pill.Left + GlassGap - 16);
-			}
-			else
-			{
-				left = Math.Max(left, pill.Right + GlassGap - 16);
-			}
+				// A side tab bar: wherever UIKit's safe area ends, the cards stop a
+				// gap short of the pill's column, and the toast's foot is level with
+				// the pill's, as one row of glass and toast.
+				if (side.Left + (side.Width / 2) > page.Bounds.Width / 2)
+				{
+					right = Math.Max(right, page.Bounds.Width - side.Left + GlassGap - 16);
+				}
+				else
+				{
+					left = Math.Max(left, side.Right + GlassGap - 16);
+				}
 
-			toastFoot = Math.Max(0, page.Bounds.Height - pill.Bottom);
+				toastFoot = Math.Max(0, page.Bounds.Height - side.Bottom);
+			}
 		}
 #endif
 		TopLine.Margin = new Thickness(left, 0, right, 0);
-		CardColumn.Padding = new Thickness(16 + left, 8, 16 + right, 16 + bottom);
-		Toast.Margin = new Thickness(12 + left, 0, 12 + right, toastFoot ?? 16 + bottom);
+		CardColumn.Padding = new Thickness(16 + left, 8, 16 + right, 0);
+		var toastMarginBottom = toastFoot ?? obstruction;
+		Toast.Margin = new Thickness(12 + left, 0, 12 + right, toastMarginBottom);
+		var footer = SectionListPlacement.FooterGap + obstruction;
+		if (Toast.IsVisible)
+		{
+			footer = Math.Max(footer, toastMarginBottom + Math.Max(52, Toast.Height) + SectionListPlacement.PanelGap);
+		}
+		if (Foot.HeightRequest != footer)
+		{
+			Foot.HeightRequest = footer;
+		}
 	}
 
 #if IOS
 	private void OnTabBarButtonsMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+
+	private void StopInsets()
+	{
+		if (Scroller.Handler?.PlatformView is UIKit.UIScrollView scroll)
+			scroll.ContentInsetAdjustmentBehavior = UIKit.UIScrollViewContentInsetAdjustmentBehavior.Never;
+	}
 #endif
 
 	private async Task ShowHighlightedAsync()
