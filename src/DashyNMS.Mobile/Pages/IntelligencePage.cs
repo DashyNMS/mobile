@@ -575,13 +575,23 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     /// </summary>
     private Border DetailChip()
     {
+        var row = new Grid
+        {
+            ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Auto)],
+            ColumnSpacing = 4,
+            SafeAreaEdges = SafeAreaEdges.None,
+        };
+        row.Add(_detail, 0, 0);
+        var chevron = Glyph(ChevronDown, 16);
+        chevron.SetAppThemeColor(Microsoft.Maui.Controls.Shapes.Path.StrokeProperty, ThemeColour("TextSecondaryLight"), ThemeColour("TextSecondaryDark"));
+        row.Add(chevron, 1, 0);
         var chip = new Border
         {
-            Content = _detail, Padding = new Thickness(12, 0, 8, 0), StrokeThickness = 1, MinimumHeightRequest = 48,
+            Content = row, Padding = new Thickness(12, 0, 12, 0), StrokeThickness = 1.5, MinimumHeightRequest = 48,
             StrokeShape = new RoundRectangle { CornerRadius = 22 }, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center,
             BackgroundColor = Colors.Transparent,
         };
-        chip.Stroke = ThemedBrush("StrokeLight", "StrokeDark");
+        chip.Stroke = ThemedBrush("ComposerChipStrokeLight", "ComposerChipStrokeDark");
         return chip;
     }
 

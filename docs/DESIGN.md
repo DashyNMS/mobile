@@ -56,6 +56,7 @@ Bind every colour with `AppThemeBinding` (or `SetAppThemeColor` in C#) so open p
 | Filled primary button | `ButtonPrimary` with `White` | `ButtonPrimary` with `White` |
 | Card stroke, `Divider` and `RowLine` | `StrokeLight` | `StrokeDark` |
 | Unselected chip and `SearchField` stroke | `Gray200` | `ChipStrokeDark` |
+| Outlined composer chip stroke | `ComposerChipStrokeLight` | `ComposerChipStrokeDark` |
 | Transparent fade stop over page | `BackgroundLightClear` | `BackgroundDarkClear` |
 | Transparent fade stop over card | `SurfaceLightClear` | `SurfaceDarkClear` |
 

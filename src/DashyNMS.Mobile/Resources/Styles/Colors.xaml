@@ -35,6 +35,9 @@
     <Color x:Key="TextFaintDark">#8E99A9</Color>
     <Color x:Key="StrokeDark">#232A36</Color>
     <Color x:Key="ChipStrokeDark">#3A4250</Color>
+    <!-- Outlined composer chips on SurfaceAltDark/SurfaceLight (>= 3:1 non-text contrast). -->
+    <Color x:Key="ComposerChipStrokeDark">#6B7687</Color>
+    <Color x:Key="ComposerChipStrokeLight">#7B8494</Color>
     <!-- Behind code and fields: the mock-ups' block, darker than a card. -->
     <Color x:Key="CodeDark">#0D1015</Color>
     <Color x:Key="TextLight">#11141A</Color>
