@@ -770,6 +770,7 @@
 
             <!-- What just changed, with Undo (#140). -->
             <views:DashboardToastView x:Name="Toast" BindingContext="{Binding Toast}" ZIndex="2" SafeAreaEdges="None" />
+            <controls:FootFade x:Name="BottomFade" ZIndex="1" />
 
             <!-- The cards fade out as they scroll up under the header. -->
             <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True">

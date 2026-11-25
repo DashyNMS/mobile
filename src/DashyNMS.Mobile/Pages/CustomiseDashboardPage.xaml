@@ -102,6 +102,7 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="2" />
         <views:DashboardToastView x:Name="Toast" Grid.Row="2" BindingContext="{Binding Toast}" />
     </Grid>
 

@@ -152,6 +152,10 @@ public partial class DashboardPage : ContentPage, IActivePage
 		{
 			Foot.HeightRequest = footer;
 		}
+#if IOS
+		var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+		BottomFade.SetCoveredHeight(!sideBar ? bottom : 0);
+#endif
 	}
 
 #if IOS

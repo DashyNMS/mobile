@@ -71,6 +71,10 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         ListFoot.HeightRequest = 12 + clear.Bottom;
+#if IOS
+        var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+#endif
     }
 
     private async void OnMore(object? sender, EventArgs e)

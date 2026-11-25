@@ -78,6 +78,10 @@ public partial class CustomiseDashboardPage : ContentPage, IActivePage
             foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
 #endif
         Toast.Margin = new Thickness(12 + edges.Left, 0, 12 + edges.Right, foot);
+#if IOS
+        var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+        BottomFade.SetCoveredHeight(!sideBar ? edges.Bottom : 0);
+#endif
         PlaceFooter();
         PlaceColumns();
     }

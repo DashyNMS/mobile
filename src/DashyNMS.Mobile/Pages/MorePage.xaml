@@ -96,5 +96,6 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="1" />
     </Grid>
 </ContentPage>

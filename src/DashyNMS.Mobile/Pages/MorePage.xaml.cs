@@ -77,6 +77,10 @@ public partial class MorePage : ContentPage, IActivePage
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         var foot = SectionListPlacement.FooterGap + obstruction;
         if (Foot.HeightRequest != foot) Foot.HeightRequest = foot;
+#if IOS
+        var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+#endif
     }
 
 #if IOS
