@@ -23,6 +23,10 @@ public partial class DashboardPage : ContentPage, IActivePage
 
 	private readonly DashboardViewModel _viewModel;
 	private readonly InlineGlassFallback _fallback = new();
+#if IOS
+	private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false };
+	private PageActionPlace? _actionPlace;
+#endif
 
 	public DashboardPage(DashboardViewModel viewModel)
 	{
@@ -42,6 +46,10 @@ public partial class DashboardPage : ContentPage, IActivePage
 		Controls.TopBar.Fit(TopLine);
 		TopLine.SetColumn(_fallback, 2);
 		TopLine.Add(_fallback);
+#if IOS
+		TopLine.SetColumn(_headerGlass, 2);
+		TopLine.Add(_headerGlass);
+#endif
 		Toast.SizeChanged += (_, _) => PlaceControls();
 		Toast.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(IsVisible)) PlaceControls(); };
 
@@ -71,17 +79,40 @@ public partial class DashboardPage : ContentPage, IActivePage
 	public void Activate()
 	{
 #if IOS
-		// Nothing to search: the actions alone.
-		TabBarButtons.Show(this, null, string.Empty,
-		[
-			new GlassAction("slider.horizontal.3", "Edit dashboard", () => _viewModel.CustomiseCommand.Execute(null)),
-			new GlassAction("arrow.clockwise", "Refresh the dashboard", () => _viewModel.RefreshCommand.Execute(null)),
-		]);
+		_actionPlace = null;
+		SyncActions();
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
 	}
+
+#if IOS
+	private void SyncActions()
+	{
+		if (!TabBarButtons.IsAvailable) return;
+		var actions = new GlassAction[]
+		{
+			new("slider.horizontal.3", "Edit dashboard", () => _viewModel.CustomiseCommand.Execute(null)),
+			new("arrow.clockwise", "Refresh the dashboard", () => _viewModel.RefreshCommand.Execute(null)),
+		};
+		var place = PageActionPlacement.Resolve(TabBarButtons.IsAvailable, Width, Height);
+		if (_actionPlace == place) return;
+		_actionPlace = place;
+		if (place == PageActionPlace.Header)
+		{
+			_headerGlass.Actions = actions;
+			_headerGlass.IsVisible = true;
+			TabBarButtons.Show(this, null, string.Empty, []);
+		}
+		else
+		{
+			_headerGlass.Actions = [];
+			_headerGlass.IsVisible = false;
+			TabBarButtons.Show(this, null, string.Empty, actions);
+		}
+	}
+#endif
 
 	protected override void OnDisappearing()
 	{
@@ -102,6 +133,7 @@ public partial class DashboardPage : ContentPage, IActivePage
 	private void PlaceControls()
 	{
 #if IOS
+		SyncActions();
 		_fallback.Sync(this);
 		StopInsets();
 #endif

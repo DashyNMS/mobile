@@ -10,6 +10,9 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
     private readonly NeighbourGroupsViewModel _viewModel;
     private IDisposable? _edges;
     private bool _active;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
     public NeighbourGroupsPage(NeighbourGroupsViewModel viewModel)
     {
@@ -39,17 +42,38 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("plus", "Add a neighbourhood", () => _viewModel.AddCommand.Execute(null)));
-        TabBarButtons.Show(this, null, string.Empty, actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
     }
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!_active || !TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var add = new GlassAction("plus", "Add a neighbourhood", () => _viewModel.AddCommand.Execute(null));
+        if (place == PageActionPlace.Header)
+        {
+            Header.SetHeaderGlass([add]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(add);
+        }
+        TabBarButtons.Show(this, null, string.Empty, bar);
+    }
+#endif
 
     protected override void OnDisappearing()
     {
@@ -74,6 +98,7 @@ public partial class NeighbourGroupsPage : ContentPage, IActivePage
 #if IOS
         var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
         BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
 #endif
     }
 

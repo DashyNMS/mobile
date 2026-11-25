@@ -14,6 +14,9 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
     private IDisposable? _edges;
     private bool _active;
     private NeighbourLinkView? _detail;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
     public NeighboursPage(NeighboursViewModel viewModel)
     {
@@ -64,17 +67,38 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("square.grid.2x2", "Neighbourhoods", () => _viewModel.EditGroupsCommand.Execute(null)));
-        TabBarButtons.Show(this, OpenSearch, "Search neighbours", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
     }
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!_active || !TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var groups = new GlassAction("square.grid.2x2", "Neighbourhoods", () => _viewModel.EditGroupsCommand.Execute(null));
+        if (place == PageActionPlace.Header)
+        {
+            Header.SetHeaderGlass([groups]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(groups);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search neighbours", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
     private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
@@ -124,6 +148,7 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         ListCard.Margin = new Thickness(left, 0, right, 0);
         ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
         BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
 #else
         ListCard.Margin = new Thickness(left, 0, right, 12 + clear.Bottom);
         ListFoot.HeightRequest = 0;

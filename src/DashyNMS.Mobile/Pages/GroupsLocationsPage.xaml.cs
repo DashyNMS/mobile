@@ -14,6 +14,9 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 
     /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
     private readonly Action _refresh;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
 	public GroupsLocationsPage(GroupsLocationsViewModel viewModel)
 	{
@@ -48,17 +51,38 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
 		Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh groups and locations", _refresh));
-        TabBarButtons.Show(this, OpenSearch, "Search groups and locations", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
 	}
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var refresh = new GlassAction("arrow.clockwise", "Refresh groups and locations", _refresh);
+        if (place == PageActionPlace.Header)
+        {
+            Header.SetHeaderGlass([refresh]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(refresh);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search groups and locations", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
 
@@ -95,6 +119,7 @@ public partial class GroupsLocationsPage : ContentPage, ISearchHost, IActivePage
         }
         ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
         BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
 #else
         ListFoot.HeightRequest = 12 + clear.Bottom;
 #endif

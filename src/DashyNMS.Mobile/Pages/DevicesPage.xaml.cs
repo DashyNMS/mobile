@@ -45,8 +45,8 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 	/// <summary>The device beside the list (#88), whose pin is glass with the list's actions.</summary>
 	private DeviceDetailView? _detail;
 
-	/// <summary>What the glass last showed: Sort &amp; filter filled, and the pane's pin (shown, filled).</summary>
-	private (bool Filtered, bool Pin, bool Pinned)? _glass;
+	/// <summary>What the glass last showed: Sort &amp; filter filled, the pane's pin (shown, filled), and placement.</summary>
+	private (bool Filtered, bool Pin, bool Pinned, PageActionPlace Place)? _glass;
 
 	public DevicesPage(DevicesViewModel viewModel)
 	{
@@ -559,6 +559,9 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		// The device beside the list runs on to the screen's foot too, its
 		// cards padded clear of a side tab bar's column and a bottom one.
 		_detail?.PlaceContent(new Thickness(0, 0, clearRight, covered));
+#if IOS
+		UpdateGlass();
+#endif
 	}
 
 	private bool IsUserDragging()
@@ -582,7 +585,9 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 	{
 		var detail = Split.IsSplit ? _detail?.ViewModel : null;
 		var pin = detail?.TogglePinCommand.CanExecute(null) == true;
-		var state = (Filtered: _viewModel.HasPanelFilters, Pin: pin, Pinned: pin && detail!.IsPinned);
+		var actionCount = pin ? 3 : 2;
+		var place = Header.ResolveActionPlacement(this, actionCount);
+		var state = (Filtered: _viewModel.HasPanelFilters, Pin: pin, Pinned: pin && detail!.IsPinned, Place: place);
 		if (!_showing || _glass == state)
 		{
 			return;
@@ -602,7 +607,16 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 			actions.Add(GlassActions.Pin(state.Pinned, () => detail!.TogglePinCommand.Execute(null)));
 		}
 
-		TabBarButtons.Show(this, OpenSearch, "Search devices", actions);
+		if (place == PageActionPlace.Header)
+		{
+			Header.SetHeaderGlass(actions);
+			TabBarButtons.Show(this, OpenSearch, "Search devices", []);
+		}
+		else
+		{
+			Header.SetHeaderGlass([]);
+			TabBarButtons.Show(this, OpenSearch, "Search devices", actions);
+		}
 	}
 
 	private void OnDetailChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)

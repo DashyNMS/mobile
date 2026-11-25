@@ -14,6 +14,9 @@ public partial class MapPage : ContentPage, IActivePage
 	private IDisposable? _edges;
     private bool _visible;
     private bool? _chooserShown;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
     private long _transition;
     private bool _placing;
     private bool _pendingSelection;
@@ -229,15 +232,29 @@ public partial class MapPage : ContentPage, IActivePage
     {
         LocationsButton.IsEnabled = _viewModel.CanChooseLocation;
 #if IOS
-        if (!_visible || _chooserShown == _viewModel.CanChooseLocation) return;
+        if (!_visible) return;
+        var pageActionCount = _viewModel.CanChooseLocation ? 2 : 1;
+        var place = Header.ResolveActionPlacement(this, pageActionCount);
+        if (_chooserShown == _viewModel.CanChooseLocation && _actionPlace == place) return;
         _chooserShown = _viewModel.CanChooseLocation;
-        List<GlassAction> actions = [];
+        _actionPlace = place;
+        List<GlassAction> bar = [];
         if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this), () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        List<GlassAction> pageActions = [];
         if (_viewModel.CanChooseLocation)
-            actions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
-        actions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
-        TabBarButtons.Show(this, null, string.Empty, actions);
+            pageActions.Add(new("mappin", "Choose a map location", () => _viewModel.ChooseLocationCommand.Execute(null)));
+        pageActions.Add(new("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
+        if (place == PageActionPlace.Header)
+        {
+            Header.SetHeaderGlass(pageActions);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.AddRange(pageActions);
+        }
+        TabBarButtons.Show(this, null, string.Empty, bar);
 #endif
     }
 

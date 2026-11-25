@@ -42,6 +42,9 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 
 	/// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
 	private readonly Action _refresh;
+#if IOS
+	private PageActionPlace? _actionPlace;
+#endif
 
 	public AlertsPage(AlertsViewModel viewModel)
 	{
@@ -217,17 +220,38 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 	{
 		Header.Apply(this);
 #if IOS
-		// Refresh below Export (to its right under a bottom tab bar).
-		TabBarButtons.Show(this, OpenSearch, "Search alerts",
-		[
-			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
-			new("arrow.clockwise", "Refresh alerts", _refresh),
-		]);
+		_actionPlace = null;
+		SyncActions();
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
 	}
+
+#if IOS
+	private void SyncActions()
+	{
+		if (!TabBarButtons.IsAvailable) return;
+		var place = Header.ResolveActionPlacement(this, 2);
+		if (_actionPlace == place) return;
+		_actionPlace = place;
+		GlassAction[] actions =
+		[
+			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
+			new("arrow.clockwise", "Refresh alerts", _refresh),
+		];
+		if (place == PageActionPlace.Header)
+		{
+			Header.SetHeaderGlass(actions);
+			TabBarButtons.Show(this, OpenSearch, "Search alerts", []);
+		}
+		else
+		{
+			Header.SetHeaderGlass([]);
+			TabBarButtons.Show(this, OpenSearch, "Search alerts", actions);
+		}
+	}
+#endif
 
 	protected override void OnDisappearing()
 	{
@@ -471,6 +495,9 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		// The alert beside the list runs on to the screen's foot too, its
 		// cards padded clear of a side tab bar's column and a bottom one.
 		_detail?.PlaceContent(new Thickness(0, 0, clearRight, covered));
+#if IOS
+		SyncActions();
+#endif
 	}
 
 	private bool IsUserDragging()

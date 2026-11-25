@@ -13,6 +13,9 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 
     /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
     private readonly Action _refresh;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
     public HealthPage(HealthViewModel viewModel)
     {
@@ -44,17 +47,38 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh sensors", _refresh));
-        TabBarButtons.Show(this, OpenSearch, "Search sensors", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
     }
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!_active || !TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var refresh = new GlassAction("arrow.clockwise", "Refresh sensors", _refresh);
+        if (place == PageActionPlace.Header)
+        {
+            Header.SetHeaderGlass([refresh]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(refresh);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search sensors", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
 
@@ -96,6 +120,7 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         ListCard.Margin = Thickness.Zero;
         ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
         BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
 #else
         ListCard.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
         ListFoot.HeightRequest = 0;
