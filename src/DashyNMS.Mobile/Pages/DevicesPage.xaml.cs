@@ -71,6 +71,8 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		// The list's column narrows as a detail pane comes, and the bulk bar
 		// sets how far the last row must scroll to clear it.
 		ListColumn.SizeChanged += (_, _) => PlaceControls();
+		SearchSlot.SizeChanged += (_, _) => PlaceControls();
+		ChipStrip.SizeChanged += (_, _) => PlaceControls();
 		Bulk.SizeChanged += (_, _) => PlaceControls();
 
 		_viewModel.PropertyChanged += (_, e) =>
@@ -515,7 +517,11 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		Notices.Padding = new Thickness(left, 0, right, 0);
+#if IOS
+		ChipStripPlacement.Apply(this, ChipStrip, ListColumn, topPadding: 6);
+#else
 		ChipStrip.Padding = new Thickness(left, 6, right, 0);
+#endif
 		CountLine.Margin = new Thickness(left + 4, 6, right, 2);
 		RecentStrip.Margin = new Thickness(left, 2, right, 6);
 		ListCard.Margin = new Thickness(left, 0, right, foot);

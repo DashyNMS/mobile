@@ -492,11 +492,7 @@ Use `ButtonSearch` for new search and `SetupPageLayout` for new forms; do not ad
 
 ### Pending shared helpers
 
-This guide merges ahead of the shared helpers below so new features follow the unified direction immediately. Until a helper lands, use the fallback noted here and record any dependent section 15 check as `unavailable`. Each landing PR removes its row from this table.
-
-| Pending helper or style | Until it lands |
-| --- | --- |
-| `Controls/ChipStripClearance.cs` | Use `CoveredEdges.Beside` |
+All shared helpers from the initial style guide rollout have landed.
 
 ## 15. Acceptance
 

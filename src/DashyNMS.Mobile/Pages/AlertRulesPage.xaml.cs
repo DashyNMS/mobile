@@ -24,6 +24,7 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IAc
         _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
         ChipScroll.SizeChanged += (_, _) => PlaceControls();
+        SearchSlot.SizeChanged += (_, _) => PlaceControls();
         Body.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) => { _viewModel.Select(Split.IsSplit ? _detailId : null); PlaceControls(); };
 #if IOS
@@ -106,9 +107,11 @@ public partial class AlertRulesPage : ContentPage, IDetailHost, ISearchHost, IAc
         var right = 16 + Math.Max(0, clear.Right - outside);
         Header.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 2, right, 0);
-        // Keep the native clip full-width; only its scrolling content owns safe gutters,
-        // as in Devices/Alerts. Offscreen chips may travel beneath the camera.
+#if IOS
+        ChipStripPlacement.Apply(this, ChipScroll, Body, topMargin: 10);
+#else
         ChipScroll.Padding = new Thickness(left, 0, right, 0);
+#endif
         CountLine.Margin = new Thickness(left + 4, 6, right, 4);
         ErrorCard.Margin = new Thickness(left, 0, right, 8);
         Busy.Margin = new Thickness(left, 0, right, 0);

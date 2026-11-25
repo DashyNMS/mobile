@@ -32,6 +32,8 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		}, PlaceGutters);
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading messages…", "Refreshing messages…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
+		SearchSlot.SizeChanged += (_, _) => _listLayout.Place();
+		FilterStrip.SizeChanged += (_, _) => _listLayout.Place();
 		SearchButton.Command = new Command(OpenSearch);
 		Split.SplitChanged += (_, _) => UpdateGlass();
 #if IOS
@@ -132,7 +134,11 @@ public partial class GraylogPage : ContentPage, IQueryAttributable, IDetailHost,
 		var right = gutters.Right;
 		Header.Margin = new Thickness(left, 0, right, 0);
 		SearchField.Margin = new Thickness(left, 4, right, 8);
+#if IOS
+		ChipStripPlacement.Apply(this, FilterStrip, ListColumn, topMargin: 10);
+#else
 		FilterStrip.Padding = new Thickness(left, 0, right, 0);
+#endif
 		Summary.Margin = new Thickness(left + 4, 6, right, 4);
 		ErrorCard.Margin = new Thickness(left, 0, right, 8);
 		SetupCard.Margin = new Thickness(left, 6, right, 0);

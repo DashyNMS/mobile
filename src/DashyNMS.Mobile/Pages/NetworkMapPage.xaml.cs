@@ -442,7 +442,11 @@ public partial class NetworkMapPage : ContentPage, IActivePage
 #endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+#if IOS
+		ChipStripPlacement.Apply(this, ChipStrip, topPadding: 4, bottomPadding: 8);
+#else
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
+#endif
 
 		// The card has the foot when it shows, and keeps clear itself - its
 		// foot level with a side tab bar's, as one row of glass and card.

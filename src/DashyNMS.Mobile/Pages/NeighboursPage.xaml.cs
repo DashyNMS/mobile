@@ -24,6 +24,7 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         SearchButton.Command = new Command(OpenSearch);
         Body.SizeChanged += (_, _) => PlaceControls();
         ChipScroll.SizeChanged += (_, _) => PlaceControls();
+        SearchSlot.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) => PlaceControls();
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
@@ -99,7 +100,11 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         var right = 16 + Math.Max(0, clear.Right - Math.Max(0, Width - Body.Width));
         Header.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 2, right, 0);
+#if IOS
+        ChipStripPlacement.Apply(this, ChipScroll, Body, topMargin: 10);
+#else
         ChipScroll.Padding = new Thickness(left, 0, right, 0);
+#endif
         CountLine.Margin = new Thickness(left + 4, 6, right, 4);
         ErrorCard.Margin = new Thickness(left, 0, right, 8);
         Busy.Margin = new Thickness(left, 0, right, 0);
