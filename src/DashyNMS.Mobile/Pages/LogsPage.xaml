@@ -119,7 +119,7 @@
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
         <controls:BusyCard x:Name="Busy" Margin="16,0" Grid.Row="6" ZIndex="1" IsVisible="False" />
         <!-- The rows share one card, as the other lists do (#69). -->
-        <Border x:Name="ListCard" Grid.Row="6" SafeAreaEdges="None" Style="{StaticResource ListCard}" Margin="16,0,16,12">
+        <Border x:Name="ListCard" Grid.Row="6" SafeAreaEdges="None" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="16,0,16,12">
             <Grid>
             <RefreshView SafeAreaEdges="None" x:Name="PullRefresh" Command="{Binding RefreshCommand}">
                 <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
@@ -200,6 +200,7 @@
                 </BoxView>
             </Grid>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="6" />
 
     </Grid>
 

@@ -66,6 +66,10 @@ public partial class SettingsPage : ContentPage, IActivePage
 		Header.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
 		Fade.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
 		Foot.HeightRequest = 16 + clear.Bottom;
+#if IOS
+		var sideBar = Handler?.PlatformView is UIKit.UIView pv && TabBarButtons.PillIn(pv) is { } p && p.Height > p.Width;
+		BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+#endif
 	}
 
 #if IOS

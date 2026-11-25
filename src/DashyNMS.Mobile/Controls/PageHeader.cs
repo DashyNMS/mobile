@@ -1,3 +1,5 @@
+using DashyNMS.Mobile.Services;
+
 namespace DashyNMS.Mobile.Controls;
 
 /// <summary>
@@ -55,24 +57,73 @@ public sealed class PageHeader : Grid
         IsVisible = false,
     };
 
+    private readonly BoxView _topStrut = new()
+    {
+        WidthRequest = 0,
+        HeightRequest = TopBar.Height,
+        Opacity = 0,
+        InputTransparent = true,
+        VerticalOptions = LayoutOptions.Center,
+    };
+
+    private readonly InlineGlassFallback _fallback = new();
+    private WeakReference<ContentPage>? _ownerPage;
+#if IOS
+    private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false, VerticalOptions = LayoutOptions.Center };
+    private Action? _fallbackBack;
+#endif
+
     private EventHandler? _titleTapped;
 
     public PageHeader()
     {
         ColumnDefinitions = [new ColumnDefinition(GridLength.Star), new ColumnDefinition(GridLength.Auto)];
-        RowDefinitions = [new RowDefinition(new GridLength(TopBar.Height)), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
+        RowDefinitions = [new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto), new RowDefinition(GridLength.Auto)];
         Padding = new Thickness(0, TopBar.Offset, 0, 4);
         TopBar.Fit(this);
 
-        _back.Command = new Command(async () => await Shell.Current.GoToAsync(".."));
+        AutomationProperties.SetIsInAccessibleTree(_topStrut, false);
+        Add(_topStrut);
+        _back.Command = new Command(OnBackTapped);
         _back.VerticalOptions = LayoutOptions.Center;
         Add(_back);
         Add(_title);
+        SetColumn((IView)_fallback, 1);
+        Add(_fallback);
+#if IOS
+        SetColumn((IView)_headerGlass, 1);
+        Add(_headerGlass);
+#endif
         SetRow((IView)_note, 2);
         SetColumnSpan((IView)_note, 2);
         Add(_note);
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level1);
+#if IOS
+        Loaded += (_, _) =>
+        {
+            TabBarButtons.Moved -= OnGlassMoved;
+            TabBarButtons.Moved += OnGlassMoved;
+            RefreshFallback();
+        };
+        Unloaded += (_, _) => TabBarButtons.Moved -= OnGlassMoved;
+#endif
     }
+
+    private void OnBackTapped()
+    {
+#if IOS
+        if (_fallbackBack is { } back)
+        {
+            back();
+            return;
+        }
+#endif
+        _ = Shell.Current.GoToAsync("..");
+    }
+
+#if IOS
+    private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(RefreshFallback);
+#endif
 
     public string Title
     {
@@ -118,7 +169,12 @@ public sealed class PageHeader : Grid
     /// <summary>The page's actions, at the title's right.</summary>
     public View? Actions
     {
-        get => Children.OfType<View>().FirstOrDefault(v => v != _title && v != _back && v != _note);
+        get => Children.OfType<View>().FirstOrDefault(v =>
+            v != _title && v != _back && v != _note && v != _topStrut && v != _fallback
+#if IOS
+            && v != _headerGlass
+#endif
+            );
         set
         {
             if (Actions is { } old)
@@ -142,27 +198,82 @@ public sealed class PageHeader : Grid
     /// </summary>
     public void Apply(ContentPage page)
     {
+        _ownerPage = new WeakReference<ContentPage>(page);
         Shell.SetNavBarIsVisible(page, false);
         IsVisible = true;
+        RefreshFallback();
+    }
 
-        var pushed = IsPushed(page) && !BackInGlass;
-        _back.IsVisible = pushed;
+    private void RefreshFallback()
+    {
+        if (_ownerPage is null || !_ownerPage.TryGetTarget(out var page))
+        {
+            return;
+        }
+
+        var fallbackActive = _fallback.Sync(page);
+#if IOS
+        var fallback = fallbackActive ? TabBarButtons.GetFallback(page) : default;
+        _fallbackBack = fallback.Back?.Tapped;
+        var showInlineBack = (IsPushed(page) && !BackInGlass) || (fallback.Active && fallback.Back is not null);
+#else
+        var showInlineBack = IsPushed(page) && !BackInGlass;
+#endif
+        _back.IsVisible = showInlineBack;
 
         // A tab's own page (or Back in the glass): the title on the top line.
-        // Pushed: "‹ More" there, the title beneath.
-        var row = pushed ? 1 : 0;
+        // Pushed (or zero-target fallback with Back): "‹ More" there, the title beneath.
+        var row = showInlineBack ? 1 : 0;
         SetRow((IView)_title, row);
+        SetRow((IView)_fallback, row);
+#if IOS
+        SetRow((IView)_headerGlass, row);
+#endif
         if (Actions is { } actions)
         {
             SetRow((IView)actions, row);
         }
 
-        if (pushed)
+        if (showInlineBack)
         {
             _back.Text = BackBar.PreviousTitle(page);
+#if IOS
+            SemanticProperties.SetDescription(_back, fallback.Back?.Label ?? "Back to " + _back.Text);
+#else
             SemanticProperties.SetDescription(_back, "Back to " + _back.Text);
+#endif
         }
     }
+
+#if IOS
+    /// <summary>
+    /// Decides whether <paramref name="page"/>'s actions belong beside the title in
+    /// <see cref="HeaderGlassGroup"/> or in <see cref="TabBarButtons"/>, accounting
+    /// for measured title and safe-lane width so tight titles fall back cleanly.
+    /// </summary>
+    internal PageActionPlace ResolveActionPlacement(Page page, int actionCount)
+    {
+        var laneWidth = Width > 0 ? Math.Max(0, Width - Padding.HorizontalThickness) : double.PositiveInfinity;
+        var titleWidth = laneWidth < double.PositiveInfinity && !string.IsNullOrEmpty(_title.Text)
+            ? ((IView)_title).Measure(double.PositiveInfinity, double.PositiveInfinity).Width
+            : 0;
+        return PageActionPlacement.Resolve(
+            TabBarButtons.IsAvailable,
+            page.Width,
+            page.Height,
+            laneWidth,
+            titleWidth,
+            actionCount * HeaderGlassGroup.Size);
+    }
+
+    /// <summary>Places or clears title-row Liquid Glass actions on this header.</summary>
+    internal void SetHeaderGlass(IReadOnlyList<GlassAction> actions)
+    {
+        var show = actions.Count > 0;
+        _headerGlass.Actions = show ? actions : [];
+        _headerGlass.IsVisible = show;
+    }
+#endif
 
     /// <summary>
     /// Whether <paramref name="page"/> was pushed: it isn't the page its tab

@@ -1,5 +1,6 @@
 using System.Globalization;
 using DashyNMS.Mobile.Controls;
+using DashyNMS.Mobile.Services;
 using DashyNMS.Mobile.Topology;
 
 namespace DashyNMS.Mobile.Pages;
@@ -20,7 +21,7 @@ namespace DashyNMS.Mobile.Pages;
 /// would on a display that size; what can be tapped is placed clear of
 /// them here (see <see cref="CoveredEdges"/>).</para>
 /// </remarks>
-public partial class NetworkMapPage : ContentPage
+public partial class NetworkMapPage : ContentPage, IActivePage
 {
 	/// <summary>How far (points) a touch must move before it's a drag rather than a tap.</summary>
 	private const float DragThreshold = 8;
@@ -31,6 +32,8 @@ public partial class NetworkMapPage : ContentPage
 	private readonly NetworkMapDrawable _drawable;
 	private bool _loaded;
 	private bool _fitted;
+	private bool _userMoved;
+	private RectF _lastVisibleArea;
 
 	/// <summary>The filter the current zoom and position belong to.</summary>
 	private string? _viewKey;
@@ -71,6 +74,30 @@ public partial class NetworkMapPage : ContentPage
 			if (!_fitted)
 			{
 				_fitted = ShowView();
+				_lastVisibleArea = VisibleArea();
+			}
+			else if (_viewModel.Nodes.Count > 0)
+			{
+				var area = VisibleArea();
+				if (area.Width > 0 && area.Height > 0
+					&& (Math.Abs(area.Width - _lastVisibleArea.Width) > 1
+						|| Math.Abs(area.Height - _lastVisibleArea.Height) > 1
+						|| Math.Abs(area.X - _lastVisibleArea.X) > 1
+						|| Math.Abs(area.Y - _lastVisibleArea.Y) > 1))
+				{
+					if (!_userMoved)
+					{
+						_drawable.FitTo(area);
+					}
+					else if (_lastVisibleArea.Width > 0 && _lastVisibleArea.Height > 0)
+					{
+						_drawable.Offset = new PointF(
+							_drawable.Offset.X + (area.Center.X - _lastVisibleArea.Center.X),
+							_drawable.Offset.Y + (area.Center.Y - _lastVisibleArea.Center.Y));
+					}
+
+					_lastVisibleArea = area;
+				}
 			}
 
 			MapCanvas.Invalidate();
@@ -141,6 +168,7 @@ public partial class NetworkMapPage : ContentPage
 		};
 
 		// Search, Refresh, Fit and Reset layout are Liquid Glass by the tab bar instead.
+		Header.BackInGlass = TabBarButtons.IsAvailable;
 		if (TabBarButtons.IsAvailable)
 		{
 			SearchButton.IsVisible = false;
@@ -441,7 +469,11 @@ public partial class NetworkMapPage : ContentPage
 #endif
 		Header.Margin = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
 		SearchPanel.Padding = new Thickness(16 + edges.Left, 0, 16 + edges.Right, 0);
+#if IOS
+		ChipStripPlacement.Apply(this, ChipStrip, topPadding: 4, bottomPadding: 8);
+#else
 		ChipStrip.Padding = new Thickness(16 + edges.Left, 4, 16 + edges.Right, 8);
+#endif
 
 		// The card has the foot when it shows, and keeps clear itself - its
 		// foot level with a side tab bar's, as one row of glass and card.
@@ -539,17 +571,7 @@ public partial class NetworkMapPage : ContentPage
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
-		Header.Apply(this);
-#if IOS
-		TabBarButtons.Show(this, OnGlassSearch, "Find a device",
-		[
-			new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)),
-			new GlassAction("viewfinder", "Fit the whole map", Fit),
-			new GlassAction("arrow.uturn.backward", "Reset layout", () => _viewModel.ResetLayoutCommand.Execute(null)),
-		]);
-		TabBarButtons.Moved += OnTabBarButtonsMoved;
-#endif
-		PlaceControls();
+		Activate();
 
 		// Back from Settings, the jiggle may have been switched; never with Reduce Motion.
 		_viewModel.UpdateJiggle(!ReducedMotion.IsOn);
@@ -558,6 +580,26 @@ public partial class NetworkMapPage : ContentPage
 			_loaded = true;
 			_viewModel.RefreshCommand.Execute(null);
 		}
+	}
+
+	public void Activate()
+	{
+		Header.Apply(this);
+#if IOS
+		List<GlassAction> actions = [];
+		if (PageHeader.IsPushed(this))
+		{
+			actions.Add(new GlassAction("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+				() => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+		}
+		actions.Add(new GlassAction("arrow.clockwise", "Refresh the map", () => _viewModel.RefreshCommand.Execute(null)));
+		actions.Add(new GlassAction("viewfinder", "Fit the whole map", Fit));
+		actions.Add(new GlassAction("arrow.uturn.backward", "Reset layout", () => _viewModel.ResetLayoutCommand.Execute(null)));
+		TabBarButtons.Show(this, OnGlassSearch, "Find a device", actions);
+		TabBarButtons.Moved -= OnTabBarButtonsMoved;
+		TabBarButtons.Moved += OnTabBarButtonsMoved;
+#endif
+		PlaceControls();
 	}
 
 	protected override void OnDisappearing()
@@ -604,14 +646,17 @@ public partial class NetworkMapPage : ContentPage
 			&& float.TryParse(saved[1], CultureInfo.InvariantCulture, out var x)
 			&& float.TryParse(saved[2], CultureInfo.InvariantCulture, out var y))
 		{
+			_userMoved = true;
 			_drawable.Scale = Math.Clamp(scale, NetworkMapDrawable.MinScale, NetworkMapDrawable.MaxScale);
 			_drawable.Offset = new PointF(x, y);
 		}
 		else
 		{
+			_userMoved = false;
 			_drawable.FitTo(VisibleArea());
 		}
 
+		_lastVisibleArea = VisibleArea();
 		return true;
 	}
 
@@ -634,7 +679,9 @@ public partial class NetworkMapPage : ContentPage
 
 	private void Fit()
 	{
-		_drawable.FitTo(VisibleArea());
+		_userMoved = false;
+		_lastVisibleArea = VisibleArea();
+		_drawable.FitTo(_lastVisibleArea);
 		MapCanvas.Invalidate();
 	}
 
@@ -688,6 +735,7 @@ public partial class NetworkMapPage : ContentPage
 		}
 		else
 		{
+			_userMoved = true;
 			_drawable.Offset = new PointF(_drawable.Offset.X + point.X - _lastAt.X, _drawable.Offset.Y + point.Y - _lastAt.Y);
 		}
 
@@ -712,6 +760,7 @@ public partial class NetworkMapPage : ContentPage
 			var now = DateTime.UtcNow;
 			if (now - _lastTapAt < DoubleTapWithin && _pressAt.Distance(_lastTapPoint) < 30)
 			{
+				_userMoved = true;
 				_drawable.ZoomAround(_pressAt, 2);
 				_lastTapAt = DateTime.MinValue;
 				MapCanvas.Invalidate();
@@ -751,6 +800,7 @@ public partial class NetworkMapPage : ContentPage
 		}
 
 		// ScaleOrigin is a fraction of the view; the pinch's own step is Scale.
+		_userMoved = true;
 		var origin = new PointF((float)(e.ScaleOrigin.X * MapCanvas.Width), (float)(e.ScaleOrigin.Y * MapCanvas.Height));
 		_drawable.ZoomAround(origin, e.Scale);
 		MapCanvas.Invalidate();

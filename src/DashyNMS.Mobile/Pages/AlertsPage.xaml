@@ -59,7 +59,7 @@
         <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
         <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding CriticalCount, StringFormat='Critical {0}'}"
+                    Text="{Binding CriticalChipText}"
                     Command="{Binding ToggleCriticalCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
@@ -70,7 +70,7 @@
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding WarningCount, StringFormat='Warning {0}'}"
+                    Text="{Binding WarningChipText}"
                     Command="{Binding ToggleWarningCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
@@ -82,7 +82,7 @@
             </Button>
             <!-- LibreNMS's ok severity (#64). -->
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding OkCount, StringFormat='OK {0}'}"
+                    Text="{Binding OkChipText}"
                     Command="{Binding ToggleOkCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
@@ -93,7 +93,7 @@
                 </Button.Triggers>
             </Button>
             <Button Style="{StaticResource Chip}"
-                    Text="{Binding AcknowledgedCount, StringFormat='Acknowledged {0}'}"
+                    Text="{Binding AcknowledgedChipText}"
                     Command="{Binding ToggleAcknowledgedCommand}">
                 <Button.Triggers>
                     <DataTrigger TargetType="Button" Binding="{Binding ShowAcknowledged}" Value="True">
@@ -120,7 +120,7 @@
                     IsVisible="{Binding HasActiveFilters}"
                     BackgroundColor="Transparent"
                     TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
-                    Padding="8,0" HeightRequest="30" MinimumHeightRequest="30" VerticalOptions="Center" />
+                    Padding="8,0" HeightRequest="{OnPlatform iOS=-1, Default=30}" MinimumHeightRequest="{OnPlatform iOS=44, Default=30}" MinimumWidthRequest="{OnPlatform iOS=44, Default=0}" VerticalOptions="Center" />
         </Grid>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
@@ -129,7 +129,7 @@
              on down to the tab bar's foot (margin from the page), as Devices'
              does; under a bottom tab bar the rows scroll beneath it, and the
              footer lets the last one scroll clear. -->
-        <Border x:Name="ListCard" Grid.Row="5" Grid.RowSpan="2" Style="{StaticResource ListCard}" Margin="16,0,16,12" SafeAreaEdges="None">
+        <Border x:Name="ListCard" Grid.Row="5" Grid.RowSpan="2" Style="{OnPlatform iOS={StaticResource OpenListCard}, Default={StaticResource ListCard}}" Margin="16,0,16,12" SafeAreaEdges="None">
             <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
                 <CollectionView Margin="0,-1,0,0" ItemsSource="{Binding DisplayRows}" SelectionMode="None" x:Name="List">
                     <CollectionView.EmptyView>
@@ -235,6 +235,7 @@
                 </CollectionView>
             </RefreshView>
         </Border>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="5" Grid.RowSpan="2" />
 
         <!-- Selecting (#85): how many, select all, and what to do with them -
              risen over the foot of the list, level with a side tab bar's (see the page). -->

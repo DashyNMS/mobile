@@ -15,7 +15,8 @@ public sealed partial class NeighbourGroupEditorPage : ContentPage, IQueryAttrib
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_layout = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_layout = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 	}
 
 	/// <summary>Restores retained controls through the shell's single activation owner.</summary>

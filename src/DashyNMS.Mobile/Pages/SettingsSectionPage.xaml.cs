@@ -9,14 +9,19 @@ namespace DashyNMS.Mobile.Pages;
 /// with the section as a query attribute. It shares Settings' view model, so
 /// the summaries there are current when the user comes back.
 /// </summary>
-public partial class SettingsSectionPage : ContentPage, IQueryAttributable
+public partial class SettingsSectionPage : ContentPage, IQueryAttributable, IActivePage
 {
+	private readonly SetupPageLayout _placement;
+
 	public SettingsSectionPage(SettingsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = viewModel;
-		_ = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 	}
+
+	public void Activate() => _placement.Activate();
 
 	public void ApplyQueryAttributes(IDictionary<string, object> query)
 	{

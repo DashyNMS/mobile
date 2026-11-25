@@ -19,4 +19,7 @@ public sealed record DeviceProperty(string Key, string Value)
 
     /// <summary>Drawn as a link, in the accent colour.</summary>
     public bool IsLink => Link != DevicePropertyLink.None;
+
+    /// <summary>VoiceOver announcement including property, value and action.</summary>
+    public string AccessibilityDescription => IsLink ? $"{Key}, {Value}" : $"{Key}, {Value}, Copy";
 }

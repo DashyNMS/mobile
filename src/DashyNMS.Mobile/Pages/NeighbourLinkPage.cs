@@ -52,7 +52,7 @@ public sealed class NeighbourLinkPage : ContentPage, IQueryAttributable, IActive
 
     private void PlaceControls()
     {
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
         _view.PlaceContent(CoveredEdges.ForScrolling(this));
     }
 

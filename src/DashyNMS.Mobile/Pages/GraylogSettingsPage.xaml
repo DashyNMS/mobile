@@ -21,7 +21,7 @@
                             <VerticalStackLayout>
                                 <Label Text="Graylog" />
                                 <Label Style="{StaticResource Caption}"
-                                       Text="Messages from your Graylog server, network-wide (Alerts → Logs → Graylog) and on each device. DashyNMS talks to Graylog directly, with its own login." />
+                                       Text="Messages from your Graylog server, network-wide (More → Graylog) and on each device. DashyNMS talks to Graylog directly, with its own login." />
                             </VerticalStackLayout>
                             <Switch Grid.Column="1" SemanticProperties.Description="Enable Graylog" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
                         </Grid>
@@ -80,10 +80,10 @@
                     <Label Text="{Binding TestResultText}" IsVisible="{Binding HasTestResult}" HorizontalTextAlignment="Center">
                         <Label.Triggers>
                             <DataTrigger TargetType="Label" Binding="{Binding TestSucceeded}" Value="True">
-                                <Setter Property="TextColor" Value="{StaticResource OkColor}" />
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                             </DataTrigger>
                             <DataTrigger TargetType="Label" Binding="{Binding TestSucceeded}" Value="False">
-                                <Setter Property="TextColor" Value="{StaticResource CriticalColor}" />
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                             </DataTrigger>
                         </Label.Triggers>
                     </Label>

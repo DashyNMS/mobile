@@ -10,7 +10,7 @@ namespace DashyNMS.Mobile.Pages;
 /// The rule itself is <see cref="AlertRuleView"/>, which the Alert rules list
 /// also shows beside itself on a larger screen (#88, #122).
 /// </summary>
-public sealed class AlertRulePage : ContentPage, IQueryAttributable
+public sealed class AlertRulePage : ContentPage, IQueryAttributable, IActivePage
 {
 	private readonly AlertRuleView _view;
     private IDisposable? _edges;
@@ -28,6 +28,11 @@ public sealed class AlertRulePage : ContentPage, IQueryAttributable
 	protected override void OnAppearing()
 	{
 		base.OnAppearing();
+        Activate();
+	}
+
+    public void Activate()
+    {
         _view.Bar.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -39,7 +44,7 @@ public sealed class AlertRulePage : ContentPage, IQueryAttributable
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
-	}
+    }
 
     protected override void OnDisappearing()
     {

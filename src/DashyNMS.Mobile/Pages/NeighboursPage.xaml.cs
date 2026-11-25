@@ -14,6 +14,9 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
     private IDisposable? _edges;
     private bool _active;
     private NeighbourLinkView? _detail;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
     public NeighboursPage(NeighboursViewModel viewModel)
     {
@@ -24,6 +27,7 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         SearchButton.Command = new Command(OpenSearch);
         Body.SizeChanged += (_, _) => PlaceControls();
         ChipScroll.SizeChanged += (_, _) => PlaceControls();
+        SearchSlot.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) => PlaceControls();
 #if IOS
         SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
@@ -63,17 +67,38 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("square.grid.2x2", "Neighbourhoods", () => _viewModel.EditGroupsCommand.Execute(null)));
-        TabBarButtons.Show(this, OpenSearch, "Search neighbours", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
     }
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!_active || !TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var groups = new GlassAction("square.grid.2x2", "Neighbourhoods", () => _viewModel.EditGroupsCommand.Execute(null));
+        if (place == PageActionPlace.HeaderGlass)
+        {
+            Header.SetHeaderGlass([groups]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(groups);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search neighbours", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
     private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
@@ -93,28 +118,41 @@ public partial class NeighboursPage : ContentPage, IDetailHost, ISearchHost, IAc
 
     private void PlaceControls()
     {
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
         var clear = CoveredEdges.ForScrolling(this);
         var left = 16 + clear.Left;
         var right = 16 + Math.Max(0, clear.Right - Math.Max(0, Width - Body.Width));
         Header.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 2, right, 0);
+#if IOS
+        ChipStripPlacement.Apply(this, ChipScroll, Body, topMargin: 10);
+#else
         ChipScroll.Padding = new Thickness(left, 0, right, 0);
+#endif
         CountLine.Margin = new Thickness(left + 4, 6, right, 4);
         ErrorCard.Margin = new Thickness(left, 0, right, 8);
         Busy.Margin = new Thickness(left, 0, right, 0);
-        var foot = 12 + clear.Bottom;
-        var spacer = 0.0;
 #if IOS
-        if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill
-            && (pill.Height > pill.Width || pill.Top > page.Bounds.Height / 2))
+        var sideBar = false;
+        var obstruction = 12 + clear.Bottom;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
         {
-            foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
-            if (pill.Height <= pill.Width && clear.Bottom > foot) spacer = clear.Bottom - foot + 8;
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
         }
+        ListCard.Margin = new Thickness(left, 0, right, 0);
+        ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
+#else
+        ListCard.Margin = new Thickness(left, 0, right, 12 + clear.Bottom);
+        ListFoot.HeightRequest = 0;
 #endif
-        ListCard.Margin = new Thickness(left, 0, right, foot);
-        ListFoot.HeightRequest = spacer;
         // ListDetail's trailing star pane reaches the right and bottom page edges.
         if (Split.IsSplit) _detail?.PlaceContent(new Thickness(0, 0, clear.Right, clear.Bottom));
     }

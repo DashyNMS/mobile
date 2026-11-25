@@ -273,7 +273,20 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private int _acknowledgedAlerts;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLastUpdated))]
+    [NotifyPropertyChangedFor(nameof(CheckedText))]
+    [NotifyPropertyChangedFor(nameof(UpdatedText))]
     private DateTime? _lastUpdated;
+
+    public bool HasLastUpdated => LastUpdated is not null;
+
+    public string CheckedText =>
+        LastUpdated is { } updated ? $"Checked {updated:HH:mm}"
+        : IsBusy ? "Checking…"
+        : string.Empty;
+
+    public string UpdatedText =>
+        LastUpdated is { } updated ? $"Updated {updated:HH:mm:ss}. Pull down to refresh." : string.Empty;
 
     [ObservableProperty]
     private string _wirelessSummary = string.Empty;
@@ -329,6 +342,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         _maintenance = maintenance ?? new MaintenanceScan(client, TimeProvider.System);
         preferences ??= new InMemoryPreferences();
         _toast = toast ?? new DashboardToast(settings);
+        PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(IsBusy)) OnPropertyChanged(nameof(CheckedText));
+        };
         Welcome = welcome ?? new DashboardWelcome(settings, navigation, preferences);
 
         KeepPreviousDefaultsOnce(preferences);

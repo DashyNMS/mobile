@@ -100,6 +100,7 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
+        <controls:FootFade x:Name="BottomFade" Grid.Row="3" />
 
     </Grid>
         </Grid>

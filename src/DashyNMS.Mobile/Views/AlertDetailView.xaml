@@ -173,6 +173,7 @@
             </LinearGradientBrush>
         </BoxView.Background>
     </BoxView>
+    <controls:FootFade x:Name="BottomFade" ZIndex="1" />
     <views:UndoToastView x:Name="UndoOverlay" BindingContext="{Binding Toast}" ZIndex="2" />
     </Grid>
 

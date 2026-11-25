@@ -13,6 +13,9 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 
     /// <summary>The glass Refresh button's refresh: shows the busy card, as a pull does.</summary>
     private readonly Action _refresh;
+#if IOS
+    private PageActionPlace? _actionPlace;
+#endif
 
     public HealthPage(HealthViewModel viewModel)
     {
@@ -44,17 +47,38 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
-        List<GlassAction> actions = [];
-        if (PageHeader.IsPushed(this))
-            actions.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
-                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
-        actions.Add(new("arrow.clockwise", "Refresh sensors", _refresh));
-        TabBarButtons.Show(this, OpenSearch, "Search sensors", actions);
+        _actionPlace = null;
+        SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
 #endif
         PlaceControls();
     }
+
+#if IOS
+    private void SyncActions()
+    {
+        if (!_active || !TabBarButtons.IsAvailable) return;
+        var place = Header.ResolveActionPlacement(this, 1);
+        if (_actionPlace == place) return;
+        _actionPlace = place;
+        List<GlassAction> bar = [];
+        if (PageHeader.IsPushed(this))
+            bar.Add(new("chevron.backward", "Back to " + BackBar.PreviousTitle(this),
+                () => _ = Shell.Current.GoToAsync(".."), IsBack: true));
+        var refresh = new GlassAction("arrow.clockwise", "Refresh sensors", _refresh);
+        if (place == PageActionPlace.HeaderGlass)
+        {
+            Header.SetHeaderGlass([refresh]);
+        }
+        else
+        {
+            Header.SetHeaderGlass([]);
+            bar.Add(refresh);
+        }
+        TabBarButtons.Show(this, OpenSearch, "Search sensors", bar);
+    }
+#endif
 
     public void OpenSearch() => _search.Open();
 
@@ -76,23 +100,31 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
     private void PlaceControls()
     {
         // Native safe-area and glass callbacks may already be queued on departure.
-        if (!_active || Shell.Current?.CurrentPage != this) return;
+        if (!_active || !ActivePage.IsCurrent(this)) return;
 
         var clear = CoveredEdges.ForScrolling(this);
         Body.Padding = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
-        var foot = 12 + clear.Bottom;
-        var spacer = 0.0;
 #if IOS
-        if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill
-            && (pill.Height > pill.Width || pill.Top > page.Bounds.Height / 2))
+        var sideBar = false;
+        var obstruction = 12 + clear.Bottom;
+        if (Handler?.PlatformView is UIKit.UIView page && page.Bounds.Height > 0)
         {
-            foot = Math.Max(0, page.Bounds.Height - pill.Bottom);
-            if (pill.Height <= pill.Width && clear.Bottom > foot)
-                spacer = clear.Bottom - foot + 8;
+            var nativePill = TabBarButtons.PillIn(page);
+            sideBar = nativePill is { } p && p.Height > p.Width;
+            OccupiedArea? pill = nativePill is { } bar ? new(bar.Left, bar.Top, bar.Right, bar.Bottom) : null;
+            var glass = TabBarButtons.Occupied(page)
+                .Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+            obstruction = SetupActionPlacement.BottomGap(page.Bounds.Height,
+                CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
         }
+        ListCard.Margin = Thickness.Zero;
+        ListFoot.HeightRequest = SectionListPlacement.Resolve(obstruction).Footer;
+        BottomFade.SetCoveredHeight(!sideBar ? clear.Bottom : 0);
+        SyncActions();
+#else
+        ListCard.Margin = new Thickness(0, 0, 0, 12 + clear.Bottom);
+        ListFoot.HeightRequest = 0;
 #endif
-        ListCard.Margin = new Thickness(0, 0, 0, foot);
-        ListFoot.HeightRequest = spacer;
     }
 
 #if IOS

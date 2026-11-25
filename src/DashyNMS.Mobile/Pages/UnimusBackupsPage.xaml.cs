@@ -18,7 +18,7 @@ public partial class UnimusBackupsPage : ContentPage, IQueryAttributable, IActiv
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot, CompareButton);
+		_layout = new PushedListLayout(this, Header, Body, Rows, RowFoot, CompareButton, BottomFade) { FullHeight = true };
 #if IOS
         if (TabBarButtons.IsAvailable)
         {

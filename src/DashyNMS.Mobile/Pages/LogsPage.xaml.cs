@@ -25,9 +25,11 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is LogEntryView detail) detail.PlaceContent(clear);
-		}, PlaceGutters);
+		}, PlaceGutters, BottomFade) { FullHeight = true };
 		PullToRefresh.ShowBusyCard(PullRefresh, Busy, _viewModel, "Loading the log…", "Refreshing the log…");
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
+		SearchSlot.SizeChanged += (_, _) => _listLayout.Place();
+		FilterStrip.SizeChanged += (_, _) => _listLayout.Place();
 		SearchButton.Command = new Command(OpenSearch);
 #if IOS
 		Header.BackInGlass = TabBarButtons.IsAvailable;
@@ -119,7 +121,11 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
         Header.Margin = new Thickness(left, 0, right, 0);
         LogSwitch.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 4, right, 8);
+#if IOS
+        ChipStripPlacement.Apply(this, FilterStrip, ListColumn, topMargin: 10);
+#else
         FilterStrip.Padding = new Thickness(left, 0, right, 0);
+#endif
         Summary.Margin = new Thickness(left + 4, 6, right, 4);
         ErrorCard.Margin = new Thickness(left, 0, right, 8);
         Busy.Margin = new Thickness(left, 0, right, 0);
@@ -130,7 +136,7 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);
 	private void PlaceFooter()
 	{
-		if (!_active || Shell.Current?.CurrentPage != this) return;
+		if (!_active || !ActivePage.IsCurrent(this)) return;
 		_listLayout.Place();
 	}
 #endif

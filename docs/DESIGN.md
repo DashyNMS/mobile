@@ -56,6 +56,7 @@ Bind every colour with `AppThemeBinding` (or `SetAppThemeColor` in C#) so open p
 | Filled primary button | `ButtonPrimary` with `White` | `ButtonPrimary` with `White` |
 | Card stroke, `Divider` and `RowLine` | `StrokeLight` | `StrokeDark` |
 | Unselected chip and `SearchField` stroke | `Gray200` | `ChipStrokeDark` |
+| Outlined composer chip stroke | `ComposerChipStrokeLight` | `ComposerChipStrokeDark` |
 | Transparent fade stop over page | `BackgroundLightClear` | `BackgroundDarkClear` |
 | Transparent fade stop over card | `SurfaceLightClear` | `SurfaceDarkClear` |
 
@@ -97,7 +98,7 @@ Write headings and labels in sentence case (`SectionHeader` applies uppercase it
 
 ### Spacing and shape
 
-Dimensions below are the iOS target spec (while `App.xaml` migrates from legacy 36pt `Chip`, 40pt `Segment` and fixed 48pt `DangerButton` sizes).
+Dimensions below are the iOS target spec.
 
 | Metric | Points |
 | --- | --- |
@@ -168,7 +169,7 @@ Half-open uses the same measured layout as fully open at the same dimensions. Av
 
 | Decision | Rule and owner |
 | --- | --- |
-| Regular width / title-row glass | `ScreenLayout.RegularFrom` (600pt) and taller than wide (`ChatActionPlacement.Resolve`), when title and glass both fit the safe lane |
+| Regular width / title-row glass | `ScreenLayout.RegularFrom` (600pt) and taller than wide (`PageActionPlacement.Resolve`), when title and glass both fit the safe lane |
 | Split list and detail | `ScreenLayout.SplitFrom` (700pt); list pane `ScreenLayout.ListPaneWidth(width)` (340pt, or 400pt at `WideFrom` 1000pt) |
 | Readable prose column | `ScreenLayout.ReadableWidth` (680pt); Intelligence chat caps at 860pt (user bubble `min(560pt, 85%)`) |
 | Dashboard and editor grid | `DashboardColumns.Count` (340pt min track, 12pt gap, max 3 columns) |
@@ -244,7 +245,7 @@ This keeps resting chips 12pt clear on Duo outer portrait, prevents a right-hand
 | Single page commit action | Fixed `PrimaryAction` slot (section 8) |
 | Infrequent or secondary item action | Native context menu or overflow |
 
-`ChatActionPlacement.Resolve` decides between `HeaderGlassGroup` and `TabBarButtons` from the page size. Re-evaluate on every `SizeChanged` and rebuild glass only when placement or command availability (`CanExecuteChanged`) changes. If `HeaderGlassGroup` and a readable title cannot both fit the measured safe lane (for example at maximum Dynamic Type), fall back to `TabBarButtons` (or `ellipsis` overflow). Back and search remain in `TabBarButtons` in all poses.
+`PageActionPlacement.Resolve` decides between `HeaderGlassGroup` and `TabBarButtons` from the page size. Re-evaluate on every `SizeChanged` and rebuild glass only when placement or command availability (`CanExecuteChanged`) changes. If `HeaderGlassGroup` and a readable title cannot both fit the measured safe lane (for example at maximum Dynamic Type), fall back to `TabBarButtons` (or `ellipsis` overflow). Back and search remain in `TabBarButtons` in all poses.
 
 Show two to four page actions (counting Back). Use SF Symbols via `GlassAction` (and `GlassActions.Pin` for pinning). Name every action with a verb and target (for example "Refresh devices"). Hide or disable data-dependent actions when their command cannot run.
 
@@ -284,7 +285,7 @@ Preserve `TabBarButtons` cold-launch guardrails: place glass only inside a tab b
 | --- | --- | --- |
 | Conversation | `Pages/IntelligencePage.cs` | Growing transcript above an overlaid composer |
 | Dashboard | `Pages/DashboardPage.xaml` | Adaptive multi-column summary cards |
-| Searchable list with optional split detail | `Pages/LogsPage.xaml` (migrating to full-height in rollout) | Server lists with filters and detail panes |
+| Searchable list with optional split detail | `Pages/LogsPage.xaml` | Server lists with filters and detail panes |
 | Section list | `Pages/DeviceSectionPage.xaml` | Card-per-record lists for one device |
 | Catalogue or settings | `Pages/MorePage.xaml`, `Pages/SettingsPage.xaml` | Grouped navigation and preferences |
 | Pushed detail | `Pages/DeviceDetailPage.cs` | Facts and actions for one item |
@@ -476,11 +477,11 @@ Reuse these helpers instead of duplicating platform, layout or search code. Upda
 | --- | --- |
 | Edge and scroll clearance | `Controls/CoveredEdges.cs` (`Of`, `Beside`, `ForScrolling`, `Watch`) |
 | Tab-bar Liquid Glass | `Platforms/iOS/TabBarButtons.cs` (`Show`, `Hide`, `Moved`, `PillIn`, `Occupied`, `CoveredBottom`, `GlassAction`, `GlassActions`, `GlassStyle`) |
-| Title-row Liquid Glass | `Platforms/iOS/HeaderGlassGroup.cs`, `Shared/Intelligence/ChatActionPlacement.cs` |
+| Title-row Liquid Glass | `Platforms/iOS/HeaderGlassGroup.cs`, `Shared/Services/PageActionPlacement.cs` |
 | System reserved regions | `Platforms/iOS/ReservedRegions.cs` (`Occupied`) |
 | Page header and top-line fit | `Controls/PageHeader.cs`, `Controls/TopBar.cs`, `Controls/TopLineSpace.cs`, `Controls/BackBar.cs` (`PreviousTitle`) |
 | Forms and foot placement | `Controls/SetupLayout.cs`, `Controls/SetupPageLayout.cs` (`PlaceFoot`), `Controls/SetupSection.cs`, `Shared/Services/SetupActionPlacement.cs` |
-| List and chat placement | `Controls/TabAlignedListLayout.cs`, `Controls/PushedListLayout.cs`, `Controls/ListDetail.cs`, `Controls/RowLines.cs`, `Shared/Services/SectionListPlacement.cs`, `Shared/Intelligence/ChatComposerPlacement.cs` |
+| List and chat placement | `Controls/TabAlignedListLayout.cs`, `Controls/PushedListLayout.cs`, `Controls/ListDetail.cs`, `Controls/RowLines.cs`, `Controls/FootFade.cs`, `Shared/Services/SectionListPlacement.cs`, `Shared/Intelligence/ChatComposerPlacement.cs` |
 | Search and keyboard | `Controls/SearchField.xaml`, `Controls/ButtonSearch.cs`, `Controls/KeyboardDismiss.cs`, `Controls/ManualKeyboardScroll.cs`, `Pages/ISearchHost.cs` |
 | Breakpoints and columns | `Shared/Services/ScreenLayout.cs`, `Controls/CardGrid.cs`, `Shared/Dashboard/DashboardColumns.cs`, `Shared/Dashboard/CatalogueColumns.cs`, `Shared/DeviceSections/PortColumns.cs` |
 | Loading, icons and bulk UI | `Controls/BusyCard.cs`, `Controls/PullToRefresh.cs`, `Controls/IconButton.cs`, `Controls/BulkBar.cs`, `Controls/TickCircle.cs` |
@@ -492,15 +493,7 @@ Use `ButtonSearch` for new search and `SetupPageLayout` for new forms; do not ad
 
 ### Pending shared helpers
 
-This guide merges ahead of the shared helpers below so new features follow the unified direction immediately. Until a helper lands, use the fallback noted here and record any dependent section 15 check as `unavailable`. Each landing PR removes its row from this table.
-
-| Pending helper or style | Until it lands |
-| --- | --- |
-| `Controls/FootFade.cs` | Use the inline fade pattern from `Pages/IntelligencePage.cs` only on pages that already draw it |
-| `OpenListCard` and opt-in full-height list / `SetupLayout` overlay modes | Keep existing `ListCard`, `TabAlignedListLayout`, `PushedListLayout` and `SetupLayout` `Auto` row |
-| `Shared/Services/PageActionPlacement.cs` | Use `Shared/Intelligence/ChatActionPlacement.cs` |
-| `Controls/ChipStripClearance.cs` and `Platforms/iOS/LiveKeyboardBounds.cs` | Use `CoveredEdges.Beside` and `SetupPageLayout`'s current keyboard handling |
-| `TabBarButtons` zero-target inline fallback and `PageHeader` growing title row | Rely on current `TabBarButtons` collapse and `PageHeader` until those fixes land |
+All shared helpers from the initial style guide rollout have landed.
 
 ## 15. Acceptance
 

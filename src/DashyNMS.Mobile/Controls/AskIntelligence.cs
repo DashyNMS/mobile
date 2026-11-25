@@ -25,7 +25,10 @@ public static class AskIntelligence
         private readonly SwipeItem swipe = new() { Text = "Ask Intelligence" };
         private readonly AccessibilityActions action;
         private bool watching;
+        private bool hasOwnLongPress;
+#if !IOS
         private Button? entry;
+#endif
         private string? originalHint;
         public State(View view)
         {
@@ -44,6 +47,7 @@ public static class AskIntelligence
             service = services.GetRequiredService<AskIntelligenceService>();
             conversation = services.GetRequiredService<IntelligenceConversationViewModel>();
             if (!watching) { conversation.PropertyChanged += Changed; watching = true; }
+#if !IOS
             if (view is SwipeView host && entry is null && host.Content is { } content)
             {
                 entry = new Button { Text = "Ask", MinimumHeightRequest = 48, MinimumWidthRequest = 48,
@@ -56,12 +60,28 @@ public static class AskIntelligence
                 rowHost.Add(content, 0, 0); rowHost.Add(entry, 1, 0);
                 host.Content = rowHost;
             }
+#endif
             originalHint ??= SemanticProperties.GetHint(view) ?? "";
             Capture();
             if (row is INotifyPropertyChanged notify) { notify.PropertyChanged -= Changed; notify.PropertyChanged += Changed; }
             // Keep existing hold-to-select behaviour; its row still offers the swipe and rotor action.
+#if IOS
+            var holdTarget = view is SwipeView swipeHost && swipeHost.Content is { } body ? body : view;
+            if (!hasOwnLongPress)
+            {
+                if (LongPress.GetCommand(view) is null && LongPress.GetCommand(holdTarget) is null)
+                {
+                    LongPress.SetCommand(holdTarget, new Command(async () => await AskAsync(), CanAsk));
+                    hasOwnLongPress = true;
+                }
+            }
+#else
             if (view is not SwipeView && LongPress.GetCommand(view) is null)
+            {
                 LongPress.SetCommand(view, new Command(async () => await AskAsync(), CanAsk));
+                hasOwnLongPress = true;
+            }
+#endif
         }
         private void Capture()
         {
@@ -81,9 +101,34 @@ public static class AskIntelligence
         {
             var enabled = CanAsk();
             action.Refresh(enabled);
+#if !IOS
             if (entry is not null) entry.IsVisible = enabled;
+#endif
             if (originalHint is not null)
-                SemanticProperties.SetHint(view, originalHint + (enabled ? (view is SwipeView ? " Swipe for Ask Intelligence, or use Ask." : " Touch and hold to Ask Intelligence.") : ""));
+            {
+#if IOS
+                // Never set SemanticProperties.Hint on a SwipeView container on iOS:
+                // MAUI marks any container with a semantic hint as IsAccessibilityElement = true,
+                // which turns the entire row into an unnamed opaque cell and hides child labels
+                // and trailing buttons (e.g. Pin) from VoiceOver. Child views already receive
+                // the VoiceOver "Ask Intelligence" custom rotor action via AccessibilityActions.
+                if (view is SwipeView)
+                {
+                    if (view.Handler?.PlatformView is UIKit.UIView swipeNative)
+                        swipeNative.IsAccessibilityElement = false;
+                }
+                else
+                {
+                    var hintSuffix = hasOwnLongPress ? " Touch and hold to Ask Intelligence." : "";
+                    SemanticProperties.SetHint(view, originalHint + (enabled ? hintSuffix : ""));
+                }
+#else
+                var hintSuffix = view is SwipeView
+                    ? " Swipe for Ask Intelligence, or use Ask."
+                    : (hasOwnLongPress ? " Touch and hold to Ask Intelligence." : "");
+                SemanticProperties.SetHint(view, originalHint + (enabled ? hintSuffix : ""));
+#endif
+            }
             if (view is SwipeView host)
             {
                 if (enabled && !host.RightItems.Contains(swipe)) host.RightItems.Add(swipe);

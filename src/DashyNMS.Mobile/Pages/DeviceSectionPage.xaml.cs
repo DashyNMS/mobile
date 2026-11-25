@@ -23,8 +23,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
     private VisualElement? _filterFocus;
     private Window? _placementWindow;
 #if IOS
-    private readonly List<Foundation.NSObject> _keyboardObservers = [];
-    private CoreGraphics.CGRect? _keyboardScreen;
+    private LiveKeyboardBounds? _keyboard;
 #endif
 
 	/// <summary>How long the Sort &amp; filter card takes to rise or go, and the list to dim, as Devices'.</summary>
@@ -190,17 +189,7 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
         {
             _active = true;
 #if IOS
-            _keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillChangeFrame((_, args) =>
-            {
-                _keyboardScreen = args.FrameEnd;
-                PlaceControls();
-                RevealFilterFocus();
-            }));
-            _keyboardObservers.Add(UIKit.UIKeyboard.Notifications.ObserveWillHide((_, _) =>
-            {
-                _keyboardScreen = null;
-                PlaceControls();
-            }));
+            _keyboard = new LiveKeyboardBounds(PlaceControls, RevealFilterFocus);
 #endif
         }
 		Header.Apply(this);
@@ -252,9 +241,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
 #if IOS
 		_showing = false;
         ManualKeyboardScroll.Release(this);
-        foreach (var observer in _keyboardObservers) observer.Dispose();
-        _keyboardObservers.Clear();
-        _keyboardScreen = null;
+        _keyboard?.Dispose();
+        _keyboard = null;
 #endif
 		KeyboardDismiss.Close(Search);
 #if IOS
@@ -294,12 +282,8 @@ public partial class DeviceSectionPage : ContentPage, IQueryAttributable, ISearc
                 .Select(rect => new OccupiedArea(rect.Left, rect.Top, rect.Right, rect.Bottom)).ToArray();
             obstruction = SetupActionPlacement.BottomGap(height,
                 CoveredEdges.Of(this).Bottom + (pill is null ? TabBarButtons.CoveredBottom : 0), pill, glass);
-            if (_keyboardScreen is { } screen && host.Window is { } window)
-            {
-                var keyboard = host.ConvertRectFromView(window.ConvertRectFromCoordinateSpace(screen, window.Screen.CoordinateSpace), window);
-                if (keyboard.Width >= host.Bounds.Width * .8 && keyboard.Bottom >= height)
-                    keyboardGap = height - Math.Max(0, (double)keyboard.Top) + 12;
-            }
+            if (_keyboard?.TopIn(host) is { } top)
+                keyboardGap = height - Math.Max(0, top) + 12;
         }
 #endif
         // Rows are separate cards with no enclosing list card, so the viewport

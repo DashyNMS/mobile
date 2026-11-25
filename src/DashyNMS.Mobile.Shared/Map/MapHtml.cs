@@ -131,9 +131,13 @@ public static class MapHtml
         });
 
         var tileFilter = dark ? ".leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }" : string.Empty;
-        var background = dark ? "#11141A" : "#FFFFFF";
+        var background = dark ? "#11141A" : "#F4F6F9";
         var surface = dark ? "#171B23" : "#FFFFFF";
+        var stroke = dark ? "#232A36" : "#E3E7ED";
         var text = dark ? "#E8EEF6" : "#11141A";
+        var muted = dark ? "#A3ADBB" : "#4B5563";
+        var link = dark ? "#60A5FA" : "#1D4ED8";
+        var attrBg = dark ? "rgba(17,20,26,0.84)" : "rgba(244,246,249,0.88)";
 
         return $$"""
             <!DOCTYPE html>
@@ -147,7 +151,11 @@ public static class MapHtml
               {{tileFilter}}
               .leaflet-marker-icon { transition: opacity 250ms; }
               .immediate .leaflet-marker-icon { transition: none; }
-              .leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; }
+              .leaflet-touch .leaflet-bar, .leaflet-bar { border: 1px solid {{stroke}}; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.22); }
+              .leaflet-touch .leaflet-bar a, .leaflet-bar a { width: 44px; height: 44px; line-height: 44px; background: {{surface}}; color: {{text}}; border-bottom-color: {{stroke}}; }
+              .leaflet-touch .leaflet-bar a.leaflet-disabled, .leaflet-bar a.leaflet-disabled { opacity: .45; }
+              .leaflet-control-attribution { background: {{attrBg}} !important; color: {{muted}} !important; border-radius: 6px; padding: 2px 6px; }
+              .leaflet-control-attribution a { color: {{link}} !important; }
               /* As desktop's pins: a ring split by device state, the count in the hole, bigger for bigger sites. */
               .pin { border-radius: 50%; display: flex; align-items: center; justify-content: center;
                      box-shadow: 0 1px 4px rgba(0,0,0,0.45); }
@@ -160,6 +168,7 @@ public static class MapHtml
             (function () {
               var data = {{data}};
               var map = L.map('map', { worldCopyJump: true });
+              if (map.attributionControl) map.attributionControl.setPosition('bottomleft');
               L.tileLayer(data.tiles, { maxZoom: 19, attribution: data.attribution, referrerPolicy: 'strict-origin-when-cross-origin' }).addTo(map);
               window.setMapClearance = function (top, right, bottom, left) {
                 var previous = clearance;
@@ -179,6 +188,7 @@ public static class MapHtml
                   });
                 }
                 fitWithoutClearance = false;
+                return 'ok';
               };
               var clearance = { top: 0, right: 0, bottom: 0, left: 0 }, selected = [], dimming = false, ready = false, pendingFocus = false;
               var target = null, hasClearance = false, fitWithoutClearance = false, userMoved = false, moving = 0;
@@ -186,6 +196,7 @@ public static class MapHtml
                 var container = map.getContainer();
                 var controls = container.querySelector('.leaflet-control-container');
                 controls.style.position = 'absolute';
+                controls.style.zIndex = '1000';
                 controls.style.top = clearance.top + 'px'; controls.style.right = clearance.right + 'px';
                 controls.style.bottom = clearance.bottom + 'px'; controls.style.left = clearance.left + 'px';
                 controls.style.pointerEvents = 'none';
@@ -198,7 +209,10 @@ public static class MapHtml
                   zoom.style.visibility = '';
                   var height = zoom.offsetHeight;
                   var room = container.clientHeight - clearance.top - clearance.bottom - 20;
-                  zoom.style.visibility = height > 0 && room >= height ? '' : 'hidden';
+                  var showZoom = height > 0 && room >= height;
+                  zoom.style.visibility = showZoom ? '' : 'hidden';
+                  if (showZoom) { if (zoom.removeAttribute) zoom.removeAttribute('aria-hidden'); }
+                  else if (zoom.setAttribute) zoom.setAttribute('aria-hidden', 'true');
                 }
               }
               function programmatic(action) { moving++; try { action(); } finally { moving--; } }
@@ -328,9 +342,13 @@ public static class MapHtml
                 if (pendingFocus) focusSelection();
               }
               function resized() {
+                var container = map.getContainer();
+                var prev = map.getSize();
+                var sizeChanged = ready && (prev.x !== container.clientWidth || prev.y !== container.clientHeight);
                 programmatic(function () { map.invalidateSize(); });
                 placeControls();
-                initialise();
+                if (!ready) initialise();
+                else if (sizeChanged && !userMoved && !dimming) programmatic(function () { fit(); });
               }
               window.addEventListener('resize', resized);
               setTimeout(resized, 250);

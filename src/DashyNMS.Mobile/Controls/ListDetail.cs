@@ -20,6 +20,10 @@ public sealed class ListDetail : Grid
         nameof(Placeholder), typeof(string), typeof(ListDetail), string.Empty,
         propertyChanged: (view, _, value) => ((ListDetail)view)._placeholder.Text = (string)value);
 
+    public static readonly BindableProperty AllowSplitProperty = BindableProperty.Create(
+        nameof(AllowSplit), typeof(bool), typeof(ListDetail), true,
+        propertyChanged: (view, _, _) => ((ListDetail)view).Adapt());
+
     // No safe area of their own: a page that runs under the camera and tab
     // bar pads what's in the pane clear itself, and a layout left to pad
     // itself would add the inset again.
@@ -60,6 +64,13 @@ public sealed class ListDetail : Grid
         set => SetValue(PlaceholderProperty, value);
     }
 
+    /// <summary>False suppresses the beside-the-list pane even on wide screens (e.g. an unconfigured setup prompt).</summary>
+    public bool AllowSplit
+    {
+        get => (bool)GetValue(AllowSplitProperty);
+        set => SetValue(AllowSplitProperty, value);
+    }
+
     /// <summary>Whether the page is wide enough for the pane, so a tap should fill it rather than open a page.</summary>
     public bool IsSplit { get; private set; }
 
@@ -84,7 +95,7 @@ public sealed class ListDetail : Grid
             return;
         }
 
-        var split = ScreenLayout.SplitsListAndDetail(Width);
+        var split = AllowSplit && ScreenLayout.SplitsListAndDetail(Width);
         ColumnDefinitions[0].Width = split ? new GridLength(ScreenLayout.ListPaneWidth(Width)) : GridLength.Star;
         ColumnDefinitions[1].Width = split ? GridLength.Star : new GridLength(0);
         _pane.IsVisible = split;
