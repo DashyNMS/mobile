@@ -14,7 +14,8 @@ public partial class MapLocationPickerPage : ContentPage, IQueryAttributable, IS
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        _placement = new SetupPageLayout(this, Setup, Header, DeviceList);
+        Setup.OverlayPrimaryAction = true;
+        _placement = new SetupPageLayout(this, Setup, Header, DeviceList) { FullHeight = true };
     }
 
     public void Activate() => _placement.Activate();

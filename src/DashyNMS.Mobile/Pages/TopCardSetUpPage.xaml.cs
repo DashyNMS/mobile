@@ -15,7 +15,8 @@ public partial class TopCardSetUpPage : ContentPage, IQueryAttributable, IActive
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		// The shared helper owns the header, insets, glass Back and keyboard while visible (#397).
-		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

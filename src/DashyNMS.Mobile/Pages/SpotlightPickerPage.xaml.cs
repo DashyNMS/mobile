@@ -15,7 +15,8 @@ public partial class SpotlightPickerPage : ContentPage, IQueryAttributable, IAct
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
 		// The shared setup layout owns the header, insets, glass Back and fixed Save (#398).
-		_placement = new SetupPageLayout(this, Setup, Header, List);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, List) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

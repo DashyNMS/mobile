@@ -14,7 +14,8 @@ public partial class GraphPickerPage : ContentPage, IQueryAttributable, IActiveP
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_placement = new SetupPageLayout(this, Setup, Header, DeviceList, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, DeviceList, FormScroll) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

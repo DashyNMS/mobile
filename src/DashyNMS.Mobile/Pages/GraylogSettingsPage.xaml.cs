@@ -15,7 +15,8 @@ public partial class GraylogSettingsPage : ContentPage, IActivePage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_placement = new SetupPageLayout(this, Setup, Header, Form);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, Form) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

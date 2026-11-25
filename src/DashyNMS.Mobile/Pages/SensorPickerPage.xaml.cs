@@ -14,7 +14,8 @@ public partial class SensorPickerPage : ContentPage, IQueryAttributable, IActive
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_placement = new SetupPageLayout(this, Setup, Header, List);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, List) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

@@ -17,7 +17,8 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable, IAct
 	{
 		InitializeComponent();
 		BindingContext = viewModel;
-		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();

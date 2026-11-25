@@ -15,7 +15,8 @@ public partial class SensorDefinitionsSettingsPage : ContentPage, IActivePage
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		_placement = new SetupPageLayout(this, Setup, Header, FormScroll);
+		Setup.OverlayPrimaryAction = true;
+		_placement = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
 	}
 
 	public void Activate() => _placement.Activate();
