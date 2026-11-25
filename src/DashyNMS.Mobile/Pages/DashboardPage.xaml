@@ -45,41 +45,45 @@
                             </Grid>
                             <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
-                                <Border Style="{StaticResource Tile}">
+                                <Border Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.CriticalAlerts, StringFormat='{0} critical alerts'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="critical" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.CriticalAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Critical" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Column="1" Style="{StaticResource Tile}">
+                                <Border Grid.Column="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.WarningAlerts, StringFormat='{0} warning alerts'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="warning" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.WarningAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Warning" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Row="1" Style="{StaticResource Tile}">
+                                <Border Grid.Row="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.OkAlerts, StringFormat='{0} OK alerts'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="ok" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.OkAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="OK" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.AcknowledgedAlerts, StringFormat='{0} acknowledged alerts'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowAlertsCommand}" CommandParameter="acknowledged" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.AcknowledgedAlerts}"
                                                TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Acknowledged" VerticalOptions="Center" />
@@ -97,41 +101,45 @@
                         <VerticalStackLayout Spacing="10">
                             <Label Style="{StaticResource CardTitle}" Text="Devices" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
-                                <Border Style="{StaticResource Tile}">
+                                <Border Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.DevicesUp, StringFormat='{0} devices up'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="up" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesUp}"
                                                TextColor="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Up" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Column="1" Style="{StaticResource Tile}">
+                                <Border Grid.Column="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.DevicesDown, StringFormat='{0} devices down'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="down" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesDown}"
                                                TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Down" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Row="1" Style="{StaticResource Tile}">
+                                <Border Grid.Row="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.DevicesMaintenance, StringFormat='{0} devices in maintenance'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="maintenance" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesMaintenance}"
                                                TextColor="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Maintenance" VerticalOptions="Center" />
                                     </FlexLayout>
                                 </Border>
-                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}">
+                                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource Tile}"
+                                        SemanticProperties.Description="{Binding Dashboard.DevicesInactive, StringFormat='{0} disabled devices'}">
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer Command="{Binding Dashboard.ShowDevicesCommand}" CommandParameter="disabled" />
                                     </Border.GestureRecognizers>
-                                    <FlexLayout Wrap="Wrap" AlignItems="Center">
+                                    <FlexLayout Wrap="Wrap" AlignItems="Center" AutomationProperties.ExcludedWithChildren="True">
                                         <Label Style="{StaticResource TileNumber}" Margin="0,0,10,0" Text="{Binding Dashboard.DevicesInactive}"
                                                TextColor="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
                                         <Label Style="{StaticResource Caption}" FontSize="14" Text="Disabled" VerticalOptions="Center" />
@@ -193,19 +201,20 @@
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:AlertItem">
                         <SwipeView controls:AskIntelligence.Enabled="True">
-                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44">
+                                        <Grid ColumnDefinitions="10,*,Auto" ColumnSpacing="12" Padding="0,8" MinimumHeightRequest="44"
+                                              SemanticProperties.Description="{Binding DashboardRowDescription}">
                                             <Grid.GestureRecognizers>
                                                 <TapGestureRecognizer
                                                     Command="{Binding OpenAlertCommand, Source={RelativeSource AncestorType={x:Type vm:DashboardViewModel}}, x:DataType=vm:DashboardViewModel}"
                                                     CommandParameter="{Binding .}" />
                                             </Grid.GestureRecognizers>
-                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" />
-                                            <VerticalStackLayout Grid.Column="1">
+                                            <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
+                                            <VerticalStackLayout Grid.Column="1" AutomationProperties.ExcludedWithChildren="True">
                                                 <Label Style="{StaticResource RowTitle}" Text="{Binding Device}" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Rule}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <!-- The device, the alert, then how long ago at the right (#69). -->
-                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" />
+                                            <Label Grid.Column="2" Style="{StaticResource Faint}" Text="{Binding ShortAge}" VerticalOptions="Start" Margin="0,3,0,0" AutomationProperties.IsInAccessibleTree="False" />
                                         </Grid>
                                     </SwipeView>
                     </DataTemplate>
@@ -650,7 +659,7 @@
                                 <Ellipse WidthRequest="8" HeightRequest="8" Fill="{StaticResource WarningColor}" VerticalOptions="Center" />
                                 <Label Text="On backup address" FontSize="13" FontFamily="BodySemibold" VerticalOptions="Center"
                                        TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
-                                <Label Text="›" FontSize="15" VerticalOptions="Center"
+                                <Label Text="›" FontSize="15" VerticalOptions="Center" AutomationProperties.IsInAccessibleTree="False"
                                        TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
                             </HorizontalStackLayout>
                         </Border>

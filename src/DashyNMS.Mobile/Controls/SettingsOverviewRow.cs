@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using Microsoft.Maui.Controls.Shapes;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -12,8 +13,21 @@ public sealed class SettingsOverviewRow : Grid
     public static readonly BindableProperty SummaryTextColorProperty = BindableProperty.Create(nameof(SummaryTextColor), typeof(Color), typeof(SettingsOverviewRow), null, propertyChanged: Changed);
     public static readonly BindableProperty ShowLogoProperty = BindableProperty.Create(nameof(ShowLogo), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
     public static readonly BindableProperty ShowChevronProperty = BindableProperty.Create(nameof(ShowChevron), typeof(bool), typeof(SettingsOverviewRow), true, propertyChanged: Changed);
+    private static readonly Geometry ChevronGeometry = (Geometry)new PathGeometryConverter().ConvertFromInvariantString("M9 6L15 12L9 18")!;
     private readonly Image _logo = new() { Source = "dashynms_logo.png", WidthRequest = 54, HeightRequest = 54, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center, InputTransparent = true, IsVisible = false };
-    private readonly Label _chevron = new() { Style = (Style)Application.Current!.Resources["Chevron"], InputTransparent = true };
+    private readonly Microsoft.Maui.Controls.Shapes.Path _chevron = new()
+    {
+        Data = ChevronGeometry,
+        StrokeLineCap = PenLineCap.Round,
+        StrokeLineJoin = PenLineJoin.Round,
+        StrokeThickness = 1.8,
+        WidthRequest = 20,
+        HeightRequest = 20,
+        Aspect = Stretch.None,
+        HorizontalOptions = LayoutOptions.Center,
+        VerticalOptions = LayoutOptions.Center,
+        InputTransparent = true,
+    };
     private readonly Label _title = new() { FontSize = 15, FontFamily = "BodySemibold", LineBreakMode = LineBreakMode.WordWrap };
     private readonly Label _summary = new() { Style = (Style)Application.Current!.Resources["Caption"], LineBreakMode = LineBreakMode.WordWrap };
     private readonly Button _action = new() { Style = new Style(typeof(Button)), BackgroundColor = Colors.Transparent, BorderWidth = 0, Text = string.Empty, MinimumHeightRequest = 52, Padding = 0 };
@@ -24,6 +38,9 @@ public sealed class SettingsOverviewRow : Grid
         ColumnDefinitions = [new(new GridLength(0)), new(GridLength.Star), new(GridLength.Auto)];
         ColumnSpacing = 0;
         _chevron.Margin = new Thickness(12, 0, 0, 0);
+        _chevron.SetAppThemeColor(Shape.StrokeProperty,
+            (Color)Application.Current!.Resources["TextFaintLight"],
+            (Color)Application.Current!.Resources["TextFaintDark"]);
         var text = new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 14), Spacing = 4, InputTransparent = true };
         text.Add(_title);
         text.Add(_summary);

@@ -30,7 +30,10 @@
                                                         <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
                                                         <Label Style="{StaticResource Caption}" Text="{Binding Summary}" IsVisible="{Binding HasSummary}" LineBreakMode="WordWrap" />
                                                     </VerticalStackLayout>
-                                                    <Label Grid.Column="1" Style="{StaticResource Chevron}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="8,0,0,0" />
+                                                    <shapes:Path Grid.Column="1" Data="M9 6L15 12L9 18" StrokeLineCap="Round" StrokeLineJoin="Round" StrokeThickness="1.8"
+                                                                 WidthRequest="20" HeightRequest="20" Aspect="None" VerticalOptions="Center" Margin="8,0,0,0"
+                                                                 InputTransparent="True" AutomationProperties.IsInAccessibleTree="False"
+                                                                 Stroke="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}" />
                                                     <Button Grid.ColumnSpan="2" BackgroundColor="Transparent" BorderWidth="0" Padding="0" Text="" MinimumHeightRequest="48" MinimumWidthRequest="44"
                                                             SemanticProperties.Description="{Binding OpenDescription}"
                                                             SemanticProperties.Hint="{Binding OpenHint}"

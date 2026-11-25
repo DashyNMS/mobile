@@ -150,6 +150,7 @@
                             <Grid Style="{StaticResource ListRow}" ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="*,Auto" ColumnSpacing="12"
                                   controls:LongPress.Command="{Binding HoldCommand, Source={RelativeSource AncestorType={x:Type vm:DevicesViewModel}}, x:DataType=vm:DevicesViewModel}"
                                   controls:LongPress.CommandParameter="{Binding .}"
+                                  SemanticProperties.Description="{Binding Description}"
                                   SemanticProperties.Hint="Touch and hold to select several">
                                 <!-- Press and hold starts selecting several, with this one ticked (#85). -->
                                 <!-- Tinted while its detail shows beside the list (#88); the card beneath shows through. -->
