@@ -89,20 +89,31 @@ public sealed class CardGrid : Layout
             var width = double.IsInfinity(widthConstraint)
                 ? grid.MinColumnWidth
                 : widthConstraint - padding.HorizontalThickness;
-            var (columns, columnWidth) = grid.Columns(width, Visible().Count());
+            var visible = Visible().ToList();
+            var (columns, columnWidth) = grid.Columns(width, visible.Count);
 
             _rowHeights.Clear();
-            var index = 0;
-            foreach (var child in Visible())
+            for (var index = 0; index < visible.Count; index++)
             {
-                var size = child.Measure(columnWidth, double.PositiveInfinity);
+                var size = visible[index].Measure(columnWidth, double.PositiveInfinity);
                 if (index % columns == 0)
                 {
                     _rowHeights.Add(0);
                 }
 
                 _rowHeights[^1] = Math.Max(_rowHeights[^1], size.Height);
-                index++;
+            }
+
+            if (columns > 1)
+            {
+                for (var index = 0; index < visible.Count; index++)
+                {
+                    var rowHeight = _rowHeights[index / columns];
+                    if (visible[index].DesiredSize.Height < rowHeight)
+                    {
+                        visible[index].Measure(columnWidth, rowHeight);
+                    }
+                }
             }
 
             var height = _rowHeights.Sum() + (grid.Gap * Math.Max(0, _rowHeights.Count - 1)) + padding.VerticalThickness;

@@ -21,6 +21,7 @@
     <ContentPage.Resources>
         <!-- A card just added from the card picker is outlined for a moment where it lands (#140). -->
         <Style x:Key="DashCard" TargetType="Border" BasedOn="{StaticResource Card}">
+            <Setter Property="VerticalOptions" Value="Fill" />
             <Style.Triggers>
                 <DataTrigger TargetType="Border" Binding="{Binding IsHighlighted, x:DataType=vm:DashboardCard}" Value="True">
                     <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
@@ -412,9 +413,9 @@
                             </Grid>
                             <Label Style="{StaticResource Caption}" Text="{Binding TopEmptyText}" IsVisible="{Binding HasNoTopRows}" />
                             <!-- In and Out rank by themselves; tapped again, by both - desktop's headings (#140). -->
-                            <Grid ColumnDefinitions="*,80,80" ColumnSpacing="8" Margin="0,4,0,0" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
-                                <Label Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" VerticalOptions="Center" />
-                                <Button Grid.Column="1" Text="IN" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
+                            <Grid ColumnDefinitions="10,*,80,80" ColumnSpacing="8" Margin="0,4,0,0" IsVisible="{Binding HasNoTopRows, Converter={StaticResource Invert}}">
+                                <Label Grid.Column="1" Style="{StaticResource Faint}" Text="{Binding TopNameHeading}" VerticalOptions="Center" />
+                                <Button Grid.Column="2" Text="IN" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
                                         HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="In"
                                         TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
                                         SemanticProperties.Description="Rank by traffic in">
@@ -428,7 +429,7 @@
                                         </DataTrigger>
                                     </Button.Triggers>
                                 </Button>
-                                <Button Grid.Column="2" Text="OUT" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
+                                <Button Grid.Column="3" Text="OUT" Style="{StaticResource LinkButton}" FontSize="12" Padding="0" HeightRequest="{OnPlatform iOS=-1, Default=32}" MinimumHeightRequest="{OnPlatform iOS=44, Default=32}"
                                         HorizontalOptions="End" Command="{Binding RankHeadingCommand}" CommandParameter="Out"
                                         TextColor="{AppThemeBinding Light={StaticResource TextFaintLight}, Dark={StaticResource TextFaintDark}}"
                                         SemanticProperties.Description="Rank by traffic out">
@@ -455,8 +456,8 @@
                                             </Grid.GestureRecognizers>
                                             <Ellipse Style="{StaticResource Dot}" Fill="{Binding DeviceState, Converter={StaticResource StatusColor}}" />
                                             <VerticalStackLayout Grid.Column="1">
-                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
-                                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="TailTruncation" />
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding Title}" LineBreakMode="WordWrap" MaxLines="2" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" MaxLines="2" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding InText}" HorizontalTextAlignment="End" VerticalOptions="Start" FontFamily="BodySemibold"
                                                    TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
