@@ -11,8 +11,10 @@ DashyNMS Mobile needs iOS or iPadOS 15 or later. Some features need a newer syst
 
 ## Install
 
-1. Open the [DashyNMS Mobile page](https://dashynms.pckp.net/mobile/) on your iPhone or iPad. It links to the app's current App Store or TestFlight page.
-2. Install the app and open it.
+The app isn't in the App Store yet. It's in TestFlight, Apple's app for trying apps before release, and you need an invitation.
+
+1. Check the [DashyNMS Mobile page](https://dashynms.pckp.net/mobile/) for how to get the app now. If it doesn't say how to join, ask through the [support page](https://dashynms.pckp.net/mobile/support/).
+2. Install the app from your invitation and open it.
 3. Follow [Getting started](../getting-started.md) to sign in.
 
 When DashyNMS asks to send notifications, choose **Allow** if you want to hear about alerts. You can change this later in the phone's own Settings app.
