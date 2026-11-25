@@ -292,6 +292,7 @@
                             </Border>
                             <Label Style="{StaticResource Caption}" Margin="4,0" Text="Never sent: your server's address, device names or addresses, tokens or passwords, readings, logs, or anything you type. Turning a choice off deletes anything not yet sent." />
                         </VerticalStackLayout>
+                        <controls:HelpButton x:Name="SectionHelp" />
                     </VerticalStackLayout>
                 </ScrollView>
                 <!-- A measured row keeps Undo reachable without covering the final setting. -->

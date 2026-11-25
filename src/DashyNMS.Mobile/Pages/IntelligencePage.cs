@@ -35,6 +35,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private readonly ScrollView _scroll = new() { SafeAreaEdges = SafeAreaEdges.None };
     private readonly VerticalStackLayout _transcript = new() { Spacing = 16, Padding = new Thickness(0, 12, 0, 16) };
     private readonly VerticalStackLayout _starters = new() { Spacing = 8 };
+    private readonly HelpButton _help = new() { Text = "Help with Intelligence", Topic = Help.HelpTopics.Intelligence, Margin = new Thickness(0, 8, 0, 0) };
     private readonly Label _notice = new();
     private readonly IconButton _jump = new() { Icon = "M12 4V20 M5 13 12 20 19 13", Kind = IconButtonKind.Filled, HorizontalOptions = LayoutOptions.End, IsVisible = false };
     private readonly Editor _question = new() { Placeholder = "Ask about your network…", MinimumHeightRequest = 48, MaximumHeightRequest = 140, AutoSize = EditorAutoSizeOption.TextChanges, BackgroundColor = Colors.Transparent };
@@ -275,7 +276,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     {
         if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems is not null)
         {
-            _starters.IsVisible = false;
+            _starters.IsVisible = _help.IsVisible = false;
             foreach (IntelligenceTurn turn in e.NewItems) AddTurn(turn);
         }
         else Rebuild();
@@ -289,6 +290,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _transcript.Children.Clear();
         RefreshStarters();
         _transcript.Children.Add(_starters);
+        _transcript.Children.Add(_help);
         foreach (var turn in _conversation.Turns) AddTurn(turn);
         _scrollPending = _following;
     }
@@ -348,7 +350,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             host.Children.Add(labelRow);
             _starters.Children.Add(host);
         }
-        _starters.IsVisible = _conversation.Turns.Count == 0;
+        _starters.IsVisible = _help.IsVisible = _conversation.Turns.Count == 0;
     }
 
     private void AddTurn(IntelligenceTurn turn)
@@ -454,7 +456,8 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _detail.IsEnabled = !_conversation.IsRunning;
         _export.IsEnabled = !_exporting && _conversation.IsTranscriptCurrent && _conversation.Turns.Count > 0;
         _starters.IsEnabled = _conversation.CanAsk;
-        _starters.IsVisible = _conversation.Turns.Count == 0 && string.IsNullOrWhiteSpace(_question.Text);
+        // Not part of the starters, which are disabled while Intelligence is unavailable - when help is wanted most.
+        _starters.IsVisible = _help.IsVisible = _conversation.Turns.Count == 0 && string.IsNullOrWhiteSpace(_question.Text);
         var notices = string.Join("\n", new[] { _chats.Status, _conversation.Notice }.Where(text => !string.IsNullOrEmpty(text)));
         _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."

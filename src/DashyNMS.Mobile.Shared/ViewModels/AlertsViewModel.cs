@@ -231,6 +231,10 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
 
+    /// <summary>The guide's page on alerts (#668).</summary>
+    [RelayCommand]
+    private Task HelpAsync() => Help.HelpNavigation.OpenHelpAsync(_navigation, Help.HelpTopics.Alerts);
+
     /// <summary>The header's search icon: opens the box, or closes it and clears it when it's open.</summary>
     [RelayCommand]
     private void ToggleSearch()

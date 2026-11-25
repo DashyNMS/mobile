@@ -268,6 +268,10 @@ public sealed partial class SignInViewModel : ViewModelBase
         await CompleteSignInAsync();
     }
 
+    /// <summary>The guide's page on signing in (#668), which needs no session.</summary>
+    [RelayCommand]
+    private Task HelpAsync() => Help.HelpNavigation.OpenHelpAsync(_navigation, Help.HelpTopics.SignIn);
+
     [RelayCommand]
     private void UseToken()
     {

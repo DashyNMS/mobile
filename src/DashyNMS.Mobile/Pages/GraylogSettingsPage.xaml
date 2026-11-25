@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.GraylogSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:help="clr-namespace:DashyNMS.Mobile.Help;assembly=DashyNMS.Mobile.Shared"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:graylog="clr-namespace:DashyNMS.Mobile.Graylog;assembly=DashyNMS.Mobile.Shared"
     x:DataType="graylog:GraylogSettingsViewModel"
@@ -121,6 +122,7 @@
                         <Button Style="{StaticResource SecondaryButton}" Text="Forget saved password"
                                 Command="{Binding ForgetPasswordCommand}" />
                     </VerticalStackLayout>
+                    <controls:HelpButton Text="Help with Graylog" Topic="{x:Static help:HelpTopics.Graylog}" />
                 </VerticalStackLayout>
             </ScrollView>
         </controls:SetupLayout.Body>

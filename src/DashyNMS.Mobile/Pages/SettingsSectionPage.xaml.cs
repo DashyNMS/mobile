@@ -28,6 +28,8 @@ public partial class SettingsSectionPage : ContentPage, IQueryAttributable, IAct
 		if (query.TryGetValue(Routes.SettingsSectionParameter, out var value) && value is SettingsSection section)
 		{
 			Title = Header.Title = SettingsViewModel.Title(section);
+			SectionHelp.Topic = Help.HelpTopics.For(section);
+			SectionHelp.Text = "Help with " + Title.ToLowerInvariant();
 			Server.IsVisible = section == SettingsSection.Server;
 			Appearance.IsVisible = section == SettingsSection.Appearance;
 			Devices.IsVisible = section == SettingsSection.Devices;

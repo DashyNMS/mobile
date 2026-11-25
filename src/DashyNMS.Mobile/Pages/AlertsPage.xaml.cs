@@ -232,13 +232,14 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 	private void SyncActions()
 	{
 		if (!TabBarButtons.IsAvailable) return;
-		var place = Header.ResolveActionPlacement(this, 2);
+		var place = Header.ResolveActionPlacement(this, 3);
 		if (_actionPlace == place) return;
 		_actionPlace = place;
 		GlassAction[] actions =
 		[
 			new("square.and.arrow.up", "Export as CSV", () => _viewModel.ExportCsvCommand.Execute(null)),
 			new("arrow.clockwise", "Refresh alerts", _refresh),
+			new("questionmark.circle", "Help with alerts", () => _viewModel.HelpCommand.Execute(null)),
 		];
 		if (place == PageActionPlace.HeaderGlass)
 		{
