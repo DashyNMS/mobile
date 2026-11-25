@@ -69,6 +69,6 @@ Open the app, enter your server's address and paste the token. That's it.
 
 <sub>DashyNMS isn't affiliated with LibreNMS. LibreNMS is a trademark of its respective owners.<br>
 Project-owned code and assets are MIT licensed; see [LICENSE](LICENSE) and [notices](NOTICES.md).<br>
-Found a security problem? See [SECURITY.md](SECURITY.md). Technical notes are in the [developer guide](docs/DEVELOPING.md).</sub>
+Found a security problem? See [SECURITY.md](SECURITY.md). Technical notes are in the [developer guide](docs/DEVELOPMENT.md).</sub>
 
-Core is consumed as a pinned [DashyNMS.Core](https://github.com/DashyNMS/core) NuGet package. Building requires a GitHub Packages token with `read:packages`; see [Developing](docs/DEVELOPING.md#building). Mobile versions are independent of Core and desktop.
+Core is consumed as a pinned [DashyNMS.Core](https://github.com/DashyNMS/core) NuGet package. Building requires a GitHub Packages token with `read:packages`; see [Developing](docs/DEVELOPMENT.md#building). Mobile versions are independent of Core and desktop.

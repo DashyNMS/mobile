@@ -1,23 +1,43 @@
-# Keeps dependencies current and flags vulnerable ones (#7): NuGet packages,
-# the SHA-pinned GitHub Actions, and the desktop submodule, so a Core bump
-# arrives as its own pull request.
+# Everything is pinned (actions by commit, packages by version and lock file),
+# so nothing moves unless Dependabot proposes it. Minor and patch updates are
+# grouped; majors come one at a time.
 version: 2
-updates:
-  - package-ecosystem: nuget
-    directory: /
-    schedule:
-      interval: weekly
 
+# The DashyNMS packages come from GitHub Packages, which needs a login. The
+# token is a Dependabot secret (Settings > Secrets and variables > Dependabot):
+# DASHYNMS_PACKAGES_TOKEN, a classic token with read:packages only. Without it
+# Dependabot can't update the lock files, and its pull requests fail the locked
+# restore.
+registries:
+  dashynms:
+    type: nuget-feed
+    url: https://nuget.pkg.github.com/DashyNMS/index.json
+    username: dependabot
+    password: ${{secrets.DASHYNMS_PACKAGES_TOKEN}}
+
+updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+      day: monday
     groups:
-      codeql:
-        patterns:
-          - "github/codeql-action/*"
+      actions:
+        update-types: [minor, patch]
 
-  - package-ecosystem: gitsubmodule
-    directory: /
+  - package-ecosystem: nuget
+    directories:
+      - /src/*
+      - /tests/*
+    registries:
+      - dashynms
+    ignore:
+      # Pinned by hand, with the Shared package's hash and commit (see
+      # docs/DEVELOPMENT.md, "Moving the Core and Shared pins").
+      - dependency-name: "DashyNMS.*"
     schedule:
       interval: weekly
+      day: monday
+    groups:
+      packages:
+        update-types: [minor, patch]

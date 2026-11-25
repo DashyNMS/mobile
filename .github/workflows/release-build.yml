@@ -1,0 +1,144 @@
+name: Release build
+
+# Pushing a tag v<version> on main's newest commit builds that release. The last
+# step creates the GitHub release, with its notes from docs/releases, so nobody
+# sees one before both stores have the build. Submitting it is done in App Store
+# Connect and the Play Console. If it fails there's no release: see "Builds and
+# releases" in docs/DEVELOPMENT.md.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release's tag (vX.Y.Z)"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+  attestations: read
+
+# The stores refuse a build number that isn't above the last one uploaded, whichever
+# build made it. One queue for edge, nightly and release builds means a number is
+# taken and uploaded before the next is taken.
+concurrency:
+  group: store-builds
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  # Builds run from main, the only branch that may sign and publish.
+  start:
+    name: Build it from main
+    if: github.event_name == 'push' && github.repository == 'DashyNMS/mobile'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Run this workflow on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: gh workflow run release-build.yml --ref main -f tag="$TAG"
+
+  version:
+    name: Version
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'DashyNMS/mobile'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
+      changed: ${{ steps.version.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Work out the version
+        id: version
+        env:
+          TAG: ${{ inputs.tag }}
+        run: python3 scripts/build_version.py release --tag "$TAG" --notes artifacts/notes.md
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: artifacts/notes.md
+          if-no-files-found: error
+          retention-days: 14
+
+  ci:
+    name: CI
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  android:
+    name: Android
+    needs: [version, ci]
+    uses: ./.github/workflows/android.yml
+    secrets:
+      ANDROID_UPLOAD_KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+      ANDROID_UPLOAD_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    with:
+      version: ${{ needs.version.outputs.version }}
+      track: production
+
+  ios:
+    name: iOS
+    needs: [version, ci]
+    uses: ./.github/workflows/ios.yml
+    secrets:
+      IOS_DIST_CERT_P12_BASE64: ${{ secrets.IOS_DIST_CERT_P12_BASE64 }}
+      IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_WIDGET_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 }}
+      APPSTORE_API_KEY_ID: ${{ secrets.APPSTORE_API_KEY_ID }}
+      APPSTORE_API_ISSUER_ID: ${{ secrets.APPSTORE_API_ISSUER_ID }}
+      APPSTORE_API_PRIVATE_KEY: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    name: Publish
+    needs: [version, android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+      # If someone made the release on GitHub along with the tag, finish that one.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+          TAG: ${{ needs.version.outputs.tag }}
+          COMMIT: ${{ needs.version.outputs.commit }}
+        run: |
+          # A re-run keeps its old builds, and the tag may have moved to a fix since.
+          tagged=$(gh api "repos/$GH_REPO/commits/refs/tags/$TAG" --jq .sha)
+          if [ "$tagged" != "$COMMIT" ]; then
+            echo "::error::$TAG is now $tagged, and these builds are of $COMMIT. Run the release build again by hand."
+            exit 1
+          fi
+          # An old publish can be re-run after a newer release, so it's only the
+          # latest if nothing released outranks it.
+          # On its own line, so failing to list them stops here.
+          published=$(gh release list --exclude-drafts --exclude-pre-releases --limit 200 --json tagName --jq '.[].tagName')
+          newest=$(printf '%s\n%s\n' "$published" "$TAG" | sort -V | tail -n 1)
+          latest=$([ "$newest" = "$TAG" ] && echo true || echo false)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$VERSION" --notes-file notes.md --draft=false --prerelease=false --latest="$latest"
+          else
+            gh release create "$TAG" --verify-tag --title "$VERSION" --notes-file notes.md --latest="$latest"
+          fi

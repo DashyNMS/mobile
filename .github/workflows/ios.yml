@@ -1,19 +1,36 @@
-name: TestFlight
+name: iOS
 
-# Builds a signed App Store IPA and uploads it to TestFlight. Run it by hand
-# from the Actions tab (or `gh workflow run testflight.yml`); see
-# docs/DEVELOPING.md, "Releasing", for the steps and the secrets it needs.
+# Builds a signed App Store IPA and uploads it to TestFlight. Called by the
+# edge, nightly and release builds; see docs/DEVELOPMENT.md, "Builds and
+# releases", for the secrets it needs.
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      build_number:
-        description: "Build number (blank: run number + offset). Must be higher than any build already in App Store Connect."
-        required: false
+      version:
+        description: What to call the files, such as 2.0.0-edge.12
         type: string
-
-concurrency:
-  group: testflight
-  cancel-in-progress: false
+        required: true
+    outputs:
+      build:
+        description: The build number it was uploaded with
+        value: ${{ jobs.ios.outputs.build }}
+    secrets:
+      IOS_DIST_CERT_P12_BASE64:
+        required: false
+      IOS_DIST_CERT_PASSWORD:
+        required: false
+      IOS_PROVISIONING_PROFILE_BASE64:
+        required: false
+      IOS_WIDGET_PROVISIONING_PROFILE_BASE64:
+        required: false
+      APPSTORE_API_KEY_ID:
+        required: false
+      APPSTORE_API_ISSUER_ID:
+        required: false
+      APPSTORE_API_PRIVATE_KEY:
+        required: false
+      SENTRY_AUTH_TOKEN:
+        required: false
 
 # Read-only token: the upload uses the App Store Connect key, not GitHub (#7).
 permissions:
@@ -23,19 +40,21 @@ permissions:
   attestations: read
 
 jobs:
-  testflight:
+  ios:
     name: Build and upload
+    outputs:
+      build: ${{ steps.number.outputs.build }}
     # The signing certificate and App Store Connect key live in this
-    # environment's secrets, which only main and release/* can use and a maintainer has to
-    # approve - so a workflow edited on another branch can't read them (#5).
-    # See docs/DEVELOPING.md, "Releasing".
+    # environment's secrets, which only main can use - so a workflow edited on
+    # another branch can't read them (#5). See docs/DEVELOPMENT.md, "Builds and
+    # releases".
     environment: iOS-Build
     runs-on: xcode-27
     timeout-minutes: 60
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
       # The home-screen widget ships only once its profile is in secrets
-      # (docs/DEVELOPING.md, "Releasing"); until then builds are
+      # (docs/DEVELOPMENT.md, "Builds and releases"); until then builds are
       # the app alone, exactly as before.
       WITH_WIDGET: ${{ secrets.IOS_WIDGET_PROVISIONING_PROFILE_BASE64 != '' }}
     steps:
@@ -105,24 +124,18 @@ jobs:
           echo "WIDGET_PROFILE_NAME=$NAME" >> "$GITHUB_ENV"
           echo "TEAM_ID=$TEAM" >> "$GITHUB_ENV"
 
-      # App Store Connect rejects a build number it has seen before for this
-      # app, including from builds uploaded before this workflow existed, so
-      # it's this run's number plus an offset that clears them: 100, or the
-      # IOS_BUILD_NUMBER_OFFSET repository variable. A number typed in when
-      # starting the run wins over both.
-      - name: Choose build number
-        env:
-          OFFSET: ${{ vars.IOS_BUILD_NUMBER_OFFSET || '100' }}
-          REQUESTED: ${{ inputs.build_number }}
+      # Taken here rather than when the run starts, so re-running a failed upload
+      # takes a new number, above any uploaded since. The builds share a queue, so
+      # no other upload comes between this and its own.
+      - name: Choose the build number
+        id: number
         run: |
-          BUILD_NUMBER="${REQUESTED:-$((GITHUB_RUN_NUMBER + OFFSET))}"
-          if ! [[ "$BUILD_NUMBER" =~ ^[0-9]+$ ]]; then
-            echo "::error::Build number must be a whole number, not '$BUILD_NUMBER'"
-            exit 1
-          fi
+          BUILD_NUMBER=$(python3 -B -c "import sys; sys.path.insert(0, 'scripts'); import build_version; print(build_version.store_build())")
           echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
-          echo "Build number: $BUILD_NUMBER"
-          echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
+          echo "build=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Read the version
+        run: echo "APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)" >> "$GITHUB_ENV"
 
       # The widget's versions must match the app's, or App Store Connect
       # rejects the upload.
@@ -233,7 +246,7 @@ jobs:
       - name: Keep the IPA
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dashynms-ios-${{ env.BUILD_NUMBER }}
+          name: DashyNMS-${{ inputs.version }}-ios
           path: ${{ runner.temp }}/ipa/*.ipa
           retention-days: 14
 
