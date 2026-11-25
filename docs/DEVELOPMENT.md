@@ -603,6 +603,41 @@ To ship an iOS build, see [Builds and releases](#builds-and-releases) below. The
 and release builds sign the app and upload it to App Store Connect, with no
 Mac needed.
 
+## User guide and wiki
+
+The user guide is in [`docs/guide`](guide/README.md): getting started,
+installation, task-based how-to pages, troubleshooting and reference. Keep
+installation pages in `installation/`, user tasks in `how-to/` and reference
+pages in `reference/`. Use relative Markdown links between pages, images with
+alt text and simple Markdown, because the app will show these pages too (#668).
+Write for people who aren't developers.
+
+**Any change to what the app does must also be made in the user guide, in the
+same PR.** That covers new features, renamed or moved controls, changed steps,
+permissions and privacy. Intelligence and privacy wording must match `PRIVACY.md`
+and the store disclosures (#220).
+
+`docs/guide` is the source and the wiki is only where people read it, matching
+DashyNMS/desktop (#669). The **Wiki** workflow copies the guide to the
+[repository wiki](https://github.com/DashyNMS/mobile/wiki) whenever it changes
+on `main`. `scripts/Publish-WikiGuide.py`, the same script as Desktop's, names
+each page after its first heading, turns `README.md` into Home, rewrites links
+between guide files as wiki links and other repository links as GitHub links,
+and builds the sidebar from the order of `README.md`'s links, grouped under its
+level-two headings. Wiki pages are flat, so each page needs a unique title, and
+every page must be linked from `README.md`. Pull requests that touch the guide
+run the same conversion as a link check. Edits made in the wiki itself are
+replaced the next time it's published.
+
+Screenshots come from the demo with synthetic data only. There are none until
+the demo exists (#160).
+
+To preview the pages:
+
+```bash
+python3 scripts/Publish-WikiGuide.py docs/guide /tmp/wiki --repository DashyNMS/mobile
+```
+
 ## Commits, pull requests and issues
 
 Every change goes through a branch and a pull request into `main`, one issue per PR, and is squash-merged, so the PR title becomes the commit on `main`. PR titles, commit messages and issue titles follow [Conventional Commits](https://www.conventionalcommits.org/) in plain words, the same standard as every DashyNMS repository:
@@ -639,6 +674,7 @@ Every DashyNMS repository builds the same way.
 | **Nightly build** (`nightly-build.yml`) | 00:00 UTC (GitHub may start it late) if `main` changed since the last nightly, or by hand | `2.0.0-nightly.<build>` | the same two, and the APK on a prerelease |
 | **Release build** (`release-build.yml`) | a tag `v2.0.0` is pushed | `2.0.0` | TestFlight, and a draft on Play's production track |
 | **CodeQL** and **Dependency submission** | as their names say | none | nowhere |
+| **Wiki** (`wiki.yml`) | the guide changes on `main` | none | the [repository wiki](https://github.com/DashyNMS/mobile/wiki) |
 
 The builds share `ios.yml` and `android.yml`. Stores only take numeric
 versions, so all of them show `2.0.0` and the build number tells them apart:
