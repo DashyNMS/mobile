@@ -99,6 +99,8 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
     private readonly IMapLayoutStore? _layouts;
     private readonly IDialogService? _dialogs;
     private readonly ISessionService? _session;
+    private readonly CorePolling? _polling;
+    private readonly DiagnosticsLog? _diagnostics;
 
     private IReadOnlyList<Device> _devices = [];
     private IReadOnlyList<NetworkLink> _links = [];
@@ -184,9 +186,13 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         IMapLayoutStore? layouts = null,
         ISessionService? session = null,
         IDialogService? dialogs = null,
-        MaintenanceScan? maintenance = null)
+        MaintenanceScan? maintenance = null,
+        CorePolling? polling = null,
+        DiagnosticsLog? diagnostics = null)
     {
         _client = client;
+        _polling = polling;
+        _diagnostics = diagnostics;
         _maintenance = maintenance ?? new MaintenanceScan(client, TimeProvider.System);
         _settings = settings;
         _navigation = navigation;
@@ -506,7 +512,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
-        var devicesTask = _client.Devices.ListAsync();
+        var devicesTask = _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
         var linksTask = _client.Links.ListAllAsync();
         var portsTask = PortNamesAsync();
         var groupsTask = GroupsAsync();
@@ -600,6 +606,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         var saved = _layouts?.Get(key) ?? new Dictionary<int, MapPoint>();
 
         IsLayingOut = true;
+        var layoutStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         var positions = await Task.Run(() =>
         {
             var pinned = linkedIds.Where(saved.ContainsKey).ToDictionary(id => id, id => saved[id]);
@@ -616,6 +623,10 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
 
             return laidOut;
         });
+        var layoutMs = System.Diagnostics.Stopwatch.GetElapsedTime(layoutStarted).TotalMilliseconds;
+        var layoutNote = $"Network map layout: {linkedIds.Count + unlinkedIds.Count} nodes, {pairs.Count} edges in {layoutMs:0} ms";
+        if (layoutMs >= 1000) _diagnostics?.NoteImportant("Perf", layoutNote);
+        else _diagnostics?.Note("Perf", layoutNote);
 
         if (version != _buildVersion)
         {

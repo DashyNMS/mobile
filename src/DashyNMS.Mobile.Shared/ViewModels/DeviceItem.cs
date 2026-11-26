@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Configuration;
@@ -10,6 +11,9 @@ namespace DashyNMS.Mobile.ViewModels;
 public sealed partial class DeviceItem : ObservableObject
 {
     private readonly DeviceNameStyle _nameStyle;
+    private readonly string _name;
+    private bool _ipParsed;
+    private byte[]? _ipSortKey;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PinText))]
@@ -33,6 +37,7 @@ public sealed partial class DeviceItem : ObservableObject
     {
         Device = device;
         _nameStyle = nameStyle;
+        _name = nameStyle.Resolve(device, device.Hostname);
     }
 
     public Device Device { get; }
@@ -46,7 +51,22 @@ public sealed partial class DeviceItem : ObservableObject
     public int DeviceId => Device.DeviceId;
 
     /// <summary>Following desktop's hostname / sysName / display name preference.</summary>
-    public string Name => _nameStyle.Resolve(Device, Device.Hostname);
+    public string Name => _name;
+
+    /// <summary>Parsed IP address bytes cached for sorting large fleets without repeated allocation (#132).</summary>
+    internal byte[]? IpSortKey
+    {
+        get
+        {
+            if (!_ipParsed)
+            {
+                _ipParsed = true;
+                _ipSortKey = IPAddress.TryParse(Device.Ip, out var address) ? address.GetAddressBytes() : null;
+            }
+
+            return _ipSortKey;
+        }
+    }
 
     /// <summary>The other name, when it isn't just the same again.</summary>
     public string? AlternateName => _nameStyle.ResolveSecondary(Device, Device.Hostname, Name);

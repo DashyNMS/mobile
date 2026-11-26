@@ -234,6 +234,12 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private readonly DashboardToast _toast;
     private readonly IDialogService? _dialogs;
     private readonly Demo.DemoSession? _demo;
+    private readonly DiagnosticsLog? _diagnostics;
+    private readonly TimeProvider _time;
+    private DateTimeOffset _portsAt;
+
+    /// <summary>How long a fleet-wide port fetch stays fresh for Top cards before re-reading LibreNMS (#132).</summary>
+    internal static readonly TimeSpan TopPortsFreshFor = TimeSpan.FromSeconds(60);
 
     /// <summary>Showing the example network (#160): the header says so, and the chip leaves it.</summary>
     public bool IsDemo => _demo?.IsActive == true;
@@ -340,9 +346,13 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         IGraylogApi? graylog = null,
         DesktopNMS.Core.Spotlights.SpotlightResolver? spotlights = null,
         LastKnownData? lastKnown = null,
-        Demo.DemoSession? demo = null)
+        Demo.DemoSession? demo = null,
+        DiagnosticsLog? diagnostics = null,
+        TimeProvider? time = null)
     {
         _demo = demo;
+        _diagnostics = diagnostics;
+        _time = time ?? TimeProvider.System;
         _spotlights = spotlights ?? new DesktopNMS.Core.Spotlights.SpotlightResolver(client);
         _lastKnown = lastKnown;
         _dialogs = dialogs;
@@ -815,13 +825,19 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     /// </summary>
     private async Task LoadTopAsync(IReadOnlyDictionary<int, Device> devices, DeviceNameStyle style)
     {
-        try
+        var now = _time.GetUtcNow();
+        var started = _time.GetTimestamp();
+        if (_ports is null || now - _portsAt >= TopPortsFreshFor)
         {
-            _ports = await _client.Ports.ListAllStatusAsync();
-        }
-        catch (LibreNmsApiException)
-        {
-            return;
+            try
+            {
+                _ports = await _client.Ports.ListAllStatusAsync();
+                _portsAt = _time.GetUtcNow();
+            }
+            catch (LibreNmsApiException)
+            {
+                return;
+            }
         }
 
         _portDevices = devices;
@@ -830,6 +846,11 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         {
             ShowTop(card);
         }
+
+        var elapsedMs = _time.GetElapsedTime(started).TotalMilliseconds;
+        var note = $"Top cards: {_ports.Count} ports ranked in {elapsedMs:0} ms";
+        if (elapsedMs >= 1000) _diagnostics?.NoteImportant("Perf", note);
+        else _diagnostics?.Note("Perf", note);
     }
 
     /// <summary>A Top card's chip changed its ranking: saved, then re-ranked from the ports already in hand.</summary>
