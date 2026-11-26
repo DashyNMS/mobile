@@ -261,16 +261,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
             DeviceState.Down => "Not monitored · its switch port is down",
             _ => "Not monitored by LibreNMS",
         }
-        : SelectedNode?.State switch
-    {
-        null => string.Empty,
-        DeviceState.Up => "Up",
-        DeviceState.Down => "Down",
-        DeviceState.Maintenance => "In maintenance",
-        DeviceState.Disabled => "Disabled",
-        DeviceState.Ignored => "Ignored",
-        _ => string.Empty,
-    };
+        : SelectedNode?.State.ToDisplayString() ?? string.Empty;
 
     /// <summary>"42 devices · 51 connections", and "· 12 neighbours" with them shown.</summary>
     public string SummaryText
@@ -502,7 +493,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         var byId = devices.ToDictionary(d => d.DeviceId);
         foreach (var node in Nodes.Where(n => !n.IsNeighbour && byId.ContainsKey(n.DeviceId)))
         {
-            node.State = ids.Contains(node.DeviceId) ? DeviceState.Maintenance : byId[node.DeviceId].State;
+            node.State = ids.Contains(node.DeviceId) ? DeviceState.Maintenance : byId[node.DeviceId].ReportedState;
         }
 
         OnPropertyChanged(nameof(SelectedNodeStateText));

@@ -292,7 +292,7 @@ internal static class AndroidWidgetViews
     {
         var pinned = snapshot.Pinned;
         var down = pinned.Count(p => p.State == "down");
-        var up = pinned.Count(p => p.State is not ("down" or "disabled"));
+        var up = pinned.Count(p => p.State is not ("down" or "disabled" or "unknown"));
         var views = List(context, slots, "Pinned", pinned.Count == 0 ? string.Empty : down > 0 ? $"{up} up · {down} down" : $"{up} up");
 
         if (pinned.Count == 0)
