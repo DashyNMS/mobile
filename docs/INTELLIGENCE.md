@@ -1158,10 +1158,11 @@ successful generation-bound background monitor polls.
 
 ## Batch 7 packages (core#90)
 
-Mobile pins Shared `2.0.0-nightly.5` from DashyNMS/mcp, commit
-`f9a1fde1e48adc3657f6cdee0f42061bc1571386`, and Core `2.0.0-nightly.3`, the Core it
-was built and compatibility-tested against. The package SHA-256 is
-`91c15385501630f2545e81217819ca8d3e6f2daa314fe4be1b5fcb040707c5d3`; its
+Mobile pins Shared `2.0.0-nightly.6` from DashyNMS/mcp, commit
+`65580bb0b4fa0dc6d465b466b2f2e070183e8e8e`, built and compatibility-tested against
+Core `2.0.0-nightly.5`, and Core `2.0.0-nightly.7`, which adds only the demo network
+(DashyNMS/core#120) to it. The package SHA-256 is
+`ec9c88cd29c1206934928cd80a0af85447727722403ab006bce1f70a3fa7083f`; its
 GitHub-hosted provenance attestation was verified against that commit and
 `shared-package.yml` before pinning. It spans MCP's Batches 4 to 6. Reading logs
 back from a time (DashyNMS/mcp#70) and reading sensors device by device
