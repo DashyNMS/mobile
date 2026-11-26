@@ -185,8 +185,10 @@ public sealed class HelpBlocksView : VerticalStackLayout
             // A link's row centres its words in its 44pt, so the marker sits level with them.
             var inset = first is Grid { Children: [ContentView, ..] } ? 11 : 0;
             var row = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)], ColumnSpacing = 10 };
-            var marker = new ContentView { Content = Marker(number, inset), VerticalOptions = LayoutOptions.Start };
-            AutomationProperties.SetExcludedWithChildren(marker, true);
+            var marker = new ContentView { Content = Marker(number, inset, readable: first is null && number is not null), VerticalOptions = LayoutOptions.Start };
+
+            // Hidden when the step's words carry its number; an item that opens with a picture or code keeps it readable.
+            AutomationProperties.SetExcludedWithChildren(marker, first is not null);
             row.Add(marker, 0);
             row.Add(content, 1);
             if (item.Count == 1 && first is Label && item[0] is HelpParagraphBlock only)
@@ -205,7 +207,7 @@ public sealed class HelpBlocksView : VerticalStackLayout
         return stack;
     }
 
-    private static View Marker(string? number, double inset)
+    private static View Marker(string? number, double inset, bool readable = false)
     {
         // Text, so it grows and sits on the first line at any text size; hidden from VoiceOver natively,
         // since IsInAccessibleTree alone can still leave a UIKit label readable.
@@ -222,13 +224,20 @@ public sealed class HelpBlocksView : VerticalStackLayout
             label.SetAppThemeColor(Label.TextColorProperty, Resource<Color>("TextSecondaryLight"), Resource<Color>("TextSecondaryDark"));
         }
 
-        AutomationProperties.SetIsInAccessibleTree(label, false);
-#if IOS
-        label.HandlerChanged += (_, _) =>
+        if (readable)
         {
-            if (label.Handler?.PlatformView is UIKit.UIView native) native.IsAccessibilityElement = false;
-        };
+            SemanticProperties.SetDescription(label, "Step " + number!.TrimEnd('.'));
+        }
+        else
+        {
+            AutomationProperties.SetIsInAccessibleTree(label, false);
+#if IOS
+            label.HandlerChanged += (_, _) =>
+            {
+                if (label.Handler?.PlatformView is UIKit.UIView native) native.IsAccessibilityElement = false;
+            };
 #endif
+        }
         return label;
     }
 

@@ -91,6 +91,19 @@ public sealed class HelpArticleView : ContentView
     public void SetScrollingHeader(View? header)
     {
         if (ReferenceEquals(header, _header)) return;
+
+        // The text moves by the header's height: keep the same line in view.
+        var shift = (header?.Height ?? 0) - (_header?.Height ?? 0);
+        var place = _scroller.ScrollY;
+        if (place > 0 && shift != 0)
+        {
+            _restoreGeneration++;
+            Dispatcher.Dispatch(async () =>
+            {
+                try { await _scroller.ScrollToAsync(0, Math.Max(0, place + shift), false); } catch (Exception) { }
+            });
+        }
+
         if (_header is not null) _column.Children.Remove(_header);
         _header = header;
         if (header is not null) _column.Children.Insert(0, header);
@@ -122,27 +135,29 @@ public sealed class HelpArticleView : ContentView
         if (target <= 0) return;
         var generation = ++_restoreGeneration;
         _restorePending = true;
-        void Apply()
+        // After the shown pane's next layout, so a height left from before it was hidden doesn't count.
+        void OnSized(object? s, EventArgs e)
         {
-            if (generation != _restoreGeneration || _scroller.Height <= 0) return;
-            _restoring = true;
-            if (!Dispatcher.Dispatch(async () =>
+            if (generation != _restoreGeneration) { _scroller.SizeChanged -= OnSized; return; }
+            if (_scroller.Height <= 0) return;
+            _scroller.SizeChanged -= OnSized;
+            Dispatcher.Dispatch(async () =>
             {
-                try { if (generation == _restoreGeneration) { await _scroller.ScrollToAsync(0, target, false); _readTo = target; } }
+                // A scroll by the reader, a hide or another page since then wins.
+                if (generation != _restoreGeneration) return;
+                _restoring = true;
+                try { await _scroller.ScrollToAsync(0, target, false); _readTo = target; }
                 catch (Exception) { }
-                finally { _restoring = false; if (generation == _restoreGeneration) _restorePending = false; }
-            }))
-            {
-                _restoring = false;
-            }
+                finally
+                {
+                    _restoring = false;
+                    if (generation == _restoreGeneration) _restorePending = false;
+                }
+            });
         }
 
-        if (_scroller.Height > 0) Apply();
-        else
-        {
-            void OnSized(object? s, EventArgs e) { _scroller.SizeChanged -= OnSized; Apply(); }
-            _scroller.SizeChanged += OnSized;
-        }
+        _scroller.SizeChanged += OnSized;
+        if (_scroller.Height > 0) _scroller.Dispatcher.Dispatch(() => OnSized(this, EventArgs.Empty));
     }
 
     public HelpArticleViewModel ViewModel { get; }
