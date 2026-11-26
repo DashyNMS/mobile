@@ -89,9 +89,12 @@ public sealed class HelpBlocksView : VerticalStackLayout
 
         var stack = new VerticalStackLayout { Spacing = 0 };
         var words = string.Concat(spans.Where(span => !links.Any(link => link.Target == span.Link)).Select(span => span.Text));
-        if (words.Any(char.IsLetterOrDigit))
+        if (words.Any(char.IsLetterOrDigit) || number is not null)
         {
-            stack.Add(Text(spans, colourLinks: false));
+            // The step's number is read with its words, since the marker beside them is hidden.
+            var prose = Text(spans, colourLinks: false);
+            if (number is not null) SemanticProperties.SetDescription(prose, Spoken(spans, number));
+            stack.Add(prose);
         }
 
         foreach (var link in links)
@@ -189,6 +192,11 @@ public sealed class HelpBlocksView : VerticalStackLayout
             if (item.Count == 1 && first is Label && item[0] is HelpParagraphBlock only)
             {
                 SemanticProperties.SetDescription(row, Spoken(only.Spans, number));
+            }
+            else if (number is not null && first is Label leading && item[0] is HelpParagraphBlock opening)
+            {
+                // More under the step than its words: the number is read with them, the rest on its own.
+                SemanticProperties.SetDescription(leading, Spoken(opening.Spans, number));
             }
 
             stack.Add(row);

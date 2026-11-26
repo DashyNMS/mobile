@@ -13,7 +13,8 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
 {
     private readonly PageHeader _header = new() { Title = "Help", Margin = new Thickness(16, 0) };
     private readonly HelpArticleView _view;
-    private readonly bool _headerScrolls;
+    private bool _headerScrolls;
+    private readonly Grid _root;
     private IDisposable? _edges;
     private bool _showing;
 
@@ -31,7 +32,7 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
         _headerScrolls = scrolls;
         if (scrolls) _header.Margin = default;
         _view = new HelpArticleView(viewModel, showsTitle: false, scrolls ? _header : null);
-        var root = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
+        var root = _root = new Grid { RowDefinitions = [new(GridLength.Auto), new(GridLength.Star)] };
         if (!scrolls) root.Add(_header, 0, 0);
         root.Add(_view, 0, 1);
         Content = root;
@@ -99,6 +100,25 @@ public sealed class HelpArticlePage : ContentPage, IQueryAttributable, IActivePa
     {
         if (!_showing || !ActivePage.IsCurrent(this)) return;
         var clear = CoveredEdges.ForScrolling(this);
+#if IOS
+        // Back has to stay reachable: when no glass target fits and Back comes inline, the header stops scrolling.
+        var scrolls = HelpGlass.Available && !TabBarButtons.GetFallback(this).Active;
+        if (scrolls != _headerScrolls)
+        {
+            _headerScrolls = scrolls;
+            if (scrolls)
+            {
+                _root.Remove(_header);
+                _header.Margin = default;
+                _view.SetScrollingHeader(_header);
+            }
+            else
+            {
+                _view.SetScrollingHeader(null);
+                _root.Add(_header, 0, 0);
+            }
+        }
+#endif
         if (!_headerScrolls) _header.Margin = new Thickness(16 + clear.Left, 0, 16 + clear.Right, 0);
         var (footer, fade) = HelpGlass.Foot(this, clear);
         _view.PlaceContent(new Thickness(clear.Left, 0, clear.Right, 0), footer, fade);

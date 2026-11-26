@@ -33,6 +33,7 @@ public sealed class HelpArticleView : ContentView
         _blocks.LinkActivated += (_, target) => viewModel.ActivateCommand.Execute(target);
 
         _column = new VerticalStackLayout { Spacing = 0, Children = { _title, _missing, _blocks } };
+        _header = header;
         if (header is not null)
         {
             _column.Children.Insert(0, header);
@@ -62,7 +63,12 @@ public sealed class HelpArticleView : ContentView
         // Hidden beside a narrowed list and shown again, a scroll view starts at the top: put it back where it was read to.
         _scroller.Scrolled += (_, e) =>
         {
-            if (!_restoring && _scroller.Height > 0) _readTo = e.ScrollY;
+            if (!_restoring && _scroller.Height > 0)
+            {
+                // The reader scrolled: a restore still waiting would take them back.
+                if (Math.Abs(e.ScrollY - _readTo) > 1) _restoreGeneration++;
+                _readTo = e.ScrollY;
+            }
 
             // With a header in the column, the fade only shows once the header has moved under it.
             if (HasHeader) _fade.IsVisible = e.ScrollY > 0;
@@ -77,25 +83,66 @@ public sealed class HelpArticleView : ContentView
         };
     }
 
-    private bool HasHeader { get; }
+    private bool HasHeader { get; set; }
+
+    private View? _header;
+
+    /// <summary>Puts the page's header in the scrolling column, or takes it out (null) to be fixed by the page.</summary>
+    public void SetScrollingHeader(View? header)
+    {
+        if (ReferenceEquals(header, _header)) return;
+        if (_header is not null) _column.Children.Remove(_header);
+        _header = header;
+        if (header is not null) _column.Children.Insert(0, header);
+        HasHeader = header is not null;
+        _fade.IsVisible = !HasHeader || _scroller.ScrollY > 0;
+    }
 
     private double _saved;
+    private int _restoreGeneration;
 
-    /// <summary>The pane is about to be hidden: remember how far it was read.</summary>
-    public void SaveReading() => _saved = Math.Max(_readTo, _scroller.ScrollY);
+    /// <summary>The pane is about to be hidden: remember how far it was read, and drop any restore still waiting.</summary>
+    public void SaveReading()
+    {
+        // A restore still waiting hasn't moved the page yet: keep the place it was going to.
+        if (!_restorePending) _saved = Math.Max(_readTo, _scroller.ScrollY);
+        _restoreGeneration++;
+        _restorePending = false;
+    }
 
-    /// <summary>Shown again: back to where it was read to, once laid out.</summary>
+    private bool _restorePending;
+
+    /// <summary>
+    /// Shown again: back to where it was read to, once the pane has a size.
+    /// A newer hide, page or scroll by the reader wins over a restore still waiting.
+    /// </summary>
     public void RestoreReading()
     {
         var target = _saved;
         if (target <= 0) return;
-        _restoring = true;
-        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(150), async () =>
+        var generation = ++_restoreGeneration;
+        _restorePending = true;
+        void Apply()
         {
-            try { await _scroller.ScrollToAsync(0, target, false); _readTo = target; }
-            catch (Exception) { }
-            finally { _restoring = false; }
-        });
+            if (generation != _restoreGeneration || _scroller.Height <= 0) return;
+            _restoring = true;
+            if (!Dispatcher.Dispatch(async () =>
+            {
+                try { if (generation == _restoreGeneration) { await _scroller.ScrollToAsync(0, target, false); _readTo = target; } }
+                catch (Exception) { }
+                finally { _restoring = false; if (generation == _restoreGeneration) _restorePending = false; }
+            }))
+            {
+                _restoring = false;
+            }
+        }
+
+        if (_scroller.Height > 0) Apply();
+        else
+        {
+            void OnSized(object? s, EventArgs e) { _scroller.SizeChanged -= OnSized; Apply(); }
+            _scroller.SizeChanged += OnSized;
+        }
     }
 
     public HelpArticleViewModel ViewModel { get; }
@@ -116,7 +163,7 @@ public sealed class HelpArticleView : ContentView
     private void OnShown(object? sender, HelpArticleShown shown)
     {
         _missing.IsVisible = ViewModel.IsMissing;
-        _readTo = shown.IsNewText ? _readTo : 0;
+        if (!shown.IsNewText) { _readTo = 0; _saved = 0; _restoreGeneration++; }
         if (!shown.IsNewText && _title.Text == shown.Page.Title && _blocks.Children.Count > 0)
         {
             ScrollTo(shown.Anchor, animated: !ReducedMotion.IsOn);

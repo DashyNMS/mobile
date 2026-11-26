@@ -34,7 +34,7 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         SizeChanged += (_, _) => ShowResultLine();
         viewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(HelpViewModel.IsSearching)) ShowResultLine();
+            if (e.PropertyName is nameof(HelpViewModel.IsSearching) or nameof(HelpViewModel.ShowNoResults)) ShowResultLine();
 
             if (e.PropertyName == nameof(HelpViewModel.Rows) && _active && viewModel.IsSearching)
             {
@@ -46,10 +46,12 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         Split.SplitChanged += (_, _) =>
         {
             // Hidden beside a narrowed list, the page's scroll view starts again at the top when shown: keep the place.
+            var before = _detail;
             if (!Split.IsSplit) _detail?.SaveReading();
-            else _detail?.RestoreReading();
-
             ShowHomeBeside();
+
+            // Only the page that was hidden goes back to its place; a newer one starts at the top.
+            if (Split.IsSplit && ReferenceEquals(before, _detail)) _detail?.RestoreReading();
             _viewModel.CurrentPageId = Split.IsSplit ? _detail?.ViewModel.Page?.Id : null;
             ShowGlass();
             PlaceControls();
@@ -134,7 +136,8 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
     /// window (a phone in landscape), where they'd take the only room for
     /// results. The count is announced either way.
     /// </summary>
-    private void ShowResultLine() => ResultLine.IsVisible = _viewModel.IsSearching && !(Search.IsFocused && Height is > 0 and < 500);
+    private void ShowResultLine() => ResultLine.IsVisible = _viewModel.IsSearching
+        && (_viewModel.ShowNoResults || !(Search.IsFocused && Height is > 0 and < 500));
 
     /// <summary>Back through the pages read in the pane, which the page's own Back leaves.</summary>
     private void ShowEarlier()
