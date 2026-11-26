@@ -237,6 +237,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     private readonly DiagnosticsLog? _diagnostics;
     private readonly TimeProvider _time;
     private DateTimeOffset _portsAt;
+    private string? _portsScope;
 
     /// <summary>How long a fleet-wide port fetch stays fresh for Top cards before re-reading LibreNMS (#132).</summary>
     internal static readonly TimeSpan TopPortsFreshFor = TimeSpan.FromSeconds(60);
@@ -827,12 +828,14 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     {
         var now = _time.GetUtcNow();
         var started = _time.GetTimestamp();
-        if (_ports is null || now - _portsAt >= TopPortsFreshFor)
+        var scope = $"{IsDemo}|{_settings.Current.ServerUrl}";
+        if (_ports is null || _portsScope != scope || now - _portsAt >= TopPortsFreshFor)
         {
             try
             {
                 _ports = await _client.Ports.ListAllStatusAsync();
                 _portsAt = _time.GetUtcNow();
+                _portsScope = scope;
             }
             catch (LibreNmsApiException)
             {

@@ -160,6 +160,8 @@ public sealed class CorePolling : IDisposable, IAppActivity
     /// which on a server of a thousand devices took minutes and never stopped. Maintenance on
     /// the phone comes from <see cref="MaintenanceScan"/>, which the Devices tab and dashboard share.
     /// </remarks>
+    private CancellationTokenSource? _devicesCts;
+
     public Task<IReadOnlyList<Device>> DevicesAsync(CancellationToken token = default)
     {
         Task<IReadOnlyList<Device>> shared;
@@ -167,7 +169,9 @@ public sealed class CorePolling : IDisposable, IAppActivity
         {
             if (_devicesInFlight is not { IsCompleted: false })
             {
-                _devicesInFlight = FetchDevicesAsync();
+                _devicesCts?.Dispose();
+                _devicesCts = new CancellationTokenSource();
+                _devicesInFlight = FetchDevicesAsync(_devicesCts.Token);
             }
 
             shared = _devicesInFlight;
@@ -176,10 +180,10 @@ public sealed class CorePolling : IDisposable, IAppActivity
         return shared.WaitAsync(token);
     }
 
-    private async Task<IReadOnlyList<Device>> FetchDevicesAsync()
+    private async Task<IReadOnlyList<Device>> FetchDevicesAsync(CancellationToken sessionToken)
     {
-        var (cache, generation) = await UnderGateAsync(() => _cache!, CancellationToken.None).ConfigureAwait(false);
-        var devices = await _client.Devices.ListAsync().WaitAsync(PollWait).ConfigureAwait(false);
+        var (cache, generation) = await UnderGateAsync(() => _cache!, sessionToken).ConfigureAwait(false);
+        var devices = await _client.Devices.ListAsync(sessionToken).WaitAsync(PollWait, sessionToken).ConfigureAwait(false);
         if (generation != Interlocked.Read(ref _generation)) throw new OperationCanceledException("The session changed during the refresh");
         cache.UpdateFrom(devices);
         return devices;
@@ -279,7 +283,15 @@ public sealed class CorePolling : IDisposable, IAppActivity
     {
         Interlocked.Increment(ref _generation);
         // The next server's first caller starts its own list, not this one's.
-        lock (_deviceSync) _devicesInFlight = null;
+        CancellationTokenSource? oldDevicesCts;
+        lock (_deviceSync)
+        {
+            _devicesInFlight = null;
+            oldDevicesCts = _devicesCts;
+            _devicesCts = null;
+        }
+        try { oldDevicesCts?.Cancel(); } catch (ObjectDisposedException) { }
+        oldDevicesCts?.Dispose();
         Rules.Clear();
         _reset = true;
     }

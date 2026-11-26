@@ -571,6 +571,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         }
 
         var version = ++_buildVersion;
+        var connection = _session?.Connection;
         var location = SelectedLocation.Key;
         var group = SelectedGroup.Key;
         var scope = _devices
@@ -628,7 +629,7 @@ public sealed partial class NetworkMapViewModel : ViewModelBase, IRefreshable
         if (layoutMs >= 1000) _diagnostics?.NoteImportant("Perf", layoutNote);
         else _diagnostics?.Note("Perf", layoutNote);
 
-        if (version != _buildVersion)
+        if (version != _buildVersion || !ReferenceEquals(connection, _session?.Connection))
         {
             return;
         }

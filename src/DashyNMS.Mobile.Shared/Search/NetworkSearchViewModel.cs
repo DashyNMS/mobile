@@ -136,6 +136,22 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         session.StateChanged += OnSessionStateChanged;
     }
 
+    /// <summary>Releases settings and session subscriptions when the page is removed.</summary>
+    public void Detach()
+    {
+        _settings.Changed -= OnSettingsChanged;
+        _session.StateChanged -= OnSessionStateChanged;
+    }
+
+    /// <summary>Re-subscribes when the page returns to view.</summary>
+    public void Attach()
+    {
+        _settings.Changed -= OnSettingsChanged;
+        _settings.Changed += OnSettingsChanged;
+        _session.StateChanged -= OnSessionStateChanged;
+        _session.StateChanged += OnSessionStateChanged;
+    }
+
     /// <summary>Earlier searches, newest first, kept with desktop's in the shared settings.</summary>
     public ObservableCollection<string> Recent { get; }
 
@@ -369,14 +385,16 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         {
             // Replaced by a newer search, cancelled, or the connection went.
         }
-        catch (LibreNmsApiException ex) when (generation == _generation)
+        catch (LibreNmsApiException ex)
         {
+            if (generation != _generation) return;
             _logger?.LogWarning("Network search failed: {Message}", ex.Message);
             ErrorMessage = ex.ToUserMessage();
             Present(null);
         }
-        catch (Exception ex) when (generation == _generation && ex is not OutOfMemoryException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
+            if (generation != _generation) return;
             _logger?.LogError(ex, "Network search failed unexpectedly");
             ErrorMessage = "The search couldn't finish. Try again, or check the connection to LibreNMS.";
             Present(null);

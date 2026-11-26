@@ -162,7 +162,7 @@ public static partial class HelpBlocks
                     }
 
                     content.Add(string.Empty);
-                    i++;
+                    i = next;
                     continue;
                 }
 

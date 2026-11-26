@@ -94,7 +94,22 @@ public sealed class DemoSession
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             _logger?.LogError(ex, "The demo didn't start");
-            Restore();
+            try
+            {
+                if (_session.IsConnected)
+                {
+                    _session.LeaveDemo();
+                }
+            }
+            catch (Exception leaveEx) when (leaveEx is not OutOfMemoryException)
+            {
+                _logger?.LogWarning(leaveEx, "Demo rollback disconnect failed");
+            }
+            finally
+            {
+                Restore();
+            }
+
             return false;
         }
 

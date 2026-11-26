@@ -125,6 +125,7 @@ public sealed class HelpArticleView : ContentView
     }
 
     private bool _restorePending;
+    private int _restoringGeneration;
 
     /// <summary>
     /// Shown again: back to where it was read to, once the pane has a size.
@@ -147,14 +148,19 @@ public sealed class HelpArticleView : ContentView
                 // A scroll by the reader, a hide or another page since then wins.
                 if (generation != _restoreGeneration) return;
                 _restoring = true;
+                _restoringGeneration = generation;
                 try { await _scroller.ScrollToAsync(0, target, false); _readTo = target; }
                 catch (Exception) { }
                 finally
                 {
-                    // A newer restore keeps its own flag.
-                    if (generation == _restoreGeneration)
+                    // Clear _restoring whenever this restore still owns the flag, even if
+                    // _restoreGeneration was bumped by a hide/scroll while ScrollToAsync was pending.
+                    if (_restoringGeneration == generation)
                     {
                         _restoring = false;
+                    }
+                    if (generation == _restoreGeneration)
+                    {
                         _restorePending = false;
                     }
                 }

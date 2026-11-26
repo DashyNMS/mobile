@@ -74,6 +74,7 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
     public void Activate()
     {
         _active = true;
+        _viewModel.Attach();
         Header.Apply(this);
         _edges ??= CoveredEdges.Watch(this, PlaceControls);
 #if IOS
@@ -109,6 +110,7 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
     protected override void OnDisappearing()
     {
         _active = false;
+        _viewModel.Detach();
         _edges?.Dispose();
         _edges = null;
         KeyboardDismiss.Close(Search);

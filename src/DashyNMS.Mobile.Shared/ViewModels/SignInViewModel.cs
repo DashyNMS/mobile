@@ -296,6 +296,10 @@ public sealed partial class SignInViewModel : ViewModelBase
                 ErrorMessage = "The demo couldn't start. Try again.";
             }
         }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            ErrorMessage = "The demo couldn't start. Try again.";
+        }
         finally
         {
             IsBusy = false;

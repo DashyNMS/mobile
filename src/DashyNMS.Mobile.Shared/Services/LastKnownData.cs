@@ -75,7 +75,7 @@ public sealed partial class LastKnownData : ObservableObject
     public Task<IReadOnlyList<Sensor>> SensorsAsync(Func<Task<IReadOnlyList<Sensor>>> fetch) => OrSavedAsync(Sensors, fetch, s => s, s => s);
 
     /// <summary>Whether there's anything saved for the server in settings - enough to open the app offline.</summary>
-    public bool HasSaved() => _demo?.IsActive != true && Read<Device>(Devices) is not null || Read<SavedAlert>(Alerts) is not null;
+    public bool HasSaved() => _demo?.IsActive != true && (Read<Device>(Devices) is not null || Read<SavedAlert>(Alerts) is not null);
 
     /// <summary>Signing out: nothing of this server's stays on the phone.</summary>
     public void Clear()
@@ -136,6 +136,11 @@ public sealed partial class LastKnownData : ObservableObject
 
             ShownSince = ShownSince is { } earlier && earlier < saved.SavedAt ? earlier : saved.SavedAt;
             return saved.Items.Select(restore).ToList();
+        }
+
+        if (_demo?.IsActive == true)
+        {
+            return items;
         }
 
         Write(kind, items.Select(save).ToList());

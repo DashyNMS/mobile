@@ -264,7 +264,7 @@ public sealed class HelpBlocksView : VerticalStackLayout
             {
                 if (column == 0)
                 {
-                    cells.Add(Text(row[0], BodySize, bold: true));
+                    cells.Add(row[0].Any(s => s.Link is not null) ? Paragraph(row[0]) : Text(row[0], BodySize, bold: true));
                     continue;
                 }
 

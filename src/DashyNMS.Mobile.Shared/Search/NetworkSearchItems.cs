@@ -107,7 +107,9 @@ public sealed class EndpointViewModel : ObservableObject
     public string NoBestText => _blind.Contains(SearchSource.ForwardingTable) && _record.Locations.Count == 0
         ? "Switch MAC tables couldn't be checked, so the port it's connected to isn't known."
         : _record.Locations.Count > 0
-        ? "Seen only on links between switches or aggregates, so there's no clear access port. It may sit behind a switch LibreNMS doesn't poll."
+        ? AllLocations.All(l => l.IsStale)
+            ? "Seen only in older switch MAC table entries, so its current port isn't known."
+            : "Seen only on links between switches or aggregates, so there's no clear access port. It may sit behind a switch LibreNMS doesn't poll."
         : _record.Neighbours.Count > 0
             ? "Known to a router, but no polled switch's MAC table has it."
             : IsMonitored
@@ -597,6 +599,8 @@ public sealed class ArpNeighbourViewModel
 
     public string MacsText { get; }
 
+    public string AccessibleDescription => string.Join(", ", new[] { "Open device " + DeviceName, PortName, MacsText }.Where(s => !string.IsNullOrEmpty(s)));
+
     public RelayCommand OpenDeviceCommand { get; }
 
     public RelayCommand OpenPortCommand { get; }
@@ -624,6 +628,8 @@ public sealed class SubnetInterfaceViewModel
 
     public string AddressText { get; }
 
+    public string AccessibleDescription => string.Join(", ", new[] { "Open device " + DeviceName, AddressText, PortName }.Where(s => !string.IsNullOrEmpty(s)));
+
     public CopyableValueViewModel Address { get; }
 
     public RelayCommand OpenDeviceCommand { get; }
@@ -644,7 +650,13 @@ public sealed class EndpointRowViewModel
             .Select(n => EndpointViewModel.DeviceName(n.Device, n.DeviceId))
             .Distinct());
         HasConflict = record.Conflicts.Count > 0;
-        ConflictToolTip = HasConflict ? "This address answers from more than one MAC" : null;
+        ConflictToolTip = HasConflict
+            ? string.Join(" ", record.Conflicts.Select(c => c.Kind).Distinct().Select(k => k switch
+            {
+                EndpointConflictKind.AddressWithSeveralMacs => "This address answers from more than one MAC.",
+                _ => "This MAC is learned on more than one access port.",
+            }))
+            : null;
 
         // Opening a row searches its most specific key: its address, else its MAC, else its name.
         var key = record.Addresses.FirstOrDefault() ?? record.Macs.FirstOrDefault()?.Hex ?? record.Names.FirstOrDefault() ?? record.Title;
