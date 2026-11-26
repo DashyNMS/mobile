@@ -100,6 +100,8 @@ jobs:
       # appear on the command line or in the log.
       - name: Build the bundle and APK
         env:
+          # NuGet needs credentials as well as the workflow's packages: read permission.
+          DASHYNMS_PACKAGES_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD || secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
