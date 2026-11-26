@@ -84,6 +84,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     private readonly IClipboardText? _clipboard;
     private readonly IShareService? _share;
     private readonly DesktopNMS.Core.Services.IDeviceCache? _devices;
+    private readonly CorePolling? _polling;
     private readonly ILogger<NetworkSearchViewModel>? _logger;
     private readonly SynchronizationContext? _ui;
     private CancellationTokenSource? _searchCts;
@@ -119,7 +120,8 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         IClipboardText? clipboard = null,
         IShareService? share = null,
         DesktopNMS.Core.Services.IDeviceCache? devices = null,
-        ILogger<NetworkSearchViewModel>? logger = null)
+        ILogger<NetworkSearchViewModel>? logger = null,
+        CorePolling? polling = null)
     {
         _client = client;
         _settings = settings;
@@ -128,6 +130,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         _clipboard = clipboard;
         _share = share;
         _devices = devices;
+        _polling = polling;
         _logger = logger;
         _ui = SynchronizationContext.Current;
         _macFormat = settings.Current.NetworkSearchMacFormatValue;
@@ -473,13 +476,15 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
             var own = OwnLinksAsync(deviceId, token);
             var fleet = _client.Links.ListAllAsync(token);
             var ports = _client.Ports.ListForDeviceAsync(deviceId, token);
-            await Task.WhenAll(own, fleet, ports);
+            var knownDevices = LoadKnownDevicesAsync(token);
+            await Task.WhenAll(own, fleet, ports, knownDevices);
             if (generation != _generation || !ReferenceEquals(connection, _session.Connection) || Endpoint?.MonitoredDeviceId != deviceId)
             {
                 return;
             }
 
             var byId = ports.Result.ToDictionary(p => p.PortId);
+            var deviceById = knownDevices.Result;
             var built = DesktopNMS.Core.Topology.DeviceNeighbours.Build(
                 deviceId, own.Result, fleet.Result, byId.ToDictionary(p => p.Key, p => p.Value.DisplayName),
                 new Dictionary<int, (int DeviceId, DesktopNMS.Core.Topology.NeighbourMatchKind Kind)>());
@@ -487,7 +492,9 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
             Endpoint.AllConnections = built
                 .Select(n =>
                 {
-                    var device = n.RemoteDeviceId is { } id ? _devices?.Get(id) : null;
+                    var device = n.RemoteDeviceId is { } id
+                        ? _devices?.Get(id) ?? (deviceById.TryGetValue(id, out var cached) ? cached : null)
+                        : null;
                     var name = device is null ? null : style.Resolve(device, device.Hostname);
                     var local = n.LocalPortId is { } portId && byId.TryGetValue(portId, out var port) ? port : null;
                     return new NeighbourItemViewModel(n, device, name, local, endpoint.MonitoredDeviceName ?? string.Empty, OpenDevice);
@@ -523,6 +530,38 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
             return [];
+        }
+    }
+
+    /// <summary>Monitored devices for naming and opening neighbour rows, reused from CorePolling when present.</summary>
+    private async Task<IReadOnlyDictionary<int, DesktopNMS.Core.Models.Device>> LoadKnownDevicesAsync(CancellationToken token)
+    {
+        if (_devices is not null || _polling is null)
+        {
+            return new Dictionary<int, DesktopNMS.Core.Models.Device>();
+        }
+
+        var cached = _polling.CachedDeviceNames;
+        if (cached.Count > 0)
+        {
+            return cached;
+        }
+
+        try
+        {
+            var list = await _polling.CachedDevicesAsync(token);
+            return list is { Count: > 0 }
+                ? list.GroupBy(d => d.DeviceId).ToDictionary(g => g.Key, g => g.First())
+                : new Dictionary<int, DesktopNMS.Core.Models.Device>();
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _logger?.LogDebug("Network search couldn't load cached devices for neighbour resolution: {Message}", ex.Message);
+            return new Dictionary<int, DesktopNMS.Core.Models.Device>();
         }
     }
 

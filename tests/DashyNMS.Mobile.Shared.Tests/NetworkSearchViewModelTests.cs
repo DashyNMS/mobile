@@ -137,4 +137,19 @@ public sealed class NetworkSearchViewModelTests : IDisposable
 
         Assert.Contains('.', _search.Endpoint!.Macs[0].Value.Value);
     }
+
+    [Fact]
+    public async Task Monitored_device_neighbours_resolve_through_core_polling()
+    {
+        using var polling = new CorePolling(_client, _session, _settings);
+        var search = new NetworkSearchViewModel(_client, _settings, _session, _navigation, _clipboard, _share, polling: polling);
+
+        await search.SearchForAsync("core-sw-01.example.net");
+
+        Assert.True(search.IsSingle);
+        var endpoint = search.Endpoint!;
+        Assert.True(endpoint.IsMonitored);
+        Assert.True(endpoint.HasConnections);
+        Assert.Contains(endpoint.AllConnections!, c => c.IsKnownDevice && c.OpenCommand.CanExecute(null) && c.StateText != "Not monitored");
+    }
 }
