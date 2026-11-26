@@ -109,13 +109,13 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 		{
 			_headerGlass.Actions = actions;
 			_headerGlass.IsVisible = true;
-			TabBarButtons.Show(this, OpenSearch, "Search the network", []);
+			TabBarButtons.Show(this, OpenSearch, "Search the network", [], searchSymbol: "safari");
 		}
 		else
 		{
 			_headerGlass.Actions = [];
 			_headerGlass.IsVisible = false;
-			TabBarButtons.Show(this, OpenSearch, "Search the network", actions);
+			TabBarButtons.Show(this, OpenSearch, "Search the network", actions, searchSymbol: "safari");
 		}
 	}
 #endif

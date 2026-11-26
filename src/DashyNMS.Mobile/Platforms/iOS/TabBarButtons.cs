@@ -149,7 +149,7 @@ internal static class TabBarButtons
     /// <paramref name="presentationPage"/> so the same glass is hosted above
     /// its content while still measuring the presenting controller's pill.
     /// </summary>
-    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null)
+    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null, string searchSymbol = "magnifyingglass")
     {
         if (!IsAvailable)
         {
@@ -161,7 +161,7 @@ internal static class TabBarButtons
         _owner = owner;
         _presentationPage = presentationPage is null ? null : new(presentationPage);
         if (ownerChanged) _host.ResetLaneMode();
-        _host.Set(search, searchLabel, actions);
+        _host.Set(search, searchLabel, actions, searchSymbol);
         _host.Hidden = false;
         if (TabDots.FindTabs() is { } tabs)
         {
@@ -667,6 +667,7 @@ internal static class TabBarButtons
         private Action? _search;
         private IReadOnlyList<GlassAction> _actions = [];
         private string _searchLabel = string.Empty;
+        private string _searchSymbol = "magnifyingglass";
         private IReadOnlyList<GlassAction> _shown = [];
         public GlassLaneMode LaneMode { get; private set; } = GlassLaneMode.Expanded;
         public bool Collapsed => LaneMode != GlassLaneMode.Expanded;
@@ -732,13 +733,18 @@ internal static class TabBarButtons
         /// <summary>The actions run down the group with a vertical tab bar, across it with a bottom one.</summary>
         public bool Vertical { get; set; }
 
-        public void Set(Action? search, string searchLabel, IReadOnlyList<GlassAction> actions)
+        public void Set(Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, string searchSymbol = "magnifyingglass")
         {
             _search = search;
             Search.AccessibilityLabel = searchLabel;
             _actions = actions;
 
             _searchLabel = searchLabel;
+            if (_searchSymbol != searchSymbol)
+            {
+                _searchSymbol = searchSymbol;
+                _searchIcon.Image = UIImage.GetSystemImage(searchSymbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium));
+            }
             RebuildSlots();
             SetNeedsUpdateConstraints();
         }
@@ -777,7 +783,7 @@ internal static class TabBarButtons
 
             var back = _actions.Where(a => a.IsBack).ToList();
             var overflow = _actions.Where(a => !a.IsBack).ToList();
-            if (_search is { } search) overflow.Insert(0, new GlassAction("magnifyingglass", _searchLabel, search));
+            if (_search is { } search) overflow.Insert(0, new GlassAction(_searchSymbol, _searchLabel, search));
 
             List<GlassAction> shown;
             IReadOnlyList<GlassAction>? menu = null;

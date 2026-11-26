@@ -12,7 +12,7 @@
 - **Auto-refresh.** Logs and Graylog can refresh themselves while they're open. {logs}
 - **Config backups.** With Unimus set up in Settings, each device lists its backups. Read or search one, compare any two, and share either. {devices}
 - **Help.** The user guide is in Settings, with search, and works with no signal. Alerts, Intelligence, sign-in and Settings link to the page that explains them. {settings}
-- **Network Search.** Find where an address, network, MAC address or name is connected, from More or the Dashboard's magnifier, as in LibreNMS 26.11: the switch port it plugs into, the routers that know it, conflicts, and which sources couldn't be checked. Results can be shared as CSV. {devices}
+- **Network Search.** Find where an address, network, MAC address or name is connected, from More or the Dashboard's compass, as in LibreNMS 26.11: the switch port it plugs into, the routers that know it, conflicts, and which sources couldn't be checked. Results can be shared as CSV. {devices}
 - **Demo.** Try the app on an example network with no server: **Try the demo** on the sign-in page. It keeps nothing, sends no notifications, and leaves your sign-in as it was. Intelligence has an example conversation there too, with suggested questions that answer on any phone. {dashboard}
 
 ## Improved

@@ -2,7 +2,7 @@
 
 **Network Search** finds an address, a network, a MAC address or a name and shows where it plugs in: the switch port, the routers that know it, and the network around it. It works like the Network Search page in LibreNMS 26.11.
 
-Open **More → Network Search**, or tap the magnifier on the **Dashboard**. On an iPad or Mac keyboard, press **⌘F** on the Dashboard.
+Open **More → Network Search**, or tap the compass on the **Dashboard**. On an iPad or Mac keyboard, press **⌘F** on the Dashboard.
 
 ## Search
 
