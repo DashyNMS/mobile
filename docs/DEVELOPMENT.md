@@ -603,6 +603,16 @@ To ship an iOS build, see [Builds and releases](#builds-and-releases) below. The
 and release builds sign the app and upload it to App Store Connect, with no
 Mac needed.
 
+### Accessibility checklist for new pages
+
+Before shipping a new or changed page (#131; full iOS spec in `docs/DESIGN.md` section 12):
+
+- **VoiceOver / screen reader:** Give every icon-only button, dot, chip and card a clear `SemanticProperties.Description` (and `Hint` where the action isn't obvious). Set `HeadingLevel="Level1"` on page titles and `Level2` on group headings. Exclude decorative chevrons, dots and fades with `AutomationProperties.IsInAccessibleTree="False"`. Expose actionable rows as one button with a joined description and put secondary row actions (Pin, Copy) as separate 44pt buttons naming their target. State status in words alongside colour.
+- **Dynamic Type:** Use `MinimumHeightRequest`, not fixed `HeightRequest`, on buttons, chips and segments; wrap titles and labels (`WordWrap` for prose, `CharacterWrap` for identifiers) so nothing clips at maximum text size.
+- **Contrast:** Use only semantic tokens from `Resources/Styles/Colors.xaml` via `AppThemeBinding` / `SetAppThemeColor`. Every enabled text-on-surface and status-text-on-tint pair must meet at least 4.5:1 in both Light and Dark themes; non-text control boundaries without text/icon must meet 3:1.
+- **Touch targets:** Every tappable control measures at least 44×44pt (48pt in the chat composer).
+- **Reduce Motion:** Check `ReducedMotion.IsOn` to skip added motion (entrances, heartbeat, map jiggle, easter egg) and replace spinners with status text.
+
 ## User guide and wiki
 
 The user guide is in [`docs/guide`](guide/README.md): getting started,
