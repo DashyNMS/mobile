@@ -69,7 +69,48 @@ public sealed class NetworkMapViewModelTests
         Assert.Equal(DeviceState.Up, vm.Nodes.Single(n => n.Name == "core-sw").State);
 
         vm.Select(dist);
-        Assert.Equal("In maintenance", vm.SelectedNodeStateText);
+        Assert.Equal("Maintenance", vm.SelectedNodeStateText);
+    }
+
+    [Fact]
+    public async Task Selected_node_state_text_uses_the_device_lists_words_for_every_state()
+    {
+        var client = Fakes.Client(devices:
+        [
+            Fakes.Device(1, "syn-up"),
+            Fakes.Device(2, "syn-down", up: false),
+            Fakes.Device(3, "syn-disabled", disabled: true),
+            Fakes.Device(4, "syn-ignored", ignore: true),
+            Fakes.Device(5, "syn-maint"),
+            new Device { DeviceId = 6, Hostname = "syn-unknown" },
+        ]);
+        client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        client.Ports.ListAllNamesAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<Port>());
+        client.Devices.IsUnderMaintenanceAsync(5, Arg.Any<CancellationToken>()).Returns(true);
+
+        var vm = new NetworkMapViewModel(client, Fakes.Settings(), _navigation) { ShowUnlinkedDevices = true };
+        await vm.RefreshCommand.ExecuteAsync(null);
+        await vm.MaintenanceChecked;
+
+        Assert.Equal(string.Empty, vm.SelectedNodeStateText);
+
+        var expected = new (string Name, DeviceState State, string Text)[]
+        {
+            ("syn-up", DeviceState.Up, "Up"),
+            ("syn-down", DeviceState.Down, "Down"),
+            ("syn-disabled", DeviceState.Disabled, "Disabled"),
+            ("syn-ignored", DeviceState.Ignored, "Ignored"),
+            ("syn-maint", DeviceState.Maintenance, "Maintenance"),
+            ("syn-unknown", DeviceState.Unknown, "Unknown"),
+        };
+
+        foreach (var (name, state, text) in expected)
+        {
+            var node = vm.Nodes.Single(n => n.Name == name);
+            Assert.Equal(state, node.State);
+            vm.Select(node);
+            Assert.Equal(text, vm.SelectedNodeStateText);
+        }
     }
 
     [Fact]

@@ -165,6 +165,35 @@ public sealed class WidgetSnapshotTests
     }
 
     [Fact]
+    public void Pinned_devices_use_the_device_lists_state_words_for_each_state()
+    {
+        var settings = new AppSettings();
+        foreach (var id in new[] { 1, 2, 3, 4, 5 })
+        {
+            settings.PinnedDevices.Add(new PinnedDevice { DeviceId = id });
+        }
+
+        var snapshot = WidgetSnapshot.Build([], Now, settings,
+        [
+            Fakes.Device(1, "syn-up"),
+            Fakes.Device(2, "syn-down", up: false),
+            Fakes.Device(3, "syn-disabled", disabled: true),
+            Fakes.Device(4, "syn-ignored", ignore: true),
+            new Device { DeviceId = 5, Hostname = "syn-unknown" },
+        ]);
+
+        Assert.Equal(
+            [
+                ("syn-up", "ok", DeviceState.Up.ToDisplayString()),
+                ("syn-down", "down", DeviceState.Down.ToDisplayString()),
+                ("syn-disabled", "disabled", DeviceState.Disabled.ToDisplayString()),
+                ("syn-ignored", "disabled", DeviceState.Ignored.ToDisplayString()),
+                ("syn-unknown", "unknown", DeviceState.Unknown.ToDisplayString()),
+            ],
+            snapshot.Pinned.Select(p => (p.Name, p.State, WidgetFormat.DeviceStatus(p, Now))));
+    }
+
+    [Fact]
     public void Sensors_are_the_dashboard_cards_read_against_the_thresholds()
     {
         var settings = new AppSettings();

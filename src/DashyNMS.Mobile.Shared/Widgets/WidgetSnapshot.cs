@@ -43,8 +43,8 @@ public sealed record WidgetDeviceCounts(
     [property: JsonPropertyName("unknown")] int Unknown = 0);
 
 /// <summary>A pinned device as a widget row.</summary>
-/// <param name="State">"down", "critical", "warning", "acknowledged", "ok" or "disabled" - what it's coloured by.</param>
-/// <param name="Status">What's wrong ("Device down", a rule name), or "Up 41d" when nothing is.</param>
+/// <param name="State">"down", "critical", "warning", "acknowledged", "ok", "disabled" or "unknown" - what it's coloured by.</param>
+/// <param name="Status">What's wrong ("Down", a rule name), a state name ("Disabled", "Ignored", "Unknown"), or "Up 41d" when nothing is.</param>
 /// <param name="Since">For a down device, when its newest alert was raised (Unix seconds), so the widget can say for how long; else 0.</param>
 public sealed record WidgetDevice(
     [property: JsonPropertyName("deviceId")] int DeviceId,
@@ -301,16 +301,24 @@ public sealed record WidgetSnapshot
 
                 if (device.ReportedState == DeviceState.Down)
                 {
-                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "down", "Down", location, worst is null ? 0 : UnixTime(worst.Timestamp, utc));
+                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "down", device.ReportedState.ToDisplayString(), location, worst is null ? 0 : UnixTime(worst.Timestamp, utc));
+                }
+
+                if (device.ReportedState == DeviceState.Maintenance)
+                {
+                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "maintenance", device.ReportedState.ToDisplayString(), location);
                 }
 
                 if (device.ReportedState == DeviceState.Unknown)
-                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "unknown", "State unknown", location);
+                {
+                    return new WidgetDevice(device.DeviceId, names[device.DeviceId], "unknown", device.ReportedState.ToDisplayString(), location);
+                }
+
                 var state = WorstState(byDevice[device.DeviceId]);
                 var status = worst is null ? device.ReportedUptime is { } uptime ? $"Up {Formatting.Uptime(uptime)}" : "Up · uptime unknown" : worst.DisplayRuleName;
                 if (worst is null && device.ReportedUptime is <= 0)
                 {
-                    status = "Up";
+                    status = DeviceState.Up.ToDisplayString();
                 }
 
                 return new WidgetDevice(device.DeviceId, names[device.DeviceId], state, status, location);

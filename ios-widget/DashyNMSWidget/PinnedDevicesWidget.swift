@@ -128,7 +128,7 @@ struct PinnedDevicesWidgetView: View {
 
     private var upDown: String {
         let down = snapshot.pinned.filter { $0.state == "down" }.count
-        let up = snapshot.pinned.filter { $0.state != "down" && $0.state != "disabled" }.count
+        let up = snapshot.pinned.filter { $0.state != "down" && $0.state != "disabled" && $0.state != "unknown" }.count
         return down > 0 ? "\(up) up · \(down) down" : "\(up) up"
     }
 }

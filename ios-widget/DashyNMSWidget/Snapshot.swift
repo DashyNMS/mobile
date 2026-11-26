@@ -52,7 +52,7 @@ struct DeviceCounts: Codable, Hashable {
     var needingALook: Int { critical + warning + acknowledged }
 }
 
-/// A pinned device. `state` is "down", "critical", "warning", "acknowledged", "ok" or "disabled".
+/// A pinned device. `state` is "down", "critical", "warning", "acknowledged", "ok", "disabled" or "unknown".
 struct PinnedDevice: Codable, Hashable {
     var deviceId: Int
     var name: String

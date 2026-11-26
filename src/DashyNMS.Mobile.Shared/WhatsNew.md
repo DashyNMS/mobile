@@ -35,3 +35,4 @@
 - **Devices with no ports.** Show the devices that see them, rather than an error. {neighbours}
 - **Missing readings.** A sensor with no reading shows a dash and no colour. {health}
 - **Health totals and maps.** Health preserves dBm casing and lists sensors without limits separately in its summary; the map opens in the active theme with zoom controls clear of the header. {health}
+- **Device states in widgets and the network map.** Pinned-device widgets and the network map details panel now use the same state names as the device list, including Maintenance and Unknown. {devices}
