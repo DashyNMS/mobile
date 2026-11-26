@@ -752,6 +752,18 @@ content can be reported:
 > then opens a draft email to dashynms@pckp.net, the address on the support
 > page. Nothing is sent until the person sends that email.
 
+Also keep this in the notes, so a reviewer without a LibreNMS server can try
+Intelligence (#234):
+
+> No server is needed. On the sign-in page choose Try the demo, then open
+> More › Intelligence and accept the on-device notice. The chat is labelled
+> as an example conversation. Its suggested questions have recorded answers
+> built from the demo network's lookups, with a table, device and alert
+> chips and a graph; they work on any device. Other questions get live
+> answers only on a device with Apple Intelligence turned on. Report this
+> answer works on every answer, as described above. Leaving the demo
+> (Settings › Leave the demo) removes the demo and its chat.
+
 **The workflow's secrets** live in the `iOS-Build` and `Android-Build`
 environments, which only `main` can use, not in repository secrets. There's no
 approval: whatever reaches `main` is signed and uploaded. Android's are the upload

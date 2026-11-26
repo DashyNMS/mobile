@@ -462,6 +462,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         _notice.Text = notices.Length > 0 ? notices
             : !_preferences.Enabled ? "Turn on Intelligence in Settings to ask a question."
             : _model.Availability != IntelligenceAvailability.Available ? IntelligenceAvailabilityText.Describe(_model.Availability)
+            : _model.ExampleNotice is { } example ? example
             : "Answers can be wrong. Lookups may use cached data; check readings and their age in LibreNMS.";
         (_new.Command as Command)?.ChangeCanExecute();
         foreach (var card in _cards) card.UpdateActions();

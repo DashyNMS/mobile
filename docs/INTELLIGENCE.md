@@ -1173,3 +1173,25 @@ reports a source that limits requests as a failed lookup. Batch 9 moved to it fo
 Core's guide loader (Help, #668). Its catalogue also lists MCP's `dashynms_help`
 (DashyNMS/mcp#164), which the phone doesn't offer the model: Help in Settings shows
 the same guide, and its lookups would spend the context a network question needs.
+
+## Batch 9 demo example conversation (#234)
+
+In the demo (#160), `DemoIntelligenceModel` wraps the phone's model.
+`DemoIntelligenceModel.Decorate` puts it over whichever model the app head
+registered, so it's the only `IIntelligenceModel` the pages see.
+
+- **Availability.** It reports Available while the demo runs, so a reviewer
+  without Apple Intelligence can still use the chat.
+- **Recorded answers.** Its three questions replace the suggested questions.
+  No model writes their answers. Each one calls the conversation's own lookups
+  (`network_overview` and `active_alerts`, `find_device` for devices that are
+  down, and `graph` for core-sw-01's traffic) and builds Markdown from what
+  they return. Chips, tables, the graph image, lookup progress and Report
+  this answer all work exactly as in a real answer. A caption under each
+  answer says it's an example.
+- **Other questions.** These go to Apple's model where it's available. Without
+  it, the answer names the questions that work.
+- **The graph.** It needs Core's demo to draw PNG for
+  `graph_type=png&output=base64` (DashyNMS/core#122).
+
+Outside the demo, it passes everything to the phone's model unchanged.

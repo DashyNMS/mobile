@@ -78,6 +78,12 @@ public interface IIntelligenceModel
     /// <summary>False unless the active native route can supply typed lookup images to its model.</summary>
     bool SupportsLookupImages => false;
 
+    /// <summary>Questions with recorded answers, offered instead of the usual suggestions; null outside the demo (#234).</summary>
+    IReadOnlyList<string>? ExampleQuestions => null;
+
+    /// <summary>Says the chat is an example, where the page would otherwise warn that answers can be wrong; null outside the demo.</summary>
+    string? ExampleNotice => null;
+
     /// <summary>How many tokens <paramref name="text"/> costs as instructions, or null where the model can't count.</summary>
     Task<int?> CountTokensAsync(string text, CancellationToken cancellationToken = default);
 

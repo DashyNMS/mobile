@@ -164,6 +164,8 @@ public static class MauiProgram
 		// Apple's on-device model (#570), through the Swift bridge in ios-intelligence/.
 		builder.Services.AddSingleton<Intelligence.IIntelligenceModel, AppleIntelligenceModel>();
 #endif
+		// The demo's example conversation (#234) answers on any device, over whichever model is above.
+		Demo.DemoIntelligenceModel.Decorate(builder.Services);
 
 		// The on-device model check (#570) also reports the app's memory.
 		builder.Services.AddSingleton<Func<Diagnostics.MemoryReading>>(_ => MemoryReader.Read);
