@@ -615,6 +615,9 @@ Before shipping a new or changed page (#131; full iOS spec in `docs/DESIGN.md` s
 
 ## User guide and wiki
 
+Use inline Markdown links and fenced code blocks in `docs/guide`. The shared
+wiki converter does not support reference-style links or indented code blocks.
+
 The user guide is in [`docs/guide`](guide/README.md): getting started,
 installation, task-based how-to pages, troubleshooting and reference. Keep
 installation pages in `installation/`, user tasks in `how-to/` and reference
@@ -651,6 +654,8 @@ python3 scripts/Publish-WikiGuide.py docs/guide /tmp/wiki --repository DashyNMS/
 
 ## Commits, pull requests and issues
 
+Dependabot uses `build(deps): ...` for every ecosystem. Its generated dependency names and grouped summaries may exceed the usual title length.
+
 Every change goes through a branch and a pull request into `main`, one issue per PR, and is squash-merged, so the PR title becomes the commit on `main`. PR titles, commit messages and issue titles follow [Conventional Commits](https://www.conventionalcommits.org/) in plain words, the same standard as every DashyNMS repository:
 
 ```
@@ -663,7 +668,7 @@ type(scope): what changes, as the user would notice it
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
 - **Issue titles:** the same form, worded as the result the fixing PR will deliver, so the PR can reuse the title. An epic ends with `(epic)`. Labels carry the rest.
-- **Release notes:** a change users would notice adds its line to `docs/releases/<version>.md` and `WhatsNew.md` in the same PR. See [Release notes](#release-notes).
+- **Release notes:** a change users would notice adds its line to `docs/releases/<version>.md` in the same PR; update the curated `WhatsNew.md` when it merits a user highlight. See [Release notes](#release-notes).
 - **Attribution:** commits, PRs and release notes carry no AI attribution or `Co-Authored-By` lines.
 
 Examples:
@@ -725,13 +730,13 @@ If it fails there's no release:
 
 ### Release notes
 
-Every DashyNMS repository writes its release notes the same way. **`docs/releases/<version>.md` is the one set of notes for the version in `Directory.Build.props`.** It covers everything since the last release and grows as changes merge. Nothing else is written by hand: not a GitHub release's text, and not a file for each nightly.
+**`docs/releases/<version>.md` is the complete set of release notes for the version in `Directory.Build.props`.** It covers everything since the last release and grows as changes merge. GitHub releases and nightly builds use that file. The app's `WhatsNew.md` is a separate, curated set of user highlights with its own formatting.
 
 **In the pull request that makes the change:**
 
 - If a user of this repository would notice it, add or update its line in that file. A `feat`, `fix` or `perf` nearly always needs one. `ci`, `test`, `docs`, `chore`, `refactor` and dependency updates don't, unless someone would notice.
 - Put it under `## Breaking`, `## New`, `## Changed` or `## Fixed`, in that order, as a list item: `- **What it's about:** what's different now, in plain words (#NN).` Other headings fail CI.
-- Add the same line to `src/DashyNMS.Mobile.Shared/WhatsNew.md`, with a `{icon}` from the tab glyphs, under New, Improved or Fixed. It grows with the version too, and keeps the version's `# 2.0.0` heading, or What's new won't show.
+- When a change merits highlighting to app users, add or update it in `src/DashyNMS.Mobile.Shared/WhatsNew.md`, with a `{icon}` from the tab glyphs, under New, Improved or Fixed. Select and format the highlights for users; not every release-note entry belongs here. Keep the version's `# 2.0.0` heading, or What's new won't show.
 - Say what's true of the release as a whole. If a later change alters or undoes something that hasn't been released, edit its line rather than adding another. A fix to something that has never been released has no line.
 - Breaking changes say what the reader has to do.
 - Never edit a released version's file. Never put download tables, filenames or build numbers in it: they differ for each build.
@@ -744,7 +749,7 @@ Every DashyNMS repository writes its release notes the same way. **`docs/release
 | Edge | a tag and prerelease with links to the file and to the changes since the last edge build |
 | Nightly | a tag and prerelease with a copy of the file, and a link to the changes since the last build |
 | Release | the last step creates the release with the file as its notes |
-| What's new | the app embeds `WhatsNew.md`, the same list with an icon on each line |
+| What's new | the app embeds `WhatsNew.md`, a curated set of user highlights with its own icons and formatting |
 
 **Raising `<Version>`:** the same pull request adds `docs/releases/<new version>.md` with its first line, because CI won't pass without it.
 
@@ -1586,3 +1591,8 @@ so it just fails until the app is opened.
 
 Nothing is outstanding. Add new findings here, and raise them on
 DashyNMS/desktop.
+
+## Repository standards
+
+See [Repository standards](REPOSITORY-STANDARDS.md) for security gates, shared
+policy ownership, contribution files and the procedure for updating copied helpers.

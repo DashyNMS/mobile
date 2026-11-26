@@ -37,3 +37,9 @@ Security fixes go into the **latest release** on the App Store. Please check you
 - problems that need a device that's already been compromised, such as one that's jailbroken or rooted
 
 Known, open security issues are tracked publicly once it's safe to do so.
+
+## Repository checks
+
+[Repository standards](docs/REPOSITORY-STANDARDS.md) describes dependency audits,
+secret scanning, CodeQL analysis and publication gates. Passing a scan does not
+guarantee that no vulnerability exists. Report suspected vulnerabilities privately.

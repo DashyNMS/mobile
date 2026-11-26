@@ -23,8 +23,8 @@ licences page.
 SessionService.cs and CsvWriter.cs originated in DashyNMS/desktop at commit
 07c62f6b2f8c9c93062ac4d3f7dd4c9a31860670; see
 src/DashyNMS.Mobile.Shared/Desktop/README.md. That notice attributes them to
-Thomas Pickup. The owner's authorisation covers project-owned copies here,
-without changing the desktop repository's licence.
+Thomas Pickup. These project-owned copies are MIT licensed here under the owner's authorisation.
+The desktop repository also uses MIT for its project-owned material.
 
 ## Icon provenance
 
