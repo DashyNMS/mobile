@@ -20,6 +20,25 @@ public sealed class CorePollingTests
     }
 
     [Fact]
+    public async Task The_device_list_is_one_shared_request_with_no_maintenance_scan()
+    {
+        var client = Fakes.Client([Fakes.Device(7, "example.net"), Fakes.Device(8, "example.net")]);
+        var slow = new TaskCompletionSource<IReadOnlyList<Device>>();
+        client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns(slow.Task);
+        var session = Fakes.Session();
+        session.IsConnected.Returns(true);
+        using var polling = new CorePolling(client, session, Fakes.Settings());
+
+        var first = polling.DevicesAsync();
+        var second = polling.DevicesAsync();
+        slow.SetResult([Fakes.Device(7, "example.net"), Fakes.Device(8, "example.net")]);
+
+        Assert.Same(await first, await second);
+        await client.Devices.Received(1).ListAsync(Arg.Any<CancellationToken>());
+        await client.Devices.DidNotReceive().IsUnderMaintenanceAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Switching_session_drops_the_previous_device_cache()
     {
         var client = Fakes.Client([Fakes.Device(7, "first.example.net")]);

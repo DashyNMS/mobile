@@ -383,6 +383,41 @@ public sealed class SessionService : ISessionService
         return result;
     }
 
+    /// <summary>
+    /// Connects to the demo's example network (#160) without saving anything:
+    /// not the address, not the token, and not this as the server to restore,
+    /// so the real sign-in is exactly as it was when the demo ends.
+    /// </summary>
+    public async Task<ConnectionTestResult> ConnectDemoAsync(LibreNmsConnection connection, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(connection);
+        if (connection.Handler is null)
+        {
+            throw new ArgumentException("A demo connection is answered in process.", nameof(connection));
+        }
+
+        var result = await _client.TestAsync(connection, cancellationToken).ConfigureAwait(true);
+        if (!result.Succeeded)
+        {
+            return result;
+        }
+
+        Switch(() => _client.Connect(connection));
+        ServerInfo = result.SystemInfo;
+        _logger.LogInformation("Showing the demo network");
+        StateChanged?.Invoke(this, EventArgs.Empty);
+        return result;
+    }
+
+    /// <summary>Ends the demo: disconnects, and leaves the saved token and the offline copy of the real server alone.</summary>
+    public void LeaveDemo()
+    {
+        Switch(_client.Disconnect);
+        ServerInfo = null;
+        _logger.LogInformation("Left the demo network");
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public void SignOut(bool forgetToken)
     {
         Switch(_client.Disconnect);

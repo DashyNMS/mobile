@@ -149,7 +149,7 @@ internal static class TabBarButtons
     /// <paramref name="presentationPage"/> so the same glass is hosted above
     /// its content while still measuring the presenting controller's pill.
     /// </summary>
-    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null)
+    public static void Show(object owner, Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, Page? presentationPage = null, string searchSymbol = "magnifyingglass")
     {
         if (!IsAvailable)
         {
@@ -161,7 +161,7 @@ internal static class TabBarButtons
         _owner = owner;
         _presentationPage = presentationPage is null ? null : new(presentationPage);
         if (ownerChanged) _host.ResetLaneMode();
-        _host.Set(search, searchLabel, actions);
+        _host.Set(search, searchLabel, actions, searchSymbol);
         _host.Hidden = false;
         if (TabDots.FindTabs() is { } tabs)
         {
@@ -667,6 +667,7 @@ internal static class TabBarButtons
         private Action? _search;
         private IReadOnlyList<GlassAction> _actions = [];
         private string _searchLabel = string.Empty;
+        private string _searchSymbol = "magnifyingglass";
         private IReadOnlyList<GlassAction> _shown = [];
         public GlassLaneMode LaneMode { get; private set; } = GlassLaneMode.Expanded;
         public bool Collapsed => LaneMode != GlassLaneMode.Expanded;
@@ -703,6 +704,7 @@ internal static class TabBarButtons
             Search.AccessibilityTraits = UIAccessibilityTrait.Button;
             Search.ContentView.AddSubview(_searchIcon);
             Search.AddGestureRecognizer(new UITapGestureRecognizer(() => _search?.Invoke()));
+            ApplyCapsuleCorners(Search);
             AddSubview(Search);
 
             Actions = new UIVisualEffectView(Glass(false)) { ClipsToBounds = true, Alpha = 0 };
@@ -712,6 +714,7 @@ internal static class TabBarButtons
                 _slots.FirstOrDefault(slot => slot.Frame.Contains(point))?.Activate();
             }) { CancelsTouchesInView = false };
             Actions.AddGestureRecognizer(actionsTap);
+            ApplyCapsuleCorners(Actions);
             AddSubview(Actions);
         }
 
@@ -732,13 +735,18 @@ internal static class TabBarButtons
         /// <summary>The actions run down the group with a vertical tab bar, across it with a bottom one.</summary>
         public bool Vertical { get; set; }
 
-        public void Set(Action? search, string searchLabel, IReadOnlyList<GlassAction> actions)
+        public void Set(Action? search, string searchLabel, IReadOnlyList<GlassAction> actions, string searchSymbol = "magnifyingglass")
         {
             _search = search;
             Search.AccessibilityLabel = searchLabel;
             _actions = actions;
 
             _searchLabel = searchLabel;
+            if (_searchSymbol != searchSymbol)
+            {
+                _searchSymbol = searchSymbol;
+                _searchIcon.Image = UIImage.GetSystemImage(searchSymbol, UIImageSymbolConfiguration.Create(UIFont.PreferredBody.PointSize + 3, UIImageSymbolWeight.Medium));
+            }
             RebuildSlots();
             SetNeedsUpdateConstraints();
         }
@@ -777,7 +785,7 @@ internal static class TabBarButtons
 
             var back = _actions.Where(a => a.IsBack).ToList();
             var overflow = _actions.Where(a => !a.IsBack).ToList();
-            if (_search is { } search) overflow.Insert(0, new GlassAction("magnifyingglass", _searchLabel, search));
+            if (_search is { } search) overflow.Insert(0, new GlassAction(_searchSymbol, _searchLabel, search));
 
             List<GlassAction> shown;
             IReadOnlyList<GlassAction>? menu = null;
@@ -866,9 +874,21 @@ internal static class TabBarButtons
             var target = shown ? frame : glass.Frame;
             var moved = target != glass.Frame || (glass.Alpha > 0) != shown;
             glass.Frame = target;
-            glass.Layer.CornerRadius = (nfloat)(Math.Min(target.Width, target.Height) / 2);
+            ApplyCapsuleCorners(glass, target);
             glass.Alpha = shown ? 1 : 0;
             return moved;
+        }
+
+        private static void ApplyCapsuleCorners(UIView view, CGRect? frame = null)
+        {
+            if (OperatingSystem.IsIOSVersionAtLeast(26))
+            {
+                view.CornerConfiguration = UICornerConfiguration.CreateCapsule();
+            }
+
+            var bounds = frame ?? view.Bounds;
+            view.Layer.CornerCurve = CoreAnimation.CACornerCurve.Continuous;
+            view.Layer.CornerRadius = (nfloat)(Math.Min(bounds.Width, bounds.Height) / 2);
         }
 
         private static UIImageView Icon(string symbol) => GlassStyle.Icon(symbol);
@@ -894,14 +914,16 @@ internal static class TabBarButtons
                 if (menu is not null)
                 {
                     var owner = _owner;
-                    // UIKit also lifts/highlights the native menu button itself.
-                    // Rounding only its outer glass leaves that preview rectangular.
+                    // UIKit lifts/highlights the native menu button itself; a custom-type
+                    // capsule button with a clear background configuration stays round
+                    // through press, menu presentation and dismissal (#382).
                     var configuration = UIButtonConfiguration.PlainButtonConfiguration;
                     configuration.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
                     configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
-                    configuration.Image = UIImage.GetSystemImage("ellipsis");
+                    configuration.Image = GlassStyle.Icon("ellipsis").Image;
                     configuration.BaseForegroundColor = UIColor.Label;
-                    var button = new UIButton(UIButtonType.System)
+                    configuration.Background.BackgroundColor = UIColor.Clear;
+                    var button = new UIButton(UIButtonType.Custom)
                     {
                         AutoresizingMask = UIViewAutoresizing.FlexibleDimensions,
                         Configuration = configuration,
@@ -920,10 +942,23 @@ internal static class TabBarButtons
                         ShowsMenuAsPrimaryAction = true,
                         AccessibilityLabel = action.Label,
                     };
+                    button.ConfigurationUpdateHandler = btn =>
+                    {
+                        var updated = btn.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
+                        updated.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
+                        updated.Background.BackgroundColor = UIColor.Clear;
+                        updated.Background.CornerRadius = (nfloat)(Math.Min(btn.Bounds.Width, btn.Bounds.Height) / 2);
+                        updated.BaseForegroundColor = btn.Highlighted ? UIColor.Label.ColorWithAlpha(0.55f) : UIColor.Label;
+                        btn.Configuration = updated;
+                    };
                     button.TintColor = UIColor.Label;
+                    button.Layer.MasksToBounds = true;
+                    ApplyCapsuleCorners(button);
                     _icon.Hidden = true;
                     AddSubview(button);
                     IsAccessibilityElement = false;
+                    AccessibilityLabel = null;
+                    AccessibilityTraits = UIAccessibilityTrait.None;
                 }
             }
 
@@ -936,7 +971,7 @@ internal static class TabBarButtons
                 foreach (var button in Subviews.OfType<UIButton>())
                 {
                     button.Frame = Bounds;
-                    button.Layer.CornerRadius = (nfloat)(Math.Min(Bounds.Width, Bounds.Height) / 2);
+                    ApplyCapsuleCorners(button, Bounds);
                 }
             }
 

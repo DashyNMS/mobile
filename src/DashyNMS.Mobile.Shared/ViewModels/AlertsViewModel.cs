@@ -231,6 +231,10 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
 
     partial void OnSearchTextChanged(string value) => WhenTypingPauses(OnFilterChanged);
 
+    /// <summary>The guide's page on alerts (#668).</summary>
+    [RelayCommand]
+    private Task HelpAsync() => Help.HelpNavigation.OpenHelpAsync(_navigation, Help.HelpTopics.Alerts);
+
     /// <summary>The header's search icon: opens the box, or closes it and clears it when it's open.</summary>
     [RelayCommand]
     private void ToggleSearch()
@@ -774,12 +778,18 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         SaveFilter();
     }
 
-    /// <summary>For naming each alert's device - best effort, since the alerts still make sense by hostname.</summary>
+    /// <summary>
+    /// For naming each alert's device - best effort, since the alerts still make sense by hostname.
+    /// From the shared device cache, not the next device poll: that poll checks every device for
+    /// maintenance first, which on a large server held the alert list for over a minute (#132).
+    /// </summary>
     private async Task<IReadOnlyDictionary<int, Device>?> DevicesByIdAsync()
     {
         try
         {
-            Func<Task<IReadOnlyList<Device>>> fetch = () => _polling?.DevicesAsync() ?? _client.Devices.ListAsync();
+            Func<Task<IReadOnlyList<Device>>> fetch = _polling is { } polling
+                ? async () => await polling.CachedDevicesAsync().ConfigureAwait(false) ?? await _client.Devices.ListAsync().ConfigureAwait(false)
+                : () => _client.Devices.ListAsync();
             return (await (_lastKnown?.DevicesAsync(fetch) ?? fetch())).ToDictionary(d => d.DeviceId);
         }
         catch (LibreNmsApiException)

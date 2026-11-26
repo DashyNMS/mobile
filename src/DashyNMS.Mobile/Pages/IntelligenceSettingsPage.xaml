@@ -2,6 +2,7 @@
 <ContentPage x:Class="DashyNMS.Mobile.Pages.IntelligenceSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:help="clr-namespace:DashyNMS.Mobile.Help;assembly=DashyNMS.Mobile.Shared"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.Intelligence;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:IntelligenceSettingsViewModel" Title="Intelligence">
@@ -85,6 +86,7 @@
                             </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>
+                    <controls:HelpButton Text="Help with Intelligence" Topic="{x:Static help:HelpTopics.Intelligence}" />
                 </VerticalStackLayout>
             </ScrollView>
         </controls:SetupLayout.Body>

@@ -53,8 +53,12 @@ public sealed class DiagnosticsConsent : IDiagnosticsConsent
     private readonly IAppPreferences _preferences;
     private bool _offeredThisSession;
 
-    public DiagnosticsConsent(IAppPreferences preferences, bool reportingAvailable)
+    private readonly Demo.DemoState? _demo;
+
+    /// <param name="demo">The demo shares nothing (#160), whatever was chosen.</param>
+    public DiagnosticsConsent(IAppPreferences preferences, bool reportingAvailable, Demo.DemoState? demo = null)
     {
+        _demo = demo;
         _preferences = preferences;
         IsAvailable = reportingAvailable;
     }
@@ -68,10 +72,10 @@ public sealed class DiagnosticsConsent : IDiagnosticsConsent
     public bool HasChosen => Notice == CurrentNotice;
 
     /// <summary>Error reports, as chosen; off until chosen, and in a build that can't send them.</summary>
-    public bool ShareErrors => IsAvailable && HasChosen && _preferences.Get(ErrorsKey) == bool.TrueString;
+    public bool ShareErrors => _demo?.IsActive != true && IsAvailable && HasChosen && _preferences.Get(ErrorsKey) == bool.TrueString;
 
     /// <summary>Usage and performance, as chosen; off until chosen, and in a build that can't send them.</summary>
-    public bool ShareUsage => IsAvailable && HasChosen && _preferences.Get(UsageKey) == bool.TrueString;
+    public bool ShareUsage => _demo?.IsActive != true && IsAvailable && HasChosen && _preferences.Get(UsageKey) == bool.TrueString;
 
     /// <summary>The sheet is due: this build could send, and there's no answer to the current notice.</summary>
     public bool NeedsChoice => IsAvailable && !HasChosen;
@@ -107,6 +111,11 @@ public sealed class DiagnosticsConsent : IDiagnosticsConsent
     /// </summary>
     public async Task<bool> ShowIfDueAsync(INavigationService navigation)
     {
+        if (_demo?.IsActive == true)
+        {
+            return false;
+        }
+
         if (_offeredThisSession || !NeedsChoice)
         {
             return false;

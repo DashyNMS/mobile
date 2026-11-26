@@ -14,7 +14,7 @@ To sign in to a different server, sign out first.
 
 - Choose the tabs in **More**. See [Find your way round](../getting-started.md#find-your-way-round).
 - **Appearance** follows the phone, or stays light or dark.
-- **Devices** chooses which name devices go by and how many recently viewed ones to keep.
+- **Devices** chooses which name devices go by, how many recently viewed ones to keep, and how [Network Search](network-search.md) writes MAC addresses.
 
 ## Alert checks and notifications
 
@@ -29,6 +29,10 @@ Set the warning and critical limits for optical power, signal, temperature and f
 ## Sensor definitions
 
 These give state sensors names and colours, such as **Ready** or **Fan failed**. They come from a public catalogue on GitHub, checked at most once a day, and keep working offline. Turn them off, or choose **Use my own repository**.
+
+## Help
+
+**Help** is this guide, kept in the app so it works with no signal. The line at the foot of the contents says which version it describes. Tap the magnifier to search it. Other pages link to the part that explains them, such as **Help with alerts** on **Alerts**.
 
 ## Diagnostics
 

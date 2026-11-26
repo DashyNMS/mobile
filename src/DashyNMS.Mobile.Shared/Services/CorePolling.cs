@@ -19,7 +19,6 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private readonly ISettingsStore _settings;
     private readonly ILoggerFactory _logs;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private DeviceMonitor? _devices;
     private SensorMonitor? _sensors;
     private AlertMonitor? _alerts;
     private bool _cachedHasOpenAlerts;
@@ -34,6 +33,8 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private int _definitionsVersion;
     private readonly object _sensorSync = new();
     private Task<SensorPollResult>? _sensorsInFlight;
+    private readonly object _deviceSync = new();
+    private Task<IReadOnlyList<Device>>? _devicesInFlight;
 
     /// <summary>Most requests get this long before the page gives up on Core's answer.</summary>
     private static readonly TimeSpan PollWait = TimeSpan.FromSeconds(90);
@@ -92,7 +93,6 @@ public sealed class CorePolling : IDisposable, IAppActivity
         _cache = new DeviceCache(_client, session, _logs.CreateLogger<DeviceCache>());
         _alerts = new AlertMonitor(_client, session, _settings,
             new NotificationStateStore(_logs.CreateLogger<NotificationStateStore>()), _cache, _logs.CreateLogger<AlertMonitor>());
-        _devices = new DeviceMonitor(_client, session, _settings, _cache, _alerts, this, _logs.CreateLogger<DeviceMonitor>());
         _sensors = new SensorMonitor(_client, session, _settings, _cache, _alerts, this, _logs.CreateLogger<SensorMonitor>());
         _sensors.Polled += (_, result) => { if (session.IsConnected) _lastSensors = result; };
         var alertGeneration = Volatile.Read(ref _generation);
@@ -106,14 +106,25 @@ public sealed class CorePolling : IDisposable, IAppActivity
 
     public async Task<IReadOnlyList<Device>?> CachedDevicesAsync(CancellationToken token = default)
     {
+        var (cache, generation) = await UnderGateAsync(() => _cache!, token).ConfigureAwait(false);
+        await cache.EnsureCurrentAsync(Array.Empty<int>(), token).ConfigureAwait(false);
+        if (generation != Interlocked.Read(ref _generation)) throw new OperationCanceledException("The session changed during the refresh");
+        return cache.IsLoaded ? cache.All.ToList() : null;
+    }
+
+    /// <summary>
+    /// Creates the monitors if needed and hands one back, holding the gate only for that (#132).
+    /// The waits for a poll happen outside it: a device poll runs the maintenance scan, one
+    /// request per device, and on a large server that takes minutes. Alerts and the device
+    /// cache mustn't queue behind it.
+    /// </summary>
+    private async Task<(T Value, long Generation)> UnderGateAsync<T>(Func<T> pick, CancellationToken token)
+    {
         await _gate.WaitAsync(token).ConfigureAwait(false);
         try
         {
             EnsureMonitors();
-            var generation = Interlocked.Read(ref _generation);
-            await _cache!.EnsureCurrentAsync(Array.Empty<int>(), token).ConfigureAwait(false);
-            if (generation != Interlocked.Read(ref _generation)) throw new OperationCanceledException("The session changed during the refresh");
-            return _cache.IsLoaded ? _cache.All.ToList() : null;
+            return (pick(), Interlocked.Read(ref _generation));
         }
         finally { _gate.Release(); }
     }
@@ -127,38 +138,55 @@ public sealed class CorePolling : IDisposable, IAppActivity
 
     public async Task<IReadOnlyList<Alert>> AlertsAsync(CancellationToken token = default)
     {
-        await _gate.WaitAsync(token).ConfigureAwait(false);
-        try
+        var (monitor, contextGeneration) = await UnderGateAsync(() => _alerts!, token).ConfigureAwait(false);
+        var result = await Next<AlertPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
+            () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token, contextGeneration).ConfigureAwait(false);
+        if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
+        if (contextGeneration == Volatile.Read(ref _generation))
         {
-            EnsureMonitors();
-            var monitor = _alerts!;
-            var contextGeneration = Volatile.Read(ref _generation);
-            var result = await Next<AlertPollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
-                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token).ConfigureAwait(false);
-            if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
-            if (contextGeneration == Volatile.Read(ref _generation))
-            {
-                _cachedHasOpenAlerts = result.Alerts.Any(a => a.State is AlertState.Active or AlertState.Acknowledged);
-                _alertContextGeneration = contextGeneration;
-            }
-            return result.Alerts;
+            _cachedHasOpenAlerts = result.Alerts.Any(a => a.State is AlertState.Active or AlertState.Acknowledged);
+            _alertContextGeneration = contextGeneration;
         }
-        finally { _gate.Release(); }
+        return result.Alerts;
     }
 
-    public async Task<IReadOnlyList<Device>> DevicesAsync(CancellationToken token = default)
+    /// <summary>
+    /// The device list, fresh from the server. Devices, Health and the Alerts list's names ask
+    /// together: a request already on its way is shared, and a caller giving up doesn't cancel it.
+    /// </summary>
+    /// <remarks>
+    /// One request, not Core's device monitor (#132). Once started, that monitor checks every
+    /// device for maintenance every poll before handing over the list - a request per device,
+    /// which on a server of a thousand devices took minutes and never stopped. Maintenance on
+    /// the phone comes from <see cref="MaintenanceScan"/>, which the Devices tab and dashboard share.
+    /// </remarks>
+    private CancellationTokenSource? _devicesCts;
+
+    public Task<IReadOnlyList<Device>> DevicesAsync(CancellationToken token = default)
     {
-        await _gate.WaitAsync(token).ConfigureAwait(false);
-        try
+        Task<IReadOnlyList<Device>> shared;
+        lock (_deviceSync)
         {
-            EnsureMonitors();
-            var monitor = _devices!;
-            var result = await Next<DevicePollResult>(h => monitor.Polled += h, h => monitor.Polled -= h,
-                () => { if (monitor.IsRunning) monitor.RequestRefresh(); else monitor.Start(); }, PollWait, token).ConfigureAwait(false);
-            if (!result.Succeeded) throw new InvalidOperationException(result.ErrorMessage);
-            return result.Devices;
+            if (_devicesInFlight is not { IsCompleted: false })
+            {
+                _devicesCts?.Dispose();
+                _devicesCts = new CancellationTokenSource();
+                _devicesInFlight = FetchDevicesAsync(_devicesCts.Token);
+            }
+
+            shared = _devicesInFlight;
         }
-        finally { _gate.Release(); }
+
+        return shared.WaitAsync(token);
+    }
+
+    private async Task<IReadOnlyList<Device>> FetchDevicesAsync(CancellationToken sessionToken)
+    {
+        var (cache, generation) = await UnderGateAsync(() => _cache!, sessionToken).ConfigureAwait(false);
+        var devices = await _client.Devices.ListAsync(sessionToken).WaitAsync(PollWait, sessionToken).ConfigureAwait(false);
+        if (generation != Interlocked.Read(ref _generation)) throw new OperationCanceledException("The session changed during the refresh");
+        cache.UpdateFrom(devices);
+        return devices;
     }
 
     /// <summary>
@@ -229,9 +257,11 @@ public sealed class CorePolling : IDisposable, IAppActivity
         }
     }
 
-    private async Task<T> Next<T>(Action<EventHandler<T>> subscribe, Action<EventHandler<T>> unsubscribe, Action refresh, TimeSpan wait, CancellationToken token)
+    private async Task<T> Next<T>(Action<EventHandler<T>> subscribe, Action<EventHandler<T>> unsubscribe, Action refresh, TimeSpan wait, CancellationToken token, long? since = null)
     {
-        var generation = _generation;
+        // The generation the monitor was picked in: a session change after the gate was let go
+        // means the monitor may already be disposed, so its poll isn't waited for.
+        var generation = since ?? Interlocked.Read(ref _generation);
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnPolled(object? sender, T result) => completion.TrySetResult(result);
         void OnSessionChanged(object? sender, EventArgs e) => completion.TrySetException(new OperationCanceledException("The session changed during the refresh"));
@@ -239,6 +269,8 @@ public sealed class CorePolling : IDisposable, IAppActivity
         subscribe(OnPolled);
         try
         {
+            // Checked once subscribed, so a change in between is caught here or by the handler.
+            if (generation != Interlocked.Read(ref _generation)) throw new OperationCanceledException("The session changed during the refresh");
             refresh();
             var result = await completion.Task.WaitAsync(wait, token).ConfigureAwait(false);
             if (generation != _generation) throw new OperationCanceledException("The session changed during the refresh");
@@ -250,16 +282,24 @@ public sealed class CorePolling : IDisposable, IAppActivity
     private void OnSessionChanged(object? sender, EventArgs e)
     {
         Interlocked.Increment(ref _generation);
+        // The next server's first caller starts its own list, not this one's.
+        CancellationTokenSource? oldDevicesCts;
+        lock (_deviceSync)
+        {
+            _devicesInFlight = null;
+            oldDevicesCts = _devicesCts;
+            _devicesCts = null;
+        }
+        try { oldDevicesCts?.Cancel(); } catch (ObjectDisposedException) { }
+        oldDevicesCts?.Dispose();
         Rules.Clear();
         _reset = true;
     }
 
     private void Reset()
     {
-        _devices?.Dispose();
         _sensors?.Dispose();
         _alerts?.Dispose();
-        _devices = null;
         _sensors = null;
         _alerts = null;
         _cache = null;

@@ -21,4 +21,4 @@ Each test build updates the one before it. An app installed from Google Play lat
 
 ## Remove
 
-In **Settings**, choose **Sign out**, then **Sign out and forget everything**,, then uninstall the app. To cancel the token itself, revoke it in LibreNMS.
+In **Settings**, choose **Sign out**, then **Sign out and forget everything**, then uninstall the app. To cancel the token itself, revoke it in LibreNMS.

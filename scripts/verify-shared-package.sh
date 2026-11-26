@@ -15,9 +15,9 @@ set -euo pipefail
 # Pins: the version in Directory.Build.props, the SHA-256 the publish run
 # attested, the DashyNMS/mcp commit it was built from, and the workflow that built it
 # (DashyNMS/mcp nightly run).
-SHARED_VERSION="2.0.0-nightly.2"
-SHARED_SHA256="98fe753eb9d798b12787cb267c7e6f49eff363c890b21a742fd4bf3076ef9caa"
-SHARED_COMMIT="8e2d11efed158fc8429a4bc5bcded61e40e7375c"
+SHARED_VERSION="2.0.0-nightly.6"
+SHARED_SHA256="ec9c88cd29c1206934928cd80a0af85447727722403ab006bce1f70a3fa7083f"
+SHARED_COMMIT="65580bb0b4fa0dc6d465b466b2f2e070183e8e8e"
 SHARED_REPO="DashyNMS/mcp"
 SHARED_WORKFLOW="$SHARED_REPO/.github/workflows/shared-package.yml"
 

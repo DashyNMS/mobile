@@ -852,8 +852,8 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
     /// <summary>Numerically (10.0.0.9 before 10.0.0.10), IPv4 before IPv6, anything unparseable last.</summary>
     private static int CompareIp(DeviceItem a, DeviceItem b)
     {
-        var x = IpKey(a.Device.Ip);
-        var y = IpKey(b.Device.Ip);
+        var x = a.IpSortKey;
+        var y = b.IpSortKey;
 
         if (x is null || y is null)
         {
@@ -878,9 +878,6 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 
         return StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name);
     }
-
-    private static byte[]? IpKey(string? ip) =>
-        IPAddress.TryParse(ip, out var address) ? address.GetAddressBytes() : null;
 
     /// <summary>
     /// Refills a facet's choices ("Router (12)"), most common first, keeping

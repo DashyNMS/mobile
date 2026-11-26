@@ -13,6 +13,7 @@ public sealed class SettingsOverviewRow : Grid
     public static readonly BindableProperty SummaryTextColorProperty = BindableProperty.Create(nameof(SummaryTextColor), typeof(Color), typeof(SettingsOverviewRow), null, propertyChanged: Changed);
     public static readonly BindableProperty ShowLogoProperty = BindableProperty.Create(nameof(ShowLogo), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
     public static readonly BindableProperty ShowChevronProperty = BindableProperty.Create(nameof(ShowChevron), typeof(bool), typeof(SettingsOverviewRow), true, propertyChanged: Changed);
+    public static readonly BindableProperty IsCurrentProperty = BindableProperty.Create(nameof(IsCurrent), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
     private static readonly Geometry ChevronGeometry = (Geometry)new PathGeometryConverter().ConvertFromInvariantString("M9 6L15 12L9 18")!;
     private readonly Image _logo = new() { Source = "dashynms_logo.png", WidthRequest = 54, HeightRequest = 54, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center, InputTransparent = true, IsVisible = false };
     private readonly Microsoft.Maui.Controls.Shapes.Path _chevron = new()
@@ -79,6 +80,8 @@ public sealed class SettingsOverviewRow : Grid
     public bool ShowLogo { get => (bool)GetValue(ShowLogoProperty); set => SetValue(ShowLogoProperty, value); }
     /// <summary>Explanations and immediate actions do not imply navigation.</summary>
     public bool ShowChevron { get => (bool)GetValue(ShowChevronProperty); set => SetValue(ShowChevronProperty, value); }
+    /// <summary>What this row opens is already showing beside the list.</summary>
+    public bool IsCurrent { get => (bool)GetValue(IsCurrentProperty); set => SetValue(IsCurrentProperty, value); }
     public string Summary { get => (string)GetValue(SummaryProperty); set => SetValue(SummaryProperty, value); }
     public Color? SummaryTextColor { get => (Color?)GetValue(SummaryTextColorProperty); set => SetValue(SummaryTextColorProperty, value); }
     public ICommand? Command { get => (ICommand?)GetValue(CommandProperty); set => SetValue(CommandProperty, value); }
@@ -97,7 +100,11 @@ public sealed class SettingsOverviewRow : Grid
         if (SummaryTextColor is { } colour) _summary.TextColor = colour;
         else _summary.ClearValue(Label.TextColorProperty);
         _summary.IsVisible = !string.IsNullOrWhiteSpace(Summary);
-        SemanticProperties.SetDescription(_action, string.Join(". ", new[] { Title, Summary }.Where(value => !string.IsNullOrWhiteSpace(value))));
+        // Both states set a theme binding: clearing one doesn't remove it from a recycled row.
+        var resources = Application.Current!.Resources;
+        _title.SetAppThemeColor(Label.TextColorProperty,
+            (Color)resources[IsCurrent ? "PrimaryTextLight" : "TextLight"], (Color)resources[IsCurrent ? "PrimaryTextDark" : "TextDark"]);
+        SemanticProperties.SetDescription(_action, string.Join(". ", new[] { Title, Summary?.TrimEnd('.', ' '), IsCurrent ? "Showing" : string.Empty }.Where(value => !string.IsNullOrWhiteSpace(value))));
         _action.CommandParameter = CommandParameter;
         _action.Command = Command;
     }

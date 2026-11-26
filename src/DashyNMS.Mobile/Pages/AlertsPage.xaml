@@ -28,6 +28,8 @@
                                          IsOn="{Binding IsSearchOpen}" SemanticProperties.Description="Search alerts" />
                     <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Export}" Command="{Binding ExportCsvCommand}"
                                          SemanticProperties.Description="Export as CSV" />
+                    <controls:IconButton Kind="Plain" Icon="{x:Static controls:Icons.Help}" Command="{Binding HelpCommand}"
+                                         SemanticProperties.Description="Help with alerts" />
                 </HorizontalStackLayout>
             </controls:PageHeader.Actions>
         </controls:PageHeader>

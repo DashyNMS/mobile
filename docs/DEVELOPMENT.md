@@ -603,13 +603,24 @@ To ship an iOS build, see [Builds and releases](#builds-and-releases) below. The
 and release builds sign the app and upload it to App Store Connect, with no
 Mac needed.
 
+### Accessibility checklist for new pages
+
+Before shipping a new or changed page (#131; full iOS spec in `docs/DESIGN.md` section 12):
+
+- **VoiceOver / screen reader:** Give every icon-only button, dot, chip and card a clear `SemanticProperties.Description` (and `Hint` where the action isn't obvious). Set `HeadingLevel="Level1"` on page titles and `Level2` on group headings. Exclude decorative chevrons, dots and fades with `AutomationProperties.IsInAccessibleTree="False"`. Expose actionable rows as one button with a joined description and put secondary row actions (Pin, Copy) as separate 44pt buttons naming their target. State status in words alongside colour.
+- **Dynamic Type:** Use `MinimumHeightRequest`, not fixed `HeightRequest`, on buttons, chips and segments; wrap titles and labels (`WordWrap` for prose, `CharacterWrap` for identifiers) so nothing clips at maximum text size.
+- **Contrast:** Use only semantic tokens from `Resources/Styles/Colors.xaml` via `AppThemeBinding` / `SetAppThemeColor`. Every enabled text-on-surface and status-text-on-tint pair must meet at least 4.5:1 in both Light and Dark themes; non-text control boundaries without text/icon must meet 3:1.
+- **Touch targets:** Every tappable control measures at least 44×44pt (48pt in the chat composer).
+- **Reduce Motion:** Check `ReducedMotion.IsOn` to skip added motion (entrances, heartbeat, map jiggle, easter egg) and replace spinners with status text.
+
 ## User guide and wiki
 
 The user guide is in [`docs/guide`](guide/README.md): getting started,
 installation, task-based how-to pages, troubleshooting and reference. Keep
 installation pages in `installation/`, user tasks in `how-to/` and reference
 pages in `reference/`. Use relative Markdown links between pages, images with
-alt text and simple Markdown, because the app will show these pages too (#668).
+alt text and simple Markdown, because the app shows these pages too, under Settings → Help (#668). A page or
+heading that `HelpTopics` opens can't be renamed without changing it there; a test checks.
 Write for people who aren't developers.
 
 **Any change to what the app does must also be made in the user guide, in the
@@ -647,7 +658,7 @@ type(scope): what changes, as the user would notice it
 ```
 
 - **type:** `feat` (new), `fix` (was wrong, now works), `perf`, `refactor` (no behaviour change), `docs`, `test`, `build` (projects, packages, versions), `ci`, `chore`, `revert`.
-- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
+- **scope:** the area, in lower case: `alerts`, `devices`, `device-details`, `dashboard`, `widgets`, `notifications`, `background`, `logs`, `graylog`, `maps`, `health`, `neighbours`, `ports`, `graphs`, `rules`, `settings`, `diagnostics`, `sign-in`, `intelligence`, `help`, `search`, `demo`, `core`, `ios`, `android`, `deps`. Separate two with a comma, or leave it out when there's no single area. A new area can add a scope; add it here in the same PR.
 - **description:** says what changes, not how. Lower-case start, no full stop, the whole title under about 72 characters.
 - **Issue numbers:** never in the title. `Closes #NN` goes in the PR description, which then says briefly what changed and how it was checked.
 - **Breaking changes:** a `!` after the scope, and a sentence saying what breaks.
@@ -750,6 +761,18 @@ content can be reported:
 > answer and reason, which can be edited to remove names and addresses. It
 > then opens a draft email to dashynms@pckp.net, the address on the support
 > page. Nothing is sent until the person sends that email.
+
+Also keep this in the notes, so a reviewer without a LibreNMS server can try
+Intelligence (#234):
+
+> No server is needed. On the sign-in page choose Try the demo, then open
+> More › Intelligence and accept the on-device notice. The chat is labelled
+> as an example conversation. Its suggested questions have recorded answers
+> built from the demo network's lookups, with a table, device and alert
+> chips and a graph; they work on any device. Other questions get live
+> answers only on a device with Apple Intelligence turned on. Report this
+> answer works on every answer, as described above. Leaving the demo
+> (Settings › Leave the demo) removes the demo and its chat.
 
 **The workflow's secrets** live in the `iOS-Build` and `Android-Build`
 environments, which only `main` can use, not in repository secrets. There's no

@@ -53,11 +53,13 @@
         </DataTemplate>
        </BindableLayout.ItemTemplate>
       </VerticalStackLayout>
+      <controls:SettingsOverviewRow Title="Help" Summary="The user guide, on this device" Command="{Binding OpenHelpCommand}" />
+      <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="What's new in this version" Summary="{Binding WhatsNewSummary}" IsVisible="{Binding HasWhatsNew}" Command="{Binding OpenWhatsNewCommand}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" IsVisible="{Binding HasWhatsNew}" />
       <controls:SettingsOverviewRow Title="Privacy policy" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.PrivacyPolicy}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
-      <controls:SettingsOverviewRow Title="Help and support" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
+      <controls:SettingsOverviewRow Title="Support website" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Support}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
       <controls:SettingsOverviewRow Title="DashyNMS website" Command="{Binding OpenLinkCommand}" CommandParameter="{x:Static services:AppLinks.Website}" />
       <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
@@ -88,7 +90,7 @@
       </Grid>
      </VerticalStackLayout>
     <BoxView Style="{StaticResource Divider}" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" Margin="0,38,0,0" />
-    <Button Style="{StaticResource DangerButton}" Text="Sign out" Command="{Binding SignOutCommand}" HeightRequest="-1" MinimumHeightRequest="52" BackgroundColor="Transparent" BorderWidth="0" Margin="0,0,0,24">
+    <Button Style="{StaticResource DangerButton}" Text="{Binding SignOutText}" Command="{Binding SignOutCommand}" HeightRequest="-1" MinimumHeightRequest="52" BackgroundColor="Transparent" BorderWidth="0" Margin="0,0,0,24">
      <VisualStateManager.VisualStateGroups>
       <VisualStateGroup x:Name="CommonStates">
        <VisualState x:Name="Normal"><VisualState.Setters><Setter Property="BackgroundColor" Value="Transparent" /></VisualState.Setters></VisualState>

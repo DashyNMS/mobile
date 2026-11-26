@@ -86,6 +86,14 @@
                                     </controls:SetupSection>
                                 </VerticalStackLayout>
                             </Border>
+                            <Border Style="{StaticResource Card}">
+                                <controls:SetupSection Label="MAC addresses">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Label Style="{StaticResource Caption}" Text="How Network Search writes them, as on desktop. It reads any of these." />
+                                        <Picker SemanticProperties.Description="MAC address format" Title="MAC addresses" ItemsSource="{Binding MacFormats}" SelectedIndex="{Binding MacFormatIndex}" FontFamily="Mono" />
+                                    </VerticalStackLayout>
+                                </controls:SetupSection>
+                            </Border>
                         </VerticalStackLayout>
                         <!-- ==================== Alert checks ==================== -->
                         <VerticalStackLayout x:Name="AlertChecks" Spacing="8" IsVisible="False">
@@ -292,6 +300,7 @@
                             </Border>
                             <Label Style="{StaticResource Caption}" Margin="4,0" Text="Never sent: your server's address, device names or addresses, tokens or passwords, readings, logs, or anything you type. Turning a choice off deletes anything not yet sent." />
                         </VerticalStackLayout>
+                        <controls:HelpButton x:Name="SectionHelp" />
                     </VerticalStackLayout>
                 </ScrollView>
                 <!-- A measured row keeps Undo reachable without covering the final setting. -->

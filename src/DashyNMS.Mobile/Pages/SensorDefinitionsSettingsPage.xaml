@@ -3,6 +3,7 @@
     x:Class="DashyNMS.Mobile.Pages.SensorDefinitionsSettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:help="clr-namespace:DashyNMS.Mobile.Help;assembly=DashyNMS.Mobile.Shared"
     xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
     xmlns:vm="clr-namespace:DashyNMS.Mobile.ViewModels;assembly=DashyNMS.Mobile.Shared"
     x:DataType="vm:SensorDefinitionsSettingsViewModel"
@@ -71,6 +72,7 @@
                             <Label Style="{StaticResource Caption}" Text="{Binding StatusText}" />
                         </VerticalStackLayout>
                     </Border>
+                    <controls:HelpButton Text="Help with sensor definitions" Topic="{x:Static help:HelpTopics.SensorDefinitions}" />
                 </VerticalStackLayout>
             </ScrollView>
             <BoxView HeightRequest="20" VerticalOptions="Start" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False">

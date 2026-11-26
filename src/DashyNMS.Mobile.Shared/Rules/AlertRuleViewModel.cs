@@ -28,6 +28,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     private int? _templateId;
     private readonly DashyNMS.Mobile.Alerts.NotifyRules? _rules;
     private readonly IDialogService? _dialogs;
+    private readonly CorePolling? _polling;
 
     [ObservableProperty]
     private string _title = "Alert rule";
@@ -84,9 +85,10 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
     [ObservableProperty]
     private bool _hasLoaded;
 
-    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DashyNMS.Mobile.Alerts.NotifyRules? rules = null, IDialogService? dialogs = null)
+    public AlertRuleViewModel(ILibreNmsClient client, ISettingsStore settings, INavigationService navigation, DashyNMS.Mobile.Alerts.NotifyRules? rules = null, IDialogService? dialogs = null, CorePolling? polling = null)
     {
         _dialogs = dialogs;
+        _polling = polling;
         _client = client;
         _settings = settings;
         _navigation = navigation;
@@ -196,7 +198,7 @@ public sealed partial class AlertRuleViewModel : ViewModelBase, IRefreshable
         if (reportedAlerts is not null) ShowAlerts(alerts, settings, devices: null);
 
         var devices = rule.Devices.Count > 0 || alerts.Count > 0
-            ? (await BestEffort(() => _client.Devices.ListAsync()))?.ToDictionary(d => d.DeviceId)
+            ? (await BestEffort(async () => await (_polling?.CachedDevicesAsync() ?? Task.FromResult<IReadOnlyList<Device>?>(null)) ?? await _client.Devices.ListAsync()))?.ToDictionary(d => d.DeviceId)
             : null;
         if (generation != _generation) return;
         if (devices is not null && reportedAlerts is not null)

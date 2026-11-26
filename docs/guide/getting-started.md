@@ -6,6 +6,14 @@
 - A LibreNMS server your phone can reach, over your network or a VPN.
 - An account on that server that's allowed to use its API.
 
+## Try the demo
+
+No server yet, or want to look round first? Choose **Try the demo** on the sign-in page. DashyNMS opens on an example network, with devices, alerts, graphs, maps and Network Search to explore, and a **Demo** chip next to its name.
+
+Intelligence in the demo is an example conversation. Its suggested questions have answers ready, worked out from the demo network, so they work on any phone. Other questions need a phone with Apple Intelligence.
+
+The demo keeps its own settings, sends no notifications and saves nothing. Your sign-in details stay as they were. To leave, tap **Demo** or choose **Settings → Leave the demo**: you're back on the sign-in page and nothing from the demo is kept.
+
 ## Sign in with LibreNMS
 
 1. Open DashyNMS.

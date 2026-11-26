@@ -140,6 +140,11 @@
                         Command="{Binding UseLibreNmsCommand}" IsVisible="{Binding ShowsLibreNmsLink}" />
                 <Label Style="{StaticResource Caption}"
                        Text="To use desktop's sign-in QR code, scan it with your phone's Camera app." />
+                <Button Style="{StaticResource SignInSecondary}" Text="Try the demo" MinimumHeightRequest="44"
+                        Command="{Binding TryDemoCommand}" IsVisible="{Binding CanTryDemo}"
+                        SemanticProperties.Hint="Opens DashyNMS on an example network, with no server. Your sign-in stays as it is." />
+                <Button Style="{StaticResource SignInSecondary}" Text="Help with signing in" MinimumHeightRequest="44"
+                        Command="{Binding HelpCommand}" SemanticProperties.Hint="Opens in Help" />
 
             </VerticalStackLayout>
     </ScrollView>

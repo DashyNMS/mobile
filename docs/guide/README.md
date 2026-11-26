@@ -27,6 +27,7 @@ These pages cover DashyNMS Mobile 2.0. What you see depends on your LibreNMS per
 - [Schedule maintenance and rediscover devices](how-to/maintenance.md): before and after planned work.
 - [Read logs](how-to/logs.md): the event log, the alert log and Graylog.
 - [Use maps, neighbours and health readings](how-to/maps-and-health.md): sites, links and sensors.
+- [Find where something is connected](how-to/network-search.md): Network Search, by address, MAC or name.
 - [Ask about your network with Intelligence](how-to/intelligence.md): answers from Apple Intelligence on your iPhone or iPad.
 
 ## Set up the app

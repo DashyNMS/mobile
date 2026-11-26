@@ -53,6 +53,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
     private readonly Intelligence.IntelligenceChatStorage? _chats;
+    private readonly Demo.DemoSession? _demo;
+
+    /// <summary>In the demo (#160), Sign out leaves it: nothing real is signed in to sign out of.</summary>
+    public bool IsDemo => _demo?.IsActive == true;
+
+    public string SignOutText => IsDemo ? "Leave the demo" : "Sign out";
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -83,8 +89,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DiagnosticsConsent? consent = null,
         Unimus.UnimusSetup? unimus = null,
         Intelligence.IIntelligenceModel? intelligence = null,
-        Intelligence.IntelligenceChatStorage? chats = null)
+        Intelligence.IntelligenceChatStorage? chats = null,
+        Demo.DemoSession? demo = null)
     {
+        _demo = demo;
         _intelligence = intelligence;
         _chats = chats;
         _unimus = unimus;
@@ -210,6 +218,27 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>How Network Search writes MAC addresses (#129), desktop's own setting: "aa:bb:cc:dd:ee:ff" and so on.</summary>
+    public IReadOnlyList<string> MacFormats { get; } =
+        Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>().Select(f => DesktopNMS.Core.Search.MacAddresses.Format("00005e0053af", f)).ToList();
+
+    public int MacFormatIndex
+    {
+        get => Array.IndexOf(Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>(), _settings.Current.NetworkSearchMacFormatValue);
+        set
+        {
+            var formats = Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>();
+            if (value < 0 || value >= formats.Length || formats[value] == _settings.Current.NetworkSearchMacFormatValue)
+            {
+                return;
+            }
+
+            _settings.Current.NetworkSearchMacFormat = formats[value].ToString();
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>The in-app check's choices: 30 seconds (the fastest the app allows) to 15 minutes.</summary>
     internal static readonly int[] PollIntervals = [30, 60, 120, 300, 600, 900];
 
@@ -288,6 +317,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>About › Open-source licences (#164).</summary>
     [RelayCommand]
     private Task OpenLicencesAsync() => _navigation.GoToAsync(Routes.Licences);
+
+    /// <summary>The user guide (#668).</summary>
+    [RelayCommand]
+    private Task OpenHelpAsync() => _navigation.GoToAsync(Routes.Help);
 
     /// <summary>About's trademark line - see <see cref="DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks"/>.</summary>
     public string Trademarks => DesktopNMS.Core.Licences.OpenSourceNotices.Trademarks;
@@ -726,6 +759,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Called when the page shows, since the session may have changed since it was built.</summary>
     public void Refresh()
     {
+        OnPropertyChanged(nameof(IsDemo));
+        OnPropertyChanged(nameof(SignOutText));
         OnPropertyChanged(nameof(CanConfigureIntelligence));
         OnPropertyChanged(nameof(ServerHost));
         OnPropertyChanged(nameof(ServerSummary));
@@ -746,6 +781,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignOutAsync()
     {
+        if (IsDemo)
+        {
+            await _demo!.LeaveAsync();
+            return;
+        }
+
         // Forgetting everything can't be undone (#146), so it's red, and asks
         // again saying what goes (#139).
         var choice = await _dialogs.ChooseAsync(

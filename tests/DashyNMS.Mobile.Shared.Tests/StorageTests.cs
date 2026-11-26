@@ -53,6 +53,9 @@ public sealed class SettingsStorageTests
             .AddSingleton(Substitute.For<IBackgroundAlertScheduler>());
         using var provider = services.BuildServiceProvider();
 
-        Assert.IsType<SettingsStore>(provider.GetRequiredService<ISettingsStore>());
+        // Core's store holds the real settings; the app reaches it through the switch the demo uses (#160).
+        var store = Assert.IsType<DashyNMS.Mobile.Demo.SwitchableSettingsStore>(provider.GetRequiredService<ISettingsStore>());
+        Assert.False(store.IsUsingDemo);
+        Assert.Same(provider.GetRequiredService<SettingsStore>().Current, store.Current);
     }
 }

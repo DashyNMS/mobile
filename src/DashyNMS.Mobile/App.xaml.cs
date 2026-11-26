@@ -25,9 +25,12 @@ public partial class App : Application
 		Diagnostics.StartupTiming startup, DesktopNMS.Core.Api.LibreNmsTransport transport,
 		Diagnostics.UiStallMonitor stalls, Diagnostics.MemoryMonitor memory, Diagnostics.SessionHealth sessions,
 		Intelligence.IntelligenceConversationViewModel intelligence, Intelligence.IntelligenceChatListViewModel chats,
-		Intelligence.IntelligenceSnapshotShield snapshots)
+		Intelligence.IntelligenceSnapshotShield snapshots, Demo.DemoSession demo)
 	{
 		InitializeComponent();
+
+		// Closed during a demo (#160): nothing of it is left at the next launch.
+		demo.ClearLeftovers();
 		_intelligence = intelligence;
 		_chats = chats;
 		_snapshots = snapshots;

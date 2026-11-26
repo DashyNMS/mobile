@@ -76,7 +76,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
-		builder.Services.AddSingleton<IAppPreferences, MauiPreferences>();
+		// The demo's choices are kept in memory over the phone's (#160).
+		builder.Services.AddSingleton<MauiPreferences>();
+		builder.Services.AddSingleton(sp => new Demo.SwitchablePreferences(sp.GetRequiredService<MauiPreferences>(), sp.GetRequiredService<Demo.DemoState>()));
+		builder.Services.AddSingleton<IAppPreferences>(sp => sp.GetRequiredService<Demo.SwitchablePreferences>());
 
 		// Opt-in error reports (#217): Sentry, with the key this build was
 		// given (none outside the store builds), and the queue they wait in.
@@ -161,6 +164,8 @@ public static class MauiProgram
 		// Apple's on-device model (#570), through the Swift bridge in ios-intelligence/.
 		builder.Services.AddSingleton<Intelligence.IIntelligenceModel, AppleIntelligenceModel>();
 #endif
+		// The demo's example conversation (#234) answers on any device, over whichever model is above.
+		Demo.DemoIntelligenceModel.Decorate(builder.Services);
 
 		// The on-device model check (#570) also reports the app's memory.
 		builder.Services.AddSingleton<Func<Diagnostics.MemoryReading>>(_ => MemoryReader.Read);
@@ -186,6 +191,8 @@ public static class MauiProgram
 		builder.Services.AddTransient<AlertTemplatePage>();
 		builder.Services.AddTransient<ThresholdsPage>();
 		builder.Services.AddTransient<LicencesPage>();
+		builder.Services.AddTransient<HelpPage>();
+		builder.Services.AddTransient<HelpArticlePage>();
 		builder.Services.AddTransient<IntelligenceSettingsPage>();
         builder.Services.AddTransient<IntelligencePage>();
 		builder.Services.AddTransient<NotifyRulePickerPage>();
@@ -198,6 +205,7 @@ public static class MauiProgram
 		builder.Services.AddTransient<LogsPage>();
 		builder.Services.AddTransient<LogEntryPage>();
 		builder.Services.AddTransient<NeighboursPage>();
+		builder.Services.AddTransient<NetworkSearchPage>();
 		builder.Services.AddTransient<NeighbourLinkPage>();
 		builder.Services.AddTransient<NeighbourGroupsPage>();
 		builder.Services.AddTransient<NeighbourGroupEditorPage>();
@@ -208,7 +216,7 @@ public static class MauiProgram
 		// Resettable, so "Sign out and forget everything" can drop them all (#139).
 		builder.Services.AddSingleton(services => new Topology.ResettableMapLayoutStore(
 			Path.Combine(FileSystem.AppDataDirectory, "map-layouts.json"),
-			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()));
+			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()) { Demo = services.GetRequiredService<Demo.DemoState>() });
 		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => services.GetRequiredService<Topology.ResettableMapLayoutStore>());
 		builder.Services.AddSingleton<ILocalDataWipe, MauiLocalDataWipe>();
 		builder.Services.AddTransient<MapPage>();

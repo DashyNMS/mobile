@@ -19,7 +19,7 @@ public sealed partial class MoreItem : ObservableObject
     public string Description => AppPages.Description(Page);
 
     /// <summary>Only ambiguous destination names need supporting copy in the catalogue.</summary>
-    public string Summary => Page is AppPage.Health or AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.Graylog
+    public string Summary => Page is AppPage.Health or AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.NetworkSearch or AppPage.Graylog
         ? Description : string.Empty;
 
     public bool HasSummary => Summary.Length > 0;

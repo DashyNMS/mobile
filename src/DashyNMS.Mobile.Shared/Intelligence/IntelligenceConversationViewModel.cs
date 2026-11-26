@@ -193,13 +193,18 @@ public sealed partial class IntelligenceConversationViewModel : ObservableObject
     private void RefreshStarters()
     {
         _lastStarterContext = _starterContext();
-        _starterQuestions = _starterRotation.Next(_lastStarterContext.Devices, _lastStarterContext.Alerts,
-            CompactNetworkLookups.ReviewedTools.ToHashSet(StringComparer.Ordinal));
+        _lastExamples = _model.ExampleQuestions;
+        _starterQuestions = _lastExamples is { Count: > 0 } examples ? examples
+            : _starterRotation.Next(_lastStarterContext.Devices, _lastStarterContext.Alerts,
+                CompactNetworkLookups.ReviewedTools.ToHashSet(StringComparer.Ordinal));
         OnPropertyChanged(nameof(StarterQuestions));
     }
+    // The demo's recorded questions (#234) replace the suggestions while it runs; the demo
+    // can end after the connection change that refreshed them, so the page checks again.
+    private IReadOnlyList<string>? _lastExamples;
     public void RefreshStarterContext()
     {
-        if (_lastStarterContext != _starterContext()) RefreshStarters();
+        if (_lastStarterContext != _starterContext() || !ReferenceEquals(_lastExamples, _model.ExampleQuestions)) RefreshStarters();
     }
 
     /// <summary>A stale suggestion must never replace a draft or submit into another chat.</summary>

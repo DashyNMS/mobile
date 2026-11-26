@@ -11,6 +11,7 @@ A few things leave your phone only in the ways described here:
   - Sentry sees your phone's IP address when something is sent, as any website would, so reports aren't called anonymous. Sentry keeps them for at most 90 days.
   - turn either off in Settings › Diagnostics › Error reports and usage, and anything not yet sent is deleted
 - **Sensor definitions,** if you use them, are downloaded from GitHub (the official repository, or one you choose). Nothing about you or your network is sent.
+- **Help pages** come with the app. Opening Help also looks on GitHub (`raw.githubusercontent.com`) for the public pages of the guide for the same version, keeps a copy, and doesn't look again for 30 days once it has one. It asks for files by name with a general client name. Nothing about you or your network is sent, though GitHub sees your phone's IP address as any website would. Searching help stays on your phone.
 - **Map backgrounds** come from OpenStreetMap's tile servers, which see which parts of the map are loaded, as for any map website.
 
 The full privacy policy is on the website: **<https://dashynms.pckp.net/mobile/privacy/>**. It's also linked in the app under Settings → About.

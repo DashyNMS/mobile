@@ -27,6 +27,15 @@ public static class Icons
     /// <summary>An eye: show every graph series.</summary>
     public const string Eye = "M2 12C7 4 17 4 22 12C17 20 7 20 2 12Z M15 12A3 3 0 1 1 9 12A3 3 0 1 1 15 12Z";
 
+    /// <summary>Two overlapping pages: copy a value (#129).</summary>
+    public const string Copy = "M9 9H19V19H9Z M5 15V5H15";
+
+    /// <summary>A line rising over an axis: a port's or device's graphs (#129).</summary>
+    public const string Graph = "M4 4V20H20 M7 15 11 10 14 13 19 7";
+
+    /// <summary>A question mark in a circle: the page of the user guide for here (#668).</summary>
+    public const string Help = "M12 3A9 9 0 1 0 12.01 3Z M9.5 9.5A2.5 2.5 0 1 1 13 11.8C12.4 12.1 12 12.6 12 13.3V14 M12 17V17.2";
+
     /// <summary>Three lines narrowing down: sort and filter.</summary>
     public const string Filter = "M4 7H20 M7 12H17 M10 17H14";
 }

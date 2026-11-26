@@ -208,22 +208,37 @@ public sealed class AlertWatcher
                 var missing = previous.Outstanding.Where(e => !present.Contains(e.Key)).ToList();
                 var resolved = new System.Collections.Concurrent.ConcurrentBag<Alert>();
                 var recoveryStarted = _time.GetTimestamp();
-                await Parallel.ForEachAsync(missing, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken }, async (entry, token) =>
+                // Keep mass recoveries within iOS's ~30s background budget (#132);
+                // anything not checked yet stays unresolved and retries next poll.
+                using var recoveryBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                recoveryBudget.CancelAfter(RecoveryLookupBudget);
+                try
                 {
-                    try
+                    await Parallel.ForEachAsync(missing, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = recoveryBudget.Token }, async (entry, token) =>
                     {
-                        var row = await _client.Alerts.GetAsync(entry.Key.Id, token).ConfigureAwait(false);
-                        if (row is not null && row.Identity == entry.Key && row.DeviceId == entry.Value.DeviceId && row.RuleId == entry.Value.RuleId)
-                            resolved.Add(row);
-                        else unresolved.Add(entry.Key);
-                    }
-                    catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
-                    catch (Exception ex)
+                        try
+                        {
+                            var row = await _client.Alerts.GetAsync(entry.Key.Id, token).ConfigureAwait(false);
+                            if (row is not null && row.Identity == entry.Key && row.DeviceId == entry.Value.DeviceId && row.RuleId == entry.Value.RuleId)
+                                resolved.Add(row);
+                            else unresolved.Add(entry.Key);
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }
+                        catch (Exception ex)
+                        {
+                            unresolved.Add(entry.Key);
+                            _logger.LogWarning("Recovery lookup for {Key} failed: {Reason}", entry.Key, ex.Message);
+                        }
+                    }).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    var checkedKeys = resolved.Select(a => a.Identity).Concat(unresolved).ToHashSet();
+                    foreach (var entry in missing)
                     {
-                        unresolved.Add(entry.Key);
-                        _logger.LogWarning("Recovery lookup for {Key} failed: {Reason}", entry.Key, ex.Message);
+                        if (!checkedKeys.Contains(entry.Key)) unresolved.Add(entry.Key);
                     }
-                }).ConfigureAwait(false);
+                }
                 rows.AddRange(resolved);
                 _logger.LogInformation("Alert recovery lookups completed in {Milliseconds} ms; {Unresolved} unresolved", _time.GetElapsedTime(recoveryStarted).TotalMilliseconds, unresolved.Count);
             }
@@ -304,6 +319,8 @@ public sealed class AlertWatcher
             _gate.Release();
         }
     }
+
+    internal TimeSpan RecoveryLookupBudget { get; init; } = TimeSpan.FromSeconds(10);
 
     internal TimeSpan WidgetRefreshBudget { get; init; } = TimeSpan.FromSeconds(5);
 
