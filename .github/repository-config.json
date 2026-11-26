@@ -1,0 +1,9 @@
+{
+  "repository": "mobile",
+  "nuget_projects": [
+    "DashyNMS.Mobile.slnx",
+    "tests/ChatPdf.Desktop/ChatPdf.Desktop.csproj"
+  ],
+  "retained_credentials": [],
+  "issue_policy_since": "2026-11-26T18:21:17Z"
+}
