@@ -23,3 +23,12 @@ ios-intelligence/generated/
 ios-intelligence/build/
 
 __pycache__/
+
+# Shared developer files
+.DS_Store
+Thumbs.db
+.venv/
+.env
+.env.*
+*.env
+*.pyc
