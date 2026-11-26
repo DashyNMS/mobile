@@ -615,6 +615,9 @@ Before shipping a new or changed page (#131; full iOS spec in `docs/DESIGN.md` s
 
 ## User guide and wiki
 
+Use inline Markdown links and fenced code blocks in `docs/guide`. The shared
+wiki converter does not support reference-style links or indented code blocks.
+
 The user guide is in [`docs/guide`](guide/README.md): getting started,
 installation, task-based how-to pages, troubleshooting and reference. Keep
 installation pages in `installation/`, user tasks in `how-to/` and reference
