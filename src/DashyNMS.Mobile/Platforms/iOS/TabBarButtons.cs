@@ -704,6 +704,7 @@ internal static class TabBarButtons
             Search.AccessibilityTraits = UIAccessibilityTrait.Button;
             Search.ContentView.AddSubview(_searchIcon);
             Search.AddGestureRecognizer(new UITapGestureRecognizer(() => _search?.Invoke()));
+            ApplyCapsuleCorners(Search);
             AddSubview(Search);
 
             Actions = new UIVisualEffectView(Glass(false)) { ClipsToBounds = true, Alpha = 0 };
@@ -713,6 +714,7 @@ internal static class TabBarButtons
                 _slots.FirstOrDefault(slot => slot.Frame.Contains(point))?.Activate();
             }) { CancelsTouchesInView = false };
             Actions.AddGestureRecognizer(actionsTap);
+            ApplyCapsuleCorners(Actions);
             AddSubview(Actions);
         }
 
@@ -872,9 +874,21 @@ internal static class TabBarButtons
             var target = shown ? frame : glass.Frame;
             var moved = target != glass.Frame || (glass.Alpha > 0) != shown;
             glass.Frame = target;
-            glass.Layer.CornerRadius = (nfloat)(Math.Min(target.Width, target.Height) / 2);
+            ApplyCapsuleCorners(glass, target);
             glass.Alpha = shown ? 1 : 0;
             return moved;
+        }
+
+        private static void ApplyCapsuleCorners(UIView view, CGRect? frame = null)
+        {
+            if (OperatingSystem.IsIOSVersionAtLeast(26))
+            {
+                view.CornerConfiguration = UICornerConfiguration.CreateCapsule();
+            }
+
+            var bounds = frame ?? view.Bounds;
+            view.Layer.CornerCurve = CoreAnimation.CACornerCurve.Continuous;
+            view.Layer.CornerRadius = (nfloat)(Math.Min(bounds.Width, bounds.Height) / 2);
         }
 
         private static UIImageView Icon(string symbol) => GlassStyle.Icon(symbol);
@@ -939,10 +953,12 @@ internal static class TabBarButtons
                     };
                     button.TintColor = UIColor.Label;
                     button.Layer.MasksToBounds = true;
-                    button.Layer.CornerCurve = CoreAnimation.CACornerCurve.Continuous;
+                    ApplyCapsuleCorners(button);
                     _icon.Hidden = true;
                     AddSubview(button);
                     IsAccessibilityElement = false;
+                    AccessibilityLabel = null;
+                    AccessibilityTraits = UIAccessibilityTrait.None;
                 }
             }
 
@@ -955,7 +971,7 @@ internal static class TabBarButtons
                 foreach (var button in Subviews.OfType<UIButton>())
                 {
                     button.Frame = Bounds;
-                    button.Layer.CornerRadius = (nfloat)(Math.Min(Bounds.Width, Bounds.Height) / 2);
+                    ApplyCapsuleCorners(button, Bounds);
                 }
             }
 
