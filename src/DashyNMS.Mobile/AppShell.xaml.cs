@@ -111,6 +111,7 @@ public partial class AppShell : Shell
 		AppPage.NetworkMap => typeof(NetworkMapPage),
 		AppPage.Neighbours => typeof(NeighboursPage),
 		AppPage.GroupsLocations => typeof(GroupsLocationsPage),
+		AppPage.NetworkSearch => typeof(NetworkSearchPage),
 		AppPage.AlertRules => typeof(AlertRulesPage),
 		AppPage.Logs => typeof(LogsPage),
 		AppPage.Graylog => typeof(GraylogPage),

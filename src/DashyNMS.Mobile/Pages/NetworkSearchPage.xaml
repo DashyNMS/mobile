@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Network Search (#129): one field for an address, network, MAC or name, and
+    the answer beneath it - where one endpoint is connected, or a list when
+    several match. The field always shows: searching is what the page is for.
+    Results scroll to the base of the page behind the pill and glass, with the
+    footer keeping the last line clear.
+-->
+<ContentPage
+    x:Class="DashyNMS.Mobile.Pages.NetworkSearchPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:DashyNMS.Mobile.Controls"
+    xmlns:search="clr-namespace:DashyNMS.Mobile.Search;assembly=DashyNMS.Mobile.Shared"
+    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+    x:DataType="search:NetworkSearchViewModel"
+    HideSoftInputOnTapped="True"
+    SafeAreaEdges="Container"
+    Title="Network Search">
+
+    <ContentPage.Resources>
+        <!-- A whole-row button over a row's labels, as Settings' rows are. -->
+        <Style x:Key="RowButton" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="BorderWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Text" Value="" />
+            <Setter Property="MinimumHeightRequest" Value="56" />
+            <Setter Property="VisualStateManager.VisualStateGroups">
+                <VisualStateGroupList>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="Pressed"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                        <VisualState x:Name="Focused"><VisualState.Setters><Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" /></VisualState.Setters></VisualState>
+                        <VisualState x:Name="Disabled" />
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </Setter>
+        </Style>
+        <Style x:Key="CardHeading" TargetType="Label" BasedOn="{StaticResource CardTitle}">
+            <Setter Property="SemanticProperties.HeadingLevel" Value="Level2" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid x:Name="Root" RowDefinitions="Auto,Auto,Auto,*" SafeAreaEdges="None">
+
+        <controls:PageHeader x:Name="Header" Title="Network Search" Note="{Binding SearchedText}" Margin="16,0" SafeAreaEdges="None" />
+
+        <!-- The query. Return searches; a pasted list of addresses, MACs or names works too. -->
+        <controls:SearchField x:Name="SearchField" Grid.Row="1" Margin="16,2,16,0">
+            <Entry x:Name="Search" Text="{Binding Query}" Placeholder="Address, network, MAC or name" ReturnType="Search"
+                   ReturnCommand="{Binding SearchCommand}" IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" Keyboard="Url"
+                   SemanticProperties.Description="Search the network by address, network, MAC address or name" />
+        </controls:SearchField>
+
+        <!-- Under the field: recent searches before anything's searched, and the list's source chips and order after. -->
+        <ScrollView x:Name="ChipScroll" Grid.Row="2" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" SafeAreaEdges="None" Margin="0,10,0,0">
+            <HorizontalStackLayout x:Name="Chips" Spacing="8" Padding="16,0">
+                <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Recent}" IsVisible="{Binding HasRecent}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="sys:String">
+                            <Button Style="{StaticResource Chip}" Text="{Binding .}" LineBreakMode="NoWrap"
+                                    SemanticProperties.Description="{Binding ., StringFormat='Search again for {0}'}"
+                                    Command="{Binding UseRecentCommand, Source={RelativeSource AncestorType={x:Type search:NetworkSearchViewModel}}, x:DataType=search:NetworkSearchViewModel}"
+                                    CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+                <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding SourceChips}" IsVisible="{Binding HasSourceChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="search:SearchSourceChip">
+                            <Button Style="{StaticResource Chip}" Text="{Binding Text}" Command="{Binding ToggleCommand}" SemanticProperties.Description="{Binding Description}">
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
+                                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+                <Button x:Name="SortChip" Style="{StaticResource Chip}" Text="{Binding SortText}" IsVisible="{Binding IsList}" Clicked="OnSortClicked"
+                        SemanticProperties.Hint="Chooses how the list is ordered" />
+            </HorizontalStackLayout>
+        </ScrollView>
+
+        <Grid x:Name="BodyHost" Grid.Row="3" SafeAreaEdges="None">
+            <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
+            <ScrollView x:Name="Scroller" SafeAreaEdges="None">
+                <controls:ReadableColumn>
+                <VerticalStackLayout x:Name="Body" Spacing="12" Padding="16,20,16,0">
+
+                    <!-- Nothing searched yet. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding IsIdle}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource CardHeading}" Text="Find where something is connected" />
+                            <Label Text="Search for an IP address, a network such as 192.0.2.0/24, a MAC address in any format, or a device or host name. Paste a list to look up several at once." LineBreakMode="WordWrap" />
+                            <Label Style="{StaticResource Caption}" Text="It reads LibreNMS's ARP and MAC tables, interface addresses and neighbours, and says which of them it couldn't check." LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Button Style="{StaticResource LinkButton}" Text="Clear recent searches" HorizontalOptions="Start" IsVisible="{Binding HasRecent}" Command="{Binding ClearRecentCommand}" />
+
+                    <!-- Searching. -->
+                    <HorizontalStackLayout Spacing="12" IsVisible="{Binding IsSearching}">
+                        <ActivityIndicator x:Name="Spinner" IsRunning="{Binding IsSearching}" VerticalOptions="Center" />
+                        <Label Text="Searching…" VerticalOptions="Center" />
+                        <Button Style="{StaticResource LinkButton}" Text="Cancel" Command="{Binding CancelCommand}" SemanticProperties.Description="Cancel the search" />
+                    </HorizontalStackLayout>
+
+                    <!-- The search failed. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding HasError}" BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Style="{StaticResource Error}" Text="{Binding ErrorMessage}" LineBreakMode="WordWrap" />
+                            <Button Style="{StaticResource SecondaryButton}" Text="Try again" HorizontalOptions="Start" Command="{Binding SearchCommand}" SemanticProperties.Description="Try the search again" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Some sources couldn't be read: say so before any answer. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding HasBlindSpots}" BackgroundColor="{StaticResource WarningTint}" Stroke="{StaticResource WarningStroke}">
+                        <Label Text="{Binding BlindSpotText}" LineBreakMode="WordWrap" TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                    </Border>
+
+                    <Label Style="{StaticResource Caption}" Text="{Binding IgnoredTermsText}" IsVisible="{Binding IgnoredTermsText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" />
+
+                    <!-- Nothing found. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding IsNotFound}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Style="{StaticResource CardHeading}" Text="{Binding NotFoundTitle}" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding NotFoundDetail}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- One endpoint. -->
+                    <ContentView IsVisible="{Binding IsSingle}">
+                    <VerticalStackLayout x:Name="Single" Spacing="12" BindingContext="{Binding Endpoint}" x:DataType="search:EndpointViewModel">
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="{Binding Title}" FontFamily="Display" FontSize="22" LineBreakMode="CharacterWrap" SemanticProperties.HeadingLevel="Level2" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding AddressesText}" LineBreakMode="CharacterWrap" />
+                                <ContentView IsVisible="{Binding IsMonitored}">
+                                <VerticalStackLayout Spacing="4" BindingContext="{Binding Device}" x:DataType="search:DeviceCardFacts">
+                                    <HorizontalStackLayout Spacing="8">
+                                        <Ellipse Style="{StaticResource Dot}" Fill="{Binding Severity, Converter={StaticResource StatusColor}}" AutomationProperties.IsInAccessibleTree="False" />
+                                        <Label Text="{Binding StateText}" FontFamily="BodySemibold" TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
+                                        <Label Text="Monitored by LibreNMS" Style="{StaticResource Caption}" />
+                                    </HorizontalStackLayout>
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Description}" IsVisible="{Binding HasDescription}" LineBreakMode="WordWrap" />
+                                    <Label Style="{StaticResource Caption}" Text="{Binding Location}" IsVisible="{Binding HasLocation}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                                </ContentView>
+                                <HorizontalStackLayout Spacing="8" Margin="0,4,0,0">
+                                    <Button Style="{StaticResource SecondaryButton}" Text="Open device" IsVisible="{Binding IsMonitored}" Command="{Binding OpenDeviceCommand}"
+                                            SemanticProperties.Description="{Binding MonitoredDeviceName, StringFormat='Open device {0}'}" />
+                                    <Button Style="{StaticResource SecondaryButton}" Text="Interface graphs" IsVisible="{Binding HasMonitoredInterface}" Command="{Binding OpenInterfaceCommand}"
+                                            SemanticProperties.Description="{Binding MonitoredInterfaceName, StringFormat='Open graphs for interface {0}'}" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Conflicts first: they change how to read everything else. -->
+                        <Border Style="{StaticResource Card}" IsVisible="{Binding HasConflicts}" BackgroundColor="{StaticResource WarningTint}" Stroke="{StaticResource WarningStroke}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Style="{StaticResource CardHeading}" Text="Conflict" TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Conflicts}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="sys:String">
+                                            <Label Text="{Binding .}" LineBreakMode="WordWrap" TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Where it's connected: the device's own neighbours, or where its MAC was learned. -->
+                        <Border Style="{StaticResource ListCard}">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource CardHeading}" Text="{Binding ConnectionHeading}" Margin="14,14,14,6" />
+                                <HorizontalStackLayout Spacing="8" Margin="14,4,14,10" IsVisible="{Binding IsLoadingConnections}">
+                                    <ActivityIndicator IsRunning="{Binding IsLoadingConnections}" HeightRequest="20" WidthRequest="20" />
+                                    <Label Style="{StaticResource Caption}" Text="Reading its neighbours…" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                                <Label Style="{StaticResource Caption}" Text="{Binding NoBestText}" IsVisible="{Binding ShowNoBestText}" Margin="14,0,14,14" LineBreakMode="WordWrap" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding NoConnectionsText}" IsVisible="{Binding NoConnectionsText, Converter={StaticResource IsNotNull}}" Margin="14,0,14,10" LineBreakMode="WordWrap" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding MacLocationsNote}" IsVisible="{Binding MacLocationsNote, Converter={StaticResource IsNotNull}}" Margin="14,0,14,6" LineBreakMode="WordWrap" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Connections}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="search:NeighbourItemViewModel">
+                                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Padding="14,11" MinimumHeightRequest="56">
+                                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-14,0" />
+                                                <Ellipse Style="{StaticResource Dot}" Fill="{Binding StateSeverity, Converter={StaticResource StatusColor}}" VerticalOptions="Start" Margin="0,6,0,0" AutomationProperties.IsInAccessibleTree="False" />
+                                                <VerticalStackLayout Grid.Column="1" Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                    <Label Style="{StaticResource RowTitle}" Text="{Binding Name}" LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding ConnectionText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                    <Label Style="{StaticResource Caption}" Text="{Binding StateText}" />
+                                                    <Label Style="{StaticResource Faint}" Text="{Binding SourceText}" LineBreakMode="WordWrap" />
+                                                </VerticalStackLayout>
+                                                <Button Grid.ColumnSpan="2" Style="{StaticResource RowButton}" Margin="-14,-11" Command="{Binding OpenCommand}"
+                                                        SemanticProperties.Description="{Binding AccessibleText}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Button Style="{StaticResource LinkButton}" Text="{Binding MoreConnectionsText}" IsVisible="{Binding HasMoreConnections}" Command="{Binding ToggleConnectionsCommand}" Margin="14,0" HorizontalOptions="Start" />
+                                <VerticalStackLayout x:Name="MacLocations" BindableLayout.ItemsSource="{Binding MacLocations}" />
+                                <BoxView HeightRequest="4" Color="Transparent" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Every port that learned it, closest first, uplinks marked. -->
+                        <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasLocations}">
+                            <VerticalStackLayout>
+                                <Grid ColumnDefinitions="*,Auto" Margin="14,14,14,6">
+                                    <Label Style="{StaticResource CardHeading}" Text="Seen on" />
+                                    <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="{Binding LocationsSummary}" VerticalOptions="Center" />
+                                </Grid>
+                                <VerticalStackLayout x:Name="SeenOn" BindableLayout.ItemsSource="{Binding Locations}" />
+                                <Button Style="{StaticResource LinkButton}" Text="{Binding MoreLocationsText}" IsVisible="{Binding HasMoreLocations}" Command="{Binding ToggleLocationsCommand}" Margin="14,0" HorizontalOptions="Start" />
+                                <BoxView HeightRequest="4" Color="Transparent" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Its addresses and MACs, each to copy or search for. -->
+                        <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasAddresses}">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource CardHeading}" Text="IP addresses" Margin="14,14,14,6" />
+                                <VerticalStackLayout x:Name="AddressRows" BindableLayout.ItemsSource="{Binding Addresses}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasMacs}">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource CardHeading}" Text="MAC addresses" Margin="14,14,14,6" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Macs}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="search:MacItemViewModel">
+                                            <controls:CopyableRow Value="{Binding Value}" Detail="{Binding Vendor}" Note="{Binding DetailText}" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- The network it's on: the gateway first, then the other monitored interfaces. -->
+                        <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasSubnet}">
+                            <VerticalStackLayout>
+                                <Grid ColumnDefinitions="*,Auto" Margin="14,14,14,6">
+                                    <Label Style="{StaticResource CardHeading}" Text="Same subnet" />
+                                    <Label Grid.Column="1" Style="{StaticResource CardNote}" Text="{Binding SubnetNetwork}" VerticalOptions="Center" FontFamily="Mono" />
+                                </Grid>
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding SubnetInterfaces}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="search:SubnetInterfaceViewModel">
+                                            <Grid ColumnDefinitions="*,Auto" Padding="14,11,6,11" MinimumHeightRequest="56">
+                                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-6,0" />
+                                                <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                    <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding AddressText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                    <Label Style="{StaticResource Faint}" Text="{Binding PortName}" IsVisible="{Binding HasPortName}" />
+                                                </VerticalStackLayout>
+                                                <Button Style="{StaticResource RowButton}" Margin="-14,-11,-6,-11" Command="{Binding OpenDeviceCommand}"
+                                                        SemanticProperties.Description="{Binding DeviceName, StringFormat='Open device {0}'}" />
+                                                <controls:IconButton Grid.Column="1" Kind="Plain" Icon="{x:Static controls:Icons.Graph}" Command="{Binding OpenPortCommand}" IsVisible="{Binding HasPortName}"
+                                                                     SemanticProperties.Description="{Binding PortName, StringFormat='Open graphs for {0}'}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Button Style="{StaticResource LinkButton}" Text="{Binding MoreSubnetText}" IsVisible="{Binding HasMoreSubnet}" Command="{Binding ToggleSubnetCommand}" Margin="14,0" HorizontalOptions="Start" LineBreakMode="WordWrap" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding NotLoadedSubnetText}" IsVisible="{Binding NotLoadedSubnetText, Converter={StaticResource IsNotNull}}" Margin="14,4,14,0" LineBreakMode="WordWrap" />
+                                <BoxView HeightRequest="8" Color="Transparent" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Routers that know it: their ARP entries. -->
+                        <Border Style="{StaticResource ListCard}">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource CardHeading}" Text="Neighbour of" Margin="14,14,14,6" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding NoNeighboursText}" IsVisible="{Binding HasNeighbours, Converter={StaticResource Invert}}" Margin="14,0,14,14" LineBreakMode="WordWrap" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Neighbours}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="search:ArpNeighbourViewModel">
+                                            <Grid ColumnDefinitions="*,Auto" Padding="14,11,6,11" MinimumHeightRequest="56">
+                                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-6,0" />
+                                                <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                    <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" />
+                                                    <Label Style="{StaticResource Caption}" Text="{Binding PortName}" IsVisible="{Binding HasPortName}" />
+                                                    <Label Text="{Binding MacsText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                </VerticalStackLayout>
+                                                <Button Style="{StaticResource RowButton}" Margin="-14,-11,-6,-11" Command="{Binding OpenDeviceCommand}"
+                                                        SemanticProperties.Description="{Binding DeviceName, StringFormat='Open device {0}'}" />
+                                                <controls:IconButton Grid.Column="1" Kind="Plain" Icon="{x:Static controls:Icons.Graph}" Command="{Binding OpenPortCommand}" IsVisible="{Binding HasPortName}"
+                                                                     SemanticProperties.Description="{Binding PortName, StringFormat='Open graphs for {0}'}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                    </ContentView>
+
+                    <!-- Several endpoints, or the overview. -->
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsList}">
+                        <Label Style="{StaticResource Caption}" Text="{Binding ListHeading}" LineBreakMode="WordWrap" SemanticProperties.HeadingLevel="Level2" Margin="4,0" />
+                        <Label Style="{StaticResource Caption}" Text="No results from the chosen sources. Choose another chip to see them." IsVisible="{Binding ShowNoMatchingRows}" Margin="4,0" />
+                        <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasResults}">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="search:EndpointRowViewModel">
+                                        <Grid ColumnDefinitions="*,Auto" Padding="14,11" MinimumHeightRequest="56">
+                                            <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-14,0" />
+                                            <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                <Label Style="{StaticResource RowTitle}" Text="{Binding AddressText}" LineBreakMode="CharacterWrap" FontFamily="Mono" />
+                                                <Label Style="{StaticResource Caption}" Text="{Binding NameText}" IsVisible="{Binding HasName}" LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding MacText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                <Label Style="{StaticResource Faint}" Text="{Binding NeighbourText}" LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="Conflict" Style="{StaticResource PillText}" IsVisible="{Binding HasConflict}" VerticalOptions="Start"
+                                                   TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" InputTransparent="True" />
+                                            <Button Grid.ColumnSpan="2" Style="{StaticResource RowButton}" Margin="-14,-11" Command="{Binding OpenCommand}" SemanticProperties.Description="{Binding Description}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </Border>
+                        <HorizontalStackLayout Spacing="12">
+                            <Button Style="{StaticResource SecondaryButton}" Text="Earlier" IsVisible="{Binding HasEarlier}" Command="{Binding PreviousPageCommand}" SemanticProperties.Description="Show the earlier results" />
+                            <Button Style="{StaticResource SecondaryButton}" Text="{Binding MoreText}" IsVisible="{Binding HasMore}" Command="{Binding NextPageCommand}" SemanticProperties.Hint="Shows the next page of results" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- What was checked, so a result can be weighed. -->
+                    <Label Style="{StaticResource Faint}" Text="{Binding CoverageText}" IsVisible="{Binding CoverageText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" Margin="4,0" />
+                    <controls:HelpButton x:Name="HelpLink" Text="Help with Network Search" />
+
+                    <BoxView x:Name="Foot" HeightRequest="24" Color="Transparent" />
+                </VerticalStackLayout>
+                </controls:ReadableColumn>
+            </ScrollView>
+            </RefreshView>
+            <BoxView x:Name="TopFade" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False">
+                <BoxView.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
+                        <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLightClear}, Dark={StaticResource BackgroundDarkClear}}" Offset="1" />
+                    </LinearGradientBrush>
+                </BoxView.Background>
+            </BoxView>
+            <controls:FootFade x:Name="BottomFade" />
+        </Grid>
+    </Grid>
+</ContentPage>

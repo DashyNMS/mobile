@@ -13,6 +13,7 @@ public enum AppPage
     NetworkMap,
     Neighbours,
     GroupsLocations,
+    NetworkSearch,
     Logs,
     Graylog,
     Intelligence,
@@ -155,6 +156,7 @@ public static class AppPages
         AppPage.NetworkMap => "Network map",
         AppPage.Neighbours => "Neighbours",
         AppPage.GroupsLocations => "Groups & locations",
+        AppPage.NetworkSearch => "Network Search",
         AppPage.Logs => "Event and alert logs",
         AppPage.Graylog => "Graylog",
         AppPage.Intelligence => "Intelligence",
@@ -166,6 +168,7 @@ public static class AppPages
     public static string TabTitle(AppPage page) => page switch
     {
         AppPage.GroupsLocations => "Groups",
+        AppPage.NetworkSearch => "Search",
         AppPage.AlertRules => "Rules",
         AppPage.NetworkMap => "Network",
         AppPage.Logs => "Logs",
@@ -182,6 +185,7 @@ public static class AppPages
         AppPage.NetworkMap => "What's connected to what, as a diagram",
         AppPage.Neighbours => "Every CDP/LLDP link",
         AppPage.GroupsLocations => "Device counts and what's down",
+        AppPage.NetworkSearch => "Where an address, MAC or name is connected",
         AppPage.Logs => "The whole network, newest first",
         AppPage.Graylog => "Messages from your Graylog server",
         AppPage.Intelligence => "Ask about your network on this device",
@@ -193,7 +197,7 @@ public static class AppPages
     public static string Group(AppPage page) => page switch
     {
         AppPage.Devices or AppPage.Alerts or AppPage.AlertRules or AppPage.Health => "Monitor",
-        AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.GroupsLocations => "Network",
+        AppPage.Map or AppPage.NetworkMap or AppPage.Neighbours or AppPage.GroupsLocations or AppPage.NetworkSearch => "Network",
         AppPage.Logs or AppPage.Graylog => "Logs",
         _ => "App",
     };
@@ -230,6 +234,7 @@ public static class AppPages
         AppPage.AlertRules => Routes.AlertRules,
         AppPage.Logs => Routes.Logs,
         AppPage.Graylog => Routes.Graylog,
+        AppPage.NetworkSearch => Routes.NetworkSearch,
         _ => page.ToString().ToLowerInvariant() + "page",
     };
 

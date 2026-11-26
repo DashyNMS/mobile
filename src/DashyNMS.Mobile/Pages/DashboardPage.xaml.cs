@@ -16,7 +16,7 @@ namespace DashyNMS.Mobile.Pages;
 /// and later; before that, and on Android, Edit dashboard stays on the top
 /// line (see <see cref="CoveredEdges"/>).
 /// </remarks>
-public partial class DashboardPage : ContentPage, IActivePage
+public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 {
 	/// <summary>The gap kept between the cards and a side tab bar's glass.</summary>
 	private const double GlassGap = 12;
@@ -87,6 +87,12 @@ public partial class DashboardPage : ContentPage, IActivePage
 		PlaceControls();
 	}
 
+	/// <summary>
+	/// The dashboard's search finds something on the network (#129): the glass
+	/// magnifier, and ⌘F on an iPad or a Mac.
+	/// </summary>
+	public void OpenSearch() => _ = Shell.Current.GoToAsync(Routes.NetworkSearch);
+
 #if IOS
 	private void SyncActions()
 	{
@@ -103,13 +109,13 @@ public partial class DashboardPage : ContentPage, IActivePage
 		{
 			_headerGlass.Actions = actions;
 			_headerGlass.IsVisible = true;
-			TabBarButtons.Show(this, null, string.Empty, []);
+			TabBarButtons.Show(this, OpenSearch, "Search the network", []);
 		}
 		else
 		{
 			_headerGlass.Actions = [];
 			_headerGlass.IsVisible = false;
-			TabBarButtons.Show(this, null, string.Empty, actions);
+			TabBarButtons.Show(this, OpenSearch, "Search the network", actions);
 		}
 	}
 #endif

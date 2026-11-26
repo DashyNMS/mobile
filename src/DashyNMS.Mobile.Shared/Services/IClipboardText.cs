@@ -1,7 +1,8 @@
 namespace DashyNMS.Mobile.Services;
 
 /// <summary>
-/// The phone's clipboard, for offering a copied API token at sign-in (#161).
+/// The phone's clipboard, for offering a copied API token at sign-in (#161)
+/// and copying a value from Network Search (#129).
 /// </summary>
 /// <remarks>
 /// <see cref="HasText"/> only asks whether there's text: on iOS that doesn't
@@ -14,4 +15,7 @@ public interface IClipboardText
     bool HasText { get; }
 
     Task<string?> GetTextAsync();
+
+    /// <summary>Puts a value the user chose to copy on the clipboard (#129).</summary>
+    Task SetTextAsync(string text);
 }

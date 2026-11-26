@@ -42,6 +42,7 @@ public static class HelpTopics
         AppPage.Logs => new("Read-logs"),
         AppPage.Graylog => new("Read-logs", "graylog-messages"),
         AppPage.Intelligence => Intelligence,
+        AppPage.NetworkSearch => new("Find-where-something-is-connected"),
         _ => new(SettingsPage),
     };
 

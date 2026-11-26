@@ -124,6 +124,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<Logs.LogsViewModel>();
         services.AddTransient<Logs.LogEntryViewModel>();
         services.AddTransient<Topology.NeighboursViewModel>();
+        services.AddTransient<Search.NetworkSearchViewModel>();
         services.AddTransient<Topology.NeighbourGroupsViewModel>();
         services.AddTransient<Topology.NeighbourGroupEditorViewModel>();
         services.AddTransient<Topology.NeighbourLinkViewModel>();

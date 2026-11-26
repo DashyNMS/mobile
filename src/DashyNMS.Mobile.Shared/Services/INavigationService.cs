@@ -153,6 +153,12 @@ public static class Routes
     /// <summary>Open-source licences, pushed from Settings › About (#164).</summary>
     public const string Licences = "licences";
 
+    /// <summary>Network Search (#129) - with <see cref="NetworkSearchQueryParameter"/>, searching for it at once.</summary>
+    public const string NetworkSearch = "networksearch";
+
+    /// <summary>Query attribute: what <see cref="NetworkSearch"/> searches for when it opens.</summary>
+    public const string NetworkSearchQueryParameter = "query";
+
     /// <summary>The user guide's contents list and search (#668).</summary>
     public const string Help = "help";
 
