@@ -452,7 +452,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     {
         try
         {
-            var own = _client.Links.ListForDeviceAsync(deviceId, token);
+            var own = OwnLinksAsync(deviceId, token);
             var fleet = _client.Links.ListAllAsync(token);
             var ports = _client.Ports.ListForDeviceAsync(deviceId, token);
             await Task.WhenAll(own, fleet, ports);
@@ -492,6 +492,19 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
             {
                 current.ConnectionsFailed = true;
             }
+        }
+    }
+
+    /// <summary>A device's own links. LibreNMS answers 404 for a device with none, which is an answer, not a failure.</summary>
+    private async Task<IReadOnlyList<DesktopNMS.Core.Models.NetworkLink>> OwnLinksAsync(int deviceId, CancellationToken token)
+    {
+        try
+        {
+            return await _client.Links.ListForDeviceAsync(deviceId, token);
+        }
+        catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return [];
         }
     }
 

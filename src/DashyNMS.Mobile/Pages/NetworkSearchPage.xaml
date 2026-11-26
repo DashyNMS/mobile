@@ -140,7 +140,7 @@
                         <Border Style="{StaticResource Card}">
                             <VerticalStackLayout Spacing="6">
                                 <Label Text="{Binding Title}" FontFamily="Display" FontSize="22" LineBreakMode="CharacterWrap" SemanticProperties.HeadingLevel="Level2" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding AddressesText}" LineBreakMode="CharacterWrap" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding AddressesText}" IsVisible="{Binding HasOtherAddresses}" LineBreakMode="CharacterWrap" />
                                 <ContentView IsVisible="{Binding IsMonitored}">
                                 <VerticalStackLayout Spacing="4" BindingContext="{Binding Device}" x:DataType="search:DeviceCardFacts">
                                     <HorizontalStackLayout Spacing="8">

@@ -72,6 +72,9 @@ public sealed class EndpointViewModel : ObservableObject
     /// <summary>Addresses joined for the overview card, "192.0.2.1, 2001:db8::1".</summary>
     public string AddressesText => string.Join(", ", _record.Addresses);
 
+    /// <summary>The addresses add something under the title: not when the title is the only one.</summary>
+    public bool HasOtherAddresses => AddressesText.Length > 0 && AddressesText != Title;
+
     public string? MonitoredInterfaceName => _record.MonitoredInterface?.DisplayName;
 
     public bool HasMonitoredInterface => _record.MonitoredInterface is not null;
