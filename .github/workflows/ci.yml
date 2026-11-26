@@ -6,6 +6,7 @@ name: CI
 # required check.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
   workflow_call:
 
 concurrency:
@@ -15,6 +16,7 @@ concurrency:
 # Read-only token: CI only checks out and builds (#7).
 permissions:
   contents: read
+  issues: read
   packages: read
   # Reading DashyNMS/mcp's build provenance for the shared package (#596, #601).
   attestations: read
@@ -29,6 +31,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -73,6 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -135,6 +141,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -222,6 +230,8 @@ jobs:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -302,6 +312,8 @@ jobs:
       TZ: UTC
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
@@ -325,10 +337,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  security:
+    name: Security
+    uses: ./.github/workflows/security.yml
+
   result:
     name: CI result
     if: always()
-    needs: [test, android, ios, ios-release, ios-pdf]
+    needs: [test, android, ios, ios-release, ios-pdf, security]
     runs-on: ubuntu-latest
     steps:
       # Only success counts: a job no runner ever took is neither a failure nor

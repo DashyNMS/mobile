@@ -73,3 +73,11 @@ Project-owned code and assets are MIT licensed; see [LICENSE](LICENSE) and [noti
 Found a security problem? See [SECURITY.md](SECURITY.md). Technical notes are in the [developer guide](docs/DEVELOPMENT.md).</sub>
 
 Core is consumed as a pinned [DashyNMS.Core](https://github.com/DashyNMS/core) NuGet package. Building requires a GitHub Packages token with `read:packages`; see [Developing](docs/DEVELOPMENT.md#building). Mobile versions are independent of Core and desktop.
+
+
+## Contributing and accessibility
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for reports, proposed changes and validation,
+[ACCESSIBILITY.md](ACCESSIBILITY.md) for barriers and supported environments, and
+[the code of conduct](CODE_OF_CONDUCT.md) for community participation.
+Report vulnerabilities privately under [SECURITY.md](SECURITY.md).

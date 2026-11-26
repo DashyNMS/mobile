@@ -17,6 +17,9 @@ registries:
 
 updates:
   - package-ecosystem: github-actions
+    commit-message:
+      prefix: build
+      include: scope
     directory: /
     schedule:
       interval: weekly
@@ -26,6 +29,9 @@ updates:
         update-types: [minor, patch]
 
   - package-ecosystem: nuget
+    commit-message:
+      prefix: build
+      include: scope
     directories:
       - /src/*
       - /tests/*
@@ -35,6 +41,19 @@ updates:
       # Pinned by hand, with the Shared package's hash and commit (see
       # docs/DEVELOPMENT.md, "Moving the Core and Shared pins").
       - dependency-name: "DashyNMS.*"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      packages:
+        update-types: [minor, patch]
+
+  # The real PDF comparison installs PyMuPDF separately from the .NET projects.
+  - package-ecosystem: pip
+    commit-message:
+      prefix: build
+      include: scope
+    directory: /tests/ChatPdf
     schedule:
       interval: weekly
       day: monday
