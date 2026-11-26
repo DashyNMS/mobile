@@ -900,14 +900,16 @@ internal static class TabBarButtons
                 if (menu is not null)
                 {
                     var owner = _owner;
-                    // UIKit also lifts/highlights the native menu button itself.
-                    // Rounding only its outer glass leaves that preview rectangular.
+                    // UIKit lifts/highlights the native menu button itself; a custom-type
+                    // capsule button with a clear background configuration stays round
+                    // through press, menu presentation and dismissal (#382).
                     var configuration = UIButtonConfiguration.PlainButtonConfiguration;
                     configuration.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
                     configuration.ContentInsets = new NSDirectionalEdgeInsets(0, 0, 0, 0);
-                    configuration.Image = UIImage.GetSystemImage("ellipsis");
+                    configuration.Image = GlassStyle.Icon("ellipsis").Image;
                     configuration.BaseForegroundColor = UIColor.Label;
-                    var button = new UIButton(UIButtonType.System)
+                    configuration.Background.BackgroundColor = UIColor.Clear;
+                    var button = new UIButton(UIButtonType.Custom)
                     {
                         AutoresizingMask = UIViewAutoresizing.FlexibleDimensions,
                         Configuration = configuration,
@@ -926,7 +928,18 @@ internal static class TabBarButtons
                         ShowsMenuAsPrimaryAction = true,
                         AccessibilityLabel = action.Label,
                     };
+                    button.ConfigurationUpdateHandler = btn =>
+                    {
+                        var updated = btn.Configuration ?? UIButtonConfiguration.PlainButtonConfiguration;
+                        updated.CornerStyle = UIButtonConfigurationCornerStyle.Capsule;
+                        updated.Background.BackgroundColor = UIColor.Clear;
+                        updated.Background.CornerRadius = (nfloat)(Math.Min(btn.Bounds.Width, btn.Bounds.Height) / 2);
+                        updated.BaseForegroundColor = btn.Highlighted ? UIColor.Label.ColorWithAlpha(0.55f) : UIColor.Label;
+                        btn.Configuration = updated;
+                    };
                     button.TintColor = UIColor.Label;
+                    button.Layer.MasksToBounds = true;
+                    button.Layer.CornerCurve = CoreAnimation.CACornerCurve.Continuous;
                     _icon.Hidden = true;
                     AddSubview(button);
                     IsAccessibilityElement = false;
