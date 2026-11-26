@@ -79,6 +79,25 @@ public sealed class HelpArticleView : ContentView
 
     private bool HasHeader { get; }
 
+    private double _saved;
+
+    /// <summary>The pane is about to be hidden: remember how far it was read.</summary>
+    public void SaveReading() => _saved = Math.Max(_readTo, _scroller.ScrollY);
+
+    /// <summary>Shown again: back to where it was read to, once laid out.</summary>
+    public void RestoreReading()
+    {
+        var target = _saved;
+        if (target <= 0) return;
+        _restoring = true;
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(150), async () =>
+        {
+            try { await _scroller.ScrollToAsync(0, target, false); _readTo = target; }
+            catch (Exception) { }
+            finally { _restoring = false; }
+        });
+    }
+
     public HelpArticleViewModel ViewModel { get; }
 
     /// <summary>The scrolling body's own distance from the pane's edges, and what its last line clears.</summary>

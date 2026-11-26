@@ -123,6 +123,10 @@ public sealed class HelpBlocksView : VerticalStackLayout
         label.InputTransparent = true;
         AutomationProperties.SetIsInAccessibleTree(label, false);
 
+        // The button says it all; the words under it are hidden with their container, which UIKit honours for labels.
+        var words = new ContentView { Content = label, InputTransparent = true };
+        AutomationProperties.SetExcludedWithChildren(words, true);
+
         var button = new Button
         {
             Style = new Style(typeof(Button)),
@@ -149,7 +153,7 @@ public sealed class HelpBlocksView : VerticalStackLayout
         SemanticProperties.SetDescription(button, Spoken(spans, number));
         SemanticProperties.SetHint(button, Hint(link));
         button.Clicked += (_, _) => LinkActivated?.Invoke(this, link.Target);
-        return new Grid { MinimumHeightRequest = 44, Children = { label, button } };
+        return new Grid { MinimumHeightRequest = 44, Children = { words, button } };
     }
 
     /// <summary>
@@ -176,9 +180,11 @@ public sealed class HelpBlocksView : VerticalStackLayout
             }
 
             // A link's row centres its words in its 44pt, so the marker sits level with them.
-            var inset = first is Grid ? 11 : 0;
+            var inset = first is Grid { Children: [ContentView, ..] } ? 11 : 0;
             var row = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star)], ColumnSpacing = 10 };
-            row.Add(Marker(number, inset), 0);
+            var marker = new ContentView { Content = Marker(number, inset), VerticalOptions = LayoutOptions.Start };
+            AutomationProperties.SetExcludedWithChildren(marker, true);
+            row.Add(marker, 0);
             row.Add(content, 1);
             if (item.Count == 1 && first is Label && item[0] is HelpParagraphBlock only)
             {

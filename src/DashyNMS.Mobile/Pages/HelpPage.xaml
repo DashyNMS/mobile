@@ -34,7 +34,7 @@
                     <!-- Which search the list shows, scrolling with it, so a short window keeps room for results. -->
                     <CollectionView.Header>
                         <VerticalStackLayout Padding="14,20,14,0">
-                            <VerticalStackLayout x:Name="ResultLine" Spacing="0" IsVisible="{Binding IsSearching}">
+                            <VerticalStackLayout x:Name="ResultLine" Spacing="0" IsVisible="False">
                                 <Label x:Name="Results" Style="{StaticResource Caption}" Text="{Binding ResultsText}" LineBreakMode="WordWrap" />
                                 <Button Style="{StaticResource LinkButton}" Text="Clear search" MinimumHeightRequest="44" HorizontalOptions="Start" Padding="0,0,8,0" Command="{Binding ClearSearchCommand}" />
                             </VerticalStackLayout>
@@ -55,8 +55,6 @@
                             <Label Text="No matches" FontFamily="BodySemibold" HorizontalTextAlignment="Center" IsVisible="{Binding ShowNoResults}" />
                             <Label Style="{StaticResource Caption}" HorizontalTextAlignment="Center" IsVisible="{Binding ShowNoResults}"
                                    Text="Try fewer words, or clear the search to see every page." />
-                            <Button Style="{StaticResource LinkButton}" Text="Clear search" MinimumHeightRequest="44" HorizontalOptions="Center"
-                                    IsVisible="{Binding ShowNoResults}" Command="{Binding ClearSearchCommand}" />
                         </VerticalStackLayout>
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>

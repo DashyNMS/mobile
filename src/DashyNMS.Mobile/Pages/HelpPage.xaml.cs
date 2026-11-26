@@ -29,8 +29,13 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         BindingContext = _viewModel = viewModel;
         _search = new ButtonSearch(SearchSlot, SearchField, Search, List);
         SearchButton.Command = new Command(OpenSearch);
+        Search.Focused += (_, _) => ShowResultLine();
+        Search.Unfocused += (_, _) => ShowResultLine();
+        SizeChanged += (_, _) => ShowResultLine();
         viewModel.PropertyChanged += (_, e) =>
         {
+            if (e.PropertyName == nameof(HelpViewModel.IsSearching)) ShowResultLine();
+
             if (e.PropertyName == nameof(HelpViewModel.Rows) && _active && viewModel.IsSearching)
             {
                 SemanticScreenReader.Default.Announce(viewModel.ResultsText);
@@ -40,6 +45,10 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
         SearchSlot.SizeChanged += (_, _) => PlaceControls();
         Split.SplitChanged += (_, _) =>
         {
+            // Hidden beside a narrowed list, the page's scroll view starts again at the top when shown: keep the place.
+            if (!Split.IsSplit) _detail?.SaveReading();
+            else _detail?.RestoreReading();
+
             ShowHomeBeside();
             _viewModel.CurrentPageId = Split.IsSplit ? _detail?.ViewModel.Page?.Id : null;
             ShowGlass();
@@ -119,6 +128,13 @@ public partial class HelpPage : ContentPage, IDetailHost, ISearchHost, IActivePa
             ShowBeside(home);
         }
     }
+
+    /// <summary>
+    /// The search's count and Clear search, except while typing in a short
+    /// window (a phone in landscape), where they'd take the only room for
+    /// results. The count is announced either way.
+    /// </summary>
+    private void ShowResultLine() => ResultLine.IsVisible = _viewModel.IsSearching && !(Search.IsFocused && Height is > 0 and < 500);
 
     /// <summary>Back through the pages read in the pane, which the page's own Back leaves.</summary>
     private void ShowEarlier()
