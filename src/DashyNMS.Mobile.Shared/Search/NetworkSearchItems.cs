@@ -438,6 +438,35 @@ public sealed class LocationItemViewModel
     /// <summary>"Up · 1 Gbps", the Neighbours card's port line.</summary>
     public string PortStateText => Port is null ? string.Empty : PortText.State(Port);
 
+    /// <summary>"19 · CCC1-DECT-Master", matching Desktop's Connected to card.</summary>
+    public string PortTitle => PortDescription is not null ? $"{PortName} · {PortDescription}" : PortName;
+
+    /// <summary>"Up · 1 Gbps · In 167 Kbps · Out 3.3 Mbps", matching Desktop's Connected to card.</summary>
+    public string PortDetailText
+    {
+        get
+        {
+            if (Port is null) return string.Empty;
+            var parts = new List<string>();
+            var state = PortText.State(Port);
+            if (!string.IsNullOrEmpty(state)) parts.Add(state);
+            if (Port.IfInOctetsRate is { } inOctets) parts.Add("In " + DashyNMS.Mobile.Dashboard.TopCards.Bits(inOctets * 8));
+            if (Port.IfOutOctetsRate is { } outOctets) parts.Add("Out " + DashyNMS.Mobile.Dashboard.TopCards.Bits(outOctets * 8));
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>Full VoiceOver description for the Connected to row, including switch and port state.</summary>
+    public string ConnectedAccessibleText => string.Join(", ", new[]
+    {
+        DeviceName,
+        Switch.StateText,
+        KindText,
+        FactsText,
+        PortTitle,
+        PortDetailText,
+    }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
     public string VlanText { get; }
 
     public string? MacCountText { get; }

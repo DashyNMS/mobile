@@ -224,10 +224,10 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
         });
 
         var portLine = new Label { FontFamily = "Mono", FontSize = 12.5, LineBreakMode = LineBreakMode.CharacterWrap };
-        portLine.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortName));
+        portLine.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortTitle));
 
         var portState = new Label { Style = (Style)Application.Current!.Resources["Faint"], LineBreakMode = LineBreakMode.WordWrap };
-        portState.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortStateText));
+        portState.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortDetailText));
         portState.SetBinding(IsVisibleProperty, nameof(LocationItemViewModel.HasPort));
 
         var text = new VerticalStackLayout { Spacing = 3, InputTransparent = true, Children = { title, switchDesc, meta, portLine, portState } };
@@ -236,7 +236,7 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
 
         var open = new Button { Text = string.Empty, BackgroundColor = Colors.Transparent, BorderWidth = 0, CornerRadius = 0, Padding = 0, Margin = new Thickness(-14, -11, 0, -11), MinimumHeightRequest = 56 };
         open.SetBinding(Button.CommandProperty, nameof(LocationItemViewModel.OpenDeviceCommand));
-        open.SetBinding(SemanticProperties.DescriptionProperty, new Binding(nameof(LocationItemViewModel.AccessibleText), stringFormat: "{0}. Opens the switch"));
+        open.SetBinding(SemanticProperties.DescriptionProperty, new Binding(nameof(LocationItemViewModel.ConnectedAccessibleText), stringFormat: "{0}. Opens the switch"));
         grid.Add(open, 0, 0);
         Grid.SetColumnSpan(open, 2);
 
