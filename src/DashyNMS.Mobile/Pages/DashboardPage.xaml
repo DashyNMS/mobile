@@ -631,7 +631,14 @@
                  dashboard loads - every time, pulled or not - then rests. -->
             <controls:HeartbeatLogo WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
                                     IsBeating="{Binding IsBusy}" />
-            <Label Grid.Column="1" Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
+            <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                <Label Text="DashyNMS" FontSize="22" FontFamily="Display" VerticalOptions="Center" />
+                <!-- The demo (#160): says so, and leaves it. -->
+                <Button Text="Demo" IsVisible="{Binding IsDemo}" Command="{Binding LeaveDemoCommand}" Style="{StaticResource Chip}"
+                        BackgroundColor="{StaticResource PrimaryTint}" BorderColor="{StaticResource PrimaryStroke}" VerticalOptions="Center"
+                        TextColor="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}"
+                        SemanticProperties.Description="Demo network" SemanticProperties.Hint="Leaves the demo and goes back to sign in" />
+            </HorizontalStackLayout>
             <Border x:Name="CustomiseButton" Grid.Column="2" WidthRequest="44" HeightRequest="44" StrokeThickness="0" StrokeShape="RoundRectangle 12"
                     BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceAltLight}, Dark={StaticResource SurfaceAltDark}}"
                     SemanticProperties.Description="Edit dashboard" SemanticProperties.Hint="Order, remove and add cards">

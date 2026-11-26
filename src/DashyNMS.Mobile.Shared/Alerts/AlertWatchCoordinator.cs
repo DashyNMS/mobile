@@ -43,8 +43,9 @@ public sealed class AlertWatchCoordinator : IDisposable
         IHomeWidgets widgets,
         TimeProvider time,
         ILogger<AlertWatchCoordinator> logger,
-        AlertTabDot? tabDot = null, CorePolling? polling = null)
+        AlertTabDot? tabDot = null, CorePolling? polling = null, Demo.DemoState? demo = null)
     {
+        _demo = demo;
         _polling = polling;
         _tabDot = tabDot;
         _session = session;
@@ -64,10 +65,13 @@ public sealed class AlertWatchCoordinator : IDisposable
     /// widgets; with none wanted there's nothing to check for, in the app or
     /// the background.
     /// </summary>
-    public bool ChecksNeeded =>
+    public bool ChecksNeeded => _demo?.IsActive != true && (
         _settings.Current.Notifications.Enabled
         || (_settings.Current.ShowAlertTabBadge && _badge.IsSupported)
-        || _widgets.IsInUse;
+        || _widgets.IsInUse);
+
+    /// <summary>The demo checks nothing and notifies nothing (#160).</summary>
+    private readonly Demo.DemoState? _demo;
 
     /// <summary>True while the in-app timer is running.</summary>
     public bool IsForegroundLoopRunning

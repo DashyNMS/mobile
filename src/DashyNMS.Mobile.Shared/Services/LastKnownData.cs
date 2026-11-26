@@ -41,8 +41,12 @@ public sealed partial class LastKnownData : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsShowingSaved), nameof(OfflineText))]
     private DateTimeOffset? _shownSince;
 
-    public LastKnownData(string dataFolder, ISettingsStore settings, ILogger<LastKnownData> logger)
+    private readonly Demo.DemoState? _demo;
+
+    /// <param name="demo">While the demo runs nothing is saved or read back, so no demo list is left on the phone (#160).</param>
+    public LastKnownData(string dataFolder, ISettingsStore settings, ILogger<LastKnownData> logger, Demo.DemoState? demo = null)
     {
+        _demo = demo;
         _folder = Path.Combine(dataFolder, "last-known");
         _settings = settings;
         _logger = logger;
@@ -71,7 +75,7 @@ public sealed partial class LastKnownData : ObservableObject
     public Task<IReadOnlyList<Sensor>> SensorsAsync(Func<Task<IReadOnlyList<Sensor>>> fetch) => OrSavedAsync(Sensors, fetch, s => s, s => s);
 
     /// <summary>Whether there's anything saved for the server in settings - enough to open the app offline.</summary>
-    public bool HasSaved() => Read<Device>(Devices) is not null || Read<SavedAlert>(Alerts) is not null;
+    public bool HasSaved() => _demo?.IsActive != true && Read<Device>(Devices) is not null || Read<SavedAlert>(Alerts) is not null;
 
     /// <summary>Signing out: nothing of this server's stays on the phone.</summary>
     public void Clear()
@@ -112,6 +116,11 @@ public sealed partial class LastKnownData : ObservableObject
 
     private async Task<IReadOnlyList<T>> OrSavedAsync<T, TSaved>(string kind, Func<Task<IReadOnlyList<T>>> fetch, Func<T, TSaved> save, Func<TSaved, T> restore)
     {
+        if (_demo?.IsActive == true)
+        {
+            return await fetch();
+        }
+
         IReadOnlyList<T> items;
         try
         {

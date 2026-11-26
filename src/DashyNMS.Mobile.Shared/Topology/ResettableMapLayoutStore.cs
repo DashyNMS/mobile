@@ -34,11 +34,75 @@ public sealed class ResettableMapLayoutStore : IMapLayoutStore
         }
     }
 
-    public IReadOnlyDictionary<int, MapPoint> Get(string scopeKey) => Inner.Get(scopeKey);
+    /// <summary>While the demo runs, devices it drags are kept in memory only and forgotten with it (#160).</summary>
+    public Demo.DemoState? Demo
+    {
+        get => _demo;
+        init
+        {
+            _demo = value;
+            if (value is not null)
+            {
+                value.Changed += (_, _) => { if (!value.IsActive) ForgetDemo(); };
+            }
+        }
+    }
 
-    public void Save(string scopeKey, IReadOnlyDictionary<int, MapPoint> positions) => Inner.Save(scopeKey, positions);
+    private readonly Demo.DemoState? _demo;
 
-    public void Clear(string scopeKey) => Inner.Clear(scopeKey);
+    private readonly Dictionary<string, IReadOnlyDictionary<int, MapPoint>> _demoLayouts = new(StringComparer.Ordinal);
+
+    public IReadOnlyDictionary<int, MapPoint> Get(string scopeKey)
+    {
+        if (Demo?.IsActive == true)
+        {
+            lock (_demoLayouts)
+            {
+                return _demoLayouts.TryGetValue(scopeKey, out var positions) ? positions : new Dictionary<int, MapPoint>();
+            }
+        }
+
+        return Inner.Get(scopeKey);
+    }
+
+    public void Save(string scopeKey, IReadOnlyDictionary<int, MapPoint> positions)
+    {
+        if (Demo?.IsActive == true)
+        {
+            lock (_demoLayouts)
+            {
+                _demoLayouts[scopeKey] = positions.ToDictionary();
+            }
+
+            return;
+        }
+
+        Inner.Save(scopeKey, positions);
+    }
+
+    public void Clear(string scopeKey)
+    {
+        if (Demo?.IsActive == true)
+        {
+            lock (_demoLayouts)
+            {
+                _demoLayouts.Remove(scopeKey);
+            }
+
+            return;
+        }
+
+        Inner.Clear(scopeKey);
+    }
+
+    /// <summary>The demo ended: what it dragged goes with it.</summary>
+    public void ForgetDemo()
+    {
+        lock (_demoLayouts)
+        {
+            _demoLayouts.Clear();
+        }
+    }
 
     /// <summary>Every map's layout gone, on disk and in memory. False if the file couldn't be deleted.</summary>
     public bool ForgetAll()

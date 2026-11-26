@@ -233,6 +233,26 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
 
     private readonly DashboardToast _toast;
     private readonly IDialogService? _dialogs;
+    private readonly Demo.DemoSession? _demo;
+
+    /// <summary>Showing the example network (#160): the header says so, and the chip leaves it.</summary>
+    public bool IsDemo => _demo?.IsActive == true;
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private async Task LeaveDemoAsync()
+    {
+        if (_demo is null || !_demo.IsActive)
+        {
+            return;
+        }
+
+        if (_dialogs is not null && !await _dialogs.ConfirmAsync("Leave the demo?", "You'll be back on the sign-in page, with nothing from the demo kept.", "Leave the demo", "Stay"))
+        {
+            return;
+        }
+
+        await _demo.LeaveAsync();
+    }
     [ObservableProperty]
     private string _alertTotalsText = string.Empty;
 
@@ -319,8 +339,10 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
         GraylogSetup? graylogSetup = null,
         IGraylogApi? graylog = null,
         DesktopNMS.Core.Spotlights.SpotlightResolver? spotlights = null,
-        LastKnownData? lastKnown = null)
+        LastKnownData? lastKnown = null,
+        Demo.DemoSession? demo = null)
     {
+        _demo = demo;
         _spotlights = spotlights ?? new DesktopNMS.Core.Spotlights.SpotlightResolver(client);
         _lastKnown = lastKnown;
         _dialogs = dialogs;
@@ -505,6 +527,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     [RelayCommand]
     private Task RefreshAsync() => RunAsync(async () =>
     {
+        OnPropertyChanged(nameof(IsDemo));
         ApplyLayout();
 
         // The saved copy (#130) when the server can't be reached.

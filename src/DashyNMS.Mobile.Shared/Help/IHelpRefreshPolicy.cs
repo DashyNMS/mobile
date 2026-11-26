@@ -6,8 +6,8 @@ public interface IHelpRefreshPolicy
     bool MayRefresh { get; }
 }
 
-/// <summary>Refreshing is allowed whenever Help is open.</summary>
-public sealed class HelpRefreshAllowed : IHelpRefreshPolicy
+/// <summary>Refreshing is allowed whenever Help is open, except in the demo, which contacts nothing (#160).</summary>
+public sealed class HelpRefreshAllowed(Demo.DemoState? demo = null) : IHelpRefreshPolicy
 {
-    public bool MayRefresh => true;
+    public bool MayRefresh => demo?.IsActive != true;
 }

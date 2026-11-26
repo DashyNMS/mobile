@@ -53,6 +53,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     private readonly DiagnosticsReport? _report;
     private readonly ILocalDataWipe? _wipe;
     private readonly Intelligence.IntelligenceChatStorage? _chats;
+    private readonly Demo.DemoSession? _demo;
+
+    /// <summary>In the demo (#160), Sign out leaves it: nothing real is signed in to sign out of.</summary>
+    public bool IsDemo => _demo?.IsActive == true;
+
+    public string SignOutText => IsDemo ? "Leave the demo" : "Sign out";
 
     [ObservableProperty]
     private bool _serverTimestampsAreUtc;
@@ -83,8 +89,10 @@ public sealed partial class SettingsViewModel : ViewModelBase
         DiagnosticsConsent? consent = null,
         Unimus.UnimusSetup? unimus = null,
         Intelligence.IIntelligenceModel? intelligence = null,
-        Intelligence.IntelligenceChatStorage? chats = null)
+        Intelligence.IntelligenceChatStorage? chats = null,
+        Demo.DemoSession? demo = null)
     {
+        _demo = demo;
         _intelligence = intelligence;
         _chats = chats;
         _unimus = unimus;
@@ -751,6 +759,8 @@ public sealed partial class SettingsViewModel : ViewModelBase
     /// <summary>Called when the page shows, since the session may have changed since it was built.</summary>
     public void Refresh()
     {
+        OnPropertyChanged(nameof(IsDemo));
+        OnPropertyChanged(nameof(SignOutText));
         OnPropertyChanged(nameof(CanConfigureIntelligence));
         OnPropertyChanged(nameof(ServerHost));
         OnPropertyChanged(nameof(ServerSummary));
@@ -771,6 +781,12 @@ public sealed partial class SettingsViewModel : ViewModelBase
     [RelayCommand]
     private async Task SignOutAsync()
     {
+        if (IsDemo)
+        {
+            await _demo!.LeaveAsync();
+            return;
+        }
+
         // Forgetting everything can't be undone (#146), so it's red, and asks
         // again saying what goes (#139).
         var choice = await _dialogs.ChooseAsync(

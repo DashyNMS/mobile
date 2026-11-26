@@ -107,8 +107,10 @@ public sealed partial class SignInViewModel : ViewModelBase
         IWebSignIn? webSignIn = null,
         ICertificateProbe? probe = null,
         ILauncherService? launcher = null,
-        IClipboardText? clipboard = null)
+        IClipboardText? clipboard = null,
+        Demo.DemoSession? demo = null)
     {
+        _demo = demo;
         _launcher = launcher;
         _clipboard = clipboard;
         _dialogs = dialogs;
@@ -266,6 +268,38 @@ public sealed partial class SignInViewModel : ViewModelBase
         }
 
         await CompleteSignInAsync();
+    }
+
+    private readonly Demo.DemoSession? _demo;
+
+    /// <summary>Whether this build offers the demo (#160): always, where the app has one.</summary>
+    public bool CanTryDemo => _demo is not null;
+
+    /// <summary>
+    /// The app on an example network, with no server (#160): for App Store
+    /// review, and for anyone who wants to look round first.
+    /// </summary>
+    [RelayCommand]
+    private async Task TryDemoAsync()
+    {
+        if (_demo is null || IsBusy)
+        {
+            return;
+        }
+
+        ErrorMessage = null;
+        IsBusy = true;
+        try
+        {
+            if (!await _demo.EnterAsync())
+            {
+                ErrorMessage = "The demo couldn't start. Try again.";
+            }
+        }
+        finally
+        {
+            IsBusy = false;
+        }
     }
 
     /// <summary>The guide's page on signing in (#668), which needs no session.</summary>

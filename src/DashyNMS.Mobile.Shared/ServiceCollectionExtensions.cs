@@ -36,18 +36,31 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<LibreNmsClient>();
         services.AddSingleton<ILibreNmsClient>(sp => sp.GetRequiredService<LibreNmsClient>());
 
-        services.AddSingleton<ISettingsStore, SettingsStore>();
+        // The demo (#160) runs on settings of its own, so the real file is never touched.
+        services.AddSingleton<Demo.DemoState>();
+        services.AddSingleton<SettingsStore>();
+        services.AddSingleton(sp => new Demo.SwitchableSettingsStore(sp.GetRequiredService<SettingsStore>()));
+        services.AddSingleton<ISettingsStore>(sp => sp.GetRequiredService<Demo.SwitchableSettingsStore>());
+        services.AddSingleton<ICheckedSettingsStore>(sp => sp.GetRequiredService<Demo.SwitchableSettingsStore>());
 
         // Device logos for the device's header (#348), kept on disk by Core as desktop's.
         services.AddSingleton<DesktopNMS.Core.Services.IDeviceLogoCache, DesktopNMS.Core.Services.DeviceLogoCache>();
         services.AddSingleton<SecretCache>();
         services.AddSingleton<DesktopNMS.Core.SignIn.ICertificateProbe, DesktopNMS.Core.SignIn.CertificateProbe>();
         services.AddSingleton<ITokenProtector, SecureTokenProtector>();
-        services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<SessionService>();
+        services.AddSingleton<ISessionService>(sp => sp.GetRequiredService<SessionService>());
+        services.AddSingleton(sp => new Demo.DemoSession(
+            sp.GetRequiredService<Demo.DemoState>(),
+            sp.GetRequiredService<SessionService>(),
+            sp.GetRequiredService<Demo.SwitchableSettingsStore>(),
+            sp.GetRequiredService<INavigationService>(),
+            sp.GetService<Demo.SwitchablePreferences>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILoggerFactory>()));
 
         // The last good lists, for opening with the server out of reach (#130).
         services.AddSingleton(sp => new LastKnownData(AppPaths.DataDirectory, sp.GetRequiredService<ISettingsStore>(),
-            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LastKnownData>>()));
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<LastKnownData>>(), sp.GetRequiredService<Demo.DemoState>()));
         services.AddSingleton<CorePolling>();
         services.AddSingleton<DesktopNMS.Core.Services.IAppActivity>(sp => sp.GetRequiredService<CorePolling>());
 
@@ -172,7 +185,8 @@ public static class ServiceCollectionExtensions
         // none, so tests and keyless builds never ask or send.
         services.AddSingleton<Diagnostics.IDiagnosticsTransport>(_ => new Diagnostics.SentryTransport(null));
         services.AddSingleton(sp => new DiagnosticsConsent(
-            sp.GetRequiredService<IAppPreferences>(), sp.GetRequiredService<Diagnostics.IDiagnosticsTransport>().IsAvailable));
+            sp.GetRequiredService<IAppPreferences>(), sp.GetRequiredService<Diagnostics.IDiagnosticsTransport>().IsAvailable,
+            sp.GetRequiredService<Demo.DemoState>()));
         services.AddSingleton<IDiagnosticsConsent>(sp => sp.GetRequiredService<DiagnosticsConsent>());
         services.AddTransient<DiagnosticsSharingViewModel>();
         services.AddTransient<Graylog.GraylogMessageViewModel>();

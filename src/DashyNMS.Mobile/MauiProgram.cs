@@ -76,7 +76,10 @@ public static class MauiProgram
 		builder.Services.AddSingleton<Map.IMapAssets, MapAssets>();
 		builder.Services.AddSingleton<MauiAppearance>();
 		builder.Services.AddSingleton<IAppearance>(sp => sp.GetRequiredService<MauiAppearance>());
-		builder.Services.AddSingleton<IAppPreferences, MauiPreferences>();
+		// The demo's choices are kept in memory over the phone's (#160).
+		builder.Services.AddSingleton<MauiPreferences>();
+		builder.Services.AddSingleton(sp => new Demo.SwitchablePreferences(sp.GetRequiredService<MauiPreferences>(), sp.GetRequiredService<Demo.DemoState>()));
+		builder.Services.AddSingleton<IAppPreferences>(sp => sp.GetRequiredService<Demo.SwitchablePreferences>());
 
 		// Opt-in error reports (#217): Sentry, with the key this build was
 		// given (none outside the store builds), and the queue they wait in.
@@ -211,7 +214,7 @@ public static class MauiProgram
 		// Resettable, so "Sign out and forget everything" can drop them all (#139).
 		builder.Services.AddSingleton(services => new Topology.ResettableMapLayoutStore(
 			Path.Combine(FileSystem.AppDataDirectory, "map-layouts.json"),
-			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()));
+			services.GetRequiredService<ILogger<DesktopNMS.Core.Topology.MapLayoutStore>>()) { Demo = services.GetRequiredService<Demo.DemoState>() });
 		builder.Services.AddSingleton<DesktopNMS.Core.Topology.IMapLayoutStore>(services => services.GetRequiredService<Topology.ResettableMapLayoutStore>());
 		builder.Services.AddSingleton<ILocalDataWipe, MauiLocalDataWipe>();
 		builder.Services.AddTransient<MapPage>();
