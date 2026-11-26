@@ -22,8 +22,7 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
     {
         InitializeComponent();
         BindingContext = _viewModel = viewModel;
-        HelpLink.Topic = HelpTopics.For(AppPage.NetworkSearch);
-        MacLocations.SetValue(BindableLayout.ItemTemplateProperty, LocationTemplate());
+        MacLocations.SetValue(BindableLayout.ItemTemplateProperty, ConnectedLocationTemplate());
         SeenOn.SetValue(BindableLayout.ItemTemplateProperty, LocationTemplate());
         AddressRows.SetValue(BindableLayout.ItemTemplateProperty, new DataTemplate(() =>
         {
@@ -158,6 +157,22 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
         Header.Margin = new Thickness(left, 0, right, 0);
         SearchField.Margin = new Thickness(left, 2, right, 0);
         TopFade.Margin = new Thickness(left, 0, right, 0);
+        var availableWidth = Root.Width - left - right;
+        var twoColumns = availableWidth >= 680;
+        if (twoColumns)
+        {
+            EndpointCards.ColumnDefinitions = [new(GridLength.Star), new(GridLength.Star)];
+            EndpointCards.RowDefinitions = [new(GridLength.Auto)];
+            Grid.SetRow(SecondaryColumn, 0);
+            Grid.SetColumn(SecondaryColumn, 1);
+        }
+        else
+        {
+            EndpointCards.ColumnDefinitions = [new(GridLength.Star)];
+            EndpointCards.RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto)];
+            Grid.SetRow(SecondaryColumn, 1);
+            Grid.SetColumn(SecondaryColumn, 0);
+        }
 #if IOS
         ChipStripPlacement.Apply(this, ChipScroll, Root, topMargin: 10);
         var (footer, fade) = HelpGlass.Foot(this, clear);
@@ -173,6 +188,62 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
         Foot.HeightRequest = 24 + clear.Bottom;
 #endif
     }
+
+    /// <summary>
+    /// Where a device's MAC was learned in the "Connected to" card: shows the switch
+    /// status, model/IP, badges (kind, switch state, VLAN, MAC count, seen age) and
+    /// the port's description, status, speed and traffic, matching Desktop's card.
+    /// </summary>
+    private static DataTemplate ConnectedLocationTemplate() => new(() =>
+    {
+        var grid = new Grid { ColumnDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 12, Padding = new Thickness(14, 11, 6, 11), MinimumHeightRequest = 56 };
+        var line = new BoxView { Style = (Style)Application.Current!.Resources["RowLine"], VerticalOptions = LayoutOptions.Start, Margin = new Thickness(-14, -11, -6, 0) };
+        AutomationProperties.SetIsInAccessibleTree(line, false);
+        grid.Add(line, 0, 0);
+        Grid.SetColumnSpan(line, 3);
+
+        var dot = new Microsoft.Maui.Controls.Shapes.Ellipse { Style = (Style)Application.Current!.Resources["Dot"], VerticalOptions = LayoutOptions.Start, Margin = new Thickness(0, 6, 0, 0) };
+        dot.SetBinding(Microsoft.Maui.Controls.Shapes.Shape.FillProperty, new Binding("Switch.Severity", converter: (IValueConverter)Application.Current!.Resources["StatusColor"]));
+        AutomationProperties.SetIsInAccessibleTree(dot, false);
+        grid.Add(dot, 0, 0);
+
+        var title = new Label { Style = (Style)Application.Current!.Resources["RowTitle"], LineBreakMode = LineBreakMode.WordWrap };
+        title.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.DeviceName));
+
+        var switchDesc = new Label { Style = (Style)Application.Current!.Resources["Caption"], LineBreakMode = LineBreakMode.WordWrap };
+        switchDesc.SetBinding(Label.TextProperty, "Switch.Description");
+        switchDesc.SetBinding(IsVisibleProperty, "Switch.HasDescription");
+
+        var meta = new Label { Style = (Style)Application.Current!.Resources["Faint"], LineBreakMode = LineBreakMode.WordWrap };
+        meta.SetBinding(Label.TextProperty, new MultiBinding
+        {
+            Bindings = { new Binding(nameof(LocationItemViewModel.KindText)), new Binding("Switch.StateText"), new Binding(nameof(LocationItemViewModel.FactsText)) },
+            StringFormat = "{0} · {1} · {2}",
+        });
+
+        var portLine = new Label { FontFamily = "Mono", FontSize = 12.5, LineBreakMode = LineBreakMode.CharacterWrap };
+        portLine.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortName));
+
+        var portState = new Label { Style = (Style)Application.Current!.Resources["Faint"], LineBreakMode = LineBreakMode.WordWrap };
+        portState.SetBinding(Label.TextProperty, nameof(LocationItemViewModel.PortStateText));
+        portState.SetBinding(IsVisibleProperty, nameof(LocationItemViewModel.HasPort));
+
+        var text = new VerticalStackLayout { Spacing = 3, InputTransparent = true, Children = { title, switchDesc, meta, portLine, portState } };
+        AutomationProperties.SetExcludedWithChildren(text, true);
+        grid.Add(text, 1, 0);
+
+        var open = new Button { Text = string.Empty, BackgroundColor = Colors.Transparent, BorderWidth = 0, CornerRadius = 0, Padding = 0, Margin = new Thickness(-14, -11, 0, -11), MinimumHeightRequest = 56 };
+        open.SetBinding(Button.CommandProperty, nameof(LocationItemViewModel.OpenDeviceCommand));
+        open.SetBinding(SemanticProperties.DescriptionProperty, new Binding(nameof(LocationItemViewModel.AccessibleText), stringFormat: "{0}. Opens the switch"));
+        grid.Add(open, 0, 0);
+        Grid.SetColumnSpan(open, 2);
+
+        var graphs = new IconButton { Kind = IconButtonKind.Plain, Icon = Icons.Graph };
+        graphs.SetBinding(IconButton.CommandProperty, nameof(LocationItemViewModel.OpenPortCommand));
+        graphs.SetBinding(SemanticProperties.DescriptionProperty, new Binding(nameof(LocationItemViewModel.PortName), stringFormat: "Open graphs for {0}"));
+        grid.Add(graphs, 2, 0);
+        return grid;
+    });
 
     /// <summary>A switch port that learned the endpoint's MAC: the switch, the port, and whether it's where it plugs in.</summary>
     private static DataTemplate LocationTemplate() => new(() =>

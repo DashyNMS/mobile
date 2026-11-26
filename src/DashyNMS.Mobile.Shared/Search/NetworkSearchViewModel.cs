@@ -485,7 +485,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
                 pending.ConnectionsCancelled = true;
             }
         }
-        catch (LibreNmsApiException ex) when (generation == _generation)
+        catch (Exception ex) when (generation == _generation && ex is not OutOfMemoryException)
         {
             _logger?.LogWarning("Network search couldn't read a device's neighbours: {Message}", ex.Message);
             if (ReferenceEquals(connection, _session.Connection) && Endpoint is { } current && current.MonitoredDeviceId == deviceId)

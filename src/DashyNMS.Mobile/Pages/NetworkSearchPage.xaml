@@ -91,17 +91,8 @@
         <Grid x:Name="BodyHost" Grid.Row="3" SafeAreaEdges="None">
             <RefreshView x:Name="PullRefresh" Command="{Binding RefreshCommand}" SafeAreaEdges="None">
             <ScrollView x:Name="Scroller" SafeAreaEdges="None">
-                <controls:ReadableColumn>
                 <VerticalStackLayout x:Name="Body" Spacing="12" Padding="16,20,16,0">
 
-                    <!-- Nothing searched yet. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding IsIdle}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Style="{StaticResource CardHeading}" Text="Find where something is connected" />
-                            <Label Text="Search for an IP address, a network such as 192.0.2.0/24, a MAC address in any format, or a device or host name. Paste a list to look up several at once." LineBreakMode="WordWrap" />
-                            <Label Style="{StaticResource Caption}" Text="It reads LibreNMS's ARP and MAC tables, interface addresses and neighbours, and says which of them it couldn't check." LineBreakMode="WordWrap" />
-                        </VerticalStackLayout>
-                    </Border>
                     <Button Style="{StaticResource LinkButton}" Text="Clear recent searches" HorizontalOptions="Start" IsVisible="{Binding HasRecent}" Command="{Binding ClearRecentCommand}" />
 
                     <!-- Searching. -->
@@ -175,6 +166,9 @@
                             </VerticalStackLayout>
                         </Border>
 
+                        <!-- Detail cards: two columns on wide displays (Duo inner, iPad), one column on narrow phones. -->
+                        <Grid x:Name="EndpointCards" ColumnSpacing="12" RowSpacing="12" ColumnDefinitions="*" RowDefinitions="Auto,Auto">
+                        <VerticalStackLayout x:Name="PrimaryColumn" Grid.Row="0" Grid.Column="0" Spacing="12">
                         <!-- Where it's connected: the device's own neighbours, or where its MAC was learned. -->
                         <Border Style="{StaticResource ListCard}">
                             <VerticalStackLayout>
@@ -223,6 +217,34 @@
                             </VerticalStackLayout>
                         </Border>
 
+                        <!-- Routers that know it: their ARP entries. -->
+                        <Border Style="{StaticResource ListCard}">
+                            <VerticalStackLayout>
+                                <Label Style="{StaticResource CardHeading}" Text="Neighbour of" Margin="14,14,14,6" />
+                                <Label Style="{StaticResource Caption}" Text="{Binding NoNeighboursText}" IsVisible="{Binding HasNeighbours, Converter={StaticResource Invert}}" Margin="14,0,14,14" LineBreakMode="WordWrap" />
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Neighbours}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="search:ArpNeighbourViewModel">
+                                            <Grid ColumnDefinitions="*,Auto" Padding="14,11,6,11" MinimumHeightRequest="56">
+                                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-6,0" />
+                                                <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
+                                                    <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" />
+                                                    <Label Style="{StaticResource Caption}" Text="{Binding PortName}" IsVisible="{Binding HasPortName}" />
+                                                    <Label Text="{Binding MacsText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                </VerticalStackLayout>
+                                                <Button Style="{StaticResource RowButton}" Margin="-14,-11,-6,-11" Command="{Binding OpenDeviceCommand}"
+                                                        SemanticProperties.Description="{Binding DeviceName, StringFormat='Open device {0}'}" />
+                                                <controls:IconButton Grid.Column="1" Kind="Plain" Icon="{x:Static controls:Icons.Graph}" Command="{Binding OpenPortCommand}" IsVisible="{Binding HasPortName}"
+                                                                     SemanticProperties.Description="{Binding PortName, StringFormat='Open graphs for {0}'}" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+                        </Border>
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout x:Name="SecondaryColumn" Grid.Row="1" Grid.Column="0" Spacing="12">
                         <!-- Its addresses and MACs, each to copy or search for. -->
                         <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasAddresses}">
                             <VerticalStackLayout>
@@ -273,32 +295,8 @@
                                 <BoxView HeightRequest="8" Color="Transparent" />
                             </VerticalStackLayout>
                         </Border>
-
-                        <!-- Routers that know it: their ARP entries. -->
-                        <Border Style="{StaticResource ListCard}">
-                            <VerticalStackLayout>
-                                <Label Style="{StaticResource CardHeading}" Text="Neighbour of" Margin="14,14,14,6" />
-                                <Label Style="{StaticResource Caption}" Text="{Binding NoNeighboursText}" IsVisible="{Binding HasNeighbours, Converter={StaticResource Invert}}" Margin="14,0,14,14" LineBreakMode="WordWrap" />
-                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Neighbours}">
-                                    <BindableLayout.ItemTemplate>
-                                        <DataTemplate x:DataType="search:ArpNeighbourViewModel">
-                                            <Grid ColumnDefinitions="*,Auto" Padding="14,11,6,11" MinimumHeightRequest="56">
-                                                <BoxView Grid.ColumnSpan="2" Style="{StaticResource RowLine}" VerticalOptions="Start" Margin="-14,-11,-6,0" />
-                                                <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
-                                                    <Label Style="{StaticResource RowTitle}" Text="{Binding DeviceName}" LineBreakMode="WordWrap" />
-                                                    <Label Style="{StaticResource Caption}" Text="{Binding PortName}" IsVisible="{Binding HasPortName}" />
-                                                    <Label Text="{Binding MacsText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
-                                                </VerticalStackLayout>
-                                                <Button Style="{StaticResource RowButton}" Margin="-14,-11,-6,-11" Command="{Binding OpenDeviceCommand}"
-                                                        SemanticProperties.Description="{Binding DeviceName, StringFormat='Open device {0}'}" />
-                                                <controls:IconButton Grid.Column="1" Kind="Plain" Icon="{x:Static controls:Icons.Graph}" Command="{Binding OpenPortCommand}" IsVisible="{Binding HasPortName}"
-                                                                     SemanticProperties.Description="{Binding PortName, StringFormat='Open graphs for {0}'}" />
-                                            </Grid>
-                                        </DataTemplate>
-                                    </BindableLayout.ItemTemplate>
-                                </VerticalStackLayout>
-                            </VerticalStackLayout>
-                        </Border>
+                        </VerticalStackLayout>
+                        </Grid>
                     </VerticalStackLayout>
                     </ContentView>
 
@@ -334,11 +332,9 @@
 
                     <!-- What was checked, so a result can be weighed. -->
                     <Label Style="{StaticResource Faint}" Text="{Binding CoverageText}" IsVisible="{Binding CoverageText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" Margin="4,0" />
-                    <controls:HelpButton x:Name="HelpLink" Text="Help with Network Search" />
 
                     <BoxView x:Name="Foot" HeightRequest="24" Color="Transparent" />
                 </VerticalStackLayout>
-                </controls:ReadableColumn>
             </ScrollView>
             </RefreshView>
             <BoxView x:Name="TopFade" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False">
