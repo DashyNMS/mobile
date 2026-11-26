@@ -66,7 +66,7 @@ public sealed class HelpArticleView : ContentView
             if (!_restoring && _scroller.Height > 0)
             {
                 // The reader scrolled: a restore still waiting would take them back.
-                if (Math.Abs(e.ScrollY - _readTo) > 1) _restoreGeneration++;
+                if (Math.Abs(e.ScrollY - _readTo) > 1) { _restoreGeneration++; _restorePending = false; }
                 _readTo = e.ScrollY;
             }
 
@@ -98,6 +98,7 @@ public sealed class HelpArticleView : ContentView
         if (place > 0 && shift != 0)
         {
             _restoreGeneration++;
+            _restorePending = false;
             Dispatcher.Dispatch(async () =>
             {
                 try { await _scroller.ScrollToAsync(0, Math.Max(0, place + shift), false); } catch (Exception) { }
@@ -150,8 +151,12 @@ public sealed class HelpArticleView : ContentView
                 catch (Exception) { }
                 finally
                 {
-                    _restoring = false;
-                    if (generation == _restoreGeneration) _restorePending = false;
+                    // A newer restore keeps its own flag.
+                    if (generation == _restoreGeneration)
+                    {
+                        _restoring = false;
+                        _restorePending = false;
+                    }
                 }
             });
         }
@@ -178,7 +183,7 @@ public sealed class HelpArticleView : ContentView
     private void OnShown(object? sender, HelpArticleShown shown)
     {
         _missing.IsVisible = ViewModel.IsMissing;
-        if (!shown.IsNewText) { _readTo = 0; _saved = 0; _restoreGeneration++; }
+        if (!shown.IsNewText) { _readTo = 0; _saved = 0; _restoreGeneration++; _restorePending = false; }
         if (!shown.IsNewText && _title.Text == shown.Page.Title && _blocks.Children.Count > 0)
         {
             ScrollTo(shown.Anchor, animated: !ReducedMotion.IsOn);
