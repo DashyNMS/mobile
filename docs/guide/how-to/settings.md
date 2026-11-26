@@ -14,7 +14,7 @@ To sign in to a different server, sign out first.
 
 - Choose the tabs in **More**. See [Find your way round](../getting-started.md#find-your-way-round).
 - **Appearance** follows the phone, or stays light or dark.
-- **Devices** chooses which name devices go by and how many recently viewed ones to keep.
+- **Devices** chooses which name devices go by, how many recently viewed ones to keep, and how [Network Search](network-search.md) writes MAC addresses.
 
 ## Alert checks and notifications
 

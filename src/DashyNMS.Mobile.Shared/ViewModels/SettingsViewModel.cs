@@ -210,6 +210,27 @@ public sealed partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>How Network Search writes MAC addresses (#129), desktop's own setting: "aa:bb:cc:dd:ee:ff" and so on.</summary>
+    public IReadOnlyList<string> MacFormats { get; } =
+        Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>().Select(f => DesktopNMS.Core.Search.MacAddresses.Format("00005e0053af", f)).ToList();
+
+    public int MacFormatIndex
+    {
+        get => Array.IndexOf(Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>(), _settings.Current.NetworkSearchMacFormatValue);
+        set
+        {
+            var formats = Enum.GetValues<DesktopNMS.Core.Search.MacAddressFormat>();
+            if (value < 0 || value >= formats.Length || formats[value] == _settings.Current.NetworkSearchMacFormatValue)
+            {
+                return;
+            }
+
+            _settings.Current.NetworkSearchMacFormat = formats[value].ToString();
+            _settings.Save();
+            OnPropertyChanged();
+        }
+    }
+
     /// <summary>The in-app check's choices: 30 seconds (the fastest the app allows) to 15 minutes.</summary>
     internal static readonly int[] PollIntervals = [30, 60, 120, 300, 600, 900];
 
