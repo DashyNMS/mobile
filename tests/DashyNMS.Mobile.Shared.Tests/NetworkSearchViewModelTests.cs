@@ -88,6 +88,42 @@ public sealed class NetworkSearchViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Device_only_matches_omit_missing_details_and_open_in_full()
+    {
+        await _search.SearchForAsync("core");
+
+        Assert.True(_search.IsList);
+        Assert.NotEmpty(_search.Rows);
+        Assert.All(_search.Rows, row =>
+        {
+            Assert.True(row.HasName);
+            Assert.False(row.HasMac);
+            Assert.False(row.HasNeighbour);
+            Assert.Equal($"{row.OpenName}. {row.NameText}", row.Description);
+        });
+
+        await _search.Rows[0].OpenCommand.ExecuteAsync(null);
+
+        Assert.True(_search.IsSingle);
+        Assert.True(_search.Endpoint!.IsMonitored);
+    }
+
+    [Fact]
+    public async Task List_rows_show_known_macs_and_router_names_and_sort_missing_macs_last()
+    {
+        await _search.SearchForAsync("192.0.2.0/24");
+
+        var row = _search.Rows.First(r => r.HasMac && r.HasNeighbour);
+        Assert.Contains(row.MacText, row.Description, StringComparison.Ordinal);
+        Assert.Contains(row.NeighbourText, row.Description, StringComparison.Ordinal);
+        Assert.Contains(_search.Rows, r => !r.HasMac);
+
+        _search.ChooseSortCommand.Execute(SearchSort.Mac);
+
+        Assert.Equal(_search.Rows.OrderByDescending(r => r.HasMac), _search.Rows);
+    }
+
+    [Fact]
     public async Task Nothing_found_says_whether_every_source_answered()
     {
         await _search.SearchForAsync("198.51.100.250");

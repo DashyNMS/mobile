@@ -28,6 +28,8 @@ Tap a switch, router or device to open it, or the graph button for a port's traf
 
 When several things match, or you search a network, they're listed. Tap a source chip, such as **ARP** or **MAC tables**, to hide or show what it found, and **Sort** to order them by address, name or MAC address. **+N more** shows the next page. Tap a row to see where it's connected.
 
+Rows show MAC addresses and router names when the search finds them.
+
 ## When something's missing
 
 The line at the foot of the results says which sources were checked. If a source couldn't be read, perhaps because your account isn't allowed to, the results say so: a missing answer then doesn't mean it isn't there.

@@ -462,7 +462,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         Rows = (Sort switch
         {
             SearchSort.Name => rows.OrderBy(r => r.HasName ? 0 : 1).ThenBy(r => r.NameText, NaturalOrder.Instance),
-            SearchSort.Mac => rows.OrderBy(r => r.MacText, StringComparer.OrdinalIgnoreCase),
+            SearchSort.Mac => rows.OrderByDescending(r => r.HasMac).ThenBy(r => r.MacText, StringComparer.OrdinalIgnoreCase),
             _ => rows.OrderBy(r => r.SortKey, StringComparer.Ordinal),
         }).ToList();
         OnPropertyChanged(nameof(Rows));
