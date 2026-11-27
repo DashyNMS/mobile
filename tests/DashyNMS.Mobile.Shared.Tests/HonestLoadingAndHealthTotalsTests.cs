@@ -61,7 +61,7 @@ public sealed class HonestLoadingAndHealthTotalsTests
     }
 
     [Fact]
-    public async Task Health_preserves_dBm_casing_hides_preload_counts_and_reconciles_sensors_without_limits()
+    public async Task Health_preserves_dBm_casing_hides_preload_counts_and_counts_unavailable_sensors()
     {
         var client = Fakes.Client(devices: [Fakes.Device(1, "core-sw")]);
         client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
@@ -82,7 +82,7 @@ public sealed class HonestLoadingAndHealthTotalsTests
         Assert.Equal("Critical 0", vm.CriticalChipText);
         Assert.Equal("Warning 0", vm.WarningChipText);
         Assert.Equal("OK 1", vm.OkChipText);
-        Assert.Equal("2 dBm sensors · 1 without limits", vm.CountText);
+        Assert.Equal("2 dBm sensors · 1 unavailable", vm.CountText);
         Assert.DoesNotContain("dbm", vm.CountText);
     }
 

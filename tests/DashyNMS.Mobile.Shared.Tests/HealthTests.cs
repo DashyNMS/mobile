@@ -141,7 +141,11 @@ public sealed class HealthViewModelTests
         [Inlet(30), new Sensor { DeviceId = 1, SensorClass = "temperature", Description = "Missing", Current = null }]);
         var vm = await Loaded("temperature");
         vm.ShowCritical = vm.ShowWarning = vm.ShowOk = false;
-        Assert.Equal("Unavailable", Assert.Single(vm.Sensors).HealthStatusText);
+        var missing = Assert.Single(vm.Sensors);
+        Assert.Equal("Unavailable", missing.HealthStatusText);
+        Assert.Equal("–", missing.Value);
+        Assert.False(missing.HasDetail);
+        Assert.Equal("1 of 2 temperature sensors · 1 unavailable", vm.CountText);
         Assert.Equal((0, 0, 1), (vm.CriticalCount, vm.WarningCount, vm.OkCount));
         Assert.Equal("OK 1, excluded", vm.OkFilterDescription);
         vm.ClearFiltersCommand.Execute(null);
@@ -162,8 +166,39 @@ public sealed class HealthViewModelTests
         settings.Changed += Raise.Event<EventHandler<DesktopNMS.Core.Configuration.AppSettings>>(settings, settings.Current);
         await vm.RefreshIfStaleAsync();
         Assert.Equal(3, vm.CriticalCount);
-        Assert.All(vm.Sensors, row => Assert.Contains("Critical", row.HealthDescription));
+        Assert.All(vm.Sensors, row =>
+        {
+            Assert.Contains("Critical", row.HealthDescription);
+            Assert.Equal("High critical at 25 °C", row.Detail);
+        });
         await _client.Sensors.Received(1).ListAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("temperature", 78, 5d, 10d, 75d, 85d, RowStatus.Warning, "High warning at 75 °C")]
+    [InlineData("temperature", 85, 5d, 10d, 75d, 85d, RowStatus.Critical, "High critical at 85 °C")]
+    [InlineData("temperature", 40, 5d, 10d, 75d, 85d, RowStatus.Ok, "Limits 10 to 75 °C")]
+    [InlineData("temperature", 66, null, null, null, 85d, RowStatus.Warning, "High warning at 60 °C")]
+    [InlineData("signal", -75, -80d, -72d, null, null, RowStatus.Warning, "Low warning at -72 dBm")]
+    [InlineData("fanspeed", 1000, 1000d, 1500d, null, null, RowStatus.Critical, "Low critical at 1000 RPM")]
+    [InlineData("dbm", -13, -14d, -12d, null, null, RowStatus.Warning, "Low warning at -12 dBm")]
+    [InlineData("dbm", -39, -14d, -12d, null, null, RowStatus.None, null)]
+    public async Task Health_shows_the_bound_that_applies_to_the_reading(string category, double current,
+        double? lowCritical, double? lowWarning, double? highWarning, double? highCritical,
+        RowStatus status, string? detail)
+    {
+        _client.Sensors.ListAsync(Arg.Any<CancellationToken>()).Returns(
+        [
+            new Sensor
+            {
+                DeviceId = 1, SensorClass = category, Current = current,
+                LimitLow = lowCritical, LimitLowWarn = lowWarning, LimitHighWarn = highWarning, LimitHigh = highCritical,
+            },
+        ]);
+        var vm = await Loaded(category);
+        var row = Assert.Single(vm.Sensors);
+        Assert.Equal(status, row.Status);
+        Assert.Equal(detail, row.Detail);
     }
 
     [Fact]
