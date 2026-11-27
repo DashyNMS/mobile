@@ -18,8 +18,7 @@ registries:
 updates:
   - package-ecosystem: github-actions
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     directory: /
     schedule:
       interval: weekly
@@ -30,8 +29,7 @@ updates:
 
   - package-ecosystem: nuget
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     directories:
       - /src/*
       - /tests/*
@@ -51,8 +49,7 @@ updates:
   # The real PDF comparison installs PyMuPDF separately from the .NET projects.
   - package-ecosystem: pip
     commit-message:
-      prefix: build
-      include: scope
+      prefix: build(deps)
     directory: /tests/ChatPdf
     schedule:
       interval: weekly
