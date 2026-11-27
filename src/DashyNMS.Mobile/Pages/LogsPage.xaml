@@ -18,8 +18,9 @@
             <Setter Property="MaximumWidthRequest" Value="{Binding Width, Source={x:Reference ListCard}}" />
         </Style>
     </ContentPage.Resources>
-    <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88). -->
-    <controls:ListDetail x:Name="Split" SafeAreaEdges="None" Placeholder="Choose an entry to see it here.">
+    <!-- On an iPad or a Mac, the entry you tap shows beside the list (#88).
+         The placeholder only shows while there is at least one entry to select (#718). -->
+    <controls:ListDetail x:Name="Split" SafeAreaEdges="None" ShowPlaceholder="{Binding HasEntries}" Placeholder="Choose an entry to see it here.">
 
     <!-- As the Logs mock-up (#118): Event log / Alert log, search, the filter
          chips, a summary, then the entries in one card - Graylog's layout. -->
@@ -97,6 +98,65 @@
             </HorizontalStackLayout>
         </ScrollView>
 
+        <!-- Labelled Filters action used whenever the chips would clip in a narrow pane (#718). -->
+        <Grid x:Name="CompactFilterContainer" Grid.Row="3" Margin="16,10,16,0" IsVisible="False" SafeAreaEdges="None">
+            <Border x:Name="CompactFilterBorder" StrokeShape="RoundRectangle 14" StrokeThickness="1"
+                    Padding="14,10" MinimumHeightRequest="44" InputTransparent="True"
+                    AutomationProperties.ExcludedWithChildren="True"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceLight}, Dark={StaticResource SurfaceDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource ChipStrokeDark}}">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding HasActiveFilters}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                        <Setter Property="Stroke" Value="{StaticResource PrimaryStroke}" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" InputTransparent="True" SafeAreaEdges="None">
+                    <Label Text="{Binding FilterButtonText}" FontFamily="BodySemibold" FontSize="14"
+                           LineBreakMode="WordWrap" VerticalOptions="Center" InputTransparent="True"
+                           TextColor="{AppThemeBinding Light={StaticResource TextLight}, Dark={StaticResource TextDark}}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding HasActiveFilters}" Value="True">
+                                <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                    <Path Grid.Column="1" Data="M6 9 12 15 18 9" StrokeThickness="2" StrokeLineCap="Round" StrokeLineJoin="Round"
+                          WidthRequest="16" HeightRequest="16" Aspect="Uniform" VerticalOptions="Center" InputTransparent="True"
+                          Stroke="{AppThemeBinding Light={StaticResource TextSecondaryLight}, Dark={StaticResource TextSecondaryDark}}">
+                        <Path.Triggers>
+                            <DataTrigger TargetType="Path" Binding="{Binding HasActiveFilters}" Value="True">
+                                <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
+                            </DataTrigger>
+                        </Path.Triggers>
+                    </Path>
+                </Grid>
+            </Border>
+            <Button x:Name="CompactFilterButton" BackgroundColor="Transparent" BorderWidth="0" CornerRadius="14"
+                    Text="" HorizontalOptions="Fill" VerticalOptions="Fill" MinimumHeightRequest="44"
+                    SemanticProperties.Description="{Binding FilterButtonDescription}"
+                    Clicked="OnOpenFiltersClicked">
+                <Button.Style><Style TargetType="Button" /></Button.Style>
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="CommonStates">
+                        <VisualState x:Name="Normal" />
+                        <VisualState x:Name="Disabled" />
+                        <VisualState x:Name="Pressed">
+                            <VisualState.Setters>
+                                <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="Focused">
+                            <VisualState.Setters>
+                                <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState x:Name="PointerOver" />
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+            </Button>
+        </Grid>
+
         <!-- Its height kept while the summary is still blank, so the chips never touch the list (#143). -->
         <Grid x:Name="Summary" Grid.Row="4" ColumnDefinitions="*,Auto" Margin="20,6,16,4" MinimumHeightRequest="30">
             <VerticalStackLayout VerticalOptions="Center">
@@ -105,15 +165,19 @@
                 <Label Style="{StaticResource Faint}" Text="{Binding RefreshProblem}" IsVisible="{Binding HasRefreshProblem}" />
             </VerticalStackLayout>
             <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Clear filters"
-                    Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}"
+                    Command="{Binding ClearFiltersCommand}" IsVisible="{Binding ShowSummaryClearFilters}"
                     MinimumHeightRequest="44" />
         </Grid>
 
         <!-- LibreNMS's reason when a load fails, in a card of its own. -->
         <Border x:Name="ErrorCard" Grid.Row="5" Style="{StaticResource Card}" Padding="14,12" Margin="16,0,16,8" IsVisible="{Binding HasError}"
                 BackgroundColor="{StaticResource CriticalTint}" Stroke="{StaticResource CriticalStroke}">
-            <Label Text="{Binding ErrorMessage}" FontSize="13"
-                   TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Text="{Binding ErrorMessage}" FontSize="13" VerticalOptions="Center"
+                       TextColor="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
+                <Button Grid.Column="1" Style="{StaticResource LinkButton}" Text="Retry"
+                        Command="{Binding RefreshCommand}" MinimumHeightRequest="44" VerticalOptions="Center" />
+            </Grid>
         </Border>
 
         <!-- Loading the first time, or after a pull: the busy card over the list (#111). -->
@@ -125,13 +189,13 @@
                 <CollectionView controls:KeyboardDismiss.OnScroll="False" Margin="0,-1,0,0" ItemsSource="{Binding Entries}" SelectionMode="None" x:Name="List">
                     <CollectionView.Header><BoxView HeightRequest="20" Color="Transparent" InputTransparent="True" /></CollectionView.Header>
                     <CollectionView.EmptyView>
-                        <VerticalStackLayout Spacing="8" Padding="20,40,20,32" IsVisible="{Binding IsEmpty}">
-                            <Label Text="{Binding EmptyTitle}" FontFamily="BodySemibold" HorizontalTextAlignment="Center" />
-                            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" HorizontalTextAlignment="Center" />
-                            <VerticalStackLayout Spacing="8" HorizontalOptions="Fill" Margin="0,4,0,0">
+                        <VerticalStackLayout Spacing="8" Padding="18,32,18,32" IsVisible="{Binding IsEmpty}">
+                            <Label Style="{StaticResource CardTitle}" Text="{Binding EmptyTitle}" />
+                            <Label Style="{StaticResource Caption}" Text="{Binding EmptyText}" />
+                            <VerticalStackLayout Spacing="8" HorizontalOptions="Fill" Margin="0,6,0,0">
                                 <Button Style="{StaticResource SecondaryButton}" Text="Look further back"
                                         Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}" />
-                                <Button Style="{StaticResource LinkButton}" Text="Clear filters"
+                                <Button Style="{StaticResource SecondaryButton}" Text="Clear filters"
                                         Command="{Binding ClearFiltersCommand}" IsVisible="{Binding HasActiveFilters}" />
                             </VerticalStackLayout>
                         </VerticalStackLayout>
@@ -201,6 +265,16 @@
             </Grid>
         </Border>
         <controls:FootFade x:Name="BottomFade" Grid.Row="6" />
+
+        <BoxView x:Name="Dim" Grid.Row="1" Grid.RowSpan="6" ZIndex="2" IsVisible="False" Opacity="0"
+                 SemanticProperties.Description="Close filters"
+                 Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnDimTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <controls:LogFilterSheet x:Name="FilterSheet" Grid.Row="6" ZIndex="3" VerticalOptions="End" Margin="16,6,16,12" />
 
     </Grid>
 

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using DashyNMS.Mobile.Controls;
 using DashyNMS.Mobile.Logs;
 using DashyNMS.Mobile.Services;
@@ -13,15 +14,28 @@ namespace DashyNMS.Mobile.Pages;
 /// </summary>
 public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, ISearchHost, IActivePage
 {
+	private const uint SheetMotion = 220;
+	private const double DimmedTo = 0.55;
+
 	private readonly LogsViewModel _viewModel;
 	private readonly TabAlignedListLayout _listLayout;
 	private readonly ButtonSearch _search;
 	private bool _active;
+	private bool _isFilterSheetOpen;
+	private Thickness _lastGutters = new(16, 0, 16, 0);
+#if IOS
+	private Foundation.NSObject? _contentSizeObserver;
+#endif
 
 	public LogsPage(LogsViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
+		FilterSheet.Attach(_viewModel);
+		FilterSheet.CloseRequested += (_, _) => SetFilterSheetOpen(false);
+		_viewModel.PropertyChanged += OnViewModelPropertyChanged;
+		_viewModel.AutoRefresh.PropertyChanged += OnAutoRefreshPropertyChanged;
+
 		_listLayout = new TabAlignedListLayout(this, Split, ListColumn, ListCard, List, ListFoot, clear =>
 		{
 			if (Split.Detail is LogEntryView detail) detail.PlaceContent(clear);
@@ -30,10 +44,27 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_search = new ButtonSearch(SearchSlot, SearchField, Search, List);
 		SearchSlot.SizeChanged += (_, _) => _listLayout.Place();
 		FilterStrip.SizeChanged += (_, _) => _listLayout.Place();
+		CompactFilterContainer.SizeChanged += (_, _) => _listLayout.Place();
+		ListColumn.SizeChanged += (_, _) =>
+		{
+			var viewportHeight = ListColumn.Height > 0 ? ListColumn.Height : Height;
+			FilterSheet.UpdateMaxHeight(viewportHeight);
+			ApplyFilterMode(_lastGutters);
+		};
 		SearchButton.Command = new Command(OpenSearch);
 #if IOS
 		Header.BackInGlass = TabBarButtons.IsAvailable;
 		SearchButton.IsVisible = !TabBarButtons.IsAvailable;
+		Loaded += (_, _) =>
+		{
+			_contentSizeObserver ??= UIKit.UIApplication.Notifications.ObserveContentSizeCategoryChanged((_, _) =>
+				Dispatcher.Dispatch(() => ApplyFilterMode(_lastGutters)));
+		};
+		Unloaded += (_, _) =>
+		{
+			_contentSizeObserver?.Dispose();
+			_contentSizeObserver = null;
+		};
 #endif
 	}
 
@@ -73,6 +104,11 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 	{
 		base.OnAppearing();
 		Activate();
+		FilterSheet.Refresh();
+		FilterSheet.IsVisible = _isFilterSheetOpen;
+		Dim.IsVisible = _isFilterSheetOpen;
+		Dim.Opacity = _isFilterSheetOpen ? DimmedTo : 0;
+		ApplyFilterMode(_lastGutters);
 		_ = _viewModel.EnsureLoadedAsync();
 	}
 
@@ -102,6 +138,10 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_active = false;
 		base.OnDisappearing();
 		CloseSearch();
+		if (_isFilterSheetOpen)
+		{
+			SetFilterSheetOpen(false);
+		}
 #if IOS
 		TabBarButtons.Moved -= OnGlassMoved;
 		TabBarButtons.Hide(this);
@@ -109,28 +149,255 @@ public partial class LogsPage : ContentPage, IQueryAttributable, IDetailHost, IS
 		_viewModel.AutoRefresh.SetShowing(false);
 	}
 
-	public void OpenSearch() { if (_active) _search.Open(); }
+	public void OpenSearch()
+	{
+		if (!_active)
+		{
+			return;
+		}
+
+		if (_isFilterSheetOpen)
+		{
+			SetFilterSheetOpen(false);
+		}
+
+		_search.Open();
+	}
+
 	private void CloseSearch() => _search.Close();
 	private void OnSearchCompleted(object? sender, EventArgs e) => CloseSearch();
+	private void OnOpenFiltersClicked(object? sender, EventArgs e) => SetFilterSheetOpen(true);
+	private void OnDimTapped(object? sender, TappedEventArgs e) => SetFilterSheetOpen(false);
 
-    /// <summary>Keeps the filter clip under the camera while resting controls own safe gutters.</summary>
-    private void PlaceGutters(Thickness gutters)
-    {
-        var left = gutters.Left;
-        var right = gutters.Right;
-        Header.Margin = new Thickness(left, 0, right, 0);
-        LogSwitch.Margin = new Thickness(left, 0, right, 0);
-        SearchField.Margin = new Thickness(left, 4, right, 8);
+	private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is nameof(LogsViewModel.ShowingEventLog) || (e.PropertyName is nameof(LogsViewModel.HasEntries) && !_viewModel.HasEntries))
+		{
+			Split.Detail = null;
+		}
+
+		if (e.PropertyName is nameof(LogsViewModel.CanClearDevice) or nameof(LogsViewModel.DeviceChipText))
+		{
+			ApplyFilterMode(_lastGutters);
+		}
+	}
+
+	private void OnAutoRefreshPropertyChanged(object? sender, PropertyChangedEventArgs e)
+	{
+		if (e.PropertyName is nameof(AutoRefresh.IsOn) or null or "")
+		{
+			ApplyFilterMode(_lastGutters);
+		}
+	}
+
+	/// <summary>Keeps the filter clip under the camera while resting controls own safe gutters.</summary>
+	private void PlaceGutters(Thickness gutters)
+	{
+		_lastGutters = gutters;
+		var left = gutters.Left;
+		var right = gutters.Right;
+		Header.Margin = new Thickness(left, 0, right, 0);
+		LogSwitch.Margin = new Thickness(left, 0, right, 0);
+		SearchField.Margin = new Thickness(left, 4, right, 8);
+		CompactFilterContainer.Margin = new Thickness(left, 10, right, 0);
 #if IOS
-        ChipStripPlacement.Apply(this, FilterStrip, ListColumn, topMargin: 10);
+		ChipStripPlacement.Apply(this, FilterStrip, ListColumn, topMargin: 10);
 #else
-        FilterStrip.Padding = new Thickness(left, 0, right, 0);
+		FilterStrip.Padding = new Thickness(left, 0, right, 0);
 #endif
-        Summary.Margin = new Thickness(left + 4, 6, right, 4);
-        ErrorCard.Margin = new Thickness(left, 0, right, 8);
-        Busy.Margin = new Thickness(left, 0, right, 0);
-        ListCard.Margin = new Thickness(left, 0, right, ListCard.Margin.Bottom);
-    }
+		Summary.Margin = new Thickness(left + 4, 6, right, 4);
+		ErrorCard.Margin = new Thickness(left, 0, right, 8);
+		Busy.Margin = new Thickness(left, 0, right, 0);
+		ListCard.Margin = new Thickness(left, 0, right, ListCard.Margin.Bottom);
+
+		var cardBottom = ComputeSheetBottom();
+		FilterSheet.Margin = new Thickness(left, 6, right, cardBottom);
+		var viewportHeight = ListColumn.Height > 0 ? ListColumn.Height : Height;
+		FilterSheet.UpdateMaxHeight(viewportHeight);
+		ApplyFilterMode(gutters);
+	}
+
+	private void ApplyFilterMode(Thickness gutters)
+	{
+		var columnWidth = ListColumn.Width > 0 ? ListColumn.Width : Width;
+		var availableWidth = Math.Max(0, columnWidth - gutters.Left - gutters.Right);
+		var mode = LogFilterLayout.Resolve(
+			availableWidth,
+			StatusFilterBar.CurrentFontScale(),
+			_viewModel.CanClearDevice,
+			_viewModel.AutoRefresh.IsOn,
+			_viewModel.DeviceChipText);
+
+		var compact = mode == LogFilterMode.CompactButton;
+		if (CompactFilterContainer.IsVisible != compact)
+		{
+			CompactFilterContainer.IsVisible = compact;
+		}
+
+		if (FilterStrip.IsVisible == compact)
+		{
+			FilterStrip.IsVisible = !compact;
+		}
+
+		if (!compact && _isFilterSheetOpen)
+		{
+			SetFilterSheetOpen(false);
+		}
+	}
+
+	private double ComputeSheetBottom()
+	{
+#if IOS
+		var edges = CoveredEdges.Of(this);
+		var covered = edges.Bottom + TabBarButtons.CoveredBottom;
+		if (Handler?.PlatformView is UIKit.UIView page && TabBarButtons.PillIn(page) is { } pill)
+		{
+			var sideBar = pill.Height > pill.Width;
+			if (sideBar)
+			{
+				return Math.Max(12, page.Bounds.Height - pill.Bottom);
+			}
+
+			var glass = TabBarButtons.Occupied(page)
+				.Select(r => new OccupiedArea(r.Left, r.Top, r.Right, r.Bottom)).ToArray();
+			return SetupActionPlacement.BottomGap(page.Bounds.Height, edges.Bottom,
+				new OccupiedArea(pill.Left, pill.Top, pill.Right, pill.Bottom), glass);
+		}
+
+		return 12 + covered;
+#else
+		return 12;
+#endif
+	}
+
+	private void SetFilterSheetOpen(bool open)
+	{
+		if (_isFilterSheetOpen == open)
+		{
+			return;
+		}
+
+		_isFilterSheetOpen = open;
+		if (open)
+		{
+			CloseSearch();
+			FilterSheet.Refresh();
+			FilterSheet.Margin = new Thickness(_lastGutters.Left, 6, _lastGutters.Right, ComputeSheetBottom());
+			var viewportHeight = ListColumn.Height > 0 ? ListColumn.Height : Height;
+			FilterSheet.UpdateMaxHeight(viewportHeight);
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			SlideSheet(FilterSheet, _isFilterSheetOpen);
+			FadeDim(_isFilterSheetOpen);
+		});
+	}
+
+	private static void SlideSheet(View sheet, bool show)
+	{
+		const string name = "LogFilterSheetSlide";
+		sheet.AbortAnimation(name);
+		var height = sheet.Height > 0 ? sheet.Height : 280;
+		var offscreen = height + sheet.Margin.Bottom + 8;
+
+		if (show)
+		{
+			if (!sheet.IsVisible)
+			{
+				sheet.TranslationY = offscreen;
+				sheet.Opacity = 0;
+				sheet.IsVisible = true;
+			}
+
+			if (ReducedMotion.IsOn)
+			{
+				sheet.TranslationY = 0;
+				sheet.Opacity = 1;
+				return;
+			}
+
+			var startY = sheet.TranslationY;
+			var startOpacity = sheet.Opacity;
+			sheet.Animate(
+				name,
+				v =>
+				{
+					sheet.TranslationY = startY * (1 - v);
+					sheet.Opacity = startOpacity + ((1 - startOpacity) * v);
+				},
+				length: SheetMotion,
+				easing: Easing.CubicOut);
+			return;
+		}
+
+		if (!sheet.IsVisible)
+		{
+			return;
+		}
+
+		if (ReducedMotion.IsOn)
+		{
+			sheet.IsVisible = false;
+			sheet.TranslationY = 0;
+			sheet.Opacity = 1;
+			return;
+		}
+
+		var fromY = sheet.TranslationY;
+		var fromOpacity = sheet.Opacity;
+		sheet.Animate(
+			name,
+			v =>
+			{
+				sheet.TranslationY = fromY + ((offscreen - fromY) * v);
+				sheet.Opacity = fromOpacity * (1 - v);
+			},
+			length: SheetMotion,
+			easing: Easing.CubicIn,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled)
+				{
+					sheet.IsVisible = false;
+					sheet.TranslationY = 0;
+					sheet.Opacity = 1;
+				}
+			});
+	}
+
+	private void FadeDim(bool dim)
+	{
+		const string name = "LogFilterDim";
+		Dim.AbortAnimation(name);
+		var from = Dim.IsVisible ? Dim.Opacity : 0;
+		var to = dim ? DimmedTo : 0;
+		if (dim)
+		{
+			Dim.Opacity = from;
+			Dim.IsVisible = true;
+		}
+
+		if (ReducedMotion.IsOn || Math.Abs(from - to) < 0.001)
+		{
+			Dim.Opacity = to;
+			Dim.IsVisible = dim;
+			return;
+		}
+
+		Dim.Animate(
+			name,
+			v => Dim.Opacity = from + ((to - from) * v),
+			length: SheetMotion,
+			easing: Easing.CubicInOut,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled && !dim)
+				{
+					Dim.IsVisible = false;
+				}
+			});
+	}
 
 #if IOS
 	private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceFooter);

@@ -81,30 +81,30 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
     private bool _suppressLoad;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowingAlertLog), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(ShowingAlertLog), nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private bool _showingEventLog = true;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private string _searchText = string.Empty;
 
     /// <summary>The Type chip (#125): one type, as LibreNMS wrote it, or null for every type.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(TypeChipText), nameof(IsTypeSet), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(TypeChipText), nameof(IsTypeSet), nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private string? _eventType;
 
     /// <summary>The alert log's State chip, or null for every state.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StateChipText), nameof(IsStateSet), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(StateChipText), nameof(IsStateSet), nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private AlertState? _stateFilter;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RangeChipText), nameof(IsRangeSet), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(RangeChipText), nameof(IsRangeSet), nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private int _rangeIndex;
 
     /// <summary>The Device chip: whose entries, or null for every device's.</summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(DeviceChipText), nameof(HasDeviceFilter), nameof(CanClearDevice), nameof(ShowsDevice), nameof(HasActiveFilters))]
+    [NotifyPropertyChangedFor(nameof(DeviceChipText), nameof(HasDeviceFilter), nameof(CanClearDevice), nameof(ShowsDevice), nameof(HasActiveFilters), nameof(ShowSummaryClearFilters), nameof(FilterSummaryText), nameof(FilterButtonText), nameof(FilterButtonDescription))]
     private GraylogDeviceFilter? _device;
 
     public LogsViewModel(
@@ -124,6 +124,15 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         _chips = new ChipMemory(preferences, "logs");
         _eventType = _chips.GetChoice(TypeChip);
         AutoRefresh = new AutoRefresh(AutoRefreshAsync, preferences, "logs", time, activity);
+        AutoRefresh.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is nameof(AutoRefresh.IsOn) or null or "")
+            {
+                OnPropertyChanged(nameof(FilterSummaryText));
+                OnPropertyChanged(nameof(FilterButtonText));
+                OnPropertyChanged(nameof(FilterButtonDescription));
+            }
+        };
     }
 
     /// <summary>The Auto-refresh switch and interval (#214), shared by the Event and Alert logs as on desktop.</summary>
@@ -188,6 +197,21 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         IsRangeSet || CanClearDevice || !string.IsNullOrWhiteSpace(SearchText)
         || (ShowingEventLog ? IsTypeSet : IsStateSet);
 
+    /// <summary>Current time range and active filter summary kept visible on the compact Filters button (#718).</summary>
+    public string FilterSummaryText => LogFilterLayout.Summarize(
+        RangeChipText,
+        Device?.Name,
+        IsDeviceFixed,
+        ShowingEventLog ? EventType : StateFilter?.ToDisplayString(),
+        SearchText,
+        AutoRefresh.IsOn);
+
+    /// <summary>Visible label for the compact Filters button (e.g. "Filters · Any time").</summary>
+    public string FilterButtonText => LogFilterLayout.ButtonLabel(FilterSummaryText);
+
+    /// <summary>Spoken accessible description for the compact Filters button.</summary>
+    public string FilterButtonDescription => LogFilterLayout.ButtonDescription(FilterSummaryText);
+
     // ------------------------------------------------------------------- list
 
     private bool Loaded => ShowingEventLog ? _eventsLoaded : _alertsLoaded;
@@ -198,7 +222,13 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         ? !_eventsExhausted && _eventsFetched < MaxEntries
         : !_alertsExhausted && _alertLimit < MaxEntries);
 
+    /// <summary>True when at least one row is visible to select (gates the split-view detail placeholder).</summary>
+    public bool HasEntries => Entries.Count > 0;
+
     public bool IsEmpty => Loaded && !IsBusy && !HasError && Entries.Count == 0;
+
+    /// <summary>Shows Clear filters in the summary row only when rows are visible; empty states carry their own action.</summary>
+    public bool ShowSummaryClearFilters => HasActiveFilters && !IsEmpty;
 
     /// <summary>Narrowed by anything but the device - the server does that.</summary>
     private bool IsNarrowed => IsRangeSet || !string.IsNullOrWhiteSpace(SearchText) || (ShowingEventLog ? IsTypeSet : IsStateSet);
@@ -221,16 +251,49 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         }
     }
 
-    public string EmptyTitle => ShowingEventLog ? "No events" : "No alerts logged";
+    public string EmptyTitle
+    {
+        get
+        {
+            if (CanClearDevice && LoadedCount == 0)
+            {
+                return ShowingEventLog ? "No matching events" : "No matching alerts";
+            }
 
-    /// <summary>What was looked through: "No reboot events from core-sw-01 in the last 250."</summary>
+            if (IsNarrowed && LoadedCount > 0)
+            {
+                return ShowingEventLog ? "No matching events" : "No matching alerts";
+            }
+
+            return ShowingEventLog ? "No events logged" : "No alerts logged";
+        }
+    }
+
+    /// <summary>
+    /// Explains why the list is empty without repeating the heading:
+    /// distinguishes an empty history from a restrictive device, type, state, search or time filter (#718).
+    /// </summary>
     public string EmptyText
     {
         get
         {
+            if (CanClearDevice && LoadedCount == 0)
+            {
+                return ShowingEventLog
+                    ? $"No events recorded for {Device!.Name}. Clear the filters to see all devices."
+                    : $"No alerts recorded for {Device!.Name}. Clear the filters to see all devices.";
+            }
+
             if (!IsNarrowed || LoadedCount == 0)
             {
-                return IsDeviceFixed || HasDeviceFilter ? $"Nothing logged for {Device!.Name}." : "Nothing logged.";
+                if (IsDeviceFixed)
+                {
+                    return $"No events have been recorded for {Device!.Name} yet.";
+                }
+
+                return ShowingEventLog
+                    ? "Entries appear here when LibreNMS records a network event."
+                    : "Entries appear here when LibreNMS records an alert event.";
             }
 
             var where = string.Create(CultureInfo.CurrentCulture, $"No {Noun(0)}{FromDevice} in the last {LoadedCount:N0}{RangeSuffix}.");
@@ -321,6 +384,10 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         OnPropertyChanged(nameof(IsDeviceFixed));
         OnPropertyChanged(nameof(CanClearDevice));
         OnPropertyChanged(nameof(HasActiveFilters));
+        OnPropertyChanged(nameof(ShowSummaryClearFilters));
+        OnPropertyChanged(nameof(FilterSummaryText));
+        OnPropertyChanged(nameof(FilterButtonText));
+        OnPropertyChanged(nameof(FilterButtonDescription));
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(ShowsLogSwitch));
     }
@@ -605,6 +672,9 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         _eventLimit = _alertLimit = PageSize;
         _eventsFetched = 0;
         Entries.ReplaceAll([]);
+        OnPropertyChanged(nameof(HasEntries));
+        OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowSummaryClearFilters));
     }
 
     /// <summary>
@@ -723,7 +793,9 @@ public sealed partial class LogsViewModel : ViewModelBase, IRefreshable, IDevice
         }
 
         OnPropertyChanged(nameof(CanLoadMore));
+        OnPropertyChanged(nameof(HasEntries));
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(ShowSummaryClearFilters));
         OnPropertyChanged(nameof(SummaryText));
         OnPropertyChanged(nameof(EmptyTitle));
         OnPropertyChanged(nameof(EmptyText));

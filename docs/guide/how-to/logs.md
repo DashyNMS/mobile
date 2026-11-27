@@ -4,7 +4,8 @@
 
 1. Open **More → Event and alert logs**, or **See all** on an **Event log** card.
 2. Switch between **Event log** and **Alert log**.
-3. Search what's loaded, and choose **Load more** or **Look further back** for older entries.
+3. Narrow by device, type or state, time range and **Auto-refresh** using the filter chips or the **Filters** control on narrower panes. Choose **Clear filters** to return to all entries.
+4. Search what's loaded, and choose **Load more** or **Look further back** for older entries.
 
 Entries sit under a heading for each day. Tap one to read it in full and open its device. A device's own event log is on the device's page.
 

@@ -391,4 +391,130 @@ public sealed class LogsViewModelTests
         await picker.ChooseCommand.ExecuteAsync(picker.Groups[0][0]);
         Assert.Equal("core-sw", vm.DeviceChipText);
     }
+
+    [Fact]
+    public async Task Empty_states_distinguish_empty_history_from_filters_and_errors()
+    {
+        Returns([]);
+        Logs.ListAlertLogAsync(null, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([]);
+        var vm = NewViewModel();
+
+        // Empty event log history
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.IsEmpty);
+        Assert.False(vm.HasEntries);
+        Assert.False(vm.HasActiveFilters);
+        Assert.False(vm.ShowSummaryClearFilters);
+        Assert.Equal("No events logged", vm.EmptyTitle);
+        Assert.Equal("Entries appear here when LibreNMS records a network event.", vm.EmptyText);
+
+        // Empty alert log history
+        vm.ShowAlertLogCommand.Execute(null);
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.IsEmpty);
+        Assert.False(vm.HasEntries);
+        Assert.Equal("No alerts logged", vm.EmptyTitle);
+        Assert.Equal("Entries appear here when LibreNMS records an alert event.", vm.EmptyText);
+
+        // Restrictive device filter returning 0 alerts
+        Logs.ListAlertLogAsync(1, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns([]);
+        vm.ShowDevice(GraylogDeviceFilter.ForDevice(1, "core-sw"));
+        await vm.EnsureLoadedAsync();
+        Assert.True(vm.IsEmpty);
+        Assert.True(vm.HasActiveFilters);
+        Assert.False(vm.ShowSummaryClearFilters);
+        Assert.Equal("No matching alerts", vm.EmptyTitle);
+        Assert.Equal("No alerts recorded for core-sw. Clear the filters to see all devices.", vm.EmptyText);
+
+        // Filtered-empty on populated event log, then Clear filters restores entries
+        vm.ClearFiltersCommand.Execute(null);
+        Returns(Events(3));
+        vm.ShowEventLogCommand.Execute(null);
+        await vm.RefreshCommand.ExecuteAsync(null);
+        Assert.True(vm.HasEntries);
+        Assert.False(vm.IsEmpty);
+
+        vm.SearchText = "no-such-match";
+        Assert.True(vm.IsEmpty);
+        Assert.False(vm.HasEntries);
+        Assert.True(vm.HasActiveFilters);
+        Assert.False(vm.ShowSummaryClearFilters);
+        Assert.Equal("No matching events", vm.EmptyTitle);
+        Assert.Equal("No events in the last 3. Clear the filters to see the rest.", vm.EmptyText);
+
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.False(vm.IsEmpty);
+        Assert.True(vm.HasEntries);
+        Assert.False(vm.HasActiveFilters);
+        Assert.Equal(3, vm.Entries.Count);
+
+        // Unavailable source (error) keeps IsEmpty false so the error card owns the explanation
+        Logs.ListEventLogAsync(Arg.Any<int?>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns<IReadOnlyList<EventLogEntry>>(_ => throw new HttpRequestException("Server unreachable"));
+        var failingVm = NewViewModel();
+        await failingVm.EnsureLoadedAsync();
+        Assert.True(failingVm.HasError);
+        Assert.False(failingVm.IsEmpty);
+        Assert.False(failingVm.HasEntries);
+    }
+
+    [Fact]
+    public async Task Fixed_device_empty_event_log_names_the_device()
+    {
+        Returns([]);
+        var vm = NewViewModel();
+        vm.Initialise(1, "core-sw");
+        await vm.EnsureLoadedAsync();
+
+        Assert.True(vm.IsEmpty);
+        Assert.Equal("No events logged", vm.EmptyTitle);
+        Assert.Equal("No events have been recorded for core-sw yet.", vm.EmptyText);
+    }
+
+    [Theory]
+    [InlineData(308, 1.0, false, false, null, LogFilterMode.CompactButton)] // iPad / Duo split list pane
+    [InlineData(368, 1.0, false, false, null, LogFilterMode.CompactButton)] // iPad landscape split / iPhone portrait
+    [InlineData(579, 1.0, false, false, null, LogFilterMode.CompactButton)] // just below threshold
+    [InlineData(580, 1.0, false, false, null, LogFilterMode.Chips)]         // fits 4 default chips
+    [InlineData(637, 1.0, false, false, null, LogFilterMode.Chips)]         // Duo inner portrait
+    [InlineData(637, 1.0, true, false, null, LogFilterMode.CompactButton)]  // Clear device chip needs more room
+    [InlineData(637, 1.0, false, true, null, LogFilterMode.CompactButton)]  // Auto-refresh interval chip needs more room
+    [InlineData(710, 1.0, true, false, "dc1-edge-firewall-primary.example.net", LogFilterMode.CompactButton)] // long device name pushes time range offscreen
+    [InlineData(800, 1.5, false, false, null, LogFilterMode.CompactButton)] // AX Dynamic Type always uses compact button
+    public void Log_filter_layout_resolves_mode_from_pane_width_and_text_scale(
+        double width,
+        double scale,
+        bool hasClearDevice,
+        bool autoRefreshOn,
+        string? deviceLabel,
+        LogFilterMode expected)
+    {
+        Assert.Equal(expected, LogFilterLayout.Resolve(width, scale, hasClearDevice, autoRefreshOn, deviceLabel));
+    }
+
+    [Fact]
+    public async Task Compact_filter_button_keeps_time_range_and_active_filters_visible()
+    {
+        Returns(Events(2));
+        var vm = NewViewModel();
+        await vm.EnsureLoadedAsync();
+
+        Assert.Equal("Filters · Any time", vm.FilterButtonText);
+        Assert.Equal("Filters, Any time", vm.FilterButtonDescription);
+
+        vm.RangeIndex = 2; // Last 24 hours
+        Assert.Equal("Filters · Last 24 hours", vm.FilterButtonText);
+
+        vm.EventType = "interface";
+        Assert.Equal("Filters · Last 24 hours · interface", vm.FilterButtonText);
+
+        vm.SearchText = "Event 1";
+        Assert.Equal("Filters · Last 24 hours · interface · “Event 1”", vm.FilterButtonText);
+
+        vm.ToggleAutoRefreshCommand.Execute(null);
+        Assert.Equal("Filters · Last 24 hours · interface · “Event 1” · Auto-refresh", vm.FilterButtonText);
+
+        vm.ClearFiltersCommand.Execute(null);
+        Assert.Equal("Filters · Any time · Auto-refresh", vm.FilterButtonText);
+    }
 }
