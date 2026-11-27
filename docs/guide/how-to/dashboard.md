@@ -27,7 +27,7 @@ You can have several **Sensors**, **Graph**, **Top interfaces**, **Top errors**,
 
 ## Change the order
 
-Drag a card in **Edit dashboard**, or open **More** (⋯) on it and choose **Move earlier** or **Move later**. Changes save automatically. On a wide screen the cards fill two or three columns and read across, then down.
+Drag a card in **Edit dashboard**, or open **More** (⋯) on it and choose **Move earlier** or **Move later**. Changes save automatically. On a wide screen the cards fill two or three columns and read across, then down. When three columns fit on iOS and **Alerts**, **Devices** and **Needs attention** lead the dashboard, **Needs attention** spans two rows so the next two cards sit directly beneath the summaries without changing your saved order.
 
 **Remove** is in the same menu. **Undo** appears for a few seconds after you remove a card.
 

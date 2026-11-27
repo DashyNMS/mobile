@@ -1328,3 +1328,189 @@ public sealed class DashboardColumnsTests
     public void Editor_and_dashboard_share_column_breakpoints(double width, int expected) =>
         Assert.Equal(expected, DashboardColumns.Count(width));
 }
+
+public sealed class DashboardGridLayoutTests
+{
+    private static readonly string[] DemoCards =
+    [
+        DashboardLayout.AlertsGauge,
+        DashboardLayout.DeviceStatus,
+        DashboardLayout.Alerts,
+        DashboardLayout.Sensors,
+        DashboardLayout.Graph,
+        DashboardLayout.PinnedDevices,
+        DashboardLayout.TopInterfaces,
+        DashboardLayout.EventLog,
+    ];
+
+    private static readonly string[] StarterCards =
+    [
+        DashboardLayout.AlertsGauge,
+        DashboardLayout.DeviceStatus,
+        DashboardLayout.Alerts,
+        DashboardLayout.TopInterfaces,
+        DashboardLayout.RecentlyViewed,
+    ];
+
+    [Fact]
+    public void Wide_three_column_demo_dashboard_spans_needs_attention_and_pulls_telemetry_under_summaries()
+    {
+        double[] heights = [180, 160, 440, 260, 240, 220, 210, 250];
+
+        var layout = DashboardGridLayout.Arrange(
+            availableWidth: 1148,
+            cardTypes: DemoCards,
+            naturalHeights: heights,
+            allowLeadingTriageSpan: true);
+
+        Assert.Equal(3, layout.Columns);
+        Assert.True(layout.SpansLeadingTriage);
+
+        // Row 0: Alerts and Devices stay aligned at the taller summary height (180), not stretched to 440.
+        Assert.Equal(0, layout.Frames[0].Y);
+        Assert.Equal(0, layout.Frames[1].Y);
+        Assert.Equal(180, layout.Frames[0].Height);
+        Assert.Equal(180, layout.Frames[1].Height);
+
+        // Row 1: Sensors and Graph sit directly beneath Alerts and Devices at y = 180 + 12 = 192.
+        Assert.Equal(192, layout.Frames[3].Y);
+        Assert.Equal(192, layout.Frames[4].Y);
+        Assert.Equal(layout.Frames[0].X, layout.Frames[3].X);
+        Assert.Equal(layout.Frames[1].X, layout.Frames[4].X);
+        Assert.Equal(260, layout.Frames[3].Height);
+        Assert.Equal(260, layout.Frames[4].Height);
+
+        // Needs attention spans Row 0 + gap + Row 1 = 180 + 12 + 260 = 452 in column 2.
+        Assert.Equal(0, layout.Frames[2].Y);
+        Assert.Equal(452, layout.Frames[2].Height);
+        Assert.True(layout.Frames[2].X > layout.Frames[1].X);
+
+        // Row 2: Pinned, Top interfaces and Event log flow across all three columns below y = 452 + 12 = 464.
+        Assert.Equal(464, layout.Frames[5].Y);
+        Assert.Equal(464, layout.Frames[6].Y);
+        Assert.Equal(464, layout.Frames[7].Y);
+        Assert.Equal(layout.Frames[0].X, layout.Frames[5].X);
+        Assert.Equal(layout.Frames[1].X, layout.Frames[6].X);
+        Assert.Equal(layout.Frames[2].X, layout.Frames[7].X);
+        Assert.Equal(250, layout.Frames[5].Height);
+        Assert.Equal(464 + 250, layout.TotalHeight);
+    }
+
+    [Fact]
+    public void Tall_needs_attention_expands_second_row_without_stretching_summary_row_or_clipping()
+    {
+        double[] heights = [180, 160, 560, 220, 200, 210];
+
+        var layout = DashboardGridLayout.Arrange(
+            availableWidth: 1148,
+            cardTypes: DemoCards[..6],
+            naturalHeights: heights,
+            allowLeadingTriageSpan: true);
+
+        Assert.True(layout.SpansLeadingTriage);
+        Assert.Equal(180, layout.Frames[0].Height);
+        Assert.Equal(180, layout.Frames[1].Height);
+
+        // Row 1 grows from 220 to 560 - 180 - 12 = 368 so Needs attention (560) fits without clipping.
+        Assert.Equal(368, layout.Frames[3].Height);
+        Assert.Equal(368, layout.Frames[4].Height);
+        Assert.Equal(560, layout.Frames[2].Height);
+
+        // Row 2 starts cleanly below the spanning card at 560 + 12 = 572.
+        Assert.Equal(572, layout.Frames[5].Y);
+        Assert.Equal(572 + 210, layout.TotalHeight);
+    }
+
+    [Fact]
+    public void Starter_dashboard_places_top_interfaces_and_recently_viewed_under_summaries()
+    {
+        double[] heights = [180, 160, 420, 240, 210];
+
+        var layout = DashboardGridLayout.Arrange(
+            availableWidth: 1148,
+            cardTypes: StarterCards,
+            naturalHeights: heights,
+            allowLeadingTriageSpan: true);
+
+        Assert.True(layout.SpansLeadingTriage);
+        Assert.Equal(5, layout.Frames.Count);
+        Assert.Equal(192, layout.Frames[3].Y);
+        Assert.Equal(192, layout.Frames[4].Y);
+        Assert.Equal(layout.Frames[0].X, layout.Frames[3].X);
+        Assert.Equal(layout.Frames[1].X, layout.Frames[4].X);
+        Assert.Equal(432, layout.Frames[2].Height);
+    }
+
+    [Theory]
+    [InlineData(788, 2)]  // iPad portrait
+    [InlineData(850, 2)]  // Duo inner landscape
+    [InlineData(637, 1)]  // Duo inner portrait
+    [InlineData(370, 1)]  // Standard iPhone portrait
+    public void Two_column_and_compact_widths_keep_standard_card_order(double width, int expectedColumns)
+    {
+        double[] heights = [180, 160, 440, 260, 240];
+
+        var layout = DashboardGridLayout.Arrange(
+            availableWidth: width,
+            cardTypes: DemoCards[..5],
+            naturalHeights: heights,
+            allowLeadingTriageSpan: true);
+
+        Assert.Equal(expectedColumns, layout.Columns);
+        Assert.False(layout.SpansLeadingTriage);
+        var slots = DashboardGridLayout.PlanSlots(expectedColumns, DemoCards[..5], allowLeadingTriageSpan: true);
+        Assert.All(slots, s => Assert.Equal(1, s.RowSpan));
+        Assert.Equal(Enumerable.Range(0, 5), slots.Select(s => s.Index));
+    }
+
+    [Fact]
+    public void Reordered_or_incomplete_leading_sequence_uses_standard_three_column_grid()
+    {
+        string[][] nonMatching =
+        [
+            [DashboardLayout.Alerts, DashboardLayout.AlertsGauge, DashboardLayout.DeviceStatus, DashboardLayout.Sensors],
+            [DashboardLayout.DeviceStatus, DashboardLayout.AlertsGauge, DashboardLayout.Alerts, DashboardLayout.Sensors],
+            [DashboardLayout.AlertsGauge, DashboardLayout.Alerts, DashboardLayout.Sensors, DashboardLayout.Graph],
+            [DashboardLayout.DeviceStatus, DashboardLayout.Alerts, DashboardLayout.Sensors, DashboardLayout.Graph],
+            [DashboardLayout.AlertsGauge, DashboardLayout.DeviceStatus, DashboardLayout.Alerts],
+        ];
+
+        foreach (var sequence in nonMatching)
+        {
+            var heights = Enumerable.Repeat(200d, sequence.Length).ToArray();
+            var layout = DashboardGridLayout.Arrange(1148, sequence, heights, allowLeadingTriageSpan: true);
+            Assert.False(layout.SpansLeadingTriage);
+        }
+    }
+
+    [Fact]
+    public void Opt_out_flag_keeps_standard_grid_even_at_three_columns()
+    {
+        double[] heights = [180, 160, 440, 260, 240];
+
+        var layout = DashboardGridLayout.Arrange(
+            availableWidth: 1148,
+            cardTypes: DemoCards[..5],
+            naturalHeights: heights,
+            allowLeadingTriageSpan: false);
+
+        Assert.Equal(3, layout.Columns);
+        Assert.False(layout.SpansLeadingTriage);
+        Assert.Equal(440, layout.Frames[0].Height);
+    }
+
+    [Fact]
+    public void Visual_reading_order_matches_rendered_placement_top_to_bottom_left_to_right()
+    {
+        double[] heights = [180, 160, 440, 260, 240, 220, 210, 250];
+        var layout = DashboardGridLayout.Arrange(1148, DemoCards, heights, allowLeadingTriageSpan: true);
+
+        var visualOrder = layout.Frames
+            .OrderBy(f => f.Y)
+            .ThenBy(f => f.X)
+            .Select(f => f.Index)
+            .ToArray();
+
+        Assert.Equal([0, 1, 2, 3, 4, 5, 6, 7], visualOrder);
+    }
+}
