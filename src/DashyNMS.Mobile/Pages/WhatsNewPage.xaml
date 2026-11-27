@@ -14,16 +14,16 @@
 
         <ScrollView x:Name="Scroller" Grid.Row="1">
                 <VerticalStackLayout x:Name="Body" Padding="16,20,16,24" Spacing="12">
-                    <Label Text="{Binding Version}" FontSize="22" FontFamily="BodySemibold" LineBreakMode="CharacterWrap" />
-                    <Label Style="{StaticResource Faint}" Text="{Binding Released}" IsVisible="{Binding HasReleased}" />
-                    <Label Text="Release notes are unavailable in this build." IsVisible="{Binding NotesUnavailable}" />
+                    <Label Text="{Binding Version}" FontSize="22" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                    <Label Style="{StaticResource Faint}" Text="{Binding Released}" IsVisible="{Binding HasReleased}" LineBreakMode="WordWrap" />
+                    <Label Text="Release notes are unavailable in this build." IsVisible="{Binding NotesUnavailable}" LineBreakMode="WordWrap" />
 
                     <!-- New, Improved and Fixed, each a card of changes - desktop's sheet (desktop#244). -->
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding Groups}" Spacing="4">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:WhatsNewGroup">
                                 <VerticalStackLayout Spacing="4">
-                                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" LineBreakMode="CharacterWrap" />
+                                    <Label Style="{StaticResource SectionHeader}" Text="{Binding Name}" SemanticProperties.HeadingLevel="Level2" LineBreakMode="WordWrap" />
                                     <Border Style="{StaticResource Card}">
                                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="12">
                                             <BindableLayout.ItemTemplate>
@@ -32,8 +32,8 @@
                                                         <!-- In the theme's secondary text colour, readable in light and dark (#268). -->
                                                         <controls:Glyph Name="{Binding Image}" IsVisible="{Binding HasImage}" VerticalOptions="Start" AutomationProperties.IsInAccessibleTree="False" />
                                                         <VerticalStackLayout Grid.Column="1">
-                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="CharacterWrap" />
-                                                            <Label Style="{StaticResource Caption}" Text="{Binding Text}" LineBreakMode="CharacterWrap" />
+                                                            <Label Text="{Binding Title}" FontFamily="BodySemibold" LineBreakMode="WordWrap" />
+                                                            <Label Style="{StaticResource Caption}" Text="{Binding Text}" LineBreakMode="WordWrap" />
                                                         </VerticalStackLayout>
                                                     </Grid>
                                                 </DataTemplate>
@@ -46,10 +46,10 @@
                     </VerticalStackLayout>
 
                     <Button Style="{StaticResource LinkButton}" Text="Full release notes" Command="{Binding OpenReleaseNotesCommand}"
-                            MinimumHeightRequest="44" LineBreakMode="WordWrap" Margin="0,8,0,0" SemanticProperties.Hint="Opens GitHub in your browser" />
+                            MinimumHeightRequest="{OnPlatform iOS=44, Default=48}" LineBreakMode="WordWrap" Margin="0,8,0,0" SemanticProperties.Hint="Opens GitHub in your browser" />
                 </VerticalStackLayout>
         </ScrollView>
-        <BoxView x:Name="Fade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True">
+        <BoxView x:Name="Fade" Grid.Row="1" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False">
             <BoxView.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                     <GradientStop Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" Offset="0" />
@@ -57,6 +57,6 @@
                 </LinearGradientBrush>
             </BoxView.Background>
         </BoxView>
-        <Button x:Name="GotIt" Grid.Row="2" Margin="16,12,16,12" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="44" LineBreakMode="WordWrap" />
+        <Button x:Name="GotIt" Grid.Row="2" Margin="16,12,16,12" Text="Got it" Clicked="OnGotItClicked" IsEnabled="{Binding CanDismiss}" MinimumHeightRequest="{OnPlatform iOS=44, Default=48}" LineBreakMode="WordWrap" />
     </Grid>
 </ContentPage>

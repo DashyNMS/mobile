@@ -196,4 +196,21 @@ public sealed class WhatsNewTests
         Assert.Equal(whatsNew.CurrentVersion, whatsNew.Notes.Version);
         Assert.All(whatsNew.Notes.Sections.SelectMany(s => s.Items), i => Assert.NotNull(WhatsNewViewModel.ImageFor(i.Icon)));
     }
+
+    [Fact]
+    public void The_embedded_notes_contain_no_raw_markdown_delimiters_in_rendered_copy()
+    {
+        var vm = new WhatsNewViewModel(new WhatsNew(_settings), _navigation);
+        var rows = vm.Groups.SelectMany(g => g.Rows).ToList();
+
+        Assert.NotEmpty(rows);
+        Assert.All(rows, row =>
+        {
+            Assert.DoesNotContain("**", row.Title);
+            Assert.DoesNotContain("**", row.Text);
+        });
+
+        var demo = Assert.Single(rows, r => r.Title == "Demo");
+        Assert.Contains("Try the demo", demo.Text);
+    }
 }
