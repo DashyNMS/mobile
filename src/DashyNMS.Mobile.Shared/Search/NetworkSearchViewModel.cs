@@ -114,6 +114,10 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     [ObservableProperty]
     private SearchSort _sort;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SourcesButtonText))]
+    private bool _sourcesExpanded;
+
     public NetworkSearchViewModel(
         ILibreNmsClient client,
         ISettingsStore settings,
@@ -188,20 +192,20 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
 
     public IReadOnlyList<CoverageItemViewModel> Coverage { get; private set; } = [];
 
-    /// <summary>One line on what was checked, for the foot of the results.</summary>
-    public string? CoverageText => _result is null ? null
-        : string.Join(" · ", Coverage.Select(c => c.Label + ": " + c.StateText));
+    public bool HasCoverage => Coverage.Count > 0;
 
-    /// <summary>Sources that couldn't be read, so a missing answer isn't taken as "not there".</summary>
-    public string? BlindSpotText
-    {
-        get
-        {
-            var blind = Coverage.Where(c => c.IsBlindSpot).Select(c => c.Label).ToList();
-            return blind.Count == 0 ? null
-                : $"Not everything could be checked: {string.Join(", ", blind)}. A result may be missing.";
-        }
-    }
+    public bool HasSourceDetails => Coverage.Count > 1;
+
+    public string SourcesButtonText => SourcesExpanded ? "Hide sources" : "Show sources";
+
+    [RelayCommand]
+    private void ToggleSources() => SourcesExpanded = !SourcesExpanded;
+
+    /// <summary>The scope of the completed lookup, independent of the visible rows.</summary>
+    public string? CoverageText { get; private set; }
+
+    /// <summary>Distinguishes incomplete sources before the reader reaches an answer.</summary>
+    public string? BlindSpotText { get; private set; }
 
     public bool HasBlindSpots => BlindSpotText is not null;
 
@@ -219,11 +223,6 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     public bool HasEarlier => _result is { Offset: > 0 };
 
     public string NotFoundTitle => _result?.IsConfirmedAbsent == true ? $"Nothing found for “{_result.Query.Text}”" : $"“{_result?.Query.Text}” couldn't be confirmed absent";
-
-    /// <summary>A negative only when every source answered; otherwise which couldn't.</summary>
-    public string NotFoundDetail => _result?.IsConfirmedAbsent == true
-        ? "Every source answered, and none of them knows this address, MAC or name."
-        : "Some sources couldn't be read, so it may still be on the network. " + (BlindSpotText ?? string.Empty);
 
     public string? IgnoredTermsText => _result?.Query.IgnoredTerms is > 0 and var n
         ? $"{n.ToString(CultureInfo.CurrentCulture)} entries in the list weren't addresses, MACs or names and were left out."
@@ -264,12 +263,12 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     }
 
     [RelayCommand(CanExecute = nameof(CanPageForward))]
-    private Task NextPageAsync() => SearchAsync(_result!.Query.Text, _result.Offset + _result.Endpoints.Count, remember: false);
+    private Task NextPageAsync() => SearchAsync(_result!.Query.Text, _result.Offset + _result.Endpoints.Count, remember: false, paging: true);
 
     private bool CanPageForward() => _result?.Remaining > 0 && !IsSearching;
 
     [RelayCommand(CanExecute = nameof(CanPageBack))]
-    private Task PreviousPageAsync() => SearchAsync(_result!.Query.Text, Math.Max(0, _result.Offset - new NetworkSearchOptions().PageSize), remember: false);
+    private Task PreviousPageAsync() => SearchAsync(_result!.Query.Text, Math.Max(0, _result.Offset - new NetworkSearchOptions().PageSize), remember: false, paging: true);
 
     private bool CanPageBack() => _result?.Offset > 0 && !IsSearching;
 
@@ -356,7 +355,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         => _result?.Endpoints.SelectMany(e => e.Locations.Select(l => l.Port).Concat(e.Neighbours.Select(n => n.Port)).Concat(e.Subnet?.Interfaces.Select(i => i.Port) ?? []))
             .FirstOrDefault(p => p?.PortId == portId);
 
-    private async Task SearchAsync(string query, int offset, bool remember = true)
+    private async Task SearchAsync(string query, int offset, bool remember = true, bool paging = false)
     {
         _searchCts?.Cancel();
         _searchCts?.Dispose();
@@ -381,7 +380,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
 
             SearchedText = "Searched " + DateTime.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture);
             _resultConnection = connection;
-            Present(result);
+            Present(result, keepCoverage: paging && result.Outcome == _result?.Outcome);
             if (Endpoint is { MonitoredDeviceId: { } deviceId } endpoint)
             {
                 await LoadConnectionsAsync(endpoint, deviceId, generation, connection, cts.Token);
@@ -415,9 +414,14 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         }
     }
 
-    private void Present(NetworkSearchResult? result)
+    private void Present(NetworkSearchResult? result, bool keepCoverage = false)
     {
         var previous = ReferenceEquals(result, _result) ? Endpoint : null;
+        if (!keepCoverage && !ReferenceEquals(result, _result))
+        {
+            PresentCoverage(result);
+        }
+
         _result = result;
         var blind = (result?.Coverage ?? [])
             .Where(c => c.State is SourceState.PermissionDenied or SourceState.Unavailable or SourceState.Failed)
@@ -442,13 +446,13 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         SourceChips = _allRows.SelectMany(r => r.SourceKeys).GroupBy(k => k)
             .Select(g => new SearchSourceChip(g.Key, g.Count(), ShowRows) { IsSelected = !hidden.Contains(g.Key) })
             .ToList();
-        Coverage = (result?.Coverage ?? []).Select(c => new CoverageItemViewModel(c)).ToList();
         ShowRows();
         foreach (var name in new[]
                  {
                      nameof(IsSingle), nameof(IsList), nameof(IsNotFound), nameof(IsIdle), nameof(HasResults), nameof(SourceChips), nameof(HasSourceChips),
-                     nameof(Coverage), nameof(CoverageText), nameof(BlindSpotText), nameof(HasBlindSpots), nameof(ListHeading), nameof(MoreText), nameof(HasMore),
-                     nameof(HasEarlier), nameof(NotFoundTitle), nameof(NotFoundDetail), nameof(IgnoredTermsText), nameof(SearchedText), nameof(HasRecent),
+                     nameof(Coverage), nameof(HasCoverage), nameof(CoverageText), nameof(HasSourceDetails), nameof(BlindSpotText), nameof(HasBlindSpots),
+                     nameof(ListHeading), nameof(MoreText), nameof(HasMore),
+                     nameof(HasEarlier), nameof(NotFoundTitle), nameof(IgnoredTermsText), nameof(SearchedText), nameof(HasRecent),
                  })
         {
             OnPropertyChanged(name);
@@ -456,6 +460,34 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
 
         NextPageCommand.NotifyCanExecuteChanged();
         PreviousPageCommand.NotifyCanExecuteChanged();
+    }
+
+    private void PresentCoverage(NetworkSearchResult? result)
+    {
+        SourcesExpanded = false;
+        Coverage = (result?.Coverage ?? []).Select(source => new CoverageItemViewModel(source)).ToList();
+        var checkedSources = Coverage.Where(source => !source.IsBlindSpot && source.State is SourceState.Found or SourceState.NoEntry).ToList();
+        var checkedText = checkedSources.Count switch
+        {
+            0 => null,
+            1 when checkedSources[0].Source == SearchSource.Devices && result is { Total: > 0 }
+                   && result.Query.Terms.Count > 0 && result.Query.Terms.All(term => term.Kind == SearchTermKind.Name)
+                => "Found in monitored devices.",
+            1 => $"Checked {checkedSources[0].Label}.",
+            _ => $"Checked {checkedSources.Count:N0} sources.",
+        };
+        var skipped = Coverage.Where(source => source.State == SourceState.NotQueried && !source.IsTruncated)
+            .Select(source => source.Label + " were not checked.");
+        CoverageText = string.Join(" ", new[] { checkedText }.OfType<string>().Concat(skipped));
+        if (CoverageText.Length == 0)
+        {
+            CoverageText = null;
+        }
+
+        var incomplete = Coverage.Where(source => source.IsBlindSpot)
+            .Select(source => $"{source.Label}: {source.StateText}.").ToList();
+        BlindSpotText = incomplete.Count == 0 ? null
+            : string.Join(" ", incomplete) + " A result may be missing.";
     }
 
     private void ShowRows()

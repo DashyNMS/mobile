@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using DashyNMS.Mobile.Search;
 using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
@@ -74,6 +76,7 @@ public sealed class NetworkSearchViewModelTests : IDisposable
         Assert.True(_search.IsList);
         Assert.True(_search.Rows.Count > 5);
         Assert.NotNull(_search.ListHeading);
+        var coverage = _search.Coverage;
 
         _search.ChooseSortCommand.Execute(SearchSort.Name);
         Assert.Equal(_search.Rows.Where(r => r.HasName).Select(r => r.NameText).Order(NaturalOrder.Instance), _search.Rows.Where(r => r.HasName).Select(r => r.NameText));
@@ -86,6 +89,7 @@ public sealed class NetworkSearchViewModelTests : IDisposable
             _search.SourceChips[0].IsSelected = true;
             Assert.InRange(_search.Rows.Count, 1, all);
         }
+        Assert.Same(coverage, _search.Coverage);
     }
 
     [Fact]
@@ -94,6 +98,11 @@ public sealed class NetworkSearchViewModelTests : IDisposable
         await _search.SearchForAsync("core");
 
         Assert.True(_search.IsList);
+        Assert.Equal("Found in monitored devices. Switch MAC tables were not checked.", _search.CoverageText);
+        Assert.False(_search.HasBlindSpots);
+        Assert.True(_search.HasSourceDetails);
+        _search.ToggleSourcesCommand.Execute(null);
+        Assert.True(_search.SourcesExpanded);
         Assert.NotEmpty(_search.Rows);
         Assert.All(_search.Rows, row =>
         {
@@ -107,6 +116,7 @@ public sealed class NetworkSearchViewModelTests : IDisposable
 
         Assert.True(_search.IsSingle);
         Assert.True(_search.Endpoint!.IsMonitored);
+        Assert.False(_search.SourcesExpanded);
     }
 
     [Fact]
@@ -131,8 +141,59 @@ public sealed class NetworkSearchViewModelTests : IDisposable
 
         Assert.True(_search.IsNotFound);
         Assert.Contains("198.51.100.250", _search.NotFoundTitle, StringComparison.Ordinal);
-        Assert.NotEmpty(_search.NotFoundDetail);
         Assert.NotNull(_search.CoverageText);
+    }
+
+    [Fact]
+    public async Task Paging_keeps_the_completed_query_coverage_and_disclosure()
+    {
+        await _session.ConnectDemoAsync(new DemoResponder(new DemoFleetOptions(ExtraDevices: 30)).Connection());
+        await _search.SearchForAsync("lab-sw");
+        var coverage = _search.Coverage;
+        var summary = _search.CoverageText;
+        _search.ToggleSourcesCommand.Execute(null);
+
+        Assert.True(_search.HasMore);
+        await _search.NextPageCommand.ExecuteAsync(null);
+        Assert.True(_search.HasEarlier);
+        Assert.Same(coverage, _search.Coverage);
+        Assert.Equal(summary, _search.CoverageText);
+        Assert.True(_search.SourcesExpanded);
+
+        await _search.PreviousPageCommand.ExecuteAsync(null);
+        Assert.False(_search.HasEarlier);
+        Assert.Same(coverage, _search.Coverage);
+    }
+
+    [Fact]
+    public async Task A_denied_arp_lookup_does_not_confirm_absence()
+    {
+        var fixture = new DemoResponder().Connection().WithHandler(() => new DeniedArpHandler());
+        await _session.ConnectDemoAsync(fixture);
+
+        await _search.SearchForAsync("198.51.100.250");
+
+        Assert.True(_search.IsNotFound);
+        Assert.Contains("couldn't be confirmed absent", _search.NotFoundTitle, StringComparison.Ordinal);
+        Assert.Contains("ARP tables: permission denied.", _search.BlindSpotText, StringComparison.Ordinal);
+        Assert.Contains(_search.Coverage, source => source.Source == SearchSource.Arp && source.State == SourceState.PermissionDenied);
+    }
+
+    private sealed class DeniedArpHandler : HttpMessageHandler
+    {
+        private readonly DemoResponder _demo = new();
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var path = request.RequestUri!.PathAndQuery;
+            var reply = path.StartsWith("/api/v0/resources/ip/arp", StringComparison.Ordinal)
+                ? new DemoResponse("""{"status":"error","message":"Forbidden"}""", Status: 403)
+                : _demo.Respond(request.Method.Method, path);
+            return Task.FromResult(new HttpResponseMessage((HttpStatusCode)reply.Status)
+            {
+                Content = new StringContent(reply.Body, Encoding.UTF8, reply.ContentType),
+            });
+        }
     }
 
     [Fact]

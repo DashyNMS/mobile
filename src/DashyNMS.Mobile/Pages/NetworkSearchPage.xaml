@@ -110,18 +110,33 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <!-- Some sources couldn't be read: say so before any answer. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding HasBlindSpots}" BackgroundColor="{StaticResource WarningTint}" Stroke="{StaticResource WarningStroke}">
-                        <Label Text="{Binding BlindSpotText}" LineBreakMode="WordWrap" TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
-                    </Border>
-
                     <Label Style="{StaticResource Caption}" Text="{Binding IgnoredTermsText}" IsVisible="{Binding IgnoredTermsText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" />
 
-                    <!-- Nothing found. -->
-                    <Border Style="{StaticResource Card}" IsVisible="{Binding IsNotFound}">
+                    <Label Style="{StaticResource CardHeading}" Text="{Binding ListHeading}" IsVisible="{Binding IsList}" Margin="4,0" />
+                    <Label Style="{StaticResource CardHeading}" Text="{Binding NotFoundTitle}" IsVisible="{Binding IsNotFound}" Margin="4,0" />
+
+                    <!-- Explain the scope of the completed query before its rows or endpoint details. -->
+                    <Border Style="{StaticResource Card}" IsVisible="{Binding HasCoverage}">
+                        <Border.Triggers>
+                            <DataTrigger TargetType="Border" Binding="{Binding HasBlindSpots}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
+                                <Setter Property="Stroke" Value="{StaticResource WarningStroke}" />
+                            </DataTrigger>
+                        </Border.Triggers>
                         <VerticalStackLayout Spacing="6">
-                            <Label Style="{StaticResource CardHeading}" Text="{Binding NotFoundTitle}" />
-                            <Label Style="{StaticResource Caption}" Text="{Binding NotFoundDetail}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding BlindSpotText}" IsVisible="{Binding HasBlindSpots}" LineBreakMode="WordWrap"
+                                   TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
+                            <Label Text="{Binding CoverageText}" IsVisible="{Binding CoverageText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" />
+                            <Button Style="{StaticResource LinkButton}" Text="{Binding SourcesButtonText}"
+                                    IsVisible="{Binding HasSourceDetails}" Command="{Binding ToggleSourcesCommand}"
+                                    HorizontalOptions="Start" Padding="0" MinimumHeightRequest="{OnPlatform Android=48, Default=44}" />
+                            <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Coverage}" IsVisible="{Binding SourcesExpanded}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="search:CoverageItemViewModel">
+                                        <Label Style="{StaticResource Caption}" Text="{Binding Summary}" LineBreakMode="WordWrap" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 
@@ -302,7 +317,6 @@
 
                     <!-- Several endpoints, or the overview. -->
                     <VerticalStackLayout Spacing="8" IsVisible="{Binding IsList}">
-                        <Label Style="{StaticResource Caption}" Text="{Binding ListHeading}" LineBreakMode="WordWrap" SemanticProperties.HeadingLevel="Level2" Margin="4,0" />
                         <Label Style="{StaticResource Caption}" Text="No results from the chosen sources. Choose another chip to see them." IsVisible="{Binding ShowNoMatchingRows}" Margin="4,0" />
                         <Border Style="{StaticResource ListCard}" IsVisible="{Binding HasResults}">
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}">
@@ -329,9 +343,6 @@
                             <Button Style="{StaticResource SecondaryButton}" Text="{Binding MoreText}" IsVisible="{Binding HasMore}" Command="{Binding NextPageCommand}" SemanticProperties.Hint="Shows the next page of results" />
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
-
-                    <!-- What was checked, so a result can be weighed. -->
-                    <Label Style="{StaticResource Faint}" Text="{Binding CoverageText}" IsVisible="{Binding CoverageText, Converter={StaticResource IsNotNull}}" LineBreakMode="WordWrap" Margin="4,0" />
 
                     <BoxView x:Name="Foot" HeightRequest="24" Color="Transparent" />
                 </VerticalStackLayout>
