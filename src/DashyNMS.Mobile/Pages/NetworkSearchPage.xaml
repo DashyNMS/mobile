@@ -313,8 +313,8 @@
                                             <VerticalStackLayout Spacing="2" InputTransparent="True" AutomationProperties.ExcludedWithChildren="True">
                                                 <Label Style="{StaticResource RowTitle}" Text="{Binding AddressText}" LineBreakMode="CharacterWrap" FontFamily="Mono" />
                                                 <Label Style="{StaticResource Caption}" Text="{Binding NameText}" IsVisible="{Binding HasName}" LineBreakMode="WordWrap" />
-                                                <Label Text="{Binding MacText}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
-                                                <Label Style="{StaticResource Faint}" Text="{Binding NeighbourText}" LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding MacText}" IsVisible="{Binding HasMac}" FontFamily="Mono" FontSize="12.5" LineBreakMode="CharacterWrap" />
+                                                <Label Style="{StaticResource Faint}" Text="{Binding NeighbourText}" IsVisible="{Binding HasNeighbour}" LineBreakMode="WordWrap" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="1" Text="Conflict" Style="{StaticResource PillText}" IsVisible="{Binding HasConflict}" VerticalOptions="Start"
                                                    TextColor="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" InputTransparent="True" />

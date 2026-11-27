@@ -4,6 +4,7 @@ Demo Mode screenshots of DashyNMS Mobile captured from `main` at commit `b512b27
 
 The iPhone 18 Pro and iPad Schedule maintenance screenshots were retaken for #698.
 The iPhone 18 Pro unreachable-devices capture and the iPad overview and unreachable-devices captures were retaken for #701.
+The iPhone 18 Pro and iPad Network Search screenshots were retaken for #702.
 
 ## Device folders
 

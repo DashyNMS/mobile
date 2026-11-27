@@ -673,7 +673,7 @@ public sealed class EndpointRowViewModel
     {
         Record = record;
         AddressText = record.Addresses.Count == 0 ? "—" : string.Join(", ", record.Addresses);
-        MacText = record.Macs.Count == 0 ? "—" : string.Join(", ", record.Macs.Select(m => MacAddresses.Format(m.Hex, format)));
+        MacText = string.Join(", ", record.Macs.Select(m => MacAddresses.Format(m.Hex, format)));
         NameText = record.Names.FirstOrDefault() ?? string.Empty;
         NeighbourText = string.Join(", ", record.Neighbours
             .Select(n => EndpointViewModel.DeviceName(n.Device, n.DeviceId))
@@ -750,11 +750,15 @@ public sealed class EndpointRowViewModel
 
     public string MacText { get; }
 
+    public bool HasMac => MacText.Length > 0;
+
     public string NameText { get; }
 
     public bool HasName => NameText.Length > 0;
 
     public string NeighbourText { get; }
+
+    public bool HasNeighbour => NeighbourText.Length > 0;
 
     public bool HasConflict { get; }
 
@@ -768,7 +772,7 @@ public sealed class EndpointRowViewModel
     public RelayCommand OpenDeviceCommand { get; }
 
     /// <summary>The whole row for VoiceOver: what opening it does, then what it shows.</summary>
-    public string Description => string.Join(". ", new[] { OpenName, NameText, MacText == "—" ? null : MacText, HasConflict ? "Conflict" : null, NeighbourText }
+    public string Description => string.Join(". ", new[] { OpenName, NameText, MacText, HasConflict ? "Conflict" : null, NeighbourText }
         .Where(part => !string.IsNullOrEmpty(part)));
 
     public bool Matches(string filter) => string.IsNullOrWhiteSpace(filter)
