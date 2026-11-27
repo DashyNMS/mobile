@@ -25,7 +25,7 @@ DashyNMS then creates an API token for this phone. This needs an `https` address
 
 ## Sign in with an API token
 
-1. Choose **Use an API token instead**.
+1. Choose **Use an API token instead** below the server options. If the link is off-screen, scroll the form above the pinned sign-in button.
 2. Choose **Open the API Tokens page** to make a token on your server, then copy it. If you can't create one, ask your LibreNMS administrator.
 3. Paste it under **API token**, or choose **Use the token you copied**.
 4. Choose **Sign in**.
