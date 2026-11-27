@@ -5,6 +5,7 @@ using DashyNMS.Mobile.Services;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Demo;
+using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Search;
 using DesktopNMS.Core.Security;
 using DesktopNMS.Services;
@@ -248,5 +249,58 @@ public sealed class NetworkSearchViewModelTests : IDisposable
         Assert.True(endpoint.IsMonitored);
         Assert.True(endpoint.HasConnections);
         Assert.Contains(endpoint.AllConnections!, c => c.IsKnownDevice && c.OpenCommand.CanExecute(null) && c.StateText != "Not monitored");
+    }
+
+    [Theory]
+    [InlineData("up", "up", true, AlertSeverity.Ok)]
+    [InlineData("down", "up", false, AlertSeverity.Warning)]
+    [InlineData("down", "down", true, AlertSeverity.Unknown)]
+    [InlineData(null, "up", false, AlertSeverity.Unknown)]
+    public void Seen_on_dot_uses_port_state_independently_of_sighting_kind(string? oper, string admin, bool uplink, AlertSeverity expected)
+    {
+        var location = new EndpointLocation("00005e005301", 3, 48, null,
+            new DesktopNMS.Core.Models.Port { PortId = 48, IfOperStatus = oper, IfAdminStatus = admin },
+            null, null, 1, uplink, false, null, false);
+        var row = new LocationItemViewModel(location, _search, true);
+
+        Assert.Equal(expected, row.PortStateSeverity);
+    }
+
+    [Theory]
+    [InlineData(DeviceNameStyle.Hostname, "192.0.2.50")]
+    [InlineData(DeviceNameStyle.SysName, "antenna-01")]
+    [InlineData(DeviceNameStyle.DisplayName, "Lobby antenna")]
+    public void Matched_device_summary_uses_the_selected_name(DeviceNameStyle style, string expected)
+    {
+        var record = new EndpointRecord
+        {
+            Title = "192.0.2.50",
+            Addresses = ["192.0.2.50"],
+            Macs = [], Names = [], Locations = [], Neighbours = [], Conflicts = [],
+            MonitoredDevice = new DesktopNMS.Core.Models.Device
+            {
+                DeviceId = 12, Hostname = "192.0.2.50", SysName = "antenna-01", Display = "Lobby antenna",
+            },
+        };
+        var endpoint = new EndpointViewModel(record, MacAddressFormat.Colon, _search, true, _search.SearchForAsync, deviceNameStyle: style);
+
+        Assert.Equal(expected, endpoint.Title);
+        Assert.Equal(expected, endpoint.MonitoredDeviceName);
+        Assert.False(endpoint.HasOtherAddresses);
+    }
+
+    [Fact]
+    public async Task Changing_name_preference_updates_the_existing_summary_and_keeps_connections()
+    {
+        await _search.SearchForAsync("core-sw-01.example.net");
+        var device = await _client.Devices.GetAsync(_search.Endpoint!.MonitoredDeviceId!.Value.ToString());
+        Assert.NotNull(device);
+        var connections = _search.Endpoint.AllConnections;
+
+        _settings.Current.DeviceNameStyle = DeviceNameStyle.SysName;
+        _settings.Save();
+
+        Assert.Equal(DeviceNameStyle.SysName.Resolve(device, device.Hostname), _search.Endpoint!.Title);
+        Assert.Same(connections, _search.Endpoint.AllConnections);
     }
 }

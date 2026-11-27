@@ -1,5 +1,6 @@
 using System.Globalization;
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Topology;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Api;
 using DesktopNMS.Core.Configuration;
@@ -487,17 +488,11 @@ public sealed class DeviceSectionLoader
 
     private async Task<IReadOnlyList<SectionGroup>> NeighboursAsync(int deviceId, CancellationToken ct)
     {
-        var ownTask = _client.Links.ListForDeviceAsync(deviceId, ct);
-        var fleetTask = _client.Links.ListAllAsync(ct);
+        // Desktop's Device Details steps (DeviceNeighbourLoader): a device with
+        // no links of its own still shows the switch that reports it, with the
+        // switch's port named, and unlinked neighbours are matched by name or MAC.
         var portsTask = NeighbourPortsAsync(deviceId, ct);
-        await Task.WhenAll(ownTask, fleetTask, portsTask);
-
-        var neighbours = DeviceNeighbours.Build(
-            deviceId,
-            ownTask.Result,
-            fleetTask.Result,
-            portsTask.Result.ToDictionary(p => p.PortId, p => p.DisplayName),
-            new Dictionary<int, (int, NeighbourMatchKind)>());
+        var neighbours = await new DeviceNeighbourLoader(_client).LoadAsync(deviceId, portsTask, MonitoredDevicesAsync, ct);
         var names = await SeenByNamesAsync(neighbours, ct);
 
         var rows = neighbours
@@ -568,6 +563,14 @@ public sealed class DeviceSectionLoader
     }
 
     internal const string NotMonitored = "Not monitored in LibreNMS";
+
+    /// <summary>
+    /// Monitored devices, for matching neighbours LibreNMS didn't link. Uses
+    /// the session's cached list when there is one, so opening a device
+    /// doesn't fetch the fleet again.
+    /// </summary>
+    private async Task<IReadOnlyCollection<Device>> MonitoredDevicesAsync(CancellationToken ct)
+        => (_polling is null ? null : await _polling.CachedDevicesAsync(ct)) ?? await _client.Devices.ListAsync(ct);
 
     /// <summary>
     /// Names for the devices that see this one but that it doesn't report

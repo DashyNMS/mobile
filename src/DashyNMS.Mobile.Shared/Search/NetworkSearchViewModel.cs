@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DashyNMS.Mobile.Services;
+using DashyNMS.Mobile.Topology;
 using DashyNMS.Mobile.ViewModels;
 using DesktopNMS.Core;
 using DesktopNMS.Core.Api;
@@ -92,6 +93,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     private NetworkSearchResult? _result;
     private object? _resultConnection;
     private MacAddressFormat _macFormat;
+    private DeviceNameStyle _deviceNameStyle;
     private IReadOnlyList<EndpointRowViewModel> _allRows = [];
 
     [ObservableProperty]
@@ -138,6 +140,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
         _logger = logger;
         _ui = SynchronizationContext.Current;
         _macFormat = settings.Current.NetworkSearchMacFormatValue;
+        _deviceNameStyle = settings.Current.DeviceNameStyle;
         Recent = new ObservableCollection<string>(settings.Current.NetworkSearchRecent);
         settings.Changed += OnSettingsChanged;
         session.StateChanged += OnSessionStateChanged;
@@ -425,7 +428,7 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
             .Select(c => c.Source)
             .ToHashSet();
         Endpoint = result is { Outcome: NetworkSearchOutcome.Single, Endpoints: [var only] }
-            ? new EndpointViewModel(only, _macFormat, this, _settings.Current.ServerTimestampsAreUtc, SearchForAsync, blind)
+            ? new EndpointViewModel(only, _macFormat, this, _settings.Current.ServerTimestampsAreUtc, SearchForAsync, blind, _deviceNameStyle)
             : null;
 
         // The same result again, in a new MAC format: keep its neighbours.
@@ -505,21 +508,21 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     {
         try
         {
-            var own = OwnLinksAsync(deviceId, token);
-            var fleet = _client.Links.ListAllAsync(token);
             var ports = _client.Ports.ListForDeviceAsync(deviceId, token);
             var knownDevices = LoadKnownDevicesAsync(token);
-            await Task.WhenAll(own, fleet, ports, knownDevices);
+            var built = await new DeviceNeighbourLoader(_client, _logger).LoadAsync(
+                deviceId,
+                ports,
+                async _ => _devices is { } cache ? cache.All : (await knownDevices).Values.ToList(),
+                token);
+            await knownDevices;
             if (generation != _generation || !ReferenceEquals(connection, _session.Connection) || Endpoint?.MonitoredDeviceId != deviceId)
             {
                 return;
             }
 
-            var byId = ports.Result.ToDictionary(p => p.PortId);
+            var byId = ports.Result.GroupBy(p => p.PortId).ToDictionary(g => g.Key, g => g.First());
             var deviceById = knownDevices.Result;
-            var built = DesktopNMS.Core.Topology.DeviceNeighbours.Build(
-                deviceId, own.Result, fleet.Result, byId.ToDictionary(p => p.Key, p => p.Value.DisplayName),
-                new Dictionary<int, (int DeviceId, DesktopNMS.Core.Topology.NeighbourMatchKind Kind)>());
             var style = _settings.Current.DeviceNameStyle;
             Endpoint.AllConnections = built
                 .Select(n =>
@@ -549,19 +552,6 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
             {
                 current.ConnectionsFailed = true;
             }
-        }
-    }
-
-    /// <summary>A device's own links. LibreNMS answers 404 for a device with none, which is an answer, not a failure.</summary>
-    private async Task<IReadOnlyList<DesktopNMS.Core.Models.NetworkLink>> OwnLinksAsync(int deviceId, CancellationToken token)
-    {
-        try
-        {
-            return await _client.Links.ListForDeviceAsync(deviceId, token);
-        }
-        catch (LibreNmsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            return [];
         }
     }
 
@@ -613,11 +603,13 @@ public sealed partial class NetworkSearchViewModel : ViewModelBase, INetworkSear
     private void OnSettingsChanged(object? sender, AppSettings settings)
     {
         var format = settings.NetworkSearchMacFormatValue;
-        if (format != _macFormat)
+        var nameStyle = settings.DeviceNameStyle;
+        if (format != _macFormat || nameStyle != _deviceNameStyle)
         {
             Post(() =>
             {
                 _macFormat = format;
+                _deviceNameStyle = nameStyle;
                 OnPropertyChanged(nameof(MacFormat));
                 Present(_result);
             });
