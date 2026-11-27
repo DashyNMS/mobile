@@ -129,7 +129,7 @@ public sealed partial class DashboardCard : ObservableObject
         Dashboard.TopOptionsChanged(this);
     }
 
-    // ------------------------------------------------- Needs attention's chips (#140)
+    // ------------------------------------------------- Needs attention's chips (#140, #707)
 
     /// <summary>Desktop's Alerts widget's title chips: which severities show, and acknowledged ones too.</summary>
     public bool ShowsCritical => Widget.AlertsShowCritical;
@@ -137,6 +137,35 @@ public sealed partial class DashboardCard : ObservableObject
     public bool ShowsWarning => Widget.AlertsShowWarning;
 
     public bool IncludesAcknowledged => Widget.AlertsIncludeAcknowledged;
+
+    /// <summary>True when the card's filters differ from its default (critical and warning on, acknowledged off).</summary>
+    public bool HasCustomAlertFilters => !ShowsCritical || !ShowsWarning || IncludesAcknowledged;
+
+    /// <summary>Named filter chip labels with counts once loaded and explicit On/Off state (#707).</summary>
+    public string CriticalChipText => Dashboard.HasLastUpdated
+        ? $"Critical {Dashboard.CriticalAlerts} \u00b7 {(ShowsCritical ? "On" : "Off")}"
+        : $"Critical \u00b7 {(ShowsCritical ? "On" : "Off")}";
+
+    public string WarningChipText => Dashboard.HasLastUpdated
+        ? $"Warning {Dashboard.WarningAlerts} \u00b7 {(ShowsWarning ? "On" : "Off")}"
+        : $"Warning \u00b7 {(ShowsWarning ? "On" : "Off")}";
+
+    public string AcknowledgedChipText => Dashboard.HasLastUpdated
+        ? $"Acknowledged {Dashboard.AcknowledgedAlerts} \u00b7 {(IncludesAcknowledged ? "On" : "Off")}"
+        : $"Acknowledged \u00b7 {(IncludesAcknowledged ? "On" : "Off")}";
+
+    /// <summary>VoiceOver descriptions announcing name, count when loaded, and included or excluded state.</summary>
+    public string CriticalFilterDescription => Dashboard.HasLastUpdated
+        ? $"Critical {Dashboard.CriticalAlerts}, {(ShowsCritical ? "included" : "excluded")}"
+        : $"Critical, {(ShowsCritical ? "included" : "excluded")}";
+
+    public string WarningFilterDescription => Dashboard.HasLastUpdated
+        ? $"Warning {Dashboard.WarningAlerts}, {(ShowsWarning ? "included" : "excluded")}"
+        : $"Warning, {(ShowsWarning ? "included" : "excluded")}";
+
+    public string AcknowledgedFilterDescription => Dashboard.HasLastUpdated
+        ? $"Acknowledged {Dashboard.AcknowledgedAlerts}, {(IncludesAcknowledged ? "included" : "excluded")}"
+        : $"Acknowledged, {(IncludesAcknowledged ? "included" : "excluded")}";
 
     [RelayCommand]
     private void ToggleCritical() => ChangeAlerts(() => Widget.AlertsShowCritical = !Widget.AlertsShowCritical);
@@ -147,12 +176,33 @@ public sealed partial class DashboardCard : ObservableObject
     [RelayCommand]
     private void ToggleAcknowledged() => ChangeAlerts(() => Widget.AlertsIncludeAcknowledged = !Widget.AlertsIncludeAcknowledged);
 
-    private void ChangeAlerts(Action change)
+    /// <summary>Restores only this card's default alert filters without touching the Alerts tab's saved filters (#707).</summary>
+    [RelayCommand]
+    private void ClearAlertFilters() => ChangeAlerts(() =>
     {
-        change();
+        Widget.AlertsShowCritical = true;
+        Widget.AlertsShowWarning = true;
+        Widget.AlertsIncludeAcknowledged = false;
+    });
+
+    internal void RefreshAlertChips()
+    {
         OnPropertyChanged(nameof(ShowsCritical));
         OnPropertyChanged(nameof(ShowsWarning));
         OnPropertyChanged(nameof(IncludesAcknowledged));
+        OnPropertyChanged(nameof(HasCustomAlertFilters));
+        OnPropertyChanged(nameof(CriticalChipText));
+        OnPropertyChanged(nameof(WarningChipText));
+        OnPropertyChanged(nameof(AcknowledgedChipText));
+        OnPropertyChanged(nameof(CriticalFilterDescription));
+        OnPropertyChanged(nameof(WarningFilterDescription));
+        OnPropertyChanged(nameof(AcknowledgedFilterDescription));
+    }
+
+    private void ChangeAlerts(Action change)
+    {
+        change();
+        RefreshAlertChips();
         Dashboard.AlertFiltersChanged();
     }
 
@@ -521,7 +571,17 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     /// <summary>The most severe, then most recent, open unacknowledged alerts.</summary>
     public BulkObservableCollection<AlertItem> TopAlerts { get; } = new();
 
+    public bool HasTopAlerts => TopAlerts.Count > 0;
+
     public bool HasNoAlerts => TopAlerts.Count == 0 && LastUpdated is not null;
+
+    /// <summary>Why the Needs attention card has no rows after a successful load (#707).</summary>
+    [ObservableProperty]
+    private string _alertsEmptyText = string.Empty;
+
+    /// <summary>True when Needs attention is empty because its own filters hide matching alerts (#707).</summary>
+    [ObservableProperty]
+    private bool _canClearAlertFilters;
 
     /// <summary>The Wireless card's controllers: down first, then worst state.</summary>
     public BulkObservableCollection<SectionRow> WirelessControllers { get; } = new();
@@ -620,7 +680,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             LoadLogsAsync(devices));
 
         LastUpdated = DateTime.Now;
-        OnPropertyChanged(nameof(HasNoAlerts));
+        ShowTopAlerts();
         OnPropertyChanged(nameof(HasPinnedDevices));
         OnPropertyChanged(nameof(HasRecentlyViewed));
         OnPropertyChanged(nameof(HasNoWirelessControllers));
@@ -644,7 +704,8 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     /// </summary>
     private void ShowTopAlerts()
     {
-        var widget = CardsOf(DashboardLayout.Alerts).FirstOrDefault()?.Widget ?? new DashboardWidget();
+        var alertCards = CardsOf(DashboardLayout.Alerts);
+        var widget = alertCards.FirstOrDefault()?.Widget ?? new DashboardWidget();
         var groups = AlertGrouping.ByDeviceAndRule(_openAlerts.Where(a => a.State != AlertState.Recovered));
         TopAlerts.ReplaceAll(groups
             .Where(group => group.Faults.Any(a => (widget.AlertsIncludeAcknowledged || !a.IsAcknowledged)
@@ -655,6 +716,44 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
                 _settings.Current.DeviceNameStyle.Resolve(_devicesById.GetValueOrDefault(group.DeviceId), group.Primary.Hostname))
                 { Group = group })
             .ToList());
+
+        if (LastUpdated is null || TopAlerts.Count > 0)
+        {
+            AlertsEmptyText = string.Empty;
+            CanClearAlertFilters = false;
+        }
+        else if (groups.Count == 0)
+        {
+            AlertsEmptyText = "No open alerts.";
+            CanClearAlertFilters = false;
+        }
+        else
+        {
+            var hasSupportedSeverity = groups.Any(g => g.Faults.Any(a => a.Severity is AlertSeverity.Critical or AlertSeverity.Warning));
+            var hasCustomFilters = !widget.AlertsShowCritical || !widget.AlertsShowWarning || widget.AlertsIncludeAcknowledged;
+            if (!hasSupportedSeverity)
+            {
+                AlertsEmptyText = "Only critical and warning alerts appear in this card.";
+                CanClearAlertFilters = false;
+            }
+            else if (hasCustomFilters)
+            {
+                AlertsEmptyText = "No alerts match these filters.";
+                CanClearAlertFilters = true;
+            }
+            else
+            {
+                AlertsEmptyText = "No unacknowledged critical or warning alerts. Turn on Acknowledged to show them.";
+                CanClearAlertFilters = false;
+            }
+        }
+
+        foreach (var card in alertCards)
+        {
+            card.RefreshAlertChips();
+        }
+
+        OnPropertyChanged(nameof(HasTopAlerts));
         OnPropertyChanged(nameof(HasNoAlerts));
     }
 

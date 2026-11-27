@@ -747,18 +747,132 @@ public sealed class DashboardCardsTests
     {
         var widget = DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
         var vm = NewViewModel();
-        await vm.RefreshCommand.ExecuteAsync(null);
         var card = vm.Cards.Single();
+
+        // Before first load: chip labels and VoiceOver descriptions omit counts.
+        Assert.Equal("Critical \u00b7 On", card.CriticalChipText);
+        Assert.Equal("Warning \u00b7 On", card.WarningChipText);
+        Assert.Equal("Acknowledged \u00b7 Off", card.AcknowledgedChipText);
+        Assert.Equal("Critical, included", card.CriticalFilterDescription);
+        Assert.Equal("Acknowledged, excluded", card.AcknowledgedFilterDescription);
+
+        await vm.RefreshCommand.ExecuteAsync(null);
         Assert.Equal([1, 4, 2], vm.TopAlerts.Select(a => a.Id)); // critical first, acknowledged left out
+        Assert.Equal("Critical 2 \u00b7 On", card.CriticalChipText);
+        Assert.Equal("Warning 1 \u00b7 On", card.WarningChipText);
+        Assert.Equal("Acknowledged 1 \u00b7 Off", card.AcknowledgedChipText);
+        Assert.Equal("Critical 2, included", card.CriticalFilterDescription);
+        Assert.Equal("Warning 1, included", card.WarningFilterDescription);
+        Assert.Equal("Acknowledged 1, excluded", card.AcknowledgedFilterDescription);
 
         card.ToggleCriticalCommand.Execute(null);
         Assert.Equal([2], vm.TopAlerts.Select(a => a.Id));
+        Assert.Equal("Critical 2 \u00b7 Off", card.CriticalChipText);
+        Assert.Equal("Critical 2, excluded", card.CriticalFilterDescription);
 
         card.ToggleAcknowledgedCommand.Execute(null);
         Assert.Equal([2, 3], vm.TopAlerts.Select(a => a.Id).Order());
         Assert.False(widget.AlertsShowCritical);
         Assert.True(widget.AlertsIncludeAcknowledged);
+        Assert.Equal("Acknowledged 1 \u00b7 On", card.AcknowledgedChipText);
+        Assert.Equal("Acknowledged 1, included", card.AcknowledgedFilterDescription);
         _settings.Received().Save();
+    }
+
+    [Fact]
+    public async Task Needs_attention_explains_filter_empty_state_and_clears_only_card_filters()
+    {
+        _appSettings.Filter.ShowCritical = false;
+        _appSettings.Filter.ShowWarning = true;
+        _appSettings.Filter.SearchText = "core";
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var vm = NewViewModel();
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var card = vm.Cards.Single();
+
+        card.ToggleCriticalCommand.Execute(null);
+        card.ToggleWarningCommand.Execute(null);
+
+        Assert.True(vm.HasNoAlerts);
+        Assert.Equal("No alerts match these filters.", vm.AlertsEmptyText);
+        Assert.True(vm.CanClearAlertFilters);
+
+        card.ClearAlertFiltersCommand.Execute(null);
+
+        Assert.True(card.ShowsCritical);
+        Assert.True(card.ShowsWarning);
+        Assert.False(card.IncludesAcknowledged);
+        Assert.False(vm.HasNoAlerts);
+        Assert.False(vm.CanClearAlertFilters);
+        Assert.Equal([1, 4, 2], vm.TopAlerts.Select(a => a.Id));
+        // Alerts tab saved filters remain untouched.
+        Assert.False(_appSettings.Filter.ShowCritical);
+        Assert.Equal("core", _appSettings.Filter.SearchText);
+    }
+
+    [Fact]
+    public async Task Needs_attention_explains_acknowledged_only_fixture()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var client = Fakes.Client(
+            devices: [new Device { DeviceId = 1, Hostname = "core-sw", Status = true }],
+            alerts: [Fakes.Alert(1, 1, "critical", acknowledged: true), Fakes.Alert(2, 1, "warning", acknowledged: true)]);
+        var vm = new DashboardViewModel(client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
+        await vm.RefreshCommand.ExecuteAsync(null);
+        var card = vm.Cards.Single();
+
+        Assert.True(vm.HasNoAlerts);
+        Assert.Equal("No unacknowledged critical or warning alerts. Turn on Acknowledged to show them.", vm.AlertsEmptyText);
+        Assert.False(vm.CanClearAlertFilters);
+
+        card.ToggleAcknowledgedCommand.Execute(null);
+        Assert.False(vm.HasNoAlerts);
+        Assert.Equal([1, 2], vm.TopAlerts.Select(a => a.Id));
+
+        card.ToggleCriticalCommand.Execute(null);
+        card.ToggleWarningCommand.Execute(null);
+        Assert.True(vm.HasNoAlerts);
+        Assert.Equal("No alerts match these filters.", vm.AlertsEmptyText);
+        Assert.True(vm.CanClearAlertFilters);
+    }
+
+    [Fact]
+    public async Task Needs_attention_explains_ok_only_fixture_scope()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var client = Fakes.Client(
+            devices: [new Device { DeviceId = 1, Hostname = "core-sw", Status = true }],
+            alerts: [Fakes.Alert(1, 1, "ok"), Fakes.Alert(2, 1, "ok", acknowledged: true)]);
+        var vm = new DashboardViewModel(client, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
+        await vm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.True(vm.HasNoAlerts);
+        Assert.Equal("Only critical and warning alerts appear in this card.", vm.AlertsEmptyText);
+        Assert.False(vm.CanClearAlertFilters);
+    }
+
+    [Fact]
+    public async Task Needs_attention_explains_loaded_empty_fleet_and_stays_quiet_on_failed_first_load()
+    {
+        DashboardLayout.Add(_appSettings, DashboardLayout.Alerts);
+        var emptyClient = Fakes.Client(devices: [new Device { DeviceId = 1, Hostname = "core-sw", Status = true }], alerts: []);
+        var emptyVm = new DashboardViewModel(emptyClient, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
+        await emptyVm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.True(emptyVm.HasNoAlerts);
+        Assert.Equal("No open alerts.", emptyVm.AlertsEmptyText);
+        Assert.False(emptyVm.CanClearAlertFilters);
+
+        var failingClient = Fakes.Client();
+        failingClient.Alerts.ListAsync(Arg.Any<AlertQuery>(), Arg.Any<CancellationToken>())
+            .ThrowsAsync(new LibreNmsApiException("Unavailable", System.Net.HttpStatusCode.ServiceUnavailable));
+        var failingVm = new DashboardViewModel(failingClient, _settings, new RecordingNavigation(), new DeviceBookmarks(_settings, TimeProvider.System));
+        await failingVm.RefreshCommand.ExecuteAsync(null);
+
+        Assert.True(failingVm.HasError);
+        Assert.False(failingVm.HasNoAlerts);
+        Assert.Equal(string.Empty, failingVm.AlertsEmptyText);
+        Assert.False(failingVm.CanClearAlertFilters);
     }
 
     [Fact]

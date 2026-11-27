@@ -14,7 +14,7 @@ Some cards need setting up. Choose **Set up** on the card to pick its sensors, i
 | Card | What it shows |
 | --- | --- |
 | **Alerts** | Critical, warning, OK and acknowledged counts |
-| **Needs attention** | The five alerts most in need of you |
+| **Needs attention** | The five critical or warning alerts most in need of you, with named filter chips and a **Clear filters** action when filters hide matches |
 | **Devices** | How many devices are up, down, in maintenance and disabled |
 | **Pinned devices** and **Recently viewed** | A quick way back to devices |
 | **Sensors** | Readings you pick, coloured by their limits |
