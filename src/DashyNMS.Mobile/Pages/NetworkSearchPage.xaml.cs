@@ -257,7 +257,7 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
         Grid.SetColumnSpan(line, 3);
 
         var dot = new Microsoft.Maui.Controls.Shapes.Ellipse { Style = (Style)Application.Current!.Resources["Dot"], VerticalOptions = LayoutOptions.Start, Margin = new Thickness(0, 6, 0, 0) };
-        dot.SetBinding(Microsoft.Maui.Controls.Shapes.Shape.FillProperty, new Binding(nameof(LocationItemViewModel.KindTone), converter: (IValueConverter)Application.Current!.Resources["StatusColor"]));
+        dot.SetBinding(Microsoft.Maui.Controls.Shapes.Shape.FillProperty, new Binding(nameof(LocationItemViewModel.PortStateSeverity), converter: (IValueConverter)Application.Current!.Resources["StatusColor"]));
         AutomationProperties.SetIsInAccessibleTree(dot, false);
         grid.Add(dot, 0, 0);
 

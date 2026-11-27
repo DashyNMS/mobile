@@ -2,6 +2,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DesktopNMS.Core;
+using DesktopNMS.Core.Configuration;
 using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Search;
 
@@ -30,11 +31,14 @@ public sealed class EndpointViewModel : ObservableObject
     private IReadOnlyList<NeighbourItemViewModel>? _allConnections;
 
     public EndpointViewModel(EndpointRecord record, MacAddressFormat macFormat, INetworkSearchActions windows, bool serverTimestampsAreUtc, Func<string, Task> search,
-        IReadOnlySet<SearchSource>? blindSpots = null)
+        IReadOnlySet<SearchSource>? blindSpots = null, DeviceNameStyle deviceNameStyle = DeviceNameStyle.Hostname)
     {
         _record = record;
         _blind = blindSpots ?? new HashSet<SearchSource>();
-        Title = record.Title.Length > 0 && MacAddresses.Normalise(record.Title) is { } titleMac ? MacAddresses.Format(titleMac, macFormat) : record.Title;
+        MonitoredDeviceName = record.MonitoredDevice is { } device
+            ? deviceNameStyle.Resolve(device, device.Hostname)
+            : null;
+        Title = MonitoredDeviceName ?? (record.Title.Length > 0 && MacAddresses.Normalise(record.Title) is { } titleMac ? MacAddresses.Format(titleMac, macFormat) : record.Title);
         Names = record.Names;
         AllLocations = record.Locations.Select(l => new LocationItemViewModel(l, windows, serverTimestampsAreUtc)).ToList();
         Macs = record.Macs.Select(m => new MacItemViewModel(m, macFormat, serverTimestampsAreUtc, search, windows)).ToList();
@@ -48,8 +52,8 @@ public sealed class EndpointViewModel : ObservableObject
         ToggleConnectionsCommand = new RelayCommand(() => ShowAllConnections = !ShowAllConnections);
         Conflicts = record.Conflicts.Select(c => Describe(c, record, macFormat)).ToList();
 
-        var device = record.MonitoredDevice;
-        OpenDeviceCommand = new RelayCommand(() => windows.OpenDevice(device!.DeviceId), () => device is not null);
+        var monitoredDevice = record.MonitoredDevice;
+        OpenDeviceCommand = new RelayCommand(() => windows.OpenDevice(monitoredDevice!.DeviceId), () => monitoredDevice is not null);
         OpenInterfaceCommand = new RelayCommand(
             () => windows.OpenPort(record.MonitoredInterface!.DeviceId, record.MonitoredInterface.PortId),
             () => record.MonitoredInterface is not null);
@@ -62,18 +66,18 @@ public sealed class EndpointViewModel : ObservableObject
     public IReadOnlyList<string> Names { get; }
 
     /// <summary>"sw-access-01.example.net" when this address is a monitored device's.</summary>
-    public string? MonitoredDeviceName => _record.MonitoredDevice is { } d ? DeviceName(d) : null;
+    public string? MonitoredDeviceName { get; }
 
     public bool IsMonitored => _record.MonitoredDevice is not null;
 
     /// <summary>The matched device in brief, like a Device Details neighbour card - when the endpoint is one.</summary>
-    public DeviceCardFacts? Device => _record.MonitoredDevice is { } d ? new DeviceCardFacts(d, DeviceName(d)) : null;
+    public DeviceCardFacts? Device => _record.MonitoredDevice is { } d ? new DeviceCardFacts(d, MonitoredDeviceName!) : null;
 
     /// <summary>Addresses joined for the overview card, "192.0.2.1, 2001:db8::1".</summary>
     public string AddressesText => string.Join(", ", _record.Addresses);
 
-    /// <summary>The addresses add something under the title: not when the title is the only one.</summary>
-    public bool HasOtherAddresses => AddressesText.Length > 0 && AddressesText != Title;
+    /// <summary>Monitored devices already show their IP in the device facts.</summary>
+    public bool HasOtherAddresses => !IsMonitored && AddressesText.Length > 0 && AddressesText != Title;
 
     public string? MonitoredInterfaceName => _record.MonitoredInterface?.DisplayName;
 
@@ -410,7 +414,6 @@ public sealed class LocationItemViewModel
 
         OpenDeviceCommand = new RelayCommand(() => windows.OpenDevice(location.DeviceId));
         OpenPortCommand = new RelayCommand(() => windows.OpenPort(location.DeviceId, location.PortId));
-        AccessibleText = $"{DeviceName}, {PortName}, {KindText}, {FactsText}";
 
         Switch = new DeviceCardFacts(location.Device, DeviceName);
         Port = location.Port;
@@ -437,6 +440,14 @@ public sealed class LocationItemViewModel
 
     /// <summary>"Up · 1 Gbps", the Neighbours card's port line.</summary>
     public string PortStateText => Port is null ? string.Empty : PortText.State(Port);
+
+    /// <summary>The port's link state supplies the dot beside a MAC sighting.</summary>
+    public AlertSeverity PortStateSeverity => Port?.IfOperStatus?.Trim().ToLowerInvariant() switch
+    {
+        "up" => AlertSeverity.Ok,
+        "down" when !string.Equals(Port.IfAdminStatus, "down", StringComparison.OrdinalIgnoreCase) => AlertSeverity.Warning,
+        _ => AlertSeverity.Unknown,
+    };
 
     /// <summary>"19 · CCC1-DECT-Master", matching Desktop's Connected to card.</summary>
     public string PortTitle => PortDescription is not null ? $"{PortName} · {PortDescription}" : PortName;
@@ -503,7 +514,7 @@ public sealed class LocationItemViewModel
 
     public RelayCommand OpenPortCommand { get; }
 
-    public string AccessibleText { get; }
+    public string AccessibleText => string.Join(", ", new[] { DeviceName, PortName, KindText, FactsText, HasPort ? PortStateText : null }.Where(s => !string.IsNullOrEmpty(s)));
 
     internal static string DurationAgo(TimeSpan span)
         => span < TimeSpan.FromMinutes(1) ? "just now"

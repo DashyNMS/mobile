@@ -13,11 +13,13 @@ Paste a list of addresses or MACs to look them all up at once. Your last ten sea
 
 ## Read one result
 
+When the search finds a monitored device, its summary uses the device-name field chosen in Settings. Its details include the IP address.
+
 When the search finds one thing, its page leads with where it's connected:
 
-- **Connected to** is the switch port it most likely plugs into. **Direct** means it's the only device on that port; **Shared** means it's one of several, such as behind a desk phone. For a device LibreNMS monitors, this lists its own neighbours instead.
+- **Connected to** is the switch port it most likely plugs into. **Direct** means it's the only device on that port; **Shared** means it's one of several, such as behind a desk phone. For a device LibreNMS monitors, this lists discovered neighbours from either end of the connection, including the switch port for an access point or antenna whose switch reports the link. The same connection appears on Device Overview and in Neighbours.
 - **Conflict** appears when one address answers from several MAC addresses, or one MAC is on several access ports at once.
-- **Seen on** lists every switch port that learned it, closest first, with uplinks marked.
+- **Seen on** lists every switch port that learned it, closest first, with uplinks marked. Each dot shows the port's operational state, matching the state text below it.
 - **IP addresses** and **MAC addresses** can each be copied or searched for.
 - **Same subnet** lists the gateway and other monitored interfaces on its network.
 - **Neighbour of** lists the routers whose ARP tables have it.

@@ -639,6 +639,44 @@ public sealed class DeviceSectionLoaderTests
     }
 
     [Fact]
+    public async Task An_access_point_with_no_links_of_its_own_names_the_switch_port_it_plugs_into()
+    {
+        // LibreNMS answers 404 for a device with no discovery of its own; the switch's report still shows,
+        // with the switch's port named from its port list, as desktop's Device Details does.
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<NetworkLink>>(_ => throw NoLinksFound());
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 5, LocalDeviceId = 3, LocalPortId = 48, RemoteDeviceId = DeviceId, RemotePort = "eth0", Protocol = "lldp", Active = true }]);
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns<IReadOnlyList<Port>>(_ => throw NoPortsFound());
+        _client.Ports.ListForDeviceAsync(3, Arg.Any<CancellationToken>()).Returns([new Port { PortId = 48, DeviceId = 3, IfName = "Gi1/0/48" }]);
+        _client.Devices.GetAsync("3", Arg.Any<CancellationToken>()).Returns(Fakes.Device(3, "access-sw"));
+
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+
+        Assert.Equal("access-sw", row.Title);
+        Assert.Equal("eth0 → Gi1/0/48", row.Subtitle);
+        Assert.Equal(3, row.LinkDeviceId);
+    }
+
+    [Fact]
+    public async Task An_antenna_announcing_its_mac_as_its_port_links_to_its_device()
+    {
+        _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
+            [new NetworkLink { Id = 9, LocalDeviceId = DeviceId, LocalPortId = 1, RemotePort = "00:00:5e:00:53:01", Protocol = "lldp", Active = true }]);
+        _client.Links.ListAllAsync(Arg.Any<CancellationToken>()).Returns(Array.Empty<NetworkLink>());
+        _client.Ports.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns([Port(1, "Gi0/1")]);
+        _client.Devices.ListAsync(Arg.Any<CancellationToken>()).Returns([Fakes.Device(DeviceId, "access-sw", ip: "192.0.2.10"), Fakes.Device(12, "antenna-01", ip: "192.0.2.50")]);
+        _client.Arp.FindByMacAsync("00005e005301", Arg.Any<CancellationToken>()).Returns([new ArpEntry { DeviceId = DeviceId, MacAddress = "00005e005301", Ipv4Address = "192.0.2.50" }]);
+
+        var row = Assert.Single(Assert.Single(await Load(DeviceSection.Neighbours)));
+
+        Assert.Equal(12, row.LinkDeviceId);
+        Assert.StartsWith("Gi0/1 → ", row.Subtitle, StringComparison.Ordinal);
+    }
+
+    private static LibreNmsApiException NoLinksFound() =>
+        new("No links found", System.Net.HttpStatusCode.NotFound, "No links found");
+
+    [Fact]
     public async Task A_failed_ports_lookup_falls_back_to_the_links_own_port_text()
     {
         _client.Links.ListForDeviceAsync(DeviceId, Arg.Any<CancellationToken>()).Returns(
