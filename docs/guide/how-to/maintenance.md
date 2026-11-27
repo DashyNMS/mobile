@@ -6,7 +6,7 @@
 2. Leave **Start now** on, or turn it off and choose a date and time. Times are in the LibreNMS server's own time.
 3. Choose how long it lasts.
 4. Under **Alerts during maintenance**, choose **Skip alerts**, **Mute alerts** or **Run alerts as normal**.
-5. Add a title and notes if you like, then choose **Schedule**.
+5. Add a title and notes if you like, then choose **Schedule**. On iOS, the form scrolls above the button.
 
 Back discards the form without scheduling anything. If some devices were refused, DashyNMS says which, and the others are still scheduled. Scheduling needs permission on your LibreNMS account.
 

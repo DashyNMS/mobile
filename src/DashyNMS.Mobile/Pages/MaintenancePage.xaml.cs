@@ -14,8 +14,8 @@ public partial class MaintenancePage : ContentPage, IQueryAttributable, IActiveP
 	{
 		InitializeComponent();
 		BindingContext = _viewModel = viewModel;
-		Setup.OverlayPrimaryAction = true;
-		_layout = new SetupPageLayout(this, Setup, Header, FormScroll) { FullHeight = true };
+		// The fixed action row keeps the form viewport clear of Schedule at every scroll position.
+		_layout = new SetupPageLayout(this, Setup, Header, FormScroll);
 		Setup.SizeChanged += (_, _) => PlaceControls();
 		Setup.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(Padding)) PlaceControls(); };
 	}
