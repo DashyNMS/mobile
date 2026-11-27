@@ -31,8 +31,12 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 	/// <summary>How long the bulk bar takes to slide.</summary>
 	private const uint CardMotion = 250;
 
+	/// <summary>How far the list fades back behind the Status sheet.</summary>
+	private const double DimmedTo = 0.7;
+
 	private readonly AlertsViewModel _viewModel;
 	private readonly ShortcutReturn _shortcut = new();
+	private bool _isStatusSheetOpen;
 
 	/// <summary>The alert showing beside the list, if any - highlighted while the pane is there.</summary>
 	private AlertKey? _shown;
@@ -67,13 +71,33 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 		// sets how far the last row must scroll to clear it.
 		ListColumn.SizeChanged += (_, _) => PlaceControls();
 		SearchSlot.SizeChanged += (_, _) => PlaceControls();
-		ChipStrip.SizeChanged += (_, _) => PlaceControls();
+		StatusFilters.SizeChanged += (_, _) => PlaceControls();
 		Bulk.SizeChanged += (_, _) => PlaceControls();
+
+		StatusSheet.Attach(StatusFilters);
+		StatusFilters.OpenPickerRequested += (_, _) => SetStatusSheetOpen(true);
+		StatusFilters.ModeChanged += (_, mode) =>
+		{
+			if (mode != StatusFilterMode.CompactPicker)
+			{
+				SetStatusSheetOpen(false);
+			}
+		};
+		StatusSheet.CloseRequested += (_, _) => SetStatusSheetOpen(false);
+
+		var tapOff = new TapGestureRecognizer();
+		tapOff.Tapped += (_, _) => SetStatusSheetOpen(false);
+		Dim.GestureRecognizers.Add(tapOff);
 
 		_viewModel.PropertyChanged += (_, e) =>
 		{
 			if (e.PropertyName == nameof(AlertsViewModel.IsSearchOpen))
 			{
+				if (_viewModel.IsSearchOpen)
+				{
+					SetStatusSheetOpen(false);
+				}
+
 				Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
 			}
 		};
@@ -212,6 +236,9 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 
 		// As it was left, without sliding in again.
 		Bulk.IsVisible = _viewModel.Selection.IsSelecting;
+		StatusSheet.IsVisible = _isStatusSheetOpen;
+		Dim.IsVisible = _isStatusSheetOpen;
+		Dim.Opacity = _isStatusSheetOpen ? DimmedTo : 0;
 		PlaceControls();
 		_viewModel.RefreshCommand.Execute(null);
 	}
@@ -460,11 +487,15 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		Notices.Padding = new Thickness(left, 0, right, 0);
+		StatusFilters.Margin = new Thickness(left, 6, right, 0);
+		var filterWidth = Math.Max(0, columnWidth - left - right);
+		var viewportHeight = ListColumn.Height > 0 ? ListColumn.Height : Height;
+		StatusFilters.ApplyLayout(filterWidth, viewportHeight);
+		StatusSheet.Margin = new Thickness(left, 6, right, cardBottom);
+		StatusSheet.UpdateMaxHeight(viewportHeight);
 #if IOS
-		ChipStripPlacement.Apply(this, ChipStrip, ListColumn, topPadding: 6);
 		ListCard.Margin = new Thickness(left, 0, right, 0);
 #else
-		ChipStrip.Padding = new Thickness(left, 6, right, 0);
 		ListCard.Margin = new Thickness(left, 0, right, 12 + covered);
 #endif
 		CountLine.Margin = new Thickness(left + 4, 6, right, 2);
@@ -499,6 +530,59 @@ public partial class AlertsPage : ContentPage, IQueryAttributable, IDetailHost, 
 #if IOS
 		SyncActions();
 #endif
+	}
+
+	private void SetStatusSheetOpen(bool open)
+	{
+		if (_isStatusSheetOpen == open)
+		{
+			return;
+		}
+
+		_isStatusSheetOpen = open;
+		if (open)
+		{
+			_viewModel.IsSearchOpen = false;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			SlideCard(StatusSheet, _isStatusSheetOpen);
+			FadeDim(_isStatusSheetOpen);
+		});
+	}
+
+	private void FadeDim(bool dim)
+	{
+		const string name = "ListDim";
+		Dim.AbortAnimation(name);
+		var from = Dim.IsVisible ? Dim.Opacity : 0;
+		var to = dim ? DimmedTo : 0;
+		if (dim)
+		{
+			Dim.Opacity = from;
+			Dim.IsVisible = true;
+		}
+
+		if (ReducedMotion.IsOn || from == to)
+		{
+			Dim.Opacity = to;
+			Dim.IsVisible = dim;
+			return;
+		}
+
+		Dim.Animate(
+			name,
+			v => Dim.Opacity = from + ((to - from) * v),
+			length: CardMotion,
+			easing: Easing.CubicInOut,
+			finished: (_, cancelled) =>
+			{
+				if (!cancelled && !dim)
+				{
+					Dim.IsVisible = false;
+				}
+			});
 	}
 
 	private bool IsUserDragging()

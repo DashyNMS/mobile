@@ -51,49 +51,17 @@
                    Margin="4,0,4,6" />
         </VerticalStackLayout>
 
-        <!-- Desktop's state chips. Counts are of every device, whatever's filtered.
-             The strip reaches the screen's edge, so a chip scrolls in from under
-             the camera; its padding (from the page) lets the last one scroll clear. -->
-        <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
-            <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
-                <Button Style="{StaticResource Chip}" Text="{Binding UpChipText}" Command="{Binding ToggleUpCommand}">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ShowUp}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource OkStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding DownChipText}" Command="{Binding ToggleDownCommand}">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ShowDown}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding MaintenanceChipText}" Command="{Binding ToggleMaintenanceCommand}">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ShowMaintenance}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource MaintenanceTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource MaintenanceStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource MaintenanceTextLight}, Dark={StaticResource MaintenanceTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-                <Button Style="{StaticResource Chip}" Text="{Binding DisabledChipText}" Command="{Binding ToggleDisabledCommand}">
-                    <Button.Triggers>
-                        <DataTrigger TargetType="Button" Binding="{Binding ShowDisabled}" Value="True">
-                            <Setter Property="BackgroundColor" Value="{StaticResource InactiveTint}" />
-                            <Setter Property="BorderColor" Value="{StaticResource InactiveStroke}" />
-                            <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource InactiveTextLight}, Dark={StaticResource InactiveTextDark}}" />
-                        </DataTrigger>
-                    </Button.Triggers>
-                </Button>
-            </HorizontalStackLayout>
-        </ScrollView>
+        <!-- Desktop's state chips: all four remain discoverable at rest (#708),
+             arranged in one row, two rows, or a labelled Status button by pane size. -->
+        <controls:StatusFilterBar x:Name="StatusFilters" Grid.Row="3"
+                                  SummaryText="{Binding StatusSummaryText}"
+                                  IsFiltered="{Binding HasStatusFilter}"
+                                  Margin="16,6,16,0">
+            <controls:StatusFilterItem Tone="Ok" Label="{Binding UpChipText}" IsIncluded="{Binding ShowUp}" Command="{Binding ToggleUpCommand}" />
+            <controls:StatusFilterItem Tone="Critical" Label="{Binding DownChipText}" IsIncluded="{Binding ShowDown}" Command="{Binding ToggleDownCommand}" />
+            <controls:StatusFilterItem Tone="Maintenance" Label="{Binding MaintenanceChipText}" IsIncluded="{Binding ShowMaintenance}" Command="{Binding ToggleMaintenanceCommand}" />
+            <controls:StatusFilterItem Tone="Inactive" Label="{Binding DisabledChipText}" IsIncluded="{Binding ShowDisabled}" Command="{Binding ToggleDisabledCommand}" />
+        </controls:StatusFilterBar>
 
         <!-- Its height kept while the count is still blank, so the chips never touch the list (#143).
              Under the count, what the chips don't show: a search put away, a
@@ -279,6 +247,8 @@
                 </Grid>
             </VerticalStackLayout>
         </Border>
+
+        <controls:StatusFilterSheet x:Name="StatusSheet" Grid.Row="7" Margin="16,6,16,12" />
 
     </Grid>
     </controls:ListDetail>

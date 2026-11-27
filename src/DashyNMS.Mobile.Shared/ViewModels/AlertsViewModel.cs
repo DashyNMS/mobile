@@ -50,6 +50,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     /// turned off never seemed to stay off.
     /// </summary>
     private bool _shortcut;
+    private bool _onlyAcknowledged;
     private AlertGroupKey? _focusedGroup;
 
     [ObservableProperty]
@@ -59,6 +60,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     public void ShowGroup(AlertGroupKey key)
     {
         _shortcut = true;
+        _onlyAcknowledged = false;
         _focusedGroup = key;
         NavigationNotice = null;
         _expandedGroups.Add(key);
@@ -175,6 +177,19 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     public string OkChipText => _loaded ? $"OK {OkCount}" : "OK";
     public string AcknowledgedChipText => _loaded ? $"Acknowledged {AcknowledgedCount}" : "Acknowledged";
 
+    /// <summary>Current status filter selection for the compact Status control (#708).</summary>
+    public string StatusSummaryText => StatusFilterLayout.SummarizeSelection(
+    [
+        ("Critical", ShowCritical),
+        ("Warning", ShowWarning),
+        ("OK", ShowOk),
+        ("Acknowledged", ShowAcknowledged),
+    ],
+    _onlyAcknowledged ? "Acknowledged only" : null);
+
+    /// <summary>True when any status filter is excluded or narrowed to acknowledged only.</summary>
+    public bool HasStatusFilter => _onlyAcknowledged || !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged;
+
     public string CountText
     {
         get
@@ -219,7 +234,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     public bool HasFiltersText => FiltersText.Length > 0;
 
     /// <summary>True when anything narrows the list - shows the Clear button.</summary>
-    public bool HasActiveFilters => _focusedGroup is not null || !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
+    public bool HasActiveFilters => _focusedGroup is not null || _onlyAcknowledged || !ShowCritical || !ShowWarning || !ShowOk || !ShowAcknowledged || !string.IsNullOrWhiteSpace(SearchText);
 
     partial void OnShowCriticalChanged(bool value) => OnFilterChanged();
 
@@ -261,6 +276,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ToggleCritical()
     {
         _shortcut = false;
+        _onlyAcknowledged = false;
         ShowCritical = !ShowCritical;
     }
 
@@ -268,6 +284,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ToggleWarning()
     {
         _shortcut = false;
+        _onlyAcknowledged = false;
         ShowWarning = !ShowWarning;
     }
 
@@ -275,6 +292,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ToggleOk()
     {
         _shortcut = false;
+        _onlyAcknowledged = false;
         ShowOk = !ShowOk;
     }
 
@@ -282,6 +300,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ToggleAcknowledged()
     {
         _shortcut = false;
+        _onlyAcknowledged = false;
         ShowAcknowledged = !ShowAcknowledged;
     }
 
@@ -298,6 +317,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         }
 
         _shortcut = false;
+        _onlyAcknowledged = false;
         _focusedGroup = null;
         NavigationNotice = null;
         var filter = _settings.Current.Filter;
@@ -312,11 +332,9 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     }
 
     /// <summary>
-    /// Only one kind of alert, for the dashboard's counts (#32): "critical"
-    /// or "warning" turns every other chip off; "acknowledged" has no chip of
-    /// its own that shows only those, so it searches for the state, which
-    /// the search box shows and ✕ clears. "all" - the dashboard's See all -
-    /// clears every filter.
+    /// Only one kind of alert, for the dashboard's counts (#32): "critical",
+    /// "warning", "ok" or "acknowledged" shows only that status without
+    /// altering search (#708). "all" - the dashboard's See all - clears every filter.
     /// </summary>
     public void ShowOnly(string kind)
     {
@@ -326,17 +344,19 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         NavigationNotice = null;
         if (string.Equals(kind, "all", StringComparison.OrdinalIgnoreCase))
         {
+            _onlyAcknowledged = false;
             ResetFilters();
             return;
         }
 
         _loading = true;
         var acknowledged = string.Equals(kind, "acknowledged", StringComparison.OrdinalIgnoreCase);
-        ShowCritical = acknowledged || string.Equals(kind, "critical", StringComparison.OrdinalIgnoreCase);
-        ShowWarning = acknowledged || string.Equals(kind, "warning", StringComparison.OrdinalIgnoreCase);
-        ShowOk = acknowledged || string.Equals(kind, "ok", StringComparison.OrdinalIgnoreCase);
+        _onlyAcknowledged = acknowledged;
+        ShowCritical = !acknowledged && string.Equals(kind, "critical", StringComparison.OrdinalIgnoreCase);
+        ShowWarning = !acknowledged && string.Equals(kind, "warning", StringComparison.OrdinalIgnoreCase);
+        ShowOk = !acknowledged && string.Equals(kind, "ok", StringComparison.OrdinalIgnoreCase);
         ShowAcknowledged = acknowledged;
-        SearchText = acknowledged ? AlertState.Acknowledged.ToDisplayString() : string.Empty;
+        SearchText = string.Empty;
         _loading = false;
         OnFilterChanged();
     }
@@ -346,6 +366,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ClearFilters()
     {
         _shortcut = false;
+        _onlyAcknowledged = false;
         _focusedGroup = null;
         NavigationNotice = null;
         ResetFilters();
@@ -354,6 +375,7 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private void ResetFilters()
     {
         _loading = true;
+        _onlyAcknowledged = false;
         ShowCritical = true;
         ShowWarning = true;
         ShowOk = true;
@@ -618,6 +640,12 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(WarningCount));
         OnPropertyChanged(nameof(OkCount));
         OnPropertyChanged(nameof(AcknowledgedCount));
+        OnPropertyChanged(nameof(CriticalChipText));
+        OnPropertyChanged(nameof(WarningChipText));
+        OnPropertyChanged(nameof(OkChipText));
+        OnPropertyChanged(nameof(AcknowledgedChipText));
+        OnPropertyChanged(nameof(StatusSummaryText));
+        OnPropertyChanged(nameof(HasStatusFilter));
 
         var alerts = _all.Select(a => a.Alert).ToList();
         _badge.SetCount(AlertBadge.Count(alerts, _settings.Current, _countThreshold?.Minimum ?? _settings.Current.Notifications.CountFrom));
@@ -749,6 +777,12 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
     private bool Allows(AlertItem alert)
     {
         if (_focusedGroup is { } group && (alert.Alert.DeviceId != group.DeviceId || alert.Alert.RuleId != group.RuleId)) return false;
+        var term = SearchText.Trim();
+        if (_onlyAcknowledged)
+        {
+            return alert.State == AlertState.Acknowledged && (term.Length == 0 || alert.Matches(term));
+        }
+
         var severityAllowed = alert.Severity switch
         {
             AlertSeverity.Critical => ShowCritical,
@@ -763,7 +797,6 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
             _ => true,
         };
 
-        var term = SearchText.Trim();
         return severityAllowed && stateAllowed && (term.Length == 0 || alert.Matches(term));
     }
 
@@ -818,6 +851,8 @@ public sealed partial class AlertsViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(WarningChipText));
         OnPropertyChanged(nameof(OkChipText));
         OnPropertyChanged(nameof(AcknowledgedChipText));
+        OnPropertyChanged(nameof(StatusSummaryText));
+        OnPropertyChanged(nameof(HasStatusFilter));
     }
 
     private IReadOnlyList<AlertGroup> VisibleGroups()
