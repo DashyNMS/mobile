@@ -1,6 +1,7 @@
 using DashyNMS.Mobile.Intelligence;
 using DesktopNMS.Core.Intelligence;
 using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -9,7 +10,7 @@ namespace DashyNMS.Mobile.Controls;
 /// (#228). Text is always set as plain spans, so nothing in an answer is parsed as
 /// HTML or executed. Verified objects read as their name and status in text, with
 /// optional status colour; tapping one asks
-/// the host to open it. Tables scroll sideways rather than squeezing columns.
+/// the host to open it. Tables adapt to the width of the answer.
 /// Redraws only when the text, evidence or colour choice changes, and the page
 /// already coalesces streaming updates to ten a second.
 /// </summary>
@@ -169,26 +170,26 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
     private View Table(MarkdownTableBlock table)
     {
         var columns = table.Columns;
-        var grid = new Grid { ColumnSpacing = 1, RowSpacing = 1, Padding = 1 };
-        grid.SetAppThemeColor(BackgroundColorProperty, Resource<Color>("StrokeLight"), Resource<Color>("ChipStrokeDark"));
+        var grid = new Grid { ColumnSpacing = 20, HorizontalOptions = LayoutOptions.Start };
+        var cells = new Label[table.Rows.Count, columns];
         for (var c = 0; c < columns; c++) grid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Auto));
         for (var r = 0; r < table.Rows.Count; r++)
         {
+            if (r > 0) AddTableDivider(grid, columns, 2 * r - 1);
             grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             for (var c = 0; c < columns; c++)
             {
-                var cell = Text(c < table.Rows[r].Count ? table.Rows[r][c] : [], 14, bold: r == 0);
+                var cell = Text(c < table.Rows[r].Count ? table.Rows[r][c] : [], 14, bold: r == 0, secondary: r == 0);
                 cell.MaximumWidthRequest = 260;
+                cell.Margin = new Thickness(0, 7);
                 cell.HorizontalTextAlignment = c < table.Alignments.Count ? table.Alignments[c] switch
                 {
                     MarkdownAlignment.Centre => TextAlignment.Center,
                     MarkdownAlignment.End => TextAlignment.End,
                     _ => TextAlignment.Start,
                 } : TextAlignment.Start;
-                var host = new ContentView { Content = cell, Padding = new Thickness(10, 6) };
-                if (r == 0) host.SetAppThemeColor(BackgroundColorProperty, Resource<Color>("SurfaceAltLight"), Resource<Color>("SurfaceAltDark"));
-                else host.SetAppThemeColor(BackgroundColorProperty, Color.FromArgb("#ECF3FC"), Color.FromArgb("#0A1526"));
-                grid.Add(host, c, r);
+                cells[r, c] = cell;
+                grid.Add(cell, c, 2 * r);
             }
         }
         var scroll = new ScrollView
@@ -196,8 +197,103 @@ public sealed class IntelligenceMarkdownView : VerticalStackLayout
             Orientation = ScrollOrientation.Horizontal, Content = grid, SafeAreaEdges = SafeAreaEdges.None,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Default,
         };
-        SemanticProperties.SetDescription(scroll, $"Table, {table.Rows.Count} rows and {columns} columns. Scroll sideways for more.");
-        return scroll;
+        var hint = new Label { Text = "Scroll sideways to see all columns.", Style = Resource<Style>("Caption"), LineBreakMode = LineBreakMode.WordWrap };
+        return new ResponsiveTable(grid, cells, scroll, CompactTable(table), hint);
+    }
+
+    private static void AddTableDivider(Grid grid, int columns, int row)
+    {
+        grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        var divider = Line(default);
+        grid.Add(divider, 0, row);
+        Grid.SetColumnSpan(divider, columns);
+    }
+
+    /// <summary>Use labelled rows only if each column has its own usable label.</summary>
+    private View? CompactTable(MarkdownTableBlock table)
+    {
+        var headers = table.Rows[0];
+        if (table.Rows.Count < 2 || headers.Count != table.Columns ||
+            headers.Any(header => header.Any(span => span is not { Reference: null, Link: null }))) return null;
+        var names = headers.Select(header => string.Concat(header.Select(span => span.Text)).Trim()).ToArray();
+        if (names.Any(string.IsNullOrWhiteSpace) || names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
+            return null;
+
+        var stack = new VerticalStackLayout { Spacing = 8 };
+        foreach (var row in table.Rows.Skip(1))
+        {
+            if (stack.Children.Count > 0) stack.Children.Add(Line(default));
+            var fields = new VerticalStackLayout { Spacing = 4 };
+            for (var c = 0; c < names.Length; c++)
+            {
+                var spans = c < row.Count ? row[c] : [];
+                fields.Children.Add(Text(spans.Count > 0 ? spans : [new("—")], 14, prefix: names[c] + ": "));
+            }
+            stack.Children.Add(fields);
+        }
+        return stack;
+    }
+
+    /// <summary>Measures native text against the current card width, including changes in text size and window geometry.</summary>
+    private sealed class ResponsiveTable : Layout
+    {
+        private readonly Grid _grid;
+        private readonly Label[,] _cells;
+        private readonly ScrollView _scroll;
+        private readonly View? _compact;
+        private readonly Label _hint;
+
+        public ResponsiveTable(Grid grid, Label[,] cells, ScrollView scroll, View? compact, Label hint)
+        {
+            _grid = grid;
+            _cells = cells;
+            _scroll = scroll;
+            _compact = compact;
+            _hint = hint;
+            Children.Add(hint);
+            Children.Add(scroll);
+            if (compact is not null) Children.Add(compact);
+        }
+
+        protected override ILayoutManager CreateLayoutManager() => new TableLayoutManager(this);
+
+        private sealed class TableLayoutManager(ResponsiveTable table) : LayoutManager(table)
+        {
+            private double _hintHeight;
+
+            public override Size Measure(double widthConstraint, double heightConstraint)
+            {
+                var cells = table._cells;
+                var columns = cells.GetLength(1);
+                var naturalWidth = table._grid.ColumnSpacing * (columns - 1);
+                for (var c = 0; c < columns; c++)
+                {
+                    var columnWidth = 0d;
+                    // Measure the labels directly so a collapsed parent does not skip them.
+                    for (var r = 0; r < cells.GetLength(0); r++)
+                        columnWidth = Math.Max(columnWidth, ((IView)cells[r, c]).Measure(double.PositiveInfinity, double.PositiveInfinity).Width);
+                    naturalWidth += Math.Ceiling(columnWidth);
+                }
+
+                var fits = naturalWidth <= widthConstraint;
+                var showCompact = !fits && table._compact is not null;
+                if (table._compact is { } compact) compact.IsVisible = showCompact;
+                table._scroll.IsVisible = !showCompact;
+                table._hint.IsVisible = !fits && !showCompact;
+                _hintHeight = table._hint.IsVisible ? ((IView)table._hint).Measure(widthConstraint, heightConstraint).Height + 6 : 0;
+                var content = showCompact ? table._compact! : table._scroll;
+                var measured = ((IView)content).Measure(widthConstraint, heightConstraint);
+                return new Size(Math.Min(widthConstraint, measured.Width), measured.Height + _hintHeight);
+            }
+
+            public override Size ArrangeChildren(Rect bounds)
+            {
+                if (table._hint.IsVisible) ((IView)table._hint).Arrange(new Rect(bounds.X, bounds.Y, bounds.Width, _hintHeight - 6));
+                IView content = table._compact is { IsVisible: true } compact ? compact : table._scroll;
+                content.Arrange(new Rect(bounds.X, bounds.Y + _hintHeight, bounds.Width, Math.Max(0, bounds.Height - _hintHeight)));
+                return bounds.Size;
+            }
+        }
     }
 
     private View Code(string code)

@@ -51,6 +51,25 @@ public sealed class IntelligenceAnswerTests
         Assert.Equal(new[] { MarkdownAlignment.Start, MarkdownAlignment.Centre, MarkdownAlignment.End }, table.Alignments);
     }
 
+    [Theory]
+    [InlineData("edge-router-a [[device:12]]", "edge-router-a · Down")]
+    [InlineData("**edge-router-a** [[device:12]] on standby", "edge-router-a · Down on standby")]
+    [InlineData("[[alert:7]] `Port down`", "Port down · Critical")]
+    [InlineData("Check edge-router-a [[device:12]]", "Check edge-router-a edge-router-a · Down")]
+    [InlineData("[edge-router-a](https://example.org/device) [[device:12]]", "edge-router-a edge-router-a · Down")]
+    [InlineData("edge-router-a [[device:12]] and [[alert:7]]", "edge-router-a · Down and Port down · Critical")]
+    [InlineData("Device 99 [[device:99]]", "Device 99 Device 99")]
+    public void Table_cells_remove_only_standalone_copies_of_verified_names(string source, string displayed)
+    {
+        var blocks = IntelligenceMarkdown.Parse($"| Item |\n| --- |\n| {source} |\n\n{source}", Evidence);
+        var table = Assert.IsType<MarkdownTableBlock>(blocks[0]);
+        var cell = Assert.Single(table.Rows[1]);
+        Assert.Equal(displayed, string.Concat(cell.Select(span => span.Display)));
+        Assert.Equal(IntelligenceMarkdown.Inlines(source, Evidence).Where(span => span.Reference is not null),
+            cell.Where(span => span.Reference is not null));
+        Assert.Equal(IntelligenceMarkdown.Inlines(source, Evidence), Assert.IsType<MarkdownTextBlock>(blocks[1]).Spans);
+    }
+
     [Fact]
     public void Linked_objects_are_verified_navigable_and_listed_once()
     {
