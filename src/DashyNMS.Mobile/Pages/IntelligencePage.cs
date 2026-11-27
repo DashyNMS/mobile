@@ -44,7 +44,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     // Drawn over the native button, which keeps its semantics and disabled colours.
     private readonly Microsoft.Maui.Controls.Shapes.Path _askIcon = Glyph(SendIcon, 24);
     private readonly FootFade _fade = new();
-    private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center };
+    private readonly Border _composer = new() { Padding = new Thickness(12, 8), StrokeThickness = 1, StrokeShape = new RoundRectangle { CornerRadius = 18 }, HorizontalOptions = LayoutOptions.Center, VerticalOptions = LayoutOptions.End };
     private readonly IconButton _new = new() { Icon = "M12 4V20 M4 12H20", Kind = IconButtonKind.Plain };
     private readonly IconButton _list = new() { Icon = "M9 6H20 M9 12H20 M9 18H20 M4 6H5 M4 12H5 M4 18H5", Kind = IconButtonKind.Plain };
     private readonly IDispatcherTimer _timer;
@@ -56,7 +56,6 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     private readonly List<TurnCard> _cards = [];
     private long _chatRevision;
     private long _starterRevision = -1;
-    private readonly VerticalStackLayout _overlay = new() { Spacing = 8, VerticalOptions = LayoutOptions.End, HorizontalOptions = LayoutOptions.Center };
     private bool _showing;
     private bool _following = true;
     private bool _scrollPending;
@@ -155,7 +154,13 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             () => _ = PickSpotlightAsync());
         var composer = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto)], RowSpacing = 4 };
         composer.Add(_spotlightControls, 0, 0);
-        composer.Add(_question, 0, 1);
+        // Keep Jump to latest clear of both the transcript and the composer controls.
+        _jump.MinimumHeightRequest = _jump.MinimumWidthRequest = 48;
+        _jump.VerticalOptions = LayoutOptions.Center;
+        var questionRow = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)] };
+        questionRow.Add(_question, 0, 0);
+        questionRow.Add(_jump, 1, 0);
+        composer.Add(questionRow, 0, 1);
         var choices = new Grid { SafeAreaEdges = SafeAreaEdges.None, ColumnDefinitions = [new(GridLength.Star), new(GridLength.Auto)], ColumnSpacing = 8 };
         var chipRow = new HorizontalStackLayout { Spacing = 8, VerticalOptions = LayoutOptions.Center };
         chipRow.Children.Add(_spotlightButton);
@@ -176,7 +181,6 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         choices.Add(askHost, 1, 0);
         composer.Add(choices, 0, 2);
         _composer.Content = composer;
-        _composer.Margin = new Thickness(0, 8, 0, 0);
         var body = new Grid { SafeAreaEdges = SafeAreaEdges.None, RowDefinitions = [new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto)] };
         body.Add(_notice, 0, 0);
         // The page owns the backdrop so it also paints behind safe-area gutters,
@@ -193,17 +197,11 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         // Messages passing behind the composer and tab bar fade out rather than
         // running into the composer's edge. Decorative; it never takes touches.
         body.Add(_fade, 0, 1);
-        // Keep the arrow slot measured when hidden, so following does not change the footer.
-        _jump.MinimumHeightRequest = _jump.MinimumWidthRequest = 48;
-        var jumpSlot = new Grid { HeightRequest = 48, SafeAreaEdges = SafeAreaEdges.None };
-        jumpSlot.Children.Add(_jump);
-        _overlay.Children.Add(jumpSlot);
-        _overlay.Children.Add(_composer);
-        body.Add(_overlay, 0, 1);
+        body.Add(_composer, 0, 1);
         // The placement helper measures the keyboard/glass foot once; the page
         // applies it to the overlay, so the transcript runs to the bottom of the
         // screen and messages scroll behind the composer and the tab bar.
-        _overlay.SizeChanged += (_, _) => ReserveFoot();
+        _composer.SizeChanged += (_, _) => ReserveFoot();
         var setup = new SetupLayout { Header = _header, Body = body };
         Content = setup;
         _placement = new SetupPageLayout(this, setup, _header, _scroll) { ShowActions = ShowActions, PlaceFoot = PlaceFoot };
@@ -372,15 +370,15 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         if (_lane is { LaneLeft: { } left, LaneRight: { } right })
         {
             var laneWidth = Math.Min(860, right - left);
-            _overlay.HorizontalOptions = LayoutOptions.Start;
-            _overlay.Margin = new Thickness(Math.Max(0, left - _columnLeft + (right - left - laneWidth) / 2), 0, 0, _lane.Gap);
-            _composer.WidthRequest = _overlay.WidthRequest = laneWidth;
+            _composer.HorizontalOptions = LayoutOptions.Start;
+            _composer.Margin = new Thickness(Math.Max(0, left - _columnLeft + (right - left - laneWidth) / 2), 0, 0, _lane.Gap);
+            _composer.WidthRequest = laneWidth;
         }
         else
         {
-            _overlay.HorizontalOptions = LayoutOptions.Center;
-            _overlay.Margin = new Thickness(0, 0, 0, _lane.Gap);
-            _composer.WidthRequest = _overlay.WidthRequest = width;
+            _composer.HorizontalOptions = LayoutOptions.Center;
+            _composer.Margin = new Thickness(0, 0, 0, _lane.Gap);
+            _composer.WidthRequest = width;
         }
         foreach (var card in _cards) card.Place(width);
         ReserveFoot();
@@ -404,16 +402,15 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
     /// <summary>
     /// Leaves room under the last message for the composer and whatever covers
     /// the page's foot (tab bar, glass or keyboard), whichever reaches higher.
-    /// The hidden Jump to latest slot keeps this stable while following.
     /// </summary>
     private void ReserveFoot()
     {
-        var reserve = Math.Max(Math.Max(0, _overlay.Height) + _lane.Gap, _lane.Clearance) + 16;
+        var covered = Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance);
+        var reserve = covered + 16;
         // A docked keyboard in a short landscape window can cover more than the
         // viewport; keep the last message's end inside it rather than above it.
         if (_scroll.Height > 0) reserve = Math.Min(reserve, Math.Max(0, _scroll.Height - 64));
-        // From a little above the composer (not the Jump to latest slot) to the screen's base.
-        _fade.SetCoveredHeight(Math.Max(Math.Max(0, _composer.Height) + _lane.Gap, _lane.Clearance));
+        _fade.SetCoveredHeight(covered);
         var padding = new Thickness(0, 12, 0, reserve);
         if (_transcript.Padding == padding) return;
         _transcript.Padding = padding;

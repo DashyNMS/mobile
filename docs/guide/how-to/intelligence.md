@@ -26,6 +26,8 @@ Intelligence isn't available on Android, or on older iPhones and iPads.
 
 Graphs fill the width of the answer card. Tap a graph to open a larger preview.
 
+On narrow screens, tables with clear column headings show each row as labelled fields. If a table asks you to scroll sideways, swipe it to see the other columns. **Jump to latest** appears beside the question field when you scroll back through a chat.
+
 Be specific: name the device, site or port. The on-device model holds less at once than the ones on a computer, so it looks up fewer things for each question. Ask about one part of the network at a time, and start a **New chat** when you change subject.
 
 Answers can be wrong, and lookups can use data that's a few minutes old. Check LibreNMS before acting. When something couldn't be read, the answer says so.

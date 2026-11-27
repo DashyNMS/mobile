@@ -305,7 +305,7 @@ Pages that use a bespoke top bar (`DashboardPage`, `CustomiseDashboardPage`, `In
 - Centre transcript, notice and composer in one column capped at 860pt.
 - Right-align question bubbles (`min(560pt, 85%)`); left-align answers with no repeated heading.
 - Overlay the composer over the transcript via `SetupPageLayout.PlaceFoot` and `ChatComposerPlacement.Resolve`: level with a side pill's base, beside a bottom pill when a 360pt lane exists, above a bottom pill otherwise, and always above a docked keyboard.
-- Set transcript footer clearance to `16pt + max(composerOverlay, coveredFoot)`, capped at `max(0, viewportHeight - 64pt)` so the last message stays reachable with the keyboard up. Keep the Jump to latest slot measured while hidden so the footer height stays stable.
+- Set transcript footer clearance to `16pt + max(composerOverlay, coveredFoot)`, capped at `max(0, viewportHeight - 64pt)` so the last message stays reachable with the keyboard up. Show Jump to latest beside the question field so it stays clear of the answer text.
 - Let the composer field grow from 48 to 140pt. Style every composer control (Spotlight, remove, Switch to previous chat and answer detail) as an outlined chip at least 48pt high with a mandatory icon or chevron and a themed border meeting at least 3:1 contrast against the composer surface in both themes (never `SecondaryButton` or `StrokeDark` on `SurfaceAltDark`). Share one 48pt circle for Send and Stop.
 - Show a notice only when an event actually changed this user's content, separated from the transcript by 12pt. With no turns, rest starter questions at the top with a 20pt lead rather than scrolling to the bottom.
 

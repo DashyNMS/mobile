@@ -3,6 +3,7 @@
 Demo Mode screenshots of DashyNMS Mobile captured from `main` at commit `b512b27` (`v2.0.0-edge.7`). Every screen uses the built-in example network (`*.example.net` and RFC 5737 test addresses). Sign-in screens show only the empty `nms.example.com` placeholder.
 
 The iPhone 18 Pro and iPad Schedule maintenance screenshots were retaken for #698.
+The iPhone 18 Pro unreachable-devices capture and the iPad overview and unreachable-devices captures were retaken for #701.
 
 ## Device folders
 

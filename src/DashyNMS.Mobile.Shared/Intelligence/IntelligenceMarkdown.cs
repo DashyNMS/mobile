@@ -291,7 +291,27 @@ public static partial class IntelligenceMarkdown
     }
 
     private static IReadOnlyList<IReadOnlyList<MarkdownSpan>> Row(string row, IReadOnlyList<IntelligenceInlineReference> evidence) =>
-        Cells(row).Take(MaxTableColumns).Select(cell => Inlines(cell, evidence)).ToList();
+        Cells(row).Take(MaxTableColumns).Select(cell => RemoveRepeatedTableLabels(Inlines(cell, evidence))).ToList();
+
+    /// <summary>A marker already displays its name. Remove standalone copies at the cell edges, preserving prose and links.</summary>
+    private static IReadOnlyList<MarkdownSpan> RemoveRepeatedTableLabels(IReadOnlyList<MarkdownSpan> spans)
+    {
+        var first = 0;
+        while (first < spans.Count && IsPlain(spans[first])) first++;
+        if (first == spans.Count) return spans;
+
+        var last = spans.Count - 1;
+        while (last > first && IsPlain(spans[last])) last--;
+        var start = first > 0 && IsRepeatedName(spans.Take(first), spans[first]) ? first : 0;
+        var end = last < spans.Count - 1 && IsRepeatedName(spans.Skip(last + 1), spans[last]) ? last + 1 : spans.Count;
+        return start == 0 && end == spans.Count ? spans : spans.Skip(start).Take(end - start).ToArray();
+
+        static bool IsPlain(MarkdownSpan span) => span is { Link: null, Reference: null };
+
+        static bool IsRepeatedName(IEnumerable<MarkdownSpan> text, MarkdownSpan marker) =>
+            marker.Reference is { Object.IsValid: true, Name.Length: > 0 } reference &&
+            string.Equals(string.Concat(text.Select(span => span.Text)).Trim(), reference.Name, StringComparison.Ordinal);
+    }
 
     private static List<string> Cells(string row)
     {
