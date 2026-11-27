@@ -43,7 +43,7 @@
                                 <Label Grid.Column="1" Style="{StaticResource CardNote}"
                                        Text="{Binding Dashboard.CheckedText}" />
                             </Grid>
-                            <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" />
+                            <Label Style="{StaticResource CardNote}" Text="{Binding Dashboard.AlertTotalsText}" LineBreakMode="WordWrap" />
                             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
                                 <Border Style="{StaticResource Tile}"
                                         SemanticProperties.Description="{Binding Dashboard.CriticalAlerts, StringFormat='{0} critical alerts'}">
@@ -786,10 +786,14 @@
                         </Border>
 
                         <!-- One column on a phone; on an iPad or a Mac, as many as fit
-                             side by side (#88), in the order they're customised. -->
+                             side by side (#88), in the order they're customised. On wide
+                             three-column iOS layouts with leading Alerts, Devices and Needs
+                             attention, Needs attention spans two rows so telemetry sits
+                             directly under the compact summaries (#709). -->
                         <controls:CardGrid x:Name="CardList" BindableLayout.ItemsSource="{Binding Cards}"
                                            BindableLayout.ItemTemplateSelector="{StaticResource CardTemplates}"
-                                           MinColumnWidth="340" MaxColumns="3" Gap="12" />
+                                           MinColumnWidth="340" MaxColumns="3" Gap="12"
+                                           SpanLeadingTriage="{OnPlatform iOS=True, Default=False}" />
 
                         <Label Style="{StaticResource Faint}"
                                Text="{Binding UpdatedText}"

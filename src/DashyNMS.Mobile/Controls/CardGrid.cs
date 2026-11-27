@@ -1,5 +1,6 @@
 using Microsoft.Maui.Layouts;
 using DashyNMS.Mobile.Dashboard;
+using DashyNMS.Mobile.ViewModels;
 
 namespace DashyNMS.Mobile.Controls;
 
@@ -34,6 +35,14 @@ public sealed class CardGrid : Layout
     public static readonly BindableProperty EvenRowsProperty = BindableProperty.Create(
         nameof(EvenRows), typeof(bool), typeof(CardGrid), false, propertyChanged: Invalidate);
 
+    /// <summary>
+    /// On three-column layouts whose leading cards are Alerts, Devices and Needs
+    /// attention, spans Needs attention across two rows so the next cards sit
+    /// directly beneath the compact summaries (#709).
+    /// </summary>
+    public static readonly BindableProperty SpanLeadingTriageProperty = BindableProperty.Create(
+        nameof(SpanLeadingTriage), typeof(bool), typeof(CardGrid), false, propertyChanged: Invalidate);
+
     public double MinColumnWidth
     {
         get => (double)GetValue(MinColumnWidthProperty);
@@ -58,30 +67,22 @@ public sealed class CardGrid : Layout
         set => SetValue(EvenRowsProperty, value);
     }
 
+    public bool SpanLeadingTriage
+    {
+        get => (bool)GetValue(SpanLeadingTriageProperty);
+        set => SetValue(SpanLeadingTriageProperty, value);
+    }
+
     protected override ILayoutManager CreateLayoutManager() => new CardGridManager(this);
 
     private static void Invalidate(BindableObject view, object oldValue, object newValue) =>
         ((CardGrid)view).InvalidateMeasure();
 
-    /// <summary>How many columns fit <paramref name="width"/> for <paramref name="cards"/> cards, and how wide each is.</summary>
-    private (int Columns, double ColumnWidth) Columns(double width, int cards)
-    {
-        var columns = DashboardColumns.Count(width, MinColumnWidth, Gap, MaxColumns);
-        if (EvenRows && cards > columns)
-        {
-            while (columns > 1 && cards % columns != 0)
-            {
-                columns--;
-            }
-        }
-
-        return (columns, Math.Max(0, (width - (Gap * (columns - 1))) / columns));
-    }
-
     /// <summary>Measures each row as its tallest card, then places the cards in them.</summary>
     private sealed class CardGridManager(CardGrid grid) : LayoutManager(grid)
     {
-        private readonly List<double> _rowHeights = [];
+        private DashboardGridArrangement? _arrangement;
+        private double _measuredWidth = double.NaN;
 
         public override Size Measure(double widthConstraint, double heightConstraint)
         {
@@ -90,61 +91,105 @@ public sealed class CardGrid : Layout
                 ? grid.MinColumnWidth
                 : widthConstraint - padding.HorizontalThickness;
             var visible = Visible().ToList();
-            var (columns, columnWidth) = grid.Columns(width, visible.Count);
+            var (_, columnWidth) = DashboardGridLayout.ResolveColumns(
+                width, visible.Count, grid.MinColumnWidth, grid.Gap, grid.MaxColumns, grid.EvenRows);
 
-            _rowHeights.Clear();
+            var cardTypes = new string[visible.Count];
+            var naturalHeights = new double[visible.Count];
             for (var index = 0; index < visible.Count; index++)
             {
-                var size = visible[index].Measure(columnWidth, double.PositiveInfinity);
-                if (index % columns == 0)
-                {
-                    _rowHeights.Add(0);
-                }
-
-                _rowHeights[^1] = Math.Max(_rowHeights[^1], size.Height);
+                cardTypes[index] = CardTypeOf(visible[index]);
+                naturalHeights[index] = visible[index].Measure(columnWidth, double.PositiveInfinity).Height;
             }
 
-            if (columns > 1)
+            _measuredWidth = width;
+            _arrangement = DashboardGridLayout.Arrange(
+                width,
+                cardTypes,
+                naturalHeights,
+                grid.MinColumnWidth,
+                grid.Gap,
+                grid.MaxColumns,
+                grid.EvenRows,
+                grid.SpanLeadingTriage);
+
+            if (_arrangement.Columns > 1)
             {
-                for (var index = 0; index < visible.Count; index++)
+                foreach (var frame in _arrangement.Frames)
                 {
-                    var rowHeight = _rowHeights[index / columns];
-                    if (visible[index].DesiredSize.Height < rowHeight)
+                    if (visible[frame.Index].DesiredSize.Height < frame.Height)
                     {
-                        visible[index].Measure(columnWidth, rowHeight);
+                        visible[frame.Index].Measure(frame.Width, frame.Height);
                     }
                 }
             }
 
-            var height = _rowHeights.Sum() + (grid.Gap * Math.Max(0, _rowHeights.Count - 1)) + padding.VerticalThickness;
-            return new Size(width + padding.HorizontalThickness, height);
+            return new Size(width + padding.HorizontalThickness, _arrangement.TotalHeight + padding.VerticalThickness);
         }
 
         public override Size ArrangeChildren(Rect bounds)
         {
             var padding = grid.Padding;
-            var (columns, columnWidth) = grid.Columns(bounds.Width - padding.HorizontalThickness, Visible().Count());
-            var y = bounds.Top + padding.Top;
-            var index = 0;
-            foreach (var child in Visible())
+            var visible = Visible().ToList();
+            var availableWidth = bounds.Width - padding.HorizontalThickness;
+            var arrangement = _arrangement;
+            if (arrangement is null
+                || arrangement.Frames.Count != visible.Count
+                || Math.Abs(availableWidth - _measuredWidth) > 0.5)
             {
-                var row = index / columns;
-                var column = index % columns;
-                if (column == 0 && row > 0)
-                {
-                    y += RowHeight(row - 1) + grid.Gap;
-                }
-
-                var x = bounds.Left + padding.Left + (column * (columnWidth + grid.Gap));
-                child.Arrange(new Rect(x, y, columnWidth, Math.Max(RowHeight(row), child.DesiredSize.Height)));
-                index++;
+                var cardTypes = visible.Select(CardTypeOf).ToArray();
+                var heights = visible.Select(v => v.DesiredSize.Height).ToArray();
+                arrangement = DashboardGridLayout.Arrange(
+                    availableWidth,
+                    cardTypes,
+                    heights,
+                    grid.MinColumnWidth,
+                    grid.Gap,
+                    grid.MaxColumns,
+                    grid.EvenRows,
+                    grid.SpanLeadingTriage);
             }
 
+            foreach (var frame in arrangement.Frames)
+            {
+                var child = visible[frame.Index];
+                var x = bounds.Left + padding.Left + frame.X;
+                var y = bounds.Top + padding.Top + frame.Y;
+                child.Arrange(new Rect(x, y, frame.Width, Math.Max(frame.Height, child.DesiredSize.Height)));
+            }
+
+#if IOS
+            SyncAccessibilityGrouping(visible);
+#endif
             return bounds.Size;
         }
 
-        private double RowHeight(int row) => row < _rowHeights.Count ? _rowHeights[row] : 0;
+        private static string CardTypeOf(IView view) =>
+            view is BindableObject { BindingContext: DashboardCard card } ? card.Type : string.Empty;
 
         private IEnumerable<IView> Visible() => grid.Where(child => child.Visibility != Visibility.Collapsed);
+
+#if IOS
+        /// <summary>
+        /// Groups each card's accessibility children so VoiceOver reads each card
+        /// completely in rendered placement order instead of interleaving adjacent
+        /// columns beside a two-row spanning card (#709).
+        /// </summary>
+        private void SyncAccessibilityGrouping(IReadOnlyList<IView> visible)
+        {
+            if (grid.Handler?.PlatformView is UIKit.UIView container)
+            {
+                container.ShouldGroupAccessibilityChildren = true;
+            }
+
+            foreach (var child in visible)
+            {
+                if (child.Handler?.PlatformView is UIKit.UIView cardView)
+                {
+                    cardView.ShouldGroupAccessibilityChildren = true;
+                }
+            }
+        }
+#endif
     }
 }
