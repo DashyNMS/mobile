@@ -140,8 +140,8 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
             var summary = Sensors.Count == total
                 ? $"{Sensors.Count} {noun} sensor{(Sensors.Count == 1 ? string.Empty : "s")}"
                 : $"{Sensors.Count} of {total} {noun} sensors";
-            var unassessed = InCategory.Count(s => s.Row.Status is not (RowStatus.Critical or RowStatus.Warning or RowStatus.Ok));
-            return unassessed > 0 ? $"{summary} · {unassessed} without limits" : summary;
+            var unavailable = InCategory.Count(s => s.Row.Status is not (RowStatus.Critical or RowStatus.Warning or RowStatus.Ok));
+            return unavailable > 0 ? $"{summary} · {unavailable} unavailable" : summary;
         }
     }
 
@@ -316,7 +316,7 @@ public sealed partial class HealthViewModel : ViewModelBase, IRefreshable
             .Where(s => SensorCategoryRegistry.Resolve(s.SensorClass) is not null)
             .Select(s =>
             {
-                var reading = DeviceSectionLoader.ReadSensor(s, settings);
+                var reading = DeviceSectionLoader.ReadSensor(s, settings, effectiveLimits: true);
                 var device = names.TryGetValue(s.DeviceId, out var name) ? name : $"Device {s.DeviceId}";
                 return new HealthSensor(s.SensorClass!, device, new SectionRow(reading.Name)
                 {

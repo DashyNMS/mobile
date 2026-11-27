@@ -1,4 +1,5 @@
 using DashyNMS.Mobile.Controls;
+using DashyNMS.Mobile.DeviceSections;
 using DashyNMS.Mobile.ViewModels;
 using DashyNMS.Mobile.Services;
 
@@ -6,6 +7,15 @@ namespace DashyNMS.Mobile.Pages;
 
 public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 {
+    public static readonly BindableProperty ShowsHealthColumnsProperty = BindableProperty.Create(
+        nameof(ShowsHealthColumns), typeof(bool), typeof(HealthPage), false);
+
+    public bool ShowsHealthColumns
+    {
+        get => (bool)GetValue(ShowsHealthColumnsProperty);
+        private set => SetValue(ShowsHealthColumnsProperty, value);
+    }
+
     private readonly HealthViewModel _viewModel;
     private IDisposable? _edges;
     private bool _active;
@@ -15,6 +25,8 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
     private readonly Action _refresh;
 #if IOS
     private PageActionPlace? _actionPlace;
+    private Foundation.NSObject? _textSizeObserver;
+    private int _firstVisibleSensor;
 #endif
 
     public HealthPage(HealthViewModel viewModel)
@@ -30,6 +42,8 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         SearchButton.IsVisible = !TabBarButtons.IsAvailable;
         List.HandlerChanged += (_, _) => StopInsets();
         List.Loaded += (_, _) => StopInsets();
+        List.SizeChanged += (_, _) => UpdateReadingColumns();
+        List.Scrolled += (_, args) => _firstVisibleSensor = args.FirstVisibleItemIndex;
 #endif
     }
 
@@ -51,6 +65,9 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
         SyncActions();
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Moved += OnGlassMoved;
+        _textSizeObserver ??= UIKit.UIApplication.Notifications.ObserveContentSizeCategoryChanged((_, _) =>
+            Dispatcher.Dispatch(UpdateReadingColumns));
+        UpdateReadingColumns();
 #endif
         PlaceControls();
     }
@@ -84,6 +101,12 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 
     private void OnSearchCompleted(object? sender, EventArgs e) => _search.Close();
 
+    private async void OnSensorClicked(object? sender, EventArgs e)
+    {
+        if (sender is Button { BindingContext: SectionRow row } && _viewModel.OpenSensorCommand.CanExecute(row))
+            await _viewModel.OpenSensorCommand.ExecuteAsync(row);
+    }
+
     protected override void OnDisappearing()
     {
         _active = false;
@@ -94,6 +117,8 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 #if IOS
         TabBarButtons.Moved -= OnGlassMoved;
         TabBarButtons.Hide(this);
+        _textSizeObserver?.Dispose();
+        _textSizeObserver = null;
 #endif
     }
 
@@ -129,6 +154,31 @@ public partial class HealthPage : ContentPage, ISearchHost, IActivePage
 
 #if IOS
     private void OnGlassMoved(object? sender, EventArgs e) => Dispatcher.Dispatch(PlaceControls);
+
+    /// <summary>Reflows the same cells at a measured list width that accommodates the current text size.</summary>
+    private void UpdateReadingColumns()
+    {
+        if (!_active || List.Width <= 0) return;
+
+        using var font = UIKit.UIFont.PreferredBody;
+        // Keep space for a device name, a value with its unit, and a legible limit.
+        const double minimumWidth = 600;
+        var show = List.Width >= minimumWidth * Math.Max(1, (font?.PointSize ?? 17) / 17d);
+        if (show == ShowsHealthColumns) return;
+
+        var index = _firstVisibleSensor;
+        var anchor = index > 0 && index < _viewModel.Sensors.Count ? _viewModel.Sensors[index] : null;
+        ShowsHealthColumns = show;
+        if (anchor is null) return;
+
+        // The item source stays in place. Restore the first visible row after cells remeasure.
+        Dispatcher.Dispatch(() =>
+        {
+            if (_active && show == ShowsHealthColumns && index < _viewModel.Sensors.Count
+                && ReferenceEquals(_viewModel.Sensors[index], anchor))
+                List.ScrollTo(index, position: ScrollToPosition.Start, animate: false);
+        });
+    }
 
     private void StopInsets()
     {

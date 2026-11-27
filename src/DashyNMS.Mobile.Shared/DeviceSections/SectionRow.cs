@@ -150,6 +150,9 @@ public sealed record SectionRow(string Title)
     /// <summary>The reading, on the right - "42.5 °C", "Established", "99.98%".</summary>
     public string? Value { get; init; }
 
+    /// <summary>Keep the number and unit together when Health reflows its cells.</summary>
+    public string? HealthReadingText => Value?.Replace(' ', '\u00a0');
+
     public RowStatus Status { get; init; }
 
     /// <summary>Health rows state unavailable readings explicitly, independently of colour.</summary>
