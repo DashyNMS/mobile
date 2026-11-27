@@ -142,7 +142,8 @@ public partial class NetworkSearchPage : ContentPage, ISearchHost, IActivePage, 
             : _viewModel.ListHeading;
         if (!string.IsNullOrEmpty(text))
         {
-            SemanticScreenReader.Default.Announce(text);
+            var announcement = string.Join(" ", new[] { text, _viewModel.BlindSpotText, _viewModel.CoverageText }.OfType<string>());
+            SemanticScreenReader.Default.Announce(announcement);
         }
 
 #if IOS

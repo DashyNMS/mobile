@@ -1,5 +1,3 @@
-using DesktopNMS.Core;
-using DesktopNMS.Core.Models;
 using DesktopNMS.Core.Search;
 
 namespace DashyNMS.Mobile.Search;
@@ -15,48 +13,45 @@ public sealed class CoverageItemViewModel
             SearchSource.NeighbourDiscovery => "IPv6 neighbours",
             SearchSource.ForwardingTable => "Switch MAC tables",
             SearchSource.Networks => "Interface addresses",
-            SearchSource.Devices => "Devices",
+            SearchSource.Devices => "Monitored devices",
             SearchSource.Links => "Neighbour links",
             SearchSource.Vendors => "MAC vendors",
             _ => coverage.Source.ToString(),
         };
 
-        StateText = coverage.State switch
+        Source = coverage.Source;
+        State = coverage.State;
+        var stateText = State switch
         {
-            SourceState.Found when coverage.IsTruncated => $"found, {coverage.Shown} of {coverage.Total} checked",
-            SourceState.Found => "found",
-            SourceState.NoEntry => "nothing",
+            SourceState.Found => "data returned",
+            SourceState.NoEntry => "no entries",
             SourceState.NotQueried => "not checked",
-            SourceState.PermissionDenied => "no permission",
+            SourceState.PermissionDenied => "permission denied",
             SourceState.Unavailable => "unavailable",
             SourceState.Failed => "failed",
             _ => coverage.State.ToString(),
         };
 
-        Tone = coverage.State switch
-        {
-            SourceState.Found when coverage.IsTruncated => AlertSeverity.Warning,
-            SourceState.Found => AlertSeverity.Ok,
-            SourceState.PermissionDenied or SourceState.Failed => AlertSeverity.Critical,
-            SourceState.Unavailable => AlertSeverity.Warning,
-            _ => AlertSeverity.Unknown,
-        };
-
-        Detail = coverage.Detail ?? Label + ": " + StateText;
-        IsBlindSpot = coverage.State is SourceState.PermissionDenied or SourceState.Unavailable or SourceState.Failed || coverage.IsTruncated;
+        IsTruncated = coverage.IsTruncated;
+        StateText = IsTruncated ? $"{stateText}, limited to {coverage.Shown} of {coverage.Total}" : stateText;
+        Detail = coverage.Detail;
     }
 
     public string Label { get; }
 
     public string StateText { get; }
 
-    public AlertSeverity Tone { get; }
+    public SearchSource Source { get; }
 
-    public string Detail { get; }
+    public SourceState State { get; }
+
+    public bool IsTruncated { get; }
+
+    public string? Detail { get; }
 
     /// <summary>Whether this source leaves a gap in what the result can claim.</summary>
-    public bool IsBlindSpot { get; }
+    public bool IsBlindSpot => State is SourceState.PermissionDenied or SourceState.Unavailable or SourceState.Failed || IsTruncated;
 
-    /// <summary>Label, state and the reason, so screen readers get what the tooltip shows.</summary>
-    public string AccessibleText => Detail == Label + ": " + StateText ? Detail : $"{Label}: {StateText}. {Detail}";
+    /// <summary>One readable line, with the explanation when Core supplies one.</summary>
+    public string Summary => $"{Label}: {StateText}." + (string.IsNullOrWhiteSpace(Detail) ? "" : $" {Detail}");
 }

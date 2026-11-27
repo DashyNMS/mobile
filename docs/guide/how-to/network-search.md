@@ -32,7 +32,7 @@ Rows show MAC addresses and router names when the search finds them.
 
 ## When something's missing
 
-The line at the foot of the results says which sources were checked. If a source couldn't be read, perhaps because your account isn't allowed to, the results say so: a missing answer then doesn't mean it isn't there.
+The summary above the results shows what the search checked. Open **Show sources** to see each source's outcome when several are listed. A warning identifies sources that were unavailable, denied, failed or only partly checked. When that happens, a match may be missing.
 
 ## Share the results
 
