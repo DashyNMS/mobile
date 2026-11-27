@@ -65,7 +65,7 @@
             <CollectionView x:Name="List" Grid.Row="2" ItemsSource="{Binding Cards}" SelectionMode="None" Margin="0,6,0,0" SizeChanged="OnCatalogueSizeChanged">
                 <CollectionView.Header>
                     <!-- Keep the first cards below the fade at rest. -->
-                    <BoxView HeightRequest="20" Color="Transparent" InputTransparent="True" />
+                    <BoxView HeightRequest="20" Color="Transparent" InputTransparent="True" AutomationProperties.IsInAccessibleTree="False" />
                 </CollectionView.Header>
                 <CollectionView.ItemsLayout>
                     <GridItemsLayout x:Name="CatalogueLayout" Orientation="Vertical" Span="1" HorizontalItemSpacing="10" VerticalItemSpacing="10" />
@@ -181,7 +181,8 @@
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
             </CollectionView>
-            <BoxView Grid.Row="2" Margin="0,6,0,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" ZIndex="1">
+            <BoxView Grid.Row="2" Margin="0,6,0,0" HeightRequest="20" VerticalOptions="Start" InputTransparent="True" ZIndex="1"
+                     AutomationProperties.IsInAccessibleTree="False">
                 <BoxView.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                         <GradientStop Offset="0" Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />

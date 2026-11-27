@@ -224,7 +224,7 @@ internal sealed class SetupPageLayout
 
         foreach (var scroller in _scrollers)
         {
-            if (scroller is ScrollView { Content: Layout contentLayout })
+            if (scroller is ScrollView { Orientation: ScrollOrientation.Vertical or ScrollOrientation.Both, Content: Layout contentLayout })
             {
                 var current = contentLayout.Padding;
                 var next = new Thickness(current.Left, current.Top, current.Right, placement.Footer);
