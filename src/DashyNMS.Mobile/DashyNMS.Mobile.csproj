@@ -30,7 +30,7 @@
 		     gets a window: no tab pill on a landscape cold launch on the Duo's
 		     inner display (#372). Fixed in 10.0.120 (dotnet/maui#39264). Move
 		     this with the workload set; the Android Work pin below follows it. -->
-		<MauiVersion>10.0.120</MauiVersion>
+		<MauiVersion>10.0.130</MauiVersion>
 		<SingleProject>true</SingleProject>
 
 		<!-- XAML compiled to C# at build time: faster start-up, and binding
@@ -86,7 +86,7 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.15" />
 	</ItemGroup>
 
 	<!-- Background alert checks on Android (see AndroidAlertScheduler).
