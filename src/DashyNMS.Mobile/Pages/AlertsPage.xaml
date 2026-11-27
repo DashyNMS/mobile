@@ -55,58 +55,18 @@
                    IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" Margin="4,0,4,6" />
         </VerticalStackLayout>
 
-        <!-- Desktop's filter chips. Counts are of open alerts, whatever's filtered.
-             The strip reaches the screen's edge, so a chip scrolls in from under
-             the camera; its padding (from the page) lets the last one scroll clear. -->
-        <ScrollView x:Name="ChipStrip" Grid.Row="3" Orientation="Horizontal" HorizontalScrollBarVisibility="Never" Padding="16,6,16,0" SafeAreaEdges="None">
-        <HorizontalStackLayout Spacing="8" SafeAreaEdges="None">
-            <Button Style="{StaticResource Chip}"
-                    Text="{Binding CriticalChipText}"
-                    Command="{Binding ToggleCriticalCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowCritical}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource CriticalTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource CriticalStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource CriticalTextLight}, Dark={StaticResource CriticalTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-            <Button Style="{StaticResource Chip}"
-                    Text="{Binding WarningChipText}"
-                    Command="{Binding ToggleWarningCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowWarning}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource WarningTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource WarningStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource WarningTextLight}, Dark={StaticResource WarningTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
+        <!-- Desktop's filter chips: all four remain discoverable at rest (#708),
+             arranged in one row, two rows, or a labelled Status button by pane size. -->
+        <controls:StatusFilterBar x:Name="StatusFilters" Grid.Row="3"
+                                  SummaryText="{Binding StatusSummaryText}"
+                                  IsFiltered="{Binding HasStatusFilter}"
+                                  Margin="16,6,16,0">
+            <controls:StatusFilterItem Tone="Critical" Label="{Binding CriticalChipText}" IsIncluded="{Binding ShowCritical}" Command="{Binding ToggleCriticalCommand}" />
+            <controls:StatusFilterItem Tone="Warning" Label="{Binding WarningChipText}" IsIncluded="{Binding ShowWarning}" Command="{Binding ToggleWarningCommand}" />
             <!-- LibreNMS's ok severity (#64). -->
-            <Button Style="{StaticResource Chip}"
-                    Text="{Binding OkChipText}"
-                    Command="{Binding ToggleOkCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowOk}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource OkTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource OkStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource OkTextLight}, Dark={StaticResource OkTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-            <Button Style="{StaticResource Chip}"
-                    Text="{Binding AcknowledgedChipText}"
-                    Command="{Binding ToggleAcknowledgedCommand}">
-                <Button.Triggers>
-                    <DataTrigger TargetType="Button" Binding="{Binding ShowAcknowledged}" Value="True">
-                        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
-                        <Setter Property="BorderColor" Value="{StaticResource PrimaryStroke}" />
-                        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource PrimaryTextLight}, Dark={StaticResource PrimaryTextDark}}" />
-                    </DataTrigger>
-                </Button.Triggers>
-            </Button>
-        </HorizontalStackLayout>
-        </ScrollView>
+            <controls:StatusFilterItem Tone="Ok" Label="{Binding OkChipText}" IsIncluded="{Binding ShowOk}" Command="{Binding ToggleOkCommand}" />
+            <controls:StatusFilterItem Tone="Primary" Label="{Binding AcknowledgedChipText}" IsIncluded="{Binding ShowAcknowledged}" Command="{Binding ToggleAcknowledgedCommand}" />
+        </controls:StatusFilterBar>
 
         <!-- Its height kept while the count is still blank, so the chips never touch the list (#143).
              Under the count, what the chips don't show: a search put away, or
@@ -239,6 +199,9 @@
         </Border>
         <controls:FootFade x:Name="BottomFade" Grid.Row="5" Grid.RowSpan="2" />
 
+        <BoxView x:Name="Dim" Grid.Row="2" Grid.RowSpan="5" IsVisible="False" Opacity="0"
+                 Color="{AppThemeBinding Light={StaticResource BackgroundLight}, Dark={StaticResource BackgroundDark}}" />
+
         <!-- Selecting (#85): how many, select all, and what to do with them -
              risen over the foot of the list, level with a side tab bar's (see the page). -->
         <controls:BulkBar x:Name="Bulk" Grid.Row="6" Summary="{Binding Selection.Summary}" Progress="{Binding Selection.ProgressText}"
@@ -254,6 +217,8 @@
                        IsVisible="{Binding AcknowledgeRefusedText, Converter={StaticResource IsNotNull}}" VerticalOptions="Center" />
             </Grid>
         </controls:BulkBar>
+
+        <controls:StatusFilterSheet x:Name="StatusSheet" Grid.Row="6" Margin="16,6,16,12" />
 
     </Grid>
     </controls:ListDetail>

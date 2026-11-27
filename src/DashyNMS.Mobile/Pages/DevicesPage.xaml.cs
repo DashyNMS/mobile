@@ -35,6 +35,7 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 	private readonly DevicesViewModel _viewModel;
 	private readonly ShortcutReturn _shortcut = new();
+	private bool _isStatusSheetOpen;
 
 	/// <summary>The device showing beside the list, if any - highlighted while the pane is there.</summary>
 	private int? _shown;
@@ -72,21 +73,42 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		// sets how far the last row must scroll to clear it.
 		ListColumn.SizeChanged += (_, _) => PlaceControls();
 		SearchSlot.SizeChanged += (_, _) => PlaceControls();
-		ChipStrip.SizeChanged += (_, _) => PlaceControls();
+		StatusFilters.SizeChanged += (_, _) => PlaceControls();
 		Bulk.SizeChanged += (_, _) => PlaceControls();
+
+		StatusSheet.Attach(StatusFilters);
+		StatusFilters.OpenPickerRequested += (_, _) => SetStatusSheetOpen(true);
+		StatusFilters.ModeChanged += (_, mode) =>
+		{
+			if (mode != StatusFilterMode.CompactPicker)
+			{
+				SetStatusSheetOpen(false);
+			}
+		};
+		StatusSheet.CloseRequested += (_, _) => SetStatusSheetOpen(false);
 
 		_viewModel.PropertyChanged += (_, e) =>
 		{
 			switch (e.PropertyName)
 			{
 				case nameof(DevicesViewModel.IsSearchOpen):
+					if (_viewModel.IsSearchOpen)
+					{
+						SetStatusSheetOpen(false);
+					}
+
 					Dispatcher.Dispatch(() => SlideSearch(_viewModel.IsSearchOpen));
 					break;
 				case nameof(DevicesViewModel.IsFilterPanelOpen):
+					if (_viewModel.IsFilterPanelOpen)
+					{
+						SetStatusSheetOpen(false);
+					}
+
 					Dispatcher.Dispatch(() =>
 					{
 						SlideCard(FilterCard, _viewModel.IsFilterPanelOpen);
-						FadeDim(_viewModel.IsFilterPanelOpen);
+						FadeDim(_viewModel.IsFilterPanelOpen || _isStatusSheetOpen);
 					});
 					break;
 #if IOS
@@ -119,7 +141,11 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 		};
 
 		var tapOff = new TapGestureRecognizer();
-		tapOff.Tapped += (_, _) => _viewModel.IsFilterPanelOpen = false;
+		tapOff.Tapped += (_, _) =>
+		{
+			_viewModel.IsFilterPanelOpen = false;
+			SetStatusSheetOpen(false);
+		};
 		Dim.GestureRecognizers.Add(tapOff);
 
 #if IOS
@@ -251,8 +277,10 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 		// As they were left, without sliding in again.
 		FilterCard.IsVisible = _viewModel.IsFilterPanelOpen;
-		Dim.IsVisible = _viewModel.IsFilterPanelOpen;
-		Dim.Opacity = _viewModel.IsFilterPanelOpen ? DimmedTo : 0;
+		StatusSheet.IsVisible = _isStatusSheetOpen;
+		var dimmed = _viewModel.IsFilterPanelOpen || _isStatusSheetOpen;
+		Dim.IsVisible = dimmed;
+		Dim.Opacity = dimmed ? DimmedTo : 0;
 		Bulk.IsVisible = _viewModel.Selection.IsSelecting;
 		PlaceControls();
 
@@ -521,11 +549,15 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 
 		Header.Margin = new Thickness(left, 0, right, 0);
 		Notices.Padding = new Thickness(left, 0, right, 0);
+		StatusFilters.Margin = new Thickness(left, 6, right, 0);
+		var filterWidth = Math.Max(0, columnWidth - left - right);
+		var viewportHeight = ListColumn.Height > 0 ? ListColumn.Height : Height;
+		StatusFilters.ApplyLayout(filterWidth, viewportHeight);
+		StatusSheet.Margin = new Thickness(left, 6, right, cardBottom);
+		StatusSheet.UpdateMaxHeight(viewportHeight);
 #if IOS
-		ChipStripPlacement.Apply(this, ChipStrip, ListColumn, topPadding: 6);
 		ListCard.Margin = new Thickness(left, 0, right, 0);
 #else
-		ChipStrip.Padding = new Thickness(left, 6, right, 0);
 		ListCard.Margin = new Thickness(left, 0, right, 12 + covered);
 #endif
 		CountLine.Margin = new Thickness(left + 4, 6, right, 2);
@@ -562,6 +594,27 @@ public partial class DevicesPage : ContentPage, IQueryAttributable, IDetailHost,
 #if IOS
 		UpdateGlass();
 #endif
+	}
+
+	private void SetStatusSheetOpen(bool open)
+	{
+		if (_isStatusSheetOpen == open)
+		{
+			return;
+		}
+
+		_isStatusSheetOpen = open;
+		if (open)
+		{
+			_viewModel.IsSearchOpen = false;
+			_viewModel.IsFilterPanelOpen = false;
+		}
+
+		Dispatcher.Dispatch(() =>
+		{
+			SlideCard(StatusSheet, _isStatusSheetOpen);
+			FadeDim(_viewModel.IsFilterPanelOpen || _isStatusSheetOpen);
+		});
 	}
 
 	private bool IsUserDragging()

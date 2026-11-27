@@ -205,6 +205,18 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
 
     public string DisabledChipText => _loaded ? $"Disabled {DisabledCount}" : "Disabled";
 
+    /// <summary>Current status filter selection for the compact Status control (#708).</summary>
+    public string StatusSummaryText => StatusFilterLayout.SummarizeSelection(
+    [
+        ("Up", ShowUp),
+        ("Down", ShowDown),
+        ("Maintenance", ShowMaintenance),
+        ("Disabled", ShowDisabled),
+    ]);
+
+    /// <summary>True when any status filter is excluded.</summary>
+    public bool HasStatusFilter => !ShowUp || !ShowDown || !ShowMaintenance || !ShowDisabled;
+
     /// <summary>"340 devices", or "12 of 340 devices" when filtered. Blank until the first load completes.</summary>
     public string CountText => FailureOutcome is { } failure ? VisibleTotals.Describe(failure, 0, "devices")
         : !_loaded ? string.Empty
@@ -801,6 +813,8 @@ public sealed partial class DevicesViewModel : ViewModelBase, IRefreshable
         OnPropertyChanged(nameof(DownChipText));
         OnPropertyChanged(nameof(MaintenanceChipText));
         OnPropertyChanged(nameof(DisabledChipText));
+        OnPropertyChanged(nameof(StatusSummaryText));
+        OnPropertyChanged(nameof(HasStatusFilter));
     }
 
     private IEnumerable<string> GroupsOrNone(int deviceId) =>

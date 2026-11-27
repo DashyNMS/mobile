@@ -5,7 +5,7 @@ Alerts lists what's open, most severe first. Acknowledging an alert tells your t
 ## Find an alert
 
 1. Open **Alerts**.
-2. Tap **Critical**, **Warning**, **OK** or **Acknowledged** to hide or show those alerts. Each shows its count, and your choice is remembered. **Clear** shows them all again.
+2. Tap **Critical**, **Warning**, **OK** or **Acknowledged** to hide or show those alerts (or open **Status** at larger text sizes or on short screens). Each shows its count, and your choice is remembered. **Clear** shows them all again.
 3. Search by device, rule, note or alert ID.
 
 On LibreNMS 26.10 and later, the faults a rule finds on one device appear as one group. Expand it to see each fault, such as each port, and whether only some are acknowledged.

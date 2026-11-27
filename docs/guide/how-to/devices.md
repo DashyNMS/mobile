@@ -4,7 +4,7 @@
 
 1. Open **Devices**.
 2. Search by name, address, operating system, hardware, location, type, contact, serial number or device ID.
-3. Tap **Up**, **Down**, **Maintenance** or **Disabled** to narrow the list, or open **Sort & filter** for type, location, group and sort order.
+3. Tap **Up**, **Down**, **Maintenance** or **Disabled** to narrow the list (or open **Status** at larger text sizes or on short screens), or open **Sort & filter** for type, location, group and sort order.
 
 Devices you opened lately are in a strip above the list.
 
