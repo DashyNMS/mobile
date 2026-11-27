@@ -24,6 +24,10 @@ public sealed class ListDetail : Grid
         nameof(AllowSplit), typeof(bool), typeof(ListDetail), true,
         propertyChanged: (view, _, _) => ((ListDetail)view).Adapt());
 
+    public static readonly BindableProperty ShowPlaceholderProperty = BindableProperty.Create(
+        nameof(ShowPlaceholder), typeof(bool), typeof(ListDetail), true,
+        propertyChanged: (view, _, _) => ((ListDetail)view).UpdatePlaceholderVisibility());
+
     // No safe area of their own: a page that runs under the camera and tab
     // bar pads what's in the pane clear itself, and a layout left to pad
     // itself would add the inset again.
@@ -71,6 +75,13 @@ public sealed class ListDetail : Grid
         set => SetValue(AllowSplitProperty, value);
     }
 
+    /// <summary>False hides the choose-an-item placeholder when there are no selectable rows (e.g. an empty list).</summary>
+    public bool ShowPlaceholder
+    {
+        get => (bool)GetValue(ShowPlaceholderProperty);
+        set => SetValue(ShowPlaceholderProperty, value);
+    }
+
     /// <summary>Whether the page is wide enough for the pane, so a tap should fill it rather than open a page.</summary>
     public bool IsSplit { get; private set; }
 
@@ -84,9 +95,11 @@ public sealed class ListDetail : Grid
         set
         {
             _detail.Content = value;
-            _placeholder.IsVisible = value is null;
+            UpdatePlaceholderVisibility();
         }
     }
+
+    private void UpdatePlaceholderVisibility() => _placeholder.IsVisible = _detail.Content is null && ShowPlaceholder;
 
     private void Adapt()
     {
