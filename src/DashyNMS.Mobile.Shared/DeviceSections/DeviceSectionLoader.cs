@@ -196,7 +196,7 @@ public sealed class DeviceSectionLoader
     /// unassessed (<see cref="SensorReading.Assessed"/> false) and neutral, never
     /// OK, because an absence of limits says nothing about health (#532).
     /// </summary>
-    internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings)
+    internal static SensorReading ReadSensor(Sensor sensor, AppSettings settings, bool effectiveLimits = false)
     {
         if (!sensor.HasReading)
         {
@@ -234,7 +234,49 @@ public sealed class DeviceSectionLoader
             return new SensorReading(name, raw, RowStatus.None, null) { Assessed = false };
         }
 
-        return new SensorReading(name, raw, ToStatus(severity), Limits(low, high, unit));
+        var limits = effectiveLimits && registered is not null
+            ? HealthLimits(sensor.SensorClass!, settings, new ThresholdBounds(low, lowWarn, highWarn, high),
+                current, severity, unit)
+            : Limits(low, high, unit);
+        return new SensorReading(name, raw, ToStatus(severity), limits);
+    }
+
+    /// <summary>Explains the boundary used by Core's hybrid evaluator for this Health reading.</summary>
+    private static string? HealthLimits(string sensorClass, AppSettings settings, ThresholdBounds sensorBounds,
+        double current, AlertSeverity severity, string unit)
+    {
+        // Core exposes the configured bounds and evaluates severity, but keeps the merged bounds private.
+        var appBounds = sensorClass.ToLowerInvariant() switch
+        {
+            "dbm" => settings.DbmThresholds.ToBounds(),
+            "signal" => settings.SignalThresholds.ToBounds(),
+            "temperature" => settings.TemperatureThresholds.ToBounds(),
+            "fanspeed" => settings.FanSpeedThresholds.ToBounds(),
+            _ => default,
+        };
+        if (sensorClass.Equals("signal", StringComparison.OrdinalIgnoreCase)) unit = " dBm";
+
+        double? Merge(double? sensorBound, double? appBound) =>
+            settings.OverrideSensorLimitsWithAppThresholds ? appBound : sensorBound ?? appBound;
+        var lowCritical = Merge(sensorBounds.LowCritical, appBounds.LowCritical);
+        var lowWarning = Merge(sensorBounds.LowWarning, appBounds.LowWarning);
+        var highWarning = Merge(sensorBounds.HighWarning, appBounds.HighWarning);
+        var highCritical = Merge(sensorBounds.HighCritical, appBounds.HighCritical);
+
+        string Boundary(string label, double value) =>
+            $"{label} at {value.ToString(CultureInfo.CurrentCulture)}{unit}";
+
+        return severity switch
+        {
+            AlertSeverity.Critical when current <= lowCritical => Boundary("Low critical", lowCritical!.Value),
+            AlertSeverity.Critical when current >= highCritical => Boundary("High critical", highCritical!.Value),
+            AlertSeverity.Warning when current <= lowWarning => Boundary("Low warning", lowWarning!.Value),
+            AlertSeverity.Warning when current >= highWarning => Boundary("High warning", highWarning!.Value),
+            AlertSeverity.Ok => Limits(
+                lowWarning > lowCritical ? lowWarning : lowCritical ?? lowWarning,
+                highWarning < highCritical ? highWarning : highCritical ?? highWarning, unit, "G"),
+            _ => null,
+        };
     }
 
     private static double? Finite(double? value) => value is { } v && double.IsFinite(v) ? v : null;
@@ -854,11 +896,11 @@ public sealed class DeviceSectionLoader
         _ => RowStatus.None,
     };
 
-    private static string? Limits(double? low, double? high, string unit) => (low, high) switch
+    private static string? Limits(double? low, double? high, string unit, string format = "0.##") => (low, high) switch
     {
-        ({ } l, { } h) => $"Limits {l.ToString("0.##", CultureInfo.CurrentCulture)} to {h.ToString("0.##", CultureInfo.CurrentCulture)}{unit}",
-        (null, { } h) => $"Limit {h.ToString("0.##", CultureInfo.CurrentCulture)}{unit}",
-        ({ } l, null) => $"Lower limit {l.ToString("0.##", CultureInfo.CurrentCulture)}{unit}",
+        ({ } l, { } h) => $"Limits {l.ToString(format, CultureInfo.CurrentCulture)} to {h.ToString(format, CultureInfo.CurrentCulture)}{unit}",
+        (null, { } h) => $"Limit {h.ToString(format, CultureInfo.CurrentCulture)}{unit}",
+        ({ } l, null) => $"Lower limit {l.ToString(format, CultureInfo.CurrentCulture)}{unit}",
         _ => null,
     };
 }

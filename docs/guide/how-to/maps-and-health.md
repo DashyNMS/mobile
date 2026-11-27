@@ -25,6 +25,6 @@ Open **More → Neighbours** for every link LibreNMS discovered with CDP or LLDP
 
 Open **Health** and choose optical power, signal, temperature or fan speed. Readings from across the network are listed, problems first. Use **Critical**, **Warning** and **OK**, or search. Tap a sensor to open its device's sensors.
 
-Colours follow **Settings → Health thresholds** and the limits set in LibreNMS. A sensor with no limits has no colour, and one with no reading shows a dash.
+On iOS, Health puts readings, statuses and limits in columns when they fit at your text size. A warning or critical row names the upper or lower limit that triggered it. Limits follow **Settings → Health thresholds** and the sensor's limits in LibreNMS. A sensor with no reading shows a dash.
 
 State sensors, such as fans and power supplies, are on each device's **Sensors** page. They show a name like **Ready** or **Fan failed** when [sensor definitions](settings.md#sensor-definitions) know it.
