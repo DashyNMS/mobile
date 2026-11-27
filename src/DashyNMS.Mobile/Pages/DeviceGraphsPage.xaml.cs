@@ -24,6 +24,8 @@ public partial class DeviceGraphsPage : ContentPage, IQueryAttributable, IActive
 		_viewModel.PropertyChanged += OnViewModelChanged;
 		GraphView.SizeChanged += (_, _) => FitHeight();
 #if IOS
+		GraphView.HandlerChanged += (_, _) => Controls.GraphView.ConfigureNative(GraphView);
+		GraphView.Loaded += (_, _) => Controls.GraphView.ConfigureNative(GraphView);
 		// Keep only the status bar's inset; place side and bottom clearances ourselves.
 		SafeAreaEdges = new SafeAreaEdges(SafeAreaRegions.None, SafeAreaRegions.Container, SafeAreaRegions.None, SafeAreaRegions.None);
 		Header.BackInGlass = TabBarButtons.IsAvailable;

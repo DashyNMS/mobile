@@ -2,6 +2,7 @@ using Microsoft.Maui.Controls.Handlers.Compatibility;
 using Microsoft.Maui.Controls.Platform.Compatibility;
 using UIKit;
 using Foundation;
+using DashyNMS.Mobile.Adapters;
 using DashyNMS.Mobile.Services;
 
 namespace DashyNMS.Mobile;
@@ -15,6 +16,23 @@ internal sealed class AppShellRenderer : ShellRenderer
 {
     public AppShellRenderer()
     {
+        if (OperatingSystem.IsIOSVersionAtLeast(17))
+        {
+            RegisterForTraitChanges(
+                [typeof(UITraitUserInterfaceStyle)],
+                (_, _) => MauiAppearance.SyncSystemTheme());
+        }
+    }
+
+    /// <summary>Forwards iOS 15-16 appearance trait changes to MAUI when following the system theme.</summary>
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1422:Validate platform compatibility", Justification = "iOS 15-16 fallback alongside iOS 17+ RegisterForTraitChanges.")]
+    public override void TraitCollectionDidChange(UITraitCollection? previousTraitCollection)
+    {
+        base.TraitCollectionDidChange(previousTraitCollection);
+        if (previousTraitCollection?.UserInterfaceStyle != TraitCollection.UserInterfaceStyle)
+        {
+            MauiAppearance.SyncSystemTheme();
+        }
     }
 
     // Assign ShellItem as the base method does: without it the tab controller
@@ -40,6 +58,13 @@ internal sealed class AppShellRenderer : ShellRenderer
             if (OperatingSystem.IsIOSVersionAtLeast(18))
             {
                 TraitOverrides.HorizontalSizeClass = UIUserInterfaceSizeClass.Compact;
+            }
+
+            if (OperatingSystem.IsIOSVersionAtLeast(17))
+            {
+                RegisterForTraitChanges(
+                    [typeof(UITraitUserInterfaceStyle)],
+                    (_, _) => MauiAppearance.SyncSystemTheme());
             }
         }
 

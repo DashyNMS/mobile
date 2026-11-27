@@ -23,6 +23,7 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 
 	private readonly DashboardViewModel _viewModel;
 	private readonly InlineGlassFallback _fallback = new();
+	private Application? _themeOwner;
 #if IOS
 	private readonly HeaderGlassGroup _headerGlass = new() { IsVisible = false };
 	private PageActionPlace? _actionPlace;
@@ -38,6 +39,7 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 		Scroller.Loaded += (_, _) => StopInsets();
 #endif
 		BindingContext = _viewModel = viewModel;
+		_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
 
 		// A pull starts the refresh, with no spinner: the logo's heartbeat shows the load.
 		Controls.PullToRefresh.HideSpinner(Refresh);
@@ -69,7 +71,7 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 		Activate();
 
 		// Also picks up Edit dashboard's changes, and the phone's theme for the graph.
-		_viewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+		UpdateTheme();
 		_viewModel.RefreshCommand.Execute(null);
 
 		// A card just added lands at the bottom: brought into view, outlined (#140).
@@ -78,6 +80,12 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 
 	public void Activate()
 	{
+		if (_themeOwner is null && Application.Current is { } app)
+		{
+			_themeOwner = app;
+			app.RequestedThemeChanged += OnThemeChanged;
+		}
+		UpdateTheme();
 #if IOS
 		_actionPlace = null;
 		SyncActions();
@@ -85,6 +93,16 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 		TabBarButtons.Moved += OnTabBarButtonsMoved;
 #endif
 		PlaceControls();
+	}
+
+	private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateTheme();
+
+	private void UpdateTheme()
+	{
+		var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+		if (_viewModel.DarkTheme == dark) return;
+		_viewModel.DarkTheme = dark;
+		_viewModel.RedrawTheme();
 	}
 
 	/// <summary>
@@ -122,6 +140,11 @@ public partial class DashboardPage : ContentPage, IActivePage, ISearchHost
 
 	protected override void OnDisappearing()
 	{
+		if (_themeOwner is { } app)
+		{
+			app.RequestedThemeChanged -= OnThemeChanged;
+			_themeOwner = null;
+		}
 		base.OnDisappearing();
 #if IOS
 		TabBarButtons.Moved -= OnTabBarButtonsMoved;
