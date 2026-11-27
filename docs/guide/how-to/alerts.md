@@ -17,6 +17,7 @@ Tap an alert to open it:
 - **Why it fired** shows the values the rule tests. **Show all fields** adds the rest.
 - The rule's condition, notes and procedure follow.
 - **History** shows how often it's happened before. DashyNMS says when the history is incomplete or couldn't be read.
+- **Notifications on this device** sits below the incident details, shows whether this rule and device currently notify you, and opens choices scoped to the device or rule. Changes save immediately on this device and can be undone from the toast without changing acknowledgement state.
 - **Open device** takes you to the device's page.
 
 ## Acknowledge

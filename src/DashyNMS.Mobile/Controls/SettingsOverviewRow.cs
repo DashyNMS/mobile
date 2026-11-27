@@ -14,6 +14,7 @@ public sealed class SettingsOverviewRow : Grid
     public static readonly BindableProperty ShowLogoProperty = BindableProperty.Create(nameof(ShowLogo), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
     public static readonly BindableProperty ShowChevronProperty = BindableProperty.Create(nameof(ShowChevron), typeof(bool), typeof(SettingsOverviewRow), true, propertyChanged: Changed);
     public static readonly BindableProperty IsCurrentProperty = BindableProperty.Create(nameof(IsCurrent), typeof(bool), typeof(SettingsOverviewRow), false, propertyChanged: Changed);
+    public static readonly BindableProperty ContentPaddingProperty = BindableProperty.Create(nameof(ContentPadding), typeof(Thickness), typeof(SettingsOverviewRow), default(Thickness), propertyChanged: Changed);
     private static readonly Geometry ChevronGeometry = (Geometry)new PathGeometryConverter().ConvertFromInvariantString("M9 6L15 12L9 18")!;
     private readonly Image _logo = new() { Source = "dashynms_logo.png", WidthRequest = 54, HeightRequest = 54, HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center, InputTransparent = true, IsVisible = false };
     private readonly Microsoft.Maui.Controls.Shapes.Path _chevron = new()
@@ -29,6 +30,7 @@ public sealed class SettingsOverviewRow : Grid
         VerticalOptions = LayoutOptions.Center,
         InputTransparent = true,
     };
+    private readonly VerticalStackLayout _text = new() { VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 14), Spacing = 4, InputTransparent = true };
     private readonly Label _title = new() { FontSize = 15, FontFamily = "BodySemibold", LineBreakMode = LineBreakMode.WordWrap };
     private readonly Label _summary = new() { Style = (Style)Application.Current!.Resources["Caption"], LineBreakMode = LineBreakMode.WordWrap };
     private readonly Button _action = new() { Style = new Style(typeof(Button)), BackgroundColor = Colors.Transparent, BorderWidth = 0, Text = string.Empty, MinimumHeightRequest = 52, Padding = 0 };
@@ -42,13 +44,12 @@ public sealed class SettingsOverviewRow : Grid
         _chevron.SetAppThemeColor(Shape.StrokeProperty,
             (Color)Application.Current!.Resources["TextFaintLight"],
             (Color)Application.Current!.Resources["TextFaintDark"]);
-        var text = new VerticalStackLayout { VerticalOptions = LayoutOptions.Center, Padding = new Thickness(0, 14), Spacing = 4, InputTransparent = true };
-        text.Add(_title);
-        text.Add(_summary);
-        AutomationProperties.SetIsInAccessibleTree(text, false);
-        AutomationProperties.SetExcludedWithChildren(text, true);
-        SetColumn((IView)text, 1);
-        Add(text);
+        _text.Add(_title);
+        _text.Add(_summary);
+        AutomationProperties.SetIsInAccessibleTree(_text, false);
+        AutomationProperties.SetExcludedWithChildren(_text, true);
+        SetColumn((IView)_text, 1);
+        Add(_text);
         AutomationProperties.SetIsInAccessibleTree(_logo, false);
         Add(_logo);
         AutomationProperties.SetIsInAccessibleTree(_chevron, false);
@@ -82,6 +83,8 @@ public sealed class SettingsOverviewRow : Grid
     public bool ShowChevron { get => (bool)GetValue(ShowChevronProperty); set => SetValue(ShowChevronProperty, value); }
     /// <summary>What this row opens is already showing beside the list.</summary>
     public bool IsCurrent { get => (bool)GetValue(IsCurrentProperty); set => SetValue(IsCurrentProperty, value); }
+    /// <summary>Inset applied to the row's content while the native button fills the container edge-to-edge.</summary>
+    public Thickness ContentPadding { get => (Thickness)GetValue(ContentPaddingProperty); set => SetValue(ContentPaddingProperty, value); }
     public string Summary { get => (string)GetValue(SummaryProperty); set => SetValue(SummaryProperty, value); }
     public Color? SummaryTextColor { get => (Color?)GetValue(SummaryTextColorProperty); set => SetValue(SummaryTextColorProperty, value); }
     public ICommand? Command { get => (ICommand?)GetValue(CommandProperty); set => SetValue(CommandProperty, value); }
@@ -95,6 +98,8 @@ public sealed class SettingsOverviewRow : Grid
         _logo.IsVisible = ShowLogo;
         _title.LineBreakMode = ShowLogo ? LineBreakMode.CharacterWrap : LineBreakMode.WordWrap;
         ColumnDefinitions[0].Width = new GridLength(ShowLogo ? 68 : 0);
+        _text.Padding = new Thickness(ContentPadding.Left, 14 + ContentPadding.Top, 0, 14 + ContentPadding.Bottom);
+        _chevron.Margin = new Thickness(12, 0, ContentPadding.Right, 0);
         _chevron.IsVisible = ShowChevron;
         _summary.Text = Summary;
         if (SummaryTextColor is { } colour) _summary.TextColor = colour;
