@@ -173,24 +173,96 @@ public sealed class NotifyRulesTests
         client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(On(1, 7));
         client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "core-sw", sysName: "core-sw"));
         var dialogs = Substitute.For<IDialogService>();
-        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Don't notify me about this rule on this device");
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Don't notify on core-sw");
         var vm = new AlertDetailViewModel(client, _settings, dialogs, new RecordingNavigation(), new SelfActionTracker(), _rules);
         await vm.LoadAsync(1);
         Assert.Equal("Notifies you", vm.NotificationsText);
+        Assert.True(vm.CanAcknowledge);
+        Assert.False(vm.CanUnacknowledge);
+        Assert.False(vm.Alert!.IsAcknowledged);
 
         await vm.ChangeNotificationsCommand.ExecuteAsync(null);
 
-        await dialogs.Received(1).ChooseAsync("Notifications for Rule 1 on core-sw", Arg.Any<IReadOnlyList<string>>());
+        await dialogs.Received(1).ChooseAsync(
+            "Notifications for Rule 1 on core-sw\nChanges save immediately on this device.",
+            Arg.Is<IReadOnlyList<string>>(l => l.SequenceEqual(new[]
+            {
+                "Don't notify on core-sw",
+                "Don't notify on any device",
+            })));
         Assert.False(_rules.Allows(On(1, 7)));
         Assert.True(_rules.Allows(On(1, 9)));
         Assert.Equal("Not notified: Rule 1 on core-sw", vm.NotificationsText);
         Assert.Equal("Not notified: Rule 1 on core-sw", vm.Toast.Message);
+        Assert.True(vm.CanAcknowledge);
+        Assert.False(vm.CanUnacknowledge);
+        Assert.False(vm.Alert.IsAcknowledged);
 
         vm.Toast.UndoCommand.Execute(null);
 
         Assert.True(_rules.Allows(On(1, 7)));
         Assert.Equal("Notifies you", vm.NotificationsText);
         Assert.False(vm.Toast.IsShowing);
+        Assert.True(vm.CanAcknowledge);
+        Assert.False(vm.CanUnacknowledge);
+        Assert.False(vm.Alert.IsAcknowledged);
+    }
+
+    [Fact]
+    public void Notification_choices_state_rule_and_device_scope()
+    {
+        var deviceEntry = new NotificationRuleEntry(10, "Sensor over limit", 7, "core-sw-02");
+        var ruleEntry = new NotificationRuleEntry(10, "Sensor over limit");
+
+        Assert.Equal("Don't notify on core-sw-02",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.LeaveOutOnDevice, "Sensor over limit", "core-sw-02"));
+        Assert.Equal("Don't notify on any device",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.LeaveOutEverywhere, "Sensor over limit", "core-sw-02"));
+        Assert.Equal("Notify on core-sw-02",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.OnlyOnDevice, "Sensor over limit", "core-sw-02"));
+        Assert.Equal("Notify on every device",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.OnlyEverywhere, "Sensor over limit", "core-sw-02"));
+        Assert.Equal("Notify again on core-sw-02",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.NotifyAgain, "Sensor over limit", "core-sw-02", deviceEntry));
+        Assert.Equal("Notify again on every device",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.NotifyAgain, "Sensor over limit", "core-sw-02", ruleEntry));
+        Assert.Equal("Stop notifying on core-sw-02",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.StopOnly, "Sensor over limit", "core-sw-02", deviceEntry));
+        Assert.Equal("Stop notifying on every device",
+            AlertDetailViewModel.DescribeNotificationChoice(NotificationRuleAction.StopOnly, "Sensor over limit", "core-sw-02", ruleEntry));
+    }
+
+    [Fact]
+    public async Task Acknowledged_and_read_only_alerts_change_notifications_without_touching_ack_state()
+    {
+        var acknowledged = Fakes.Alert(1, 7, "critical", acknowledged: true);
+        var client = Fakes.Client(devices: [Fakes.Device(7, "core-sw")]);
+        client.Alerts.GetAsync(1, Arg.Any<CancellationToken>()).Returns(acknowledged);
+        client.Devices.GetAsync("7", Arg.Any<CancellationToken>()).Returns(Fakes.Device(7, "core-sw", sysName: "core-sw"));
+        var permissions = new ApiPermissions();
+        permissions.Learn(HttpMethod.Put, "alerts/1", new LibreNmsApiException("Denied", System.Net.HttpStatusCode.Forbidden));
+        client.Permissions.Returns(permissions);
+
+        var dialogs = Substitute.For<IDialogService>();
+        dialogs.ChooseAsync(Arg.Any<string>(), Arg.Any<IReadOnlyList<string>>()).Returns("Don't notify on any device");
+        var vm = new AlertDetailViewModel(client, _settings, dialogs, new RecordingNavigation(), new SelfActionTracker(), _rules);
+        await vm.LoadAsync(1);
+
+        Assert.True(vm.Alert!.IsAcknowledged);
+        Assert.False(vm.CanAcknowledge);
+        Assert.False(vm.CanUnacknowledge);
+        Assert.NotNull(vm.AcknowledgeRefusedText);
+        Assert.True(vm.CanChangeNotifications);
+
+        await vm.ChangeNotificationsCommand.ExecuteAsync(null);
+        Assert.Equal("Not notified: Rule 1, on every device", vm.NotificationsText);
+        Assert.True(vm.Alert.IsAcknowledged);
+        Assert.False(vm.CanAcknowledge);
+        Assert.False(vm.CanUnacknowledge);
+
+        vm.Toast.UndoCommand.Execute(null);
+        Assert.Equal("Notifies you", vm.NotificationsText);
+        Assert.True(vm.Alert.IsAcknowledged);
     }
 
     [Fact]

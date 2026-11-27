@@ -344,10 +344,11 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
     public UndoToast Toast { get; } = new();
 
     /// <summary>
-    /// Core's choices for this alert's rule on its device, in Core's words -
-    /// the same as desktop's right-click (#167): leave it out, notify again,
-    /// or in "Only…" add it or stop. Only notifications: the alert still
-    /// lists and counts. Undo puts the rules back.
+    /// Core's choices for this alert's rule on its device (#167, #710): leave it
+    /// out, notify again, or in "Only…" add it or stop. Each choice states its
+    /// rule or device scope, and the chooser explains that changes save
+    /// immediately on this device. Only notifications: the alert still lists,
+    /// counts and keeps its acknowledgement state. Undo puts the rules back.
     /// </summary>
     [RelayCommand]
     private async Task ChangeNotificationsAsync()
@@ -364,8 +365,10 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             return;
         }
 
-        var labels = choices.Select(c => NotificationRuleChoices.Describe(c)).ToList();
-        var picked = await _dialogs.ChooseAsync($"Notifications for {item.Rule} on {item.Device}", labels);
+        var covering = _rules.Listed.FirstOrDefault(e => e.Covers(alert));
+        var labels = choices.Select(c => DescribeNotificationChoice(c, item.Rule, item.Device, covering)).ToList();
+        var title = $"Notifications for {item.Rule} on {item.Device}\nChanges save immediately on this device.";
+        var picked = await _dialogs.ChooseAsync(title, labels);
         var index = picked is null ? -1 : labels.IndexOf(picked);
         if (index < 0)
         {
@@ -380,6 +383,30 @@ public sealed partial class AlertDetailViewModel : ViewModelBase, IRefreshable
             OnPropertyChanged(nameof(NotificationsText));
         });
     }
+
+    /// <summary>
+    /// Formats a notification choice with its explicit rule or device scope so
+    /// each option stays concise in native action sheets while remaining
+    /// unambiguous beside "Notifications on this device".
+    /// </summary>
+    internal static string DescribeNotificationChoice(
+        NotificationRuleAction action,
+        string ruleName,
+        string deviceName,
+        NotificationRuleEntry? covering = null) => action switch
+    {
+        NotificationRuleAction.LeaveOutOnDevice => $"Don't notify on {deviceName}",
+        NotificationRuleAction.LeaveOutEverywhere => "Don't notify on any device",
+        NotificationRuleAction.OnlyOnDevice => $"Notify on {deviceName}",
+        NotificationRuleAction.OnlyEverywhere => "Notify on every device",
+        NotificationRuleAction.NotifyAgain => covering?.DeviceId is not null
+            ? $"Notify again on {deviceName}"
+            : "Notify again on every device",
+        NotificationRuleAction.StopOnly => covering?.DeviceId is not null
+            ? $"Stop notifying on {deviceName}"
+            : "Stop notifying on every device",
+        _ => NotificationRuleChoices.Describe(action),
+    };
 
     [RelayCommand]
     private Task OpenRuleAsync() => _rule is { } rule

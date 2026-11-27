@@ -107,15 +107,16 @@ public static class AskIntelligence
             if (originalHint is not null)
             {
 #if IOS
-                // Never set SemanticProperties.Hint on a SwipeView container on iOS:
-                // MAUI marks any container with a semantic hint as IsAccessibilityElement = true,
-                // which turns the entire row into an unnamed opaque cell and hides child labels
-                // and trailing buttons (e.g. Pin) from VoiceOver. Child views already receive
-                // the VoiceOver "Ask Intelligence" custom rotor action via AccessibilityActions.
-                if (view is SwipeView)
+                // Never set SemanticProperties.Hint on a container view (SwipeView,
+                // ContentView, Border, Layout) on iOS: MAUI marks any container with
+                // a semantic hint as IsAccessibilityElement = true, which turns the
+                // entire view into an unnamed opaque element and hides child labels
+                // and buttons from VoiceOver. Child views already receive the
+                // VoiceOver "Ask Intelligence" custom rotor action via AccessibilityActions.
+                if (view is SwipeView or ContentView or Border or Layout)
                 {
-                    if (view.Handler?.PlatformView is UIKit.UIView swipeNative)
-                        swipeNative.IsAccessibilityElement = false;
+                    if (view.Handler?.PlatformView is UIKit.UIView containerNative)
+                        containerNative.IsAccessibilityElement = false;
                 }
                 else
                 {
