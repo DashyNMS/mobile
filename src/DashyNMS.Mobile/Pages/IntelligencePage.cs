@@ -705,7 +705,7 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
         private bool _motionReduced = ReducedMotion.IsOn;
         private bool _activityExpanded;
         private readonly IntelligenceMarkdownView _answer = new();
-        private readonly FlexLayout _images = new() { Wrap = Microsoft.Maui.Layouts.FlexWrap.Wrap, IsVisible = false };
+        private readonly VerticalStackLayout _images = new() { Spacing = 8, IsVisible = false };
         private IReadOnlyList<DesktopNMS.Core.Intelligence.IntelligenceImage>? _shownImages;
         private readonly Label _state = new();
         private readonly Label _omitted = new() { Text = "Earlier turns were left out of this answer's context." };
@@ -979,10 +979,10 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             {
                 var image = images[i];
                 var label = images.Count == 1 ? "Graph image" : $"Graph image {i + 1} of {images.Count}";
-                var button = new ImageButton
+                var button = new GraphAttachmentButton(image.Data)
                 {
-                    Source = ImageSource.FromStream(() => new MemoryStream(image.Data)), Aspect = Aspect.AspectFit,
-                    HeightRequest = 180, MinimumWidthRequest = 48, MaximumWidthRequest = 520, Margin = new Thickness(0, 0, 8, 8),
+                    Source = ImageSource.FromStream(() => new MemoryStream(image.Data)),
+                    Aspect = Aspect.AspectFit, Padding = 0, MinimumHeightRequest = 48,
                     BackgroundColor = Colors.Transparent, CornerRadius = 8,
                 };
                 SemanticProperties.SetDescription(button, label + ". Enlarge");
@@ -992,6 +992,12 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
                         await navigation.PushModalAsync(new ImagePreviewPage(_page._conversation, _turn, image, label));
                 };
                 _images.Children.Add(button);
+            }
+            if (images.Count > 0)
+            {
+                var hint = new Label { Text = images.Count == 1 ? "Tap graph to enlarge" : "Tap a graph to enlarge", Style = ResourceStyle("Caption") };
+                AutomationProperties.SetIsInAccessibleTree(hint, false);
+                _images.Children.Add(hint);
             }
             _images.IsVisible = images.Count > 0;
         }
@@ -1004,6 +1010,37 @@ public sealed partial class IntelligencePage : ContentPage, IActivePage, IPrivat
             _turn.Lookups.CollectionChanged -= OnLookupsChanged;
             foreach (var lookup in _watched) lookup.PropertyChanged -= OnChanged;
             _watched.Clear();
+        }
+    }
+
+    /// <summary>Measures against the answer card's inner width on every layout pass.</summary>
+    private sealed class GraphAttachmentButton(byte[] data) : ImageButton
+    {
+        private readonly double _aspectRatio = ReadAspectRatio(data);
+
+        protected override Size MeasureOverride(double widthConstraint, double heightConstraint)
+        {
+            if (!double.IsFinite(widthConstraint)) return base.MeasureOverride(widthConstraint, heightConstraint);
+            return new Size(widthConstraint, Math.Max(MinimumHeightRequest, widthConstraint / _aspectRatio));
+        }
+
+        /// <summary>Read the dimensions without decoding a second copy of the graph.</summary>
+        private static double ReadAspectRatio(byte[] data)
+        {
+#if IOS
+            using var bytes = Foundation.NSData.FromArray(data);
+            using var source = ImageIO.CGImageSource.FromData(bytes);
+            var properties = source?.GetProperties(0, null);
+            if (properties?.PixelWidth is > 0 and var width && properties.PixelHeight is > 0 and var height)
+                return properties.Orientation is >= CoreImage.CIImageOrientation.LeftTop and <= CoreImage.CIImageOrientation.LeftBottom
+                    ? (double)height / width : (double)width / height;
+#elif ANDROID
+            using var options = new Android.Graphics.BitmapFactory.Options { InJustDecodeBounds = true };
+            Android.Graphics.BitmapFactory.DecodeByteArray(data, 0, data.Length, options);
+            if (options.OutWidth > 0 && options.OutHeight > 0)
+                return (double)options.OutWidth / options.OutHeight;
+#endif
+            return 2;
         }
     }
 
