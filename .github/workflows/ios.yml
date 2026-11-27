@@ -235,7 +235,7 @@ jobs:
       - name: Record the release in Sentry
         if: vars.SENTRY_DSN != ''
         continue-on-error: true
-        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3
+        uses: getsentry/action-release@2e505a70ff06dac263413242aa3617fec90134e5 # v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
