@@ -391,6 +391,17 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
     /// <summary>Set by the page from the phone's theme, for the ping graph.</summary>
     public bool DarkTheme { get; set; }
 
+    private string? _pingGraphSvg;
+
+    /// <summary>Re-styles the loaded ping graph for the current <see cref="DarkTheme"/> without refetching (#703).</summary>
+    public void RedrawTheme()
+    {
+        if (_pingGraphSvg is { } svg)
+        {
+            PingGraphPage = GraphHtml.Build(svg, DarkTheme);
+        }
+    }
+
     /// <summary>
     /// A tapped Location or Groups row: the Devices page showing only the
     /// devices there, as desktop's Groups &amp; locations. Several groups ask
@@ -451,11 +462,16 @@ public sealed partial class DeviceDetailViewModel : ViewModelBase, IRefreshable
         {
             if (DeviceId == deviceId) PingGraphError = null;
             var svg = await _client.Graphs.GetSvgAsync(deviceId, PingGraphName, new GraphTimeRange(GraphTimeRangePreset.Day), 800, 400, legend: false);
-            PingGraphPage = DeviceId == deviceId ? GraphHtml.Build(svg, DarkTheme) : PingGraphPage;
+            if (DeviceId == deviceId)
+            {
+                _pingGraphSvg = svg;
+                PingGraphPage = GraphHtml.Build(svg, DarkTheme);
+            }
         }
         catch (Exception ex)
         {
             if (DeviceId != deviceId) return;
+            _pingGraphSvg = null;
             PingGraphPage = null;
             PingGraphError = ex is LibreNmsApiException { StatusCode: System.Net.HttpStatusCode.NotFound } ? null
                 : VisibleTotals.Describe(VisibleTotals.Classify(null, ex), 0, "this graph");

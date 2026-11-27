@@ -325,7 +325,7 @@
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Title}" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding Value}" VerticalOptions="Center" FontFamily="BodySemibold"
-                                                   TextColor="{Binding Status, Converter={StaticResource StatusText}}" />
+                                                   controls:StatusColor.Text="{Binding Status}" />
                                         </Grid>
                                     </SwipeView>
                     </DataTemplate>
@@ -479,9 +479,9 @@
                                                 <Label Style="{StaticResource Caption}" Text="{Binding Subtitle}" IsVisible="{Binding HasSubtitle}" LineBreakMode="WordWrap" MaxLines="2" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="2" Text="{Binding InText}" HorizontalTextAlignment="End" VerticalOptions="Start" FontFamily="BodySemibold"
-                                                   TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
+                                                   controls:StatusColor.Text="{Binding Severity}" />
                                             <Label Grid.Column="3" Text="{Binding OutText}" HorizontalTextAlignment="End" VerticalOptions="Start" FontFamily="BodySemibold"
-                                                   TextColor="{Binding Severity, Converter={StaticResource StatusText}}" />
+                                                   controls:StatusColor.Text="{Binding Severity}" />
                                             <ProgressBar Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,6,0,0" HeightRequest="4"
                                                          Progress="{Binding Bar}" ProgressColor="{StaticResource PrimaryStroke}">
                                                 <ProgressBar.Triggers>

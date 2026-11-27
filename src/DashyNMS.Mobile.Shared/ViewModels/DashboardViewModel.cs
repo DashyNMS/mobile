@@ -61,6 +61,9 @@ public sealed partial class DashboardCard : ObservableObject
     [ObservableProperty]
     private string? _graphPage;
 
+    /// <summary>The last fetched raw SVG for this Graph card, kept so live theme changes redraw without refetching (#703).</summary>
+    internal string? GraphSvg { get; set; }
+
     public bool GraphNeedsSetUp => Widget is not { GraphDeviceId: not null, GraphName: not null };
 
     // Set up since the card was made: the hint goes as the graph arrives.
@@ -493,6 +496,18 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     /// <summary>Set by the page from the phone's theme, for the Graph card.</summary>
     public bool DarkTheme { get; set; }
 
+    /// <summary>Re-styles every loaded Graph card for the current <see cref="DarkTheme"/> without refetching (#703).</summary>
+    public void RedrawTheme()
+    {
+        foreach (var card in CardsOf(DashboardLayout.Graph))
+        {
+            if (card.GraphSvg is { } svg)
+            {
+                card.GraphPage = GraphHtml.Build(svg, DarkTheme);
+            }
+        }
+    }
+
     /// <summary>Pinned devices with their live state, as desktop's Pinned devices widget.</summary>
     public BulkObservableCollection<DeviceItem> PinnedDevices { get; } = new();
 
@@ -881,6 +896,7 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
     {
         if (card.Widget is not { GraphDeviceId: { } deviceId, GraphName: { } graph } widget)
         {
+            card.GraphSvg = null;
             card.GraphPage = null;
             card.Title = DashboardLayout.HasOwnTitle(card.Widget) ? card.Widget.Title : DashboardLayout.KindOf(DashboardLayout.Graph).Title;
             return;
@@ -908,10 +924,12 @@ public sealed partial class DashboardViewModel : ViewModelBase, IRefreshable
             var svg = port is not null
                 ? await _client.Graphs.GetPortSvgAsync(deviceId, port, graph, range, GraphWidth, GraphHeight, legend: false)
                 : await _client.Graphs.GetSvgAsync(deviceId, graph, range, GraphWidth, GraphHeight, legend: false);
+            card.GraphSvg = svg;
             card.GraphPage = GraphHtml.Build(svg, DarkTheme);
         }
         catch (LibreNmsApiException)
         {
+            card.GraphSvg = null;
             card.GraphPage = null;
         }
     }

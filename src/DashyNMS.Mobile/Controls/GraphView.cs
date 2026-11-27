@@ -12,8 +12,15 @@ public sealed class GraphView : WebView
     private const double AspectRatio = 0.62;
 
     public static readonly BindableProperty HtmlProperty = BindableProperty.Create(
-        nameof(Html), typeof(string), typeof(GraphView), propertyChanged: (view, _, value) =>
-            ((GraphView)view).Source = value is string html ? new HtmlWebViewSource { Html = html } : null);
+        nameof(Html), typeof(string), typeof(GraphView), propertyChanged: (view, oldValue, value) =>
+        {
+            if (string.Equals(oldValue as string, value as string, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            ((GraphView)view).ApplyHtml(value as string);
+        });
 
     public GraphView()
     {
@@ -38,6 +45,10 @@ public sealed class GraphView : WebView
                 e.Cancel = true;
             }
         };
+#if IOS
+        HandlerChanged += (_, _) => ConfigurePlatformView();
+        Loaded += (_, _) => ConfigurePlatformView();
+#endif
     }
 
     public string? Html
@@ -45,6 +56,36 @@ public sealed class GraphView : WebView
         get => (string?)GetValue(HtmlProperty);
         set => SetValue(HtmlProperty, value);
     }
+
+    private void ApplyHtml(string? html)
+    {
+#if IOS
+        ConfigurePlatformView();
+#endif
+        Source = html is not null ? new HtmlWebViewSource { Html = html } : null;
+    }
+
+#if IOS
+    /// <summary>
+    /// Keeps the native <see cref="WebKit.WKWebView"/> transparent and non-opaque before
+    /// first navigation and across theme reloads so Dark mode never flashes white (#703).
+    /// </summary>
+    internal static void ConfigureNative(WebView webView)
+    {
+        if (webView.Handler?.PlatformView is not WebKit.WKWebView web)
+        {
+            return;
+        }
+
+        web.Opaque = false;
+        web.BackgroundColor = UIKit.UIColor.Clear;
+        web.ScrollView.BackgroundColor = UIKit.UIColor.Clear;
+        web.ScrollView.ScrollEnabled = false;
+        web.ScrollView.Bounces = false;
+    }
+
+    private void ConfigurePlatformView() => ConfigureNative(this);
+#endif
 
     /// <summary>
     /// Loading an <see cref="HtmlWebViewSource"/> can itself raise Navigating,

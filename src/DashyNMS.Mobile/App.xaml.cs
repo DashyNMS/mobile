@@ -7,6 +7,7 @@ public partial class App : Application
 {
 	private readonly AppShell _shell;
 	private readonly AlertWatchCoordinator _alerts;
+	private readonly MauiAppearance _appearance;
 	private readonly Services.DiagnosticsLog _diagnostics;
 	private readonly Services.SensorDefinitions _definitions;
 	private readonly Diagnostics.DiagnosticsReporter _errors;
@@ -87,7 +88,8 @@ public partial class App : Application
 			}
 		};
 		appDiagnostics.Start();
-		appearance.Apply();
+		_appearance = appearance;
+		_appearance.Apply();
 		_shell = shell;
 		_alerts = alerts;
 		_diagnostics = diagnostics;
@@ -129,6 +131,7 @@ public partial class App : Application
 		window.Activated += (_, _) =>
 		{
 			UncoverPrivateChat();
+			_appearance.Apply();
 			_alerts.SetForeground(true);
 			_errors.Start();
 			_metrics.Start();
@@ -141,6 +144,7 @@ public partial class App : Application
 		window.Resumed += (_, _) =>
 		{
 			UncoverPrivateChat();
+			_appearance.Apply();
 			_alerts.SetForeground(true);
 			_errors.Start();
 			_metrics.Start();

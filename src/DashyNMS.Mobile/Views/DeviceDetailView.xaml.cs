@@ -9,10 +9,30 @@ namespace DashyNMS.Mobile.Views;
 /// </summary>
 public partial class DeviceDetailView : ContentView
 {
+	private Application? _themeOwner;
+
 	public DeviceDetailView(DeviceDetailViewModel viewModel)
 	{
 		InitializeComponent();
 		BindingContext = ViewModel = viewModel;
+		ViewModel.DarkTheme = Application.Current?.RequestedTheme == AppTheme.Dark;
+		Loaded += (_, _) =>
+		{
+			if (_themeOwner is null && Application.Current is { } app)
+			{
+				_themeOwner = app;
+				app.RequestedThemeChanged += OnThemeChanged;
+			}
+			UpdateTheme();
+		};
+		Unloaded += (_, _) =>
+		{
+			if (_themeOwner is { } app)
+			{
+				app.RequestedThemeChanged -= OnThemeChanged;
+				_themeOwner = null;
+			}
+		};
 #if IOS
 		// The page or pane showing it keeps the column clear of the camera
 		// and the glass (PlaceContent); left to themselves these would add
@@ -85,6 +105,16 @@ public partial class DeviceDetailView : ContentView
 				row.ColumnDefinitions[0].Width = names;
 			}
 		}
+	}
+
+	private void OnThemeChanged(object? sender, AppThemeChangedEventArgs e) => UpdateTheme();
+
+	private void UpdateTheme()
+	{
+		var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
+		if (ViewModel.DarkTheme == dark) return;
+		ViewModel.DarkTheme = dark;
+		ViewModel.RedrawTheme();
 	}
 
 	/// <summary>Loads the device <see cref="Routes.DeviceDetail"/>'s parameters name.</summary>
