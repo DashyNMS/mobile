@@ -24,6 +24,8 @@ Intelligence isn't available on Android, or on older iPhones and iPads.
 2. Watch what's being looked up. Stop the answer at any time.
 3. Tap a device, alert or other item in the answer to open it.
 
+Graphs fill the width of the answer card. Tap a graph to open a larger preview.
+
 Be specific: name the device, site or port. The on-device model holds less at once than the ones on a computer, so it looks up fewer things for each question. Ask about one part of the network at a time, and start a **New chat** when you change subject.
 
 Answers can be wrong, and lookups can use data that's a few minutes old. Check LibreNMS before acting. When something couldn't be read, the answer says so.
