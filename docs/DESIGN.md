@@ -368,7 +368,7 @@ Modals that display private chat content (including Spotlight, `IntelligenceRepo
 Use `SetupLayout` (`Header`, `Body`, `PrimaryAction`) with `SetupPageLayout`, constructed once with every scrolling container on the page.
 
 1. Wrap each field in `SetupSection` (label above control, 4pt gap, 8pt between sections). Group related fields in a `Card` under a `SectionHeader`.
-2. On iOS, use `SetupLayout`'s opt-in overlay mode so the body scrolls behind the fixed `PrimaryAction` with a foot fade and `24pt` clearance above the wrapped action height (keeping the `Auto` row on Android).
+2. On iOS, use `SetupLayout`'s opt-in overlay mode so the body scrolls behind the fixed `PrimaryAction` with a foot fade and `24pt` clearance above the wrapped action height. The maintenance form uses the `Auto` action row to keep Notes entirely above Schedule, with `24pt` at the end of the scrolling content. Android uses the `Auto` row.
 3. Align the fixed action's base with a side pill's base, or place it above a bottom pill and its glass, lifting it 12pt above a docked keyboard. `SetupActionPlacement.BottomGap` computes the gap; only one element applies it.
 4. Keep the focused field visible above both the keyboard and the overlaid `PrimaryAction` when the keyboard moves (`ManualKeyboardScroll` acquire/release in pairs, accounting for the visible area above Save rather than raw scroll bounds alone). Re-query live keyboard geometry on fold or rotation.
 5. On a failed save, scroll the error into view, announce it (even on repeated failure) and preserve the draft.
